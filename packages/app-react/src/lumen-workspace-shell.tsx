@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity,
   ChevronDown,
@@ -19,9 +19,12 @@ import {
   LumenAppShell,
   LumenAppSidebar,
   LumenButton,
+  LumenDialog,
+  LumenFormField,
   LumenFrame,
   LumenIcon,
   LumenIconButton,
+  LumenInput,
   LumenNavigationButton,
   LumenSidebarAction,
   LumenText,
@@ -29,6 +32,13 @@ import {
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import {
+  createWorkspaceNavigationActions,
+  defaultSessionWorkspace,
+  type WorkspaceNavigationAction,
+  type WorkspaceNavigationActionState,
+  type WorkspaceNavigationSelection,
+} from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
 
 export interface HbarWorkspaceShellLabels {
@@ -40,6 +50,17 @@ export interface HbarWorkspaceShellLabels {
   readonly loading: string
   readonly loadMore: string
   readonly newSession: string
+  readonly creatingSession: string
+  readonly creationUnknown: string
+  readonly reconcileCreation: string
+  readonly chooseWorkspace: string
+  readonly chooseWorkspaceDescription: string
+  readonly workspacePath: string
+  readonly workspacePathHint: string
+  readonly addWorkspace: string
+  readonly openingWorkspace: string
+  readonly cancel: string
+  readonly createSessionInWorkspace: (name: string) => string
   readonly commands: string
   readonly commandShortcut: string
   readonly openWorkspace: string
@@ -115,6 +136,41 @@ function WorkspaceSidebarAction({
   return <LumenSidebarAction {...props} icon={<WorkspaceShellIcon name={icon} />} />
 }
 
+function NavigationActionFeedback({
+  state,
+  labels,
+  connected,
+  targetName,
+  onReconcile,
+}: {
+  readonly state: WorkspaceNavigationActionState
+  readonly labels: HbarWorkspaceShellLabels
+  readonly connected: boolean
+  readonly targetName?: string | undefined
+  readonly onReconcile: () => void
+}) {
+  if (state.status === 'idle') return null
+  return (
+    <LumenFrame className="hbar-app-react-navigation-feedback">
+      {targetName && <LumenText as="small">{targetName}</LumenText>}
+      <LumenText as="p" role={state.status === 'submitting' ? 'status' : 'alert'}>
+        {state.status === 'submitting'
+          ? state.action?.kind === 'create-session'
+            ? labels.creatingSession
+            : labels.openingWorkspace
+          : state.status === 'unknown'
+            ? labels.creationUnknown
+            : labels.error(state.error ?? 'EXECUTION_FAILED')}
+      </LumenText>
+      {state.status === 'unknown' && (
+        <LumenButton size="s" variant="outlined" disabled={!connected} onClick={onReconcile}>
+          {labels.reconcileCreation}
+        </LumenButton>
+      )}
+    </LumenFrame>
+  )
+}
+
 export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -128,6 +184,34 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
   const [workspaceActionError, setWorkspaceActionError] = useState<{ workspaceId: string; code: string } | null>(null)
+  const [navigationAction, setNavigationAction] = useState<WorkspaceNavigationActionState>({
+    status: 'idle',
+    action: null,
+    error: null,
+  })
+  const [actionWorkspaceId, setActionWorkspaceId] = useState<string | null>(null)
+  const [projectPicker, setProjectPicker] = useState<'create-session' | 'open-workspace' | null>(null)
+  const [workspacePath, setWorkspacePath] = useState('')
+  const projectPickerTrigger = useRef<HTMLElement | null>(null)
+  const restoreProjectPickerFocus = useRef(false)
+  const navigationActions = useRef<ReturnType<typeof createWorkspaceNavigationActions> | null>(null)
+
+  useEffect(() => {
+    if (projectPicker !== null || !restoreProjectPickerFocus.current) return
+    restoreProjectPickerFocus.current = false
+    const trigger = projectPickerTrigger.current
+    if (trigger?.isConnected && trigger.getClientRects().length > 0) trigger.focus()
+  }, [projectPicker])
+
+  useEffect(() => {
+    const actions = createWorkspaceNavigationActions(runtime, setNavigationAction)
+    navigationActions.current = actions
+    setNavigationAction(actions.getSnapshot())
+    return () => {
+      actions.dispose()
+      if (navigationActions.current === actions) navigationActions.current = null
+    }
+  }, [runtime])
 
   const execute = runtime.commands.execute
   const recordError = useCallback((reason: unknown) => {
@@ -253,7 +337,55 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     settleNavigation(operation)
   }
   const openWorkspace = () => {
-    openCommandForm('workspace.open')
+    showProjectPicker('open-workspace')
+  }
+  const navigationBusy = navigationAction.status === 'submitting'
+  const navigationBlocked = navigationBusy || navigationAction.status === 'unknown'
+  const connected = props.connection === 'connected'
+  const actionTargetName = navigationAction.action
+    ? navigationAction.action.kind === 'open-workspace'
+      ? navigationAction.action.path
+      : directory.workspaces[navigationAction.action.workspaceId]?.name
+    : undefined
+  const completeNavigation = (selection: WorkspaceNavigationSelection | null) => {
+    if (!selection) return
+    setProjectPicker(null)
+    setWorkspacePath('')
+    void closeNarrowSidebar().catch(recordError)
+  }
+  const runNavigationAction = (action: WorkspaceNavigationAction, sourceWorkspaceId: string | null = null) => {
+    if (!connected || navigationBlocked || !navigationActions.current) return
+    setActionWorkspaceId(sourceWorkspaceId)
+    void navigationActions.current.run(action).then(completeNavigation).catch(recordError)
+  }
+  const reconcileNavigationAction = () => {
+    if (!connected || !navigationActions.current) return
+    void navigationActions.current.reconcile().then(completeNavigation).catch(recordError)
+  }
+  function showProjectPicker(intent: 'create-session' | 'open-workspace') {
+    if (!connected || navigationBlocked) return
+    projectPickerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setActionWorkspaceId(null)
+    setProjectPicker(intent)
+  }
+  const closeProjectPicker = () => {
+    if (navigationBusy) return
+    restoreProjectPickerFocus.current = true
+    setProjectPicker(null)
+  }
+  const newSession = (workspaceId?: string) => {
+    const target = workspaceId ?? defaultSessionWorkspace(navigation.workspaceId, directory.workspaces)
+    if (target === null) showProjectPicker('create-session')
+    else runNavigationAction({ kind: 'create-session', workspaceId: target }, workspaceId ?? null)
+  }
+  const addWorkspace = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!workspacePath.trim()) return
+    runNavigationAction({
+      kind: 'open-workspace',
+      path: workspacePath,
+      createSession: projectPicker === 'create-session',
+    })
   }
   const openSession = (workspaceId: string, sessionId: string) => {
     void execute('app.setSession', { workspaceId, sessionId })
@@ -292,7 +424,101 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       }
       tool={props.tool}
       toolLabel={props.toolLabel}
-      overlay={props.overlay}
+      overlay={
+        <>
+          {props.overlay}
+          {projectPicker && (
+            <LumenDialog
+              open
+              title={projectPicker === 'create-session' ? props.labels.chooseWorkspace : props.labels.openWorkspace}
+              closeLabel={props.labels.cancel}
+              onClose={closeProjectPicker}
+              className="hbar-app-react-workspace-picker"
+              footer={
+                <LumenButton variant="text" disabled={navigationBusy} onClick={closeProjectPicker}>
+                  {props.labels.cancel}
+                </LumenButton>
+              }
+            >
+              <LumenText as="p">{props.labels.chooseWorkspaceDescription}</LumenText>
+              <LumenFrame className="hbar-app-react-workspace-picker-list">
+                {workspaces.length === 0 ? (
+                  <LumenText as="p">
+                    {loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
+                  </LumenText>
+                ) : (
+                  workspaces.map((workspace, index) => (
+                    <LumenButton
+                      key={workspace.id}
+                      variant="text"
+                      className="hbar-app-react-workspace-picker-item"
+                      autoFocus={index === 0}
+                      disabled={!connected || navigationBlocked}
+                      aria-label={
+                        projectPicker === 'create-session'
+                          ? props.labels.createSessionInWorkspace(workspace.name)
+                          : workspace.name
+                      }
+                      onClick={() =>
+                        runNavigationAction({
+                          kind: projectPicker === 'create-session' ? 'create-session' : 'select-workspace',
+                          workspaceId: workspace.id,
+                        })
+                      }
+                    >
+                      <WorkspaceShellIcon name="folder" />
+                      <LumenFrame>
+                        <LumenText as="strong">{workspace.name}</LumenText>
+                        <LumenText as="small">{workspace.path}</LumenText>
+                      </LumenFrame>
+                    </LumenButton>
+                  ))
+                )}
+                {workspaceCursor && (
+                  <LumenButton
+                    variant="text"
+                    disabled={!connected || loading.has('workspaces') || navigationBlocked}
+                    onClick={() => void loadWorkspaces(workspaceCursor)}
+                  >
+                    {props.labels.loadMore}
+                  </LumenButton>
+                )}
+              </LumenFrame>
+              <LumenFrame as="form" className="hbar-app-react-workspace-picker-form" onSubmit={addWorkspace}>
+                <LumenFormField
+                  controlId="hbar-workspace-path"
+                  label={props.labels.workspacePath}
+                  description={props.labels.workspacePathHint}
+                >
+                  <LumenInput
+                    id="hbar-workspace-path"
+                    autoFocus={workspaces.length === 0}
+                    value={workspacePath}
+                    maxLength={4000}
+                    disabled={!connected || navigationBlocked}
+                    onChange={(event) => setWorkspacePath(event.currentTarget.value)}
+                  />
+                </LumenFormField>
+                <LumenButton type="submit" disabled={!connected || navigationBlocked || !workspacePath.trim()}>
+                  {props.labels.addWorkspace}
+                </LumenButton>
+              </LumenFrame>
+              <NavigationActionFeedback
+                state={navigationAction}
+                labels={props.labels}
+                connected={connected}
+                targetName={actionTargetName}
+                onReconcile={reconcileNavigationAction}
+              />
+              {error && (
+                <LumenText as="p" role="alert">
+                  {props.labels.error(error)}
+                </LumenText>
+              )}
+            </LumenDialog>
+          )}
+        </>
+      }
       sidebar={
         <LumenAppSidebar
           brand={props.labels.brand}
@@ -311,8 +537,18 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 label={props.labels.newSession}
                 size="l"
                 variant="outlined"
-                onClick={() => openCommandForm('app.createSession')}
+                disabled={!connected || navigationBlocked}
+                onClick={() => newSession()}
               />
+              {!projectPicker && actionWorkspaceId === null && (
+                <NavigationActionFeedback
+                  state={navigationAction}
+                  labels={props.labels}
+                  connected={connected}
+                  targetName={actionTargetName}
+                  onReconcile={reconcileNavigationAction}
+                />
+              )}
               <WorkspaceSidebarAction
                 icon="command"
                 label={props.labels.commands}
@@ -325,7 +561,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           treeAction={
             <LumenIconButton
               label={props.labels.openWorkspace}
-              disabled={props.connection !== 'connected'}
+              disabled={!connected || navigationBlocked}
               onClick={openWorkspace}
             >
               <WorkspaceShellIcon name="folder-open" />
@@ -392,17 +628,28 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     <LumenActionMenu
                       label={props.labels.workspaceActions(workspace.name)}
                       items={[
-                        { id: 'new-session', label: props.labels.newSessionInWorkspace },
+                        {
+                          id: 'new-session',
+                          label: props.labels.newSessionInWorkspace,
+                          disabled: !connected || navigationBlocked,
+                        },
                         { id: 'files', label: props.labels.workspaceFiles },
                         { id: 'settings', label: props.labels.workspaceSettings },
                       ]}
                       onAction={(action) => {
-                        if (action === 'new-session')
-                          openCommandForm('app.createSession', { workspaceId: workspace.id })
+                        if (action === 'new-session') newSession(workspace.id)
                         else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
                       }}
                     />
                   </LumenFrame>
+                  {actionWorkspaceId === workspace.id && (
+                    <NavigationActionFeedback
+                      state={navigationAction}
+                      labels={props.labels}
+                      connected={connected}
+                      onReconcile={reconcileNavigationAction}
+                    />
+                  )}
                   {workspaceActionError?.workspaceId === workspace.id && (
                     <LumenText as="p" role="alert" tone="danger">
                       {props.labels.error(workspaceActionError.code)}

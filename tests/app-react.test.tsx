@@ -24,6 +24,17 @@ const labels: HbarWorkspaceShellLabels = {
   loading: '正在加载数据',
   loadMore: '加载下一页',
   newSession: '新建会话',
+  creatingSession: '正在为所选项目创建会话',
+  creationUnknown: '操作结果尚未确认，请核对原项目中的结果',
+  reconcileCreation: '核对结果',
+  chooseWorkspace: '选择本次新会话所属的项目',
+  chooseWorkspaceDescription: '选择已经打开的项目，或添加连接服务端中的现有目录',
+  workspacePath: '服务端项目目录',
+  workspacePathHint: '填写服务端上已经存在的目录，不是浏览器上传文件',
+  addWorkspace: '添加项目',
+  openingWorkspace: '正在打开项目',
+  cancel: '取消',
+  createSessionInWorkspace: (name) => `在 ${name} 中创建新会话`,
   commands: '打开命令目录',
   commandShortcut: 'Ctrl K',
   openWorkspace: '打开工作区',
@@ -133,6 +144,45 @@ test('separate React runtime providers keep each window selection private', asyn
   } finally {
     selected.dispose()
     idle.dispose()
+  }
+})
+
+test('new session and project acquisition expose localized disabled controls while disconnected', async () => {
+  const runtime = runtimeFixture('disconnected-shell')
+  try {
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="disconnected" onReconnect={() => {}}>
+          <h1>未连接</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain(labels.newSession)
+    expect(html).toContain(labels.noWorkspaces)
+    const buttons: { text: string; label: string | null; disabled: boolean }[] = []
+    let current: (typeof buttons)[number] | undefined
+    await new HTMLRewriter()
+      .on('button', {
+        element(element) {
+          current = {
+            text: '',
+            label: element.getAttribute('aria-label'),
+            disabled: element.hasAttribute('disabled'),
+          }
+          buttons.push(current)
+        },
+        text(chunk) {
+          if (current) current.text += chunk.text
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    expect(buttons.find((button) => button.text.trim() === labels.newSession)?.disabled).toBe(true)
+    expect(buttons.find((button) => button.label === labels.openWorkspace)?.disabled).toBe(true)
+    expect(html).not.toContain('app.createSession')
+    expect(html).not.toContain('workspaceId')
+  } finally {
+    runtime.dispose()
   }
 })
 

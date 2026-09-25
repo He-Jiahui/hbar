@@ -1,5 +1,5 @@
-import { expect, test, type WebSocketRoute } from '@playwright/test'
-import { HbarClient, createModelCommandClient } from '@hbar/client'
+import { expect, test, type Locator, type WebSocketRoute } from '@playwright/test'
+import { HbarClient, createModelCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -24,7 +24,8 @@ async function startSessionHost(root: string, sessionCount = 1, historyCount = 0
     env: {
       ...process.env,
       HBAR_E2E_DATA_ROOT: root,
-      HBAR_E2E_HOST_PORT: '4317',
+      HBAR_E2E_HOST_PORT: process.env.HBAR_E2E_HOST_PORT ?? '4317',
+      HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
       HBAR_E2E_SESSION_COUNT: String(sessionCount),
       HBAR_E2E_HISTORY_COUNT: String(historyCount),
     },
@@ -518,9 +519,20 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
   test.setTimeout(180_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-web-session-'))
   let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  let navigationClient: HbarClient | undefined
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
   try {
     fixture = await startSessionHost(root)
+    navigationClient = new HbarClient(`http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`, fixture.ready.token)
+    await navigationClient.connect()
+    const navigationCommands = createWorkspaceSessionCommandClient(navigationClient)
+    // New sessions use the Host's default title; give the original fixture a stable, unambiguous UI identity.
+    fixture.ready.sessionTitle = (
+      await navigationCommands.execute('session.rename', {
+        sessionId: fixture.ready.sessionId,
+        title: 'Original connected regression session',
+      })
+    ).title
     const authenticate = await context.request.post(
       `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
       {
@@ -536,6 +548,29 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
     await expect(page.locator('footer')).toContainText('Connected')
+    const workspaceId = fixture.ready.workspaceId
+    const createAndOpenSession = async (trigger: Locator) => {
+      const before = await navigationCommands.execute('session.list', { workspaceId, limit: 100 })
+      const previousIds = new Set(before.items.map((session) => session.id))
+      await trigger.click()
+      await expect
+        .poll(async () => (await navigationCommands.execute('session.list', { workspaceId, limit: 100 })).items.length)
+        .toBe(before.items.length + 1)
+      const after = await navigationCommands.execute('session.list', { workspaceId, limit: 100 })
+      const created = after.items.filter((session) => !previousIds.has(session.id))
+      expect(created).toHaveLength(1)
+      expect(created[0]?.workspaceId).toBe(workspaceId)
+      await expect(page.getByRole('dialog', { name: 'Command catalog' })).toHaveCount(0)
+      await expect(page.getByRole('heading', { level: 1, name: created[0]!.title, exact: true })).toBeVisible()
+      await expect(page.locator('.hbar-app-react-session-row[data-selected="true"]')).toHaveCount(1)
+    }
+    const returnToOriginalSession = async (title = fixture!.ready.sessionTitle) => {
+      const sidebar = page.getByRole('complementary', { name: 'Projects and sessions' })
+      if (!(await sidebar.isVisible()))
+        await page.getByRole('button', { name: 'Show projects and sessions sidebar', exact: true }).click()
+      await sidebar.getByRole('button', { name: `Open session ${title}`, exact: true }).click()
+      await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible()
+    }
     expect(
       await page.locator('[data-hbar-app-ui-shell="app"]').evaluate((element) => {
         const styles = getComputedStyle(element)
@@ -560,25 +595,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await expect(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' })).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/workspace-actions-1440.png', fullPage: true })
-    await workspaceMenu.getByRole('menuitem', { name: 'New session in this project' }).click()
-    const workspaceCreateDialog = page.getByRole('dialog', { name: 'Command catalog' })
-    await expect(workspaceCreateDialog.getByRole('heading', { level: 1, name: 'New session' })).toBeVisible()
-    await expect(workspaceCreateDialog.getByRole('combobox', { name: 'Workspace ID' })).toHaveValue(
-      fixture.ready.workspaceId,
-    )
-    await expect(
-      page
-        .getByRole('main', { name: 'Workspace' })
-        .getByRole('heading', { level: 1, name: fixture.ready.sessionTitle }),
-    ).toBeVisible()
+    await createAndOpenSession(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' }))
     await page.screenshot({
       path: 'artifacts/ui-redesign/shell/workspace-new-session-1440.png',
       fullPage: true,
     })
-    await page.keyboard.press('Escape')
-    await expect(workspaceCreateDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
-    await workspaceCreateDialog.getByRole('button', { name: 'Close command catalog' }).click()
-    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await returnToOriginalSession()
     const sessionActions = page.getByTitle(`Actions for ${fixture.ready.sessionTitle}`)
     await sessionActions.click()
     const sessionMenu = page.getByRole('menu', { name: `Actions for ${fixture.ready.sessionTitle}` })
@@ -595,42 +617,14 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(renameDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
     await renameDialog.getByRole('button', { name: 'Close command catalog' }).click()
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
-    await page.getByRole('button', { name: 'New session', exact: true }).click()
-    const createSessionDialog = page.getByRole('dialog', { name: 'Command catalog' })
-    await expect(createSessionDialog.getByRole('heading', { level: 1, name: 'New session' })).toBeVisible()
-    const createWorkspace = createSessionDialog.getByRole('combobox', { name: 'Workspace ID' })
-    await expect(createWorkspace).not.toHaveValue('')
-    const knownWorkspaceId = await createWorkspace.inputValue()
-    expect(
-      await createWorkspace.evaluate((element: HTMLSelectElement) => {
-        const option = element.selectedOptions[0]
-        return Boolean(option && option.textContent?.includes(' · ') && option.textContent !== option.value)
-      }),
-    ).toBe(true)
-    await expect(createSessionDialog.getByRole('textbox', { name: 'Title' })).toBeVisible()
-    await expect(createSessionDialog.getByRole('alert')).toHaveCount(0)
+    await createAndOpenSession(page.getByRole('button', { name: 'New session', exact: true }))
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/desktop-1440.png', fullPage: true })
-    await createWorkspace.selectOption({ label: 'Enter another identifier…' })
-    const customWorkspace = createSessionDialog.getByRole('textbox', { name: 'Custom Workspace ID' })
-    await customWorkspace.fill('workspace-from-another-host')
-    await expect(customWorkspace).toHaveValue('workspace-from-another-host')
-    await page.screenshot({
-      path: 'artifacts/ui-redesign/session-create/after/desktop-1440-custom-id.png',
-      fullPage: true,
-    })
-    await createWorkspace.selectOption(knownWorkspaceId)
-    await expect(customWorkspace).toHaveCount(0)
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/mobile-390.png', fullPage: true })
-    await page.keyboard.press('Escape')
-    await expect(createSessionDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
-    await createSessionDialog.getByRole('button', { name: 'Close command catalog' }).click()
     await page.setViewportSize({ width: 1440, height: 960 })
-    const restoreNavigationAfterCreate = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
-    if (await restoreNavigationAfterCreate.isVisible()) await restoreNavigationAfterCreate.click()
-    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await returnToOriginalSession()
     const expectSessionLayout = async () =>
       expect(
         await page.evaluate(() => {
@@ -1096,9 +1090,19 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       page.locator('.hbar-app-react-goal-plan-workspace .lumen-tool-pane-heading h2'),
     ).toHaveText(fixture.ready.sessionTitle)
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-empty.png', fullPage: true })
-    await page.getByRole('button', { name: 'Set goal' }).click()
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+    await prompt.fill('Complete the browser verification')
+    await page.locator('.hbar-composer-intents').getByRole('button', { name: 'Goal', exact: true }).click()
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    const goalStrip = page.locator('.hbar-composer-goal-strip')
+    await expect(goalStrip).toContainText('Complete the browser verification')
+    await expect(prompt).toHaveValue('')
+    await goalStrip.getByRole('button', { name: 'Pause goal continuation', exact: true }).click()
+    await expect(goalStrip).toContainText('Paused')
+    await goalStrip.getByRole('button', { name: 'Expand goal document', exact: true }).click()
     await expectGoalPlanLayout('goal')
-    await page.getByRole('textbox', { name: 'Goal objective' }).fill('Complete the browser verification')
+    await expect(page.getByRole('textbox', { name: 'Goal objective' })).toHaveValue('Complete the browser verification')
+    await page.getByRole('button', { name: 'Budget and execution details', exact: true }).click()
     await page.getByRole('spinbutton', { name: 'Goal token budget' }).fill('16000')
     await page.getByRole('button', { name: 'Save goal' }).click()
     await expect(page.getByText('Goal saved.')).toBeVisible()
@@ -1227,8 +1231,14 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     ).toBeVisible()
     await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-plan.png', fullPage: true })
     await expect(page.getByRole('button', { name: 'Clear plan' })).toHaveCount(0)
-    await page.getByRole('button', { name: 'Clear goal' }).click()
-    await expect(page.getByText('Goal cleared.')).toBeVisible()
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+    await goalStrip.getByRole('button', { name: 'Clear goal', exact: true }).click()
+    await page
+      .getByRole('group', { name: 'Clear goal', exact: true })
+      .getByRole('button', { name: 'Clear goal', exact: true })
+      .click()
+    await expect(goalStrip).toHaveCount(0)
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
     await expect(
       page.locator('.hbar-app-react-goal-plan-workspace').getByText('No plan steps yet.', { exact: true }),
     ).toBeVisible()
@@ -1284,7 +1294,10 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await expect(page.getByText('Agent approval')).toBeVisible()
     await page.getByRole('button', { name: 'Allow' }).click()
     await expect(page.getByText('Resolved')).toBeVisible()
-    const runAuditClient = new HbarClient('http://127.0.0.1:4317', fixture.ready.token)
+    const runAuditClient = new HbarClient(
+      `http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`,
+      fixture.ready.token,
+    )
     try {
       await runAuditClient.connect()
       const snapshot = await runAuditClient.call('session.snapshot', { sessionId: fixture.ready.sessionId })
@@ -1538,18 +1551,13 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.keyboard.press('Escape')
     await expect(renameExecutionDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
     await renameExecutionDialog.getByRole('button', { name: 'Close command catalog' }).click()
-    await page.getByRole('button', { name: 'New session', exact: true }).click()
-    const creationDialog = page.getByRole('dialog', { name: 'Command catalog' })
-    await expect(creationDialog.getByRole('heading', { level: 1, name: 'New session' })).toBeVisible()
-    await creationDialog.getByRole('textbox', { name: 'Title' }).fill('Visual QA session')
-    await creationDialog.getByRole('button', { name: 'Execute command' }).click()
-    await expect(creationDialog).toBeHidden()
-    await expect(page.getByRole('heading', { level: 1, name: 'Visual QA session' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Open session Visual QA session' })).toBeVisible()
+    await createAndOpenSession(page.getByRole('button', { name: 'New session', exact: true }))
     await expectNoHorizontalOverflow()
     await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/executed-1440.png', fullPage: true })
+    await returnToOriginalSession(renamedTitle)
     expect(errors).toEqual([])
   } finally {
+    navigationClient?.disconnect()
     await context.close()
     if (fixture) await stopSessionHost(fixture.child)
     await rm(root, { recursive: true, force: true })
@@ -1692,7 +1700,10 @@ test('provider presets persist custom models, thinking levels, and independent v
     await expect(page.getByText('Provider saved.')).toBeVisible()
     await page.getByRole('button', { name: 'Back to settings' }).click()
     await expect(page.getByText('Hidden', { exact: true })).toHaveCount(0)
-    const directClient = new HbarClient('http://127.0.0.1:4317', fixture.ready.token)
+    const directClient = new HbarClient(
+      `http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`,
+      fixture.ready.token,
+    )
     await directClient.connect()
     try {
       const visibleModels = await createModelCommandClient(directClient).execute('model.list', {})
