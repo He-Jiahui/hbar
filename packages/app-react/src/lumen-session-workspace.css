@@ -120,7 +120,7 @@
 .hbar-app-react-session-main .lumen-conversation-content:has(> .hbar-app-react-session-empty-hero) {
   flex: 1 0 auto;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .hbar-app-react-session-empty-hero {
@@ -140,7 +140,10 @@
   inline-size: 4.5rem;
   block-size: 4.5rem;
   border-radius: 1rem;
-  object-fit: cover;
+  background-color: var(--lumen-reading);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .hbar-app-react-session-empty-title {
@@ -157,6 +160,18 @@
   font-size: 0.875rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+@media (max-height: 40rem) {
+  .hbar-app-react-session-empty-hero {
+    gap: 0.5rem;
+    padding-block: 0.75rem;
+  }
+
+  .hbar-app-react-session-empty-mark {
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+  }
 }
 
 .hbar-app-react-session-history-controls p,

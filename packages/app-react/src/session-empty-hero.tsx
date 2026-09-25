@@ -49,7 +49,11 @@ export function showSessionEmptyHero(facts: SessionEmptyHeroFacts): boolean {
 export function HbarSessionEmptyHero({ labels }: { readonly labels: HbarSessionEmptyHeroLabels }) {
   return (
     <LumenFrame className="hbar-app-react-session-empty-hero">
-      <img className="hbar-app-react-session-empty-mark" src={labels.markUrl} alt="" aria-hidden="true" />
+      <LumenFrame
+        className="hbar-app-react-session-empty-mark"
+        style={{ backgroundImage: `url(${labels.markUrl})` }}
+        aria-hidden="true"
+      />
       <LumenText as="h2" className="hbar-app-react-session-empty-title">
         {labels.title}
       </LumenText>

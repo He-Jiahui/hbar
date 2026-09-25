@@ -30,9 +30,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const hero = page.locator('.hbar-app-react-session-empty-hero')
       await expect(hero.getByRole('heading', { name: copy.session.emptyHero.title })).toBeVisible()
       await expect(hero).toContainText(copy.session.emptyHero.description)
-      expect(
-        await hero.locator('img').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
-      ).toBe(true)
+      const mark = hero.locator('.hbar-app-react-session-empty-mark')
+      await expect(mark).toBeVisible()
+      expect(await mark.evaluate((element) => getComputedStyle(element).backgroundImage)).toContain(
+        copy.session.emptyHero.markUrl,
+      )
+      expect((await context.request.get(`${base}${copy.session.emptyHero.markUrl}`)).ok()).toBe(true)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       for (const viewport of [
         { width: 1440, height: 900 },
@@ -43,6 +46,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize(viewport)
         await expect(hero).toBeVisible()
         await expect(prompt).toBeInViewport()
+        expect(
+          await mark.evaluate((element) => {
+            const area = element.closest('.lumen-conversation-messages')?.getBoundingClientRect()
+            const bounds = element.getBoundingClientRect()
+            return Boolean(area && bounds.top >= area.top - 1 && bounds.bottom <= area.bottom + 1)
+          }),
+        ).toBe(true)
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         if (viewport.width >= 900) {
           const centered = await hero.evaluate((element) => {
