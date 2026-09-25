@@ -2,13 +2,13 @@ import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry
 import { z } from 'zod'
 import type { Session } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
-import type { ClientPreferencesState, DirectoryState, NavigationState } from './types'
+import type { ClientPreferencesState, DirectoryState, NavigationState, SurfaceState } from './types'
 import type { WorkspaceTabCloseTarget } from './workspace-tab-close'
 
 export const MAX_WORKSPACE_TABS = 32
 const KEY = 'workspaceTabs'
 const idSchema = z.string().min(1).max(160)
-const targetSchema = z.strictObject({ id: idSchema, sessionId: idSchema, instanceKey: z.string().uuid() })
+const targetSchema = z.strictObject({ id: idSchema, sessionId: idSchema.nullable(), instanceKey: z.string().uuid() })
 const metadata = (name: string) => ({
   id: name,
   version: 1,
@@ -49,16 +49,35 @@ export const workspaceTabCommands = {
     z.strictObject({}),
     z.strictObject({ error: z.string().nullable() }),
   ),
+  'workspaceTabs.openWorkbench': defineCommand(
+    metadata('workspaceTabs.openWorkbench'),
+    z.strictObject({ panelInstanceId: idSchema, sourceSessionId: idSchema.nullable(), workspaceId: idSchema }),
+    z.strictObject({ id: idSchema }),
+  ),
+  'workspaceTabs.returnToSource': defineCommand(
+    metadata('workspaceTabs.returnToSource'),
+    z.strictObject({ id: idSchema, instanceKey: z.string().uuid() }),
+    z.strictObject({ activeId: idSchema.nullable() }),
+  ),
 }
-interface SavedTab {
+interface SessionTabDescription {
   readonly kind: 'session'
   readonly id: string
   readonly sessionId: string
   readonly workspaceId: string
 }
-export interface WorkspaceTabRef extends SavedTab {
+export interface SessionTabRef extends SessionTabDescription {
   readonly instanceKey: string
 }
+export interface WorkbenchTabRef {
+  readonly kind: 'workbench'
+  readonly id: string
+  readonly instanceKey: string
+  readonly panelInstanceId: string
+  readonly sourceSessionId: string | null
+  readonly workspaceId: string
+}
+export type WorkspaceTabRef = SessionTabRef | WorkbenchTabRef
 export interface WorkspaceTabsState {
   readonly items: readonly WorkspaceTabRef[]
   /** Derived from navigation on each publish, not a second selection authority. */
@@ -74,10 +93,12 @@ export interface WorkspaceTabNavigationHooks {
   settleCreation(key: string, uncertain: boolean): void
   beforeSelect(session: Readonly<Session>): void
   commitSelected(session: Readonly<Session>): void
+  commitWorkspaceSelection(): void
 }
 export interface WorkspaceTabsOptions {
   readonly navigation: StateReader<NavigationState>
   readonly directory: StateReader<DirectoryState>
+  readonly surfaces: StateReader<SurfaceState>
   readonly queries: CommandExecutor
   readonly preferences: StateReader<ClientPreferencesState>
   readonly preferenceCommands: CommandExecutor
@@ -85,7 +106,10 @@ export interface WorkspaceTabsOptions {
   readonly retryPreferencesRestore: () => Promise<ClientPreferencesState>
   readonly selectSession: (sessionId: string, workspaceId: string) => Promise<unknown>
   /** Owned navigation writer invalidates older navigations when a selected tab closes. */
-  readonly commitLocalSelection: (closedId: string, next: { workspaceId: string; sessionId: string | null }) => void
+  readonly commitLocalSelection: (
+    closedId: string | null,
+    next: { workspaceId: string; sessionId: string | null },
+  ) => void
   readonly onSubscriberError: (reason: unknown) => void
 }
 
@@ -95,7 +119,11 @@ function code(reason: unknown): string {
     : 'EXECUTION_FAILED'
 }
 const OFFLINE_READ_CODES = new Set(['DISCONNECTED', 'CONNECTION_CLOSED', 'TIMEOUT', 'TIMED_OUT'])
-function parseSaved(value: unknown): { readonly items: readonly SavedTab[]; readonly activeId: string | null } {
+function parseSaved(value: unknown): {
+  readonly items: readonly SessionTabDescription[]
+  readonly activeId: string | null
+  readonly activeWorkspaceId: string | null
+} {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new CommandError('INVALID_PERSISTED_STATE', 'Tabs description is not an object')
   const data = value as Record<string, unknown>
@@ -130,7 +158,20 @@ function parseSaved(value: unknown): { readonly items: readonly SavedTab[]; read
   })
   if (data.activeId !== null && !seen.has(data.activeId))
     throw new CommandError('INVALID_PERSISTED_STATE', 'Saved active tab is not open')
-  return { items, activeId: data.activeId as string | null }
+  const activeWorkspaceId = data.activeWorkspaceId
+  if (
+    activeWorkspaceId !== undefined &&
+    (typeof activeWorkspaceId !== 'string' ||
+      !activeWorkspaceId ||
+      activeWorkspaceId.length > 160 ||
+      data.activeId !== null)
+  )
+    throw new CommandError('INVALID_PERSISTED_STATE', 'Saved detached Workspace target is invalid')
+  return {
+    items,
+    activeId: data.activeId as string | null,
+    activeWorkspaceId: (activeWorkspaceId as string | undefined) ?? null,
+  }
 }
 
 /** Local open-tab projection. Session/Run facts continue to live in directory and timeline. */
@@ -149,30 +190,70 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   let dirty = 0
   let savedRevision = 0
   let writeScheduled = false
-  let retrySelection: { readonly tab: WorkspaceTabRef; readonly navigation: NavigationState } | null = null
+  let retrySelection: { readonly tab: SessionTabRef; readonly navigation: NavigationState } | null = null
+  let focusedWorkbenchId: string | null = null
+  let restoredWorkspaceId: string | null = null
   const navigationAtConstruction = options.navigation.getSnapshot()
   const current = () => state.reader.getSnapshot()
-  const selected = () => {
+  const selected = (items: readonly WorkspaceTabRef[] = current().items) => {
+    if (focusedWorkbenchId && items.some((item) => item.id === focusedWorkbenchId)) return focusedWorkbenchId
     const id = options.navigation.getSnapshot().sessionId
-    return id && current().items.some((item) => item.id === id) ? id : null
+    return id && items.some((item) => item.kind === 'session' && item.id === id) ? id : null
   }
   const publish = (patch: Partial<Omit<WorkspaceTabsState, 'activeId'>>) => {
     if (disposed) return
-    state.replace({ ...current(), ...patch, activeId: selected() })
+    state.replace({ ...current(), ...patch, activeId: selected(patch.items ?? current().items) })
   }
   const navigationUnsubscribe = options.navigation.subscribe(() => {
     if (disposed) return
+    const nav = options.navigation.getSnapshot()
+    if (restoredWorkspaceId && (nav.workspaceId !== restoredWorkspaceId || nav.sessionId !== null))
+      restoredWorkspaceId = null
     const activeId = selected()
     if (current().activeId !== activeId) {
       state.replace({ ...current(), activeId, revision: current().revision + 1 })
       persist()
     }
   })
-  const saved = () => ({
-    version: 1,
-    activeId: selected(),
-    items: current().items.map(({ kind, id, sessionId, workspaceId }) => ({ kind, id, sessionId, workspaceId })),
+  const surfaceUnsubscribe = options.surfaces.subscribe(() => {
+    if (disposed || !current().items.some((item) => item.kind === 'workbench')) return
+    const items = current().items.filter((item) => {
+      if (item.kind === 'session') return true
+      const panel = options.surfaces.getSnapshot().panels[item.panelInstanceId]
+      return Boolean(
+        panel?.panelId === 'files' &&
+        panel.binding === 'pinned' &&
+        panel.workspaceId === item.workspaceId &&
+        panel.sessionId === item.sourceSessionId,
+      )
+    })
+    if (items.length === current().items.length) return
+    if (focusedWorkbenchId && !items.some((item) => item.id === focusedWorkbenchId)) focusedWorkbenchId = null
+    publish({ items, revision: current().revision + 1 })
+    persist()
   })
+  const saved = () => {
+    const active = current().items.find((item) => item.id === selected())
+    const id = active?.kind === 'workbench' ? active.sourceSessionId : active?.id
+    const workspaceFallback =
+      active?.kind === 'workbench' && active.sourceSessionId === null
+        ? active.workspaceId
+        : selected() === null && options.navigation.getSnapshot().workspaceId === restoredWorkspaceId
+          ? restoredWorkspaceId
+          : null
+    return {
+      version: 1,
+      activeId: workspaceFallback
+        ? null
+        : current().items.some((item) => item.kind === 'session' && item.id === id)
+          ? id
+          : (current().items.find((item) => item.kind === 'session')?.id ?? null),
+      ...(workspaceFallback ? { activeWorkspaceId: workspaceFallback } : {}),
+      items: current()
+        .items.filter((item): item is SessionTabRef => item.kind === 'session')
+        .map(({ kind, id, sessionId, workspaceId }) => ({ kind, id, sessionId, workspaceId })),
+    }
+  }
   function persist() {
     dirty = current().revision
     if (writeScheduled) return
@@ -203,7 +284,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     if (original.items.some((item) => item.id === session.id)) return
     if (original.items.length + reservations.size >= MAX_WORKSPACE_TABS)
       throw new CommandError('TAB_LIMIT', 'Open tab limit reached')
-    const item: WorkspaceTabRef = {
+    const item: SessionTabRef = {
       kind: 'session',
       id: session.id,
       sessionId: session.id,
@@ -268,13 +349,93 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
       )
         throw new CommandError('TAB_LIMIT', 'Open tab limit reached')
     },
-    commitSelected: insert,
+    commitSelected(session) {
+      insert(session)
+      if (focusedWorkbenchId) {
+        focusedWorkbenchId = null
+        publish({ revision: current().revision + 1 })
+        persist()
+      }
+    },
+    commitWorkspaceSelection() {
+      if (!focusedWorkbenchId) return
+      focusedWorkbenchId = null
+      publish({ revision: current().revision + 1 })
+      persist()
+    },
+  }
+  function workbenchPanel(ref: WorkbenchTabRef) {
+    const panel = options.surfaces.getSnapshot().panels[ref.panelInstanceId]
+    return Boolean(
+      panel?.panelId === 'files' &&
+      panel.binding === 'pinned' &&
+      panel.workspaceId === ref.workspaceId &&
+      panel.sessionId === ref.sourceSessionId,
+    )
+  }
+  function openWorkbench(panelInstanceId: string, sourceSessionId: string | null, workspaceId: string) {
+    if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
+    const panel = options.surfaces.getSnapshot().panels[panelInstanceId]
+    if (
+      !panel ||
+      panel.panelId !== 'files' ||
+      panel.binding !== 'pinned' ||
+      panel.workspaceId !== workspaceId ||
+      panel.sessionId !== sourceSessionId
+    )
+      throw new CommandError('TARGET_CHANGED', 'Files panel is not pinned to the requested source')
+    const existing = current().items.find(
+      (item): item is WorkbenchTabRef => item.kind === 'workbench' && item.panelInstanceId === panelInstanceId,
+    )
+    if (existing) {
+      if (existing.sourceSessionId !== sourceSessionId || existing.workspaceId !== workspaceId)
+        throw new CommandError('COMMAND_CONFLICT', 'Workbench panel belongs to another source')
+      if (focusedWorkbenchId !== existing.id) {
+        focusedWorkbenchId = existing.id
+        publish({ revision: current().revision + 1 })
+        persist()
+      }
+      return existing.id
+    }
+    if (
+      sourceSessionId !== null &&
+      !current().items.some((item) => item.kind === 'session' && item.id === sourceSessionId)
+    )
+      throw new CommandError('TAB_NOT_FOUND', 'Source Session tab is not open')
+    if (current().items.length + reservations.size >= MAX_WORKSPACE_TABS)
+      throw new CommandError('TAB_LIMIT', 'Open tab limit reached')
+    let id: string | null = null
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const candidate = `__workbench__${crypto.randomUUID()}`
+      if (!current().items.some((entry) => entry.id === candidate)) {
+        id = candidate
+        break
+      }
+    }
+    if (!id) throw new CommandError('COMMAND_CONFLICT', 'Cannot allocate a distinct Workbench tab')
+    const item: WorkbenchTabRef = {
+      kind: 'workbench',
+      id,
+      instanceKey: crypto.randomUUID(),
+      panelInstanceId,
+      sourceSessionId,
+      workspaceId,
+    }
+    restoredWorkspaceId = null
+    focusedWorkbenchId = item.id
+    publish({ items: [...current().items, item], revision: current().revision + 1 })
+    persist()
+    return item.id
   }
   function capture(ids: readonly string[]): readonly WorkspaceTabCloseTarget[] {
     const distinct = new Set(ids)
     return current()
       .items.filter((item) => distinct.has(item.id))
-      .map((item) => ({ id: item.id, instanceKey: item.instanceKey, sessionId: item.sessionId }))
+      .map((item) => ({
+        id: item.id,
+        instanceKey: item.instanceKey,
+        sessionId: item.kind === 'session' ? item.sessionId : null,
+      }))
   }
   function move(id: string, beforeId: string | null) {
     if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
@@ -299,7 +460,9 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         .filter((target) =>
           before.items.some(
             (item) =>
-              item.id === target.id && item.sessionId === target.sessionId && item.instanceKey === target.instanceKey,
+              item.id === target.id &&
+              item.instanceKey === target.instanceKey &&
+              (item.kind === 'session' ? item.sessionId === target.sessionId : target.sessionId === null),
           ),
         )
         .map((target) => target.id),
@@ -308,15 +471,24 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     const firstClosedIndex = before.items.findIndex((item) => closing.has(item.id))
     const items = before.items.filter((item) => !closing.has(item.id))
     const nav = options.navigation.getSnapshot()
-    const closedActive = nav.sessionId !== null && closing.has(nav.sessionId)
+    const activeId = selected()
+    const closedActive = activeId !== null && closing.has(activeId)
+    const closedNavigationSession = nav.sessionId !== null && closing.has(nav.sessionId)
     if (nav.status === 'loading') throw new CommandError('BUSY', 'Wait for the pending navigation before closing tabs')
-    if (closedActive) {
-      const activeIndex = before.items.findIndex((item) => item.id === nav.sessionId)
+    if (closedActive || closedNavigationSession) {
+      const activeIndex = before.items.findIndex((item) => item.id === (closedActive ? activeId : nav.sessionId))
       let nearest: WorkspaceTabRef | null = null
       // Directory is a bounded cache, not authority for older still-open tabs.
       // Revalidate each possible neighbour against the Host, at most 31 candidates.
       for (const item of [...before.items.slice(activeIndex + 1), ...before.items.slice(0, activeIndex).reverse()]) {
         if (closing.has(item.id)) continue
+        if (item.kind === 'workbench') {
+          if (closedActive && workbenchPanel(item)) {
+            nearest = item
+            break
+          }
+          continue
+        }
         signal.throwIfAborted()
         try {
           const session = await options.queries.execute('session.get', { sessionId: item.sessionId }, { signal })
@@ -355,12 +527,18 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         options.navigation.getSnapshot() !== nav
       )
         throw new CommandError('BUSY', 'Tab or navigation changed while checking the close target')
-      options.commitLocalSelection(
-        nav.sessionId!,
-        nearest
-          ? { workspaceId: nearest.workspaceId, sessionId: nearest.sessionId }
-          : { workspaceId: nav.workspaceId ?? before.items[firstClosedIndex]!.workspaceId, sessionId: null },
-      )
+      if (closedActive) focusedWorkbenchId = nearest?.kind === 'workbench' ? nearest.id : null
+      if (nearest?.kind === 'session') {
+        options.commitLocalSelection(nav.sessionId, {
+          workspaceId: nearest.workspaceId,
+          sessionId: nearest.sessionId,
+        })
+      } else if (closedNavigationSession || nearest === null) {
+        options.commitLocalSelection(nav.sessionId, {
+          workspaceId: nav.workspaceId ?? before.items[firstClosedIndex]!.workspaceId,
+          sessionId: null,
+        })
+      }
     }
     publish({ items, revision: before.revision + 1 })
     persist()
@@ -394,7 +572,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     try {
       const description = parseSaved(value)
       const descriptions = description.items
-      const restored: WorkspaceTabRef[] = []
+      const restored: SessionTabRef[] = []
       for (let offset = 0; offset < descriptions.length; offset += 4) {
         const page = descriptions.slice(offset, offset + 4)
         const outcomes = await Promise.all(
@@ -421,7 +599,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
               workspace.id !== item.workspaceId
             )
               throw new CommandError('INVALID_OUTPUT', 'Restored Workspace target mismatch')
-            const restoredItem: WorkspaceTabRef = { ...item, instanceKey: crypto.randomUUID() }
+            const restoredItem: SessionTabRef = { ...item, instanceKey: crypto.randomUUID() }
             return restoredItem
           }),
         )
@@ -429,14 +607,14 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
           publish({ restoreStatus: 'ready' })
           return
         }
-        restored.push(...outcomes.filter((entry): entry is WorkspaceTabRef => entry !== null))
+        restored.push(...outcomes.filter((entry): entry is SessionTabRef => entry !== null))
       }
       if (disposed || current().revision !== initial || options.navigation.getSnapshot() !== navigationAtStart) {
         publish({ restoreStatus: 'ready' })
         return
       }
       publish({ items: restored, revision: current().revision + 1, restoreError: null })
-      if (restored.length !== descriptions.length) persist()
+      let needsPersist = restored.length !== descriptions.length
       const selectedTab =
         description.activeId === null
           ? null
@@ -458,6 +636,47 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
           }
         }
       }
+      if (description.activeWorkspaceId && (!retry || navigationAtStart === navigationAtConstruction)) {
+        const restoredRevision = current().revision
+        try {
+          const workspace = await options.queries.execute('workspace.get', {
+            workspaceId: description.activeWorkspaceId,
+          })
+          if (
+            disposed ||
+            current().revision !== restoredRevision ||
+            options.navigation.getSnapshot() !== navigationAtStart
+          ) {
+            publish({ restoreStatus: 'ready' })
+            return
+          }
+          if (workspace === null) needsPersist = true
+          else if (
+            !workspace ||
+            typeof workspace !== 'object' ||
+            !('id' in workspace) ||
+            workspace.id !== description.activeWorkspaceId
+          )
+            throw new CommandError('INVALID_OUTPUT', 'Detached Workspace target mismatch')
+          else {
+            restoredWorkspaceId = description.activeWorkspaceId
+            options.commitLocalSelection(navigationAtStart.sessionId, {
+              workspaceId: description.activeWorkspaceId,
+              sessionId: null,
+            })
+          }
+        } catch (reason) {
+          if (
+            !disposed &&
+            current().revision === restoredRevision &&
+            options.navigation.getSnapshot() === navigationAtStart
+          )
+            publish({ restoreStatus: 'error', restoreError: code(reason) })
+          else publish({ restoreStatus: 'ready' })
+          return
+        }
+      }
+      if (needsPersist) persist()
       publish({ restoreStatus: 'ready' })
     } catch (reason) {
       if (!disposed && current().revision === initial) publish({ restoreStatus: 'error', restoreError: code(reason) })
@@ -497,17 +716,69 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     await writeTail
     return { error: current().persistError }
   })
-  local.register(workspaceTabCommands['workspaceTabs.select'], async ({ id }) => {
+  async function select(id: string) {
     const item = current().items.find((value) => value.id === id)
     if (!item) throw new CommandError('TAB_NOT_FOUND', 'Tab is not open')
-    await options.selectSession(item.sessionId, item.workspaceId)
+    if (item.kind === 'workbench') {
+      if (!workbenchPanel(item)) throw new CommandError('TARGET_CHANGED', 'Files panel is no longer pinned')
+      if (options.navigation.getSnapshot().status === 'loading')
+        throw new CommandError('BUSY', 'Navigation is in progress')
+      if (focusedWorkbenchId !== id) {
+        focusedWorkbenchId = id
+        publish({ revision: current().revision + 1 })
+        persist()
+      }
+    } else await options.selectSession(item.sessionId, item.workspaceId)
     return { activeId: id }
-  })
+  }
+  local.register(workspaceTabCommands['workspaceTabs.select'], ({ id }) => select(id))
   local.register(workspaceTabCommands['workspaceTabs.move'], ({ id, beforeId }) => {
     move(id, beforeId)
     return { revision: current().revision }
   })
   local.register(workspaceTabCommands['workspaceTabs.capture'], ({ ids }) => [...capture(ids)])
+  local.register(
+    workspaceTabCommands['workspaceTabs.openWorkbench'],
+    ({ panelInstanceId, sourceSessionId, workspaceId }) => ({
+      id: openWorkbench(panelInstanceId, sourceSessionId, workspaceId),
+    }),
+  )
+  local.register(workspaceTabCommands['workspaceTabs.returnToSource'], async ({ id, instanceKey }, execution) => {
+    if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
+    const item = current().items.find(
+      (candidate): candidate is WorkbenchTabRef => candidate.kind === 'workbench' && candidate.id === id,
+    )
+    if (!item || item.instanceKey !== instanceKey) throw new CommandError('TAB_NOT_FOUND', 'Workbench tab changed')
+    if (selected() !== item.id) throw new CommandError('COMMAND_CONFLICT', 'Workbench is no longer active')
+    if (item.sourceSessionId === null) {
+      const nav = options.navigation.getSnapshot()
+      if (nav.status === 'loading') throw new CommandError('BUSY', 'Navigation is in progress')
+      focusedWorkbenchId = null
+      restoredWorkspaceId = item.workspaceId
+      options.commitLocalSelection(nav.sessionId, { workspaceId: item.workspaceId, sessionId: null })
+      publish({ items: current().items.filter((candidate) => candidate !== item), revision: current().revision + 1 })
+      persist()
+      return { activeId: selected() }
+    }
+    const source = current().items.find(
+      (candidate): candidate is SessionTabRef =>
+        candidate.kind === 'session' &&
+        candidate.id === item.sourceSessionId &&
+        candidate.workspaceId === item.workspaceId,
+    )
+    if (source) {
+      try {
+        await options.selectSession(source.sessionId, source.workspaceId)
+        // Navigation owns the source selection and a successful Host validation.
+        await closeCaptured([{ id, instanceKey, sessionId: null }], execution.signal ?? new AbortController().signal)
+        return { activeId: selected() }
+      } catch (reason) {
+        if (!['SESSION_NOT_FOUND', 'SESSION_ARCHIVED', 'WORKSPACE_NOT_FOUND'].includes(code(reason))) throw reason
+      }
+    }
+    await closeCaptured([{ id, instanceKey, sessionId: null }], execution.signal ?? new AbortController().signal)
+    return { activeId: selected() }
+  })
   return {
     reader: state.reader,
     hooks,
@@ -516,14 +787,13 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     move,
     closeCaptured,
     whenIdle: () => writeTail,
-    async select(id: string) {
-      const item = current().items.find((value) => value.id === id)
-      if (!item) throw new CommandError('TAB_NOT_FOUND', 'Tab is not open')
-      await options.selectSession(item.sessionId, item.workspaceId)
+    select: async (id: string) => {
+      await select(id)
     },
     dispose() {
       disposed = true
       navigationUnsubscribe()
+      surfaceUnsubscribe()
       reservations.clear()
       confirmedCreations.clear()
       state.dispose()

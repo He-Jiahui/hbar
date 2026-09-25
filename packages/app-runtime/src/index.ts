@@ -228,6 +228,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const workspaceTabs = createWorkspaceTabs(local, {
     navigation: navigation.reader,
     directory: directory.reader,
+    surfaces: surfaces.reader,
     queries: directory.queries,
     preferences: clientPersistence.preferences,
     preferenceCommands: local,

@@ -62,6 +62,7 @@ export function registerNavigationCommands(
       if (isDisposed() || execution.signal?.aborted || generation !== current)
         throw new SessionSelectionError('NAVIGATION_SUPERSEDED')
       if ('session' in selection && selection.session) tabs?.commitSelected(selection.session)
+      else tabs?.commitWorkspaceSelection()
       navigation.replace({
         workspaceId: selection.workspaceId,
         sessionId: selection.sessionId,
@@ -172,7 +173,7 @@ export function registerNavigationCommands(
     }))
   })
   return {
-    commitLocalSelection(closedId: string, next: { workspaceId: string; sessionId: string | null }) {
+    commitLocalSelection(closedId: string | null, next: { workspaceId: string; sessionId: string | null }) {
       const current = navigation.reader.getSnapshot()
       if (isDisposed() || current.status === 'loading' || current.sessionId !== closedId) return
       generation += 1
