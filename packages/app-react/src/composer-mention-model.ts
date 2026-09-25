@@ -1,5 +1,5 @@
 import type { ChangeDesc } from '@codemirror/state'
-import type { PromptMention } from '@hbar/contracts/commands/draft'
+import type { PromptMention } from '@hbar/app-runtime'
 
 /** CodeMirror offsets are UTF-16, the same coordinate system as JS string slices. */
 export function mapMentionSpans(mentions: readonly PromptMention[], changes: ChangeDesc): PromptMention[] {

@@ -20,6 +20,7 @@ import {
   projectSessionDecisions,
   sessionDecisionAction,
   type PlanProposalState,
+  type PromptMention,
   type SessionDecision,
 } from '@hbar/app-runtime'
 import type { HbarProposedPlanLabels } from './proposed-plan'
@@ -196,7 +197,7 @@ export function HbarSessionWorkspace({
   const saveComposerContent = (
     targetSessionId: string,
     text: string,
-    mentions: readonly import('@hbar/contracts/commands/draft').PromptMention[],
+    mentions: readonly PromptMention[],
     expectedRevision: number,
   ) => {
     const promise = execute('draft.setContent', { sessionId: targetSessionId, text, mentions, expectedRevision })

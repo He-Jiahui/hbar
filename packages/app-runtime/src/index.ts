@@ -39,6 +39,8 @@ export { sessionMessageForkCommands, messageForkActionKey } from './session-mess
 export type { SessionMessageForkState, SessionMessageForkAction } from './session-message-fork-navigation'
 export { MAX_WORKSPACE_TABS } from './workspace-tabs-runtime'
 export { isWorkspaceRelativePath } from './composer-mentions'
+export { parseComposerFilePage, parseComposerPathSearch } from './composer-mention-query'
+export type { PromptMention } from '@hbar/contracts/commands/draft'
 export type {
   WorkspaceTabRef,
   WorkspaceTabsState,

@@ -3,8 +3,20 @@ import { CommandError, CommandRegistry } from '@hbar/commands'
 import { createDrafts } from '../packages/app-runtime/src/drafts'
 import { serializeMentions } from '../packages/app-runtime/src/composer-mentions'
 import type { RunCommandPort } from '@hbar/app-runtime'
+import { parseComposerFilePage, parseComposerPathSearch } from '@hbar/app-runtime'
 
 const mention = { start: 7, end: 15, label: 'file.ts', path: 'src/file.ts', workspaceId: 'w1', directory: false }
+
+test('public runtime seam validates Host path-search and directory-page response shapes', () => {
+  expect(parseComposerPathSearch({ paths: ['src/file.ts'], truncated: false, filesChecked: 1 }).paths).toEqual([
+    'src/file.ts',
+  ])
+  expect(
+    parseComposerFilePage({ items: [{ name: 'src', path: 'src', directory: true }], nextCursor: 'src' }).items,
+  ).toHaveLength(1)
+  expect(() => parseComposerPathSearch({ paths: ['/etc/passwd'], truncated: 'no', filesChecked: 1 })).toThrow()
+  expect(() => parseComposerFilePage({ items: [{ name: 'src', path: 'src', directory: 'yes' }] })).toThrow()
+})
 
 test('only captured mention spans serialize; identical handwritten text remains literal', () => {
   expect(serializeMentions('Review @file.ts and @file.ts', [mention], 'w1')).toBe('Review @"src/file.ts" and @file.ts')

@@ -4,10 +4,12 @@ import { defaultKeymap, history, historyKeymap, insertNewline, invertedEffects }
 import { Compartment, EditorState, Prec, StateEffect, StateField, Transaction } from '@codemirror/state'
 import { Decoration, EditorView, keymap, placeholder, WidgetType } from '@codemirror/view'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
-import { workspaceFilePageSchema } from '@hbar/contracts/commands/files'
-import { workspaceFindResultSchema } from '@hbar/contracts/workspace-query'
-import type { PromptMention } from '@hbar/contracts/commands/draft'
-import { isWorkspaceRelativePath } from '@hbar/app-runtime'
+import {
+  isWorkspaceRelativePath,
+  parseComposerFilePage,
+  parseComposerPathSearch,
+  type PromptMention,
+} from '@hbar/app-runtime'
 import { mapMentionSpans } from './composer-mention-model'
 import './composer-mention-editor.css'
 
@@ -445,7 +447,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
         const [listed, found] = await Promise.all([
           props.files
             .execute('file.list', { workspaceId: props.workspaceId, path: browsePath, limit: MAX_ROWS })
-            .then((value) => workspaceFilePageSchema.parse(value)),
+            .then(parseComposerFilePage),
           trigger.term
             ? props.files
                 .execute('file.find', {
@@ -454,7 +456,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
                   query: trigger.term,
                   limit: MAX_ROWS,
                 })
-                .then((value) => workspaceFindResultSchema.parse(value))
+                .then(parseComposerPathSearch)
             : Promise.resolve(null),
         ])
         if (!live || revisionRef.current !== revision) return
@@ -522,7 +524,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
     setSearch((previous) => (previous?.target === target ? { ...previous, loadingMore: true } : previous))
     void props.files
       .execute('file.list', { workspaceId: props.workspaceId, path: browsePath, limit: MAX_ROWS, after: cursor })
-      .then((value) => workspaceFilePageSchema.parse(value))
+      .then(parseComposerFilePage)
       .then((page) => {
         if (searchRef.current?.target !== target || revisionRef.current !== menu.revision) return
         setSearch((previous) =>
