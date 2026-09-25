@@ -65,7 +65,7 @@ describe('hbar-app-ui app dialog surfaces', () => {
     expect(render(1, content)).toContain('No plan changes')
     expect(render(7, content)).toContain('No actions')
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
-    expect(render(7)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+    expect(render(7)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
   })
 
   test('plan comparison keeps source landmarks, row semantics and host-owned arrow', () => {
@@ -315,6 +315,52 @@ describe('hbar-app-ui app dialog surfaces', () => {
     expect(plan.samples.map((sample) => sample.suffix)).toEqual([
       '2:click', '3:click', 'evidence-body:scroll:end', '2:press-space',
       '1:click', 'dialog-evidence-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
+
+  test('report actions preserve the reference dialog/menu hierarchy and host-owned submenu options', () => {
+    const value = render(7)
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('aria-haspopup="dialog" aria-expanded="true"')
+    expect(value).toContain('role="dialog"')
+    expect(value).toContain('role="menu"')
+    expect(value).toContain('role="separator"')
+    expect(value).toContain('aria-haspopup="menu" aria-expanded="false"')
+    expect(value.indexOf('Rename report')).toBeLessThan(value.indexOf('Export as'))
+    expect(value.indexOf('Export as')).toBeLessThan(value.indexOf('Delete report'))
+    const localized = render(7, createHbarAppUiAppDialogLocalizedFixtures())
+    expect(localized).toContain('重命名年度安全审计报告并更新索引')
+    expect(localized).toContain('报告操作菜单')
+    expect(localized).not.toContain('Rename report')
+  })
+
+  test('report actions keep legacy rendering and explicit empty, one, capacity and overflow records', () => {
+    const menu = HBAR_APP_UI_APP_DIALOG_FIXTURES.menu!
+    expect(render(7, { menu: { ...menu, referenceLayout: undefined } })).toContain('lumen-app-dialog-menu-stage')
+    for (const count of [0, 1, 16, 17]) {
+      const items = Array.from({ length: count }, (_, index) => ({ id: `item-${index}`, label: `Action ${index}` }))
+      const content = { menu: { ...menu, items: [...items, ...items.slice(0, 1)] } }
+      expect(uniqueHbarAppUiAppDialogItems(content.menu.items)).toHaveLength(count)
+      expect(render(7, content)).toContain('data-hbar-app-ui-component="hbar-app-ui-app-dialog-7"')
+    }
+    expect(render(7, appDialogFixture('menu-empty'))).toContain('No actions')
+    expect(appDialogFixture('menu-overflow').menu!.items).toHaveLength(17)
+    for (const [fixture, count] of [
+      ['menu-no-export', 0], ['menu-one-export', 1],
+      ['menu-export-capacity', 8], ['menu-export-overflow', 9],
+    ] as const) {
+      const options = appDialogFixture(fixture).menu!.referenceLayout!.exportOptions
+      expect(options).toHaveLength(count)
+      expect(uniqueHbarAppUiAppDialogItems(options)).toHaveLength(count)
+    }
+  })
+
+  test('report action sampling separates selection, submenu, keyboard dismissal and reopening', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-7')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '1:click', '3:hover', 'dialog-menu-export:4:click', 'dialog-menu-delete-keyboard:6:press-space',
+      '1:menu-escape', 'dialog-menu-closed:0:click',
     ])
     expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })

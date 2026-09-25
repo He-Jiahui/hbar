@@ -561,6 +561,31 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-7')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-menu-reference.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Ordinary selection dismisses the menu and reports the selected action and report' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:hover', change: 'Export hover reveals the real nested CSV/Excel/PDF menu' },
+        { viewport: 'mobile', theme: 'light', suffix: 'dialog-menu-export:4:click', change: 'Nested CSV selection dismisses both menus and reports a distinct export result' },
+        { viewport: 'stress', theme: 'dark', suffix: 'dialog-menu-delete-keyboard:6:press-space', change: 'End navigates to the dangerous item before native Space activation and its target-specific result' },
+        { viewport: 'tablet', theme: 'light', suffix: '1:menu-escape', change: 'Escape dismisses the menu without inventing a selection' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'dialog-menu-closed:0:click', change: 'The closed trigger reopens the same dialog/menu hierarchy' },
+      ],
+      inferences: [
+        {
+          scope: 'Other ordinary action rows, Export formats, repeated gestures and equivalent menu selection outcomes',
+          basis: 'The six source menuitem roles and three nested options were structurally observed. One ordinary result, one danger keyboard result and a nested export result traverse the distinct handlers; remaining ID-bound labels are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme action permutations, reverse keyboard navigation and passive separators',
+          basis: 'Eight static source/local pairs establish centered overlay geometry in four widths and two themes. Representative hover, narrow submenu selection, Escape and reopen cover state transitions; equivalent permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-6')
     return {
       revision: 1,

@@ -229,23 +229,64 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
     labels: {
       trigger: 'Report actions',
       menu: 'Report actions',
-      submenu: (label) => `${label} submenu`,
+      submenu: (label) => label,
       empty: 'No actions',
     },
     items: [
-      { id: 'rename', label: 'Rename report', shortcut: '⌘R' },
-      { id: 'duplicate', label: 'Duplicate', shortcut: '⌘D' },
-      { id: 'export', label: 'Export as', submenu: true, separatorBefore: true },
-      { id: 'copy', label: 'Copy link', shortcut: '⌘⇧C' },
-      { id: 'archive', label: 'Move to archive', separatorBefore: true },
-      { id: 'delete', label: 'Delete report', danger: true },
+      { id: 'rename', label: 'Rename report', shortcut: '⌘R', icon: 'rename' },
+      { id: 'duplicate', label: 'Duplicate', shortcut: '⌘D', icon: 'duplicate' },
+      { id: 'export', label: 'Export as', submenu: true, separatorBefore: true, icon: 'export' },
+      { id: 'copy', label: 'Copy link', shortcut: '⌘⇧C', icon: 'link' },
+      { id: 'archive', label: 'Move to archive', separatorBefore: true, icon: 'archive' },
+      { id: 'delete', label: 'Delete report', danger: true, icon: 'delete' },
     ],
-    listStrategy: grown,
+    listStrategy: { kind: 'pane-scroll', expectedMaximum: 16 },
+    referenceLayout: {
+      targetLabel: 'Weekly active users',
+      visibleItemLimit: 6,
+      exportOptions: [{ id: 'csv', label: 'CSV' }, { id: 'excel', label: 'Excel' }, { id: 'pdf', label: 'PDF' }],
+      labels: {
+        selected: (label) => `${label} selected`,
+        exportedAs: (label) => `Exported as ${label}`,
+        appliedTo: (target) => `Applied to ${target}.`,
+        emptyExport: 'No export formats',
+      },
+    },
   },
 }
 
 export function appDialogFixture(name: string | null): HbarAppUiAppDialogContent {
   if (name === 'localized') return createHbarAppUiAppDialogLocalizedFixtures()
+  if (name === 'menu-empty' || name === 'menu-overflow') {
+    const menu = HBAR_APP_UI_APP_DIALOG_FIXTURES.menu!
+    return {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+      menu: {
+        ...menu,
+        items: name === 'menu-empty' ? [] : Array.from({ length: 17 }, (_, index) => ({
+          id: `action-${index}`, label: `Report action ${index + 1}`, icon: 'export' as const,
+        })),
+      },
+    }
+  }
+  if (name === 'menu-no-export' || name === 'menu-one-export' ||
+      name === 'menu-export-capacity' || name === 'menu-export-overflow') {
+    const menu = HBAR_APP_UI_APP_DIALOG_FIXTURES.menu!
+    const count = name === 'menu-no-export' ? 0 : name === 'menu-one-export' ? 1
+      : name === 'menu-export-capacity' ? 8 : 9
+    return {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+      menu: {
+        ...menu,
+        referenceLayout: {
+          ...menu.referenceLayout!,
+          exportOptions: Array.from({ length: count }, (_, index) => ({
+            id: `format-${index}`, label: `Format ${index + 1}`,
+          })),
+        },
+      },
+    }
+  }
   if (name === 'evidence-empty' || name === 'evidence-overflow') {
     const evidence = HBAR_APP_UI_APP_DIALOG_FIXTURES.evidence!
     return {
@@ -491,6 +532,27 @@ export function createHbarAppUiAppDialogLocalizedFixtures(): HbarAppUiAppDialogC
           archivedTitle: '报告已归档',
           downloadTitle: '下载已开始',
           resultDetail: '年度安全审计报告 · PDF · 4.2 MB',
+        },
+      },
+    },
+    menu: {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES.menu!,
+      labels: {
+        trigger: '报告操作菜单',
+        menu: '报告操作',
+        submenu: (label) => `${label}的子菜单`,
+        empty: '没有可用操作',
+      },
+      items: [{ id: 'rename', label: '重命名年度安全审计报告并更新索引', shortcut: '⌘R', icon: 'rename' }],
+      referenceLayout: {
+        targetLabel: '跨区域年度安全审计与合规报告',
+        visibleItemLimit: 6,
+        exportOptions: [{ id: 'csv', label: '逗号分隔值' }],
+        labels: {
+          selected: (label) => `已选择${label}`,
+          exportedAs: (label) => `已导出为${label}`,
+          appliedTo: (target) => `已应用到${target}。`,
+          emptyExport: '没有可用的导出格式',
         },
       },
     },

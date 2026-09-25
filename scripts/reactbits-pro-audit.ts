@@ -318,6 +318,9 @@ export type InteractionCase = Readonly<{
     | 'dialog-alert-closed'
     | 'dialog-evidence-scroll'
     | 'dialog-evidence-closed'
+    | 'dialog-menu-export'
+    | 'dialog-menu-closed'
+    | 'dialog-menu-delete-keyboard'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1610,6 +1613,27 @@ async function prepareDialogEvidenceClosed(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Close panel', exact: true }).click()
   await root.getByRole('dialog', { name: 'SOC 2 Type II report' }).waitFor({ state: 'hidden' })
 }
+async function prepareDialogMenuScenario(root: Locator, scenario: 'dialog-menu-export' | 'dialog-menu-closed' | 'dialog-menu-delete-keyboard'): Promise<void> {
+  if (scenario === 'dialog-menu-export') {
+    await root.getByRole('menuitem', { name: 'Export as' }).hover()
+    await root.getByRole('menu', { name: 'Export as' }).waitFor()
+  } else if (scenario === 'dialog-menu-closed') {
+    await root.getByRole('menuitem', { name: /Rename report/ }).press('Escape')
+    await root.getByRole('dialog', { name: 'Report actions' }).waitFor({ state: 'hidden' })
+  } else {
+    await root.getByRole('menuitem', { name: /Rename report/ }).press('End')
+    await root.getByRole('menuitem', { name: 'Delete report' }).evaluate((element) => {
+      if (document.activeElement !== element) throw new Error('Keyboard End did not focus the dangerous action')
+    })
+  }
+}
+async function settleDialogMenuFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
+  if (interaction.action === 'click' && interaction.control.name === 'Export as') return
+  if (interaction.action === 'click' && interaction.control.role === 'menuitem' ||
+      interaction.action === 'press' && interaction.key === 'Space' && interaction.control.role === 'menuitem' ||
+      interaction.action === 'press' && interaction.key === 'Escape' && interaction.control.role === 'menuitem')
+    await root.getByRole('dialog', { name: 'Report actions' }).waitFor({ state: 'hidden' })
+}
 async function settleDialogEvidenceFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
   if (interaction.id === 'hbar-app-ui-app-dialog-6:1:click')
     await root.getByRole('dialog', { name: 'SOC 2 Type II report' }).waitFor({ state: 'hidden' })
@@ -2876,7 +2900,24 @@ async function interactionDelta(
     const live = liveActivityDelta(before, after)
     if (live) return live
   }
+  if (interaction.id.startsWith('hbar-app-ui-app-dialog-7:'))
+    return dialogMenuInteractionDelta(before, after)
   return semanticInteractionDelta(before, after)
+}
+
+export function dialogMenuInteractionDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> {
+  const base = semanticInteractionDelta(before, after)
+  const result = (snapshot: SemanticSnapshot) => snapshot.axSnapshot.split('\n')
+    .filter((line) => /^- paragraph: /.test(line))
+    .map((line) => line.slice('- paragraph: '.length))
+  const beforeResult = result(before), afterResult = result(after)
+  return {
+    changed: base.changed || JSON.stringify(beforeResult) !== JSON.stringify(afterResult),
+    signature: JSON.stringify({ base: base.signature, beforeResult, afterResult }),
+  }
 }
 
 export function semanticInteractionDelta(
@@ -3113,6 +3154,10 @@ async function replayInteraction(
   }
   if (spec.id === 'hbar-app-ui-app-dialog-6' && interaction.scenario === 'dialog-evidence-closed')
     await prepareDialogEvidenceClosed(root)
+  if (spec.id === 'hbar-app-ui-app-dialog-7' &&
+      (interaction.scenario === 'dialog-menu-export' || interaction.scenario === 'dialog-menu-closed' ||
+       interaction.scenario === 'dialog-menu-delete-keyboard'))
+    await prepareDialogMenuScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3179,6 +3224,7 @@ async function replayInteraction(
   await page.waitForTimeout(120)
   if (spec.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (spec.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
+  if (spec.id === 'hbar-app-ui-app-dialog-7') await settleDialogMenuFeedback(root, interaction)
   if (isScrollAwareApproval(spec.id)) await settleInlineApprovalScroll(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => {
@@ -3294,6 +3340,10 @@ async function replayReferenceInteraction(
   }
   if (reference.id === 'hbar-app-ui-app-dialog-6' && interaction.scenario === 'dialog-evidence-closed')
     await prepareDialogEvidenceClosed(root)
+  if (reference.id === 'hbar-app-ui-app-dialog-7' &&
+      (interaction.scenario === 'dialog-menu-export' || interaction.scenario === 'dialog-menu-closed' ||
+       interaction.scenario === 'dialog-menu-delete-keyboard'))
+    await prepareDialogMenuScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3396,6 +3446,7 @@ async function replayReferenceInteraction(
   }
   if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (reference.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
+  if (reference.id === 'hbar-app-ui-app-dialog-7') await settleDialogMenuFeedback(root, interaction)
   if (isScrollAwareApproval(reference.id)) await settleInlineApprovalScroll(root)
   if (runningCheckpoint) {
     const afterCheckpoint = await runningLogCheckpoint(root)
@@ -3976,6 +4027,20 @@ async function runInteractionsParallel(
               if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-evidence-closed:`))) {
                 await prepareDialogEvidenceClosed(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-evidence-closed'))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-7') {
+              if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-menu-delete-keyboard:`))) {
+                await prepareDialogMenuScenario(sourceRoot, 'dialog-menu-delete-keyboard')
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-delete-keyboard'))
+              }
+              if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-menu-export:`))) {
+                await prepareDialogMenuScenario(sourceRoot, 'dialog-menu-export')
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-export'))
+              }
+              if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-menu-closed:`))) {
+                await prepareDialogMenuScenario(sourceRoot, 'dialog-menu-closed')
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-closed'))
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

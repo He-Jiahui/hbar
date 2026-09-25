@@ -153,6 +153,7 @@ import {
   semanticRoleTree,
   semanticRoleTreeMatches,
   semanticInteractionDelta,
+  dialogMenuInteractionDelta,
   timedActivityDelta,
   visibleControls,
   type ControlSnapshot,
@@ -206,6 +207,14 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('dialog menu result matching cannot equate different same-length action labels', () => {
+    const before = { ...snapshot([control(0)]), axSnapshot: '- button "Report actions" [expanded]' }
+    const rename = { ...snapshot([control(0)]), axSnapshot: '- button "Report actions"\n- paragraph: Rename report selected\n- paragraph: Applied to Weekly active users.', bodyTextLength: 73 }
+    const deleted = { ...rename, axSnapshot: '- button "Report actions"\n- paragraph: Delete report selected\n- paragraph: Applied to Weekly active users.' }
+    expect(rename.bodyTextLength).toBe(deleted.bodyTextLength)
+    expect(semanticInteractionDelta(before, rename).signature).toBe(semanticInteractionDelta(before, deleted).signature)
+    expect(dialogMenuInteractionDelta(before, rename).signature).not.toBe(dialogMenuInteractionDelta(before, deleted).signature)
+  })
   test('counts actual text input changes as feedback independently of semantic roles', () => {
     const input = control(0, { tag: 'input', type: 'text', name: '', value: '' })
     const before = snapshot([input])

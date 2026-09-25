@@ -89,6 +89,17 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Dialog 7: the scrim, trigger-anchored dialog/submenu and action result
+  // demonstrably float above the centered trigger and flowing menu rows.
+  if (/packages\/lumen-app-ui\/src\/app-dialog-menu-reference\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = [
+      '.lumen-app-dialog-reference-menu-scrim',
+      '.lumen-app-dialog-reference-menu-dialog',
+      '.lumen-app-dialog-reference-submenu',
+      '.lumen-app-dialog-reference-menu-result',
+    ]
+    if (selector.split(',').every((part) => overlays.some((name) => part.trim().endsWith(name)))) return true
+  }
   // App Dialog 6: only the post-action result toast floats over the edge drawer.
   if (/packages\/lumen-app-ui\/src\/app-dialog-evidence\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.lumen-app-dialog-evidence-toast') return true
