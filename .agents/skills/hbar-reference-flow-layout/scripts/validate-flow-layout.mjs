@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Dialog 6: only the post-action result toast floats over the edge drawer.
+  if (/packages\/lumen-app-ui\/src\/app-dialog-evidence\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-app-dialog-evidence-toast') return true
   // App Dialog 5: the reference guards unsaved changes with a modal scrim
   // and shows a result toast after the drawer closes; their contents flow.
   if (/packages\/lumen-app-ui\/src\/app-dialog-alert\.css$/.test(path.replaceAll('\\', '/'))) {

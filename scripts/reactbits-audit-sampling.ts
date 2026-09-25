@@ -561,6 +561,31 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-6')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-evidence.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Archive preserves the sheet and reports its own result' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Download preserves the sheet and reports a different result' },
+        { viewport: 'mobile', theme: 'light', suffix: 'evidence-body:scroll:end', change: 'The observed sheet body scroll reveals the remaining history above a fixed footer' },
+        { viewport: 'stress', theme: 'dark', suffix: '2:press-space', change: 'Native keyboard activation reaches the narrow Archive action' },
+        { viewport: 'tablet', theme: 'light', suffix: '1:click', change: 'Close dismisses the sheet without an action result' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'dialog-evidence-closed:0:click', change: 'The closed trigger reopens the sheet' },
+      ],
+      inferences: [
+        {
+          scope: 'Other passive metadata, control and history rows, repeated values and equivalent Download activation',
+          basis: 'These rows are not controls in the live iframe. Scroll ownership and both distinct action results are replayed; passive rows and repeated keyboard/pointer gestures are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme interaction permutations and reverse scroll gesture',
+          basis: 'Eight static pairs cover the four widths in light/dark. The sampled mobile scroll proves body ownership and fixed footer, while desktop/narrow action branches are replayed. Equivalent permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-5')
     return {
       revision: 1,

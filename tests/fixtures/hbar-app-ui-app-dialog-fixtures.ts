@@ -184,7 +184,7 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
     labels: {
       trigger: 'View evidence details',
       title: 'SOC 2 Type II report',
-      close: 'Close evidence details',
+      close: 'Close panel',
       controls: 'Controls covered',
       history: 'History',
       archive: 'Archive',
@@ -210,8 +210,20 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
       { id: 'cc72', code: 'CC7.2', label: 'Security monitoring' },
       { id: 'a12', code: 'A1.2', label: 'Availability commitments' },
     ],
-    history: [{ id: 'upload', time: 'Jun 18, 2024', label: 'Report uploaded by Priya Raman' }],
+    history: [
+      { id: 'upload', time: 'Jun 18, 2024', label: 'Report uploaded by Priya Raman' },
+      { id: 'period', time: 'Jun 14, 2024', label: 'Audit period closed' },
+      { id: 'collection', time: 'Jan 2, 2024', label: 'Evidence collection started' },
+    ],
     listStrategy: scroll,
+    referenceLayout: {
+      labels: {
+        separator: '·',
+        archivedTitle: 'Report archived',
+        downloadTitle: 'Download started',
+        resultDetail: 'SOC 2 Type II report · PDF · 4.2 MB',
+      },
+    },
   },
   menu: {
     labels: {
@@ -234,6 +246,22 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
 
 export function appDialogFixture(name: string | null): HbarAppUiAppDialogContent {
   if (name === 'localized') return createHbarAppUiAppDialogLocalizedFixtures()
+  if (name === 'evidence-empty' || name === 'evidence-overflow') {
+    const evidence = HBAR_APP_UI_APP_DIALOG_FIXTURES.evidence!
+    return {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+      evidence: {
+        ...evidence,
+        details: name === 'evidence-empty' ? [] : Array.from({ length: 81 }, (_, index) => ({
+          id: `item-${index}`,
+          label: `Property ${index + 1}`,
+          value: `Value ${index + 1}`,
+        })),
+        controls: name === 'evidence-empty' ? [] : evidence.controls,
+        history: name === 'evidence-empty' ? [] : evidence.history,
+      },
+    }
+  }
   if (name === 'alert-save-failure') {
     const alert = HBAR_APP_UI_APP_DIALOG_FIXTURES.alert!
     let attempts = 0
@@ -434,6 +462,35 @@ export function createHbarAppUiAppDialogLocalizedFixtures(): HbarAppUiAppDialogC
           emptyChannels: '没有可用的发送渠道',
           saving: '正在保存修改…',
           saveError: '未能保存规则，请重试。',
+        },
+      },
+    },
+    evidence: {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES.evidence!,
+      labels: {
+        trigger: '查看审计证据详情',
+        title: '年度安全审计报告',
+        close: '关闭详情侧栏',
+        controls: '覆盖的控制项',
+        history: '变更历史',
+        archive: '归档',
+        download: '下载',
+        emptyDetails: '暂无证据属性',
+        emptyControls: '暂无控制项',
+        emptyHistory: '暂无历史记录',
+      },
+      status: '有效',
+      reference: 'AUDIT-2026',
+      description: '跨部门年度安全审计内容，包含多个地域团队的访问控制、留存与持续监测记录。',
+      details: [{ id: 'owner', label: '负责人', value: '生产环境安全与合规协作小组' }],
+      controls: [{ id: 'ac2', code: 'AC-2', label: '跨区域账号与权限管理' }],
+      history: [{ id: 'upload', time: '2026年9月25日', label: '审计报告由团队上传并等待确认' }],
+      referenceLayout: {
+        labels: {
+          separator: '·',
+          archivedTitle: '报告已归档',
+          downloadTitle: '下载已开始',
+          resultDetail: '年度安全审计报告 · PDF · 4.2 MB',
         },
       },
     },

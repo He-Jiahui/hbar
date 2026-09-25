@@ -316,6 +316,8 @@ export type InteractionCase = Readonly<{
     | 'dialog-alert-dirty'
     | 'dialog-alert-guard'
     | 'dialog-alert-closed'
+    | 'dialog-evidence-scroll'
+    | 'dialog-evidence-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1604,6 +1606,48 @@ const dialogWizardScenarios = [
   'dialog-wizard-team-custom', 'dialog-wizard-closed',
 ] as const
 const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
+async function prepareDialogEvidenceClosed(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Close panel', exact: true }).click()
+  await root.getByRole('dialog', { name: 'SOC 2 Type II report' }).waitFor({ state: 'hidden' })
+}
+async function settleDialogEvidenceFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
+  if (interaction.id === 'hbar-app-ui-app-dialog-6:1:click')
+    await root.getByRole('dialog', { name: 'SOC 2 Type II report' }).waitFor({ state: 'hidden' })
+}
+async function dialogEvidenceScrollOwner(root: Locator): Promise<Locator> {
+  const descendants = root.getByRole('dialog', { name: 'SOC 2 Type II report' }).locator('div')
+  const index = await descendants.evaluateAll((elements) => elements.findIndex((element) => {
+    const style = getComputedStyle(element)
+    return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
+  }))
+  if (index < 0) throw new Error('React Bits evidence body is not an observed scroll owner')
+  return descendants.nth(index)
+}
+async function observeDialogEvidenceScroll(root: Locator, variantId: string): Promise<InteractionCase> {
+  const pane = await dialogEvidenceScrollOwner(root)
+  const observed = await pane.evaluate((element) => {
+    const style = getComputedStyle(element), rect = element.getBoundingClientRect()
+    return {
+      tag: element.tagName.toLowerCase(),
+      role: element.getAttribute('role'),
+      visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden',
+      scrollable: ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1,
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    }
+  })
+  if (observed.tag !== 'div' || !observed.visible || !observed.scrollable)
+    throw new Error('React Bits evidence body is not an observed scroll owner')
+  return {
+    id: `${variantId}:evidence-body:scroll:end`, action: 'scroll', scenario: 'dialog-evidence-scroll',
+    wheelDeltaY: 2000,
+    control: {
+      index: 0, tag: 'div', role: observed.role, type: null, name: '', disabled: false,
+      visible: true, rect: observed.rect, expanded: null, pressed: null, selected: null,
+      state: null, stablePath: 'dialog > div', labelFor: null, describedBy: null,
+      capabilities: ['scroll'], options: [],
+    },
+  }
+}
 async function prepareDialogAlertScenario(root: Locator, scenario: (typeof dialogAlertScenarios)[number]): Promise<void> {
   if (scenario === 'dialog-alert-closed') {
     await root.getByRole('button', { name: 'Cancel', exact: true }).click()
@@ -2577,6 +2621,7 @@ export function selectInteractionCases(
 }
 
 async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
+  if (scenario === 'dialog-evidence-scroll') return dialogEvidenceScrollOwner(root)
   if (scenario === 'usage-model-row') {
     passiveModelRowHoverCase('probe', control)
     return root.getByText('Atlas Pro', { exact: true }).locator('../../..')
@@ -2624,7 +2669,7 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
   if (interaction.action === 'scroll') {
     if (
-      !['board-column-scroll', 'board-stack-scroll'].includes(interaction.scenario ?? '') ||
+      !['board-column-scroll', 'board-stack-scroll', 'dialog-evidence-scroll'].includes(interaction.scenario ?? '') ||
       !Number.isFinite(interaction.wheelDeltaY) ||
       !interaction.wheelDeltaY
     )
@@ -3066,6 +3111,8 @@ async function replayInteraction(
     const scenario = dialogAlertScenarios.find((value) => value === interaction.scenario)
     if (scenario) await prepareDialogAlertScenario(root, scenario)
   }
+  if (spec.id === 'hbar-app-ui-app-dialog-6' && interaction.scenario === 'dialog-evidence-closed')
+    await prepareDialogEvidenceClosed(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3131,6 +3178,7 @@ async function replayInteraction(
   }
   await page.waitForTimeout(120)
   if (spec.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
+  if (spec.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
   if (isScrollAwareApproval(spec.id)) await settleInlineApprovalScroll(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => {
@@ -3244,6 +3292,8 @@ async function replayReferenceInteraction(
     const scenario = dialogAlertScenarios.find((value) => value === interaction.scenario)
     if (scenario) await prepareDialogAlertScenario(root, scenario)
   }
+  if (reference.id === 'hbar-app-ui-app-dialog-6' && interaction.scenario === 'dialog-evidence-closed')
+    await prepareDialogEvidenceClosed(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3345,6 +3395,7 @@ async function replayReferenceInteraction(
     await page.waitForTimeout(120)
   }
   if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
+  if (reference.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
   if (isScrollAwareApproval(reference.id)) await settleInlineApprovalScroll(root)
   if (runningCheckpoint) {
     const afterCheckpoint = await runningLogCheckpoint(root)
@@ -3917,6 +3968,14 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareDialogAlertScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-6') {
+              if (!sampleIds || sampleIds.includes(`${spec.id}:evidence-body:scroll:end`))
+                discovered.push(await observeDialogEvidenceScroll(sourceRoot, spec.id))
+              if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-evidence-closed:`))) {
+                await prepareDialogEvidenceClosed(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-evidence-closed'))
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

@@ -358,7 +358,8 @@ function PreviewApp() {
     () => {
       const params = new URLSearchParams(window.location.search)
         return appDialogFixture(
-          params.get('appDialogAlertFixture') ?? params.get('appDialogWizardFixture') ?? params.get('appDialogDeleteFixture'),
+          params.get('appDialogEvidenceFixture') ?? params.get('appDialogAlertFixture') ??
+          params.get('appDialogWizardFixture') ?? params.get('appDialogDeleteFixture'),
         )
     },
     [],

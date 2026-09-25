@@ -274,4 +274,48 @@ describe('hbar-app-ui app dialog surfaces', () => {
     ])
     expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })
+
+  test('evidence sheet preserves reference landmarks, metadata, lists and host-owned inline text', () => {
+    const value = render(6)
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('role="banner"')
+    expect(value).toContain('role="contentinfo"')
+    expect(value).toContain('aria-label="Close panel"')
+    expect(value).toContain('<dl class="lumen-app-dialog-evidence-details">')
+    expect(value).toContain('<h3>Controls covered</h3>')
+    expect(value).toContain('<h3>History</h3>')
+    expect(value).toContain('data-hbar-app-ui-scroll-owner="pane-scroll"')
+    expect(value.indexOf('Current')).toBeLessThan(value.indexOf('Independent audit'))
+    expect(value.indexOf('Retention')).toBeLessThan(value.indexOf('Controls covered'))
+    expect(value.indexOf('Controls covered')).toBeLessThan(value.indexOf('History'))
+    const localized = render(6, createHbarAppUiAppDialogLocalizedFixtures())
+    expect(localized).toContain('跨部门年度安全审计内容')
+    expect(localized).toContain('关闭详情侧栏')
+    expect(localized).not.toContain('SOC 2 Type II report')
+  })
+
+  test('evidence records remain host-owned with explicit zero, one, capacity and overflow behavior', () => {
+    const evidence = HBAR_APP_UI_APP_DIALOG_FIXTURES.evidence!
+    expect(render(6, { evidence: { ...evidence, referenceLayout: undefined } })).toContain('lumen-app-dialog-details')
+    for (const count of [0, 1, 80, 81]) {
+      const details = Array.from({ length: count }, (_, index) => ({ id: `detail-${index}`, label: `Property ${index}`, value: `Value ${index}` }))
+      const content = { evidence: { ...evidence, details: [...details, ...details.slice(0, 1)] } }
+      expect(uniqueHbarAppUiAppDialogItems(content.evidence.details)).toHaveLength(count)
+      expect(render(6, content)).toContain('data-hbar-app-ui-component="hbar-app-ui-app-dialog-6"')
+    }
+    const empty = render(6, appDialogFixture('evidence-empty'))
+    expect(empty).toContain('No evidence details')
+    expect(empty).toContain('No controls')
+    expect(empty).toContain('No history')
+    expect(appDialogFixture('evidence-overflow').evidence!.details).toHaveLength(81)
+  })
+
+  test('evidence sampling replays scroll and two independent result mechanisms without passive-row clicks', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-6')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '2:click', '3:click', 'evidence-body:scroll:end', '2:press-space',
+      '1:click', 'dialog-evidence-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
 })
