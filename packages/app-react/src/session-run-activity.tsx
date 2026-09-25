@@ -153,30 +153,32 @@ export function HbarSessionRunActivity({
         </HbarLumenDisclosure>
       )}
       {plan && (plan.steps.length > 0 || plan.explanation) && (
-        <HbarLumenDisclosure
-          className="hbar-session-run-plan"
-          label={
-            <LumenText as="span" className="hbar-session-run-plan-label">
-              <LumenText as="span">{labels.planTitle}</LumenText>
-              <LumenText as="span">
-                {labels.planProgress(
-                  plan.steps.filter((step) => step.status === 'completed').length,
-                  plan.steps.length,
-                )}
+        <LumenFrame className="hbar-session-run-plan-context" data-run-id={plan.runId ?? undefined}>
+          <HbarLumenDisclosure
+            className="hbar-session-run-plan"
+            label={
+              <LumenText as="span" className="hbar-session-run-plan-label">
+                <LumenText as="span">{labels.planTitle}</LumenText>
+                <LumenText as="span">
+                  {labels.planProgress(
+                    plan.steps.filter((step) => step.status === 'completed').length,
+                    plan.steps.length,
+                  )}
+                </LumenText>
               </LumenText>
-            </LumenText>
-          }
-        >
-          {plan.explanation && <LumenText as="p">{plan.explanation}</LumenText>}
-          <LumenFrame role="list" className="hbar-session-run-list">
-            {plan.steps.map((step) => (
-              <LumenFrame role="listitem" key={step.id} data-status={step.status}>
-                <LumenText as="span">{step.title}</LumenText>
-                <LumenText as="small">{labels.planStatusLabel(step.status)}</LumenText>
-              </LumenFrame>
-            ))}
-          </LumenFrame>
-        </HbarLumenDisclosure>
+            }
+          >
+            {plan.explanation && <LumenText as="p">{plan.explanation}</LumenText>}
+            <LumenFrame role="list" className="hbar-session-run-list">
+              {plan.steps.map((step) => (
+                <LumenFrame role="listitem" key={step.id} data-status={step.status}>
+                  <LumenText as="span">{step.title}</LumenText>
+                  <LumenText as="small">{labels.planStatusLabel(step.status)}</LumenText>
+                </LumenFrame>
+              ))}
+            </LumenFrame>
+          </HbarLumenDisclosure>
+        </LumenFrame>
       )}
     </LumenFrame>
   )

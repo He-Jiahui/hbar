@@ -417,15 +417,13 @@ test('agent plans stay attached to the run that created them', async ({ browser 
     await expect(activity.getByText('Completed', { exact: true }).first()).toBeVisible()
     await expect(activity.getByText('Agent plan', { exact: true })).toBeVisible()
     await expect(activity.getByText('1 of 3 completed', { exact: true })).toBeVisible()
-    const plan = activity.locator('.hbar-app-ui-run-activity-plan')
+    const plan = activity.locator('.hbar-session-run-plan')
     await expect(plan).toHaveCount(1)
-    expect(
-      await plan.evaluate((element) => element.parentElement?.classList.contains('hbar-app-ui-run-activity-item')),
-    ).toBe(true)
+    expect(await plan.evaluate((element) => Boolean(element.parentElement?.getAttribute('data-run-id')))).toBe(true)
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-summary-1440.png', fullPage: true })
 
     await plan.getByText('Agent plan', { exact: true }).click()
-    await expect(plan).toHaveAttribute('open', '')
+    await expect(plan.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
     await expect(plan.getByText('Verify the session workspace in order.', { exact: true })).toBeVisible()
     await expect(plan.getByText('Inspect the timeline', { exact: true })).toBeVisible()
     await expect(plan.getByText('Verify responsive layout', { exact: true })).toBeVisible()
@@ -482,15 +480,20 @@ test('failed session runs expose a command retry without breaking narrow layouts
     await prompt.fill('/fail')
     await page.getByRole('button', { name: 'Send' }).click()
     const activity = page.getByRole('region', { name: 'Agent activity' })
-    await expect(activity.getByText('1 run', { exact: true })).toBeVisible()
+    const runLabels = getShellCopy('en-US').session.runs
+    await expect(activity.getByRole('button', { name: runLabels.details(1), exact: true })).toBeVisible()
     await expect(activity.getByText('Failed', { exact: true })).toHaveCount(1)
     const retry = activity.getByRole('button', { name: 'Retry run' })
     await expect(retry).toHaveCount(1)
-    await expect(page.getByText('Fixture provider failure', { exact: true })).toBeVisible()
+    await expect(activity.locator('.hbar-session-run-current').getByRole('alert')).toHaveText(
+      'Fixture provider failure',
+    )
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-failed-1440.png', fullPage: true })
 
     await retry.click()
-    await expect(activity.getByText('2 runs', { exact: true })).toBeVisible()
+    const history = activity.getByRole('button', { name: runLabels.details(2), exact: true })
+    await expect(history).toBeVisible()
+    await history.click()
     await expect(activity.getByText('Failed', { exact: true })).toHaveCount(2)
     await expect(activity.getByRole('button', { name: 'Retry run' })).toHaveCount(2)
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-retried-1440.png', fullPage: true })
@@ -498,14 +501,14 @@ test('failed session runs expose a command retry without breaking narrow layouts
     await page.setViewportSize({ width: 390, height: 844 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     expect(
-      await activity.locator('.hbar-app-ui-run-activity-item').evaluateAll((items) =>
-        items.every((item) => {
-          const row = item.getBoundingClientRect()
-          const retryButton = item
-            .querySelector<HTMLElement>('.hbar-app-ui-run-activity-retry')
-            ?.getBoundingClientRect()
-          return Boolean(retryButton && retryButton.left >= row.left && retryButton.right <= row.right)
-        }),
+      await activity.locator('[data-run-id]').evaluateAll(
+        (items) =>
+          items.length === 2 &&
+          items.every((item) => {
+            const row = item.getBoundingClientRect()
+            const retryButton = item.querySelector<HTMLElement>('button')?.getBoundingClientRect()
+            return Boolean(retryButton && retryButton.left >= row.left && retryButton.right <= row.right)
+          }),
       ),
     ).toBe(true)
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-retried-mobile-390.png', fullPage: true })
@@ -1313,7 +1316,10 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
       const snapshot = await runAuditClient.call('session.snapshot', { sessionId: fixture.ready.sessionId })
       expect(snapshot.runs.length).toBeGreaterThanOrEqual(3)
       await expect(
-        page.getByRole('region', { name: 'Agent activity' }).getByText(`${snapshot.runs.length} runs`, { exact: true }),
+        page.getByRole('region', { name: 'Agent activity' }).getByRole('button', {
+          name: getShellCopy('en-US').session.runs.details(snapshot.runs.length),
+          exact: true,
+        }),
       ).toBeVisible()
     } finally {
       runAuditClient.disconnect()
