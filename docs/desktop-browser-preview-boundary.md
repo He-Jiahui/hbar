@@ -30,7 +30,7 @@ hbar 的公开 `browser.status/navigate/snapshot/click/type/press/screenshot/eva
 - 本地 workspace HTML **不是** `file:` 白名单或主页面 Host 认证 token：若需要，与预览分独立子功能设计 Host 的只读、按 workspace/session 限定、短时授权、路径 canonicalize/防遍历/符号链接、正确 MIME/CSP 的资源服务。现有 `apps/host/src/server.ts:1019-1070` 只有 API/应用静态路由，不构成这种预览契约；勿把 `/api` token 注入不可信网页。
 - 截图与元素选择留在后续契约：只从当前 native view、经明确用户操作获取，限制像素和 payload 大小；发送到 composer 前展示来源/确认，取消与导航清空；选择桥只接受当前 view 的有版本、限长、已验证事件，不允许网页伪造跨会话截图或文件附件。
 
-平台可行性仍需验证：[Tauri WebviewBuilder 官方 API](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewBuilder.html) 的 `Window.add_child` 目前标注 desktop-only 与 `unstable` feature；`on_navigation`、`on_new_window`、`on_download` 可用于拦截，`incognito` 在旧 WebView2 运行时可能无效。这说明不能只加 React 组件，还需 Rust 平台子功能、平台兼容测试和不依赖 incognito 单一选项的隔离/清理策略。[Tauri capabilities 官方说明](https://v2.tauri.app/security/capabilities/) 指出多 capability 的权限会合并，注册的自定义 invoke 命令默认可用于所有 WebView；因此必须显式审计新 label/origin 的能力和原生命令调用来源，不能只看当前 `windows:["main"]`。上述是官方 API 文档支持的设计风险，不是已验证的 hbar 运行结果。
+平台可行性仍需验证：[Tauri WebviewBuilder 官方 API](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewBuilder.html) 的 `Window.add_child` 目前标注 desktop-only 与 `unstable` feature；`on_navigation`、`on_new_window`、`on_download` 可用于拦截，`incognito` 在旧 WebView2 运行时可能无效。官方还警告 Windows 中在同步 command/event handler 创建子 WebView 可能死锁，需异步/独立线程安排。这说明不能只加 React 组件，还需 Rust 平台子功能、平台兼容测试和不依赖 incognito 单一选项的隔离/清理策略。[Tauri capabilities 官方说明](https://v2.tauri.app/security/capabilities/) 指出多 capability 的权限会合并，注册的自定义 invoke 命令默认可用于所有 WebView；因此必须显式审计新 label/origin 的能力和原生命令调用来源，不能只看当前 `windows:["main"]`。上述是官方 API 文档支持的设计风险，不是已验证的 hbar 运行结果。
 
 ## 分阶段验收门槛
 
