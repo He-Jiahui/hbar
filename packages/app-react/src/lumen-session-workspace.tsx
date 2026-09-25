@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -15,6 +15,7 @@ import {
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
 import {
+  messageForkActionKey,
   planProposalActionKey,
   projectSessionDecisions,
   sessionDecisionAction,
@@ -28,6 +29,7 @@ import {
   HbarMessageActionBar,
   type HbarMessageBlocksLabels,
   type HbarMessageActionLabels,
+  type HbarMessageForkAction,
 } from './session-message'
 import { projectSessionMessages } from './session-message-model'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
@@ -76,6 +78,16 @@ export interface HbarSessionWorkspaceLabels {
   readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  readonly messageFork: {
+    readonly ready: string
+    readonly submitting: string
+    readonly retry: string
+    readonly recheck: string
+    readonly unknown: string
+    readonly created: string
+    readonly createdAfterTimestamp: (timestamp: string) => string
+    readonly error: (code: string) => string
+  }
   readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
   readonly decisions: HbarSessionDecisionLabels
   readonly proposedPlan: HbarProposedPlanLabels
@@ -150,6 +162,8 @@ export function HbarSessionWorkspace({
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const messageFork = useHbarRuntimeState(runtime.state.messageFork)
   const drafts = useHbarRuntimeState(runtime.state.drafts)
   const interactions = useHbarRuntimeState(runtime.state.interactions)
   const questionnaires = useHbarRuntimeState(runtime.state.questionnaires)
@@ -290,6 +304,28 @@ export function HbarSessionWorkspace({
   }
 
   const projectedMessages = useMemo(() => projectSessionMessages(timeline.messages), [timeline.messages])
+  const forkCandidateIds = useMemo(
+    () =>
+      projectedMessages
+        .filter(({ message }) => message.role === 'user' || message.role === 'assistant')
+        .map(({ message }) => message.id),
+    [projectedMessages],
+  )
+  useEffect(() => {
+    if (!connected || !sessionId || timeline.sessionId !== sessionId || timeline.status !== 'ready') return
+    for (let index = 0; index < forkCandidateIds.length; index += 200) {
+      void runtime.commands
+        .execute('messageFork.refreshEligibility', {
+          sessionId,
+          cursor: timeline.cursor,
+          messageIds: forkCandidateIds.slice(index, index + 200),
+        })
+        .catch(() => {})
+    }
+  }, [connected, forkCandidateIds, runtime.commands, sessionId, timeline.cursor, timeline.sessionId, timeline.status])
+  const sourceTab = tabs.items.find((item) => item.kind === 'session' && item.sessionId === sessionId)
+  const eligibilityCurrent =
+    messageFork.eligibility.sessionId === sessionId && messageFork.eligibility.cursor === timeline.cursor
   const decisionProjection = useMemo(
     () =>
       projectSessionDecisions({
@@ -335,6 +371,36 @@ export function HbarSessionWorkspace({
   const proposal = planProposal.sessionId === sessionId ? planProposal.proposal : null
   const proposalAction = proposal ? planProposal.actions[planProposalActionKey(proposal.target)] : undefined
   const proposalBlocked = intentPending || draft?.status === 'submitting' || draft?.status === 'unknown'
+  const forkKey = (message: (typeof timeline.messages)[number]) =>
+    messageForkActionKey({ sessionId: message.sessionId, messageId: message.id })
+  const forkActionFor = (message: (typeof timeline.messages)[number]): HbarMessageForkAction | undefined => {
+    const action = messageFork.actions[forkKey(message)]
+    const eligible = eligibilityCurrent && messageFork.eligibility.items[message.id]?.eligible === true
+    if (!sourceTab || action?.status === 'created' || (!eligible && action?.status !== 'unknown')) return undefined
+    const status = action?.status ?? 'ready'
+    if (!connected && status !== 'unknown') return undefined
+    return {
+      label:
+        status === 'submitting'
+          ? labels.messageFork.submitting
+          : status === 'unknown'
+            ? labels.messageFork.recheck
+            : status === 'failed'
+              ? labels.messageFork.retry
+              : labels.messageFork.ready,
+      status,
+      error:
+        status === 'unknown'
+          ? labels.messageFork.unknown
+          : action?.error
+            ? labels.messageFork.error(action.error)
+            : null,
+      onFork: (target) => invoke('messageFork.submit', { ...target, sourceTabInstanceKey: sourceTab.instanceKey }),
+      ...(connected
+        ? { onReconcile: (target: { sessionId: string; messageId: string }) => invoke('messageFork.reconcile', target) }
+        : {}),
+    }
+  }
   const messages: LumenMessageProps[] = [
     ...projectedMessages.map(({ message, blocks, results }) => ({
       id: message.id,
@@ -391,13 +457,23 @@ export function HbarSessionWorkspace({
           />
         ),
       actions:
-        lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId) ? (
+        (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
+        forkActionFor(message) ||
+        messageFork.actions[forkKey(message)]?.status === 'created' ? (
           <HbarMessageActionBar
             sessionId={message.sessionId}
             messageId={message.id}
             content={message.content}
             labels={labels.messageActions}
-            metadata={<LumenText as="span">{labels.timestamp(message.createdAt)}</LumenText>}
+            copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
+            fork={forkActionFor(message)}
+            metadata={
+              <LumenText as="span">
+                {messageFork.actions[forkKey(message)]?.status === 'created'
+                  ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
+                  : labels.timestamp(message.createdAt)}
+              </LumenText>
+            }
           />
         ) : null,
     })),

@@ -849,11 +849,25 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     messageActions: {
       copy: choose('复制回复', 'Copy reply'),
+      copyMessage: choose('复制消息', 'Copy message'),
       copying: choose('正在复制…', 'Copying…'),
       copied: choose('已复制', 'Copied'),
       copyFailed: choose('无法写入剪贴板，请重试。', 'Could not write to the clipboard. Try again.'),
       copyUnavailable: choose('此环境无法使用剪贴板。', 'Clipboard access is unavailable in this environment.'),
       retryCopy: choose('重试复制', 'Retry copy'),
+    },
+    messageFork: {
+      ready: choose('从此消息建立分支', 'Fork from this message'),
+      submitting: choose('正在建立分支…', 'Creating branch…'),
+      retry: choose('重试建立分支', 'Retry Fork'),
+      recheck: choose('核对分支结果', 'Check Fork result'),
+      unknown: choose(
+        '创建结果尚未确认；核对只会读取原请求结果，不会再次创建。',
+        'The result is unknown. Checking reads the original receipt and will not create another branch.',
+      ),
+      created: choose('分支已建立', 'Branch created'),
+      createdAfterTimestamp: (timestamp) => choose(`${timestamp} · 分支已建立`, `${timestamp} · Branch created`),
+      error: (code) => choose(`无法从此消息建立分支：${code}`, `Could not Fork this message: ${code}`),
     },
     permissionPicker: {
       title: choose('本次发送的工具审批', 'Tool approval for the next send'),

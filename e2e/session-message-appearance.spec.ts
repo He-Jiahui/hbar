@@ -76,7 +76,9 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
           const snapshot = await host.client.call('session.snapshot', { sessionId })
           const lastReply = snapshot.messages.findLast((message) => message.role === 'assistant')
           expect(lastReply).toBeDefined()
-          const reply = messages.filter({ has: page.locator('.hbar-session-message-actions') })
+          const reply = page
+            .locator('.lumen-message-transcript[data-role="assistant"]')
+            .filter({ has: page.locator('.hbar-session-message-actions') })
           await expect(reply).toHaveCount(1)
           await reply.getByRole('button', { name: labels.messageActions.copy, exact: true }).click()
           await expect(reply.getByRole('status')).toHaveText(labels.messageActions.copied)

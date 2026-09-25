@@ -82,6 +82,7 @@ export interface HbarMessageBlocksProps {
 
 export interface HbarMessageActionLabels {
   readonly copy: string
+  readonly copyMessage?: string
   readonly copying: string
   readonly copied: string
   readonly copyFailed: string
@@ -91,10 +92,11 @@ export interface HbarMessageActionLabels {
 
 export interface HbarMessageActionBarProps extends MessageCopyInput {
   readonly labels: HbarMessageActionLabels
+  readonly copyLabel?: string | undefined
   readonly clipboard?: MessageClipboardPort | null
   readonly metadata?: ReactNode
   /** The owner selects eligible user/final assistant messages and owns the Host receipt. */
-  readonly fork?: HbarMessageForkAction
+  readonly fork?: HbarMessageForkAction | undefined
 }
 
 export interface HbarMessageForkTarget {
@@ -407,7 +409,14 @@ export function HbarMessageBlocks(props: HbarMessageBlocksProps) {
 
 type CopyStatus = MessageCopyResult['status'] | 'idle' | 'copying'
 
-function MessageActionBarContent({ labels, clipboard, metadata, fork, ...input }: HbarMessageActionBarProps) {
+function MessageActionBarContent({
+  labels,
+  copyLabel,
+  clipboard,
+  metadata,
+  fork,
+  ...input
+}: HbarMessageActionBarProps) {
   const text = messageCopyText(input.content)
   const [receipt, setReceipt] = useState<{ readonly text: string; readonly status: CopyStatus }>({
     text,
@@ -447,7 +456,7 @@ function MessageActionBarContent({ labels, clipboard, metadata, fork, ...input }
         ? labels.copying
         : failure
           ? labels.retryCopy
-          : labels.copy
+          : (copyLabel ?? labels.copy)
   return (
     <LumenFrame className="hbar-session-message-actions" data-copy-status={status}>
       {text ? (

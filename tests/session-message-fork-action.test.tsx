@@ -46,6 +46,16 @@ test('optional Fork shares the flowing copy-and-metadata row; default and blank 
   expect(html.indexOf('data-message-action="fork"')).toBeLessThan(html.indexOf('09:41'))
   expect(render(fork(), '')).toContain('data-message-action="fork"')
   expect(render(undefined, '')).toContain('09:41')
+  expect(
+    renderToStaticMarkup(
+      <HbarMessageActionBar
+        {...target}
+        content={[{ type: 'text', text: 'Question' }]}
+        labels={labels}
+        copyLabel="复制消息"
+      />,
+    ),
+  ).toContain('aria-label="复制消息"')
   expect(renderToStaticMarkup(<HbarMessageActionBar {...target} content={[]} labels={labels} />)).toBe('')
 })
 
