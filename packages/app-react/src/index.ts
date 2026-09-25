@@ -11,6 +11,11 @@ export {
 } from './session-message'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
 export {
+  HbarSessionDecision,
+  type HbarSessionDecisionProps,
+  type HbarSessionDecisionLabels,
+} from './session-interactions'
+export {
   HbarProposedPlan,
   type HbarProposedPlanProps,
   type HbarProposedPlanLabels,

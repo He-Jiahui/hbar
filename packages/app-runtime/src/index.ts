@@ -36,6 +36,7 @@ import { createSessionTimeline } from './session-timeline'
 import { createDrafts } from './drafts'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
+import { interactionRecoveryCommands } from './interaction-recovery'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
@@ -55,6 +56,9 @@ import { createClientPersistence } from './client-persistence'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export { goalControlStatuses } from './goal-plan-workspace'
 export type { StateReader } from './state'
+export { projectSessionDecisions, sessionDecisionAction } from './interaction-presentations'
+export type { SessionDecision, SessionDecisionProjection, QuestionnaireFact } from './interaction-presentations'
+export { interactionRecoveryCommands } from './interaction-recovery'
 export { planProposalCommands, planProposalActionKey } from './plan-proposal-actions'
 export { parseProposedPlan } from './proposed-plan'
 export type { ProposedPlanParseResult } from './proposed-plan'
@@ -74,6 +78,7 @@ export type {
   DraftsState,
   DirectoryState,
   InteractionActionState,
+  InteractionRecoveryPort,
   InteractionState,
   QuestionnaireDraftState,
   QuestionnaireDraftsState,
@@ -165,6 +170,7 @@ const runtimeCommands = {
   ...sessionRenameCommands,
   ...sessionArchiveCommands,
   ...planProposalCommands,
+  ...interactionRecoveryCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -255,6 +261,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     timeline.reader,
     onSubscriberError,
     () => disposed,
+    options.interactionRecovery,
   )
   const controls = createSessionControls(
     options.models,
@@ -362,6 +369,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
+        Object.hasOwn(interactionRecoveryCommands, name) ||
         Object.hasOwn(settingsEditorCommands, name) ||
         Object.hasOwn(providerEditorCommands, name) ||
         Object.hasOwn(commandPaletteCommands, name) ||

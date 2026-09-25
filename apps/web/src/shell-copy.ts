@@ -881,6 +881,46 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       cancel: choose('取消', 'Cancel'),
       error: (code) => choose(`审批策略操作失败：${code}`, `Could not apply the approval policy: ${code}`),
     },
+    decisions: {
+      approval: choose('工具操作需要确认', 'Review tool operation'),
+      questionnaire: choose('需要你的回答', 'Your input is needed'),
+      pending: choose('等待决定', 'Awaiting your decision'),
+      submitting: choose('正在提交…', 'Submitting…'),
+      submitted: choose('已提交，等待工具确认', 'Submitted; waiting for tool confirmation'),
+      unknown: choose('结果尚未确认，请先核对', 'Result unknown. Check before continuing.'),
+      unavailable: choose('请求当前不可操作', 'This request is not currently actionable'),
+      allow: choose('允许这次', 'Allow once'),
+      deny: choose('拒绝', 'Deny'),
+      allowed: choose('已允许', 'Allowed'),
+      denied: choose('已拒绝', 'Denied'),
+      cancelled: choose('已取消', 'Cancelled'),
+      answered: choose('已回答', 'Answered'),
+      failed: choose('工具未能完成', 'The tool did not complete'),
+      reconcile: choose('核对结果', 'Check result'),
+      details: choose('查看完整输入', 'Show full input'),
+      hideDetails: choose('收起完整输入', 'Hide full input'),
+      unavailableInput: choose('无法显示此输入', 'This input cannot be displayed'),
+      path: choose('目标路径', 'Target path'),
+      command: choose('待执行命令', 'Requested command'),
+      proposedContent: choose('拟写入内容（不是完整文件差异）', 'Proposed content (not a full file diff)'),
+      oldFragment: choose('请求替换的原片段', 'Requested original fragment'),
+      newFragment: choose('请求替换的新片段', 'Requested replacement fragment'),
+      customAnswer: choose('自定义回答', 'Custom answer'),
+      customPlaceholder: choose('输入你的回答…', 'Enter your answer…'),
+      submit: choose('提交回答', 'Submit answers'),
+      secretAnswer: choose('私密回答已隐藏', 'Secret answer hidden'),
+      error: (code) =>
+        code === 'RESULT_UNKNOWN'
+          ? choose(
+              '未收到明确结果；请核对，不要重复决定。',
+              'No confirmed result was received. Check the result without submitting again.',
+            )
+          : code === 'INTERACTION_NOT_ACCEPTED'
+            ? choose('本次回答未被接收；请核对请求状态。', 'This answer was not accepted. Check the request status.')
+            : code === 'QUESTIONNAIRE_INCOMPLETE'
+              ? choose('请回答全部问题后再提交。', 'Answer every question before submitting.')
+              : error(code),
+    },
     proposedPlan: {
       title: choose('计划提案', 'Proposed plan'),
       document: choose('计划文档', 'Plan document'),

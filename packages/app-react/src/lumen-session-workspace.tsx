@@ -3,20 +3,25 @@ import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type Lucid
 import {
   LumenFrame,
   LumenText,
-  LumenApprovalRequest,
   LumenButton,
   LumenConversation,
   LumenIcon,
   LumenPageHeader,
   LumenPromptComposer,
-  LumenQuestionnaire,
   type LumenApprovalRequestLabels,
   type LumenMessageProps,
   type LumenPromptLabels,
   type LumenQuestionnaireLabels,
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
-import { planProposalActionKey, type PlanProposalState, type SessionAttachmentUpload } from '@hbar/app-runtime'
+import {
+  planProposalActionKey,
+  projectSessionDecisions,
+  sessionDecisionAction,
+  type PlanProposalState,
+  type SessionAttachmentUpload,
+  type SessionDecision,
+} from '@hbar/app-runtime'
 import type { HbarProposedPlanLabels } from './proposed-plan'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
@@ -26,6 +31,7 @@ import {
   type HbarMessageActionLabels,
 } from './session-message'
 import { projectSessionMessages } from './session-message-model'
+import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
@@ -61,6 +67,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  readonly decisions: HbarSessionDecisionLabels
   readonly proposedPlan: HbarProposedPlanLabels
   readonly proposedPlanReadOnly: string
   readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
@@ -93,20 +100,6 @@ export interface HbarSessionAttachmentSelection {
   readonly kind: 'image' | 'file'
   readonly upload: SessionAttachmentUpload
   release(): void
-}
-
-function decisionState(
-  status: string | undefined,
-  error: string | null | undefined,
-  complete: boolean,
-  labels: HbarSessionWorkspaceLabels,
-) {
-  if (complete || status === 'succeeded') return { status: 'complete' as const }
-  if (status === 'submitting') return { status: 'pending' as const }
-  return {
-    status: 'idle' as const,
-    ...(status === 'unknown' || status === 'failed' ? { error: labels.error(error ?? status) } : {}),
-  }
 }
 
 function SessionToolButton({
@@ -222,6 +215,42 @@ export function HbarSessionWorkspace({
   }
 
   const projectedMessages = useMemo(() => projectSessionMessages(timeline.messages), [timeline.messages])
+  const decisionProjection = useMemo(
+    () =>
+      projectSessionDecisions({
+        sessionId: timeline.sessionId,
+        messages: timeline.messages,
+        approvals: timeline.approvals,
+        userInputs: timeline.userInputs,
+        events: timeline.events,
+        actions: interactions,
+      }),
+    [timeline.sessionId, timeline.messages, timeline.approvals, timeline.userInputs, timeline.events, interactions],
+  )
+  const renderDecision = (decision: SessionDecision) => (
+    <HbarSessionDecision
+      key={`${decision.kind}:${decision.id}`}
+      decision={decision}
+      action={sessionDecisionAction(decision, interactions)}
+      answers={
+        decision.kind === 'questionnaire' && decision.requestId
+          ? questionnaires[decision.requestId]?.answers
+          : undefined
+      }
+      labels={labels.decisions}
+      connected={connected}
+      onDecision={(input) => invoke('approval.resolve', input)}
+      onAnswer={(input) => invoke('questionnaire.setAnswer', input)}
+      onSubmit={(input) => invoke('questionnaire.answer', input)}
+      onReconcile={(target) => invoke('interaction.reconcile', target)}
+    />
+  )
+  const toolDecisionsByMessage = new Map(
+    [...decisionProjection.byMessage].map(([messageId, rows]) => [
+      messageId,
+      new Map([...rows].map(([rowKey, decisions]) => [rowKey, decisions.map(renderDecision)])),
+    ]),
+  )
   const lastAssistantByRun = new Map<string, string>()
   for (const { message } of projectedMessages) {
     if (message.role === 'assistant' && message.content.some((block) => block.type === 'text' && block.text.trim()))
@@ -248,6 +277,7 @@ export function HbarSessionWorkspace({
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
+            toolDecisions={toolDecisionsByMessage.get(message.id)}
             document={proposal}
             plan={{
               labels: labels.proposedPlan,
@@ -271,6 +301,7 @@ export function HbarSessionWorkspace({
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
+            toolDecisions={toolDecisionsByMessage.get(message.id)}
             readOnlyLabel={labels.proposedPlanReadOnly}
           />
         ) : (
@@ -281,6 +312,7 @@ export function HbarSessionWorkspace({
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
+            toolDecisions={toolDecisionsByMessage.get(message.id)}
           />
         ),
       actions:
@@ -318,7 +350,7 @@ export function HbarSessionWorkspace({
   ]
 
   const activity: ReactNode =
-    timeline.runs.length > 0 || timeline.approvals.length > 0 || timeline.userInputs.length > 0 ? (
+    timeline.runs.length > 0 || decisionProjection.fallback.length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {timeline.runs.length > 0 && (
           <HbarSessionRunActivity
@@ -355,72 +387,7 @@ export function HbarSessionWorkspace({
             onRetryRun={(operationId) => invoke('run.retry', { sessionId, operationId })}
           />
         )}
-        {timeline.approvals.map((approval) => {
-          const action = interactions[`approval:${approval.id}`]
-          return (
-            <LumenApprovalRequest
-              key={approval.id}
-              id={approval.id}
-              tool={approval.tool}
-              summary={labels.approvalSummary(approval.tool)}
-              details={JSON.stringify(approval.args, null, 2)}
-              labels={labels.approval}
-              state={decisionState(action?.status, action?.error, approval.status !== 'pending', labels)}
-              onDecision={(_id, decision) =>
-                invoke('approval.resolve', {
-                  sessionId: approval.sessionId,
-                  approvalId: approval.id,
-                  decision: decision === 'deny' ? 'denied' : 'allowed',
-                })
-              }
-            />
-          )
-        })}
-        {timeline.userInputs.map((request) => {
-          const action = interactions[`questionnaire:${request.requestId}`]
-          const answerDraft = questionnaires[request.requestId]
-          return (
-            <LumenQuestionnaire
-              key={request.requestId}
-              requestId={request.requestId}
-              questions={request.questions.map((question) => ({
-                id: question.id,
-                header: question.header,
-                prompt: question.question,
-                options: question.options?.map((option) => ({
-                  value: option.label,
-                  label: option.label,
-                  description: option.description,
-                })),
-                acceptsCustomAnswer: question.isOther,
-                secret: question.isSecret,
-              }))}
-              answers={answerDraft?.answers ?? {}}
-              labels={labels.questionnaire}
-              state={decisionState(action?.status, action?.error, false, labels)}
-              onAnswer={(_requestId, questionId, answer) =>
-                invoke('questionnaire.setAnswer', {
-                  sessionId: request.sessionId,
-                  requestId: request.requestId,
-                  questionId,
-                  answer,
-                })
-              }
-              onSubmit={() =>
-                invoke('questionnaire.answer', {
-                  sessionId: request.sessionId,
-                  requestId: request.requestId,
-                  answers: Object.fromEntries(
-                    Object.entries(answerDraft?.answers ?? {}).map(([questionId, answer]) => [
-                      questionId,
-                      { answers: [answer.value] },
-                    ]),
-                  ),
-                })
-              }
-            />
-          )
-        })}
+        {decisionProjection.fallback.map(renderDecision)}
       </LumenFrame>
     ) : null
 

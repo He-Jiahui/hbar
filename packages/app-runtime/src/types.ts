@@ -91,6 +91,7 @@ export interface RuntimeOptions {
   readonly planProposal?: { readonly requestText: PlanProposalRequestText }
   readonly attachments?: CommandExecutor
   readonly interactions?: CommandExecutor
+  readonly interactionRecovery?: InteractionRecoveryPort
   readonly models?: CommandExecutor
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
@@ -548,13 +549,33 @@ export interface SessionDraftState {
 export type SessionAttachmentUpload = AttachmentUploadInput
 export type DraftsState = Readonly<Record<string, SessionDraftState>>
 
+export interface InteractionRecoveryPort {
+  follow(
+    sessionId: string,
+    cursor: number,
+  ): Promise<{
+    readonly events: readonly SessionEvent[]
+    readonly cursor: number
+    readonly reset: boolean
+  }>
+}
+
 export interface InteractionActionState {
   readonly id: string
   readonly kind: 'approval' | 'questionnaire'
   readonly sessionId: string
   readonly targetId: string
-  readonly status: 'submitting' | 'unknown' | 'failed' | 'succeeded'
+  readonly status: 'idle' | 'submitting' | 'unknown' | 'failed' | 'succeeded'
   readonly error: string | null
+  readonly request?: UserInputRequest
+  readonly approval?: Readonly<Approval>
+  readonly startCursor?: number
+  readonly reconciling?: boolean
+  readonly questionnaireFact?: import('./interaction-presentations').QuestionnaireFact
+  readonly submittedAnswers?: import('@hbar/contracts').UserInputResponse['answers']
+  readonly resolution?:
+    | { readonly kind: 'approval'; readonly status: 'allowed' | 'denied' | 'cancelled' }
+    | { readonly kind: 'questionnaire'; readonly status: 'answered' | 'cancelled' | 'failed' }
 }
 export type InteractionState = Readonly<Record<string, InteractionActionState>>
 
@@ -563,6 +584,7 @@ export interface QuestionnaireDraftState {
   readonly requestId: string
   readonly revision: number
   readonly answers: Readonly<Record<string, { readonly kind: 'option' | 'custom'; readonly value: string }>>
+  readonly request?: UserInputRequest
 }
 export type QuestionnaireDraftsState = Readonly<Record<string, QuestionnaireDraftState>>
 

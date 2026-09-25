@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 async function startSessionHost(root: string, sessionCount = 1, historyCount = 0) {
   const bun =
@@ -1298,9 +1299,11 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
 
     await prompt.fill('/tool write_file {"path":"browser-e2e.txt","text":"approved"}')
     await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.getByText('Agent approval')).toBeVisible()
-    await page.getByRole('button', { name: 'Allow' }).click()
-    await expect(page.getByText('Resolved')).toBeVisible()
+    const decisionLabels = getShellCopy('en-US').session.decisions
+    const approvalCard = page.getByRole('region', { name: decisionLabels.approval, exact: true })
+    await expect(approvalCard).toBeVisible()
+    await approvalCard.getByRole('button', { name: decisionLabels.allow, exact: true }).click()
+    await expect(approvalCard.getByRole('status')).toHaveText(decisionLabels.allowed)
     const runAuditClient = new HbarClient(
       `http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`,
       fixture.ready.token,

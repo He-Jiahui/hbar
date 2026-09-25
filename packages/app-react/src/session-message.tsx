@@ -75,6 +75,8 @@ export interface HbarMessageBlocksProps {
   readonly describeTool?: (call: SessionToolCall) => HbarMessageToolPresentation
   /** Domain-owned text rendering, keyed to original block identity; non-text rows retain their order. */
   readonly renderText?: (row: Extract<SessionMessageRow, { kind: 'text' }>) => ReactNode
+  /** Decisions are siblings after their tool disclosure, never inside its collapsed details. */
+  readonly toolDecisions?: ReadonlyMap<string, ReactNode> | undefined
 }
 
 export interface HbarMessageActionLabels {
@@ -311,10 +313,13 @@ function MessageBlocksContent({
   labels,
   describeTool,
   renderText,
+  toolDecisions,
 }: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
-    { readonly id: string; readonly rows: readonly ActivityRow[] } | Exclude<SessionMessageRow, ActivityRow>
+    | { readonly id: string; readonly rows: readonly ActivityRow[] }
+    | Exclude<SessionMessageRow, ActivityRow>
+    | SessionToolRow
   > = []
   let activity: ActivityRow[] = []
   const flush = () => {
@@ -323,7 +328,10 @@ function MessageBlocksContent({
     activity = []
   }
   for (const row of rows) {
-    if (row.kind === 'thinking' || row.kind === 'tool') activity.push(row)
+    if (row.kind === 'tool' && toolDecisions?.has(row.id)) {
+      flush()
+      groups.push(row)
+    } else if (row.kind === 'thinking' || row.kind === 'tool') activity.push(row)
     else {
       flush()
       groups.push(row)
@@ -341,6 +349,11 @@ function MessageBlocksContent({
             labels={labels}
             describeTool={describeTool}
           />
+        ) : group.kind === 'tool' ? (
+          <LumenFrame key={group.id} className="hbar-session-tool-decision">
+            <ToolRow row={group} labels={labels} describeTool={describeTool} />
+            {toolDecisions?.get(group.id)}
+          </LumenFrame>
         ) : group.kind === 'text' ? (
           <LumenFrame key={group.id} className="hbar-session-message-prose">
             {renderText ? renderText(group) : <MessageMarkdown text={group.text} />}

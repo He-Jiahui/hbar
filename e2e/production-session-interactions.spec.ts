@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PlaywrightUiHarness } from './support/playwright-ui-harness.ts'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 async function until<T>(read: () => Promise<T>, timeout = 15_000): Promise<T> {
   const started = Date.now()
@@ -38,8 +39,10 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
   await rm(artifactDirectory, { recursive: true, force: true })
   let host: WebSessionHost | undefined
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  const copy = getShellCopy('en-US')
+  const decisions = copy.session.decisions
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     const authentication = await context.request.post(
       `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
       { data: { token: host.ready.token } },
@@ -54,7 +57,9 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
       theme: 'system',
     })
     await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
-    await expect(page.locator('footer')).toContainText('Connected')
+    await expect(
+      page.getByRole('complementary', { name: copy.shell.projectsAndSessions }).locator('footer'),
+    ).toContainText(copy.shell.connected)
     await page.getByRole('button', { name: `Open session ${host.ready.sessionTitle}` }).click()
     const prompt = page.getByRole('textbox', { name: 'Prompt' })
 
@@ -219,7 +224,6 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
           await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })
         ).runs.filter((run) => run.status === 'failed').length
         await retry.click()
-        await expect(page.getByRole('button', { name: 'Retry run' })).toHaveCount(failedBefore + 1)
         const snapshot = await until(async () => {
           const value = await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })
           if (value.runs.filter((run) => run.status === 'failed').length <= failedBefore)
@@ -230,7 +234,10 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
           ui: [
             {
               description: 'retry creates another failed run with a local retry action',
-              passed: (await page.getByRole('button', { name: 'Retry run' }).count()) === failedBefore + 1,
+              passed: await page
+                .locator('.hbar-session-run-current')
+                .getByRole('button', { name: 'Retry run' })
+                .isVisible(),
             },
           ],
           host: [
@@ -245,22 +252,23 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
     )
 
     await submitPrompt(page, '/tool write_file {"path":"approved.txt","text":"approved"}')
-    const approval = page.getByRole('region', { name: 'Agent approval' }).last()
+    const approval = page.getByRole('region', { name: decisions.approval, exact: true })
     await expect(approval).toBeVisible()
     await harness.exercise(
       'session.approval.details',
-      { role: 'button', name: 'View parameters', description: 'pending approval parameter disclosure' },
+      { role: 'button', name: decisions.details, description: 'pending approval parameter disclosure' },
       async () => {
-        await approval.getByText('View parameters', { exact: true }).click()
+        await approval.getByRole('button', { name: decisions.details, exact: true }).click()
+        await expect(approval).toContainText('approved.txt')
         return {
           ui: [
             {
               description: 'tool path is visible in approval details',
-              passed: await approval.getByText(/approved\.txt/).isVisible(),
+              passed: await approval.getByRole('button', { name: decisions.hideDetails, exact: true }).isVisible(),
             },
             {
               description: 'approval remains pending after inspecting details',
-              passed: await approval.getByText('Decision required').isVisible(),
+              passed: (await approval.getByRole('status').textContent()) === decisions.pending,
             },
           ],
         }
@@ -269,14 +277,14 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
 
     await harness.exercise(
       'session.approval.allow',
-      { role: 'button', name: 'Allow', description: 'allow pending write tool' },
+      { role: 'button', name: decisions.allow, description: 'allow pending write tool' },
       async () => {
         const pending = (
           await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })
         ).approvals.at(-1)
         if (!pending) throw new Error('Host has no pending approval to allow')
-        await approval.getByRole('button', { name: 'Allow' }).click()
-        await expect(approval.getByText('Resolved')).toBeVisible()
+        await approval.getByRole('button', { name: decisions.allow, exact: true }).click()
+        await expect(approval.getByRole('status')).toHaveText(decisions.allowed)
         const snapshot = await until(async () => {
           const value = await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })
           if (value.approvals.some((item) => item.id === pending.id) || !(await fileExists(join(root, 'approved.txt'))))
@@ -286,7 +294,10 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
         const written = await readFile(join(root, 'approved.txt'), 'utf8')
         return {
           ui: [
-            { description: 'allowed approval resolves once', passed: await approval.getByText('Resolved').isVisible() },
+            {
+              description: 'allowed approval resolves once',
+              passed: (await approval.getByRole('status').textContent()) === decisions.allowed,
+            },
           ],
           host: [
             {
@@ -304,18 +315,21 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
     )
 
     await submitPrompt(page, '/tool write_file {"path":"denied.txt","text":"denied"}')
-    const deniedApproval = page.getByRole('region', { name: 'Agent approval' }).last()
+    const deniedApproval = page.getByRole('region', { name: decisions.approval, exact: true }).filter({
+      has: page.getByRole('button', { name: decisions.deny, exact: true }),
+    })
     await expect(deniedApproval).toBeVisible()
     await harness.exercise(
       'session.approval.deny',
-      { role: 'button', name: 'Deny', description: 'deny pending write tool' },
+      { role: 'button', name: decisions.deny, description: 'deny pending write tool' },
       async () => {
         const pending = (
           await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })
         ).approvals.at(-1)
         if (!pending) throw new Error('Host has no pending approval to deny')
-        await deniedApproval.getByRole('button', { name: 'Deny' }).click()
-        await expect(deniedApproval.getByText('Resolved')).toBeVisible()
+        const deniedCard = page.locator(`[data-decision-id="${pending.id}"]`)
+        await deniedCard.getByRole('button', { name: decisions.deny, exact: true }).click()
+        await expect(deniedCard.getByRole('status')).toHaveText(decisions.denied)
         const snapshot = await until(async () => {
           const value = await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })
           if (value.approvals.some((item) => item.id === pending.id)) throw new Error('Approval has not settled yet')
@@ -325,11 +339,11 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
           ui: [
             {
               description: 'denied approval resolves once',
-              passed: await deniedApproval.getByText('Resolved').isVisible(),
+              passed: (await deniedCard.getByRole('status').textContent()) === decisions.denied,
             },
             {
               description: 'decision buttons cannot be submitted twice',
-              passed: await deniedApproval.getByRole('button', { name: 'Deny' }).isDisabled(),
+              passed: (await deniedCard.getByRole('button', { name: decisions.deny, exact: true }).count()) === 0,
             },
           ],
           host: [

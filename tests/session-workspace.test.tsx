@@ -259,7 +259,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('aria-label="Choose model: Fixture Model"')
     expect(html).toContain('aria-valuetext="Low"')
     expect(html).toContain('aria-haspopup="dialog"')
-    expect(html).toContain('Agent approval')
+    expect(html).toContain(getShellCopy('en-US').session.decisions.approval)
     expect(html).toContain('Agent plan')
     expect(html).toContain('1 of 2 completed')
     expect(html).toContain('Keep the plan attached to its run.')
