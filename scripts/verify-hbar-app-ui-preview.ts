@@ -271,16 +271,24 @@ async function run() {
     const chatEvent = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes('send')
 
     await page.goto(`${baseUrl}/?variant=hbar-app-ui-agent-approval-2`, { waitUntil: 'networkidle' })
-    const diffToggle = page.getByRole('button', { name: 'Show diff', exact: true })
-    const diffExpanded = (await diffToggle.getAttribute('aria-expanded')) === 'true'
-    await diffToggle.click()
+    const showDiff = page.getByRole('button', { name: 'Show diff', exact: true })
+    const diffInitiallyCollapsed =
+      (await showDiff.getAttribute('aria-expanded')) === 'false' &&
+      (await page.locator('.hbar-app-ui-agent-approval-diff-payload').count()) === 0
+    await showDiff.click()
+    const hideDiff = page.getByRole('button', { name: 'Hide diff', exact: true })
+    const diffExpanded =
+      (await hideDiff.getAttribute('aria-expanded')) === 'true' &&
+      (await page.locator('.hbar-app-ui-agent-approval-diff-payload').count()) === 1
+    await hideDiff.click()
     const diffCollapsed =
-      (await diffToggle.getAttribute('aria-expanded')) === 'false' &&
-      (await page.locator('.hbar-app-ui-agent-approval-change-list').count()) === 0
+      (await showDiff.getAttribute('aria-expanded')) === 'false' &&
+      (await page.locator('.hbar-app-ui-agent-approval-diff-payload').count()) === 0
     const approveDiff = page.getByRole('button', { name: 'Approve', exact: true })
     await approveDiff.click()
     const diffAction = (await page.locator('.hbar-app-ui-preview-events').innerText()).includes('decide-diff-approval')
-    const diffDecisionLocked = await approveDiff.isDisabled()
+    const diffDecisionLocked =
+      (await approveDiff.count()) === 0 && (await page.locator('.hbar-app-ui-agent-approval-diff-result').count()) === 1
 
     await writeFile(
       `${artifactRoot}/report.json`,
@@ -298,6 +306,7 @@ async function run() {
             stopEvent,
             modeEvent,
             chatEvent,
+            diffInitiallyCollapsed,
             diffExpanded,
             diffCollapsed,
             diffAction,
@@ -315,6 +324,7 @@ async function run() {
       !stopEvent ||
       !modeEvent ||
       !chatEvent ||
+      !diffInitiallyCollapsed ||
       !diffExpanded ||
       !diffCollapsed ||
       !diffAction ||
@@ -331,6 +341,7 @@ async function run() {
           stopEvent,
           modeEvent,
           chatEvent,
+          diffInitiallyCollapsed,
           diffExpanded,
           diffCollapsed,
           diffAction,
