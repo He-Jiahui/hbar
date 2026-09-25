@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileDiff, RefreshCw } from 'lucide-react'
+import { FileDiff, Folder, RefreshCw } from 'lucide-react'
 import {
   LumenButton,
   LumenCollection,
@@ -31,6 +31,7 @@ export interface HbarFileChangesLabels {
   readonly page: (from: number, to: number, total: number) => string
   readonly status: (index: string, worktree: string) => string
   readonly open: (path: string) => string
+  readonly openFolder: (path: string) => string
   readonly renamedFrom: (path: string) => string
   readonly error: (code: string) => string
   readonly workingTree: string
@@ -117,11 +118,11 @@ export function HbarFileChanges({
               variant="text"
               indicator="none"
               disabled={!connected || busy || changes.status !== 'ready'}
-              aria-label={labels.open(item.path)}
+              aria-label={item.directory ? labels.openFolder(item.path) : labels.open(item.path)}
               title={item.path}
               onClick={() => onOpen(item.path)}
             >
-              <LumenIcon icon={FileDiff} tier="sm" />
+              <LumenIcon icon={item.directory ? Folder : FileDiff} tier="sm" />
               <LumenFrame className="hbar-file-change-path">
                 <LumenText as="span">{item.path}</LumenText>
                 {item.originalPath && <LumenText as="small">{labels.renamedFrom(item.originalPath)}</LumenText>}

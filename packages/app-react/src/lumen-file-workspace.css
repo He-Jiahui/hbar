@@ -12,13 +12,91 @@
   overflow: hidden;
 }
 
-.hbar-app-react-file-browser > .lumen-workspace-files {
+.hbar-file-tree {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
   flex: 1 1 auto;
-  block-size: auto;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.hbar-app-react-file-browser > button {
+.hbar-file-tree-controls,
+.hbar-file-tree-breadcrumbs,
+.hbar-file-tree-feedback {
+  display: flex;
+  min-inline-size: 0;
   flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hbar-file-tree-controls input {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+}
+
+.hbar-file-tree-breadcrumbs button {
+  min-inline-size: 0;
+  block-size: auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.hbar-file-tree-scope,
+.hbar-file-tree > p,
+.hbar-file-tree-scroll > p,
+.hbar-file-tree-children > p {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-tree-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.hbar-file-tree-list {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  list-style: none;
+}
+
+.hbar-file-tree-children {
+  min-inline-size: 0;
+  margin-inline-start: 0.75rem;
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-file-tree-row {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-file-tree-row > span:last-child {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-tree-row[aria-current='page'] {
+  background: var(--lumen-selected);
+}
+
+.hbar-file-tree-children > button,
+.hbar-file-tree-scroll > button {
   margin: 0.5rem;
 }
 

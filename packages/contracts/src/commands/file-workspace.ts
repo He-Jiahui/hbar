@@ -69,6 +69,26 @@ export const fileWorkspaceCommands = {
     }),
     summary,
   ),
+  'fileWorkspace.toggleTree': defineCommand(
+    metadata('fileWorkspace.toggleTree'),
+    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), path: z.string().min(1).max(4000) }),
+    summary,
+  ),
+  'fileWorkspace.refreshTree': defineCommand(
+    metadata('fileWorkspace.refreshTree'),
+    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), path: z.string().min(1).max(4000) }),
+    summary,
+  ),
+  'fileWorkspace.loadMoreTree': defineCommand(
+    metadata('fileWorkspace.loadMoreTree'),
+    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), path: z.string().min(1).max(4000) }),
+    summary,
+  ),
+  'fileWorkspace.filterTree': defineCommand(
+    metadata('fileWorkspace.filterTree'),
+    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), filter: z.string().max(4000) }),
+    summary,
+  ),
   'fileWorkspace.refresh': defineCommand(metadata('fileWorkspace.refresh'), z.strictObject({ instanceId }), summary),
   'fileWorkspace.loadMore': defineCommand(metadata('fileWorkspace.loadMore'), z.strictObject({ instanceId }), summary),
   'fileWorkspace.openEntry': defineCommand(

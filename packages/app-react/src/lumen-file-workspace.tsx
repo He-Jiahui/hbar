@@ -10,15 +10,16 @@ import {
   LumenSelect,
   LumenOption,
   LumenToolPane,
-  LumenWorkspaceFiles,
   type LumenWorkspaceFileLabels,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './file-workspace-changes'
+import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly changes: HbarFileChangesLabels
+  readonly tree: HbarFileTreeLabels
   readonly preview: string
   readonly edit: string
   readonly textPreview: (path: string) => string
@@ -97,13 +98,29 @@ export function HbarFileWorkspace({
     panel?.panelId,
     panel?.workspaceId,
   ])
+  useEffect(() => {
+    if (
+      instanceId &&
+      panel?.panelId === 'files' &&
+      panel.workspaceId &&
+      entry?.workspaceId === panel.workspaceId &&
+      entry.view === 'browser' &&
+      entry.browserMode === 'all' &&
+      entry.tree.revalidateOnOpen
+    )
+      invoke('fileWorkspace.refresh', { instanceId })
+  }, [
+    entry?.browserMode,
+    entry?.tree.revalidateOnOpen,
+    entry?.view,
+    entry?.workspaceId,
+    instanceId,
+    invoke,
+    panel?.panelId,
+    panel?.workspaceId,
+  ])
   useEffect(() => setReloadTarget(null), [instanceId, panel?.workspaceId])
   if (!instanceId || panel?.panelId !== 'files') return null
-  const parent = (path: string) => {
-    const normalized = path.replaceAll('\\', '/').replace(/\/+$/, '')
-    const index = normalized.lastIndexOf('/')
-    return index <= 0 ? '.' : normalized.slice(0, index)
-  }
   const document = entry?.view === 'document' ? entry.document : null
   const diff = entry?.view === 'diff' ? entry.diff : null
   const workspaceId = panel.workspaceId
@@ -284,40 +301,23 @@ export function HbarFileWorkspace({
                   onOpen={(path) => invoke('fileWorkspace.openChange', { instanceId, workspaceId, path })}
                 />
               ) : (
-                <LumenWorkspaceFiles
-                  items={(entry?.items ?? []).map((item) => ({
-                    id: item.path,
-                    name: item.name,
-                    directory: item.directory,
-                  }))}
-                  path={entry?.path ?? '.'}
-                  loading={!entry || entry.status === 'loading'}
-                  error={entry?.error ? labels.error(entry.error) : undefined}
-                  labels={labels}
-                  embedded
-                  onOpen={(path) => {
-                    const item = entry?.items.find((candidate) => candidate.path === path)
-                    if (item)
-                      invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: item.directory })
-                  }}
-                  onParent={() =>
-                    invoke('fileWorkspace.openEntry', {
-                      instanceId,
-                      workspaceId,
-                      path: parent(entry?.path ?? '.'),
-                      directory: true,
-                    })
+                <HbarFileTree
+                  entry={entry}
+                  labels={labels.tree}
+                  connected={connected}
+                  onFilter={(filter) => invoke('fileWorkspace.filterTree', { instanceId, workspaceId, filter })}
+                  onToggle={(path) => invoke('fileWorkspace.toggleTree', { instanceId, workspaceId, path })}
+                  onRefreshNode={(path) => invoke('fileWorkspace.refreshTree', { instanceId, workspaceId, path })}
+                  onMoreNode={(path) => invoke('fileWorkspace.loadMoreTree', { instanceId, workspaceId, path })}
+                  onOpenFile={(path) =>
+                    invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
                   }
-                  onRefresh={() => invoke('fileWorkspace.refresh', { instanceId })}
+                  onNavigateFolder={(path) =>
+                    invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: true })
+                  }
+                  onMoreRoot={() => invoke('fileWorkspace.loadMore', { instanceId })}
+                  onRefreshRoot={() => invoke('fileWorkspace.refresh', { instanceId })}
                 />
-              )}
-              {entry?.browserMode === 'all' && entry.nextCursor && (
-                <LumenButton
-                  disabled={entry.status === 'loading'}
-                  onClick={() => invoke('fileWorkspace.loadMore', { instanceId })}
-                >
-                  {labels.loadMore}
-                </LumenButton>
               )}
             </LumenFrame>
           )}

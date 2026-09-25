@@ -2,7 +2,7 @@ import type { HbarFileWorkspaceLabels } from '@hbar/app-react'
 
 export function fileWorkspaceCopy(
   zh: boolean,
-): Pick<HbarFileWorkspaceLabels, 'changes' | 'preview' | 'edit' | 'textPreview'> {
+): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview'> {
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
   const status = (value: string) => {
     const names: Record<string, string> = {
@@ -49,6 +49,7 @@ export function fileWorkspaceCopy(
               .filter(Boolean)
               .join(' · '),
       open: (path) => choose(`查看更改：${path}`, `View change: ${path}`),
+      openFolder: (path) => choose(`打开未跟踪文件夹：${path}`, `Open untracked folder: ${path}`),
       renamedFrom: (path) => choose(`原路径：${path}`, `Renamed from: ${path}`),
       error: (code) =>
         code === 'CAPABILITY_UNAVAILABLE'
@@ -69,6 +70,38 @@ export function fileWorkspaceCopy(
       nextLines: choose('下一页差异', 'Next diff lines'),
       linePage: (from, to, total) => choose(`${from}–${to} / ${total} 行`, `Lines ${from}–${to} of ${total}`),
       openFile: choose('打开文件', 'Open file'),
+    },
+    tree: {
+      all: choose('所有文件', 'All files'),
+      filter: choose('筛选已加载的文件名…', 'Filter loaded file names…'),
+      filterScope: choose(
+        '仅筛选已加载的文件；展开文件夹可查看其余文件。',
+        'Filters loaded files only. Expand folders to see more.',
+      ),
+      navigation: choose('当前文件夹路径', 'Current folder path'),
+      root: choose('工作区根目录', 'Workspace root'),
+      expand: (path) => choose(`展开文件夹：${path}`, `Expand folder: ${path}`),
+      collapse: (path) => choose(`收起文件夹：${path}`, `Collapse folder: ${path}`),
+      openFolder: (path) => choose(`进入文件夹：${path}`, `Open folder: ${path}`),
+      loading: choose('正在读取文件夹…', 'Reading folder…'),
+      empty: choose('此文件夹没有已加载的文件。', 'No loaded files in this folder.'),
+      loadMore: choose('加载更多文件', 'Load more files'),
+      rootLimit: choose(
+        '已到达根目录 500 项上限；列表可能不完整。',
+        'The 500-item root limit was reached; this list may be incomplete.',
+      ),
+      folderLimit: choose(
+        '此文件夹已到达 500 项上限；列表可能不完整。',
+        'The 500-item folder limit was reached; this list may be incomplete.',
+      ),
+      retry: choose('重试读取', 'Retry folder'),
+      refresh: choose('刷新所有文件', 'Refresh all files'),
+      error: (code) =>
+        code === 'BUSY'
+          ? choose('树视图容量已满；请收起其他文件夹后重试。', 'The tree is full. Collapse another folder and retry.')
+          : code === 'CANCELLED'
+            ? choose('读取已取消，请重试。', 'Reading was cancelled. Retry.')
+            : choose(`文件夹读取失败：${code}`, `Could not read folder: ${code}`),
     },
   }
 }

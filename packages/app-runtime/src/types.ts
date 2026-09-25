@@ -367,7 +367,13 @@ export interface FileWorkspaceChangesState {
   readonly cwd: string | null
   readonly root: string | null
   readonly branch: string | null
-  readonly items: readonly { readonly path: string; readonly originalPath?: string; readonly index: string; readonly worktree: string }[]
+  readonly items: readonly {
+    readonly path: string
+    readonly originalPath?: string
+    readonly directory?: boolean
+    readonly index: string
+    readonly worktree: string
+  }[]
   readonly filter: string
   readonly page: number
   readonly limitReached: boolean
@@ -383,6 +389,21 @@ export interface FileWorkspaceDiffState {
   readonly error: string | null
 }
 
+export interface FileWorkspaceTreeDirectoryState {
+  readonly expanded: boolean
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly items: readonly { readonly name: string; readonly path: string; readonly directory: boolean }[]
+  readonly nextCursor: string | null
+  readonly error: string | null
+}
+
+export interface FileWorkspaceTreeState {
+  readonly filter: string
+  readonly nodes: Readonly<Record<string, Readonly<FileWorkspaceTreeDirectoryState>>>
+  readonly revalidateOnOpen: boolean
+  readonly error: string | null
+}
+
 export interface FileWorkspaceEntryState {
   readonly instanceId: string
   readonly workspaceId: string
@@ -392,6 +413,8 @@ export interface FileWorkspaceEntryState {
   readonly documentMode: 'preview' | 'edit'
   readonly changes: Readonly<FileWorkspaceChangesState>
   readonly diff: Readonly<FileWorkspaceDiffState> | null
+  readonly tree: Readonly<FileWorkspaceTreeState>
+  readonly rootLimitReached: boolean
   readonly status: 'loading' | 'ready' | 'error'
   readonly items: readonly { readonly name: string; readonly path: string; readonly directory: boolean }[]
   readonly nextCursor: string | null

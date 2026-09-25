@@ -9,6 +9,7 @@ import {
   filteredFileChanges,
   FILE_CHANGES_PAGE_SIZE,
 } from './file-workspace-changes'
+import { createFileWorkspaceTree, emptyFileTree } from './file-workspace-tree'
 import type { FileWorkspaceEntryState, FileWorkspaceState, RuntimeOptions, SurfaceState } from './types'
 
 const PAGE_SIZE = 200
@@ -129,6 +130,7 @@ export function createFileWorkspace(
   })
   const load = async (instanceId: string, path?: string) => {
     changes.cancel(instanceId)
+    tree.cancelAll(instanceId)
     const target = panel(instanceId)
     const current = state.reader.getSnapshot().entries[instanceId]
     const requestedPath = path ?? (current?.workspaceId === target.workspaceId ? current.path : '.')
@@ -143,6 +145,11 @@ export function createFileWorkspace(
       documentMode: current?.workspaceId === target.workspaceId ? current.documentMode : 'preview',
       changes: current?.workspaceId === target.workspaceId ? current.changes : emptyFileChanges(),
       diff: null,
+      tree:
+        current?.workspaceId === target.workspaceId && current.path === requestedPath
+          ? emptyFileTree(current.tree.filter)
+          : emptyFileTree(),
+      rootLimitReached: false,
       status: 'loading',
       items: current?.workspaceId === target.workspaceId && current.path === requestedPath ? current.items : [],
       nextCursor: null,
@@ -186,14 +193,13 @@ export function createFileWorkspace(
     if (!matchesTarget(instanceId, target.workspaceId, generation))
       throw new CommandError('RESULT_UNKNOWN', 'File listing was superseded')
     const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
-    const merged = [...new Map([...entry.items, ...page.items].map((item) => [item.path, item])).values()].slice(
-      0,
-      MAX_ENTRIES,
-    )
+    const all = [...new Map([...entry.items, ...page.items].map((item) => [item.path, item])).values()]
+    const merged = all.slice(0, MAX_ENTRIES)
     const next = {
       ...latest,
       items: merged,
       nextCursor: merged.length >= MAX_ENTRIES ? null : (page.nextCursor ?? null),
+      rootLimitReached: all.length > MAX_ENTRIES || (merged.length >= MAX_ENTRIES && Boolean(page.nextCursor)),
     }
     replace(next)
     return summary(next)
@@ -282,6 +288,13 @@ export function createFileWorkspace(
     replace,
     workspaceId: (instanceId) => surfaces.getSnapshot().panels[instanceId]?.workspaceId ?? null,
     openFile: (instanceId, path) => openEntry(instanceId, path, false),
+    openFolder: (instanceId, path) => openEntry(instanceId, path, true),
+    isDisposed,
+  })
+  const tree = createFileWorkspaceTree(options, {
+    read: (instanceId) => state.reader.getSnapshot().entries[instanceId],
+    replace,
+    workspaceId: (instanceId) => surfaces.getSnapshot().panels[instanceId]?.workspaceId ?? null,
     isDisposed,
   })
   let previousPanels = surfaces.getSnapshot().panels
@@ -291,12 +304,14 @@ export function createFileWorkspace(
       if (previous.panelId !== 'files' || current[instanceId]?.workspaceId === previous.workspaceId) continue
       generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
       changes.cancel(instanceId)
+      tree.cancelAll(instanceId)
       const entry = state.reader.getSnapshot().entries[instanceId]
       if (entry)
         replace({
           ...entry,
           ...(entry.view === 'diff' ? { view: 'browser' as const, diff: null } : {}),
           changes: { ...entry.changes, status: 'idle', error: null },
+          tree: emptyFileTree(entry.tree.filter, true),
           ...(entry.status === 'loading' ? { status: 'error' as const, error: 'CANCELLED' } : {}),
         })
     }
@@ -310,9 +325,29 @@ export function createFileWorkspace(
     return entry
   }
   local.register(fileWorkspaceCommands['fileWorkspace.setBrowserMode'], async ({ instanceId, workspaceId, mode }) => {
-    requireEntry(instanceId, workspaceId)
+    const entry = requireEntry(instanceId, workspaceId)
     generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
-    return mode === 'all' ? load(instanceId) : summary(await changes.load(instanceId, workspaceId))
+    if (mode === 'changed') return summary(await changes.load(instanceId, workspaceId))
+    changes.cancel(instanceId)
+    if (entry.status !== 'ready' || entry.tree.revalidateOnOpen) return load(instanceId)
+    const next = { ...entry, view: 'browser' as const, browserMode: 'all' as const }
+    replace(next)
+    return summary(next)
+  })
+  local.register(fileWorkspaceCommands['fileWorkspace.toggleTree'], async ({ instanceId, workspaceId, path }) =>
+    summary(await tree.toggle(instanceId, workspaceId, path)),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.refreshTree'], async ({ instanceId, workspaceId, path }) =>
+    summary(await tree.refresh(instanceId, workspaceId, path)),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.loadMoreTree'], async ({ instanceId, workspaceId, path }) =>
+    summary(await tree.more(instanceId, workspaceId, path)),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.filterTree'], ({ instanceId, workspaceId, filter }) => {
+    const entry = requireEntry(instanceId, workspaceId)
+    const next = { ...entry, tree: { ...entry.tree, filter } }
+    replace(next)
+    return summary(next)
   })
   local.register(fileWorkspaceCommands['fileWorkspace.refreshChanges'], async ({ instanceId, workspaceId }) =>
     summary(await changes.load(instanceId, workspaceId)),
@@ -384,6 +419,7 @@ export function createFileWorkspace(
     dispose: () => {
       unsubscribeSurfaces()
       changes.dispose()
+      tree.dispose()
       documents.dispose()
       generations.clear()
       state.dispose()

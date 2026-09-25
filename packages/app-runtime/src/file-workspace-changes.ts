@@ -48,7 +48,15 @@ export function workspaceChanges(status: GitStatus, cwd: string): FileWorkspaceC
     const path = relative(item.path)
     if (!path) return []
     const originalPath = item.originalPath ? relative(item.originalPath) : null
-    return [{ path, index: item.index, worktree: item.worktree, ...(originalPath ? { originalPath } : {}) }]
+    return [
+      {
+        path,
+        index: item.index,
+        worktree: item.worktree,
+        ...(originalPath ? { originalPath } : {}),
+        ...(item.index === '?' && item.worktree === '?' && item.path.endsWith('/') ? { directory: true } : {}),
+      },
+    ]
   })
   return [...new Map(items.map((item) => [item.path, item])).values()].sort((a, b) => a.path.localeCompare(b.path))
 }
@@ -65,6 +73,7 @@ interface ChangePorts {
   readonly replace: (entry: FileWorkspaceEntryState) => void
   readonly workspaceId: (instanceId: string) => string | null
   readonly openFile: (instanceId: string, path: string) => Promise<unknown>
+  readonly openFolder: (instanceId: string, path: string) => Promise<unknown>
   readonly isDisposed: () => boolean
 }
 
@@ -158,7 +167,7 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
       throw new CommandError('VERSION_CONFLICT', 'Refresh the original changed-file list')
     if (change.index === '?' && change.worktree === '?') {
       cancel(instanceId)
-      await ports.openFile(instanceId, path)
+      await (change.directory ? ports.openFolder(instanceId, path) : ports.openFile(instanceId, path))
       return target(instanceId, workspaceId)
     }
     const cached = selectedCached ?? (change.worktree === ' ' && change.index !== ' ')
