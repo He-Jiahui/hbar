@@ -62,7 +62,7 @@ export function WorkspaceTabsController({
   const closeState = useHbarRuntimeState(coordinator.reader).request
   const items: HbarWorkspaceTabItem[] = tabs.items.map((item) => ({
     id: item.id,
-    kind: item.kind,
+    kind: item.kind === 'session' && item.agentSource ? 'agent-run' : item.kind,
     title:
       item.kind === 'workbench'
         ? copy.workbenchTitle

@@ -102,6 +102,7 @@ export interface HbarSessionWorkspaceProps {
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
+  readonly navigationAccessory?: ReactNode | undefined
 }
 
 function SessionToolButton({
@@ -140,6 +141,7 @@ export function HbarSessionWorkspace({
   labels,
   connected,
   prepareAttachment,
+  navigationAccessory,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -678,6 +680,7 @@ export function HbarSessionWorkspace({
           </>
         }
       />
+      {navigationAccessory}
       <LumenFrame className="hbar-app-react-session-main">
         <LumenConversation
           title={labels.conversationTitle(sessionTitle)}

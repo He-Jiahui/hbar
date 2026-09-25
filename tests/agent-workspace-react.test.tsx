@@ -94,8 +94,14 @@ test('child agent panel renders Host records and a command-owned creation draft'
     )
     expect(detailHtml).toContain('Child agent details')
     expect(detailHtml).toContain('Current session')
-    expect(detailHtml).toContain('Open session')
+    expect(detailHtml).toContain('Open child session')
     expect(detailHtml).toContain('Cancel agent')
+    const chineseDetail = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarAgentWorkspace labels={getShellCopy('zh-CN').agents} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(chineseDetail).toContain('打开子会话')
   } finally {
     runtime.dispose()
   }

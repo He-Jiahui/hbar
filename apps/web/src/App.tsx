@@ -17,10 +17,15 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
+import { ArrowLeft } from 'lucide-react'
 import {
   applyLumenAppearance,
+  LumenButton,
   LumenDialog,
+  LumenFrame,
+  LumenIcon,
   LumenProvider,
+  LumenText,
   LumenWindowTitlebar,
   LumenWorkbenchNotice,
 } from '@lumen/app-ui'
@@ -136,6 +141,34 @@ function errorCode(reason: unknown): string {
     : 'EXECUTION_FAILED'
 }
 
+function AgentChildReturn({
+  title,
+  labels,
+  busy,
+  error,
+  onReturn,
+}: {
+  readonly title: string
+  readonly labels: ReturnType<typeof getShellCopy>['agents']
+  readonly busy: boolean
+  readonly error: string | null
+  readonly onReturn: () => void
+}) {
+  return (
+    <LumenFrame className="hbar-web-agent-return">
+      <LumenButton size="s" variant="text" indicator="none" disabled={busy} onClick={onReturn}>
+        <LumenIcon icon={ArrowLeft} tier="sm" />
+        <LumenText as="span">{busy ? labels.returningToParent : labels.returnToParent(title)}</LumenText>
+      </LumenButton>
+      {error && (
+        <LumenText as="p" role="alert">
+          {labels.returnError(error)}
+        </LumenText>
+      )}
+    </LumenFrame>
+  )
+}
+
 /** Expanded file views own the original surface only while their ephemeral tab exists. */
 function WorkbenchSurfaceCleanup({ runtime }: { readonly runtime: ReturnType<typeof createAppRuntime> }) {
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
@@ -196,7 +229,12 @@ function WorkspaceBodyContent({
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const [workbenchError, setWorkbenchError] = useState<string | null>(null)
+  const [agentReturn, setAgentReturn] = useState<{ busy: boolean; error: string | null }>({
+    busy: false,
+    error: null,
+  })
   const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
+  useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
@@ -276,6 +314,46 @@ function WorkspaceBodyContent({
         labels={copy.session}
         connected={connected}
         prepareAttachment={prepareAttachment}
+        navigationAccessory={
+          activeTab?.kind === 'session' && activeTab.agentSource ? (
+            <AgentChildReturn
+              title={
+                directory.sessions[activeTab.agentSource.parentSessionId]?.title ??
+                tabCopy.unknownSession(activeTab.agentSource.parentSessionId)
+              }
+              labels={copy.agents}
+              busy={agentReturn.busy}
+              error={agentReturn.error}
+              onReturn={() => {
+                if (agentReturn.busy) return
+                const childSessionId = activeTab.sessionId
+                setAgentReturn({ busy: true, error: null })
+                void runtime.commands
+                  .execute('agentChild.return', {
+                    childSessionId,
+                    childTabInstanceKey: activeTab.instanceKey,
+                  })
+                  .then(() => {
+                    requestAnimationFrame(() =>
+                      document
+                        .querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+                        ?.focus({ preventScroll: true }),
+                    )
+                  })
+                  .catch((reason: unknown) => {
+                    const currentTabs = runtime.state.workspaceTabs.getSnapshot()
+                    if (
+                      currentTabs.activeId !== childSessionId ||
+                      currentTabs.items.find((item) => item.id === childSessionId)?.instanceKey !==
+                        activeTab.instanceKey
+                    )
+                      return
+                    setAgentReturn({ busy: false, error: errorCode(reason) })
+                  })
+              }}
+            />
+          ) : undefined
+        }
       />
     )
   return <LumenWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bot, ExternalLink, Plus, RefreshCw } from 'lucide-react'
 import {
   LumenCollection,
@@ -54,6 +54,11 @@ export interface HbarAgentWorkspaceLabels {
   readonly retryCreate: string
   readonly created: string
   readonly openSession: string
+  readonly openingSession: string
+  readonly openSessionError: (code: string) => string
+  readonly returnToParent: (title: string) => string
+  readonly returningToParent: string
+  readonly returnError: (code: string) => string
   readonly cancel: string
   readonly cancelling: string
   readonly retryCancel: string
@@ -93,6 +98,13 @@ export function HbarAgentWorkspace({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const agents = useHbarRuntimeState(runtime.state.agents)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const [openState, setOpenState] = useState<{
+    readonly agentId: string
+    readonly status: 'submitting' | 'failed'
+    readonly error: string | null
+  } | null>(null)
+  const openIntent = useRef(0)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? agents.entries[instanceId] : undefined
@@ -115,11 +127,43 @@ export function HbarAgentWorkspace({
     view === 'detail' ? entry?.items.find((agent) => agent.agentId === entry.selectedAgentId) : undefined
   const selectedAction = selectedAgent ? entry?.actions[selectedAgent.agentId] : undefined
   const setField = (field: string, value: string) => invoke('agentWorkspace.setField', { instanceId, field, value })
-  const openSession = (sessionId: string) => {
+  const openSession = (agent: Agent) => {
+    if (openState?.status === 'submitting') return
+    const source = tabs.items.find((item) => item.kind === 'session' && item.sessionId === agent.parentSessionId)
+    if (!source || panel.sessionId !== agent.parentSessionId) {
+      setOpenState({ agentId: agent.agentId, status: 'failed', error: 'SOURCE_CHANGED' })
+      return
+    }
+    const intent = ++openIntent.current
+    setOpenState({ agentId: agent.agentId, status: 'submitting', error: null })
     void runtime.commands
-      .execute('app.setSession', { sessionId })
-      .then(() => runtime.commands.execute('app.closePanel', { instanceId }))
-      .catch(() => {})
+      .execute('agentChild.open', {
+        panelInstanceId: instanceId,
+        parentSessionId: agent.parentSessionId,
+        agentId: agent.agentId,
+        expectedChildSessionId: agent.sessionId,
+        sourceTabInstanceKey: source.instanceKey,
+      })
+      .then(() => {
+        if (openIntent.current !== intent) return
+        const latestPanel = runtime.state.surfaces.getSnapshot().panels[instanceId]
+        if (
+          latestPanel?.panelId !== 'agents' ||
+          (latestPanel.sessionId !== agent.parentSessionId && latestPanel.sessionId !== agent.sessionId)
+        ) {
+          setOpenState(null)
+          return
+        }
+        return runtime.commands.execute('app.closePanel', { instanceId })
+      })
+      .catch((reason: unknown) => {
+        if (openIntent.current !== intent) return
+        const error =
+          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+            ? reason.code
+            : 'EXECUTION_FAILED'
+        setOpenState({ agentId: agent.agentId, status: 'failed', error })
+      })
   }
   const back = () => invoke('agentWorkspace.showList', { instanceId })
 
@@ -133,7 +177,7 @@ export function HbarAgentWorkspace({
       closeLabel={labels.close}
       onBack={view === 'list' ? undefined : back}
       onClose={() => invoke('app.closePanel', { instanceId })}
-      busy={Boolean(!entry || entry.status === 'loading' || creationBusy)}
+      busy={Boolean(!entry || entry.status === 'loading' || creationBusy || openState?.status === 'submitting')}
       actions={
         <>
           {view === 'list' && entry && (
@@ -162,7 +206,8 @@ export function HbarAgentWorkspace({
             <LumenText as="h2">{labels.createTitle}</LumenText>
             <LumenText as="p">{labels.createScope}</LumenText>
           </LumenFrame>
-          <LumenFrame as="form"
+          <LumenFrame
+            as="form"
             className="hbar-app-react-agent-create"
             onSubmit={(event) => {
               event.preventDefault()
@@ -241,12 +286,12 @@ export function HbarAgentWorkspace({
                 </LumenSelect>
               </LumenFormField>
             </LumenFrame>
-            {entry.creation.error && <LumenText as="p" role="alert">{labels.error(entry.creation.error)}</LumenText>}
-            <LumenButton
-              disabled={!connected || entry.creation.status === 'submitting'}
-              tone="primary"
-              type="submit"
-            >
+            {entry.creation.error && (
+              <LumenText as="p" role="alert">
+                {labels.error(entry.creation.error)}
+              </LumenText>
+            )}
+            <LumenButton disabled={!connected || entry.creation.status === 'submitting'} tone="primary" type="submit">
               {entry.creation.status === 'submitting'
                 ? labels.creating
                 : entry.creation.status === 'unknown'
@@ -262,7 +307,9 @@ export function HbarAgentWorkspace({
             <LumenStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
           </LumenFrame>
           {entry.creation.status === 'succeeded' && entry.selectedAgentId === selectedAgent.agentId && (
-            <LumenText as="p" role="status">{labels.created}</LumenText>
+            <LumenText as="p" role="status">
+              {labels.created}
+            </LumenText>
           )}
           <LumenFrame as="section">
             <LumenText as="h3">{labels.objective}</LumenText>
@@ -281,12 +328,33 @@ export function HbarAgentWorkspace({
               { id: 'created', label: labels.createdAt, value: labels.timestamp(selectedAgent.createdAt) },
             ]}
           />
-          {selectedAgent.error && <LumenText as="p" role="alert">{selectedAgent.error}</LumenText>}
-          {selectedAction?.error && <LumenText as="p" role="alert">{labels.error(selectedAction.error)}</LumenText>}
+          {selectedAgent.error && (
+            <LumenText as="p" role="alert">
+              {selectedAgent.error}
+            </LumenText>
+          )}
+          {selectedAction?.error && (
+            <LumenText as="p" role="alert">
+              {labels.error(selectedAction.error)}
+            </LumenText>
+          )}
+          {openState?.agentId === selectedAgent.agentId && openState.error && (
+            <LumenText as="p" role="alert">
+              {labels.openSessionError(openState.error)}
+            </LumenText>
+          )}
           <LumenFrame as="footer">
-            <LumenButton tone="primary" onClick={() => openSession(selectedAgent.sessionId)}>
+            <LumenButton
+              tone="primary"
+              disabled={!connected || openState?.status === 'submitting'}
+              onClick={() => openSession(selectedAgent)}
+            >
               <LumenIcon icon={ExternalLink} tier="sm" />
-              <LumenText as="span">{labels.openSession}</LumenText>
+              <LumenText as="span">
+                {openState?.agentId === selectedAgent.agentId && openState.status === 'submitting'
+                  ? labels.openingSession
+                  : labels.openSession}
+              </LumenText>
             </LumenButton>
             {!terminal(selectedAgent.status) && (
               <LumenButton
@@ -311,9 +379,13 @@ export function HbarAgentWorkspace({
           {!entry || entry.status === 'loading' ? (
             <LumenText as="p">{labels.loading}</LumenText>
           ) : entry.error ? (
-            <LumenText as="p" role="alert">{labels.error(entry.error)}</LumenText>
+            <LumenText as="p" role="alert">
+              {labels.error(entry.error)}
+            </LumenText>
           ) : entry.items.length === 0 ? (
-            <LumenText as="p" className="hbar-app-react-agent-empty">{labels.empty}</LumenText>
+            <LumenText as="p" className="hbar-app-react-agent-empty">
+              {labels.empty}
+            </LumenText>
           ) : (
             <LumenCollection as="ul">
               {entry.items.map((agent) => (
@@ -329,7 +401,9 @@ export function HbarAgentWorkspace({
                       <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
                     </LumenText>
                     <LumenText as="small">{labels.summary(agent.modelId, agent.tokenBudget)}</LumenText>
-                    <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>{labels.timestamp(agent.createdAt)}</LumenText>
+                    <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>
+                      {labels.timestamp(agent.createdAt)}
+                    </LumenText>
                   </LumenButton>
                 </LumenCollectionItem>
               ))}

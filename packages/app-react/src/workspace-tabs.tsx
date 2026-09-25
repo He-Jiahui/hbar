@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
-import { ChevronLeft, ChevronRight, Ellipsis, PanelRight, X } from 'lucide-react'
+import { Bot, ChevronLeft, ChevronRight, Ellipsis, PanelRight, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import './workspace-tabs.css'
 
 export type HbarWorkspaceTabCloseScope = 'one' | 'others' | 'left' | 'right' | 'all'
 export interface HbarWorkspaceTabItem {
   readonly id: string
-  readonly kind: 'session' | 'workbench'
+  readonly kind: 'session' | 'workbench' | 'agent-run'
   readonly title: string
   readonly detail?: string | undefined
   readonly activity: 'idle' | 'running' | 'unknown'
@@ -242,6 +242,7 @@ export function HbarWorkspaceTabs({
               }}
             >
               {item.kind === 'workbench' && <LumenIcon icon={PanelRight} tier="sm" />}
+              {item.kind === 'agent-run' && <LumenIcon icon={Bot} tier="sm" />}
               {item.activity === 'running' && (
                 <LumenFrame
                   as="i"

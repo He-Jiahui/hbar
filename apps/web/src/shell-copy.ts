@@ -1395,7 +1395,34 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     creating: choose('正在创建…', 'Creating…'),
     retryCreate: choose('重试并核对创建结果', 'Retry and reconcile creation'),
     created: choose('子 Agent 已创建。', 'Child agent created.'),
-    openSession: choose('打开会话', 'Open session'),
+    openSession: choose('打开子会话', 'Open child session'),
+    openingSession: choose('正在打开子会话…', 'Opening child session…'),
+    openSessionError: (code) => {
+      if (code === 'DISCONNECTED' || code === 'TIMEOUT')
+        return choose(
+          '连接中断，未切换会话。请连接后从此详情重试。',
+          'The connection was interrupted. This detail is unchanged; reconnect and retry here.',
+        )
+      if (code === 'SOURCE_CHANGED' || code === 'NAVIGATION_SUPERSEDED')
+        return choose(
+          '来源会话或子 Agent 已变化。请刷新详情后重试。',
+          'The source session or child agent changed. Refresh this detail before retrying.',
+        )
+      if (code === 'TAB_LIMIT')
+        return choose('已打开 32 个页签，请先关闭一个。', 'You have 32 open tabs. Close one before continuing.')
+      return choose(`无法打开子会话：${code}`, `Could not open child session: ${code}`)
+    },
+    returnToParent: (title) => choose(`返回父会话：${title}`, `Back to parent: ${title}`),
+    returningToParent: choose('正在返回父会话…', 'Returning to parent…'),
+    returnError: (code) =>
+      code === 'DISCONNECTED' || code === 'TIMEOUT'
+        ? choose('连接中断，仍停留在子会话。请连接后重试。', 'The connection was interrupted. Stay here and retry.')
+        : code === 'SOURCE_CHANGED' || code === 'NAVIGATION_SUPERSEDED'
+          ? choose(
+              '原父会话已变化，无法安全返回。可从侧栏选择会话。',
+              'The original parent changed, so Back is unavailable. Select a session in the sidebar.',
+            )
+          : choose(`无法返回父会话：${code}`, `Could not return to parent: ${code}`),
     cancel: choose('取消 Agent', 'Cancel agent'),
     cancelling: choose('正在取消…', 'Cancelling…'),
     retryCancel: choose('重试取消', 'Retry cancellation'),

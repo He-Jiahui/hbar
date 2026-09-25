@@ -38,6 +38,13 @@ test('duplicate identities retain their first item, stale selection is not fabri
   expect(html).not.toContain(labels.tabs.activity('unknown'))
   expect(html).not.toContain('data-activity="unknown"')
 })
+test('an Agent-origin child keeps its real session title and receives a distinct semantic tab glyph', () => {
+  const child: HbarWorkspaceTabItem = { id: 'child', kind: 'agent-run', title: 'Child task', activity: 'running' }
+  const html = renderToStaticMarkup(<HbarWorkspaceTabs {...props} items={[child]} activeId="child" />)
+  expect(html).toContain('Child task')
+  expect(html).toContain('lucide-bot')
+  expect(html).toContain(labels.tabs.activity('running'))
+})
 test('close dialog renders unknown as read-only reconciliation, not another stop action', () => {
   const shared = {
     open: true,
