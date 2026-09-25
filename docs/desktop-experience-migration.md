@@ -36,19 +36,27 @@
 | 输入材料          | 选择/拖放/文件粘贴、12 项批量预约、原会话所属与未知只读核对          | `84f91b7` | [附件记录](desktop-composer-attachments.md)           |
 | 路径错误恢复      | 无效目录在写入前明确失败，保留错误码并允许修正；未知写入不洗成失败   | `b3fbd45` | [项目入口验证](desktop-project-shortcut.md)           |
 | 项目快捷新建      | 项目行直接入口、菜单去重、键盘顺序与窄屏点击区、原草稿保留           | `1d3801a` | [项目快捷记录](desktop-project-shortcut.md)           |
+| 插件详情          | Extensions 列表就近展开真实 Host 插件详情、键盘返回与缺省反馈        | `73295a9` | [设置审计](desktop-settings-interaction-audit.md)     |
+| Changed / diff    | Files 中查看真实工作区/暂存差异、只读比较与明确编辑入口              | `cc87a9e` | [文件审计](desktop-navigation-interaction-audit.md)   |
+| All 文件树        | 按需展开目录、已加载路径筛选、分页上限与失败重试                     | `f02f61b` | [文件审计](desktop-navigation-interaction-audit.md)   |
+| 会话页签          | 32 项上限、关闭活动核对、右键批关、独立草稿与刷新恢复                | `96e782f` | [页签集成](desktop-tabs-host-integration.md)          |
+| Files 工作台页签  | 原面板展开为临时中央页签、Back 返回来源、X 选邻居、保留文件草稿      | `c6c2e78` | [页签集成](desktop-tabs-host-integration.md)          |
 
 表中提交为本地交付，不代表已经推送、发布或安装到用户正在运行的窗口。各单元的精确测试数量、截图位置与边界以对应记录为准。
 
 ## 尚需继续核对的体验差异
 
 完整逐入口审计见 [会话](desktop-conversation-interaction-audit.md)、[导航与文件](desktop-navigation-interaction-audit.md)、[设置](desktop-settings-interaction-audit.md)。它们保留起始基线与交付复核的区别。
+Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另见 [剩余工作台入口审计](desktop-workbench-remaining-audit.md)；其中子 Agent 的就近来源返回是下一项可实现路径，不能把设计稿的 Team 图或 Terminal 架构图当现行软件画面。
 
-优先差异包括材料预览、文件树与 Changes/diff 的工作区路径、会话/文件页签及返回来源。`@`、`/`、会话分支、插件/技能详情、诊断和存储入口必须逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。
+Files 的 All/Changed/diff 与会话/文件工作台页签已形成上述有限闭环；这不等于参考的 Browser、Terminal、Team 或任意文件全文搜索也已具备。仍需逐一核对材料预览、`@`、`/`、会话分支、子 Agent 来源页签、技能详情、诊断和存储入口的真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。
 
-原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。最终稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
+原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
 
-最新 Windows x64 debug 构建通过（Rust 编译 10.84s），隔离 WebView 的原生 smoke 通过，包含首次项目选择、新建/重命名/模型与意图入口、真实文件选择上传、最小窗口、隐藏与 Host 生命周期。未覆盖/重启用户正在运行的桌面进程。共享 hbar-ui 的普通 API 生成命令仍受 pnpm 版本不匹配阻止，Send/Stop 所在源文件还有八项与修改前完全一致的共享 lint 历史违规；不能把根仓库门禁通过外推为这些共享检查已通过。
+本轮 Files/页签功能后的全仓 `bun run check` 初跑发现两条旧命令目录断言漏了 `73237c0` 新增的 `session.activeOperations`；`68bbbe8` 按实际命令目录修正。复跑通过原生工作区查询模块构建、严格 ESLint、根 TypeScript 与 **1,402 tests / 10,583 assertions**（280 个测试文件，测试阶段 217.10s）。这不替代运行中 Stop→终态的专门 Host 故障注入验证。
 
-最后使用同一新生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
+最新 Windows x64 debug 构建通过（本轮 Rust 编译 6.36s），隔离 WebView 的原生 smoke 再次通过，包含真实文件选择上传、默认/最小窗口的会话及文件工具、900px 下侧栏与主区尺寸、隐藏与 Host 生命周期，以及独立 SDK 运行取消。忽略目录中的本轮 smoke 扩展还实际点击了 Files→中央工作台→返回对话，核对原生页签选中与无整页横向溢出；截图 `artifacts/ui-redesign/tauri/workbench-default-window.png` 已人工查看。此前另有首次项目选择、新建/重命名/模型与意图入口的原生 smoke。未覆盖/重启用户正在运行的桌面进程；原生 smoke 未测工作台草稿与批关，这些由真实 Host 生产浏览器 E2E 核验。共享 hbar-ui 的普通 API 生成命令仍受 pnpm 版本不匹配阻止，Send/Stop 所在源文件还有八项与修改前完全一致的共享 lint 历史违规；不能把根仓库门禁通过外推为这些共享检查已通过。
+
+此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
 长历史滚动与恢复另行复核通过（1 passed / 9.1s）：180 条历史分页、有界渲染、加载更早内容后的阅读锚点、新消息不抢阅读位置、明确跳到最新以及断线恢复。其截图保留在 `artifacts/ui-redesign/session/after/long-history-*.png`。

@@ -21,6 +21,17 @@
 
 四项真实 Host E2E 均通过，其中第四项故障被明确注入，不伪称真实运行中任务；稳定截图在 `artifacts/reference-ux-v2/hbar-tabs-host-{selected-1440,selected-320,overflow-320,unknown-1440}.png`，临时数据结束时删除。关闭弹窗按原参考做成自然内容高度、约 29rem 的不透明面板和简单灰幕，而不是以截图坐标定位。生产 Vite 构建、flow/content/icon/design-system 守卫和独立组件测试通过。根类型检查需与并行 App Shell Adaptive 和文件树任务的即时状态分开报告；本单元没有改动那两个任务的代码。
 
+## Files 工作台扩展的后续闭环
+
+`b54624a`、`0c1df46` 和 `c6c2e78` 将上述预留的 Workbench kind 接到真实 Files 面板：
+
+- 会话或项目 Files 面板使用原 `panelInstanceId` 固定到源 workspace/session，再作为临时工作台页签显示在中央。文件树、diff、文档预览和未保存草稿沿用原运行时条目，不复制第二份文件内容。切到会话页签期间面板从 dock 隐藏但保留绑定；重选工作台仍看到同一草稿。
+- Back 先验证仍存在的来源会话再返回并关闭临时页签；来源已关闭/归档时安全退到有效邻项。项目级 Files 没有来源会话时返回原工作区空页。X 仅关闭视图并选邻居，不等同 Back；混合批量关闭中的工作台目标 `sessionId:null`，不会为了关文件视图查询或停止来源 Run。
+- 临时工作台不写入持久页签集合。刷新时恢复普通会话，项目级无来源时只在 Host 验证原工作区仍存在后恢复该工作区；失联不激活未验证目标。外部关闭或重绑定 Files 面板会使原工作台引用失效，晚到的旧引用不能关闭新实例。
+- 标题栏提供就近展开、返回和关闭入口，中英文文案由 Web 宿主供给；图标使用共享语义等级。320/1440 宽度维持正常文档流，关闭与返回后焦点移到存活页签或空页区域。
+
+新增 `e2e/file-workbench-tabs.spec.ts` 对真实临时 Host 验证中英文展开、草稿保留、Back/X、无来源项目入口与刷新；同一生产构建组合会话页签、All 树与 Changed/diff 的 12 项 E2E 全通过，桌面/窄屏截图在 `artifacts/reference-ux-v2/hbar-workbench-{en-US,zh-CN}-{1440,320}.png`。后续 `e96968b` 根据原生截图修正 All 树在宽页的按钮默认居中，并用 390/1440 几何断言回归。运行时 47 项聚焦测试、238 个断言通过；内容/图标/流式布局守卫、生产 Vite 构建及根 TypeScript 检查通过。全仓 `bun run check` 复跑通过 1,402 tests / 10,583 assertions；Windows x64 debug 构建与通用隔离 WebView smoke 通过。忽略的原生 smoke 扩展另实际点击 Files 展开与 Back、验证页签选中和无横向溢出；原生未测草稿/批关，这由真实 Host 生产浏览器 E2E 负责。
+
 ## 尚未宣称完成
 
-当前真实页签是 Session。原 cc-haha 的 Files/Browser/terminal/agent 工作台扩展及 Back 返回来源仍需要单独的 surface/tab 生命周期实现；组件 fixture 中出现 Workbench 图标不代表该流程已接线。当前文件面板仍可独立开启，本单元不改变其文档缓存或脏草稿约束。真实运行中的 Stop→终态和断线后重查仍需专门的受控 Host 延迟测试；未知读取的故障注入测试不代表真实 Run 已经停止。
+Files 工作台已接线，但参考的 Browser/terminal/agent/Team 等页签仍需要逐一落实各自的公开能力、来源关联与生命周期；不能把 Workbench 图标概括成这些功能已完成。当前只支持一个 Files 工具面板实例在中央与 dock 之间切换，不等于多文件独立预览页签或嵌入浏览器。文件草稿仍只在当前 runtime 生命周期保留，不承诺应用重启后恢复。真实运行中的 Stop→终态和断线后重查仍需专门的受控 Host 延迟测试；未知读取的故障注入测试不代表真实 Run 已经停止。
