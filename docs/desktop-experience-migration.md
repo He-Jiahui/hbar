@@ -15,36 +15,36 @@
 
 ## 已验证并独立提交
 
-| 单元              | 交付行为                                                                                  | 本地提交                                   | 依据与验收                                            |
-| ----------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------- |
-| 模型与思考        | composer 局部搜索、提供商分组、能力限定档位与键盘调节                                     | `62ea90d`                                  | [模型记录](desktop-model-interaction-reference.md)    |
-| Goal / Plan 意图  | 本轮意图切换、Goal 条、暂停/恢复/清除、目标编辑与预算披露                                 | `9f3ee84`                                  | [意图记录](desktop-composer-intent-reference.md)      |
-| 项目新建          | 目标明确时直接创建，未选择项目时使用专用选择器                                            | `4298a8f`                                  | [导航审计](desktop-navigation-interaction-audit.md)   |
-| 对话阅读          | 助手正文优先、工具调用与结果对应、过程披露及确认后的复制反馈                              | `c49412b`                                  | [消息记录](desktop-session-message-integration.md)    |
-| 文件草稿          | 跨导航保存、共享文件事实、冲突/丢回执后保留原稿与核对                                     | `05d8030`                                  | [导航审计](desktop-navigation-interaction-audit.md)   |
-| 用量入口          | 模型旁的小入口、真实预算含义与未知状态、告警仍可见                                        | `2af5d12`                                  | [用量记录](desktop-usage-interaction-reference.md)    |
-| Plan 提案         | 原消息旁执行或反馈继续讨论，绑定原提案版本，不消费普通草稿                                | `e3b27a1`                                  | [提案记录](desktop-proposed-plan-integration.md)      |
-| 行内重命名        | Enter 保存、Escape 取消、标题原子比较、冲突与未知恢复                                     | `11d93f5`                                  | [导航审计](desktop-navigation-interaction-audit.md)   |
-| 本次权限          | 输入区四种真实策略、自动批准确认、捕获到原 Run、失联核对                                  | `8329581`                                  | [权限记录](desktop-composer-permission-reference.md)  |
-| 会话工具栏        | 五个直接可达的具名图标入口，标题缩短，保留键盘与选中状态                                  | `a65825e`                                  | [标题栏记录](desktop-session-header-reference.md)     |
-| 运行摘要          | 当前状态与恢复动作可见、20 条按需历史、停止优先真实执行任务                               | `002671c`                                  | [运行记录](desktop-run-activity-reference.md)         |
-| 归档恢复          | 原行确认、项目归档分页、恢复不导航、未知只读核对                                          | `e855123`                                  | [归档记录](desktop-session-archive.md)                |
-| 原生入口回归      | 隔离 WebView、首次选项目、直接新建、重命名、模型/意图及原生附件                           | `a39ca7c`                                  | [验证说明](testing.md)                                |
-| 工具旁审批/问答   | 唯一调用关联、实际参数/片段、明确决定、持久回答与断线事件核对                             | `092e408`                                  | [决定与恢复记录](desktop-session-decisions.md)        |
-| Provider 渐进编辑 | 基础/高级分层、草稿取消、原入口焦点、未知保存和凭据边界                                   | `c332ffe`                                  | [Provider 记录](desktop-provider-progressive-edit.md) |
-| 排队与停止        | 空草稿保留停止，有稿明确加入队列；Enter 不误停，停止绑定真实执行 Run                      | `c240ec0`                                  | [运行输入动作](desktop-composer-running-actions.md)   |
-| 输入材料          | 选择/拖放/文件粘贴、12 项批量预约、原会话所属与未知只读核对                               | `84f91b7`                                  | [附件记录](desktop-composer-attachments.md)           |
-| 路径错误恢复      | 无效目录在写入前明确失败，保留错误码并允许修正；未知写入不洗成失败                        | `b3fbd45`                                  | [项目入口验证](desktop-project-shortcut.md)           |
-| 项目快捷新建      | 项目行直接入口、菜单去重、键盘顺序与窄屏点击区、原草稿保留                                | `1d3801a`                                  | [项目快捷记录](desktop-project-shortcut.md)           |
-| 插件详情          | Extensions 列表就近展开真实 Host 插件详情、键盘返回与缺省反馈                             | `73295a9`                                  | [设置审计](desktop-settings-interaction-audit.md)     |
-| Changed / diff    | Files 中查看真实工作区/暂存差异、只读比较与明确编辑入口                                   | `cc87a9e`                                  | [文件审计](desktop-navigation-interaction-audit.md)   |
-| All 文件树        | 按需展开目录、已加载路径筛选、分页上限与失败重试                                          | `f02f61b`                                  | [文件审计](desktop-navigation-interaction-audit.md)   |
-| 会话页签          | 32 项上限、关闭活动核对、右键批关、独立草稿与刷新恢复                                     | `96e782f`                                  | [页签集成](desktop-tabs-host-integration.md)          |
-| Files 工作台页签  | 原面板展开为临时中央页签、Back 返回来源、X 选邻居、保留文件草稿                           | `c6c2e78`                                  | [页签集成](desktop-tabs-host-integration.md)          |
-| 子 Agent 返回来源 | 从详情打开真实子会话页签，保留父会话及来源关系；断线就近重试，Back 仅在原父页签有效时显示 | `3947a8a`、`34f8cfa`、`04b0d02`、`9a2b23a` | [剩余入口审计](desktop-workbench-remaining-audit.md)  |
-| 只读系统诊断      | 设置中的真实 Host/runtime/storage 概况、刷新与失败时保留旧数据，未提供清理或修复假按钮    | `bcfaf1f`                                  | [设置审计](desktop-settings-interaction-audit.md)     |
-| 工作区路径发现    | Host/CLI 有界按名称搜索、原生目录策略及超时取消，为 `@` 候选提供事实源；尚无 composer 入口 | `9f25f77`、`45e082e`                      | [导航审计](desktop-navigation-interaction-audit.md)   |
-| 消息边界 Fork 底层 | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史，校验工具配对；尚无消息旁入口  | `3e5e16b`                                  | [会话审计](desktop-conversation-interaction-audit.md) |
+| 单元                  | 交付行为                                                                                                     | 本地提交                                                         | 依据与验收                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------- |
+| 模型与思考            | composer 局部搜索、提供商分组、能力限定档位与键盘调节                                                        | `62ea90d`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
+| Goal / Plan 意图      | 本轮意图切换、Goal 条、暂停/恢复/清除、目标编辑与预算披露                                                    | `9f3ee84`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
+| 项目新建              | 目标明确时直接创建，未选择项目时使用专用选择器                                                               | `4298a8f`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
+| 对话阅读              | 助手正文优先、工具调用与结果对应、过程披露及确认后的复制反馈                                                 | `c49412b`                                                        | [消息记录](desktop-session-message-integration.md)    |
+| 文件草稿              | 跨导航保存、共享文件事实、冲突/丢回执后保留原稿与核对                                                        | `05d8030`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
+| 用量入口              | 模型旁的小入口、真实预算含义与未知状态、告警仍可见                                                           | `2af5d12`                                                        | [用量记录](desktop-usage-interaction-reference.md)    |
+| Plan 提案             | 原消息旁执行或反馈继续讨论，绑定原提案版本，不消费普通草稿                                                   | `e3b27a1`                                                        | [提案记录](desktop-proposed-plan-integration.md)      |
+| 行内重命名            | Enter 保存、Escape 取消、标题原子比较、冲突与未知恢复                                                        | `11d93f5`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
+| 本次权限              | 输入区四种真实策略、自动批准确认、捕获到原 Run、失联核对                                                     | `8329581`                                                        | [权限记录](desktop-composer-permission-reference.md)  |
+| 会话工具栏            | 五个直接可达的具名图标入口，标题缩短，保留键盘与选中状态                                                     | `a65825e`                                                        | [标题栏记录](desktop-session-header-reference.md)     |
+| 运行摘要              | 当前状态与恢复动作可见、20 条按需历史、停止优先真实执行任务                                                  | `002671c`                                                        | [运行记录](desktop-run-activity-reference.md)         |
+| 归档恢复              | 原行确认、项目归档分页、恢复不导航、未知只读核对                                                             | `e855123`                                                        | [归档记录](desktop-session-archive.md)                |
+| 原生入口回归          | 隔离 WebView、首次选项目、直接新建、重命名、模型/意图及原生附件                                              | `a39ca7c`                                                        | [验证说明](testing.md)                                |
+| 工具旁审批/问答       | 唯一调用关联、实际参数/片段、明确决定、持久回答与断线事件核对                                                | `092e408`                                                        | [决定与恢复记录](desktop-session-decisions.md)        |
+| Provider 渐进编辑     | 基础/高级分层、草稿取消、原入口焦点、未知保存和凭据边界                                                      | `c332ffe`                                                        | [Provider 记录](desktop-provider-progressive-edit.md) |
+| 排队与停止            | 空草稿保留停止，有稿明确加入队列；Enter 不误停，停止绑定真实执行 Run                                         | `c240ec0`                                                        | [运行输入动作](desktop-composer-running-actions.md)   |
+| 输入材料              | 选择/拖放/文件粘贴、12 项批量预约、原会话所属与未知只读核对                                                  | `84f91b7`                                                        | [附件记录](desktop-composer-attachments.md)           |
+| 路径错误恢复          | 无效目录在写入前明确失败，保留错误码并允许修正；未知写入不洗成失败                                           | `b3fbd45`                                                        | [项目入口验证](desktop-project-shortcut.md)           |
+| 项目快捷新建          | 项目行直接入口、菜单去重、键盘顺序与窄屏点击区、原草稿保留                                                   | `1d3801a`                                                        | [项目快捷记录](desktop-project-shortcut.md)           |
+| 插件详情              | Extensions 列表就近展开真实 Host 插件详情、键盘返回与缺省反馈                                                | `73295a9`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
+| Changed / diff        | Files 中查看真实工作区/暂存差异、只读比较与明确编辑入口                                                      | `cc87a9e`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
+| All 文件树            | 按需展开目录、已加载路径筛选、分页上限与失败重试                                                             | `f02f61b`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
+| 会话页签              | 32 项上限、关闭活动核对、右键批关、独立草稿与刷新恢复                                                        | `96e782f`                                                        | [页签集成](desktop-tabs-host-integration.md)          |
+| Files 工作台页签      | 原面板展开为临时中央页签、Back 返回来源、X 选邻居、保留文件草稿                                              | `c6c2e78`                                                        | [页签集成](desktop-tabs-host-integration.md)          |
+| 子 Agent 返回来源     | 从详情打开真实子会话页签，保留父会话及来源关系；断线就近重试，Back 仅在原父页签有效时显示                    | `3947a8a`、`34f8cfa`、`04b0d02`、`9a2b23a`                       | [剩余入口审计](desktop-workbench-remaining-audit.md)  |
+| 只读系统诊断          | 设置中的真实 Host/runtime/storage 概况、刷新与失败时保留旧数据，未提供清理或修复假按钮                       | `bcfaf1f`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
+| 工作区路径与 `@` 提及 | Host/CLI 有界路径发现；composer 从真实文件结果选取路径，保留草稿中的结构化引用，键盘浏览及失联反馈就近可见   | `9f25f77`、`45e082e`、`5a3cd62`、`ab5ddcf`、`8ca1592`、`3d9f19a` | [提及记录](desktop-composer-mentions.md)              |
+| 消息旁 Fork           | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史；原消息旁资格查询、创建、丢回执核对及子会话页签入口 | `3e5e16b`、`7d79aa3`、`9829e57`、`2726679`、`ad9dadb`、`ff5607c` | [Fork 记录](desktop-message-fork-integration.md)      |
 
 表中提交为本地交付，不代表已经推送、发布或安装到用户正在运行的窗口。各单元的精确测试数量、截图位置与边界以对应记录为准。
 
@@ -53,7 +53,7 @@
 完整逐入口审计见 [会话](desktop-conversation-interaction-audit.md)、[导航与文件](desktop-navigation-interaction-audit.md)、[设置](desktop-settings-interaction-audit.md)。它们保留起始基线与交付复核的区别。
 Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另见 [剩余工作台入口审计](desktop-workbench-remaining-audit.md)。子 Agent 来源返回已完成，但它使用真实子 Session，不是参考产品中依据 tool-use ID 的独立 run 投影；不能把设计稿的 Team 图或 Terminal 架构图当现行软件画面。
 
-Files 的 All/Changed/diff、会话/文件工作台页签及子 Agent 来源返回已形成上述有限闭环；这不等于参考的 Browser、Terminal、Team 或任意文件全文搜索也已具备。诊断只读入口已落地；路径发现与精确消息 Fork 目前仅有底层契约，`@` 与消息旁入口仍在集成。材料预览、`/`、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
+Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及和消息旁 Fork 已形成上述有限闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。诊断只读入口已落地。材料预览、`/`、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
 
 原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
 
@@ -64,6 +64,8 @@ Agent 来源返回提交后的本轮 `bun run check` 已通过原生查询构建
 最新 Windows x64 debug 构建通过（本轮 Rust 编译 6.36s），隔离 WebView 的原生 smoke 再次通过，包含真实文件选择上传、默认/最小窗口的会话及文件工具、900px 下侧栏与主区尺寸、隐藏与 Host 生命周期，以及独立 SDK 运行取消。忽略目录中的本轮 smoke 扩展还实际点击了 Files→中央工作台→返回对话，核对原生页签选中与无整页横向溢出；截图 `artifacts/ui-redesign/tauri/workbench-default-window.png` 已人工查看。此前另有首次项目选择、新建/重命名/模型与意图入口的原生 smoke。未覆盖/重启用户正在运行的桌面进程；原生 smoke 未测工作台草稿与批关，这些由真实 Host 生产浏览器 E2E 核验。共享 hbar-ui 的普通 API 生成命令仍受 pnpm 版本不匹配阻止，Send/Stop 所在源文件还有八项与修改前完全一致的共享 lint 历史违规；不能把根仓库门禁通过外推为这些共享检查已通过。
 
 Agent UI 提交后的 Windows x64 debug 桌面再次构建成功，隔离 WebView smoke 通过原生文件选择、会话/文件面板尺寸、隐藏及 Host 生命周期；该原生 smoke 未专门创建子 Agent，子会话来源路径由上述真实 Host 浏览器 E2E 验证。没有重启或覆盖用户正在运行的桌面窗口。
+
+`@` 和消息旁 Fork 接入后，首次全仓检查的原生构建、严格 ESLint 和 TypeScript 均通过，但 app-react 的两个模块边界测试发现 `@` UI 直接依赖了 contracts 子路径（当次 1,474 通过、2 失败）；`3d9f19a` 将解析与类型移到 app-runtime 公开入口，未放宽边界测试。复跑 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript、**1,477 tests / 11,102 assertions**（294 个测试文件，测试阶段 199.86s）。Fork 的真实 Host 中英文交互 3 项及 `@` 的 2 项真实 Host 提及流程另行通过；各自的具体边界见上方记录。Windows x64 release 桌面应用和 NSIS 安装包也已构建成功，随后使用隔离数据目录的原生 WebView smoke 验证连接、文件选择上传、默认/最小窗口布局、侧栏、窗口隐藏与 Host 生命周期、独立取消；没有安装包或重启用户当前窗口。这轮原生 smoke 没有专门操作 `@` 或 Fork，不能拿它替代两者的 Host 浏览器用例。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
