@@ -256,8 +256,9 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('<strong>safe</strong>')
     expect(html).not.toContain('<script>')
     expect(html).toContain('next prompt')
-    expect(html).toContain('Fixture Model · thinking Low')
-    expect(html).toContain('aria-label="Model settings: Fixture Model · thinking Low"')
+    expect(html).toContain('aria-label="Choose model: Fixture Model"')
+    expect(html).toContain('aria-valuetext="Low"')
+    expect(html).toContain('aria-haspopup="dialog"')
     expect(html).toContain('Agent approval')
     expect(html).toContain('Agent plan')
     expect(html).toContain('1 of 2 completed')
@@ -289,8 +290,10 @@ test('an unconfigured session exposes a localized model recovery action instead 
     await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
     const labels = {
       ...getShellCopy('zh-CN').session,
-      configureModel: (currentModel: string) =>
-        `为当前会话选择模型与思考等级，保留尚未发送的长文本草稿：${currentModel}`,
+      modelPicker: {
+        ...getShellCopy('zh-CN').session.modelPicker,
+        trigger: (currentModel: string) => `为当前会话选择模型与思考等级，保留尚未发送的长文本草稿：${currentModel}`,
+      },
     }
     for (const connected of [true, false]) {
       const html = renderToStaticMarkup(
@@ -305,7 +308,7 @@ test('an unconfigured session exposes a localized model recovery action instead 
       )
       const control = { count: 0, label: '', disabled: false, text: '' }
       await new HTMLRewriter()
-        .on('button.hbar-app-react-model-control', {
+        .on('button.hbar-composer-model-trigger', {
           element(element) {
             control.count++
             control.label = element.getAttribute('aria-label') ?? ''
@@ -319,7 +322,7 @@ test('an unconfigured session exposes a localized model recovery action instead 
         .text()
       expect(control).toEqual({
         count: 1,
-        label: labels.configureModel('选择模型'),
+        label: labels.modelPicker.trigger('选择模型'),
         disabled: !connected,
         text: '选择模型',
       })

@@ -801,13 +801,35 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       addAttachment: choose('添加附件', 'Add attachment'),
       removeAttachment: (attachment) => choose(`移除附件 ${attachment.name}`, `Remove attachment ${attachment.name}`),
     },
-    model: (name, thinkingLevel) =>
-      choose(
-        `${name}${thinkingLevel ? ` · 思考 ${thinkingLevelLabel(locale, thinkingLevel)}` : ''}`,
-        `${name}${thinkingLevel ? ` · thinking ${thinkingLevelLabel(locale, thinkingLevel)}` : ''}`,
+    modelPicker: {
+      title: choose('模型配置', 'Model configuration'),
+      choose: choose('选择模型', 'Choose a model'),
+      trigger: (name) => choose(`选择模型：${name}`, `Choose model: ${name}`),
+      search: choose('搜索模型', 'Search models'),
+      empty: choose('尚未配置模型。', 'No models configured.'),
+      noMatches: choose('没有匹配的模型。', 'No matching models.'),
+      loading: choose('正在加载模型…', 'Loading models…'),
+      close: choose('关闭', 'Close'),
+      retry: choose('重新加载', 'Reload'),
+      reconcile: choose('核对更改结果', 'Check change result'),
+      pending: choose('正在应用…', 'Applying…'),
+      unknown: choose(
+        '更改结果尚未确认，请先核对。',
+        'The change is not confirmed. Check its result before continuing.',
       ),
-    modelUnavailable: choose('选择模型', 'Choose a model'),
-    configureModel: (currentModel) => choose(`模型设置：${currentModel}`, `Model settings: ${currentModel}`),
+      providers: choose('配置供应商', 'Configure providers'),
+      more: (remaining) =>
+        choose(`显示更多（还有 ${number.format(remaining)} 个）`, `Show more (${number.format(remaining)} remaining)`),
+      capability: (model) =>
+        choose(
+          `${number.format(model.contextWindow)} 上下文${model.imageInput ? ' · 图像' : ''}${model.reasoning ? ' · 推理' : ''}`,
+          `${number.format(model.contextWindow)} context${model.imageInput ? ' · Images' : ''}${model.reasoning ? ' · Reasoning' : ''}`,
+        ),
+      thinking: choose('推理强度', 'Reasoning effort'),
+      thinkingTrigger: (level) => choose(`推理强度：${level}`, `Reasoning effort: ${level}`),
+      thinkingLevel: (level) => thinkingLevelLabel(locale, level),
+      error,
+    },
     tools: {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),

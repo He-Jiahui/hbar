@@ -1,13 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import {
-  ArrowUpRight,
-  Bot,
-  ChartNoAxesColumnIncreasing,
-  Files,
-  ListTodo,
-  Settings,
-  type LucideIcon,
-} from 'lucide-react'
+import { type ReactNode } from 'react'
+import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
@@ -33,6 +25,7 @@ import {
 import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
+import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import './lumen-session-workspace.css'
 
 type ContentBlock = SessionTimelineState['messages'][number]['content'][number]
@@ -59,9 +52,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly timestamp: (value: number) => string
   readonly error: (code: string) => string
   readonly prompt: LumenPromptLabels
-  readonly model: (name: string, thinkingLevel: string | null) => string
-  readonly modelUnavailable: string
-  readonly configureModel: (currentModel: string) => string
+  readonly modelPicker: HbarComposerModelLabels
   readonly tools: {
     readonly label: string
     readonly files: string
@@ -253,32 +244,21 @@ export function HbarSessionWorkspace({
   const questionnaires = useHbarRuntimeState(runtime.state.questionnaires)
   const runActions = useHbarRuntimeState(runtime.state.runActions)
   const controls = useHbarRuntimeState(runtime.state.controls)
+  const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
-  const [modelActionError, setModelActionError] = useState<{ sessionId: string; code: string } | null>(null)
   const draft = sessionId ? drafts[sessionId] : undefined
   const model = controls.sessionId === sessionId ? controls.model : null
   const configured = model?.status === 'configured' && model.modelId !== null
-  const modelSummary = configured ? labels.model(model.model!.modelName, model.thinkingLevel) : labels.modelUnavailable
+  const modelPending =
+    composerModel.sessionId === sessionId &&
+    (composerModel.action.status === 'submitting' || composerModel.action.status === 'unknown')
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const activeRun = activeRuns[0]
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
-  const configureModel = () => {
-    if (!sessionId) return
-    setModelActionError(null)
-    void runtime.commands
-      .execute('app.openSettings', { scope: 'session', targetId: sessionId, section: 'model' })
-      .catch((reason: unknown) => {
-        const code =
-          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-            ? reason.code
-            : 'EXECUTION_FAILED'
-        setModelActionError({ sessionId, code })
-      })
-  }
   const addAttachments = (files: readonly File[]) => {
     if (!sessionId || !prepareAttachment) return
     const available = Math.max(0, 12 - ((draft?.attachments.length ?? 0) + (draft?.uploading ?? 0)))
@@ -543,7 +523,10 @@ export function HbarSessionWorkspace({
           (draft?.attachments.length ?? 0) + (draft?.uploading ?? 0) < 12
         }
         canSubmit={
-          configured && draft?.status !== 'unknown' && Boolean(draft?.text.trim() || draft?.attachments.length)
+          configured &&
+          !modelPending &&
+          draft?.status !== 'unknown' &&
+          Boolean(draft?.text.trim() || draft?.attachments.length)
         }
         canStop={Boolean(activeRun)}
         stopping={Boolean(
@@ -554,33 +537,20 @@ export function HbarSessionWorkspace({
             ? labels.error(draft.uploadError)
             : draft?.error
               ? labels.error(draft.error)
-              : controls.errors.model
-                ? labels.error(controls.errors.model)
-                : undefined
+              : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
+                ? labels.modelPicker.unknown
+                : controls.errors.model
+                  ? labels.error(controls.errors.model)
+                  : undefined
         }
-        context={
-          <LumenFrame className="hbar-app-react-model-context">
-            <LumenButton
-              className="hbar-app-react-model-control"
-              size="s"
-              variant="text"
-              indicator="none"
-              aria-label={labels.configureModel(modelSummary)}
-              title={labels.configureModel(modelSummary)}
-              disabled={!connected}
-              onClick={configureModel}
-            >
-              <LumenText as="span" className="hbar-app-react-model-value">
-                {modelSummary}
-              </LumenText>
-              <LumenIcon icon={ArrowUpRight} tier="sm" />
-            </LumenButton>
-            {modelActionError?.sessionId === sessionId && (
-              <LumenText as="span" role="alert">
-                {labels.error(modelActionError.code)}
-              </LumenText>
-            )}
-          </LumenFrame>
+        modelPicker={
+          <HbarComposerModelPicker
+            key={sessionId}
+            sessionId={sessionId}
+            connected={connected}
+            disabled={draft?.status === 'submitting' || draft?.status === 'unknown'}
+            labels={labels.modelPicker}
+          />
         }
         onChange={(text) => invoke('draft.setText', { sessionId, text })}
         onAddAttachments={prepareAttachment ? addAttachments : undefined}
@@ -593,7 +563,7 @@ export function HbarSessionWorkspace({
           })
         }
         onSubmit={() => {
-          if (!draft || !configured || !model.modelId) return
+          if (!draft || !configured || !model.modelId || modelPending) return
           invoke('run.submit', {
             sessionId,
             modelId: model.modelId,

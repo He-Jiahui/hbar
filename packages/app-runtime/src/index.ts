@@ -36,6 +36,7 @@ import { createSessionTimeline } from './session-timeline'
 import { createDrafts } from './drafts'
 import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
+import { composerModelCommands, createComposerModel } from './composer-model'
 import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
@@ -67,6 +68,7 @@ export type {
   SessionDraftState,
   SessionAttachmentUpload,
   SessionControlsState,
+  ComposerModelState,
   SessionTimelinePort,
   SessionTimelineState,
   SessionTimelineUpdate,
@@ -120,6 +122,8 @@ export type {
   ClientExportPort,
 } from './types'
 export { SessionSelectionError } from './navigation'
+
+const runtimeCommands = { ...applicationCommands, ...composerModelCommands }
 
 export function createAppRuntime(options: RuntimeOptions) {
   if (!options.instanceId || !options.hostId)
@@ -203,6 +207,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     controls.settingsCommitted,
   )
+  const composerModel = createComposerModel(
+    local,
+    options.models,
+    navigation.reader,
+    controls,
+    onSubscriberError,
+    () => disposed,
+  )
   const providerSettings = createProviderSettings(
     local,
     options,
@@ -270,6 +282,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(statusWorkspaceCommands, name) ||
         Object.hasOwn(clientPersistenceCommands, name) ||
         Object.hasOwn(sessionTimelineCommands, name) ||
+        Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -299,6 +312,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       interactions: interactions.reader,
       questionnaires: interactions.questionnaires,
       controls: controls.reader,
+      composerModel: composerModel.reader,
       settings: settingsForms.reader,
       providers: providerSettings.reader,
       commandPalette: commandPalette.reader,
@@ -311,10 +325,10 @@ export function createAppRuntime(options: RuntimeOptions) {
       layout: clientPersistence.layout,
       preferences: clientPersistence.preferences,
     }),
-    commands: Object.freeze(createCommandClient(applicationCommands, executor)),
+    commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const [name, ...arguments_] = tokenizeCommand(source)
-      const definition = applicationCommands[name as keyof typeof applicationCommands]
+      const definition = runtimeCommands[name as keyof typeof runtimeCommands]
       if (!definition) throw new CommandError('COMMAND_NOT_FOUND', 'Command definition not found')
       return executor.execute(name!, parseArguments(definition.metadata, arguments_), execution)
     },
@@ -334,6 +348,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       drafts.dispose()
       interactions.dispose()
       controls.dispose()
+      composerModel.dispose()
       settingsForms.dispose()
       providerSettings.dispose()
       commandPalette.dispose()

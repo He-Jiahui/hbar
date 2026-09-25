@@ -89,6 +89,13 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // cc-haha original-component evidence: composer model/effort anchored popovers,
+  // becoming bottom sheets on narrow screens. Only the top-layer container.
+  if (
+    /packages\/app-react\/src\/composer-model-picker\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\])?$/.test(selector.trim())
+  )
+    return true
   // App Shell 1: observed drawer/backdrop, footer-anchored account menu and pane-edge fades.
   // Only these containers may overlay; content descendants still require normal flow.
   if (/packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -465,6 +472,13 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     ).length !== 1
   )
     throw new Error('Hidden text exception allowed fixed placement')
+  const composerPath = 'packages/app-react/src/composer-model-picker.css'
+  if (validateCss(composerPath, '.hbar-composer-picker-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed composer popover container')
+  if (validateCss(composerPath, '.hbar-composer-picker-popover > button { position: fixed; }').length !== 1)
+    throw new Error('Composer popover exception leaked to content')
+  if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
+    throw new Error('Composer popover exception leaked across files')
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
 }

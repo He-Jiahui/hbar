@@ -63,7 +63,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        const model = page.getByRole('button', { name: locale === 'zh-CN' ? /^模型设置：/ : /^Model settings:/ })
+        const model = page.getByRole('button', { name: copy.session.tools.settings, exact: true })
         await model.focus()
         await page.keyboard.press('Enter')
         await expect(pageBoundary).toBeFocused()

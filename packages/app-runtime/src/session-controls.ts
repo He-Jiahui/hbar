@@ -94,17 +94,45 @@ export function createSessionControls(
     })
   }
 
-  const refreshModel = async (sessionId: string): Promise<void> => {
+  const commitModel = (model: ModelConfiguration): void => {
+    if (isDisposed() || navigation.getSnapshot().sessionId !== model.sessionId) return
+    const current = state.reader.getSnapshot()
+    if (current.sessionId !== model.sessionId) return
+    // A delayed confirmation cannot roll back a newer confirmed settings layer.
+    if (
+      current.model &&
+      Object.entries(current.model.revisions).some(([layer, revision]) => revision > (model.revisions[layer] ?? 0))
+    )
+      return
+    modelGeneration += 1
+    pendingModel = null
+    const errors = { ...current.errors, model: null }
+    state.replace({
+      ...current,
+      model,
+      errors,
+      status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+    })
+  }
+
+  const refreshModel = async (
+    sessionId: string,
+    execution: ExecuteOptions = {},
+    retainCurrent = false,
+  ): Promise<void> => {
+    if (isDisposed() || navigation.getSnapshot().sessionId !== sessionId) return
     const intent = ++modelGeneration
     pendingModel = intent
     const previous = state.reader.getSnapshot()
-    // The previous configuration no longer authorizes sending with those values.
-    state.replace({ ...previous, model: null, status: 'loading' })
+    // Confirmed settings writes invalidate the old send configuration. Opening
+    // a read-only picker may retain its label until the fresh read settles.
+    state.replace({ ...previous, model: retainCurrent ? previous.model : null, status: 'loading' })
     let model: ModelConfiguration | null = null
     let error: string | null = null
     try {
       if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
-      const result = await models.execute('session.getModel', { sessionId })
+      const result = await models.execute('session.getModel', { sessionId }, execution)
+      if (execution.signal?.aborted) throw new CommandError('CANCELLED', 'Model refresh was cancelled')
       const parsed = modelConfigurationSchema.safeParse(result)
       if (!parsed.success || parsed.data.sessionId !== sessionId)
         throw new CommandError('INVALID_OUTPUT', 'Model response does not match the requested session')
@@ -147,6 +175,8 @@ export function createSessionControls(
 
   return {
     reader: state.reader,
+    refreshModel,
+    commitModel,
     async settingsCommitted(input: SettingsApplyInput): Promise<void> {
       if (isDisposed()) return
       const selection = navigation.getSnapshot()
@@ -164,6 +194,7 @@ export function createSessionControls(
     async executeModel(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
       const persistent = name === 'session.setModel' || name === 'session.setThinkingLevel'
+      const readGeneration = modelGeneration
       try {
         const result = await models.execute(name, input, {
           ...options,
@@ -171,10 +202,7 @@ export function createSessionControls(
         })
         if (name === 'session.getModel') {
           const model = modelConfigurationSchema.parse(result)
-          if (model.sessionId === navigation.getSnapshot().sessionId) {
-            const current = state.reader.getSnapshot()
-            state.replace({ ...current, model, errors: { ...current.errors, model: null } })
-          }
+          if (readGeneration === modelGeneration) commitModel(model)
         } else if (persistent) {
           const committed = modelWriteResultSchema.parse(result)
           if (committed.sessionId === navigation.getSnapshot().sessionId) void load(committed.sessionId)

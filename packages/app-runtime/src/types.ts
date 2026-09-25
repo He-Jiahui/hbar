@@ -12,7 +12,7 @@ import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { RunAccepted } from '@hbar/contracts/commands/run'
 import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
-import type { ModelConfiguration } from '@hbar/contracts/commands/models'
+import type { ModelConfiguration, ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
@@ -581,6 +581,17 @@ export interface SessionControlsState {
     readonly model: string | null
     readonly usage: string | null
     readonly budget: string | null
+  }
+}
+
+export interface ComposerModelState {
+  readonly sessionId: string | null
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly models: readonly ModelDescriptor[]
+  readonly error: string | null
+  readonly action: {
+    readonly status: 'idle' | 'submitting' | 'unknown' | 'failed'
+    readonly error: string | null
   }
 }
 export type SessionTimelineUpdate =

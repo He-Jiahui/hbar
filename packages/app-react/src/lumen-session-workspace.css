@@ -133,36 +133,8 @@
   padding: 0.5rem 1rem 1rem;
 }
 
-.hbar-app-react-model-context {
-  display: flex;
+.hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {
   min-inline-size: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-.hbar-app-react-model-control {
-  display: inline-flex;
-  max-inline-size: 100%;
-  min-inline-size: 0;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.375rem;
-  color: var(--lumen-muted);
-  font-size: 0.8125rem;
-  text-align: start;
-}
-
-.hbar-app-react-model-value {
-  min-inline-size: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.hbar-app-react-model-context > [role='alert'] {
-  color: var(--lumen-danger);
-  font-size: 0.8125rem;
-  overflow-wrap: anywhere;
 }
 
 @media (max-width: 35rem) {
