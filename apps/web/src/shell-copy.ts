@@ -1398,7 +1398,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     openSession: choose('打开子会话', 'Open child session'),
     openingSession: choose('正在打开子会话…', 'Opening child session…'),
     openSessionError: (code) => {
-      if (code === 'DISCONNECTED' || code === 'TIMEOUT')
+      if (code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED' || code === 'TIMEOUT')
         return choose(
           '连接中断，未切换会话。请连接后从此详情重试。',
           'The connection was interrupted. This detail is unchanged; reconnect and retry here.',
@@ -1415,7 +1415,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     returnToParent: (title) => choose(`返回父会话：${title}`, `Back to parent: ${title}`),
     returningToParent: choose('正在返回父会话…', 'Returning to parent…'),
     returnError: (code) =>
-      code === 'DISCONNECTED' || code === 'TIMEOUT'
+      code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED' || code === 'TIMEOUT'
         ? choose('连接中断，仍停留在子会话。请连接后重试。', 'The connection was interrupted. Stay here and retry.')
         : code === 'SOURCE_CHANGED' || code === 'NAVIGATION_SUPERSEDED'
           ? choose(

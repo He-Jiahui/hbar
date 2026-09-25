@@ -102,6 +102,11 @@ test('child agent panel renders Host records and a command-owned creation draft'
       </HbarRuntimeProvider>,
     )
     expect(chineseDetail).toContain('打开子会话')
+    for (const locale of ['en-US', 'zh-CN'] as const) {
+      const labels = getShellCopy(locale).agents
+      expect(labels.openSessionError('CONNECTION_CLOSED')).toBe(labels.openSessionError('DISCONNECTED'))
+      expect(labels.returnError('CONNECTION_CLOSED')).toBe(labels.returnError('DISCONNECTED'))
+    }
   } finally {
     runtime.dispose()
   }
