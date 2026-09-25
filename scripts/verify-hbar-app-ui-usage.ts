@@ -5,6 +5,7 @@ import { verifyUsageModel } from './verify-hbar-app-ui-usage-model'
 import { verifyUsageLimits } from './verify-hbar-app-ui-usage-limits'
 import { verifyUsageMembers } from './verify-hbar-app-ui-usage-members'
 import { verifyUsageBudget } from './verify-hbar-app-ui-usage-budget'
+import { verifyUsageOverage } from './verify-hbar-app-ui-usage-overage'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -50,6 +51,9 @@ try {
   } else if (process.argv.includes('--budget-only')) {
     await verifyUsageBudget(page, baseUrl)
     expect(errors).toEqual([])
+  } else if (process.argv.includes('--overage-only')) {
+    await verifyUsageOverage(page, baseUrl)
+    expect(errors).toEqual([])
   } else {
     for (const theme of ['dark', 'light'])
       for (const width of [1192, 768, 320]) {
@@ -68,7 +72,9 @@ try {
                       ? '.lumen-usage-member-list'
                       : variant === 5
                         ? '.lumen-usage-budget-panel'
-                        : '.hbar-app-ui-usage-content',
+                        : variant === 6
+                          ? '.lumen-usage-overage-panel'
+                          : '.hbar-app-ui-usage-content',
             ),
           ).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -91,6 +97,7 @@ try {
     }
     await verifyUsageMembers(page, baseUrl)
     await verifyUsageBudget(page, baseUrl)
+    await verifyUsageOverage(page, baseUrl)
     await page.goto(url(7), { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: 'Expand request req_91a2', exact: true }).click()
     await expect(page.locator('pre')).toContainText('model=balanced')

@@ -76,6 +76,15 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 
 ## 类别修复边界
 
+AI Usage 6 按套餐单选、Enter/Space、两个独立底部动作和卡片 hover 选样，共六例。
+原版卡片是 `button[role=radio]`，没有方向键游标切换；被动分段条与权益文本不点击。
+`Upgrade`、`Stay on overage` 和卡片 hover 在公开预览中均没有业务/选中状态变化；
+其中 hover 也不改变卡片填充，不套用普通按钮的整块 hover 填充反馈。
+`--overage-only` 检查 640/639 断点、短宿主键盘可达性、德语长文案与七张套餐/七条权益。
+桌面/平板四个控件的几何与源捕获逐项对齐；不等长卡片的内部内容按原生按钮行为垂直居中。
+窄屏源顶部裁切、极窄源底部按钮越出内面板，
+与本地安全滚动/按钮换行的差异单列待复核，不归为 Lumen 主题差异。
+
 AI Usage 5 按两类预算预测结果、阈值添加/移除和两个独立开关选样，共六例。
 原版没有保存按钮；不制造额外提交成功提示。键盘案例从焦点就绪态开始按键，获取焦点
 可能引起的原生滚动另存 `focus-before/after.png`、对应 JSON 与 `focus-preparation.json`，

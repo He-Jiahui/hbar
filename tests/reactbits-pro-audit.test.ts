@@ -4,6 +4,20 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('overage samples choice feedback and both source no-op actions without replaying every plan', () => {
+  const id = 'hbar-app-ui-ai-usage-6'
+  expect(auditSamplingPlan(id)!.samples).toHaveLength(6)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:1:press-enter`])
+  const controls = [0, 1].map((index) =>
+    control(index, { tag: 'button', role: 'radio', capabilities: ['click', 'press'] }),
+  )
+  const cases = usageOverageInteractionCases(snapshot(controls), id)
+  expect(cases.filter((item) => item.action === 'press').every((item) => item.focusBefore)).toBe(true)
+  expect(cases.filter((item) => item.action === 'click').every((item) => !item.focusBefore)).toBe(true)
+  expect(() => usageOverageInteractionCases(snapshot([]), id)).toThrow('Overage plan controls changed')
+  expect(auditSamplingPlan(id)!.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('budget samples numeric branches, independent threshold states and native switch activation', () => {
   const id = 'hbar-app-ui-ai-usage-5'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(6)
@@ -96,6 +110,7 @@ import {
   usageMemberScenarioCases,
   usageBudgetSliderCases,
   usageBudgetInteractionCases,
+  usageOverageInteractionCases,
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,

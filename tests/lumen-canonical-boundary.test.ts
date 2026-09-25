@@ -56,6 +56,7 @@ const canonicalCompositions = [
   'hbar-ui/packages/lumen-app-ui/src/usage-rate-panel.tsx',
   'hbar-ui/packages/lumen-app-ui/src/usage-member-list.tsx',
   'hbar-ui/packages/lumen-app-ui/src/usage-budget-panel.tsx',
+  'hbar-ui/packages/lumen-app-ui/src/usage-overage-panel.tsx',
   'hbar-ui/packages/lumen-app-ui/src/wizard.tsx',
 ]
 

@@ -1495,6 +1495,18 @@ export function usageBudgetInteractionCases(snapshot: SemanticSnapshot, variantI
   )
 }
 
+export function usageOverageInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+): readonly InteractionCase[] {
+  const controls = visibleControls(snapshot)
+  if (controls.filter((control) => control.tag === 'button' && control.role === 'radio').length !== 2)
+    throw new Error('Overage plan controls changed; re-observe the live source before sampling')
+  return interactionCases(snapshot, variantId).map((interaction) =>
+    interaction.action === 'press' ? { ...interaction, focusBefore: true } : interaction,
+  )
+}
+
 export function planBoardScrollCase(
   variantId: string,
   owner: ControlSnapshot,
@@ -3176,6 +3188,8 @@ async function runInteractionsParallel(
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-ai-usage-6')
+              discovered = [...usageOverageInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-agent-activity-5') {
               await prepareAgentLogScenario(discoveryPage, sourceRoot, 'away', true)
               discovered.push(...agentLogScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, 'away'))

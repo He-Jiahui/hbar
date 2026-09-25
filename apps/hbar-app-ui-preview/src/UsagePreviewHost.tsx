@@ -12,14 +12,15 @@ import { usageMemberFixture } from '../../../tests/fixtures/hbar-app-ui-usage-me
 import { createUsageMemberPreviewStore, projectUsageMemberPreview } from './usage-member-preview-model'
 import { usageBudgetFixture } from '../../../tests/fixtures/hbar-app-ui-usage-budget-fixtures'
 import { createUsageBudgetPreviewStore, projectUsageBudgetPreview } from './usage-budget-preview-model'
+import { usageOverageFixture } from '../../../tests/fixtures/hbar-app-ui-usage-overage-fixtures'
+import { createUsageOveragePreviewStore, projectUsageOveragePreview } from './usage-overage-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [plan, setPlan] = useState('pro'),
-    [filtered, setFiltered] = useState(false)
+  const [filtered, setFiltered] = useState(false)
   const base = USAGE_FIXTURES
   const mode = new URLSearchParams(location.search).get('usageFixture')
   const [overviewStore] = useState(() => createUsageOverviewPreviewStore(usageOverviewDatasets(mode)))
@@ -40,6 +41,11 @@ export function UsagePreviewHost({
     createUsageBudgetPreviewStore(budgetFixture.facts, budgetFixture.thresholds, budgetFixture.settings),
   )
   const budget = projectUsageBudgetPreview(useStore(budgetStore), budgetFixture.copy)
+  const [overageFixture] = useState(() => usageOverageFixture(mode))
+  const [overageStore] = useState(() => createUsageOveragePreviewStore(overageFixture.plans))
+  const overage = projectUsageOveragePreview(useStore(overageStore), overageFixture.copy, (action, id) =>
+    report(action, id ?? undefined),
+  )
   function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
     return mode === 'empty'
       ? []
@@ -58,14 +64,7 @@ export function UsagePreviewHost({
         rateLimits,
         seats,
         budget,
-        overage: {
-          ...base.overage,
-          plan: { ...base.overage.plan!, value: plan, onChange: setPlan },
-          review: {
-            label: `Review ${base.overage.plan!.options.find((item) => item.id === plan)?.label ?? ''}`,
-            onInvoke: () => report('review', plan),
-          },
-        },
+        overage,
         requests: {
           ...base.requests,
           strategy: mode === 'overflow' ? 'virtual' : 'content-grown',

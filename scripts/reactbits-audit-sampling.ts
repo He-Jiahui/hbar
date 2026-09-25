@@ -928,6 +928,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-6')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Enterprise replaces Scale as the sole selected plan; usage and allowance remain unchanged',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '1:press-space',
+          change: 'Native Space selects a plan from a focused keyboard baseline',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '1:press-enter',
+          change: 'Enter selects the stacked narrow plan; real focus/scroll preparation is captured separately',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '2:click',
+          change: 'Stay on overage has no visible result in the public source preview',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '3:click',
+          change: 'Upgrade has no visible result in the public source preview; no success or payment is invented',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:hover',
+          change: 'Hovering an unselected plan keeps its fill and selection unchanged, matching the source no-op',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'The other plan and repeated activation gestures',
+          basis:
+            'Both cards share the ID-keyed controlled selection. Source observation confirms native button Enter/Space, not arrow-driven roving selection. Local state tests cover reverse selection, duplicate/stale IDs and disabled plans.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Passive allowance split, benefits and repeated themes/viewports',
+          basis:
+            'The source bar and benefit rows have no controls. Eight static pairs cover their flow. Both distinct footer actions are replayed once; repeated activations cannot justify invented source business outcomes.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 
