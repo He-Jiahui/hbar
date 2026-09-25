@@ -88,7 +88,7 @@ Files 加入原会话提交 `37ce66e` 的真实 Host 中英文 2 项与既有 `@
 
 后续 `67d9917`、`84d8102`、`6fbfcee` 各按功能独立提交并保留真实参考/Host 边界：思考强度的中英文真实 Host E2E 2/2 与 22 项聚焦测试通过；工程置顶中英文真实 Host E2E 2/2、7 项运行时和 12 项 React 测试通过；工程/分支上下文中英文真实 Git A/B Host E2E 2/2 与 12 项聚焦测试通过，并留有 1440/900/390/320 截图。三项合并后的 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript 与 **1,538 tests / 11,450 assertions**（305 个测试文件，0 失败）。这些验证不宣称参考视觉完全一致：思考滑轨仍缺参考的离散刻度/填充，工程/分支控件在 hbar 宽屏也位于 composer 下方，非 cc-haha 工具行内。
 
-本次统一 Windows release/NSIS 构建已尝试，MSVC x64 环境可用，但 Web 构建阶段被并行未提交的 `hbar-ui/packages/lumen-app-ui/src/app-dialog.tsx` 对尚不存在的 `app-dialog-wizard.css` 导入阻断，未进入 Rust/打包；因此本组三项**尚无新增原生 WebView2 验收**。该共享 UI 改动及缺失样式文件不属于本单元，未覆盖、删除或代写。待其工作区一致后需重跑构建及隔离原生操作回归。
+本次统一 Windows release/NSIS 构建首次尝试时，Web 阶段被并行未提交的共享 UI 导入缺失 `app-dialog-wizard.css` 阻断，未进入 Rust/打包；该文件随后由原任务加入，本任务未覆盖、删除或代写。使用已核对的 MSVC x64 环境重跑后，生产 Web、Host 资源、Rust release 应用和 NSIS 安装包均构建成功。隔离数据目录启动的原生 WebView2 定向回归通过 `Ctrl+N`、深页已选模型、思考强度本地预览/确认、Plan/Goal、真实只读 Git 分支与置顶刷新持久化；没有安装包或重启用户当前桌面窗口。通用 `scripts/desktop-smoke.ts` 在本次未重跑，不把定向回归冒充全套原生 smoke。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
