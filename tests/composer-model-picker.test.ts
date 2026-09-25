@@ -35,6 +35,27 @@ test('catalog search covers hidden pages, provider names and empty results witho
   expect(filterComposerModels(models, 'missing', 60).groups).toEqual([])
 })
 
+test('a selected model beyond the first page is visible once, without expanding the bounded menu', () => {
+  const models = Array.from({ length: 65 }, (_, index) => fixture(index))
+  const selected = models[63]!
+  const firstPage = filterComposerModels(models, '', COMPOSER_MODEL_PAGE_SIZE, selected.id)
+  const visible = firstPage.groups.flatMap(([, group]) => group.models)
+  expect(visible).toHaveLength(COMPOSER_MODEL_PAGE_SIZE)
+  expect(visible[0]?.id).toBe(selected.id)
+  expect(visible.filter((model) => model.id === selected.id)).toHaveLength(1)
+  expect(firstPage.remaining).toBe(5)
+  const complete = filterComposerModels(models, '', COMPOSER_MODEL_PAGE_SIZE * 2, selected.id)
+  const completeVisible = complete.groups.flatMap(([, group]) => group.models)
+  expect(completeVisible).toHaveLength(65)
+  expect(completeVisible[0]?.id).toBe(selected.id)
+  expect(completeVisible.filter((model) => model.id === selected.id)).toHaveLength(1)
+  expect(complete.remaining).toBe(0)
+  expect(filterComposerModels(models, 'missing', 60, selected.id).groups).toEqual([])
+  expect(filterComposerModels(models, '', 60, 'removed/model').groups.flatMap(([, group]) => group.models)).toEqual(
+    models.slice(0, 60),
+  )
+})
+
 test('catalog groups use stable provider IDs; duplicate records cannot render duplicate actions', () => {
   const original = fixture(0)
   const renamed = { ...original, modelName: '重命名' }

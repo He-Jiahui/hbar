@@ -34,19 +34,29 @@ export interface HbarComposerModelLabels {
 // with fixed search/header and a pane-owned list; search always covers the catalog.
 export const COMPOSER_MODEL_PAGE_SIZE = 60
 
-export function filterComposerModels(models: readonly ModelDescriptor[], query: string, limit: number) {
+export function filterComposerModels(
+  models: readonly ModelDescriptor[],
+  query: string,
+  limit: number,
+  selectedModelId?: string | null,
+) {
   const needle = query.trim().toLocaleLowerCase()
   const unique = new Map(models.map((model) => [model.id, model]))
   const matches = [...unique.values()].filter((model) =>
     `${model.providerName} ${model.modelName} ${model.modelId}`.toLocaleLowerCase().includes(needle),
   )
+  const selected = selectedModelId ? matches.find((model) => model.id === selectedModelId) : undefined
+  const visible =
+    selected && limit > 0
+      ? [selected, ...matches.filter((model) => model !== selected).slice(0, limit - 1)]
+      : matches.slice(0, limit)
   const groups = new Map<string, { name: string; models: ModelDescriptor[] }>()
-  for (const model of matches.slice(0, limit)) {
+  for (const model of visible) {
     const group = groups.get(model.providerId) ?? { name: model.providerName, models: [] }
     group.models.push(model)
     groups.set(model.providerId, group)
   }
-  return { groups: [...groups.entries()], remaining: Math.max(0, matches.length - limit) }
+  return { groups: [...groups.entries()], remaining: matches.length - visible.length }
 }
 
 /** Only the true overlay container is positioned, relative to its trigger group. */
@@ -161,6 +171,7 @@ export function HbarComposerModelPicker({
   const groupRef = useRef<HTMLDivElement>(null)
   const modelTriggerRef = useRef<HTMLButtonElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
+  const modelListRef = useRef<HTMLDivElement>(null)
   const thinkingRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
@@ -197,7 +208,7 @@ export function HbarComposerModelPicker({
     return () => window.removeEventListener('resize', reposition)
   }, [open])
   const models = catalog.sessionId === sessionId ? catalog.models : []
-  const { groups, remaining } = filterComposerModels(models, query, limit)
+  const { groups, remaining } = filterComposerModels(models, query, limit, model?.modelId)
   const levels = current?.thinkingLevels ?? []
   const levelIndex = Math.max(0, levels.indexOf(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off'))
   const selectedLevel = levels[sliderDraft ?? levelIndex]
@@ -337,6 +348,7 @@ export function HbarComposerModelPicker({
         onOpen={() => {
           setOpen('model')
           searchRef.current?.focus()
+          modelListRef.current?.scrollTo({ top: 0 })
           if (!unresolved && !busy) refresh()
           onOpened?.()
         }}
@@ -370,6 +382,7 @@ export function HbarComposerModelPicker({
             </LumenButton>
           )}
           <LumenFrame
+            ref={modelListRef}
             className="hbar-composer-model-list"
             role="listbox"
             aria-label={labels.title}
