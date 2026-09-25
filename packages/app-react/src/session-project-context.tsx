@@ -1,0 +1,167 @@
+import { useEffect, useRef } from 'react'
+import { Folder, GitBranch, RotateCw } from 'lucide-react'
+import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import type { SessionGitContextState } from '@hbar/app-runtime'
+import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import './session-project-context.css'
+
+const REFRESH_INTERVAL_MS = 60_000
+
+export interface HbarSessionProjectContextLabels {
+  readonly project: (name: string) => string
+  readonly branch: (name: string) => string
+  readonly loading: string
+  readonly unavailable: (code: string) => string
+  readonly disconnected: string
+  readonly retry: string
+}
+
+export function HbarSessionProjectContext({
+  workspaceName,
+  sessionId,
+  workspaceId,
+  connected,
+  context,
+  labels,
+  onRetry,
+}: {
+  readonly workspaceName: string
+  readonly sessionId: string
+  readonly workspaceId: string
+  readonly connected: boolean
+  readonly context: SessionGitContextState
+  readonly labels: HbarSessionProjectContextLabels
+  readonly onRetry: () => void
+}) {
+  const belongsHere = context.sessionId === sessionId && context.workspaceId === workspaceId
+  const branch = connected && belongsHere && context.status === 'ready' ? context.branch : null
+  const error = connected && belongsHere && context.status === 'error' ? context.error : null
+  const loading = connected && belongsHere && context.status === 'loading'
+  return (
+    <LumenFrame className="hbar-session-project-context" role="group" aria-label={labels.project(workspaceName)}>
+      <LumenIcon icon={Folder} tier="sm" />
+      <LumenText as="span" className="hbar-session-project-context-name" title={workspaceName}>
+        {workspaceName}
+      </LumenText>
+      {branch && (
+        <LumenFrame
+          className="hbar-session-project-context-branch"
+          title={labels.branch(branch)}
+          aria-label={labels.branch(branch)}
+        >
+          <LumenIcon icon={GitBranch} tier="sm" />
+          <LumenText as="span" dir="rtl">
+            <bdi>{branch}</bdi>
+          </LumenText>
+        </LumenFrame>
+      )}
+      {!connected && (
+        <LumenText as="span" tone="subtle">
+          {labels.disconnected}
+        </LumenText>
+      )}
+      {loading && (
+        <LumenText as="span" tone="subtle" role="status">
+          {labels.loading}
+        </LumenText>
+      )}
+      {error && (
+        <LumenFrame className="hbar-session-project-context-error" role="status">
+          <LumenText as="span" tone="danger">
+            {labels.unavailable(error)}
+          </LumenText>
+          <LumenButton size="s" variant="text" onClick={onRetry}>
+            <LumenIcon icon={RotateCw} tier="sm" />
+            {labels.retry}
+          </LumenButton>
+        </LumenFrame>
+      )}
+    </LumenFrame>
+  )
+}
+
+/** Owns only the active view's refresh lifecycle; the runtime owns all Git facts. */
+export function HbarSessionProjectContextConnected({
+  workspaceName,
+  sessionId,
+  workspaceId,
+  connected,
+  terminalRunId,
+  labels,
+}: {
+  readonly workspaceName: string
+  readonly sessionId: string
+  readonly workspaceId: string
+  readonly connected: boolean
+  readonly terminalRunId: string | null
+  readonly labels: HbarSessionProjectContextLabels
+}) {
+  const runtime = useHbarRuntime()
+  const context = useHbarRuntimeState(runtime.state.sessionGitContext)
+  const activity = useRef<{ readonly target: string; readonly terminalRunId: string | null } | null>(null)
+
+  useEffect(() => {
+    const target = { sessionId, workspaceId }
+    if (!connected) {
+      void runtime.commands.execute('sessionGitContext.invalidate', target).catch(() => undefined)
+      return
+    }
+    const controller = new AbortController()
+    let disposed = false
+    let timer: number | null = null
+    const refresh = async () => {
+      if (disposed || document.hidden) return
+      await runtime.commands
+        .execute('sessionGitContext.refresh', target, { signal: controller.signal })
+        .catch(() => undefined)
+    }
+    const onFocus = () => void refresh()
+    const onVisible = () => {
+      if (!document.hidden) void refresh()
+    }
+    const tick = async () => {
+      await refresh()
+      if (!disposed) timer = window.setTimeout(() => void tick(), REFRESH_INTERVAL_MS)
+    }
+    void tick()
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      disposed = true
+      controller.abort()
+      if (timer !== null) window.clearTimeout(timer)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [connected, runtime.commands, sessionId, workspaceId])
+
+  useEffect(() => {
+    const target = `${sessionId}:${workspaceId}`
+    const previous = activity.current
+    activity.current = { target, terminalRunId }
+    if (
+      !connected ||
+      !previous ||
+      previous.target !== target ||
+      !terminalRunId ||
+      previous.terminalRunId === terminalRunId ||
+      document.hidden
+    )
+      return
+    void runtime.commands.execute('sessionGitContext.refresh', { sessionId, workspaceId }).catch(() => undefined)
+  }, [connected, terminalRunId, runtime.commands, sessionId, workspaceId])
+
+  return (
+    <HbarSessionProjectContext
+      workspaceName={workspaceName}
+      sessionId={sessionId}
+      workspaceId={workspaceId}
+      connected={connected}
+      context={context}
+      labels={labels}
+      onRetry={() => {
+        void runtime.commands.execute('sessionGitContext.refresh', { sessionId, workspaceId }).catch(() => undefined)
+      }}
+    />
+  )
+}

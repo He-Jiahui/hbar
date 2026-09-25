@@ -42,6 +42,7 @@ import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from 
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
+import { HbarSessionProjectContextConnected, type HbarSessionProjectContextLabels } from './session-project-context'
 import { localSlashCanSubmit, localSlashCommand } from './composer-slash'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
@@ -117,11 +118,13 @@ export interface HbarSessionWorkspaceLabels {
 export interface HbarSessionWorkspaceProps {
   readonly sessionTitle: string
   readonly workspaceName: string
+  readonly sessionWorkspaceId: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
   readonly navigationAccessory?: ReactNode | undefined
+  readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
 }
 
 function SessionToolButton({
@@ -157,11 +160,13 @@ function SessionToolButton({
 export function HbarSessionWorkspace({
   sessionTitle,
   workspaceName,
+  sessionWorkspaceId,
   labels,
   connected,
   prepareAttachment,
   files,
   navigationAccessory,
+  projectContextLabels,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -192,6 +197,9 @@ export function HbarSessionWorkspace({
     (composerModel.action.status === 'submitting' || composerModel.action.status === 'unknown')
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const activeRun = currentSessionRun(activeRuns)
+  const terminalRunId = [...timeline.runs]
+    .reverse()
+    .find((run) => ['completed', 'failed', 'cancelled'].includes(run.status))?.id ?? null
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
@@ -916,6 +924,17 @@ export function HbarSessionWorkspace({
           }}
         />
       </HbarComposerAttachmentDropTarget>
+      {projectContextLabels && (
+        <HbarSessionProjectContextConnected
+          key={`${sessionId}:${sessionWorkspaceId}`}
+          sessionId={sessionId}
+          workspaceId={sessionWorkspaceId}
+          workspaceName={workspaceName}
+          connected={connected}
+          terminalRunId={terminalRunId}
+          labels={projectContextLabels}
+        />
+      )}
       {sessionUsagePresentation(controls, labels.usage).notice && (
         <LumenText as="p" className="hbar-session-budget-notice" role="status">
           {sessionUsagePresentation(controls, labels.usage).notice}

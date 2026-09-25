@@ -1,0 +1,112 @@
+import { expect, test, type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createWorkspaceSessionCommandClient } from '@hbar/client'
+import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { sessionContextCopy } from '../apps/web/src/session-context-copy'
+import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 48729}`
+const git = (root: string, ...args: string[]) =>
+  execFileSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true }).trim()
+
+async function showSidebar(page: Page, locale: ShellLocale) {
+  const show = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
+  if (await show.isVisible()) await show.click()
+}
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`read-only composer context follows real Git and the original session at four widths: ${locale}`, async ({
+    browser,
+  }) => {
+    const root = await mkdtemp(join(tmpdir(), 'hbar-session-context-'))
+    const secondaryPath = join(root, 'project-B-很长的工程名称')
+    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
+    let host: WebSessionHost | undefined
+    try {
+      await mkdir(secondaryPath)
+      await writeFile(join(secondaryPath, 'entry.md'), '# second project\n')
+      git(secondaryPath, 'init')
+      git(secondaryPath, 'config', 'user.email', 'fixture@hbar.invalid')
+      git(secondaryPath, 'config', 'user.name', 'Fixture')
+      git(secondaryPath, 'add', 'entry.md')
+      git(secondaryPath, 'commit', '-m', 'secondary fixture')
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 48717) })
+      const directory = createWorkspaceSessionCommandClient(host.client)
+      const secondary = await directory.execute('workspace.create', { path: secondaryPath })
+      const secondSession = await directory.execute(
+        'session.create',
+        {
+          workspaceId: secondary.id,
+          title: 'Second session — branch belongs here',
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      const firstBranch = git(root, 'branch', '--show-current')
+      const secondBranch = git(secondaryPath, 'branch', '--show-current')
+      const nextBranch = 'feature/context-read-only-with-a-long-branch-name'
+      expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
+        true,
+      )
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      const shell = getShellCopy(locale).shell
+      const copy = sessionContextCopy(locale)
+      await page.goto(`${base()}/apps/web/`)
+      await page.getByTitle(shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
+      const firstToggle = page.getByRole('button', { name: shell.expandWorkspace(host.ready.workspaceName) })
+      if (await firstToggle.isVisible()) await firstToggle.click()
+      const firstRow = page.getByRole('button', { name: shell.openSession(host.ready.sessionTitle), exact: true })
+      await firstRow.click()
+      const firstContext = page.getByRole('group', { name: copy.project(host.ready.workspaceName), exact: true })
+      await expect(firstContext.getByTitle(copy.branch(firstBranch), { exact: true })).toBeVisible()
+
+      git(root, 'switch', '-c', nextBranch)
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await expect(firstContext.getByTitle(copy.branch(nextBranch), { exact: true })).toBeVisible()
+      await expect(firstContext.getByTitle(copy.branch(firstBranch), { exact: true })).toHaveCount(0)
+
+      await showSidebar(page, locale)
+      const secondaryToggle = page.getByRole('button', { name: shell.expandWorkspace(secondary.name) })
+      if (await secondaryToggle.isVisible()) await secondaryToggle.click()
+      await page.getByRole('button', { name: shell.openSession(secondSession.title), exact: true }).click()
+      const secondaryContext = page.getByRole('group', { name: copy.project(secondary.name), exact: true })
+      await expect(secondaryContext.getByTitle(copy.branch(secondBranch), { exact: true })).toBeVisible()
+      await expect(secondaryContext.getByTitle(copy.branch(nextBranch), { exact: true })).toHaveCount(0)
+      await showSidebar(page, locale)
+      await firstRow.click()
+      await expect(firstContext.getByTitle(copy.branch(nextBranch), { exact: true })).toBeVisible()
+
+      const afterRunBranch = 'feature/branch-after-a-real-completed-run'
+      git(root, 'switch', '-c', afterRunBranch)
+      const prompt = page.getByRole('textbox', { name: getShellCopy(locale).session.prompt.input, exact: true })
+      await prompt.fill('Confirm this run without changing the project context')
+      await page.getByRole('button', { name: getShellCopy(locale).session.prompt.send, exact: true }).click()
+      await expect(page.getByText('Received: Confirm this run without changing the project context')).toBeVisible()
+      await expect(firstContext.getByTitle(copy.branch(afterRunBranch), { exact: true })).toBeVisible()
+      await expect(firstContext.getByRole('button')).toHaveCount(0)
+
+      for (const width of [1440, 900, 390, 320]) {
+        await page.setViewportSize({ width, height: width > 1000 ? 960 : 844 })
+        await expect(firstContext).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        const box = await firstContext.getByTitle(copy.branch(afterRunBranch), { exact: true }).boundingBox()
+        expect(box?.width).toBeGreaterThan(80)
+        expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width + 1)
+        await page.screenshot({ path: `artifacts/session-project-context/context-${locale}-${width}.png` })
+      }
+      await stopWebSessionHost(host)
+      host = undefined
+      await expect(firstContext.getByText(copy.disconnected, { exact: true })).toBeVisible()
+      await expect(firstContext.getByTitle(copy.branch(afterRunBranch), { exact: true })).toHaveCount(0)
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+}

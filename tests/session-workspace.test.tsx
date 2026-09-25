@@ -244,6 +244,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
         <HbarSessionWorkspace
           sessionTitle={session.title}
           workspaceName="Workspace 1"
+          sessionWorkspaceId={workspace.id}
           labels={getShellCopy('en-US').session}
           connected
           prepareAttachment={async () => {
@@ -301,6 +302,7 @@ test('an unconfigured session exposes a localized model recovery action instead 
           <HbarSessionWorkspace
             sessionTitle={session.title}
             workspaceName={workspace.name}
+            sessionWorkspaceId={workspace.id}
             labels={labels}
             connected={connected}
           />
@@ -412,7 +414,13 @@ test('five bounded session tools expose host-owned names, hints and semantic ico
     const render = () =>
       renderToStaticMarkup(
         <HbarRuntimeProvider view={runtime.view}>
-          <HbarSessionWorkspace sessionTitle={session.title} workspaceName={workspace.name} labels={labels} connected />
+          <HbarSessionWorkspace
+            sessionTitle={session.title}
+            workspaceName={workspace.name}
+            sessionWorkspaceId={workspace.id}
+            labels={labels}
+            connected
+          />
         </HbarRuntimeProvider>,
       )
     for (const hasSession of [false, true]) {
@@ -457,6 +465,7 @@ test('tool pressed states track only the matching workspace and session and clea
               <HbarSessionWorkspace
                 sessionTitle={session.title}
                 workspaceName={workspace.name}
+                sessionWorkspaceId={workspace.id}
                 labels={labels}
                 connected
               />

@@ -77,6 +77,7 @@ import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
+import { sessionContextCopy } from './session-context-copy'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
@@ -327,6 +328,8 @@ function WorkspaceBodyContent({
       <HbarSessionWorkspace
         sessionTitle={session.title}
         workspaceName={directory.workspaces[session.workspaceId]?.name ?? session.workspaceId}
+        sessionWorkspaceId={session.workspaceId}
+        projectContextLabels={sessionContextCopy(locale)}
         labels={copy.session}
         connected={connected}
         prepareAttachment={prepareAttachment}

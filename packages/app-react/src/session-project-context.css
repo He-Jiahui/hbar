@@ -1,0 +1,65 @@
+.hbar-session-project-context,
+.hbar-session-project-context-branch,
+.hbar-session-project-context-error {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-session-project-context {
+  align-self: flex-start;
+  flex: 0 1 auto;
+  padding: 0.35rem 0.55rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-frost);
+  font-size: 0.75rem;
+  overflow: hidden;
+}
+
+.hbar-session-project-context-name,
+.hbar-session-project-context-branch > span,
+.hbar-session-project-context-error > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-session-project-context-name {
+  flex: 0 1 8rem;
+  max-inline-size: 8rem;
+}
+
+.hbar-session-project-context-branch {
+  flex: 0 1 12rem;
+  max-inline-size: 12rem;
+  overflow: hidden;
+  color: var(--lumen-muted);
+}
+
+.hbar-session-project-context-branch > span {
+  text-align: start;
+}
+
+.hbar-session-project-context-error {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 35rem) {
+  .hbar-session-project-context {
+    inline-size: min(100%, 22rem);
+  }
+
+  .hbar-session-project-context-name {
+    flex: 0 1 7rem;
+    max-inline-size: 7rem;
+  }
+
+  .hbar-session-project-context-branch {
+    flex: 1 1 0;
+    max-inline-size: none;
+  }
+}

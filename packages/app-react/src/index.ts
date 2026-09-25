@@ -50,6 +50,7 @@ export {
 export { HbarCommandPalette, type HbarCommandPaletteLabels, type HbarCommandPaletteProps } from './command-palette'
 export { HbarFileWorkspace, type HbarFileWorkspaceLabels } from './lumen-file-workspace'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
+export type { HbarSessionProjectContextLabels } from './session-project-context'
 export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent-workspace'
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
 export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'

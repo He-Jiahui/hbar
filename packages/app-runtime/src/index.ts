@@ -71,6 +71,8 @@ import { createWorkflowWorkspace } from './workflow-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
 export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import { createStatusWorkspace } from './status-workspace'
+import { createSessionGitContext, sessionGitContextCommands } from './session-git-context'
+export type { SessionGitContextState } from './session-git-context'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
 import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
@@ -191,6 +193,7 @@ export type {
 const runtimeCommands = {
   ...applicationCommands,
   ...composerModelCommands,
+  ...sessionGitContextCommands,
   ...composerIntentCommands,
   ...composerPermissionCommands,
   ...sessionRenameCommands,
@@ -247,6 +250,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   )
   const remote = directory.registry
+  const sessionGitContext = createSessionGitContext(
+    local,
+    options.git,
+    navigation.reader,
+    directory.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const workspacePins = createWorkspacePins(local, {
     preferences: clientPersistence.preferences,
     preferencesReady: clientPersistence.ready,
@@ -478,6 +489,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(clientPersistenceCommands, name) ||
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
+        Object.hasOwn(sessionGitContextCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(sessionRenameCommands, name) ||
@@ -530,6 +542,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       questionnaires: interactions.questionnaires,
       controls: controls.reader,
       composerModel: composerModel.reader,
+      sessionGitContext: sessionGitContext.reader,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
       sessionRename: sessionRename.reader,
@@ -582,6 +595,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       interactions.dispose()
       controls.dispose()
       composerModel.dispose()
+      sessionGitContext.dispose()
       composerIntent.dispose()
       composerPermission.dispose()
       sessionRename.dispose()
