@@ -12,6 +12,8 @@ import { appShellEditorialFixture } from '../../../tests/fixtures/hbar-app-ui-ap
 import { appShellInboxFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-inbox-fixtures'
 import { appShellDocumentsFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-documents-fixtures'
 import { appShellScopeFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-scope-fixtures'
+import { appShellAdaptiveFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-adaptive-fixtures'
+import { createAppShellAdaptivePreviewStore, projectAppShellAdaptivePreview } from './app-shell-adaptive-preview-model'
 import { createAppShellScopePreviewStore, projectAppShellScopePreview } from './app-shell-scope-preview-model'
 import {
   createAppShellDocumentsPreviewStore,
@@ -42,6 +44,7 @@ export function AppShellPreviewHost({
   const [inboxStore] = useState(createAppShellInboxPreviewStore)
   const [documentsStore] = useState(createAppShellDocumentsPreviewStore)
   const [scopeStore] = useState(createAppShellScopePreviewStore)
+  const [adaptiveStore] = useState(createAppShellAdaptivePreviewStore)
   const scopeMode = new URLSearchParams(location.search).get('appShellFixture')
   const scope = projectAppShellScopePreview(
     useStore(scopeStore),
@@ -49,6 +52,12 @@ export function AppShellPreviewHost({
       onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
     ),
     scopeMode,
+  )
+  const adaptive = projectAppShellAdaptivePreview(
+    useStore(adaptiveStore),
+    appShellAdaptiveFixture(scopeMode, (actionId, value) =>
+      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
+    ),
   )
   const documents = projectAppShellDocumentsPreview(
     useStore(documentsStore),
@@ -86,7 +95,9 @@ export function AppShellPreviewHost({
   )
   const sidebar = projectAppShellSidebarPreview(useStore(store), fixture)
   return (
-    <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail, contracts, editorial, inbox, documents, scope }}>
+    <HbarAppUiAppShellProvider
+      content={{ ...content, sidebar, rail, contracts, editorial, inbox, documents, scope, adaptive }}
+    >
       {children}
     </HbarAppUiAppShellProvider>
   )

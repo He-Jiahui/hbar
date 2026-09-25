@@ -89,6 +89,17 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Shell 8: observed mobile queue drawer/backdrop, anchored bottom navigation
+  // and the follow-up action covering the card's top-right corner.
+  if (/packages\/lumen-app-ui\/src\/app-shell-adaptive\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-adaptive-drawer-layer',
+      '.lumen-adaptive-backdrop',
+      '.lumen-adaptive-flag',
+      '.lumen-adaptive-bottom-nav',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // App Shell 7: observed scope/status/account popovers, navigation backdrop and scroll fades.
   if (/packages\/lumen-app-ui\/src\/app-shell-scope\.css$/.test(path.replaceAll('\\', '/'))) {
     const overlays = new Set([

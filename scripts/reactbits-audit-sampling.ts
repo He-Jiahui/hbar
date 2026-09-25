@@ -1222,6 +1222,76 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-8')
+    return {
+      revision: 2,
+      lumenEntries: ['app-shell-adaptive.tsx', 'app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '15:click',
+          change: 'Empty archive queue has distinct copy and no clear-search action',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '9:click',
+          change: 'Queue filter replaces the work-order list and count',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '22:click',
+          change: 'Customer sort reorders the same IDs alphabetically',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '20:fill',
+          change: 'Search filters customer, job number and engineer, displaying an empty result',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '39:click',
+          change: 'Clear the initially flagged follow-up without changing the job',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '35:click',
+          change: 'Flag a previously unflagged job for follow-up',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: '17:click',
+          change: 'Open the complete queue drawer above the bottom navigation',
+        },
+        { viewport: 'mobile', theme: 'dark', suffix: '18:click', change: 'Expose and focus the compact search field' },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: '48:click',
+          change: 'Bottom navigation changes the active queue and card list',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Remaining queue buttons, repeated flags, pointer/keyboard gestures and no-op demo actions',
+          basis:
+            'All queue choices share an ID-bound filter and all flag controls share one toggle; representative before/after pairs and controlled state tests cover the distinct feedback without claiming every button was replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other theme and width interaction combinations',
+          basis:
+            'Eight static pairs capture 4 viewports in both themes, while dynamic pairs cover each distinct desktop and mobile mechanism. Responsive rail is a CSS layout transition, not an extra clickable control.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-7')
     return {
       revision: 1,
