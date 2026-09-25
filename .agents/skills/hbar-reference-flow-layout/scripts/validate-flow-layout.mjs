@@ -141,6 +141,19 @@ function isOverlaySelector(path, selector) {
     ])
     if (selector.split(',').every((part) => containers.has(part.trim()))) return true
   }
+  // App Shell 4: navigation overlay and observed decorative date/event/scroll markers only.
+  if (/packages\/lumen-app-ui\/src\/app-shell-editorial\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-editorial-overlay',
+      '.lumen-editorial-backdrop',
+      '.lumen-editorial-drawer',
+      '.lumen-editorial-date-dot',
+      '.lumen-editorial-event-line',
+      '.lumen-editorial-main-frame::after',
+      '.lumen-editorial-agenda-frame::after',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // Plan 6's main scroll pane has observed pointer-transparent edge fades.
   if (
     /packages\/lumen-app-ui\/src\/agent-plan-summary\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -220,7 +233,9 @@ function validateCss(path, source) {
         ((/packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/')) &&
           rule.selector.trim() === '.lumen-sidebar-sr') ||
           (/packages\/lumen-app-ui\/src\/app-shell-contracts\.css$/.test(path.replaceAll('\\', '/')) &&
-            rule.selector.trim() === '.lumen-contracts-sr')) &&
+            rule.selector.trim() === '.lumen-contracts-sr') ||
+          (/packages\/lumen-app-ui\/src\/app-shell-editorial\.css$/.test(path.replaceAll('\\', '/')) &&
+            rule.selector.trim() === '.lumen-editorial-sr')) &&
         /clip-path:\s*inset\(50%\)/.test(rule.body) &&
         value.trim() === 'absolute'
       if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay && !isShellAccessibleText) {
@@ -561,6 +576,22 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Rejected contracts accessible hidden copy')
   if (validateCss(contractsPath, '.lumen-contracts-sr {\nposition: fixed;\nclip-path: inset(50%);\n}').length !== 1)
     throw new Error('Contracts hidden copy exception allowed fixed positioning')
+  const editorialPath = 'packages/lumen-app-ui/src/app-shell-editorial.css'
+  for (const selector of [
+    '.lumen-editorial-overlay',
+    '.lumen-editorial-backdrop',
+    '.lumen-editorial-drawer',
+    '.lumen-editorial-date-dot',
+    '.lumen-editorial-event-line',
+    '.lumen-editorial-main-frame::after, .lumen-editorial-agenda-frame::after',
+  ]) {
+    if (validateCss(editorialPath, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length)
+      throw new Error(`Rejected observed editorial overlay: ${selector}`)
+    if (validateCss('other.css', `${selector} {\nposition: absolute;\ninset: 0;\n}`).length < 2)
+      throw new Error('Editorial overlay exception leaked across files')
+  }
+  if (validateCss(editorialPath, '.lumen-editorial-schedule {\nposition: absolute;\n}').length !== 1)
+    throw new Error('Editorial normal-flow schedule cannot become an overlay')
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
 }

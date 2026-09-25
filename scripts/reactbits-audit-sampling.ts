@@ -1099,6 +1099,107 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-4')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '15:click',
+          change: 'Hide the full-height schedule column and grow the story pane',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '17:click',
+          change: 'Review filter selects four stories without changing agenda',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '18:click', change: 'Edits filter selects two warning stories' },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '22:click',
+          change: 'Next month changes calendar but retains selected date and agenda',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '41:click',
+          change: 'A later date changes selection and removes earlier agenda entries',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '60:click',
+          change: 'Adjacent-month date reaches the real agenda empty state without changing displayed month',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'editorial-empty:65:click',
+          change: 'Show today restores the fixture date and agenda',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '1:hover', change: 'Shared navigation hover feedback' },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Fragment navigation does not invent a new selected page',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '19:click',
+          change: 'New story has no business result in the source preview',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '65:click',
+          change: 'Agenda records are actions with no source selection or detail dialog',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '21:click',
+          change: 'Close the initial navigation drawer to inspect compact story cards',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'editorial-navigation-closed:15:click',
+          change: 'Schedule opens as a normal-flow bottom pane with no calendar',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'editorial-schedule:20:click',
+          change: 'Close the bottom schedule and return height to the main pane',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated navigation, calendar dates and agenda actions',
+          basis:
+            'Shared native controls and ID-bound callbacks; only selection/future-list, empty/recovery, month-only and independent no-op mechanisms are replayed. Passive story rows are not buttons.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Reverse month, repeated keyboard gestures and filter permutations',
+          basis:
+            'Month arithmetic, date/filter independence and stale/duplicate IDs are covered by pure-state tests; focused production checks exercise keyboard activation and drawer recovery without multiplying every button by themes and widths.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other responsive transitions and metadata',
+          basis:
+            'Eight static pairs retain the full structure matrix; a narrow bottom-pane case distinguishes normal flow from the actual navigation overlay. Passive account copy and status dots do not need clicks.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-3')
     return {
       revision: 1,

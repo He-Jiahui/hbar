@@ -274,6 +274,9 @@ export type InteractionCase = Readonly<{
     | 'contracts-navigation-closed'
     | 'contracts-search'
     | 'contracts-search-query'
+    | 'editorial-empty'
+    | 'editorial-navigation-closed'
+    | 'editorial-schedule'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1487,6 +1490,20 @@ export function interactionCases(
 }
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
+const editorialScenarios = ['editorial-empty', 'editorial-navigation-closed', 'editorial-schedule'] as const
+async function prepareEditorialScenario(root: Locator, scenario: (typeof editorialScenarios)[number]): Promise<void> {
+  if (scenario === 'editorial-empty') {
+    await root.getByRole('button', { name: 'Tuesday, September 1, 2026', exact: true }).click()
+    await root.getByRole('button', { name: 'Show today', exact: true }).waitFor({ state: 'visible' })
+  } else {
+    const close = root.getByRole('button', { name: 'Close navigation', exact: true })
+    if (await close.isVisible()) await close.click()
+    if (scenario === 'editorial-schedule') {
+      const toggle = root.getByRole('button', { name: 'Schedule panel', exact: true })
+      if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click()
+    }
+  }
+}
 const shellRailScenarios = ['rail-workspace', 'rail-navigation-closed'] as const
 const contractsScenarios = [
   'contracts-account',
@@ -2688,6 +2705,9 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-app-shell-1' && shellScenario) await prepareShellSidebarScenario(root, shellScenario)
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
+  const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
+    await prepareEditorialScenario(root, editorialScenario)
   const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-3' && contractsScenario)
     await prepareContractsScenario(root, contractsScenario)
@@ -2822,6 +2842,9 @@ async function replayReferenceInteraction(
     await prepareShellSidebarScenario(root, shellScenario)
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
+  const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
+    await prepareEditorialScenario(root, editorialScenario)
   const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-3' && contractsScenario)
     await prepareContractsScenario(root, contractsScenario)
@@ -3363,6 +3386,13 @@ async function runInteractionsParallel(
               for (const scenario of shellRailScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareShellRailScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-shell-4') {
+              for (const scenario of editorialScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareEditorialScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
