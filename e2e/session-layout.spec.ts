@@ -5,12 +5,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
-test('shared tool headings and inline usage retain content flow at desktop and narrow widths', async ({ browser }) => {
+test('shared tool headings and disclosed usage retain content flow at desktop and narrow widths', async ({
+  browser,
+}) => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-session-layout-'))
   let host: WebSessionHost | undefined
   const context = await browser.newContext({ locale: 'en-US' })
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     const title = 'A very long session title that must never squeeze the tool title into individual letters'
     await createWorkspaceSessionCommandClient(host.client).execute('session.rename', {
       sessionId: host.ready.sessionId,
@@ -33,7 +35,9 @@ test('shared tool headings and inline usage retain content flow at desktop and n
       { width: 390, height: 844 },
     ]) {
       await page.setViewportSize(viewport)
-      const usage = page.locator('.lumen-inline-usage')
+      await page.locator('.hbar-session-usage-trigger').click()
+      const dialog = page.getByRole('dialog', { name: 'Usage and budget', exact: true })
+      const usage = dialog.locator('.lumen-inline-usage')
       await expect(usage).toBeVisible()
       const usageGeometry = await usage.evaluate((element) => ({
         height: element.getBoundingClientRect().height,
@@ -41,10 +45,11 @@ test('shared tool headings and inline usage retain content flow at desktop and n
         childBases: [...element.children].map((child) => getComputedStyle(child).flexBasis),
       }))
       expect(usageGeometry, JSON.stringify(usageGeometry)).toMatchObject({
-        flow: viewport.width <= 560 ? 'column' : 'row',
+        flow: 'column',
       })
-      expect(usageGeometry.height).toBeLessThanOrEqual(viewport.width <= 560 ? 160 : 120)
+      expect(usageGeometry.height).toBeLessThan(viewport.height * 0.7)
       await page.screenshot({ path: `artifacts/session-autonomy/usage-layout-${viewport.width}.png`, fullPage: true })
+      await dialog.getByRole('button', { name: 'Close usage and budget' }).click()
       await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
       const heading = page.locator('.hbar-app-react-goal-plan-workspace .lumen-tool-pane-heading')
       await expect(heading.getByRole('heading', { level: 2 })).toHaveText('Goals and plans')

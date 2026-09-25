@@ -1,0 +1,77 @@
+.hbar-session-usage-control {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 1 auto;
+}
+.hbar-session-usage-trigger {
+  gap: 4px;
+  min-inline-size: 0;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+.hbar-session-usage-control[data-tone='danger'] > button {
+  color: var(--lumen-danger);
+}
+.hbar-session-usage-control[data-tone='warning'] > button {
+  color: var(--lumen-warning);
+}
+/* Reference ContextUsageIndicator overlays the composer, with a narrow bottom sheet.
+   Only this top-layer container is positioned; all details remain normal flex flow. */
+.hbar-session-usage-popover {
+  position: fixed;
+  inset: auto;
+  left: var(--usage-left);
+  bottom: var(--usage-bottom);
+  inline-size: min(24rem, calc(100vw - 2rem));
+  max-block-size: min(32rem, var(--usage-limit));
+  margin: 0;
+  padding: 16px;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 1rem;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.hbar-session-usage-popover:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hbar-session-usage-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hbar-session-usage-popover > p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.hbar-session-usage-popover .lumen-inline-usage {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+.hbar-session-usage-popover .lumen-inline-usage > div:first-child,
+.hbar-session-usage-popover .lumen-inline-usage > .lumen-compact-metrics {
+  flex: 0 0 auto;
+}
+.hbar-session-usage-popover .lumen-compact-metrics {
+  flex-wrap: wrap;
+}
+@media (max-width: 40rem) {
+  .hbar-session-usage-popover {
+    inset: auto 0 0;
+    inline-size: 100%;
+    max-block-size: 80dvh;
+    border-radius: 1rem 1rem 0 0;
+  }
+  .hbar-session-usage-popover::backdrop {
+    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
+  }
+}

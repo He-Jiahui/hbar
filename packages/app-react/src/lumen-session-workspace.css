@@ -137,6 +137,25 @@
   min-inline-size: 0;
 }
 
+.hbar-session-composer-options {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.hbar-session-composer-options > .hbar-composer-model-picker {
+  min-inline-size: 0;
+  flex: 0 1 auto;
+}
+
+.hbar-session-budget-notice {
+  margin: 0;
+  color: var(--lumen-danger);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 35rem) {
   .hbar-app-react-session-footer {
     padding: 0.25rem 0.75rem 0.75rem;

@@ -995,8 +995,25 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       failureMessage: choose('回答提交失败', 'Answer submission failed'),
     },
     usage: {
-      title: choose('AI Usage', 'AI usage'),
-      description: choose('当前 Session 的可靠结算数据', 'Reliable accounting for the current session'),
+      title: choose('用量与预算', 'Usage and budget'),
+      description: choose(
+        '当前会话的累计结算与预算，不是模型上下文占用率。',
+        'Session accounting and budget, not the model context-window occupancy.',
+      ),
+      trigger: (value) => choose(`查看用量与预算：${value}`, `View usage and budget: ${value}`),
+      budgetPercent: (value) => choose(`预算 ${Math.round(value)}%`, `${Math.round(value)}% budget`),
+      noBudget: choose('用量', 'Usage'),
+      budgetWarning: choose(
+        '会话预算即将用尽，可展开查看详情。',
+        'The session budget is running low. Open usage for details.',
+      ),
+      budgetExhausted: choose(
+        '会话预算已用尽，后续执行受预算限制。',
+        'The session budget is exhausted; further execution is budget-limited.',
+      ),
+      close: choose('关闭用量与预算', 'Close usage and budget'),
+      monitor: choose('打开用量监控', 'Open usage monitoring'),
+      error: (code) => choose(`用量读取失败：${code}`, `Could not load usage: ${code}`),
       total: (tokens) => `${number.format(tokens)} tokens`,
       remaining: (remaining, limit) =>
         choose(

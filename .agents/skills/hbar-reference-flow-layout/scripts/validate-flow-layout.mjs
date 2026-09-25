@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Reference ContextUsageIndicator: trigger-anchored read-only usage overlay / narrow bottom sheet.
+  if (
+    /packages\/app-react\/src\/session-usage-control\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-session-usage-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+  )
+    return true
   // cc-haha original-component evidence: composer model/effort anchored popovers,
   // becoming bottom sheets on narrow screens. Only the top-layer container.
   if (
@@ -527,6 +533,13 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const usagePath = 'packages/app-react/src/session-usage-control.css'
+  if (validateCss(usagePath, '.hbar-session-usage-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed session usage popover container')
+  if (validateCss(usagePath, '.hbar-session-usage-popover > button { position: fixed; }').length !== 1)
+    throw new Error('Session usage popover exception leaked to content')
+  if (validateCss('other.css', '.hbar-session-usage-popover { position: fixed; }').length !== 1)
+    throw new Error('Session usage popover exception leaked across files')
   const contractsPath = 'packages/lumen-app-ui/src/app-shell-contracts.css'
   for (const selector of [
     '.lumen-contracts-overlay',

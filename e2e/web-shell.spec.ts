@@ -635,7 +635,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
           const conversation = document.querySelector<HTMLElement>('.hbar-app-ui-conversation')
           const timeline = document.querySelector<HTMLElement>('.hbar-app-ui-conversation-content')
           const composer = document.querySelector<HTMLElement>('.hbar-app-react-session-footer')
-          const usage = document.querySelector<HTMLElement>('.hbar-app-ui-inline-usage')
+          const usage = document.querySelector<HTMLElement>('.hbar-session-usage-trigger')
           if (!header || actions.length !== 5 || !sessionMain || !conversation || !timeline || !composer || !usage)
             return false
           const headerRect = header.getBoundingClientRect()
@@ -850,7 +850,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.getByText('hello from browser', { exact: true })).toBeVisible()
     await expect(page.getByText('Completed').first()).toBeVisible()
-    await expect(page.getByRole('region', { name: 'AI usage' }).getByText(/^[1-9][\d,.]* tokens$/)).toBeVisible()
+    await page.locator('.hbar-session-usage-trigger').click()
+    const usagePopover = page.getByRole('dialog', { name: 'Usage and budget', exact: true })
+    await expect(
+      usagePopover.getByRole('region', { name: 'Usage and budget' }).getByText(/^[1-9][\d,.]* tokens$/),
+    ).toBeVisible()
+    await usagePopover.getByRole('button', { name: 'Close usage and budget' }).click()
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440.png', fullPage: true })
 
     await page.getByRole('button', { name: 'Monitoring', exact: true }).click()

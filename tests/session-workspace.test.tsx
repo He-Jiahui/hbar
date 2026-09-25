@@ -264,7 +264,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('1 of 2 completed')
     expect(html).toContain('Keep the plan attached to its run.')
     expect(html).toContain('Should we continue?')
-    expect(html).toContain('AI usage')
+    expect(html).toContain('Usage and budget')
     expect(html).toContain('Load earlier messages')
     expect(html).toContain('aria-label="Add attachment"')
     expect(html).toContain('20 tokens')

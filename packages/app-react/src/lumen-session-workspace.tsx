@@ -5,7 +5,6 @@ import {
   LumenText,
   LumenApprovalRequest,
   LumenButton,
-  LumenCompactUsage,
   LumenConversation,
   LumenIcon,
   LumenPageHeader,
@@ -19,7 +18,7 @@ import {
   type LumenRunActivityLabels,
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
-import type { SessionAttachmentUpload, SessionControlsState } from '@hbar/app-runtime'
+import type { SessionAttachmentUpload } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   HbarMessageBlocks,
@@ -30,6 +29,7 @@ import {
 import { projectSessionMessages } from './session-message-model'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
+import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import './lumen-session-workspace.css'
 
 export interface HbarSessionWorkspaceLabels {
@@ -72,23 +72,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly approval: LumenApprovalRequestLabels
   readonly approvalSummary: (tool: string) => string
   readonly questionnaire: LumenQuestionnaireLabels
-  readonly usage: {
-    readonly title: string
-    readonly description: string
-    readonly total: (tokens: number) => string
-    readonly remaining: (remaining: number, limit: number) => string
-    readonly progress: (used: number, limit: number) => string
-    readonly input: string
-    readonly output: string
-    readonly cost: string
-    readonly rate: string
-    readonly unavailable: string
-    readonly gap: string
-    readonly sparkline: string
-    readonly number: (value: number) => string
-    readonly currency: (value: number) => string
-    readonly tokensPerSecond: (value: number) => string
-  }
+  readonly usage: HbarSessionUsageLabels
 }
 
 export interface HbarSessionWorkspaceProps {
@@ -116,41 +100,6 @@ function decisionState(
   return {
     status: 'idle' as const,
     ...(status === 'unknown' || status === 'failed' ? { error: labels.error(error ?? status) } : {}),
-  }
-}
-
-function usageContent(controls: SessionControlsState, labels: HbarSessionWorkspaceLabels['usage']) {
-  const report = controls.usage
-  const budget = controls.budget
-  const total = report ? report.totals.input + report.totals.output : null
-  const used = budget?.usedTokens ?? 0
-  const limit = budget?.limit ?? 0
-  const metric = (label: string, value: string) => ({ id: label, label, value })
-  const available = (value: number | null, formatter: (item: number) => string) =>
-    value === null ? labels.unavailable : formatter(value)
-  return {
-    density: 'inline' as const,
-    title: labels.title,
-    description: report?.gap ? `${labels.description} ${labels.gap}` : labels.description,
-    value: total === null ? labels.unavailable : labels.total(total),
-    detail: budget ? labels.remaining(budget.remainingTokens, budget.limit) : labels.unavailable,
-    progress: budget ? used / limit : 0,
-    progressLabel: budget ? labels.progress(used, limit) : labels.unavailable,
-    tone:
-      budget?.phase === 'exhausted'
-        ? ('danger' as const)
-        : budget && budget.remainingTokens < budget.limit * 0.2
-          ? ('warning' as const)
-          : ('accent' as const),
-    sparkline: (report?.series ?? []).map((point) => ({
-      id: String(point.start),
-      value: point.billableTokens,
-    })),
-    sparklineLabel: labels.sparkline,
-    metrics: [
-      metric(labels.cost, report ? available(report.cost.value, labels.currency) : labels.unavailable),
-      metric(labels.rate, report ? available(report.rates.total.value, labels.tokensPerSecond) : labels.unavailable),
-    ],
   }
 }
 
@@ -558,13 +507,21 @@ export function HbarSessionWorkspace({
           />
         }
         modelPicker={
-          <HbarComposerModelPicker
-            key={sessionId}
-            sessionId={sessionId}
-            connected={connected}
-            disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
-            labels={labels.modelPicker}
-          />
+          <LumenFrame className="hbar-session-composer-options">
+            <HbarSessionUsageControl
+              key={`usage:${sessionId}`}
+              controls={controls}
+              labels={labels.usage}
+              onOpenMonitor={() => toggleTool('monitoring')}
+            />
+            <HbarComposerModelPicker
+              key={sessionId}
+              sessionId={sessionId}
+              connected={connected}
+              disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+              labels={labels.modelPicker}
+            />
+          </LumenFrame>
         }
         onChange={(text) => invoke('draft.setText', { sessionId, text })}
         onAddAttachments={prepareAttachment ? addAttachments : undefined}
@@ -594,7 +551,11 @@ export function HbarSessionWorkspace({
           if (activeRun) invoke('operation.cancel', { operationId: activeRun.id })
         }}
       />
-      <LumenCompactUsage {...usageContent(controls, labels.usage)} />
+      {sessionUsagePresentation(controls, labels.usage).notice && (
+        <LumenText as="p" className="hbar-session-budget-notice" role="status">
+          {sessionUsagePresentation(controls, labels.usage).notice}
+        </LumenText>
+      )}
     </LumenFrame>
   ) : null
 
