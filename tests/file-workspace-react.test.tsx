@@ -5,6 +5,39 @@ import { HbarFileWorkspace, HbarRuntimeProvider } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
+test('file tree keeps folders first even when Host cursor pages arrive in path order', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'files-order-react',
+    hostId: 'host',
+    directory: { execute: () => Promise.reject(new Error('unused')) },
+    surfaces: { canRender: (id) => id === 'files' },
+    files: {
+      async execute(name) {
+        if (name === 'file.list')
+          return {
+            items: [
+              { name: 'a-file.txt', path: 'a-file.txt', directory: false },
+              { name: 'z-directory', path: 'z-directory', directory: true },
+            ],
+          }
+        throw new Error(`Unexpected ${name}`)
+      },
+    },
+  })
+  try {
+    await runtime.view.commands.execute('app.openPanel', { panelId: 'files', workspaceId: 'workspace-1' })
+    await runtime.view.commands.execute('fileWorkspace.refresh', { instanceId: 'files' })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarFileWorkspace labels={getShellCopy('en-US').files} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(html.indexOf('z-directory')).toBeLessThan(html.indexOf('a-file.txt'))
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('file workspace renders Host entries and a command-owned editable document', async () => {
   const text = '# Host file'
   const labels = getShellCopy('en-US').files

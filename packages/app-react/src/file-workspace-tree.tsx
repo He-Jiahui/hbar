@@ -74,8 +74,10 @@ export function HbarFileTree({
     <LumenCollection as="ul" className="hbar-file-tree-list" aria-label={depth === 0 ? labels.all : undefined}>
       {items
         .filter((item) => visible(item, filter))
+        // Host pages use path order for a correct cursor; presentation keeps folders first.
+        .sort((left, right) => Number(right.directory) - Number(left.directory) || left.name.localeCompare(right.name))
         .map((item) => {
-        const node: Node | undefined = tree?.nodes[item.path]
+          const node: Node | undefined = tree?.nodes[item.path]
           const expanded = Boolean(node?.expanded)
           const inline = depth < MAX_INLINE_DEPTH
           const folder = item.directory
