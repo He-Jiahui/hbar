@@ -8,6 +8,8 @@
 
 验收：14 个组件/集成渲染测试、105 次断言；双语言真实生产 Host E2E 共 2 passed（14.4s）。每条先完成 22 次运行，验证默认折叠、键盘展开、20→21 明细增长、失败重试确实新增 Run，以及执行中+排队同时存在时取消原执行 Run。1440/900/390/320 截图已人工查看，当前状态在视口内、内容无水平溢出。root typecheck、scoped strict lint、production build、content/icon/flow guards 通过。
 
-截图目录：`artifacts/desktop-experience/browser-results/session-run-activity-*`。不把此验证等同于原生桌面综合 smoke。
+最终截图目录：`artifacts/desktop-experience/final-browser-evidence/session-run-activity-*`，独立于会被后续测试清理的通用输出目录。不把此验证等同于原生桌面综合 smoke。
 
 整合回归补充：旧 `web-shell` 的 Agent Plan 和失败重试两条流程已适配新的原生 disclosure 与按需历史，2 passed（12.2s），仍验证刷新后计划内容、明确源 Run 关联、窄屏动作边界和实际重试。connected 整条 Host 流程的计数断言改为宿主提供的运行详情入口后通过（26.4s）。未夹带该文件中用户原有的其他选择器修改。全仓检查仍有独立 Goal 消费者与命令清单回归待修，不能由本补充声称全仓通过。
+
+后续最终复核：上述 Goal 消费者与命令清单问题已由 `7379632` / `357c9a7` 修复；整仓 1,304 tests 全通过，本单元双语 E2E 也包含在 29 项组合回归中。为保留独立视觉证据，消息外观与运行摘要另行捕获到上述固定目录，3 passed / 26.2s，人工复核最终桌面/窄屏图。精确总结果及共享工具链限制见 [迁移总记录](desktop-experience-migration.md)。

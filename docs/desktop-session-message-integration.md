@@ -77,7 +77,7 @@ const messages = items.map(({ message, blocks, results }) => ({
 - 聚焦消息/复制/外观/设计边界/时间线：25 tests、134 assertions 通过；包含空 Goal envelope、孤立/跨会话工具结果、分页边界与恢复。
 - 全仓 `bun run typecheck`、本单元严格 ESLint、隔离 production build 通过。
 - 既有真实 Host 长历史浏览器回归通过：60/120/180 条分批、阅读锚点、新消息手动跟随、跨会话恢复、断线/重连保留草稿、390 宽。新增消息 footer 后，服务状态断言收窄到侧栏，未取消恢复检查。
-- 真实 Host 工具消息/复制浏览器用例在 light/dark × 1440/900/390/320 验证；截图位于 `artifacts/desktop-experience/browser-results/`。工具调用和结果配成一个披露区，原始 Markdown 复制写入系统剪贴板后才显示成功。Windows clipboard 的 CRLF 与源 LF 在断言中规范化，正文内容不改。
+- 真实 Host 工具消息/复制浏览器用例在 light/dark × 1440/900/390/320 验证；最终截图位于独立的 `artifacts/desktop-experience/final-browser-evidence/`。工具调用和结果配成一个披露区，原始 Markdown 复制写入系统剪贴板后才显示成功。Windows clipboard 的 CRLF 与源 LF 在断言中规范化，正文内容不改。
 - 共享包常规 `pnpm -F @lumen/app-ui typescript`、`pnpm proptypes`、`pnpm docs:api` 被环境 pnpm 11.19.0 / 项目要求 12.3.4 阻止，不能记为通过；没有修改环境版本或配置。
 - 实际共享包 `pnpm --config.engine-strict=false --config.manage-package-manager-versions=false --config.verify-deps-before-run=false exec tsc -p packages/lumen-app-ui/tsconfig.json` 通过；这仅是单次 CLI 覆盖，不代表上述常规文档生成通过。
 
