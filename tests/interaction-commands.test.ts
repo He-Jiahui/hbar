@@ -60,6 +60,7 @@ test('approval and questionnaire commands validate session targets and converge 
     'questionnaire.answer',
     'run.retry',
     'run.submit',
+    'session.activeOperations',
   ])
 
   await kernel.submit(
