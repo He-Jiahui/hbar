@@ -3222,6 +3222,8 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
+    await page.waitForTimeout(450)
   if (spec.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (spec.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
   if (spec.id === 'hbar-app-ui-app-dialog-7') await settleDialogMenuFeedback(root, interaction)
@@ -3444,6 +3446,8 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
+  if (reference.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
+    await page.waitForTimeout(450)
   if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (reference.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
   if (reference.id === 'hbar-app-ui-app-dialog-7') await settleDialogMenuFeedback(root, interaction)

@@ -11,13 +11,17 @@
 本表的“受控契约已接入”“已有内容契约，继续迁移”和“待数据化”只描述实现迁移状态，不能
 代替 React Bits Pro 的真实视觉/交互验收。逐变体验收状态以忽略目录
 `artifacts/reactbits-pro-visual-audit/<run-id>/review-ledger.json` 为准；只有同时具备 8 个
-静态 source/local 组合、全部真实交互 before/after、结构硬门禁通过且无 page/console error，
+静态 source/local 组合、按反馈机制选样的真实交互 before/after、结构硬门禁通过且无 page/console error，
 才可把对应行更新为“视觉与交互审计通过”。
 
 2026-09-25 的本地类别级证据 `artifacts/reactbits-pro-visual-audit/app-dialog-category-v150/review-ledger.json`
 记录 App Dialog 1–7 全部 `passed`：56 组原版/本地静态矩阵、52 组按反馈机制抽样的真实前后状态，
 缺失 0，逐变体人工复核。下表据此标记的是**预览参考审计**，不代表正式宿主、桌面工作台或全部业务
 后端已验收；后续修改共享实现时应重新生成证据，不沿用过期通过状态。
+
+Notifications 1 的独立证据在 `artifacts/reactbits-pro-visual-audit/notifications-1-final-v158/review-ledger.json`：
+8 组静态双端配对、8 组原版/本地交互前后配对，结构错误 0，按已审选样计划通过。未逐行点击的
+等价已读/未读/移除行为只作 `inferred-not-replayed`，Notifications 2–6 仍待逐变体审计。
 
 | 稳定变体 ID                   | 分类源入口                                                                                 | 当前状态               | 列表/容量归属                                                    | 剩余验证或契约缺口                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------------ | ---------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -225,7 +229,7 @@
 | hbar-app-ui-app-dialog-5      | [hbar-app-ui-app-dialog-5](../packages/hbar-app-ui/src/components/AppDialog.tsx)           | 预览视觉与交互审计通过 | 告警渠道：content-grown；宿主提供保存/失败/恢复文案            | 正式宿主/桌面业务闭环仍需独立验收                         |
 | hbar-app-ui-app-dialog-6      | [hbar-app-ui-app-dialog-6](../packages/hbar-app-ui/src/components/AppDialog.tsx)           | 预览视觉与交互审计通过 | 证据记录：pane-scroll；固定操作区与长列表独立验证              | 正式宿主/桌面业务闭环仍需独立验收                         |
 | hbar-app-ui-app-dialog-7      | [hbar-app-ui-app-dialog-7](../packages/hbar-app-ui/src/components/AppDialog.tsx)           | 预览视觉与交互审计通过 | 菜单：pane-scroll；子菜单空态与容量边界独立验证                | 正式宿主/桌面业务闭环仍需独立验收                         |
-| hbar-app-ui-notifications-1   | [hbar-app-ui-notifications-1](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
+| hbar-app-ui-notifications-1   | [hbar-app-ui-notifications-1](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 8 条分组通知：pane-scroll；宿主提供文案、图标语义和 80 条容量策略 | 正式宿主/桌面业务闭环仍需独立验收；2–6 变体未审计 |
 | hbar-app-ui-notifications-2   | [hbar-app-ui-notifications-2](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-notifications-3   | [hbar-app-ui-notifications-3](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-notifications-4   | [hbar-app-ui-notifications-4](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |

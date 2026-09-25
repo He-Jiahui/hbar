@@ -65,4 +65,46 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     expect(render(6)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
   })
+
+  test('keeps notification groups, counts and action labels host-owned at capacity', () => {
+    const reference = HBAR_APP_UI_NOTIFICATIONS_FIXTURES.center!
+    const content: HbarAppUiNotificationsContent = {
+      ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
+      center: {
+        ...reference,
+        entries: Array.from({ length: 80 }, (_, index) => ({
+          id: `event-${index}`,
+          groupId: index < 40 ? 'today' : 'yesterday',
+          kind: 'Mention',
+          title: `通知事件 ${index} — ${'长标题'.repeat(30)}`,
+          detail: '详情'.repeat(60),
+          time: `${index} 分钟`,
+          unread: index % 2 === 0,
+          mention: index % 4 === 0,
+        })),
+        labels: {
+          ...reference.labels,
+          title: '消息中心',
+          all: '全部',
+          unreadFilter: '未读',
+          mentions: '提及',
+          count: (count) => `${count}条`,
+          markRead: () => '设为已读',
+          markUnread: () => '设为未读',
+          dismiss: () => '移除',
+        },
+      },
+    }
+    const html = render(1, content)
+    expect(html).toContain('消息中心')
+    expect(html).toContain('全部<span class="lumen-notifications-tab-count">80条</span>')
+    expect(html).toContain('未读<span class="lumen-notifications-tab-count">40条</span>')
+    expect(html).toContain('提及<span class="lumen-notifications-tab-count">20条</span>')
+    expect((html.match(/<li data-unread/g) ?? []).length).toBe(40)
+    expect((html.match(/<li/g) ?? []).length).toBe(80)
+    expect(html).toContain('aria-label="设为已读"')
+    expect(html).toContain('aria-label="设为未读"')
+    expect(html).toContain('aria-label="移除"')
+    expect(html).not.toContain('Ana Reyes')
+  })
 })

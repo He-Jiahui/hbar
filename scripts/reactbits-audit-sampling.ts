@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-notifications-1')
+    return {
+      revision: 1,
+      lumenEntries: ['notifications.tsx', 'notifications-center-reference.css', 'notifications.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Unread tab filters eight rows to four and keeps section ownership' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Mentions tab retains one unread and one read mention' },
+        { viewport: 'desktop', theme: 'light', suffix: '4:hover', change: 'Row hover reveals the two icon actions over the timestamp' },
+        { viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'First unread row becomes read and badge decrements' },
+        { viewport: 'desktop', theme: 'dark', suffix: '10:click', change: 'Previously read row becomes unread and badge increments' },
+        { viewport: 'desktop', theme: 'light', suffix: '5:click', change: 'Dismiss reflows rows and decrements total, unread and mention counts' },
+        { viewport: 'stress', theme: 'light', suffix: '0:click', change: 'Bulk read removes badge and retains narrow grouped rows' },
+        { viewport: 'stress', theme: 'dark', suffix: '2:press-space', change: 'Native keyboard activates the narrow unread filter' },
+      ],
+      inferences: [
+        { scope: 'Remaining notification-row read, unread, dismiss and hover actions', basis: 'All eight host entries share the same ID-keyed state transition and button renderer. Both read directions, dismissal and one hover are real-replayed; omitted repeated rows are inferred, not claimed as screenshots.', verification: 'inferred-not-replayed' },
+        { scope: 'Other viewport/theme interaction permutations', basis: 'Eight static pairs cover four widths and two themes. Desktop and 286px stress samples exercise the different flow boundaries; state logic does not branch on viewport or theme.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-7')
     return {
       revision: 1,

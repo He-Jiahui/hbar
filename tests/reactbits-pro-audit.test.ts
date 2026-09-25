@@ -4,6 +4,18 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('notification center samples distinct feedback and labels repeated rows as inference', () => {
+  const id = 'hbar-app-ui-notifications-1'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(8)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:2:click`, `${id}:4:hover`, `${id}:4:click`, `${id}:5:click`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:0:click`])
+  expect(plan.inferences.some((item) => item.scope.includes('Remaining notification-row'))).toBe(true)
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('compact usage samples two independent actions and button styles, not passive bars', () => {
   const id = 'hbar-app-ui-ai-usage-8'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(5)
