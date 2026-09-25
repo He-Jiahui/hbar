@@ -1,5 +1,15 @@
 import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
-import { ArrowLeft, Cpu, MessageSquare, Palette, Puzzle, Server, Settings, type LucideIcon } from 'lucide-react'
+import {
+  ArrowLeft,
+  Cpu,
+  MessageSquare,
+  Palette,
+  Puzzle,
+  Server,
+  Settings,
+  Stethoscope,
+  type LucideIcon,
+} from 'lucide-react'
 import { encodePath, type CompiledField, type FieldItemValue, type FieldValue } from '@hbar/schema-core'
 import {
   HbarSchemaForm,
@@ -75,7 +85,8 @@ export interface HbarSettingsAdditionalGroup {
   readonly order: number
 }
 
-export type HbarSettingsGroupIcon = 'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'settings'
+export type HbarSettingsGroupIcon =
+  'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'diagnostics' | 'settings'
 
 export interface HbarSettingsGroupPresentation {
   readonly id: string
@@ -89,6 +100,7 @@ const groupIcons = {
   session: MessageSquare,
   providers: Server,
   extensions: Puzzle,
+  diagnostics: Stethoscope,
   settings: Settings,
 } satisfies Readonly<Record<HbarSettingsGroupIcon, LucideIcon>>
 

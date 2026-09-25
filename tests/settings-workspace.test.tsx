@@ -412,10 +412,13 @@ test.each(['zh-CN', 'en-US'] as const)(
           <HbarSettingsWorkspace
             labels={copy.settings}
             connected
-            additionalGroups={[{ id: 'appearance', label: copy.appearance.group, order: 0 }]}
+            additionalGroups={[
+              { id: 'appearance', label: copy.appearance.group, order: 0 },
+              { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
+            ]}
             groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
             renderGroup={(groupId) =>
-              ['appearance', 'providers', 'extensions'].includes(groupId) ? (
+              ['appearance', 'providers', 'extensions', 'diagnostics'].includes(groupId) ? (
                 <div data-test-group={groupId}>{copy.settings.pageTitle}</div>
               ) : null
             }
@@ -431,7 +434,7 @@ test.each(['zh-CN', 'en-US'] as const)(
         field: model,
         value: 'unsaved-session-model',
       })
-      for (const section of ['providers', 'extensions', 'appearance']) {
+      for (const section of ['providers', 'extensions', 'diagnostics', 'appearance']) {
         await runtime.view.commands.execute('app.openSettings', { scope: 'session', targetId: session.id, section })
         const entry = await waitForReady(runtime)
         const html = render()
@@ -467,8 +470,9 @@ test.each(['zh-CN', 'en-US'] as const)(
         copy.settings.resolve('i18n:settings.groups.session'),
         copy.settings.resolve('i18n:settings.groups.providers'),
         copy.settings.resolve('i18n:settings.groups.extensions'),
+        copy.diagnostics.title,
       ])
-      for (const [index, glyph] of ['palette', 'cpu', 'message-square', 'server', 'puzzle'].entries()) {
+      for (const [index, glyph] of ['palette', 'cpu', 'message-square', 'server', 'puzzle', 'stethoscope'].entries()) {
         expect(navigation.groups[index]?.icon).toContain(`lucide-${glyph}`)
         expect(navigation.groups[index]?.tier).toBe('md')
         expect(navigation.groups[index]?.iconHidden).toBe(true)

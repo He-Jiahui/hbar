@@ -12,6 +12,7 @@ import type {
   HbarSessionWorkspaceLabels,
   HbarSettingsWorkspaceLabels,
   HbarStatusWorkspaceLabels,
+  HbarSystemDiagnosticsLabels,
   HbarWorkspaceShellLabels,
 } from '@hbar/app-react'
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
@@ -62,6 +63,7 @@ interface ShellCopy {
   readonly goals: HbarGoalPlanWorkspaceLabels
   readonly extensions: HbarExtensionWorkspaceLabels
   readonly status: HbarStatusWorkspaceLabels
+  readonly diagnostics: HbarSystemDiagnosticsLabels
 }
 
 function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabels {
@@ -1731,6 +1733,45 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   }
 }
 
+function createSystemDiagnosticsLabels(locale: ShellLocale): HbarSystemDiagnosticsLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale)
+  return {
+    title: choose('诊断', 'Diagnostics'),
+    description: choose(
+      '查看当前 Host 报告的运行与存储摘要。此页不会清理或修改数据。',
+      'Inspect this Host’s runtime and storage summary. This page does not clean up or change data.',
+    ),
+    refresh: choose('刷新诊断', 'Refresh diagnostics'),
+    loading: choose('正在读取 Host 诊断…', 'Reading Host diagnostics…'),
+    unavailable: choose(
+      'Host 未连接，连接后可刷新诊断。',
+      'The Host is disconnected. Reconnect to refresh diagnostics.',
+    ),
+    oldResult: choose('以下仍是上次成功读取的结果。', 'The result below is from the last successful read.'),
+    host: choose('Host', 'Host'),
+    storage: choose('存储计数', 'Storage counts'),
+    activity: choose('运行摘要', 'Runtime summary'),
+    version: choose('版本', 'Version'),
+    protocol: choose('协议版本', 'Protocol version'),
+    platform: choose('平台', 'Platform'),
+    demo: choose('演示模式', 'Demo mode'),
+    yes: choose('是', 'Yes'),
+    no: choose('否', 'No'),
+    activeRuns: choose('活动运行', 'Active runs'),
+    recoveredRuns: choose('已恢复的运行', 'Recovered runs'),
+    streams: choose('活动流', 'Active streams'),
+    plugins: choose('插件数', 'Plugins'),
+    tools: choose('工具数', 'Tools'),
+    noStorageEntries: choose('Host 未返回存储计数。', 'The Host returned no storage counts.'),
+    moreStorageEntries: (count) =>
+      choose(`另有 ${number.format(count)} 项未展示。`, `${number.format(count)} more entries not shown.`),
+    number: (value) => number.format(value),
+    error: (code) => choose(`诊断读取失败：${code}。可重试。`, `Could not read diagnostics: ${code}. Try again.`),
+  }
+}
+
 function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLabels {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
@@ -2151,6 +2192,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     goals: createGoalPlanWorkspaceLabels('zh-CN'),
     extensions: createExtensionWorkspaceLabels('zh-CN'),
     status: createStatusWorkspaceLabels('zh-CN'),
+    diagnostics: createSystemDiagnosticsLabels('zh-CN'),
   },
   'en-US': {
     shell: {
@@ -2243,6 +2285,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     goals: createGoalPlanWorkspaceLabels('en-US'),
     extensions: createExtensionWorkspaceLabels('en-US'),
     status: createStatusWorkspaceLabels('en-US'),
+    diagnostics: createSystemDiagnosticsLabels('en-US'),
   },
 }
 

@@ -7,4 +7,5 @@ export const WEB_SETTINGS_GROUP_PRESENTATION = [
   { id: 'session', icon: 'session', scope: 'layered' },
   { id: 'providers', icon: 'providers', scope: 'host' },
   { id: 'extensions', icon: 'extensions', scope: 'host' },
+  { id: 'diagnostics', icon: 'diagnostics', scope: 'host' },
 ] as const satisfies readonly HbarSettingsGroupPresentation[]

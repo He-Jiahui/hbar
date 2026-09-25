@@ -65,6 +65,7 @@ import { createWorkflowWorkspace } from './workflow-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
 export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import { createStatusWorkspace } from './status-workspace'
+import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export { goalControlStatuses } from './goal-plan-workspace'
@@ -158,6 +159,8 @@ export type {
   ClientExportPort,
 } from './types'
 export { SessionSelectionError } from './navigation'
+export { systemDiagnosticsCommands } from './system-diagnostics'
+export type { SystemDiagnosticsEntry, SystemDiagnosticsState } from './system-diagnostics'
 
 export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
@@ -187,6 +190,7 @@ const runtimeCommands = {
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
   ...agentChildNavigationCommands,
+  ...systemDiagnosticsCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -384,6 +388,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const systemDiagnostics = createSystemDiagnostics(
+    local,
+    options.system,
+    surfaces.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -424,6 +435,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(workflowWorkspaceCommands, name) ||
         Object.hasOwn(extensionWorkspaceCommands, name) ||
         Object.hasOwn(statusWorkspaceCommands, name) ||
+        Object.hasOwn(systemDiagnosticsCommands, name) ||
         Object.hasOwn(clientPersistenceCommands, name) ||
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
@@ -490,6 +502,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workflows: workflowWorkspace.reader,
       extensions: extensionWorkspace.reader,
       status: statusWorkspace.reader,
+      diagnostics: systemDiagnostics.reader,
       layout: clientPersistence.layout,
       preferences: clientPersistence.preferences,
     }),
@@ -539,6 +552,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workflowWorkspace.dispose()
       extensionWorkspace.dispose()
       statusWorkspace.dispose()
+      systemDiagnostics.dispose()
       clientPersistence.dispose()
       disposeSurfaces()
       surfaces.dispose()

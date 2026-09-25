@@ -12,6 +12,7 @@ import {
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
   HbarStatusWorkspace,
+  HbarSystemDiagnostics,
   HbarWorkspaceShell,
   useHbarRuntime,
   useHbarRuntimeState,
@@ -53,6 +54,7 @@ import {
   createModelCommandClient,
   createSchemaCallbackClient,
   createSettingsCommandClient,
+  createSystemCommandClient,
   createUsageCommandClient,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
@@ -114,6 +116,7 @@ function createRuntime(
     planProposal: copy.planProposal,
     workflows: createWorkflowCommandClient(client),
     extensions: createExtensionCommandClient(client),
+    system: createSystemCommandClient(client),
     metrics: createMetricsCommandClient(client),
     git: createGitCommandClient(client),
     commandCatalog: createCommandCatalogClient(client),
@@ -244,7 +247,10 @@ function WorkspaceBodyContent({
         labels={copy.settings}
         connected={connected}
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
-        additionalGroups={[{ id: 'appearance', label: copy.appearance.group, order: 0 }]}
+        additionalGroups={[
+          { id: 'appearance', label: copy.appearance.group, order: 0 },
+          { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
+        ]}
         renderGroup={(groupId) => {
           if (groupId === 'appearance')
             return <AppearanceSettingsController labels={copy.appearance} systemPrefersDark={systemPrefersDark} />
@@ -254,6 +260,14 @@ function WorkspaceBodyContent({
             return (
               <HbarExtensionWorkspace
                 labels={copy.extensions}
+                connected={connected}
+                instanceId={presentation.page.instanceId}
+              />
+            )
+          if (groupId === 'diagnostics' && presentation.page.kind === 'settings')
+            return (
+              <HbarSystemDiagnostics
+                labels={copy.diagnostics}
                 connected={connected}
                 instanceId={presentation.page.instanceId}
               />

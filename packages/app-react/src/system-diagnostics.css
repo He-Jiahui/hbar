@@ -1,0 +1,76 @@
+.hbar-system-diagnostics {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 1rem;
+  padding: 1rem;
+}
+.hbar-system-diagnostics-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.hbar-system-diagnostics-intro {
+  display: flex;
+  flex: 1 1 15rem;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.hbar-system-diagnostics-intro > h2,
+.hbar-system-diagnostics-intro > p,
+.hbar-system-diagnostics-section > h3,
+.hbar-system-diagnostics-section > p,
+.hbar-system-diagnostics-feedback > p {
+  margin: 0;
+}
+.hbar-system-diagnostics-results {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+.hbar-system-diagnostics-section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.625rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  padding: 0.875rem;
+}
+.hbar-system-diagnostics-values {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hbar-system-diagnostics-value {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  min-inline-size: 0;
+  gap: 0.375rem 1rem;
+  padding-block: 0.375rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-system-diagnostics-value:last-child {
+  border-block-end: 0;
+}
+.hbar-system-diagnostics-value > span {
+  overflow-wrap: anywhere;
+}
+.hbar-system-diagnostics-value > span:last-child {
+  text-align: end;
+}
+.hbar-system-diagnostics-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-wrap: anywhere;
+}

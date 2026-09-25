@@ -55,6 +55,7 @@ export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-
 export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
+export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
 export type { HbarRuntimeView } from './runtime'
 export {
   HbarWorkspaceTabs,

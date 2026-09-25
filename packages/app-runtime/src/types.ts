@@ -102,6 +102,7 @@ export interface RuntimeOptions {
   readonly goals?: GoalPlanWorkspacePort
   readonly workflows?: WorkflowWorkspacePort
   readonly extensions?: CommandExecutor
+  readonly system?: CommandExecutor
   readonly metrics?: CommandExecutor
   readonly git?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort

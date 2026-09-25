@@ -45,6 +45,7 @@ const diagnoseSchema = z.strictObject({
   tools: z.array(z.string().min(1).max(256)).max(4_096),
   streams: z.number().int().nonnegative(),
 })
+export type SystemDiagnosis = z.infer<typeof diagnoseSchema>
 
 function metadata(
   id: string,
@@ -75,7 +76,11 @@ const rootsCli = {
 
 export const systemCommands = {
   'system.diagnose': defineCommand(metadata('system.diagnose', 'query', 'none'), z.strictObject({}), diagnoseSchema),
-  'system.paths.get': defineCommand(metadata('system.paths.get', 'query', 'none'), z.strictObject({}), systemPathsSchema),
+  'system.paths.get': defineCommand(
+    metadata('system.paths.get', 'query', 'none'),
+    z.strictObject({}),
+    systemPathsSchema,
+  ),
   'system.paths.validate': defineCommand(
     { ...metadata('system.paths.validate', 'command', 'persistent'), cli: rootsCli },
     rootsSchema,
@@ -91,7 +96,11 @@ export const systemCommands = {
     z.strictObject({}),
     z.strictObject({ accepted: z.boolean(), restartRequired: z.boolean() }),
   ),
-  'device.list': defineCommand(metadata('device.list', 'query', 'none'), z.strictObject({}), z.array(deviceSchema).max(10_000)),
+  'device.list': defineCommand(
+    metadata('device.list', 'query', 'none'),
+    z.strictObject({}),
+    z.array(deviceSchema).max(10_000),
+  ),
   'device.revoke': defineCommand(
     {
       ...metadata('device.revoke', 'command', 'persistent'),
