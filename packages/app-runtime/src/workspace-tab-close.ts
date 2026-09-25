@@ -6,7 +6,8 @@ import { readTabActivity, tabCloseError, visitTabCloseTargets, type TabActiveOpe
 export interface WorkspaceTabCloseTarget {
   readonly id: string
   readonly instanceKey: string
-  readonly sessionId: string
+  /** Ephemeral workbench views have no run of their own. */
+  readonly sessionId: string | null
 }
 export interface WorkspaceTabCloseRequest {
   readonly id: string
@@ -83,12 +84,13 @@ export function createWorkspaceTabClose(options: WorkspaceTabCloseOptions) {
   }
   async function inspect(id: string, signal: AbortSignal) {
     const value = current(id)
+    const sessionIds = value.targets.flatMap((target) => (target.sessionId === null ? [] : [target.sessionId]))
+    if (!sessionIds.length) {
+      await close(id, signal)
+      return
+    }
     if (!options.run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Activity query is unavailable')
-    const operations = await readTabActivity(
-      options.run,
-      value.targets.map((target) => target.sessionId),
-      signal,
-    )
+    const operations = await readTabActivity(options.run, sessionIds, signal)
     signal.throwIfAborted()
     current(id)
     const activeIds = new Set(operations.map((operation) => operation.operationId))

@@ -57,6 +57,24 @@ test('closing idle tabs drops only original view instances, not run or session d
   example.close.dispose()
 })
 
+test('closing a workbench-only view does not query or cancel its source conversation', async () => {
+  const example = fixture((id) => activity(id, ['source-run']))
+  const workbench: WorkspaceTabCloseTarget = { id: 'workbench:source', instanceKey: 'view-key', sessionId: null }
+  await example.close.request([workbench])
+  expect(example.closed).toEqual([[workbench]])
+  expect(example.calls).toEqual([])
+  example.close.dispose()
+})
+
+test('mixed closes inspect only conversation tabs, never workbench source activity twice', async () => {
+  const example = fixture((id) => activity(id, []))
+  const workbench: WorkspaceTabCloseTarget = { id: 'workbench:source', instanceKey: 'view-key', sessionId: null }
+  await example.close.request([target('source'), workbench])
+  expect(example.closed).toEqual([[target('source'), workbench]])
+  expect(example.calls).toEqual(['read:source'])
+  example.close.dispose()
+})
+
 test('keep running closes captured tabs without sending cancellation', async () => {
   const example = fixture((id) => activity(id, ['run-a']))
   await example.close.request([target('a')])
