@@ -218,7 +218,7 @@ export function HbarWorkspaceTabs({
               }}
               role="tab"
               aria-label={item.title}
-              aria-describedby={item.activity !== 'idle' ? `${menuDomId}-activity-${index}` : undefined}
+              aria-describedby={item.activity === 'running' ? `${menuDomId}-activity-${index}` : undefined}
               aria-selected={item.id === activeId}
               tabIndex={item.id === focusId ? 0 : -1}
               className="hbar-workspace-tab-select"
@@ -242,7 +242,7 @@ export function HbarWorkspaceTabs({
               }}
             >
               {item.kind === 'workbench' && <LumenIcon icon={PanelRight} tier="sm" />}
-              {item.activity !== 'idle' && (
+              {item.activity === 'running' && (
                 <LumenFrame
                   as="i"
                   id={`${menuDomId}-activity-${index}`}

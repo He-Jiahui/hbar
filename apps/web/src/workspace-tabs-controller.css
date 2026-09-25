@@ -1,0 +1,33 @@
+.hbar-workspace-tabs-controller,
+.hbar-workspace-tabs-content,
+.hbar-workspace-tabs-region,
+.hbar-workspace-tabs-feedback {
+  display: flex;
+  min-inline-size: 0;
+}
+.hbar-workspace-tabs-controller,
+.hbar-workspace-tabs-content,
+.hbar-workspace-tabs-region {
+  flex-direction: column;
+}
+.hbar-workspace-tabs-controller,
+.hbar-workspace-tabs-content {
+  flex: 1;
+  min-block-size: 0;
+}
+.hbar-workspace-tabs-region {
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-workspace-tabs-region > p {
+  margin: 0;
+  padding: 0.75rem;
+}
+.hbar-workspace-tabs-feedback {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+.hbar-workspace-tabs-feedback p {
+  margin: 0;
+}

@@ -68,6 +68,7 @@ import {
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
+import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
@@ -428,6 +429,7 @@ export default function App({
   const resolvedLayout = useMemo(() => normalizeShellLayout(layout.description), [layout.description])
   const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
   const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
+  const workspaceLayout = shellLayoutModule(resolvedLayout, 'workspace')
 
   useEffect(() => {
     if (layout.status === 'ready' && !sidebarLayout.visible)
@@ -527,12 +529,23 @@ export default function App({
           }
           overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}
         >
-          <WorkspaceBody
-            locale={locale}
-            connected={connection === 'connected'}
-            prepareAttachment={attachmentController.prepare}
-            systemPrefersDark={systemPrefersDark}
-          />
+          {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
+            <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
+              <WorkspaceBody
+                locale={locale}
+                connected={connection === 'connected'}
+                prepareAttachment={attachmentController.prepare}
+                systemPrefersDark={systemPrefersDark}
+              />
+            </WorkspaceTabsController>
+          ) : (
+            <WorkspaceBody
+              locale={locale}
+              connected={connection === 'connected'}
+              prepareAttachment={attachmentController.prepare}
+              systemPrefersDark={systemPrefersDark}
+            />
+          )}
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>
     </LumenProvider>

@@ -23,7 +23,16 @@ const workspaceModuleSchema = z.strictObject({
   order: z.literal(1),
   visible: z.boolean(),
   size: z.strictObject({ minRem: z.literal(20), grow: z.literal(1) }),
-  config: z.strictObject({ narrowPresentation: z.literal('page') }),
+  config: z.strictObject({
+    narrowPresentation: z.literal('page'),
+    tabs: z
+      .strictObject({
+        visible: z.literal(true),
+        placement: z.literal('before-content'),
+        maxOpen: z.literal(32),
+      })
+      .default({ visible: true, placement: 'before-content', maxOpen: 32 }),
+  }),
 })
 
 const toolModuleSchema = z.strictObject({

@@ -10,6 +10,11 @@ test('Web shell layout v2 describes one ordered module per workbench outlet', ()
   ])
   expect(shellLayoutModule(shellLayout, 'projects').size).toEqual({ minRem: 12, preferredRem: 17, maxRem: 24 })
   expect(shellLayoutModule(shellLayout, 'session-tool').size).toEqual({ minRem: 20, preferredRem: 24, maxRem: 36 })
+  expect(shellLayoutModule(shellLayout, 'workspace').config.tabs).toEqual({
+    visible: true,
+    placement: 'before-content',
+    maxOpen: 32,
+  })
 })
 
 test('Web shell layout migrates sidebar v1 without inventing saved tool state', () => {
@@ -25,6 +30,26 @@ test('Web shell layout migrates sidebar v1 without inventing saved tool state', 
     size: { minRem: 12, preferredRem: 20, maxRem: 24 },
   })
   expect(shellLayoutModule(migrated, 'session-tool')).toEqual(shellLayoutModule(shellLayout, 'session-tool'))
+  expect(shellLayoutModule(migrated, 'workspace').config.tabs).toEqual(
+    shellLayoutModule(shellLayout, 'workspace').config.tabs,
+  )
+})
+
+test('existing v2 layouts migrate the tabs region config without accepting arbitrary placement', () => {
+  const existing = structuredClone(shellLayout)
+  const module = existing.modules.find((item) => item.moduleId === 'workspace')!
+  if (module.moduleId !== 'workspace') throw new Error('Expected workspace module')
+  const old = { ...module, config: { narrowPresentation: 'page' } }
+  existing.modules[1] = old as (typeof existing.modules)[number]
+  expect(shellLayoutModule(normalizeShellLayout(existing), 'workspace').config.tabs).toEqual(
+    shellLayoutModule(shellLayout, 'workspace').config.tabs,
+  )
+
+  const invalid = structuredClone(shellLayout)
+  const invalidModule = invalid.modules.find((item) => item.moduleId === 'workspace')!
+  if (invalidModule.moduleId !== 'workspace') throw new Error('Expected workspace module')
+  invalidModule.config.tabs.placement = 'absolute' as 'before-content'
+  expect(() => normalizeShellLayout(invalid)).toThrow()
 })
 
 test('Web shell layout rejects unknown, duplicate, missing, and out-of-range modules', () => {

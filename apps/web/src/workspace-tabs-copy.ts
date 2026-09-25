@@ -4,8 +4,39 @@ import type { HbarWorkspaceTabsCloseLabels } from '@hbar/app-react'
 export function workspaceTabsCopy(choose: (zh: string, en: string) => string): {
   readonly tabs: HbarWorkspaceTabsLabels
   readonly close: HbarWorkspaceTabsCloseLabels
+  readonly unknownSession: (id: string) => string
+  readonly unknownWorkspace: (id: string) => string
+  readonly restoring: string
+  readonly retry: string
+  readonly error: (code: string) => string
 } {
   return {
+    unknownSession: (id) => choose(`会话 ${id}`, `Conversation ${id}`),
+    unknownWorkspace: (id) => choose(`项目 ${id}`, `Project ${id}`),
+    restoring: choose('正在恢复页签…', 'Restoring tabs…'),
+    retry: choose('重试', 'Retry'),
+    error: (code) => {
+      if (code === 'TAB_LIMIT')
+        return choose('最多可打开 32 个页签。请先关闭一个。', 'You can open up to 32 tabs. Close one first.')
+      if (code === 'STOP_PENDING')
+        return choose(
+          '停止请求已受理，任务尚未结束。请核对状态。',
+          'Stop was requested but the run has not ended. Check its status.',
+        )
+      if (code === 'ACTIVITY_CHANGED')
+        return choose('运行状态已变化，请重新核对。', 'Run activity changed. Check again.')
+      if (code === 'ACTIVITY_LIMIT')
+        return choose(
+          '活动任务过多，无法一次确认停止。可保留运行并关闭页签。',
+          'Too many active runs to stop together. You can keep them running and close the tabs.',
+        )
+      if (code === 'TIMEOUT' || code === 'RESULT_UNKNOWN' || code === 'DISCONNECTED')
+        return choose(
+          '目前无法确认结果，请核对状态或保留运行并关闭页签。',
+          'The result is unconfirmed. Check the status or keep running and close the tabs.',
+        )
+      return choose(`页签操作未完成：${code}`, `Could not finish tab action: ${code}`)
+    },
     tabs: {
       tabs: choose('打开的会话与工作台', 'Open conversations and workbenches'),
       empty: choose('没有打开的页签', 'No open tabs'),

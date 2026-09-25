@@ -35,7 +35,8 @@ test('duplicate identities retain their first item, stale selection is not fabri
   expect(html.match(/role="tab"/g)).toHaveLength(2)
   expect(html).not.toContain('duplicate')
   expect(html).not.toContain('aria-selected="true"')
-  expect(html).toContain(labels.tabs.activity('unknown'))
+  expect(html).not.toContain(labels.tabs.activity('unknown'))
+  expect(html).not.toContain('data-activity="unknown"')
 })
 test('close dialog renders unknown as read-only reconciliation, not another stop action', () => {
   const shared = {
@@ -48,9 +49,10 @@ test('close dialog renders unknown as read-only reconciliation, not another stop
     onRecheck: () => {},
   }
   const unknown = renderToStaticMarkup(<HbarWorkspaceTabsCloseDialog {...shared} status="unknown" error="连接中断" />)
+  expect(unknown).toContain(labels.close.keepRunning)
+  expect(unknown).not.toContain(labels.close.stopAndClose)
   expect(unknown).toContain(labels.close.recheck)
   expect(unknown).not.toContain(labels.close.stopAndClose)
-  expect(unknown).not.toContain(labels.close.keepRunning)
   expect(unknown).toContain('role="alert"')
   expect(unknown).toContain(labels.close.target('原会话', 2))
   const choice = renderToStaticMarkup(<HbarWorkspaceTabsCloseDialog {...shared} status="choice" />)

@@ -19,7 +19,10 @@
       "order": 1,
       "visible": true,
       "size": { "minRem": 20, "grow": 1 },
-      "config": { "narrowPresentation": "page" }
+      "config": {
+        "narrowPresentation": "page",
+        "tabs": { "visible": true, "placement": "before-content", "maxOpen": 32 }
+      }
     },
     {
       "moduleId": "session-tool",

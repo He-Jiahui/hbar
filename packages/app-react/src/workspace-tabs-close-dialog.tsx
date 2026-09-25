@@ -35,9 +35,11 @@ export function HbarWorkspaceTabsCloseDialog({
 }: HbarWorkspaceTabsCloseDialogProps) {
   const busy = status === 'checking' || status === 'stopping'
   const choice = status === 'choice' || status === 'failed'
+  const canKeepRunning = choice || status === 'unknown'
   return (
     <LumenDialog
       open={open}
+      className="hbar-workspace-tabs-close-dialog"
       title={labels.title}
       closeLabel={labels.cancel}
       onClose={() => {
@@ -48,7 +50,7 @@ export function HbarWorkspaceTabsCloseDialog({
           <LumenButton variant="outlined" disabled={busy} onClick={onCancel}>
             {labels.cancel}
           </LumenButton>
-          {choice && (
+          {canKeepRunning && (
             <LumenButton variant="outlined" disabled={targets.length === 0} onClick={onKeepRunning}>
               {labels.keepRunning}
             </LumenButton>
