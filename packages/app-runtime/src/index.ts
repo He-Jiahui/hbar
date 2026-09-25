@@ -73,6 +73,9 @@ export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspa
 import { createStatusWorkspace } from './status-workspace'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
+import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
+export { MAX_PINNED_WORKSPACES, sortPinnedWorkspaces } from './workspace-pins'
+export type { WorkspacePinAction, WorkspacePinsState } from './workspace-pins'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export { goalControlStatuses } from './goal-plan-workspace'
 export type { StateReader } from './state'
@@ -195,6 +198,7 @@ const runtimeCommands = {
   ...planProposalCommands,
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
+  ...workspacePinCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
   ...systemDiagnosticsCommands,
@@ -243,6 +247,16 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   )
   const remote = directory.registry
+  const workspacePins = createWorkspacePins(local, {
+    preferences: clientPersistence.preferences,
+    preferencesReady: clientPersistence.ready,
+    preferenceCommands: local,
+    refreshPreferences: clientPersistence.refreshPreferences,
+    directory: directory.reader,
+    queries: directory.queries,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   let tabNavigation: ReturnType<typeof registerNavigationCommands> | undefined
   const workspaceTabs = createWorkspaceTabs(local, {
     navigation: navigation.reader,
@@ -470,6 +484,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionArchiveCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(workspaceTabCommands, name) ||
+        Object.hasOwn(workspacePinCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -502,6 +517,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     state: Object.freeze({
       navigation: navigation.reader,
       workspaceTabs: workspaceTabs.reader,
+      workspacePins: workspacePins.reader,
       messageFork: messageFork.reader,
       directory: directory.reader,
       forms: forms.reader,
@@ -555,6 +571,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       disposed = true
       messageFork.dispose()
       workspaceTabs.dispose()
+      workspacePins.dispose()
 
       local.dispose()
       platform.dispose()

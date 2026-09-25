@@ -63,6 +63,28 @@
   flex: 1 1 auto;
 }
 
+.hbar-app-react-workspace-pin {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-pin-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.75rem 0.375rem;
+}
+
+.hbar-app-react-pin-feedback p {
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
 .hbar-app-react-workspace-row [data-variant],
 .hbar-app-react-session-label [data-variant] {
   min-inline-size: 0;

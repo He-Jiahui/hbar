@@ -320,6 +320,18 @@ export function createClientPersistence(
           return next
         }
       }),
+    /** Re-read after an uncertain local write; serializing behind writes prevents a stale disk snapshot. */
+    refreshPreferences: () =>
+      serialize(async () => {
+        if (!options.persistence) return preferences.reader.getSnapshot()
+        const saved = await read(preferencesKey)
+        const current = preferences.reader.getSnapshot()
+        const next: ClientPreferencesState = saved
+          ? { status: 'ready', revision: saved.revision, persisted: true, values: saved.value, restoreError: null }
+          : { status: 'ready', revision: current.revision, persisted: false, values: {}, restoreError: null }
+        if (!isDisposed()) preferences.replace(next)
+        return next
+      }),
     commands: createCommandClient(clientPersistenceCommands, local),
     dispose() {
       layout.dispose()

@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Menu,
   PanelLeftClose,
+  Pin,
   Plus,
   RefreshCw,
   Settings,
@@ -30,6 +31,7 @@ import {
   type LumenIconTier,
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
+import { sortPinnedWorkspaces } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   createWorkspaceNavigationActions,
@@ -80,6 +82,18 @@ export interface HbarWorkspaceShellLabels {
   readonly newSessionInWorkspace: string
   readonly workspaceFiles: string
   readonly workspaceSettings: string
+  readonly pinWorkspace: string
+  readonly unpinWorkspace: string
+  readonly pinnedWorkspace: (name: string) => string
+  readonly pinningWorkspace: string
+  readonly pinSaved: string
+  readonly pinRemoved: string
+  readonly pinVolatile: string
+  readonly pinUnknown: string
+  readonly pinCheck: string
+  readonly pinFailure: (code: string) => string
+  readonly pinRestoreFailure: (code: string) => string
+  readonly pinRetryRestore: string
   readonly openSession: (name: string) => string
   readonly sessionUpdatedAt: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
@@ -114,6 +128,7 @@ const workspaceShellIcons = {
   'folder-open': FolderOpen,
   menu: Menu,
   'panel-close': PanelLeftClose,
+  pin: Pin,
   plus: Plus,
   refresh: RefreshCw,
   settings: Settings,
@@ -178,6 +193,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
@@ -298,10 +314,24 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [execute, recordError])
 
-  const workspaces = useMemo(
-    () => Object.values(directory.workspaces).sort((left, right) => left.name.localeCompare(right.name)),
-    [directory],
-  )
+  const workspaces = useMemo(() => sortPinnedWorkspaces(directory, workspacePins), [directory, workspacePins])
+  const pinBusy = workspacePins.action.status === 'submitting' || workspacePins.action.status === 'unknown'
+  const toggleWorkspacePin = (workspaceId: string) => {
+    void execute('workspacePins.toggle', {
+      workspaceId,
+      expectedPinned: workspacePins.ids.includes(workspaceId),
+    }).catch(() => {
+      // The command projects its error onto the targeted row.
+    })
+  }
+  const checkWorkspacePin = (workspaceId: string) => {
+    void execute('workspacePins.reconcile', { workspaceId }).catch(() => {
+      // An unreadable preference remains uncertain; the row stays locked.
+    })
+  }
+  const retryWorkspacePins = () => {
+    void execute('workspacePins.refresh', {}).catch(recordError)
+  }
   const sessionsByWorkspace = useMemo(() => {
     const result = new Map<string, (typeof directory.sessions)[string][]>()
     for (const session of Object.values(directory.sessions)) {
@@ -617,6 +647,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           }
         >
           <LumenFrame as="nav" className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
+            {workspacePins.status === 'error' && (
+              <LumenFrame className="hbar-app-react-pin-feedback" role="alert">
+                <LumenText as="p">{props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}</LumenText>
+                <LumenButton size="s" variant="outlined" onClick={retryWorkspacePins}>
+                  {props.labels.pinRetryRestore}
+                </LumenButton>
+              </LumenFrame>
+            )}
             {workspaces.length === 0 && (
               <LumenText as="p">
                 {loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
@@ -624,6 +662,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
             {workspaces.map((workspace) => {
               const isExpanded = expanded.has(workspace.id)
+              const isPinned = workspacePins.ids.includes(workspace.id)
               const sessions = sessionsByWorkspace.get(workspace.id) ?? []
               const nextSessionCursor = sessionCursors[workspace.id]
               return (
@@ -634,11 +673,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       size="s"
                       variant="text"
                       aria-expanded={isExpanded}
-                      aria-label={
+                      aria-label={`${
                         isExpanded
                           ? props.labels.collapseWorkspace(workspace.name)
                           : props.labels.expandWorkspace(workspace.name)
-                      }
+                      }${isPinned ? ` · ${props.labels.pinnedWorkspace(workspace.name)}` : ''}`}
                       onClick={() =>
                         setExpanded((current) => {
                           const next = new Set(current)
@@ -653,16 +692,31 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       <LumenText size="s" variant="label">
                         {workspace.name}
                       </LumenText>
+                      {isPinned && (
+                        <LumenText
+                          as="span"
+                          className="hbar-app-react-workspace-pin"
+                          title={props.labels.pinnedWorkspace(workspace.name)}
+                        >
+                          <WorkspaceShellIcon name="pin" tier="sm" />
+                        </LumenText>
+                      )}
                     </LumenButton>
                     <LumenActionMenu
                       label={props.labels.workspaceActions(workspace.name)}
                       items={[
                         { id: 'files', label: props.labels.workspaceFiles },
                         { id: 'settings', label: props.labels.workspaceSettings },
+                        {
+                          id: 'pin',
+                          label: isPinned ? props.labels.unpinWorkspace : props.labels.pinWorkspace,
+                          disabled: pinBusy || workspacePins.status !== 'ready',
+                        },
                         { id: 'archived', label: props.labels.archive.openList(workspace.name), disabled: !connected },
                       ]}
                       onAction={(action) => {
                         if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
+                        else if (action === 'pin') toggleWorkspacePin(workspace.id)
                         else if (action === 'archived')
                           void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
                       }}
@@ -689,6 +743,37 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     <LumenText as="p" role="alert" tone="danger">
                       {props.labels.error(workspaceActionError.code)}
                     </LumenText>
+                  )}
+                  {workspacePins.action.workspaceId === workspace.id && workspacePins.action.status !== 'idle' && (
+                    <LumenFrame
+                      className="hbar-app-react-pin-feedback"
+                      role={
+                        workspacePins.action.status === 'submitting'
+                          ? 'status'
+                          : workspacePins.action.status === 'failed' || workspacePins.action.status === 'unknown'
+                            ? 'alert'
+                            : undefined
+                      }
+                    >
+                      <LumenText as="p">
+                        {workspacePins.action.status === 'submitting'
+                          ? props.labels.pinningWorkspace
+                          : workspacePins.action.status === 'unknown'
+                            ? props.labels.pinUnknown
+                            : workspacePins.action.status === 'failed'
+                              ? props.labels.pinFailure(workspacePins.action.error ?? 'UNKNOWN')
+                              : workspacePins.action.persisted
+                                ? isPinned
+                                  ? props.labels.pinSaved
+                                  : props.labels.pinRemoved
+                                : props.labels.pinVolatile}
+                      </LumenText>
+                      {workspacePins.action.status === 'unknown' && (
+                        <LumenButton size="s" variant="outlined" onClick={() => checkWorkspacePin(workspace.id)}>
+                          {props.labels.pinCheck}
+                        </LumenButton>
+                      )}
+                    </LumenFrame>
                   )}
                   <ArchivedSessions
                     workspaceId={workspace.id}
