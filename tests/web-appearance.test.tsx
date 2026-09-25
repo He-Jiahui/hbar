@@ -109,10 +109,33 @@ test('appearance settings renders host copy and shared design-system primitives'
   expect(html).toContain('aria-label="Live preview"')
   expect(html).toContain('data-lumen-mode="dark"')
   expect(html).toContain('data-lumen-control-size="m"')
-  expect(html.match(/class="lumen-control/g)?.length).toBe(6)
+  expect(html.match(/class="lumen-control/g)?.length).toBe(5)
   expect(html).toContain('data-variant="solid"')
-  expect(html).toContain('for="hbar-appearance-theme"')
+  expect(html).toContain('role="radiogroup" aria-labelledby="hbar-appearance-theme-label"')
+  expect(html).toContain('role="radio" aria-checked="true" tabindex="0"')
+  expect(html.match(/role="radio"/g)?.length).toBe(3)
+  expect(html).toContain('>System</button>')
+  expect(html).toContain('>Light</button>')
+  expect(html).toContain('>Dark</button>')
   expect(html).not.toContain('Write a message')
+})
+
+test('appearance theme choices render non-default locale and preserve a checked draft in a disabled restore state', () => {
+  const labels = getShellCopy('zh-CN').appearance
+  const editor = createWebAppearanceEditor(
+    { status: 'ready', revision: 0, persisted: false, values: {}, restoreError: 'PERSISTENCE_FAILED' },
+    {
+      save: () => Promise.reject(new Error('unavailable')),
+      reset: () => Promise.reject(new Error('unavailable')),
+      refresh: () => Promise.reject(new Error('unavailable')),
+    },
+  )
+  const html = renderToStaticMarkup(<WebAppearanceSettings labels={labels} editor={editor} systemPrefersDark={false} />)
+  expect(html).toContain('>跟随系统</button>')
+  expect(html).toContain('>浅色</button>')
+  expect(html).toContain('>深色</button>')
+  expect(html.match(/role="radio"[^>]*disabled=""/g)?.length).toBe(3)
+  expect(html).toContain('data-lumen-mode="light"')
 })
 
 test('web appearance maps persisted preferences into the controlled Lumen provider contract', () => {

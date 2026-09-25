@@ -83,7 +83,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
       await openAppearance(page, locale)
       const form = page.locator('.hbar-web-appearance-settings')
-      const theme = form.getByRole('combobox', { name: copy.appearance.theme.label })
+      const theme = form.getByRole('radiogroup', { name: copy.appearance.theme.label })
       const preview = form.getByRole('region', { name: copy.appearance.preview.title })
       const controlSize = form.getByRole('combobox', { name: copy.appearance.controlSize.label })
       const textSize = form.getByRole('combobox', { name: copy.appearance.textSize.label })
@@ -95,7 +95,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       ] as const) {
         await page.emulateMedia({ colorScheme: systemTheme })
         await page.setViewportSize({ width, height })
-        await theme.selectOption(draftTheme)
+        await theme.getByRole('radio', { name: copy.appearance.theme[draftTheme], exact: true }).click()
         await expect(preview).toHaveAttribute('data-lumen-mode', draftTheme)
         await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', systemTheme)
         for (const size of ['s', 'm', 'l'] as const) {

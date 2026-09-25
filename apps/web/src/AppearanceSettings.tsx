@@ -1,4 +1,4 @@
-import { type FormEvent } from 'react'
+import { type FormEvent, type KeyboardEvent } from 'react'
 import { Palette } from 'lucide-react'
 import { useStore } from 'zustand'
 import {
@@ -19,6 +19,7 @@ import { partiallyApplied, type AppearanceEditor } from './appearance-editor'
 import './AppearanceSettings.css'
 
 type AppearanceDimension = 'controlSize' | 'textSize' | 'cornerSize'
+const THEME_CHOICES = ['system', 'light', 'dark'] as const
 
 export interface WebAppearanceSettingsLabels {
   readonly group: string
@@ -76,6 +77,14 @@ function themeOptionLabel(labels: WebAppearanceSettingsLabels, theme: WebThemePr
   return theme === 'system' ? labels.theme.system : theme === 'light' ? labels.theme.light : labels.theme.dark
 }
 
+function themeChoiceFromKey(key: string, current: number): number | null {
+  if (key === 'ArrowRight' || key === 'ArrowDown') return (current + 1) % THEME_CHOICES.length
+  if (key === 'ArrowLeft' || key === 'ArrowUp') return (current + THEME_CHOICES.length - 1) % THEME_CHOICES.length
+  if (key === 'Home') return 0
+  if (key === 'End') return THEME_CHOICES.length - 1
+  return null
+}
+
 export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: WebAppearanceSettingsProps) {
   const state = useStore(editor.store)
   const ready = state.available
@@ -89,6 +98,15 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     event.preventDefault()
     if (!ready || locked || !dirty) return
     void editor.save()
+  }
+  const chooseThemeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: number) => {
+    const next = themeChoiceFromKey(event.key, current)
+    if (next === null) return
+    event.preventDefault()
+    const theme = THEME_CHOICES[next]
+    if (!theme) return
+    editor.change('theme', theme)
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
   }
   const sizeField = (
     dimension: AppearanceDimension,
@@ -125,24 +143,37 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
       </LumenFrame>
 
       <LumenFrame className="hbar-web-appearance-fields">
-        <LumenFormField
-          controlId="hbar-appearance-theme"
-          label={labels.theme.label}
-          description={labels.theme.description}
-        >
-          <LumenSelect
-            id="hbar-appearance-theme"
-            value={state.draft.theme}
-            disabled={!ready || locked}
-            onChange={(event) => editor.change('theme', event.currentTarget.value as WebThemePreference)}
+        <LumenFrame as="fieldset" className="hbar-web-appearance-theme">
+          <LumenText as="legend" id="hbar-appearance-theme-label" variant="label">
+            {labels.theme.label}
+          </LumenText>
+          <LumenText as="p" id="hbar-appearance-theme-description" tone="muted" variant="supporting">
+            {labels.theme.description}
+          </LumenText>
+          <LumenFrame
+            className="hbar-web-appearance-theme-choices"
+            role="radiogroup"
+            aria-labelledby="hbar-appearance-theme-label"
+            aria-describedby="hbar-appearance-theme-description"
           >
-            {(['system', 'light', 'dark'] as const).map((theme) => (
-              <LumenOption key={theme} value={theme}>
+            {THEME_CHOICES.map((theme, index) => (
+              <LumenButton
+                key={theme}
+                className="hbar-web-appearance-theme-choice"
+                variant="outlined"
+                indicator="none"
+                role="radio"
+                aria-checked={state.draft.theme === theme}
+                tabIndex={state.draft.theme === theme ? 0 : -1}
+                disabled={!ready || locked}
+                onClick={() => editor.change('theme', theme)}
+                onKeyDown={(event) => chooseThemeWithKeyboard(event, index)}
+              >
                 {themeOptionLabel(labels, theme)}
-              </LumenOption>
+              </LumenButton>
             ))}
-          </LumenSelect>
-        </LumenFormField>
+          </LumenFrame>
+        </LumenFrame>
         {sizeField('controlSize', labels.controlSize)}
         {sizeField('textSize', labels.textSize)}
         {sizeField('cornerSize', labels.cornerSize)}
