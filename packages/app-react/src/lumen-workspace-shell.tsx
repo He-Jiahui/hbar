@@ -315,9 +315,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [directory])
 
   const setSidebarVisible = (visible: boolean) => void execute('app.setSidebarVisible', { visible }).catch(recordError)
-  const closeNarrowSidebar = async () => {
+  const closeNarrowSidebar = useCallback(async () => {
     if (window.matchMedia('(max-width: 63.9375rem)').matches) await execute('app.setSidebarVisible', { visible: false })
-  }
+  }, [execute])
   const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
   const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings') => {
@@ -341,37 +341,72 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       ? navigationAction.action.path
       : directory.workspaces[navigationAction.action.workspaceId]?.name
     : undefined
-  const completeNavigation = (selection: WorkspaceNavigationSelection | null) => {
-    if (!selection) return
-    setProjectPicker(null)
-    setWorkspacePath('')
-    void closeNarrowSidebar().catch(recordError)
-  }
-  const runNavigationAction = (action: WorkspaceNavigationAction, sourceWorkspaceId: string | null = null) => {
-    if (!connected || navigationBlocked || !navigationActions.current) return
-    setActionWorkspaceId(sourceWorkspaceId)
-    void navigationActions.current.run(action).then(completeNavigation).catch(recordError)
-  }
+  const completeNavigation = useCallback(
+    (selection: WorkspaceNavigationSelection | null) => {
+      if (!selection) return
+      setProjectPicker(null)
+      setWorkspacePath('')
+      void closeNarrowSidebar().catch(recordError)
+    },
+    [closeNarrowSidebar, recordError],
+  )
+  const runNavigationAction = useCallback(
+    (action: WorkspaceNavigationAction, sourceWorkspaceId: string | null = null) => {
+      if (!connected || navigationBlocked || !navigationActions.current) return
+      setActionWorkspaceId(sourceWorkspaceId)
+      void navigationActions.current.run(action).then(completeNavigation).catch(recordError)
+    },
+    [completeNavigation, connected, navigationBlocked, recordError],
+  )
   const reconcileNavigationAction = () => {
     if (!connected || !navigationActions.current) return
     void navigationActions.current.reconcile().then(completeNavigation).catch(recordError)
   }
-  function showProjectPicker(intent: 'create-session' | 'open-workspace') {
-    if (!connected || navigationBlocked) return
-    projectPickerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    setActionWorkspaceId(null)
-    setProjectPicker(intent)
-  }
+  const showProjectPicker = useCallback(
+    (intent: 'create-session' | 'open-workspace') => {
+      if (!connected || navigationBlocked) return
+      projectPickerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      setActionWorkspaceId(null)
+      setProjectPicker(intent)
+    },
+    [connected, navigationBlocked],
+  )
   const closeProjectPicker = () => {
     if (navigationBusy) return
     restoreProjectPickerFocus.current = true
     setProjectPicker(null)
   }
-  const newSession = (workspaceId?: string) => {
-    const target = workspaceId ?? defaultSessionWorkspace(navigation.workspaceId, directory.workspaces)
-    if (target === null) showProjectPicker('create-session')
-    else runNavigationAction({ kind: 'create-session', workspaceId: target }, workspaceId ?? null)
-  }
+  const newSession = useCallback(
+    (workspaceId?: string) => {
+      const target = workspaceId ?? defaultSessionWorkspace(navigation.workspaceId, directory.workspaces)
+      if (target === null) showProjectPicker('create-session')
+      else runNavigationAction({ kind: 'create-session', workspaceId: target }, workspaceId ?? null)
+    },
+    [directory.workspaces, navigation.workspaceId, runNavigationAction, showProjectPicker],
+  )
+  useEffect(() => {
+    const onNewSessionShortcut = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.repeat ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== 'n'
+      )
+        return
+      event.preventDefault()
+      event.stopPropagation()
+      const visibleDialog = [...document.querySelectorAll('dialog[open], [role="dialog"]')].some(
+        (element) => element.getClientRects().length > 0,
+      )
+      if (projectPicker || presentation.modalInstanceId || visibleDialog) return
+      newSession()
+    }
+    window.addEventListener('keydown', onNewSessionShortcut, { capture: true })
+    return () => window.removeEventListener('keydown', onNewSessionShortcut, { capture: true })
+  }, [newSession, presentation.modalInstanceId, projectPicker])
   const addWorkspace = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!workspacePath.trim()) return
