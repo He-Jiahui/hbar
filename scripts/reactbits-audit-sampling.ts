@@ -561,6 +561,31 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-1')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-plan.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Close icon dismisses the plan comparison modal' },
+        { viewport: 'mobile', theme: 'dark', suffix: '2:press-space', change: 'Keyboard Cancel dismisses the stacked narrow modal' },
+        { viewport: 'tablet', theme: 'dark', suffix: '3:click', change: 'Apply action confirms and closes the modal' },
+        { viewport: 'stress', theme: 'light', suffix: 'dialog-plan-closed:0:click', change: 'Visible trigger reopens the comparison after dismissal' },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated close gestures, widths and themes',
+          basis:
+            'Close and Cancel use the same dismissal transition while confirmation also reports its action. Four widths in two themes are captured statically; remaining equivalent pointer and keyboard combinations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Five comparison rows',
+          basis:
+            'Rows are noninteractive definition data from a typed host contract, so their responsive truncation and scroll ownership are inspected in eight static pairs without invented row clicks.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-7')
     return {
       revision: 1,

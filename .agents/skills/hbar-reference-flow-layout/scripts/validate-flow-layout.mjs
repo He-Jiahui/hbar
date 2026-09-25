@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Dialog 1: confirmation feedback floats over the now-empty canvas.
+  if (/packages\/lumen-app-ui\/src\/app-dialog-plan\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-dialog-plan-toast') return true
   // App Sidebar 7: the narrow-only scrim and drawer overlay the blank
   // application canvas; navigation, help, and profile remain in flex flow.
   if (/packages\/lumen-app-ui\/src\/app-sidebar-full\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -397,6 +400,10 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const planToast = '.hbar-app-ui-dialog-plan-toast { position: absolute; inset-block-end: 1rem; }'
+  if (validateCss('packages/lumen-app-ui/src/app-dialog-plan.css', planToast).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', planToast).length === 0)
+    throw new Error('App Dialog plan toast overlay exception must be path-scoped')
   const workspaceMenu = '.lumen-workspace-menu {\nposition: absolute;\ninset-block-start: 0;\n}'
   if (validateCss('packages/lumen-app-ui/src/app-sidebar-workspace.css', workspaceMenu).length)
     throw new Error('Rejected observed workspace switcher overlay')

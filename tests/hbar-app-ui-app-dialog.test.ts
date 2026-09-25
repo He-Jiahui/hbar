@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { auditSamplingPlan } from '../scripts/reactbits-audit-sampling'
 import {
   getHbarAppUiVariant,
   HbarAppUiAppDialogProvider,
@@ -64,5 +65,40 @@ describe('hbar-app-ui app dialog surfaces', () => {
     expect(render(7, content)).toContain('No actions')
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     expect(render(7)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+  })
+
+  test('plan comparison keeps source landmarks, row semantics and host-owned arrow', () => {
+    const value = render(1)
+    expect(value).toContain('role="dialog"')
+    expect(value).toContain('role="banner"')
+    expect(value).toContain('role="contentinfo"')
+    expect(value).toContain('aria-label="Close dialog"')
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('<span>→</span>')
+    expect(value.match(/<dt>/g)).toHaveLength(5)
+  })
+
+  test('plan data deduplicates and stays host-owned at zero, one, 64 and 65 rows', () => {
+    const original = HBAR_APP_UI_APP_DIALOG_FIXTURES.plan!
+    for (const count of [0, 1, 64, 65]) {
+      const rows = Array.from({ length: count }, (_, index) => ({
+        id: `row-${index}`,
+        label: `Field ${index}`,
+        from: `Previous ${index}`,
+        to: `Current ${index}`,
+      }))
+      const value = render(1, { plan: { ...original, rows: [...rows, ...rows.slice(0, 1)] } })
+      expect(value.match(/<dt>/g)?.length ?? 0).toBe(count)
+      if (count) expect(value).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+      else expect(value).toContain(original.labels.empty)
+    }
+  })
+
+  test('audit samples distinct plan-dialog feedback without clicking passive rows', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-1')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '1:click', '2:press-space', '3:click', 'dialog-plan-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })
 })

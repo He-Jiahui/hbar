@@ -300,6 +300,7 @@ export type InteractionCase = Readonly<{
     | 'sidebar-tree-menu-open'
     | 'sidebar-drawer-closed'
     | 'sidebar-full-closed'
+    | 'dialog-plan-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -369,7 +370,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 14
-const interactionProtocolVersion = 30
+const interactionProtocolVersion = 31
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1574,6 +1575,11 @@ const sidebarWorkspaceScenarios = ['sidebar-workspace-open'] as const
 const sidebarTreeScenarios = ['sidebar-tree-menu-open'] as const
 const sidebarDrawerScenarios = ['sidebar-drawer-closed'] as const
 const sidebarFullScenarios = ['sidebar-full-closed'] as const
+const dialogPlanScenarios = ['dialog-plan-closed'] as const
+async function prepareDialogPlanScenario(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await root.getByRole('dialog', { name: 'Apply plan change', exact: true }).waitFor({ state: 'hidden' })
+}
 async function prepareSidebarFullScenario(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Close navigation', exact: true }).click()
 }
@@ -2944,6 +2950,8 @@ async function replayInteraction(
     await prepareSidebarDrawerScenario(root)
   if (spec.id === 'hbar-app-ui-app-sidebar-7' && interaction.scenario === 'sidebar-full-closed')
     await prepareSidebarFullScenario(root)
+  if (spec.id === 'hbar-app-ui-app-dialog-1' && interaction.scenario === 'dialog-plan-closed')
+    await prepareDialogPlanScenario(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3104,6 +3112,8 @@ async function replayReferenceInteraction(
     await prepareSidebarDrawerScenario(root)
   if (reference.id === 'hbar-app-ui-app-sidebar-7' && interaction.scenario === 'sidebar-full-closed')
     await prepareSidebarFullScenario(root)
+  if (reference.id === 'hbar-app-ui-app-dialog-1' && interaction.scenario === 'dialog-plan-closed')
+    await prepareDialogPlanScenario(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3730,6 +3740,13 @@ async function runInteractionsParallel(
               for (const scenario of sidebarFullScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareSidebarFullScenario(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-1') {
+              for (const scenario of dialogPlanScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareDialogPlanScenario(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
