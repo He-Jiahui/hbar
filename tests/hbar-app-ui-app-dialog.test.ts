@@ -231,4 +231,47 @@ describe('hbar-app-ui app dialog surfaces', () => {
     ])
     expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })
+
+  test('alert drawer preserves the source form hierarchy, switch role and host-owned guard copy', () => {
+    const value = render(5)
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('role="banner"')
+    expect(value).toContain('role="contentinfo"')
+    expect(value).toContain('aria-label="Close drawer"')
+    expect(value).toContain('role="switch"')
+    expect(value).toContain('aria-checked="true"')
+    expect(value).toContain('value="Slack" selected=""')
+    expect(value.indexOf('Rule name')).toBeLessThan(value.indexOf('Deliver to'))
+    expect(value.indexOf('Deliver to')).toBeLessThan(value.indexOf('Trigger threshold'))
+    expect(value.indexOf('Trigger threshold')).toBeLessThan(value.indexOf('Note'))
+    const localized = render(5, createHbarAppUiAppDialogLocalizedFixtures())
+    expect(localized).toContain('跨区域生产环境错误率持续上升的告警规则')
+    expect(localized).toContain('关闭抽屉')
+    expect(localized).not.toContain('Edit alert rule')
+  })
+
+  test('alert channels are host-owned and retain legacy rendering at capacity boundaries', () => {
+    const alert = HBAR_APP_UI_APP_DIALOG_FIXTURES.alert!
+    expect(render(5, { alert: { ...alert, reference: undefined } })).toContain('lumen-app-dialog-readonly')
+    for (const count of [0, 1, 16, 17]) {
+      const channels = Array.from({ length: count }, (_, index) => ({ id: `channel-${index}`, label: `Channel ${index}` }))
+      const content = { alert: { ...alert, channels: [...channels, ...channels.slice(0, 1)], initialChannelId: 'stale' } }
+      expect(uniqueHbarAppUiAppDialogItems(content.alert.channels)).toHaveLength(count)
+      expect(selectHbarAppUiAppDialogItem(content.alert.channels, 'stale')?.id).toBe(channels[0]?.id)
+      expect(render(5, content)).toContain('data-hbar-app-ui-component="hbar-app-ui-app-dialog-5"')
+    }
+    expect(appDialogFixture('alert-empty').alert!.channels).toHaveLength(0)
+    expect(appDialogFixture('alert-overflow').alert!.channels).toHaveLength(17)
+  })
+
+  test('alert sampling replays distinct feedback and honestly infers equivalent gestures', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-5')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '2:select', '3:fill', '4:fill', '5:click', '5:press-space', '6:click',
+      'dialog-alert-dirty:1:click', 'dialog-alert-guard:8:click',
+      'dialog-alert-guard:9:click', 'dialog-alert-dirty:7:click',
+      'dialog-alert-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
 })

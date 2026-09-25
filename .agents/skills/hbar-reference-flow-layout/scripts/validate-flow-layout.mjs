@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Dialog 5: the reference guards unsaved changes with a modal scrim
+  // and shows a result toast after the drawer closes; their contents flow.
+  if (/packages\/lumen-app-ui\/src\/app-dialog-alert\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set(['.lumen-app-dialog-alert-guard-backdrop', '.lumen-app-dialog-alert-toast'])
+    if (overlays.has(selector.trim())) return true
+  }
   // App Dialog 4: completion toast floats over the canvas after the wizard closes.
   if (/packages\/lumen-app-ui\/src\/app-dialog-wizard\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-dialog-wizard-toast') return true

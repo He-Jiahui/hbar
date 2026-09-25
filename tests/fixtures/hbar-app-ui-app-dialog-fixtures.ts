@@ -143,28 +143,42 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
     labels: {
       trigger: 'Edit alert rule',
       title: 'Edit alert rule',
-      close: 'Close alert rule',
+      close: 'Close drawer',
       name: 'Rule name',
       deliver: 'Deliver to',
       threshold: 'Trigger threshold',
       note: 'Note',
       enabled: 'Rule enabled',
       enabledHint: 'Turn off to pause without deleting.',
-      toggle: 'Toggle rule',
+      toggle: 'Rule enabled',
       cancel: 'Cancel',
       save: 'Save changes',
     },
     ruleName: 'Error rate spike',
     channels: [
-      { id: 'email', label: 'Email' },
-      { id: 'slack', label: 'Slack' },
-      { id: 'pagerduty', label: 'PagerDuty' },
-      { id: 'webhook', label: 'Webhook' },
+      { id: 'Email', label: 'Email' },
+      { id: 'Slack', label: 'Slack' },
+      { id: 'PagerDuty', label: 'PagerDuty' },
+      { id: 'Webhook', label: 'Webhook' },
     ],
-    initialChannelId: 'slack',
+    initialChannelId: 'Slack',
     threshold: '5% / 5 min',
     note: 'Page the on-call engineer when errors climb.',
     initialEnabled: true,
+    reference: {
+      labels: {
+        discardTitle: 'Discard your changes?',
+        discardDetail: "You've edited this rule. Closing now loses what you changed.",
+        keepEditing: 'Keep editing',
+        discard: 'Discard changes',
+        savedTitle: 'Rule updated',
+        savedDetail: 'Changes apply to the next alert.',
+        emptyChannels: 'No delivery channels available',
+        saving: 'Saving changes…',
+        saveError: 'Could not save this rule. Try again.',
+      },
+      listStrategy: { kind: 'content-grown', expectedMaximum: 16 },
+    },
   },
   evidence: {
     labels: {
@@ -220,6 +234,37 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
 
 export function appDialogFixture(name: string | null): HbarAppUiAppDialogContent {
   if (name === 'localized') return createHbarAppUiAppDialogLocalizedFixtures()
+  if (name === 'alert-save-failure') {
+    const alert = HBAR_APP_UI_APP_DIALOG_FIXTURES.alert!
+    let attempts = 0
+    return {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+      alert: {
+        ...alert,
+        reference: {
+          ...alert.reference!,
+          onSave: async () => {
+            attempts += 1
+            if (attempts === 1) throw new Error('Simulated save failure')
+          },
+        },
+      },
+    }
+  }
+  if (name === 'alert-empty' || name === 'alert-overflow') {
+    const alert = HBAR_APP_UI_APP_DIALOG_FIXTURES.alert!
+    return {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+      alert: {
+        ...alert,
+        channels: name === 'alert-empty' ? [] : Array.from({ length: 17 }, (_, index) => ({
+          id: `channel-${index}`,
+          label: `Channel ${index + 1}`,
+        })),
+        initialChannelId: 'stale-channel',
+      },
+    }
+  }
   if (name === 'wizard-empty' || name === 'wizard-overflow') {
     const wizard = HBAR_APP_UI_APP_DIALOG_FIXTURES.wizard!
     return {
@@ -356,6 +401,40 @@ export function createHbarAppUiAppDialogLocalizedFixtures(): HbarAppUiAppDialogC
         regions: [{ id: 'iad1', label: '美国东部区域（iad1）' }],
         initialRegionId: 'iad1',
         slugForName: () => 'cross-region-collaboration',
+      },
+    },
+    alert: {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES.alert!,
+      labels: {
+        trigger: '编辑告警规则',
+        title: '编辑告警规则',
+        close: '关闭抽屉',
+        name: '规则名称',
+        deliver: '发送渠道',
+        threshold: '触发阈值',
+        note: '备注',
+        enabled: '启用规则',
+        enabledHint: '关闭后暂停通知，但不会删除这条很长的告警规则。',
+        toggle: '启用规则',
+        cancel: '取消',
+        save: '保存修改',
+      },
+      ruleName: '跨区域生产环境错误率持续上升的告警规则',
+      channels: [{ id: 'mail', label: '电子邮件与值班消息通知' }],
+      initialChannelId: 'mail',
+      reference: {
+        ...HBAR_APP_UI_APP_DIALOG_FIXTURES.alert!.reference!,
+        labels: {
+          discardTitle: '放弃未保存的修改？',
+          discardDetail: '关闭抽屉后，尚未保存的规则修改将丢失。',
+          keepEditing: '继续编辑',
+          discard: '放弃修改',
+          savedTitle: '告警规则已更新',
+          savedDetail: '新的设置将在下一次告警时生效。',
+          emptyChannels: '没有可用的发送渠道',
+          saving: '正在保存修改…',
+          saveError: '未能保存规则，请重试。',
+        },
       },
     },
   }

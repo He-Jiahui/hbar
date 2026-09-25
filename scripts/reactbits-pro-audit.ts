@@ -313,6 +313,9 @@ export type InteractionCase = Readonly<{
     | 'dialog-wizard-team'
     | 'dialog-wizard-team-custom'
     | 'dialog-wizard-closed'
+    | 'dialog-alert-dirty'
+    | 'dialog-alert-guard'
+    | 'dialog-alert-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1600,6 +1603,32 @@ const dialogWizardScenarios = [
   'dialog-wizard-region', 'dialog-wizard-region-selected', 'dialog-wizard-team',
   'dialog-wizard-team-custom', 'dialog-wizard-closed',
 ] as const
+const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
+async function prepareDialogAlertScenario(root: Locator, scenario: (typeof dialogAlertScenarios)[number]): Promise<void> {
+  if (scenario === 'dialog-alert-closed') {
+    await root.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await root.getByRole('dialog', { name: 'Edit alert rule' }).waitFor({ state: 'hidden' })
+    return
+  }
+  await root.getByRole('textbox', { name: 'Trigger threshold' }).fill('10% / 5 min')
+  if (scenario === 'dialog-alert-guard') {
+    await root.getByRole('button', { name: 'Close drawer', exact: true }).click()
+    await root.getByRole('alertdialog', { name: 'Discard your changes?' }).waitFor()
+    await root.evaluate(() => new Promise<void>((resolve) => window.setTimeout(resolve, 350)))
+  }
+}
+async function settleDialogAlertFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
+  if (interaction.id.endsWith(':6:click') ||
+      interaction.id.endsWith('dialog-alert-guard:9:click') ||
+      interaction.id.endsWith('dialog-alert-dirty:7:click'))
+    await root.getByRole('dialog', { name: 'Edit alert rule' }).waitFor({ state: 'hidden' })
+  if (interaction.id.endsWith('dialog-alert-guard:8:click'))
+    await root.getByRole('alertdialog', { name: 'Discard your changes?' }).waitFor({ state: 'hidden' })
+  if (interaction.id.endsWith('dialog-alert-dirty:1:click')) {
+    await root.getByRole('alertdialog', { name: 'Discard your changes?' }).waitFor()
+    await root.evaluate(() => new Promise<void>((resolve) => window.setTimeout(resolve, 350)))
+  }
+}
 async function prepareDialogWizardScenario(root: Locator, scenario: (typeof dialogWizardScenarios)[number]): Promise<void> {
   if (scenario === 'dialog-wizard-closed') {
     await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
@@ -3033,6 +3062,10 @@ async function replayInteraction(
     const scenario = dialogWizardScenarios.find((value) => value === interaction.scenario)
     if (scenario) await prepareDialogWizardScenario(root, scenario)
   }
+  if (spec.id === 'hbar-app-ui-app-dialog-5') {
+    const scenario = dialogAlertScenarios.find((value) => value === interaction.scenario)
+    if (scenario) await prepareDialogAlertScenario(root, scenario)
+  }
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3097,6 +3130,7 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (isScrollAwareApproval(spec.id)) await settleInlineApprovalScroll(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await root.evaluate((element) => {
@@ -3206,6 +3240,10 @@ async function replayReferenceInteraction(
     const scenario = dialogWizardScenarios.find((value) => value === interaction.scenario)
     if (scenario) await prepareDialogWizardScenario(root, scenario)
   }
+  if (reference.id === 'hbar-app-ui-app-dialog-5') {
+    const scenario = dialogAlertScenarios.find((value) => value === interaction.scenario)
+    if (scenario) await prepareDialogAlertScenario(root, scenario)
+  }
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3306,6 +3344,7 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
+  if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (isScrollAwareApproval(reference.id)) await settleInlineApprovalScroll(root)
   if (runningCheckpoint) {
     const afterCheckpoint = await runningLogCheckpoint(root)
@@ -3870,6 +3909,13 @@ async function runInteractionsParallel(
               for (const scenario of dialogWizardScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareDialogWizardScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-5') {
+              for (const scenario of dialogAlertScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareDialogAlertScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

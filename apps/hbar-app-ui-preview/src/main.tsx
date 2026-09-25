@@ -357,7 +357,9 @@ function PreviewApp() {
   const appDialogContent = useMemo(
     () => {
       const params = new URLSearchParams(window.location.search)
-      return appDialogFixture(params.get('appDialogWizardFixture') ?? params.get('appDialogDeleteFixture'))
+        return appDialogFixture(
+          params.get('appDialogAlertFixture') ?? params.get('appDialogWizardFixture') ?? params.get('appDialogDeleteFixture'),
+        )
     },
     [],
   )

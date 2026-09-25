@@ -561,6 +561,36 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-5')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-alert.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:select', change: 'Delivery channel selection updates the native select value' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:fill', change: 'Threshold draft is visibly editable' },
+        { viewport: 'tablet', theme: 'light', suffix: '4:fill', change: 'Multiline note draft is visibly editable' },
+        { viewport: 'tablet', theme: 'dark', suffix: '5:click', change: 'Rule-enabled switch changes checked state' },
+        { viewport: 'mobile', theme: 'light', suffix: '5:press-space', change: 'Native keyboard activation toggles the switch in the narrow drawer' },
+        { viewport: 'mobile', theme: 'dark', suffix: '6:click', change: 'Pristine Cancel closes without a guard' },
+        { viewport: 'stress', theme: 'light', suffix: 'dialog-alert-dirty:1:click', change: 'Dirty Close opens the unsaved-changes alertdialog' },
+        { viewport: 'stress', theme: 'dark', suffix: 'dialog-alert-guard:8:click', change: 'Keep editing dismisses guard while retaining draft' },
+        { viewport: 'tablet', theme: 'light', suffix: 'dialog-alert-guard:9:click', change: 'Discard changes closes and resets the draft' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'dialog-alert-dirty:7:click', change: 'Save changed rule closes drawer and reports update' },
+        { viewport: 'mobile', theme: 'light', suffix: 'dialog-alert-closed:0:click', change: 'Trigger reopens a pristine drawer' },
+      ],
+      inferences: [
+        {
+          scope: 'Other channel labels, threshold/note values, and dirty Cancel versus dirty Close',
+          basis: 'The same ID-keyed select and controlled fields own those values. Close and Cancel enter one guarded path; repeated values and equivalent gestures are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme interaction products and pristine Close versus pristine Cancel',
+          basis: 'Eight static source/local pairs cover four widths and two themes; representative interactions traverse desktop, tablet, mobile and stress. Equivalent permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-4')
     return {
       revision: 1,
