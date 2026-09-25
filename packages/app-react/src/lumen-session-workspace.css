@@ -141,6 +141,23 @@
   container-type: inline-size;
 }
 
+.hbar-app-react-session-footer .lumen-prompt-composer-surface {
+  outline: 0.0625rem solid var(--lumen-edge);
+  outline-offset: -0.0625rem;
+}
+
+.hbar-app-react-session-footer .lumen-prompt-composer-surface:focus-within {
+  outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
+  outline-offset: -0.125rem;
+}
+
+@media (forced-colors: active) {
+  .hbar-app-react-session-footer .lumen-prompt-composer-surface:focus-within {
+    outline: 0.125rem solid CanvasText;
+    outline-offset: -0.125rem;
+  }
+}
+
 .hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {
   min-inline-size: 0;
 }

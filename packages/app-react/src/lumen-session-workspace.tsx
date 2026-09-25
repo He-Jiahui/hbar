@@ -738,6 +738,7 @@ export function HbarSessionWorkspace({
         onAdd={addAttachments}
       >
         <LumenPromptComposer
+          boundary="none"
           value={draft?.text ?? ''}
           editor={
             files && sessionId && navigation.workspaceId

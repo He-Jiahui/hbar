@@ -270,6 +270,23 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('aria-label="Add attachment"')
     expect(html).toContain('20 tokens')
     expect(html).toContain('Workspace 1')
+    let composerBoundary: string | null = null
+    let composerIndicators = 0
+    await new HTMLRewriter()
+      .on('form.lumen-prompt-composer-surface', {
+        element(element) {
+          composerBoundary = element.getAttribute('data-boundary')
+        },
+      })
+      .on('form.lumen-prompt-composer-surface > span[data-edge]', {
+        element() {
+          composerIndicators++
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    expect(composerBoundary as string | null).toBe('none')
+    expect(composerIndicators).toBe(0)
   } finally {
     runtime.dispose()
   }
