@@ -127,16 +127,26 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await thinking.click()
       const effort = page.getByRole('dialog', { name: labels.thinking, exact: true })
       const slider = effort.getByRole('slider', { name: labels.thinking })
+      const scale = effort.locator('.hbar-composer-thinking-scale')
+      const stops = scale.locator('.hbar-composer-thinking-stop')
+      await expect(stops).toHaveCount(5)
+      await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 50%/)
+      await expect(scale.locator('.hbar-composer-thinking-stop[data-reached="true"]')).toHaveCount(3)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-scale-${locale}-1440.png` })
       await slider.focus()
       const modelClient = createModelCommandClient(host.client)
       const beforeThinking = await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })
       await page.keyboard.press('Home')
       await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('low'))
       await expect(slider).toHaveAttribute('aria-valuetext', labels.thinkingLevel('low'))
+      await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 0%/)
+      await expect(scale.locator('.hbar-composer-thinking-stop[data-reached="true"]')).toHaveCount(1)
       await expect(thinking).toHaveText(labels.thinkingLevel('high'))
       await page.keyboard.press('End')
       await page.keyboard.press('ArrowLeft')
       await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('xhigh'))
+      await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 75%/)
+      await expect(scale.locator('.hbar-composer-thinking-stop[data-reached="true"]')).toHaveCount(4)
       expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
         beforeThinking.revisions,
       )
@@ -173,12 +183,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.mouse.move(bounds!.x + bounds!.width * 0.5, y, { steps: 8 })
       await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('high'))
       await expect(slider).toHaveAttribute('aria-valuetext', labels.thinkingLevel('high'))
+      await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 50%/)
+      await expect(scale.locator('.hbar-composer-thinking-stop[data-reached="true"]')).toHaveCount(3)
       expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).thinkingLevel).toBe(
         'low',
       )
       await page.mouse.move(bounds!.x + bounds!.width * 0.95, y, { steps: 8 })
       await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('max'))
+      await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 100%/)
+      await expect(scale.locator('.hbar-composer-thinking-stop[data-reached="true"]')).toHaveCount(5)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-drag-preview-${locale}-320.png` })
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-scale-${locale}-320.png` })
       await page.mouse.up()
       await expect(thinking).toHaveText(labels.thinkingLevel('max'))
       const afterDrag = await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })
@@ -231,6 +246,37 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
         acceptedUnknown.revisions,
       )
+      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await page.setViewportSize({ width: 1440, height: 960 })
+
+      await page.setViewportSize({ width: 390, height: 844 })
+      await thinking.click()
+      await expect(stops).toHaveCount(5)
+      await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 100%/)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-scale-${locale}-390.png` })
+      const valueLabel = effort.locator('.hbar-composer-thinking-value')
+      const originalLabel = await valueLabel.textContent()
+      await valueLabel.evaluate((element) => {
+        element.textContent = 'A deliberately long localized reasoning level — 超长本地化推理强度档位名称'
+      })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await expect(valueLabel).toBeInViewport()
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-scale-long-label-${locale}-390.png` })
+      await valueLabel.evaluate((element, value) => {
+        element.textContent = value
+      }, originalLabel)
+      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await thinking.click()
+      await slider.focus()
+      await page.emulateMedia({ forcedColors: 'active' })
+      await expect(stops).toHaveCount(5)
+      await expect(valueLabel).toHaveText(labels.thinkingLevel('max'))
+      expect(
+        await slider.evaluate((element) => getComputedStyle(element).backgroundImage.includes('linear-gradient')),
+      ).toBe(true)
+      expect(await slider.evaluate((element) => getComputedStyle(element).forcedColorAdjust)).toBe('none')
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-scale-high-contrast-${locale}-390.png` })
+      await page.emulateMedia({ forcedColors: 'none' })
       await effort.getByRole('button', { name: labels.close, exact: true }).click()
       await page.setViewportSize({ width: 1440, height: 960 })
 

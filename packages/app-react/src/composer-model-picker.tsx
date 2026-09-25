@@ -1,4 +1,13 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenText } from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
@@ -30,6 +39,12 @@ export function visibleThinkingIndex(
   preview: ThinkingPreview | null,
 ): number {
   return identity && preview?.identity === identity ? preview.index : confirmed
+}
+
+/** The visual fill follows the Host-provided stops; it never creates an extra level. */
+export function thinkingProgressPercent(levelCount: number, selectedIndex: number): number {
+  if (levelCount < 2) return 0
+  return (Math.min(levelCount - 1, Math.max(0, selectedIndex)) / (levelCount - 1)) * 100
 }
 
 export interface HbarComposerModelLabels {
@@ -534,42 +549,55 @@ export function HbarComposerModelPicker({
         <LumenText as="strong" className="hbar-composer-thinking-value">
           {selectedLevel ? labels.thinkingLevel(selectedLevel) : null}
         </LumenText>
-        <LumenRange
-          ref={sliderRef}
-          min={0}
-          max={Math.max(0, levels.length - 1)}
-          step={1}
-          value={selectedIndex}
-          disabled={unavailable || levels.length < 2}
-          aria-label={labels.thinking}
-          aria-valuetext={selectedLevel ? labels.thinkingLevel(selectedLevel) : undefined}
-          onChange={(event) => previewThinking(event.currentTarget)}
-          onPointerDown={() => {
-            pointerIdentityRef.current = thinkingIdentity
-            cancelledRef.current = false
-          }}
-          onPointerUp={(event) => selectThinking(event.currentTarget)}
-          onPointerCancel={() => {
-            cancelledRef.current = true
-            resetThinkingPreview()
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault()
-              event.stopPropagation()
+        <LumenFrame
+          className="hbar-composer-thinking-scale"
+          style={
+            { '--hbar-thinking-progress': `${thinkingProgressPercent(levels.length, selectedIndex)}%` } as CSSProperties
+          }
+        >
+          <LumenRange
+            ref={sliderRef}
+            className="hbar-composer-thinking-slider"
+            min={0}
+            max={Math.max(0, levels.length - 1)}
+            step={1}
+            value={selectedIndex}
+            disabled={unavailable || levels.length < 2}
+            aria-label={labels.thinking}
+            aria-valuetext={selectedLevel ? labels.thinkingLevel(selectedLevel) : undefined}
+            onChange={(event) => previewThinking(event.currentTarget)}
+            onPointerDown={() => {
+              pointerIdentityRef.current = thinkingIdentity
+              cancelledRef.current = false
+            }}
+            onPointerUp={(event) => selectThinking(event.currentTarget)}
+            onPointerCancel={() => {
               cancelledRef.current = true
               resetThinkingPreview()
-              thinkingRef.current?.hidePopover()
-              return
-            }
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              event.stopPropagation()
-              selectThinking(event.currentTarget)
-            }
-          }}
-          onBlur={(event) => selectThinking(event.currentTarget)}
-        />
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                event.stopPropagation()
+                cancelledRef.current = true
+                resetThinkingPreview()
+                thinkingRef.current?.hidePopover()
+                return
+              }
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                event.stopPropagation()
+                selectThinking(event.currentTarget)
+              }
+            }}
+            onBlur={(event) => selectThinking(event.currentTarget)}
+          />
+          <LumenFrame className="hbar-composer-thinking-rail" aria-hidden="true">
+            {levels.map((level, index) => (
+              <LumenFrame key={level} className="hbar-composer-thinking-stop" data-reached={index <= selectedIndex} />
+            ))}
+          </LumenFrame>
+        </LumenFrame>
         {feedback}
       </PickerPopover>
     </LumenFrame>

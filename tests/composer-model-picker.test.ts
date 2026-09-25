@@ -3,6 +3,7 @@ import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import {
   COMPOSER_MODEL_PAGE_SIZE,
   filterComposerModels,
+  thinkingProgressPercent,
   thinkingPreviewIdentity,
   visibleThinkingIndex,
 } from '../packages/app-react/src/composer-model-picker'
@@ -38,6 +39,18 @@ test('catalog search covers hidden pages, provider names and empty results witho
   expect(filterComposerModels(models, 'model-60', 60).groups[0]?.[1].models).toEqual([models[60]!])
   expect(filterComposerModels(models, '长供应商', 60).remaining).toBe(1)
   expect(filterComposerModels(models, 'missing', 60).groups).toEqual([])
+})
+
+test('thinking fill follows the exact number of Host-provided discrete stops', () => {
+  expect(thinkingProgressPercent(0, 0)).toBe(0)
+  expect(thinkingProgressPercent(1, 0)).toBe(0)
+  expect([0, 1].map((index) => thinkingProgressPercent(2, index))).toEqual([0, 100])
+  expect([0, 1, 2, 3, 4].map((index) => thinkingProgressPercent(5, index))).toEqual([0, 25, 50, 75, 100])
+  for (const index of [0, 1, 2, 3, 4, 5, 6]) {
+    expect(thinkingProgressPercent(7, index)).toBeCloseTo((index / 6) * 100)
+  }
+  expect(thinkingProgressPercent(5, -1)).toBe(0)
+  expect(thinkingProgressPercent(5, 20)).toBe(100)
 })
 
 test('a selected model beyond the first page is visible once, without expanding the bounded menu', () => {

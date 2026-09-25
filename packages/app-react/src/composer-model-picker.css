@@ -140,7 +140,106 @@
 }
 
 .hbar-composer-thinking-value {
-  font-size: 1.125rem;
+  font-size: 1.1875rem;
+  overflow-wrap: anywhere;
+}
+
+/* The native range keeps the real pointer/keyboard target and filled track.
+   Host-derived, decorative stops follow below it in ordinary flex flow. */
+.hbar-composer-thinking-scale {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.hbar-composer-thinking-rail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  block-size: 0.4375rem;
+  min-inline-size: 0;
+  padding-inline: 0.75rem;
+  pointer-events: none;
+}
+
+.hbar-composer-thinking-stop {
+  flex: 0 0 auto;
+  inline-size: 0.4375rem;
+  block-size: 0.4375rem;
+  border-radius: 50%;
+  background: var(--lumen-muted);
+}
+
+.hbar-composer-thinking-stop[data-reached='true'] {
+  background: var(--lumen-ink);
+}
+
+.hbar-composer-thinking-scale .hbar-composer-thinking-slider.lumen-range {
+  inline-size: 100%;
+  min-block-size: 1.625rem;
+  block-size: 1.625rem;
+  background: linear-gradient(
+    to right,
+    var(--lumen-ink) 0 var(--hbar-thinking-progress),
+    var(--lumen-reading) var(--hbar-thinking-progress) 100%
+  );
+  background-size: 100% 0.875rem;
+  background-position: center;
+  background-repeat: no-repeat;
+  touch-action: none;
+}
+
+.hbar-composer-thinking-slider::-webkit-slider-thumb {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-contrast);
+  box-shadow: 0 0.125rem 0.375rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
+}
+
+.hbar-composer-thinking-slider::-moz-range-thumb {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-contrast);
+  box-shadow: 0 0.125rem 0.375rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
+}
+
+@media (forced-colors: active) {
+  .hbar-composer-thinking-rail {
+    color: CanvasText;
+  }
+
+  .hbar-composer-thinking-scale .hbar-composer-thinking-slider.lumen-range {
+    background: linear-gradient(to right, Highlight 0 var(--hbar-thinking-progress), Canvas 0 100%);
+    background-size: 100% 0.875rem;
+    background-position: center;
+    background-repeat: no-repeat;
+    outline: 0.0625rem solid CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .hbar-composer-thinking-stop {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .hbar-composer-thinking-stop[data-reached='true'] {
+    background: Highlight;
+  }
+
+  .hbar-composer-thinking-slider::-webkit-slider-thumb {
+    border: 0.125rem solid CanvasText;
+    background: Canvas;
+    forced-color-adjust: none;
+  }
+
+  .hbar-composer-thinking-slider::-moz-range-thumb {
+    border: 0.125rem solid CanvasText;
+    background: Canvas;
+    forced-color-adjust: none;
+  }
 }
 
 @media (max-width: 40rem) {
