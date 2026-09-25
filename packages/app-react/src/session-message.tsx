@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Copy,
   FileText,
+  GitFork,
   LoaderCircle,
   RotateCcw,
   Search,
@@ -92,6 +93,36 @@ export interface HbarMessageActionBarProps extends MessageCopyInput {
   readonly labels: HbarMessageActionLabels
   readonly clipboard?: MessageClipboardPort | null
   readonly metadata?: ReactNode
+  /** The owner selects eligible user/final assistant messages and owns the Host receipt. */
+  readonly fork?: HbarMessageForkAction
+}
+
+export interface HbarMessageForkTarget {
+  readonly sessionId: string
+  readonly messageId: string
+}
+
+export interface HbarMessageForkAction {
+  /** Host-localized accessible label for this status, including retry/recheck. */
+  readonly label: string
+  readonly status: 'ready' | 'submitting' | 'unknown' | 'failed'
+  /** Host-localized failure detail; never pass a raw Host error or payload. */
+  readonly error?: string | null
+  readonly onFork: (target: HbarMessageForkTarget) => void
+  readonly onReconcile?: (target: HbarMessageForkTarget) => void
+}
+
+/** An unknown write may only recheck its original receipt, never submit another Fork. */
+export function invokeMessageForkAction(action: HbarMessageForkAction, target: HbarMessageForkTarget): boolean {
+  if (action.status === 'ready' || action.status === 'failed') {
+    action.onFork(target)
+    return true
+  }
+  if (action.status === 'unknown' && action.onReconcile) {
+    action.onReconcile(target)
+    return true
+  }
+  return false
 }
 
 export function MessageMarkdown({ text }: { readonly text: string }) {
@@ -376,7 +407,7 @@ export function HbarMessageBlocks(props: HbarMessageBlocksProps) {
 
 type CopyStatus = MessageCopyResult['status'] | 'idle' | 'copying'
 
-function MessageActionBarContent({ labels, clipboard, metadata, ...input }: HbarMessageActionBarProps) {
+function MessageActionBarContent({ labels, clipboard, metadata, fork, ...input }: HbarMessageActionBarProps) {
   const text = messageCopyText(input.content)
   const [receipt, setReceipt] = useState<{ readonly text: string; readonly status: CopyStatus }>({
     text,
@@ -408,7 +439,7 @@ function MessageActionBarContent({ labels, clipboard, metadata, ...input }: Hbar
       }
     })
   }
-  if (!text && !metadata) return null
+  if (!text && !metadata && !fork) return null
   const label =
     status === 'copied'
       ? labels.copied
@@ -424,7 +455,7 @@ function MessageActionBarContent({ labels, clipboard, metadata, ...input }: Hbar
           variant="text"
           indicator="none"
           size="s"
-          className="hbar-session-message-copy"
+          className="hbar-session-message-action hbar-session-message-copy"
           aria-label={label}
           title={label}
           disabled={status === 'copying'}
@@ -436,6 +467,35 @@ function MessageActionBarContent({ labels, clipboard, metadata, ...input }: Hbar
             tier="sm"
           />
         </LumenButton>
+      ) : null}
+      {fork ? (
+        <LumenButton
+          variant="text"
+          indicator="none"
+          size="s"
+          className="hbar-session-message-action hbar-session-message-fork"
+          data-message-action="fork"
+          aria-label={fork.label}
+          title={fork.label}
+          disabled={fork.status === 'submitting' || (fork.status === 'unknown' && !fork.onReconcile)}
+          loading={fork.status === 'submitting'}
+          onClick={() => invokeMessageForkAction(fork, { sessionId: input.sessionId, messageId: input.messageId })}
+        >
+          <LumenIcon
+            icon={fork.status === 'submitting' ? LoaderCircle : fork.status === 'unknown' ? RotateCcw : GitFork}
+            tier="sm"
+          />
+        </LumenButton>
+      ) : null}
+      {fork?.status === 'submitting' || fork?.status === 'unknown' ? (
+        <LumenText as="span" role="status">
+          {fork.label}
+        </LumenText>
+      ) : null}
+      {fork?.error ? (
+        <LumenText as="span" role="alert">
+          {fork.error}
+        </LumenText>
       ) : null}
       {status === 'copied' || status === 'copying' ? (
         <LumenText as="span" role="status">
