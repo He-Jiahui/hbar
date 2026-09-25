@@ -174,79 +174,83 @@ export function HbarComposerGoal({
     <LumenFrame className="hbar-composer-goal-context">
       {visibleGoal && (
         <LumenFrame className="hbar-composer-goal-strip" aria-label={labels.goal}>
-          <LumenIcon icon={Target} tier="sm" />
-          <LumenText as="span" className="hbar-composer-goal-status">
-            {labels.statuses[goal.status]}
-          </LumenText>
-          <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective}>
-            {goal.objective}
-          </LumenText>
-          <LumenText as="span" className="hbar-composer-goal-metric">
-            {labels.elapsed(goal.timeUsedSeconds)}
-          </LumenText>
-          {goal.tokenBudget !== null && (
-            <LumenText as="span" className="hbar-composer-goal-metric">
-              {labels.budget(goal.tokensUsed, goal.tokenBudget)}
+          <LumenFrame className="hbar-composer-goal-summary">
+            <LumenIcon icon={Target} tier="sm" />
+            <LumenText as="span" className="hbar-composer-goal-status">
+              {labels.statuses[goal.status]}
             </LumenText>
-          )}
-          <LumenFrame className="hbar-composer-goal-actions">
-            {goal.status === 'active' ? (
-              <LumenButton
-                type="button"
-                size="s"
-                variant="text"
-                indicator="none"
-                aria-label={labels.pause}
-                title={labels.pauseHint}
-                disabled={busy || !goal.goalId}
-                onClick={() => {
-                  if (goal.goalId) control('pause', goal.goalId)
-                }}
-              >
-                <LumenIcon icon={Pause} tier="sm" />
-              </LumenButton>
-            ) : (
-              (goal.status === 'paused' || goal.status === 'blocked') && (
+            <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective}>
+              {goal.objective}
+            </LumenText>
+          </LumenFrame>
+          <LumenFrame className="hbar-composer-goal-tail">
+            <LumenText as="span" className="hbar-composer-goal-metric">
+              {labels.elapsed(goal.timeUsedSeconds)}
+            </LumenText>
+            {goal.tokenBudget !== null && (
+              <LumenText as="span" className="hbar-composer-goal-metric">
+                {labels.budget(goal.tokensUsed, goal.tokenBudget)}
+              </LumenText>
+            )}
+            <LumenFrame className="hbar-composer-goal-actions">
+              {goal.status === 'active' ? (
                 <LumenButton
                   type="button"
                   size="s"
                   variant="text"
                   indicator="none"
-                  aria-label={labels.resume}
-                  title={labels.resume}
+                  aria-label={labels.pause}
+                  title={labels.pauseHint}
                   disabled={busy || !goal.goalId}
                   onClick={() => {
-                    if (goal.goalId) control('resume', goal.goalId)
+                    if (goal.goalId) control('pause', goal.goalId)
                   }}
                 >
-                  <LumenIcon icon={Play} tier="sm" />
+                  <LumenIcon icon={Pause} tier="sm" />
                 </LumenButton>
-              )
-            )}
-            <LumenButton
-              type="button"
-              size="s"
-              variant="text"
-              indicator="none"
-              aria-label={labels.clear}
-              title={labels.clear}
-              disabled={busy || !goal.goalId}
-              onClick={() => setClearTarget(goal.goalId ?? null)}
-            >
-              <LumenIcon icon={Trash2} tier="sm" />
-            </LumenButton>
-            <LumenButton
-              type="button"
-              size="s"
-              variant="text"
-              indicator="none"
-              aria-label={labels.expand}
-              title={labels.expand}
-              disabled={!connected || opening}
-              onClick={expand}
-            >
-              <LumenIcon icon={Expand} tier="sm" />
-            </LumenButton>
+              ) : (
+                (goal.status === 'paused' || goal.status === 'blocked') && (
+                  <LumenButton
+                    type="button"
+                    size="s"
+                    variant="text"
+                    indicator="none"
+                    aria-label={labels.resume}
+                    title={labels.resume}
+                    disabled={busy || !goal.goalId}
+                    onClick={() => {
+                      if (goal.goalId) control('resume', goal.goalId)
+                    }}
+                  >
+                    <LumenIcon icon={Play} tier="sm" />
+                  </LumenButton>
+                )
+              )}
+              <LumenButton
+                type="button"
+                size="s"
+                variant="text"
+                indicator="none"
+                aria-label={labels.clear}
+                title={labels.clear}
+                disabled={busy || !goal.goalId}
+                onClick={() => setClearTarget(goal.goalId ?? null)}
+              >
+                <LumenIcon icon={Trash2} tier="sm" />
+              </LumenButton>
+              <LumenButton
+                type="button"
+                size="s"
+                variant="text"
+                indicator="none"
+                aria-label={labels.expand}
+                title={labels.expand}
+                disabled={!connected || opening}
+                onClick={expand}
+              >
+                <LumenIcon icon={Expand} tier="sm" />
+              </LumenButton>
+            </LumenFrame>
           </LumenFrame>
         </LumenFrame>
       )}

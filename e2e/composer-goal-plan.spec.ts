@@ -98,6 +98,27 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(strip).toBeVisible()
         await expect(strip.getByRole('button', { name: labels.expand, exact: true })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        const goalGeometry = await strip.evaluate((element) => {
+          const strip = element.getBoundingClientRect()
+          const summary = element.querySelector('.hbar-composer-goal-summary')?.getBoundingClientRect()
+          const tail = element.querySelector('.hbar-composer-goal-tail')?.getBoundingClientRect()
+          const objective = element.querySelector('.hbar-composer-goal-objective')?.getBoundingClientRect()
+          const actions = element.querySelector('.hbar-composer-goal-actions')?.getBoundingClientRect()
+          return {
+            fits: element.scrollWidth <= element.clientWidth + 1,
+            summaryWidth: summary?.width ?? 0,
+            objectiveWidth: objective?.width ?? 0,
+            tailFits: Boolean(tail && actions && tail.right <= strip.right + 1 && actions.right <= strip.right + 1),
+            tailBelowSummary: Boolean(summary && tail && tail.top >= summary.bottom - 1),
+          }
+        })
+        expect(goalGeometry.fits).toBe(true)
+        expect(goalGeometry.tailFits).toBe(true)
+        if (viewport.width <= 390) {
+          expect(goalGeometry.summaryWidth).toBeGreaterThan(200)
+          expect(goalGeometry.objectiveWidth).toBeGreaterThan(80)
+          expect(goalGeometry.tailBelowSummary).toBe(true)
+        }
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-goal-${locale}-${viewport.width}.png` })
       }
       await strip.getByRole('button', { name: labels.clear, exact: true }).click()
