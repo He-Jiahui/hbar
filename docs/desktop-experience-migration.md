@@ -42,6 +42,9 @@
 | 会话页签          | 32 项上限、关闭活动核对、右键批关、独立草稿与刷新恢复                                     | `96e782f`                                  | [页签集成](desktop-tabs-host-integration.md)          |
 | Files 工作台页签  | 原面板展开为临时中央页签、Back 返回来源、X 选邻居、保留文件草稿                           | `c6c2e78`                                  | [页签集成](desktop-tabs-host-integration.md)          |
 | 子 Agent 返回来源 | 从详情打开真实子会话页签，保留父会话及来源关系；断线就近重试，Back 仅在原父页签有效时显示 | `3947a8a`、`34f8cfa`、`04b0d02`、`9a2b23a` | [剩余入口审计](desktop-workbench-remaining-audit.md)  |
+| 只读系统诊断      | 设置中的真实 Host/runtime/storage 概况、刷新与失败时保留旧数据，未提供清理或修复假按钮    | `bcfaf1f`                                  | [设置审计](desktop-settings-interaction-audit.md)     |
+| 工作区路径发现    | Host/CLI 有界按名称搜索、原生目录策略及超时取消，为 `@` 候选提供事实源；尚无 composer 入口 | `9f25f77`、`45e082e`                      | [导航审计](desktop-navigation-interaction-audit.md)   |
+| 消息边界 Fork 底层 | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史，校验工具配对；尚无消息旁入口  | `3e5e16b`                                  | [会话审计](desktop-conversation-interaction-audit.md) |
 
 表中提交为本地交付，不代表已经推送、发布或安装到用户正在运行的窗口。各单元的精确测试数量、截图位置与边界以对应记录为准。
 
@@ -50,7 +53,7 @@
 完整逐入口审计见 [会话](desktop-conversation-interaction-audit.md)、[导航与文件](desktop-navigation-interaction-audit.md)、[设置](desktop-settings-interaction-audit.md)。它们保留起始基线与交付复核的区别。
 Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另见 [剩余工作台入口审计](desktop-workbench-remaining-audit.md)。子 Agent 来源返回已完成，但它使用真实子 Session，不是参考产品中依据 tool-use ID 的独立 run 投影；不能把设计稿的 Team 图或 Terminal 架构图当现行软件画面。
 
-Files 的 All/Changed/diff、会话/文件工作台页签及子 Agent 来源返回已形成上述有限闭环；这不等于参考的 Browser、Terminal、Team 或任意文件全文搜索也已具备。仍需逐一核对材料预览、`@`、`/`、会话分支、技能详情、诊断和存储入口的真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。
+Files 的 All/Changed/diff、会话/文件工作台页签及子 Agent 来源返回已形成上述有限闭环；这不等于参考的 Browser、Terminal、Team 或任意文件全文搜索也已具备。诊断只读入口已落地；路径发现与精确消息 Fork 目前仅有底层契约，`@` 与消息旁入口仍在集成。材料预览、`/`、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
 
 原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
 
