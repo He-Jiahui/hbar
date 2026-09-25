@@ -68,6 +68,14 @@ interface SessionTabDescription {
 }
 export interface SessionTabRef extends SessionTabDescription {
   readonly instanceKey: string
+  /** Ephemeral navigation provenance. Never included in saved tab descriptions. */
+  readonly agentSource?: AgentChildSource
+}
+export interface AgentChildSource {
+  readonly parentSessionId: string
+  readonly parentWorkspaceId: string
+  readonly agentId: string
+  readonly sourceTabInstanceKey: string
 }
 export interface WorkbenchTabRef {
   readonly kind: 'workbench'
@@ -437,6 +445,21 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         sessionId: item.kind === 'session' ? item.sessionId : null,
       }))
   }
+  function attachAgentSource(childSessionId: string, childTabInstanceKey: string, origin: AgentChildSource) {
+    if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
+    const before = current()
+    const parent = before.items.find((item) => item.kind === 'session' && item.id === origin.parentSessionId)
+    const child = before.items.find((item) => item.kind === 'session' && item.id === childSessionId)
+    if (
+      parent?.instanceKey !== origin.sourceTabInstanceKey ||
+      parent.workspaceId !== origin.parentWorkspaceId ||
+      !child ||
+      child.instanceKey !== childTabInstanceKey
+    )
+      throw new CommandError('SOURCE_CHANGED', 'Agent source or child tab changed')
+    const items = before.items.map((item) => (item === child ? { ...child, agentSource: origin } : item))
+    publish({ items, revision: before.revision + 1 })
+  }
   function move(id: string, beforeId: string | null) {
     if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
     const before = current()
@@ -469,7 +492,23 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     )
     if (!closing.size) return
     const firstClosedIndex = before.items.findIndex((item) => closing.has(item.id))
-    const items = before.items.filter((item) => !closing.has(item.id))
+    const closedSources = new Map(
+      before.items
+        .filter((item): item is SessionTabRef => item.kind === 'session' && closing.has(item.id))
+        .map((item) => [item.id, item.instanceKey]),
+    )
+    const items = before.items
+      .filter((item) => !closing.has(item.id))
+      .map((item) => {
+        if (
+          item.kind !== 'session' ||
+          !item.agentSource ||
+          closedSources.get(item.agentSource.parentSessionId) !== item.agentSource.sourceTabInstanceKey
+        )
+          return item
+        const { agentSource: _discarded, ...withoutSource } = item
+        return withoutSource
+      })
     const nav = options.navigation.getSnapshot()
     const activeId = selected()
     const closedActive = activeId !== null && closing.has(activeId)
@@ -786,6 +825,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     capture,
     move,
     closeCaptured,
+    attachAgentSource,
     whenIdle: () => writeTail,
     select: async (id: string) => {
       await select(id)

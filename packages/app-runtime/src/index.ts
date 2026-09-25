@@ -31,9 +31,16 @@ import { createState } from './state'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createWorkspaceTabs, workspaceTabCommands } from './workspace-tabs-runtime'
+import { createAgentChildNavigation, agentChildNavigationCommands } from './agent-child-navigation'
 export { workspaceTabCommands } from './workspace-tabs-runtime'
+export { agentChildNavigationCommands } from './agent-child-navigation'
 export { MAX_WORKSPACE_TABS } from './workspace-tabs-runtime'
-export type { WorkspaceTabRef, WorkspaceTabsState, WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
+export type {
+  WorkspaceTabRef,
+  WorkspaceTabsState,
+  WorkspaceTabNavigationHooks,
+  AgentChildSource,
+} from './workspace-tabs-runtime'
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
@@ -179,6 +186,7 @@ const runtimeCommands = {
   ...planProposalCommands,
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
+  ...agentChildNavigationCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -347,6 +355,17 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  createAgentChildNavigation(local, {
+    ...(options.agents ? { agents: options.agents } : {}),
+    queries: directory.queries,
+    tabs: workspaceTabs,
+    surfaces: surfaces.reader,
+    agentWorkspace: agentWorkspace.reader,
+    navigation: navigation.reader,
+    selectSession: (sessionId, workspaceId, execution) =>
+      local.execute('app.setSession', { sessionId, workspaceId }, execution),
+    isDisposed: () => disposed,
+  })
   const goalPlanWorkspace = createGoalPlanWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const workflowWorkspace = createWorkflowWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const extensionWorkspace = createExtensionWorkspace(
@@ -400,6 +419,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(commandPaletteCommands, name) ||
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
+        Object.hasOwn(agentChildNavigationCommands, name) ||
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
         Object.hasOwn(workflowWorkspaceCommands, name) ||
         Object.hasOwn(extensionWorkspaceCommands, name) ||
