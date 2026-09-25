@@ -267,6 +267,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         sessionName: '会话名称',
         tokens: 'Token 上限',
         expectedRevision: '预期版本',
+        expectedTitle: '编辑前标题',
         panelId: '子界面 ID',
         instanceId: '实例 ID',
         binding: '目标绑定方式',
@@ -295,6 +296,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         sessionName: 'Session name',
         tokens: 'Token limit',
         expectedRevision: 'Expected revision',
+        expectedTitle: 'Previous title',
         panelId: 'Panel ID',
         instanceId: 'Instance ID',
         binding: 'Target binding',
@@ -1872,6 +1874,25 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
         `更新于 ${new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(timestamp)}`,
       sessionActions: (name) => `会话“${name}”的操作`,
       renameSession: '重命名',
+      renameEditor: {
+        form: (title) => `重命名会话“${title}”`,
+        title: '会话标题',
+        save: '保存标题',
+        cancel: '取消重命名',
+        saving: '正在保存…',
+        saved: '标题已保存。',
+        unknown: '结果尚未确认，请先核对原会话。',
+        reconcile: '核对标题',
+        checking: '正在核对…',
+        error: (code) =>
+          code === 'TITLE_REQUIRED'
+            ? '请输入会话标题。'
+            : code === 'VERSION_CONFLICT'
+              ? '标题已在其他位置改变，请取消后重新编辑。'
+              : code === 'STALE_TARGET'
+                ? '原会话已归档或不可用。可复制保留的草稿后取消。'
+                : `标题保存失败：${code}`,
+      },
       archiveSession: '归档',
       error: (code) => `加载失败：${code}`,
     },
@@ -1944,6 +1965,25 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
         `Updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(timestamp)}`,
       sessionActions: (name) => `Actions for ${name}`,
       renameSession: 'Rename',
+      renameEditor: {
+        form: (title) => `Rename session “${title}”`,
+        title: 'Session title',
+        save: 'Save title',
+        cancel: 'Cancel rename',
+        saving: 'Saving…',
+        saved: 'Title saved.',
+        unknown: 'The result is not confirmed. Check the original session first.',
+        reconcile: 'Check title',
+        checking: 'Checking…',
+        error: (code) =>
+          code === 'TITLE_REQUIRED'
+            ? 'Enter a session title.'
+            : code === 'VERSION_CONFLICT'
+              ? 'The title changed elsewhere. Cancel and edit the current title.'
+              : code === 'STALE_TARGET'
+                ? 'The original session is archived or unavailable. Copy the preserved draft before cancelling.'
+                : `Could not save the title: ${code}`,
+      },
       archiveSession: 'Archive',
       error: (code) => `Loading failed: ${code}`,
     },

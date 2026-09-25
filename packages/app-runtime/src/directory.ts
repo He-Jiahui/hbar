@@ -151,12 +151,25 @@ export function createDirectoryModule(
       if (!disposed && !execution.signal?.aborted) mergeSessions([session])
       return session
     },
-    async renameSession(sessionId: string, title: string, execution: ExecuteOptions): Promise<Session> {
+    async renameSession(
+      sessionId: string,
+      title: string,
+      execution: ExecuteOptions,
+      expectedTitle?: string,
+    ): Promise<Session> {
       if (!options.workspaces)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot rename Host sessions')
       let value: unknown
       try {
-        value = await options.workspaces.execute('session.rename', { sessionId, title }, execution)
+        value = await options.workspaces.execute(
+          'session.rename',
+          {
+            sessionId,
+            title,
+            ...(expectedTitle === undefined ? {} : { expectedTitle }),
+          },
+          execution,
+        )
       } catch (error) {
         if (error instanceof HbarError) throw new CommandError(error.code, error.message)
         throw error

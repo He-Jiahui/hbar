@@ -38,7 +38,13 @@ export function createWorkspaceSessionCommands(kernel: Kernel) {
   )
   registry.register(
     workspaceSessionCommands['session.rename'],
-    (input) => translate(() => kernel.updateSession(input.sessionId, { title: input.title })),
+    (input) =>
+      translate(() =>
+        kernel.updateSession(input.sessionId, {
+          title: input.title,
+          ...(input.expectedTitle === undefined ? {} : { expectedTitle: input.expectedTitle }),
+        }),
+      ),
     { durable: true },
   )
   registry.register(

@@ -39,6 +39,7 @@ import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
+import { sessionRenameCommands, createSessionRename } from './session-rename'
 import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
@@ -138,11 +139,13 @@ export type {
 export { SessionSelectionError } from './navigation'
 
 export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
+export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 
 const runtimeCommands = {
   ...applicationCommands,
   ...composerModelCommands,
   ...composerIntentCommands,
+  ...sessionRenameCommands,
   ...planProposalCommands,
 }
 
@@ -323,12 +326,19 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
+        Object.hasOwn(sessionRenameCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
     },
   }
+  const sessionRename = createSessionRename(local, {
+    directory: directory.reader,
+    commands: executor,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const commandPalette = createCommandPalette(
     local,
     options,
@@ -355,6 +365,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls: controls.reader,
       composerModel: composerModel.reader,
       composerIntent: composerIntent.reader,
+      sessionRename: sessionRename.reader,
       planProposal: planProposal.reader,
       settings: settingsForms.reader,
       providers: providerSettings.reader,
@@ -393,6 +404,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls.dispose()
       composerModel.dispose()
       composerIntent.dispose()
+      sessionRename.dispose()
       planProposal.dispose()
       settingsForms.dispose()
       providerSettings.dispose()

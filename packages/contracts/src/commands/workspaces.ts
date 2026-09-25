@@ -56,7 +56,11 @@ export const workspaceSessionCommands = {
         ],
       },
     },
-    z.strictObject({ sessionId: idSchema, title: z.string().trim().min(1).max(160) }),
+    z.strictObject({
+      sessionId: idSchema,
+      title: z.string().trim().min(1).max(160),
+      expectedTitle: z.string().max(160).optional(),
+    }),
     sessionSchema,
   ),
   'session.archive': defineCommand(

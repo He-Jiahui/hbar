@@ -36,7 +36,12 @@ export function registerNavigationCommands(
   local: CommandRegistry,
   queries: DirectoryQueries,
   createSession: (workspaceId: string, title: string | undefined, execution: ExecuteOptions) => Promise<Session>,
-  renameSession: (sessionId: string, title: string, execution: ExecuteOptions) => Promise<Session>,
+  renameSession: (
+    sessionId: string,
+    title: string,
+    execution: ExecuteOptions,
+    expectedTitle?: string,
+  ) => Promise<Session>,
   archiveSession: (sessionId: string, archived: boolean, execution: ExecuteOptions) => Promise<Session>,
   openWorkspace: (path: string, execution: ExecuteOptions) => Promise<Workspace>,
   navigation: ReturnType<typeof createState<NavigationState>>,
@@ -103,7 +108,7 @@ export function registerNavigationCommands(
     }
   })
   local.register(navigationCommands['app.renameSession'], (input, context) =>
-    renameSession(input.sessionId, input.title, context),
+    renameSession(input.sessionId, input.title, context, input.expectedTitle),
   )
   local.register(navigationCommands['app.archiveSession'], (input, context) =>
     archiveSession(input.sessionId, input.archived, context),

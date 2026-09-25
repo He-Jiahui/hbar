@@ -410,6 +410,13 @@ const methods: StorageMethods = {
   updateSession(id, update) {
     return db.transaction(() => {
       const prior = methods.session(id)
+      if (update.expectedTitle !== undefined) {
+        if (prior.archived) throw new HbarError('SESSION_ARCHIVED', 'Restore the session before renaming it')
+        if (prior.title !== update.expectedTitle && prior.title !== update.title)
+          throw new HbarError('VERSION_CONFLICT', 'The session title changed after editing began')
+        if (prior.title === update.title && (update.archived === undefined || update.archived === prior.archived))
+          return { session: prior, event: null }
+      }
       const updated: Session = {
         ...prior,
         title: update.title ?? prior.title,

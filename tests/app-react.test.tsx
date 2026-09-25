@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
+import { CommandError } from '@hbar/commands'
 
 const workspace = { id: 'workspace-1', path: 'D:/workspace', name: '非常长的工程名称', createdAt: 1 }
 const session = {
@@ -57,6 +58,18 @@ const labels: HbarWorkspaceShellLabels = {
   sessionUpdatedAt: (timestamp) => `更新于 ${timestamp}`,
   sessionActions: (name) => `${name} 的操作`,
   renameSession: '重命名会话',
+  renameEditor: {
+    form: (title) => `重命名原会话 ${title}`,
+    title: '会话标题',
+    save: '确认保存会话标题',
+    cancel: '取消并保留原有会话标题',
+    saving: '正在保存标题',
+    saved: '标题已保存',
+    unknown: '保存结果尚未确认，请核对原会话',
+    reconcile: '核对原会话标题',
+    checking: '正在核对标题',
+    error: (code) => `标题操作错误 ${code}`,
+  },
   archiveSession: '归档会话',
   error: (code) => `错误 ${code}`,
 }
@@ -264,4 +277,132 @@ test('app-react production entry excludes transport, Host, storage, catalog, and
   expect(inputs.some((path) => /packages\/client|apps\/host|packages\/storage/.test(path))).toBeFalse()
   expect(inputs.some((path) => /catalog|fixtures|preview/.test(path))).toBeFalse()
   expect(inputs.some((path) => /packages\/app-react\/src\/workspace-shell\.tsx$/.test(path))).toBeFalse()
+})
+
+test('session rename stays in its row with host-owned long copy, preserved input and nearby validation', async () => {
+  const runtime = runtimeFixture('inline-rename-locale')
+  try {
+    const commands = runtime.view.commands
+    await commands.execute('workspace.list', {})
+    await commands.execute('session.list', { workspaceId: workspace.id })
+    await commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
+    await commands.execute('sessionRename.begin', { workspaceId: workspace.id, sessionId: session.id })
+    const revision = runtime.view.state.sessionRename.getSnapshot().revision
+    await commands.execute('sessionRename.edit', { sessionId: session.id, revision, title: '  ' })
+    await expect(commands.execute('sessionRename.submit', { sessionId: session.id, revision })).rejects.toMatchObject({
+      code: 'TITLE_REQUIRED',
+    })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <h1>保留原会话内容</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain(labels.renameEditor.form(session.title))
+    expect(html).toContain(labels.renameEditor.save)
+    expect(html).toContain(labels.renameEditor.cancel)
+    expect(html).toContain(labels.renameEditor.error('TITLE_REQUIRED'))
+    expect(html).toContain('aria-invalid="true"')
+    expect(html).toContain('maxLength="160"')
+    expect(runtime.view.state.sessionRename.getSnapshot().draft).toBe('  ')
+    expect(runtime.view.state.directory.getSnapshot().sessions[session.id]?.title).toBe(session.title)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+for (const unavailable of ['archived', 'removed'] as const) {
+  test(`session rename remains recoverable when its original row is ${unavailable}`, async () => {
+    let unavailableNow = false
+    const runtime = createAppRuntime({
+      instanceId: `rename-recovery-${unavailable}`,
+      hostId: 'host-test',
+      directory: {
+        execute(name) {
+          if (name === 'workspace.list') return Promise.resolve({ items: [workspace], nextCursor: null })
+          if (name === 'workspace.get') return Promise.resolve(workspace)
+          if (name === 'session.get')
+            return Promise.resolve(
+              unavailableNow ? (unavailable === 'archived' ? { ...session, archived: true, seq: 1 } : null) : session,
+            )
+          throw new Error(`Unexpected ${name}`)
+        },
+      },
+    })
+    try {
+      const commands = runtime.view.commands
+      await commands.execute('workspace.list', {})
+      await commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
+      await commands.execute('sessionRename.begin', { workspaceId: workspace.id, sessionId: session.id })
+      const target = { sessionId: session.id, revision: runtime.view.state.sessionRename.getSnapshot().revision }
+      await commands.execute('sessionRename.edit', { ...target, title: '请保留尚未提交的原会话标题草稿' })
+      unavailableNow = true
+      await expect(commands.execute('sessionRename.submit', target)).rejects.toMatchObject({ code: 'STALE_TARGET' })
+      const html = renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+            <h1>其他会话内容</h1>
+          </HbarWorkspaceShell>
+        </HbarRuntimeProvider>,
+      )
+      expect(html).toContain('hbar-app-react-session-rename-recovery')
+      expect(html).toContain(`aria-label="${labels.renameEditor.form(session.title)}"`)
+      expect(html).toContain('请保留尚未提交的原会话标题草稿')
+      expect(html).toContain('readOnly=""')
+      expect(html).toContain(labels.renameEditor.cancel)
+      expect(html).toContain(labels.renameEditor.error('STALE_TARGET'))
+      expect(html).not.toContain(`data-session-id="${session.id}"`)
+      expect(runtime.view.state.sessionRename.getSnapshot().target?.sessionId).toBe(session.id)
+    } finally {
+      runtime.dispose()
+    }
+  })
+}
+
+test('an archived unknown rename exposes only original-target reconciliation, not cancel or replay', async () => {
+  let archived = false
+  const runtime = createAppRuntime({
+    instanceId: 'rename-unknown-recovery',
+    hostId: 'host-test',
+    directory: {
+      execute(name) {
+        if (name === 'workspace.get') return Promise.resolve(workspace)
+        if (name === 'session.get') return Promise.resolve({ ...session, archived, seq: archived ? 1 : 0 })
+        throw new Error(`Unexpected ${name}`)
+      },
+    },
+    workspaces: {
+      execute() {
+        return Promise.reject(new CommandError('CONNECTION_CLOSED', 'Fixture lost the rename result'))
+      },
+    },
+  })
+  try {
+    const commands = runtime.view.commands
+    await commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
+    await commands.execute('sessionRename.begin', { workspaceId: workspace.id, sessionId: session.id })
+    const target = { sessionId: session.id, revision: runtime.view.state.sessionRename.getSnapshot().revision }
+    await commands.execute('sessionRename.edit', { ...target, title: '不能因归档丢失或重放的原始标题意图' })
+    await expect(commands.execute('sessionRename.submit', target)).rejects.toMatchObject({ code: 'CONNECTION_CLOSED' })
+    archived = true
+    await commands.execute('sessionRename.reconcile', target)
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <h1>其他会话内容</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('hbar-app-react-session-rename-recovery')
+    expect(html).toContain('不能因归档丢失或重放的原始标题意图')
+    expect(html).toContain(labels.renameEditor.unknown)
+    expect(html).toContain(labels.renameEditor.reconcile)
+    expect(html).not.toContain(labels.renameEditor.cancel)
+    expect(html).not.toContain(labels.renameEditor.save)
+    expect(runtime.view.state.sessionRename.getSnapshot().status).toBe('unknown')
+    expect(runtime.view.state.directory.getSnapshot().sessions[session.id]?.archived).toBe(true)
+  } finally {
+    runtime.dispose()
+  }
 })

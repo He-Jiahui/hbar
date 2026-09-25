@@ -74,7 +74,10 @@ export interface StorageMethods {
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
-  updateSession(id: string, update: { title?: string; archived?: boolean }): { session: Session; event: SessionEvent }
+  updateSession(
+    id: string,
+    update: { title?: string; archived?: boolean; expectedTitle?: string },
+  ): { session: Session; event: SessionEvent | null }
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
   usageEvents(input: UsageReadInput): UsageReadPage

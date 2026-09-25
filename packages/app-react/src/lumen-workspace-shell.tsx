@@ -7,7 +7,6 @@ import {
   Folder,
   FolderOpen,
   Menu,
-  MessageSquare,
   PanelLeftClose,
   Plus,
   RefreshCw,
@@ -25,7 +24,6 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenInput,
-  LumenNavigationButton,
   LumenSidebarAction,
   LumenText,
   type LumenIconTier,
@@ -40,6 +38,7 @@ import {
   type WorkspaceNavigationSelection,
 } from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
+import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 
 export interface HbarWorkspaceShellLabels {
   readonly main: string
@@ -83,6 +82,7 @@ export interface HbarWorkspaceShellLabels {
   readonly sessionUpdatedAt: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
   readonly renameSession: string
+  readonly renameEditor: SessionRenameLabels
   readonly archiveSession: string
   readonly error: (code: string) => string
 }
@@ -110,7 +110,6 @@ const workspaceShellIcons = {
   folder: Folder,
   'folder-open': FolderOpen,
   menu: Menu,
-  message: MessageSquare,
   'panel-close': PanelLeftClose,
   plus: Plus,
   refresh: RefreshCw,
@@ -663,59 +662,21 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         <LumenText as="p">{props.labels.noSessions}</LumenText>
                       ) : (
                         sessions.map((session) => (
-                          <LumenFrame
+                          <SessionNavigationRow
                             key={session.id}
-                            className="hbar-app-react-session-row"
-                            data-selected={
+                            session={session}
+                            connected={props.connection === 'connected'}
+                            labels={props.labels}
+                            selected={
                               presentation.page.kind === 'session' &&
                               navigation.workspaceId === session.workspaceId &&
                               navigation.sessionId === session.id
                             }
-                          >
-                            <LumenNavigationButton
-                              className="hbar-app-react-session-target"
-                              size="s"
-                              variant="text"
-                              selected={
-                                presentation.page.kind === 'session' &&
-                                navigation.workspaceId === session.workspaceId &&
-                                navigation.sessionId === session.id
-                              }
-                              indicatorEdge="left"
-                              aria-label={props.labels.openSession(session.title)}
-                              title={session.title}
-                              onClick={() => openSession(session.workspaceId, session.id)}
-                            >
-                              <WorkspaceShellIcon name="message" tier="sm" />
-                              <LumenText as="span" className="hbar-app-react-session-label">
-                                <LumenText size="s" variant="label">
-                                  {session.title}
-                                </LumenText>
-                                <LumenText as="small" size="s" tone="subtle" variant="supporting">
-                                  {props.labels.sessionUpdatedAt(session.updatedAt)}
-                                </LumenText>
-                              </LumenText>
-                            </LumenNavigationButton>
-                            <LumenActionMenu
-                              label={props.labels.sessionActions(session.title)}
-                              items={[
-                                { id: 'rename', label: props.labels.renameSession },
-                                { id: 'archive', label: props.labels.archiveSession, tone: 'danger' },
-                              ]}
-                              onAction={(action) => {
-                                if (action === 'rename')
-                                  openCommandForm('app.renameSession', {
-                                    sessionId: session.id,
-                                    title: session.title,
-                                  })
-                                else
-                                  openCommandForm('app.archiveSession', {
-                                    sessionId: session.id,
-                                    archived: true,
-                                  })
-                              }}
-                            />
-                          </LumenFrame>
+                            onOpen={() => openSession(session.workspaceId, session.id)}
+                            onArchive={() =>
+                              openCommandForm('app.archiveSession', { sessionId: session.id, archived: true })
+                            }
+                          />
                         ))
                       )}
                       {nextSessionCursor && (
@@ -746,6 +707,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               </LumenButton>
             )}
           </LumenFrame>
+          <SessionRenameRecovery labels={props.labels.renameEditor} connected={props.connection === 'connected'} />
           {error && (
             <LumenText as="p" role="alert">
               {props.labels.error(error)}

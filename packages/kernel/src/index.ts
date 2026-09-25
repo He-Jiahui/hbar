@@ -543,9 +543,9 @@ export class Kernel {
     this.changed('sessions')
     return session
   }
-  async updateSession(id: string, update: { title?: string; archived?: boolean }) {
+  async updateSession(id: string, update: { title?: string; archived?: boolean; expectedTitle?: string }) {
     const { session, event } = await this.storage.call('updateSession', id, update)
-    this.publishEvent(event)
+    if (event) this.publishEvent(event)
     this.changed('sessions')
     return session
   }
