@@ -64,6 +64,11 @@ export const goalPlanWorkspaceCommands = {
     z.strictObject({ instanceId }),
     summary,
   ),
+  'goalPlanWorkspace.discardGoalEdits': defineCommand(
+    metadata('goalPlanWorkspace.discardGoalEdits'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
   'goalPlanWorkspace.clearGoal': defineCommand(
     metadata('goalPlanWorkspace.clearGoal'),
     z.strictObject({ instanceId }),

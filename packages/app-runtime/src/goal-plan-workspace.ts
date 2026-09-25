@@ -561,6 +561,19 @@ export function createGoalPlanWorkspace(
     setGoalField(instanceId, field, value),
   )
   local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.saveGoal'], ({ instanceId }) => saveGoal(instanceId))
+  local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.discardGoalEdits'], ({ instanceId }) => {
+    const entry = current(instanceId)
+    available(entry.goalAction)
+    if (pendingGoal(instanceId, entry.sessionId)) throw new CommandError('BUSY', 'A Goal operation is still pending')
+    const next = {
+      ...entry,
+      goalDraft: goalDraft(entry.goal),
+      goalDirty: false,
+      goalAction: { status: 'idle' as const, error: null },
+    }
+    replace(next)
+    return summary(next)
+  })
   local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.clearGoal'], ({ instanceId }) => clearGoal(instanceId))
   local.register(goalPlanWorkspaceCommands['goalPlanWorkspace.setExplanation'], ({ instanceId, value }) =>
     setExplanation(instanceId, value),

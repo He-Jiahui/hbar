@@ -100,6 +100,17 @@ test('goal and plan workspace owns drafts and reconciles an unknown plan save fr
       objective: 'Ship the command-first UI',
       tokenBudget: 24_000,
     })
+    await runtime.view.commands.execute('goalPlanWorkspace.setGoalField', {
+      instanceId: panel.instanceId,
+      field: 'objective',
+      value: 'Uncommitted replacement',
+    })
+    await runtime.view.commands.execute('goalPlanWorkspace.discardGoalEdits', { instanceId: panel.instanceId })
+    expect(runtime.view.state.goals.getSnapshot().entries[panel.instanceId]).toMatchObject({
+      goalDirty: false,
+      goalDraft: { objective: 'Ship the command-first UI' },
+      goal: { objective: 'Ship the command-first UI' },
+    })
 
     await runtime.view.commands.execute('goalPlanWorkspace.showPlanEditor', { instanceId: panel.instanceId })
     await runtime.view.commands.execute('goalPlanWorkspace.setExplanation', {

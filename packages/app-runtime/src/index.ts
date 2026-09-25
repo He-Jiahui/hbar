@@ -9,7 +9,7 @@ import {
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
-import { runCommands } from '@hbar/contracts/commands/run'
+import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { usageCommands } from '@hbar/contracts/commands/usage'
@@ -37,6 +37,7 @@ import { createDrafts } from './drafts'
 import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
+import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
@@ -123,7 +124,9 @@ export type {
 } from './types'
 export { SessionSelectionError } from './navigation'
 
-const runtimeCommands = { ...applicationCommands, ...composerModelCommands }
+export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
+
+const runtimeCommands = { ...applicationCommands, ...composerModelCommands, ...composerIntentCommands }
 
 export function createAppRuntime(options: RuntimeOptions) {
   if (!options.instanceId || !options.hostId)
@@ -182,6 +185,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed)
+  const composerIntent = createComposerIntent(local, {
+    goals: options.goals,
+    navigation: navigation.reader,
+    executeRun: drafts.executeRun,
+    reconcileRun: async (sessionId) =>
+      runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
+    onSubscriberError,
+  })
   const interactions = createInteractions(
     local,
     options.interactions,
@@ -283,6 +294,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(clientPersistenceCommands, name) ||
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
+        Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -313,6 +325,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       questionnaires: interactions.questionnaires,
       controls: controls.reader,
       composerModel: composerModel.reader,
+      composerIntent: composerIntent.reader,
       settings: settingsForms.reader,
       providers: providerSettings.reader,
       commandPalette: commandPalette.reader,
@@ -349,6 +362,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       interactions.dispose()
       controls.dispose()
       composerModel.dispose()
+      composerIntent.dispose()
       settingsForms.dispose()
       providerSettings.dispose()
       commandPalette.dispose()

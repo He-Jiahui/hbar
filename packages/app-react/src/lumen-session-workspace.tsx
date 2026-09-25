@@ -26,6 +26,7 @@ import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineStat
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
+import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import './lumen-session-workspace.css'
 
 type ContentBlock = SessionTimelineState['messages'][number]['content'][number]
@@ -53,6 +54,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly error: (code: string) => string
   readonly prompt: LumenPromptLabels
   readonly modelPicker: HbarComposerModelLabels
+  readonly intent: HbarComposerIntentLabels
   readonly tools: {
     readonly label: string
     readonly files: string
@@ -245,10 +247,14 @@ export function HbarSessionWorkspace({
   const runActions = useHbarRuntimeState(runtime.state.runActions)
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
+  const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
   const draft = sessionId ? drafts[sessionId] : undefined
+  const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
+  const intentPending = intentEntry?.submission.status === 'submitting' || intentEntry?.submission.status === 'unknown'
+  const intent = intentEntry?.intent ?? 'default'
   const model = controls.sessionId === sessionId ? controls.model : null
   const configured = model?.status === 'configured' && model.modelId !== null
   const modelPending =
@@ -503,16 +509,31 @@ export function HbarSessionWorkspace({
 
   const composer: ReactNode = sessionId ? (
     <LumenFrame className="hbar-app-react-session-footer">
+      <HbarComposerGoal
+        key={sessionId}
+        sessionId={sessionId}
+        workspaceId={navigation.workspaceId}
+        connected={connected}
+        labels={labels.intent}
+      />
       <LumenPromptComposer
         value={draft?.text ?? ''}
-        labels={labels.prompt}
+        labels={{
+          ...labels.prompt,
+          placeholder:
+            intent === 'goal'
+              ? labels.intent.goalPlaceholder
+              : intent === 'plan'
+                ? labels.intent.planPlaceholder
+                : labels.prompt.placeholder,
+        }}
         attachments={(draft?.attachments ?? []).map((attachment) => ({
           id: attachment.artifact.id,
           kind: attachment.kind,
           name: attachment.artifact.name,
         }))}
         disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
-        submitting={draft?.status === 'submitting'}
+        submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
         uploading={(draft?.uploading ?? 0) > 0}
         canAddAttachments={
           Boolean(prepareAttachment) &&
@@ -525,6 +546,7 @@ export function HbarSessionWorkspace({
         canSubmit={
           configured &&
           !modelPending &&
+          !intentPending &&
           draft?.status !== 'unknown' &&
           Boolean(draft?.text.trim() || draft?.attachments.length)
         }
@@ -543,12 +565,21 @@ export function HbarSessionWorkspace({
                   ? labels.error(controls.errors.model)
                   : undefined
         }
+        controls={
+          <HbarComposerIntentControls
+            key={sessionId}
+            sessionId={sessionId}
+            connected={connected}
+            disabled={draft?.status === 'submitting' || draft?.status === 'unknown'}
+            labels={labels.intent}
+          />
+        }
         modelPicker={
           <HbarComposerModelPicker
             key={sessionId}
             sessionId={sessionId}
             connected={connected}
-            disabled={draft?.status === 'submitting' || draft?.status === 'unknown'}
+            disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
             labels={labels.modelPicker}
           />
         }
@@ -563,10 +594,11 @@ export function HbarSessionWorkspace({
           })
         }
         onSubmit={() => {
-          if (!draft || !configured || !model.modelId || modelPending) return
-          invoke('run.submit', {
+          if (!draft || !configured || !model.modelId || modelPending || intentPending) return
+          invoke('composerIntent.submit', {
             sessionId,
             modelId: model.modelId,
+            expectedIntentRevision: intentEntry?.revision ?? 0,
             input: {
               text: draft.text,
               images: draft.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),

@@ -830,6 +830,74 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       thinkingLevel: (level) => thinkingLevelLabel(locale, level),
       error,
     },
+    intent: {
+      goal: choose('目标', 'Goal'),
+      goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),
+      plan: choose('计划', 'Plan'),
+      planHint: choose(
+        '下一条消息仅规划；不执行写入操作。',
+        'Plan the next message without performing write operations.',
+      ),
+      cancelGoal: choose('取消目标模式', 'Cancel goal mode'),
+      cancelPlan: choose('取消计划模式', 'Cancel plan mode'),
+      goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),
+      planPlaceholder: choose('描述希望先规划的任务…', 'Describe the task to plan first…'),
+      statuses: {
+        active: choose('进行中的目标', 'Active goal'),
+        paused: choose('已暂停的目标', 'Paused goal'),
+        blocked: choose('受阻的目标', 'Blocked goal'),
+        complete: choose('已完成的目标', 'Completed goal'),
+        budget_limited: choose('目标预算已用尽', 'Goal budget exhausted'),
+        usage_limited: choose('目标用量已受限', 'Goal usage limited'),
+      },
+      pause: choose('暂停目标续作', 'Pause goal continuation'),
+      pauseHint: choose(
+        '暂停自动续作；当前运行可用停止按钮中断。',
+        'Pause automatic continuation. Use Stop to interrupt the current run.',
+      ),
+      resume: choose('恢复目标续作', 'Resume goal continuation'),
+      clear: choose('清除目标', 'Clear goal'),
+      confirmClear: (objective) =>
+        choose(
+          `清除目标“${objective}”？会话记录会保留。`,
+          `Clear the goal “${objective}”? Conversation history will be kept.`,
+        ),
+      cancel: choose('取消', 'Cancel'),
+      expand: choose('展开目标文档', 'Expand goal document'),
+      elapsed: (seconds) =>
+        choose(`${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`, `${Math.floor(seconds / 60)}m ${seconds % 60}s`),
+      budget: (used, limit) =>
+        choose(
+          `${number.format(used)} / ${number.format(limit)} tokens`,
+          `${number.format(used)} / ${number.format(limit)} tokens`,
+        ),
+      pending: choose('正在应用…', 'Applying…'),
+      partial: choose(
+        '目标已保存，消息尚未发送。再次发送会沿用该目标。',
+        'The goal is saved but the message was not sent. Send again to continue with this goal.',
+      ),
+      unknown: choose(
+        '操作结果尚未确认，请先核对。',
+        'The operation is not confirmed. Check its result before continuing.',
+      ),
+      reconcile: choose('核对结果', 'Check result'),
+      refresh: choose('刷新目标状态', 'Refresh goal status'),
+      error: (code) => {
+        if (code === 'GOAL_EXISTS')
+          return choose(
+            '已有未完成的目标，请先完成或清除它。',
+            'An unfinished goal already exists. Finish or clear it before creating another.',
+          )
+        if (code === 'GOAL_SUBMISSION_CHANGED')
+          return choose(
+            '目标已保存。要更改输入，请先取消目标模式；已保存目标不会被清除。',
+            'The goal is already saved. Cancel goal mode before changing this prompt; the saved goal will remain.',
+          )
+        if (code === 'GOAL_INVALID')
+          return choose('目标需要 1–4,000 字的文字说明。', 'A goal needs a text objective of 1–4,000 characters.')
+        return error(code)
+      },
+    },
     tools: {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),
@@ -1235,6 +1303,17 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       execution: goalExecutionCopy(locale),
       title: choose('会话目标', 'Session goal'),
       objective: choose('目标', 'Goal objective'),
+      document: choose('目标文档', 'Goal document'),
+      advanced: choose('预算与执行详情', 'Budget and execution details'),
+      cancel: choose('撤销更改', 'Discard changes'),
+      replacementWarning: choose(
+        '修改目标内容会替换当前目标并重置用量计数。',
+        'Changing the objective replaces the current goal and resets its usage counters.',
+      ),
+      composerHint: choose(
+        '在输入框选择“目标”，填写目标后发送即可开始。',
+        'Choose Goal in the composer, describe the objective, then send to begin.',
+      ),
       objectivePlaceholder: choose('描述需要持续完成的成果', 'Describe the outcome to pursue'),
       tokenBudget: choose('Token 预算', 'Goal token budget'),
       status: choose('目标状态', 'Goal status'),

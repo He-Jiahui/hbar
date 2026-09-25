@@ -4,7 +4,6 @@ import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenOption,
   LumenText,
   LumenButton,
   LumenCompactMetrics,
@@ -12,14 +11,13 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenInput,
-  LumenSelect,
   LumenStatus,
   LumenTextarea,
   LumenToolPane,
   type LumenPlanEditorLabels,
 } from '@lumen/app-ui'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
-import { goalControlStatuses } from '@hbar/app-runtime'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 import { HbarGoalExecutionState, type HbarGoalExecutionLabels } from './goal-execution-state'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
@@ -40,6 +38,11 @@ export interface HbarGoalPlanWorkspaceLabels {
     readonly execution: HbarGoalExecutionLabels
     readonly title: string
     readonly objective: string
+    readonly document: string
+    readonly advanced: string
+    readonly cancel: string
+    readonly replacementWarning: string
+    readonly composerHint: string
     readonly objectivePlaceholder: string
     readonly tokenBudget: string
     readonly status: string
@@ -135,9 +138,9 @@ export function HbarGoalPlanWorkspace({
 
   return (
     <LumenToolPane
-      title={labels.title}
+      title={view === 'goal' ? labels.goal.document : labels.title}
       targetLabel={targetLabel}
-      description={labels.description}
+      description={view === 'goal' ? undefined : labels.description}
       icon={ListTodo}
       backLabel={view === 'overview' ? undefined : labels.back}
       closeLabel={labels.close}
@@ -178,7 +181,6 @@ export function HbarGoalPlanWorkspace({
               invoke('goalPlanWorkspace.saveGoal', { instanceId })
             }}
           >
-            <LumenText as="h2">{labels.goal.title}</LumenText>
             <LumenFrame as="fieldset" disabled={!connected || goalBusy}>
               <LumenFormField
                 controlId={`${instanceId}-goal-objective`}
@@ -188,47 +190,46 @@ export function HbarGoalPlanWorkspace({
               >
                 <LumenTextarea
                   id={`${instanceId}-goal-objective`}
+                  variant="plain"
+                  rows={12}
                   required
                   value={entry.goalDraft.objective}
                   placeholder={labels.goal.objectivePlaceholder}
                   onChange={(event) => setGoalField('objective', event.currentTarget.value)}
                 />
               </LumenFormField>
-              <LumenFormField
-                controlId={`${instanceId}-goal-budget`}
-                label={labels.goal.tokenBudget}
-                {...(entry.goalDraft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
-              >
-                <LumenInput
-                  id={`${instanceId}-goal-budget`}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={1_000_000_000}
-                  value={entry.goalDraft.tokenBudget}
-                  onChange={(event) => setGoalField('tokenBudget', event.currentTarget.value)}
-                />
-              </LumenFormField>
-              {entry.goal && (
-                <LumenFormField controlId={`${instanceId}-goal-status`} label={labels.goal.status}>
-                  <LumenSelect
-                    id={`${instanceId}-goal-status`}
-                    value={entry.goalDraft.status}
-                    onChange={(event) => setGoalField('status', event.currentTarget.value)}
-                  >
-                    {!goalControlStatuses.some((status) => status === entry.goalDraft.status) && (
-                      <LumenOption value={entry.goalDraft.status} disabled>
-                        {labels.goal.statuses[entry.goalDraft.status]}
-                      </LumenOption>
-                    )}
-                    {goalControlStatuses.map((status) => (
-                      <LumenOption key={status} value={status}>
-                        {labels.goal.statuses[status]}
-                      </LumenOption>
-                    ))}
-                  </LumenSelect>
-                </LumenFormField>
+              {entry.goal && entry.goalDraft.objective !== entry.goalDraft.baseline.objective && (
+                <LumenText as="p" role="note">
+                  {labels.goal.replacementWarning}
+                </LumenText>
               )}
+              <HbarLumenDisclosure
+                label={labels.goal.advanced}
+                defaultOpen={entry.goal?.status === 'budget_limited' || entry.goal?.status === 'usage_limited'}
+              >
+                <LumenFormField
+                  controlId={`${instanceId}-goal-budget`}
+                  label={labels.goal.tokenBudget}
+                  {...(entry.goalDraft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
+                >
+                  <LumenInput
+                    id={`${instanceId}-goal-budget`}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={1_000_000_000}
+                    value={entry.goalDraft.tokenBudget}
+                    onChange={(event) => setGoalField('tokenBudget', event.currentTarget.value)}
+                  />
+                </LumenFormField>
+                {entry.goal && (
+                  <HbarGoalExecutionState
+                    goal={entry.goal}
+                    remainingTokens={entry.remainingTokens}
+                    labels={labels.goal.execution}
+                  />
+                )}
+              </HbarLumenDisclosure>
             </LumenFrame>
             {entry.goalAction.error && (
               <LumenText as="p" role="alert">
@@ -241,6 +242,15 @@ export function HbarGoalPlanWorkspace({
               </LumenText>
             )}
             <LumenFrame as="footer">
+              <LumenButton
+                type="button"
+                variant="text"
+                indicator="none"
+                disabled={goalBusy || !entry.goalDirty}
+                onClick={() => invoke('goalPlanWorkspace.discardGoalEdits', { instanceId })}
+              >
+                {labels.goal.cancel}
+              </LumenButton>
               {entry.goalAction.status === 'unknown' ? (
                 <LumenButton onClick={() => invoke('goalPlanWorkspace.refresh', { instanceId })}>
                   {labels.goal.reconcile}
@@ -292,7 +302,7 @@ export function HbarGoalPlanWorkspace({
               </>
             ) : (
               <LumenText as="p" className="hbar-app-react-goal-plan-empty">
-                {labels.goal.empty}
+                {labels.goal.composerHint}
               </LumenText>
             )}
             {entry.goalAction.status === 'succeeded' && (
@@ -305,23 +315,13 @@ export function HbarGoalPlanWorkspace({
                 {labels.error(entry.goalAction.error)}
               </LumenText>
             )}
-            <LumenFrame as="footer">
-              <LumenButton
-                tone={entry.goal ? 'neutral' : 'primary'}
-                onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
-              >
-                {entry.goal ? labels.goal.edit : labels.goal.create}
-              </LumenButton>
-              {entry.goal && (
-                <LumenButton
-                  disabled={!connected || goalBusy}
-                  tone="warning"
-                  onClick={() => invoke('goalPlanWorkspace.clearGoal', { instanceId })}
-                >
-                  {labels.goal.clear}
+            {entry.goal && (
+              <LumenFrame as="footer">
+                <LumenButton tone="neutral" onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}>
+                  {labels.goal.edit}
                 </LumenButton>
-              )}
-            </LumenFrame>
+              </LumenFrame>
+            )}
           </LumenFrame>
           <LumenFrame as="section">
             <LumenFrame as="header">

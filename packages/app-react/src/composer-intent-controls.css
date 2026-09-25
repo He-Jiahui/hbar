@@ -1,0 +1,107 @@
+.hbar-composer-intents,
+.hbar-composer-goal-strip,
+.hbar-composer-goal-actions,
+.hbar-composer-goal-confirm,
+.hbar-composer-intent-feedback {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.hbar-composer-intents,
+.hbar-composer-goal-confirm,
+.hbar-composer-intent-feedback {
+  flex-wrap: wrap;
+}
+
+.hbar-composer-intents > button {
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.hbar-composer-intents [aria-pressed='true'] {
+  background: var(--lumen-reading);
+  box-shadow: inset 0 0 0 0.0625rem var(--lumen-edge);
+}
+
+.hbar-composer-goal-context {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.hbar-composer-goal-context:empty {
+  display: none;
+}
+
+.hbar-composer-goal-context p {
+  margin: 0;
+}
+
+.hbar-composer-goal-strip {
+  padding: 0.375rem 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: var(--lumen-reading);
+}
+
+.hbar-composer-goal-objective {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-composer-goal-status,
+.hbar-composer-goal-metric,
+.hbar-composer-goal-actions {
+  flex: 0 0 auto;
+}
+
+.hbar-composer-goal-status,
+.hbar-composer-goal-metric {
+  color: var(--lumen-muted);
+}
+
+.hbar-composer-goal-confirm {
+  padding: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+}
+
+.hbar-composer-goal-confirm > span {
+  flex: 1 1 100%;
+  overflow-wrap: anywhere;
+}
+
+.hbar-composer-goal-context [role='alert'],
+.hbar-composer-intents [role='alert'] {
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 40rem) {
+  .hbar-composer-goal-strip {
+    flex-wrap: wrap;
+  }
+
+  .hbar-composer-goal-objective {
+    flex-basis: 45%;
+  }
+
+  .hbar-composer-goal-actions {
+    margin-inline-start: auto;
+  }
+
+  .hbar-app-react-session-footer .lumen-composer-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {
+    margin-inline-start: auto;
+  }
+}

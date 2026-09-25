@@ -13,7 +13,7 @@ test('Goal panel matches Host budgets and stop state, with a read-only Agent Pla
   let host: WebSessionHost | undefined
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     const sessionId = host.ready.sessionId
     const goals = createGoalPlanCommandClient(host.client)
     const runs = createRunCommandClient(host.client)
@@ -105,19 +105,27 @@ test('Goal panel matches Host budgets and stop state, with a read-only Agent Pla
     await expect(panel.getByText('Stopped · No tool calls; idle continuation suppressed')).toBeVisible()
     await page.screenshot({ path: 'artifacts/session-autonomy/goal-desktop.png', fullPage: true })
     await panel.getByRole('button', { name: 'Edit goal' }).click()
-    const status = panel.getByRole('combobox', { name: 'Goal status' })
-    await expect(status.locator('option')).toHaveCount(3)
-    await status.selectOption('complete')
-    await panel.getByRole('button', { name: 'Save goal' }).click()
-    await expect(panel.getByRole('alert')).toBeVisible()
+    // Derived lifecycle states are not editable form options. Completion still
+    // requires the Host's verified acceptance rather than an arbitrary select.
+    await expect(panel.getByRole('combobox', { name: 'Goal status' })).toHaveCount(0)
+    await expect(goals.execute('goal.set', { sessionId, status: 'complete' })).rejects.toThrow()
     expect((await goals.execute('goal.get', { sessionId })).goal?.status).toBe('active')
     await panel.getByRole('button', { name: 'Back to goals and plans' }).click()
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(execution).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: 'artifacts/session-autonomy/goal-mobile.png', fullPage: true })
-    await panel.getByRole('button', { name: 'Clear goal' }).click()
-    await expect(panel.getByText('Goal cleared.', { exact: true })).toBeVisible()
+    await panel.getByRole('button', { name: 'Close goals and plans', exact: true }).click()
+    await page.locator('.hbar-composer-goal-strip').getByRole('button', { name: 'Clear goal', exact: true }).click()
+    await page
+      .getByRole('group', { name: 'Clear goal', exact: true })
+      .getByRole('button', { name: 'Clear goal', exact: true })
+      .click()
+    await expect(page.locator('.hbar-composer-goal-strip')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expect(
+      panel.getByText('Choose Goal in the composer, describe the objective, then send to begin.', { exact: true }),
+    ).toBeVisible()
     await expect(panel.getByText('No plan steps yet.', { exact: true })).toBeVisible()
     expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
     expect(await goals.execute('plan.get', { sessionId })).toBeNull()
