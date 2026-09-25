@@ -83,12 +83,12 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
     labels: {
       trigger: 'New workspace',
       count: (step, total) => `Step ${step} of ${total}`,
-      close: 'Close workspace wizard',
+      close: 'Close dialog',
       name: 'Workspace name',
       url: 'Workspace URL',
       urlHint: 'You can change this later in settings.',
-      environment: 'Default environment',
-      environmentHint: 'You can add more environments later.',
+      environment: 'Primary region',
+      environmentHint: 'Choose where your workspace data is stored.',
       reviewName: 'Workspace',
       reviewUrl: 'URL',
       cancel: 'Cancel',
@@ -97,8 +97,8 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
     },
     steps: [
       { id: 'workspace', label: 'Workspace' },
-      { id: 'environment', label: 'Environment' },
-      { id: 'review', label: 'Review' },
+      { id: 'region', label: 'Region' },
+      { id: 'team', label: 'Team' },
     ],
     workspaceName: 'Northwind',
     workspacePrefix: 'northwind.app/',
@@ -109,6 +109,35 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
       { id: 'development', label: 'Development' },
     ],
     initialEnvironmentId: 'production',
+    reference: {
+      labels: {
+        namePlaceholder: 'Acme',
+        region: 'Primary region',
+        regionHint: 'Choose where your workspace data is stored.',
+        team: 'Invite teammates',
+        teamPlaceholder: 'priya@northwind.io, marcus@northwind.io',
+        teamHint: 'Separate addresses with a comma. You can skip this and invite people later.',
+        reviewRegion: 'Region',
+        back: 'Back',
+        emptyRegions: 'No regions available',
+        successTitle: 'Workspace created',
+        successDetail: (slug) => `Redirecting you to ${slug}.`,
+      },
+      steps: [
+        { id: 'workspace', label: 'Workspace' },
+        { id: 'region', label: 'Region' },
+        { id: 'team', label: 'Team' },
+      ],
+      regions: [
+        { id: 'iad1', label: 'United States (iad1)' },
+        { id: 'fra1', label: 'Europe (fra1)' },
+        { id: 'syd1', label: 'Asia Pacific (syd1)' },
+        { id: 'gru1', label: 'South America (gru1)' },
+      ],
+      initialRegionId: 'iad1',
+      slugForName: (name) => name.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'workspace',
+      listStrategy: grown,
+    },
   },
   alert: {
     labels: {
@@ -189,8 +218,25 @@ export const HBAR_APP_UI_APP_DIALOG_FIXTURES: HbarAppUiAppDialogContent = {
   },
 }
 
-export function appDialogDeleteFixture(name: string | null): HbarAppUiAppDialogContent {
+export function appDialogFixture(name: string | null): HbarAppUiAppDialogContent {
   if (name === 'localized') return createHbarAppUiAppDialogLocalizedFixtures()
+  if (name === 'wizard-empty' || name === 'wizard-overflow') {
+    const wizard = HBAR_APP_UI_APP_DIALOG_FIXTURES.wizard!
+    return {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES,
+      wizard: {
+        ...wizard,
+        reference: {
+          ...wizard.reference!,
+          regions: name === 'wizard-empty' ? [] : Array.from({ length: 17 }, (_, index) => ({
+            id: `region-${index}`,
+            label: `Region ${index + 1}`,
+          })),
+          initialRegionId: 'stale-region',
+        },
+      },
+    }
+  }
   if (name !== 'overflow') return HBAR_APP_UI_APP_DIALOG_FIXTURES
   const deleteProject = HBAR_APP_UI_APP_DIALOG_FIXTURES.deleteProject!
   return {
@@ -270,6 +316,47 @@ export function createHbarAppUiAppDialogLocalizedFixtures(): HbarAppUiAppDialogC
       },
       roles: [{ id: 'viewer', label: '查看者' }],
       initialRoleId: 'viewer',
+    },
+    wizard: {
+      ...HBAR_APP_UI_APP_DIALOG_FIXTURES.wizard!,
+      labels: {
+        ...HBAR_APP_UI_APP_DIALOG_FIXTURES.wizard!.labels,
+        trigger: '创建工作区',
+        count: (step, total) => `第 ${step} 步，共 ${total} 步`,
+        close: '关闭对话框',
+        name: '工作区名称',
+        url: '工作区地址',
+        urlHint: '稍后可在设置中修改该地址。',
+        cancel: '取消',
+        next: '继续',
+        confirm: '创建工作区',
+        reviewName: '工作区',
+      },
+      workspaceName: '跨区域协作工作区',
+      reference: {
+        ...HBAR_APP_UI_APP_DIALOG_FIXTURES.wizard!.reference!,
+        labels: {
+          namePlaceholder: '请输入名称',
+          region: '主要数据存储区域',
+          regionHint: '请选择工作区数据的存储区域，稍后还可查看团队配置。',
+          team: '邀请协作成员',
+          teamPlaceholder: '输入邮箱地址，使用逗号分隔',
+          teamHint: '可先跳过此步骤，之后再邀请更多协作成员加入。',
+          reviewRegion: '存储区域',
+          back: '返回',
+          emptyRegions: '当前没有可用区域',
+          successTitle: '工作区已创建',
+          successDetail: (slug) => `正在跳转到 ${slug}。`,
+        },
+        steps: [
+          { id: 'workspace', label: '工作区' },
+          { id: 'region', label: '区域' },
+          { id: 'team', label: '团队' },
+        ],
+        regions: [{ id: 'iad1', label: '美国东部区域（iad1）' }],
+        initialRegionId: 'iad1',
+        slugForName: () => 'cross-region-collaboration',
+      },
     },
   }
 }

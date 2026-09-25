@@ -10,6 +10,7 @@ import {
   type HbarAppUiAppDialogContent,
 } from '../packages/hbar-app-ui/src/index'
 import {
+  appDialogFixture,
   createHbarAppUiAppDialogLocalizedFixtures,
   HBAR_APP_UI_APP_DIALOG_FIXTURES,
 } from './fixtures/hbar-app-ui-app-dialog-fixtures'
@@ -183,6 +184,50 @@ describe('hbar-app-ui app dialog surfaces', () => {
     expect(plan.samples.map((sample) => sample.suffix)).toEqual([
       '6:click', 'dialog-invite-empty:2:fill', '4:select', 'dialog-invite-invalid:3:fill',
       'dialog-invite-valid:6:click', '5:click', '1:press-space', 'dialog-invite-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
+
+  test('workspace wizard preserves the source header order, form and inline URL flow', () => {
+    const value = render(4)
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('role="banner"')
+    expect(value).toContain('role="contentinfo"')
+    expect(value.indexOf('Step 1 of 3')).toBeLessThan(value.indexOf('Workspace</h2>'))
+    expect(value).toContain('placeholder="Acme"')
+    expect(value).toContain('northwind.app/</span><span class="lumen-app-dialog-wizard-slug">northwind</span>')
+    expect(value.match(/data-active="true"/g)).toHaveLength(1)
+    const localized = render(4, createHbarAppUiAppDialogLocalizedFixtures())
+    expect(localized).toContain('跨区域协作工作区')
+    expect(localized).toContain('第 1 步，共 3 步')
+    expect(localized).not.toContain('Step 1 of 3')
+  })
+
+  test('workspace wizard keeps the prior host contract valid while typed regions cover capacity boundaries', () => {
+    const wizard = HBAR_APP_UI_APP_DIALOG_FIXTURES.wizard!
+    const legacy = render(4, { wizard: { ...wizard, reference: undefined } })
+    expect(legacy).toContain('lumen-app-dialog-readonly')
+    for (const count of [0, 1, 16, 17]) {
+      const regions = Array.from({ length: count }, (_, index) => ({ id: `region-${index}`, label: `Region ${index}` }))
+      const content = { wizard: { ...wizard, reference: { ...wizard.reference!, regions: [...regions, ...regions.slice(0, 1)], initialRegionId: 'stale' } } }
+      expect(uniqueHbarAppUiAppDialogItems(content.wizard.reference.regions)).toHaveLength(count)
+      if (count) expect(selectHbarAppUiAppDialogItem(content.wizard.reference.regions, 'stale')?.id).toBe('region-0')
+      expect(render(4, content)).toContain('data-hbar-app-ui-component="hbar-app-ui-app-dialog-4"')
+    }
+    expect(appDialogFixture('wizard-empty').wizard!.reference!.regions).toHaveLength(0)
+    expect(appDialogFixture('wizard-overflow').wizard!.reference!.regions).toHaveLength(17)
+    expect(wizard.reference!.slugForName('  Acme Ops  ')).toBe('acme-ops')
+    expect(wizard.reference!.slugForName('')).toBe('workspace')
+  })
+
+  test('wizard sampling distinguishes step transitions and edits without repeating every region or gesture', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-4')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '2:fill', '4:click', 'dialog-wizard-region:3:click',
+      'dialog-wizard-region-selected:7:click', 'dialog-wizard-team:2:fill',
+      'dialog-wizard-team-custom:4:click', 'dialog-wizard-team:3:click',
+      'dialog-wizard-region:6:click', '3:click', 'dialog-wizard-region:1:press-space',
+      'dialog-wizard-closed:0:click',
     ])
     expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })

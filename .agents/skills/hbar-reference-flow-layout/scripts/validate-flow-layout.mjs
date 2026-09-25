@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Dialog 4: completion toast floats over the canvas after the wizard closes.
+  if (/packages\/lumen-app-ui\/src\/app-dialog-wizard\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-dialog-wizard-toast') return true
   // App Dialog 3: success feedback floats over the empty canvas after submit.
   if (/packages\/lumen-app-ui\/src\/app-dialog-invite\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-dialog-invite-toast') return true
@@ -407,6 +410,10 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const wizardToast = '.hbar-app-ui-dialog-wizard-toast { position: absolute; inset-block-end: 1rem; }'
+  if (validateCss('packages/lumen-app-ui/src/app-dialog-wizard.css', wizardToast).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', wizardToast).length === 0)
+    throw new Error('App Dialog wizard toast overlay exception must be path-scoped')
   const inviteToast = '.hbar-app-ui-dialog-invite-toast { position: absolute; inset-block-end: 1rem; }'
   if (validateCss('packages/lumen-app-ui/src/app-dialog-invite.css', inviteToast).length ||
       validateCss('packages/lumen-app-ui/src/other.css', inviteToast).length === 0)

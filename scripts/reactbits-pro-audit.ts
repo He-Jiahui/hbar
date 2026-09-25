@@ -308,6 +308,11 @@ export type InteractionCase = Readonly<{
     | 'dialog-invite-invalid'
     | 'dialog-invite-valid'
     | 'dialog-invite-closed'
+    | 'dialog-wizard-region'
+    | 'dialog-wizard-region-selected'
+    | 'dialog-wizard-team'
+    | 'dialog-wizard-team-custom'
+    | 'dialog-wizard-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1591,6 +1596,24 @@ const sidebarFullScenarios = ['sidebar-full-closed'] as const
 const dialogPlanScenarios = ['dialog-plan-closed'] as const
 const dialogDeleteScenarios = ['dialog-delete-valid', 'dialog-delete-closed'] as const
 const dialogInviteScenarios = ['dialog-invite-empty', 'dialog-invite-invalid', 'dialog-invite-valid', 'dialog-invite-closed'] as const
+const dialogWizardScenarios = [
+  'dialog-wizard-region', 'dialog-wizard-region-selected', 'dialog-wizard-team',
+  'dialog-wizard-team-custom', 'dialog-wizard-closed',
+] as const
+async function prepareDialogWizardScenario(root: Locator, scenario: (typeof dialogWizardScenarios)[number]): Promise<void> {
+  if (scenario === 'dialog-wizard-closed') {
+    await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
+    await root.getByRole('dialog').waitFor({ state: 'hidden' })
+    return
+  }
+  if (scenario === 'dialog-wizard-team-custom')
+    await root.getByRole('textbox', { name: 'Workspace name' }).fill('Acme Ops')
+  await root.getByRole('button', { name: 'Continue', exact: true }).click()
+  if (scenario === 'dialog-wizard-region-selected' || scenario === 'dialog-wizard-team-custom')
+    await root.getByRole('button', { name: 'Europe (fra1)', exact: true }).click()
+  if (scenario === 'dialog-wizard-team' || scenario === 'dialog-wizard-team-custom')
+    await root.getByRole('button', { name: 'Continue', exact: true }).click()
+}
 async function prepareDialogInviteScenario(root: Locator, scenario: (typeof dialogInviteScenarios)[number]): Promise<void> {
   if (scenario === 'dialog-invite-closed') {
     await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
@@ -3006,6 +3029,10 @@ async function replayInteraction(
     const scenario = dialogInviteScenarios.find((value) => value === interaction.scenario)
     if (scenario) await prepareDialogInviteScenario(root, scenario)
   }
+  if (spec.id === 'hbar-app-ui-app-dialog-4') {
+    const scenario = dialogWizardScenarios.find((value) => value === interaction.scenario)
+    if (scenario) await prepareDialogWizardScenario(root, scenario)
+  }
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3174,6 +3201,10 @@ async function replayReferenceInteraction(
   if (reference.id === 'hbar-app-ui-app-dialog-3') {
     const scenario = dialogInviteScenarios.find((value) => value === interaction.scenario)
     if (scenario) await prepareDialogInviteScenario(root, scenario)
+  }
+  if (reference.id === 'hbar-app-ui-app-dialog-4') {
+    const scenario = dialogWizardScenarios.find((value) => value === interaction.scenario)
+    if (scenario) await prepareDialogWizardScenario(root, scenario)
   }
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
@@ -3830,6 +3861,16 @@ async function runInteractionsParallel(
                     ? { ...item, fillValue: 'jordan@example.com' }
                     : item,
                 ))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-4') {
+              const fill = discovered.find((item) => item.id === `${spec.id}:2:fill`)
+              if (!fill) throw new Error('Workspace name field changed; re-observe the wizard feedback groups')
+              discovered = discovered.map((item) => item.id === fill.id ? { ...item, fillValue: 'Acme Ops' } : item)
+              for (const scenario of dialogWizardScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareDialogWizardScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

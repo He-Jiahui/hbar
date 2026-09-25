@@ -561,6 +561,36 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-4')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-wizard.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:fill', change: 'Workspace name edits its visible URL slug in place' },
+        { viewport: 'mobile', theme: 'dark', suffix: '4:click', change: 'Continue replaces Workspace with Region in the stacked footer' },
+        { viewport: 'tablet', theme: 'light', suffix: 'dialog-wizard-region:3:click', change: 'Europe selection transfers pressed state from United States' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'dialog-wizard-region-selected:7:click', change: 'Selected region carries into Team summary' },
+        { viewport: 'stress', theme: 'light', suffix: 'dialog-wizard-team:2:fill', change: 'Optional teammate draft fills in the narrow Team step' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'dialog-wizard-team-custom:4:click', change: 'Create closes and reports the edited workspace slug' },
+        { viewport: 'stress', theme: 'dark', suffix: 'dialog-wizard-team:3:click', change: 'Back restores Region and retains the selected choice' },
+        { viewport: 'desktop', theme: 'light', suffix: 'dialog-wizard-region:6:click', change: 'Back restores Workspace and its name draft' },
+        { viewport: 'mobile', theme: 'light', suffix: '3:click', change: 'Cancel dismisses without a creation result' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'dialog-wizard-region:1:press-space', change: 'Keyboard close dismisses the second step' },
+        { viewport: 'stress', theme: 'light', suffix: 'dialog-wizard-closed:0:click', change: 'Closed trigger reopens the wizard' },
+      ],
+      inferences: [
+        {
+          scope: 'Other region buttons, name strings, invite addresses and equivalent gestures',
+          basis: 'One selected/unselected pressed transition, slug edit, optional draft and every distinct step change are replayed. Repeated choices and values share the same ID-keyed controls and are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme permutations and creation with no invitees',
+          basis: 'Eight static pairs cover four widths and two themes; dynamic cases hit desktop, tablet, mobile and stress flow boundaries. Optional invite text does not gate Create; omitted permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-3')
     return {
       revision: 1,
