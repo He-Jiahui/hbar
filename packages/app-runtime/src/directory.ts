@@ -202,7 +202,13 @@ export function createDirectoryModule(
     async openWorkspace(path: string, execution: ExecuteOptions): Promise<Workspace> {
       if (!options.workspaces)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot register Host workspaces')
-      const value = await options.workspaces.execute('workspace.create', { path }, execution)
+      let value: unknown
+      try {
+        value = await options.workspaces.execute('workspace.create', { path }, execution)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      }
       const workspace = decode(workspaceSchema, value)
       if (!disposed && !execution.signal?.aborted) mergeWorkspaces([workspace])
       return workspace

@@ -531,9 +531,17 @@ export class Kernel {
     this.publish({ method: 'session.event', params: event })
   }
   async createWorkspace(path: string) {
-    const resolved = await realpath(path)
-    if (!(await stat(resolved)).isDirectory())
-      throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing directory')
+    let resolved: string
+    let isDirectory: boolean
+    try {
+      resolved = await realpath(path)
+      isDirectory = (await stat(resolved)).isDirectory()
+    } catch {
+      // Path validation is read-only. Do not include the storage mutation in
+      // this catch: its failure may leave a successfully registered workspace.
+      throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing accessible directory')
+    }
+    if (!isDirectory) throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing directory')
     const workspace = await this.storage.call('createWorkspace', resolved, basename(resolved) || resolved)
     this.changed('workspaces')
     return workspace
