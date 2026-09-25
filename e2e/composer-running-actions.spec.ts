@@ -1,0 +1,140 @@
+import { expect, test } from '@playwright/test'
+import { createRunCommandClient } from '@hbar/client'
+import { access, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`composer keeps Stop stable and explicitly queues drafted messages: ${locale}`, async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(120_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-composer-running-'))
+    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      const target = host
+      const sessionId = host.ready.sessionId
+      const runs = createRunCommandClient(host.client)
+      const copy = getShellCopy(locale)
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.goto(base)
+      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      const composer = page.locator('.lumen-prompt-composer')
+      const prompt = composer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const send = composer.getByRole('button', { name: copy.session.prompt.send, exact: true })
+      const queue = composer.getByRole('button', { name: copy.session.runningActions.queueLabel, exact: true })
+      const stop = composer.getByRole('button', { name: copy.session.prompt.stop, exact: true })
+      await expect(send).toBeVisible()
+      await expect(send).toBeDisabled()
+      await expect(stop).toHaveCount(0)
+      // A real approval keeps the first Run executing until the user chooses Stop.
+      const original = await runs.execute(
+        'run.submit',
+        {
+          sessionId,
+          modelId: 'local-fixture',
+          input: {
+            text: '/tool write_file {"path":"must-not-write.txt","text":"should be cancelled"}',
+            images: [],
+            approval: 'ask',
+          },
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      await expect
+        .poll(async () => (await target.client.call('session.snapshot', { sessionId })).approvals.length)
+        .toBe(1)
+      await expect(stop).toBeVisible()
+      await expect(send).toHaveCount(0)
+      await expect(queue).toHaveCount(0)
+      await prompt.focus()
+      await page.keyboard.press('Enter')
+      expect((await runs.execute('operation.get', { operationId: original.operationId })).status).toBe(
+        'waiting_approval',
+      )
+      expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(1)
+      for (const width of [1440, 390, 320]) {
+        await page.setViewportSize({ width, height: 960 })
+        await expect(stop).toBeVisible()
+        await expect(send).toHaveCount(0)
+        await page.screenshot({ path: testInfo.outputPath(`running-empty-${locale}-${width}.png`) })
+        await prompt.fill('Queued after the current run — 当前任务完成后处理这条消息。')
+        await expect(queue).toBeVisible()
+        await expect(queue).toBeEnabled()
+        const [queueBox, stopBox] = await Promise.all([queue.boundingBox(), stop.boundingBox()])
+        expect(queueBox).not.toBeNull()
+        expect(stopBox).not.toBeNull()
+        expect(queueBox!.x + queueBox!.width).toBeLessThanOrEqual(stopBox!.x + 1)
+        expect(stopBox!.x + stopBox!.width).toBeLessThanOrEqual(width + 1)
+        expect(stopBox!.x).toBeGreaterThanOrEqual(0)
+        expect(
+          await composer
+            .locator('.lumen-composer-running-actions')
+            .evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+        ).toBe(true)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
+        await page.screenshot({ path: testInfo.outputPath(`running-draft-${locale}-${width}.png`) })
+        await prompt.fill('')
+      }
+      const firstText = 'First message queued by Enter — 键盘排队。'
+      await prompt.fill(firstText)
+      await page.keyboard.press('Enter')
+      await expect(prompt).toHaveValue('')
+      await expect(queue).toHaveCount(0)
+      await expect
+        .poll(
+          async () =>
+            (await target.client.call('session.snapshot', { sessionId })).runs.filter(
+              (run) => run.input.text === firstText && run.status === 'queued',
+            ).length,
+        )
+        .toBe(1)
+      const secondText = 'Second message queued by button — 按钮排队。'
+      await prompt.fill(secondText)
+      await queue.focus()
+      await page.keyboard.press('Space')
+      await expect(prompt).toHaveValue('')
+      await expect
+        .poll(
+          async () =>
+            (await target.client.call('session.snapshot', { sessionId })).runs.filter((run) => run.status === 'queued')
+              .length,
+        )
+        .toBe(2)
+      const beforeStop = await host.client.call('session.snapshot', { sessionId })
+      expect(beforeStop.runs).toHaveLength(3)
+      expect(beforeStop.runs.find((run) => run.id === original.operationId)?.status).toBe('waiting_approval')
+      await stop.focus()
+      await page.keyboard.press('Enter')
+      await expect
+        .poll(async () => (await runs.execute('operation.get', { operationId: original.operationId })).status)
+        .toBe('cancelled')
+      await expect
+        .poll(
+          async () =>
+            (await target.client.call('session.snapshot', { sessionId })).runs.filter(
+              (run) => [firstText, secondText].includes(run.input.text) && run.status === 'completed',
+            ).length,
+        )
+        .toBe(2)
+      await expect(stop).toHaveCount(0)
+      await expect(queue).toHaveCount(0)
+      await expect(send).toBeVisible()
+      await expect(send).toBeDisabled()
+      await expect(access(join(root, 'must-not-write.txt'))).rejects.toThrow()
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+}

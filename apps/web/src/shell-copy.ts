@@ -912,6 +912,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       cancel: choose('取消', 'Cancel'),
       error: (code) => choose(`审批策略操作失败：${code}`, `Could not apply the approval policy: ${code}`),
     },
+    runningActions: {
+      queueLabel: choose('加入队列', 'Add to queue'),
+      queueTitle: choose('在当前运行结束后处理此消息', 'Process this message after the current run'),
+    },
     decisions: {
       approval: choose('工具操作需要确认', 'Review tool operation'),
       questionnaire: choose('需要你的回答', 'Your input is needed'),

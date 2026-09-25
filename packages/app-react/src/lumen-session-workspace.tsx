@@ -67,6 +67,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
   readonly decisions: HbarSessionDecisionLabels
   readonly proposedPlan: HbarProposedPlanLabels
   readonly proposedPlanReadOnly: string
@@ -496,6 +497,10 @@ export function HbarSessionWorkspace({
           Boolean(draft?.text.trim() || draft?.attachments.length)
         }
         canStop={Boolean(activeRun)}
+        runningActions={{
+          ...labels.runningActions,
+          submit: draft?.text.trim() || draft?.attachments.length ? 'queue' : 'hidden',
+        }}
         stopping={Boolean(
           activeRun && ['submitting', 'unknown', 'succeeded'].includes(runActions[activeRun.id]?.status ?? ''),
         )}
