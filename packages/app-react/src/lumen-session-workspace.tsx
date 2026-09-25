@@ -32,6 +32,7 @@ import { HbarComposerModelPicker, type HbarComposerModelLabels } from './compose
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
+import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import './lumen-session-workspace.css'
 
 export interface HbarSessionWorkspaceLabels {
@@ -58,6 +59,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: LumenPromptLabels
   readonly modelPicker: HbarComposerModelLabels
   readonly intent: HbarComposerIntentLabels
+  readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
   readonly proposedPlan: HbarProposedPlanLabels
@@ -156,12 +158,14 @@ export function HbarSessionWorkspace({
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
+  const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const planProposal = useHbarRuntimeState(runtime.state.planProposal)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
   const draft = sessionId ? drafts[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
+  const permissionEntry = sessionId ? composerPermission.entries[sessionId] : undefined
   const intentPending = intentEntry?.submission.status === 'submitting' || intentEntry?.submission.status === 'unknown'
   const intent = intentEntry?.intent ?? 'default'
   const model = controls.sessionId === sessionId ? controls.model : null
@@ -522,6 +526,7 @@ export function HbarSessionWorkspace({
           configured &&
           !modelPending &&
           !intentPending &&
+          !permissionEntry?.locked &&
           draft?.status !== 'unknown' &&
           Boolean(draft?.text.trim() || draft?.attachments.length)
         }
@@ -541,13 +546,35 @@ export function HbarSessionWorkspace({
                   : undefined
         }
         controls={
-          <HbarComposerIntentControls
-            key={sessionId}
-            sessionId={sessionId}
-            connected={connected}
-            disabled={draft?.status === 'submitting' || draft?.status === 'unknown'}
-            labels={labels.intent}
-          />
+          <LumenFrame className="hbar-session-composer-controls">
+            {composerPermission.available && (
+              <HbarComposerPermissionPicker
+                key={`permission:${sessionId}`}
+                sessionId={sessionId}
+                sessionLabel={sessionTitle}
+                entry={permissionEntry}
+                hostDefault={composerPermission.hostDefault}
+                connected={connected}
+                disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                labels={labels.permissionPicker}
+                onRefresh={async () => {
+                  await runtime.commands.execute('composerPermission.refresh', {})
+                }}
+                onSelect={async (input) => {
+                  await runtime.commands.execute('composerPermission.setChoice', input)
+                }}
+              />
+            )}
+            <HbarComposerIntentControls
+              key={sessionId}
+              sessionId={sessionId}
+              connected={connected}
+              disabled={
+                draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
+              }
+              labels={labels.intent}
+            />
+          </LumenFrame>
         }
         modelPicker={
           <LumenFrame className="hbar-session-composer-options">
@@ -582,6 +609,7 @@ export function HbarSessionWorkspace({
             sessionId,
             modelId: model.modelId,
             expectedIntentRevision: intentEntry?.revision ?? 0,
+            ...(composerPermission.available ? { expectedPermissionRevision: permissionEntry?.revision ?? 0 } : {}),
             input: {
               text: draft.text,
               images: draft.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),

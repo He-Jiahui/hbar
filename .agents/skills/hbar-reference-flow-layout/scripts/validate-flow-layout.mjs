@@ -89,6 +89,13 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // cc-haha PermissionModeSelector: composer-trigger overlay / narrow bottom sheet.
+  // Only this evidenced top-layer container; its option and confirmation content stays in flex flow.
+  if (
+    /packages\/app-react\/src\/composer-permission-picker\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-composer-permission-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+  )
+    return true
   // Reference ContextUsageIndicator: trigger-anchored read-only usage overlay / narrow bottom sheet.
   if (
     /packages\/app-react\/src\/session-usage-control\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -548,6 +555,7 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const permissionPath = 'packages/app-react/src/composer-permission-picker.css'
   const usagePath = 'packages/app-react/src/session-usage-control.css'
   if (validateCss(usagePath, '.hbar-session-usage-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed session usage popover container')
@@ -555,6 +563,12 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Session usage popover exception leaked to content')
   if (validateCss('other.css', '.hbar-session-usage-popover { position: fixed; }').length !== 1)
     throw new Error('Session usage popover exception leaked across files')
+  if (validateCss(permissionPath, '.hbar-composer-permission-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed composer permission popover container')
+  if (validateCss(permissionPath, '.hbar-composer-permission-popover > button { position: fixed; }').length !== 1)
+    throw new Error('Composer permission popover exception leaked to content')
+  if (validateCss('other.css', '.hbar-composer-permission-popover { position: fixed; }').length !== 1)
+    throw new Error('Composer permission popover exception leaked across files')
   const contractsPath = 'packages/lumen-app-ui/src/app-shell-contracts.css'
   for (const selector of [
     '.lumen-contracts-overlay',

@@ -7,6 +7,18 @@ import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, Sess
 import type { CommandExecutor } from '@hbar/commands'
 
 const MAX_DRAFTS = 100
+// Public Run ports are not required to be the SDK adapter. Once dispatched, these
+// errors cannot prove rejection; preserve the same key until its receipt is read.
+const UNCERTAIN_SUBMIT_CODES = new Set([
+  'RESULT_UNKNOWN',
+  'TIMEOUT',
+  'TIMED_OUT',
+  'DISCONNECTED',
+  'CONNECTION_CLOSED',
+  'CANCELLED',
+  'INVALID_OUTPUT',
+  'EXECUTION_FAILED',
+])
 
 interface PendingSubmission {
   readonly key: string
@@ -229,9 +241,9 @@ export function createDrafts(
       settle(submit.sessionId, submission, accepted)
       return accepted
     } catch (error) {
+      const unknown = UNCERTAIN_SUBMIT_CODES.has(errorCode(error) ?? 'EXECUTION_FAILED')
       if (pending.get(submit.sessionId) === submission) {
         const latest = entry(submit.sessionId)
-        const unknown = errorCode(error) === 'RESULT_UNKNOWN'
         replace(submit.sessionId, {
           ...latest,
           status: unknown ? 'unknown' : 'failed',
@@ -239,6 +251,11 @@ export function createDrafts(
         })
         if (!unknown) pending.delete(submit.sessionId)
       }
+      if (unknown && errorCode(error) !== 'RESULT_UNKNOWN')
+        throw new CommandError(
+          'RESULT_UNKNOWN',
+          'Run acceptance is uncertain; reconcile the original submission receipt',
+        )
       throw error
     }
   }

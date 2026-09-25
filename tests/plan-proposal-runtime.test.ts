@@ -99,7 +99,7 @@ function fixture() {
       const key = options?.idempotencyKey ?? ''
       calls.push({ name, input: request, key })
       if (hold) await hold
-      if (mode === 'failed') throw new CommandError('EXECUTION_FAILED', 'Rejected before acceptance')
+      if (mode === 'failed') throw new CommandError('MODEL_NOT_FOUND', 'Rejected before acceptance')
       const result: RunAccepted = {
         status: 'accepted',
         commandId: 'run.submit',
@@ -395,7 +395,7 @@ test('confirmed failure can retry, and ordinary matching draft submission retain
     const target = await f.target()
     f.setMode('failed')
     await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'continue' })).rejects.toMatchObject({
-      code: 'EXECUTION_FAILED',
+      code: 'MODEL_NOT_FOUND',
     })
     f.setMode('accepted')
     await f.commands.execute('proposedPlan.submit', { ...target, action: 'continue' })

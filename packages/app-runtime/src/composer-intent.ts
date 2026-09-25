@@ -17,6 +17,7 @@ import {
 import { GoalPlanFeed } from './goal-plan-feed'
 import { createState, type StateReader } from './state'
 import type { GoalPlanWorkspacePort, NavigationState } from './types'
+import type { ComposerPermissionSubmission, createComposerPermission } from './composer-permission'
 
 export type ComposerIntent = 'default' | 'goal' | 'plan'
 export interface ComposerIntentEntry {
@@ -50,6 +51,11 @@ export interface ComposerIntentOptions {
   /** Delegate to the existing draft module so its draft revision and receipt rules remain authoritative. */
   readonly executeRun: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>
   readonly reconcileRun: (sessionId: string) => Promise<RunAccepted | null>
+  readonly getSettledReceipt?: (sessionId: string, key: string) => RunAccepted | null
+  readonly permissions?: Pick<
+    ReturnType<typeof createComposerPermission>,
+    'prepareComposerSubmission' | 'settleSubmission'
+  >
   readonly onSubscriberError: (error: unknown) => void
 }
 
@@ -71,6 +77,7 @@ const sessionInput = z.strictObject({ sessionId: idSchema })
 const result = z.strictObject({ sessionId: idSchema })
 const submitInput = submitRunInputSchema.extend({
   expectedIntentRevision: z.number().int().nonnegative().optional(),
+  expectedPermissionRevision: z.number().int().nonnegative().optional(),
   goalTokenBudget: z.number().int().positive().optional(),
 })
 const controlInput = sessionInput.extend({
@@ -99,6 +106,7 @@ type Submission = {
   readonly fingerprint: string
   readonly request: SubmitRunInput
   readonly tokenBudget: number | undefined
+  permission: ComposerPermissionSubmission | null
   baselineGoalId: string | null
   baselineGoalSeq: number
   preparedGoalId: string | null
@@ -151,6 +159,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   )
   const goals = options.goals ? createCommandClient(goalPlanCommands, options.goals) : null
   const submissions = new Map<string, Submission>()
+  const preparations = new Set<string>()
   const controls = new Map<string, GoalControl>()
   const reads = new Map<string, Promise<GoalPlanSnapshot>>()
   const entry = (sessionId: string) => state.reader.getSnapshot().entries[sessionId] ?? initial(sessionId)
@@ -275,6 +284,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     if (disposed || submissions.get(sessionId) !== pending) return
     const current = entry(sessionId)
     submissions.delete(sessionId)
+    if (pending.permission) options.permissions?.settleSubmission(pending.permission, 'accepted')
     replace({
       ...current,
       ...(current.revision === pending.revision ? { intent: 'default' as const, revision: current.revision + 1 } : {}),
@@ -283,7 +293,11 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   }
   const assertFree = (sessionId: string) => {
     const current = entry(sessionId)
-    if (controls.has(sessionId) || ['submitting', 'unknown'].includes(current.submission.status))
+    if (
+      preparations.has(sessionId) ||
+      controls.has(sessionId) ||
+      ['submitting', 'unknown'].includes(current.submission.status)
+    )
       throw new CommandError('BUSY', 'Reconcile the pending composer operation first')
   }
 
@@ -302,11 +316,16 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     const { sessionId } = input
     assertFree(sessionId)
     const current = entry(sessionId)
+    if (
+      !state.reader.getSnapshot().entries[sessionId] &&
+      Object.keys(state.reader.getSnapshot().entries).length >= MAX_ENTRIES
+    )
+      throw new CommandError('BUSY', 'Too many composer drafts are open')
     if (input.expectedIntentRevision !== undefined && input.expectedIntentRevision !== current.revision)
       throw new CommandError('VERSION_CONFLICT', 'Composer intent changed before submission')
     if (input.input.continuation || (input.input.source && input.input.source !== 'user'))
       throw new CommandError('INVALID_INPUT', 'Composer submissions must be direct user turns')
-    const request: SubmitRunInput = {
+    let request: SubmitRunInput = {
       sessionId,
       modelId: input.modelId,
       input: { ...input.input, mode: current.intent === 'plan' ? 'plan' : 'default', source: 'user' },
@@ -316,6 +335,33 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       (!request.input.text.trim() || request.input.text.trim().length > MAX_GOAL_OBJECTIVE_LENGTH)
     )
       throw new CommandError('GOAL_INVALID', 'A Goal requires a bounded non-empty objective')
+    // Capture policy before Goal reads/creation and reserve this composer while the default read is pending.
+    preparations.add(sessionId)
+    let permission: ComposerPermissionSubmission | null = null
+    try {
+      if (input.expectedPermissionRevision !== undefined && !options.permissions)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer approval choices are unavailable')
+      permission =
+        (await options.permissions?.prepareComposerSubmission(
+          sessionId,
+          input.expectedPermissionRevision,
+          execution.signal,
+        )) ?? null
+      if (disposed || execution.signal.aborted)
+        throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
+      if (entry(sessionId).revision !== current.revision)
+        throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during permission preparation')
+      if (permission) {
+        if (request.input.approval !== undefined && request.input.approval !== permission.approval)
+          throw new CommandError('INVALID_INPUT', 'Run approval conflicts with the captured composer choice')
+        request = { ...request, input: { ...request.input, approval: permission.approval } }
+      }
+    } catch (error) {
+      if (permission) options.permissions?.settleSubmission(permission, 'failed', code(error))
+      throw error
+    } finally {
+      preparations.delete(sessionId)
+    }
     const fingerprint = JSON.stringify([request, input.goalTokenBudget ?? null])
     let pending = submissions.get(sessionId)
     if (pending && (pending.fingerprint !== fingerprint || pending.intent !== current.intent)) {
@@ -330,11 +376,13 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         // or effort. Changed Run input needs a fresh key, but never another Goal.
         pending = { ...pending, key: crypto.randomUUID(), fingerprint, request }
         submissions.set(sessionId, pending)
-      } else
+      } else {
+        if (permission) options.permissions?.settleSubmission(permission, 'failed', 'GOAL_SUBMISSION_CHANGED')
         throw new CommandError(
           'GOAL_SUBMISSION_CHANGED',
           'The prepared Goal belongs to the original draft; cancel its draft intent before changing it',
         )
+      }
     }
     if (!pending) {
       pending = {
@@ -344,6 +392,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         fingerprint,
         request,
         tokenBudget: input.goalTokenBudget,
+        permission,
         baselineGoalId: null,
         baselineGoalSeq: -1,
         preparedGoalId: null,
@@ -352,6 +401,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       }
       submissions.set(sessionId, pending)
     }
+    pending.permission = permission
     pending.status = 'submitting'
     setSubmission(sessionId, pending)
     let writeStarted = false
@@ -392,7 +442,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       const accepted = runAcceptedSchema.parse(
         await options.executeRun('run.submit', pending.request, { ...execution, idempotencyKey: pending.key }),
       )
-      if (accepted.sessionId !== sessionId) throw new CommandError('INVALID_OUTPUT', 'Run receipt target mismatch')
+      if (accepted.sessionId !== sessionId || accepted.idempotencyKey !== pending.key)
+        throw new CommandError('INVALID_OUTPUT', 'Run receipt target mismatch')
       settle(sessionId, pending)
       return accepted
     } catch (error) {
@@ -404,6 +455,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           ? UNKNOWN_CODES.has(code(error))
           : code(error) === 'RESULT_UNKNOWN' || code(error) === 'INVALID_OUTPUT')
       pending.status = unknown ? 'unknown' : pending.preparedGoalId ? 'partial' : 'failed'
+      if (pending.permission)
+        options.permissions?.settleSubmission(pending.permission, unknown ? 'unknown' : 'failed', code(error))
       setSubmission(sessionId, pending, code(error))
       if (!unknown && !pending.preparedGoalId) submissions.delete(sessionId)
       throw error
@@ -462,7 +515,15 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
     } else if (pending?.status === 'unknown') {
       if (pending.phase === 'run') {
-        const accepted = await options.reconcileRun(sessionId)
+        let accepted = options.getSettledReceipt?.(sessionId, pending.key) ?? null
+        if (!accepted) {
+          try {
+            accepted = await options.reconcileRun(sessionId)
+          } catch (error) {
+            accepted = options.getSettledReceipt?.(sessionId, pending.key) ?? null
+            if (!accepted) throw error
+          }
+        }
         if (accepted) {
           if (accepted.sessionId !== sessionId || accepted.idempotencyKey !== pending.key)
             throw new CommandError('INVALID_OUTPUT', 'Reconciled Run receipt mismatch')
@@ -481,6 +542,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           pending.preparedGoalId = value.goal.goalId
           pending.phase = 'run'
           pending.status = 'partial'
+          // Goal acceptance is now known but no Run was sent. The next explicit retry may choose a new policy.
+          if (pending.permission) options.permissions?.settleSubmission(pending.permission, 'failed')
+          pending.permission = null
           // Do not automatically send after an uncertain write. The user explicitly retries the prepared draft.
           setSubmission(sessionId, pending)
         } else throw new CommandError('RESULT_UNKNOWN', 'Goal creation has not been confirmed')
@@ -491,6 +555,16 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
 
   return {
     reader: state.reader,
+    isSubmissionPending(sessionId: string): boolean {
+      return preparations.has(sessionId) || ['submitting', 'unknown'].includes(entry(sessionId).submission.status)
+    },
+    /** A generic draft receipt must settle the exact owning composer, never an unrelated current session. */
+    acceptRunReceipt(accepted: RunAccepted): boolean {
+      const pending = submissions.get(accepted.sessionId)
+      if (!pending || pending.phase !== 'run' || pending.key !== accepted.idempotencyKey) return false
+      settle(accepted.sessionId, pending)
+      return true
+    },
     dispose() {
       disposed = true
       generation += 1
@@ -498,6 +572,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       feed.dispose()
       reads.clear()
       submissions.clear()
+      preparations.clear()
       controls.clear()
       state.dispose()
     },

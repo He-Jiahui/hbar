@@ -66,7 +66,7 @@ test('draft submission captures its session and revision while newer edits survi
       if (name === 'operation.cancel')
         return { operationId: (input as { operationId: string }).operationId, status: 'cancelRequested' }
       await hold
-      if (mode === 'failed') throw new CommandError('EXECUTION_FAILED', 'Rejected')
+      if (mode === 'failed') throw new CommandError('MODEL_NOT_FOUND', 'Rejected before acceptance')
       const sessionId = (input as { sessionId: string }).sessionId
       const result = accepted(sessionId, crypto.randomUUID(), options?.idempotencyKey)
       receipts.set(`${sessionId}:${options?.idempotencyKey}`, result)
@@ -151,7 +151,7 @@ test('draft submission captures its session and revision while newer edits survi
 test('draft validation retains failed input and keeps runtime instances private', async () => {
   const failing: RunCommandPort = {
     async execute() {
-      throw new CommandError('EXECUTION_FAILED', 'No model')
+      throw new CommandError('MODEL_NOT_FOUND', 'No model')
     },
     async getReceipt() {
       return null
@@ -181,7 +181,7 @@ test('draft validation retains failed input and keeps runtime instances private'
         modelId: 'model',
         input: { text: 'keep me', images: [], files: [artifact] },
       }),
-    ).rejects.toMatchObject({ code: 'EXECUTION_FAILED' })
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
     expect(first.view.state.drafts.getSnapshot().session).toMatchObject({
       text: 'keep me',
       attachments: [{ kind: 'file', artifact }],

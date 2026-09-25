@@ -144,6 +144,14 @@
   gap: 4px;
 }
 
+.hbar-session-composer-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .hbar-session-composer-options > .hbar-composer-model-picker {
   min-inline-size: 0;
   flex: 0 1 auto;

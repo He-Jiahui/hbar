@@ -39,6 +39,7 @@ import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
+import { composerPermissionCommands, createComposerPermission } from './composer-permission'
 import { sessionRenameCommands, createSessionRename } from './session-rename'
 import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
@@ -140,11 +141,20 @@ export { SessionSelectionError } from './navigation'
 
 export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
+export type {
+  ComposerPermissionState,
+  ComposerPermissionEntry,
+  ComposerPermissionChoice,
+  ComposerPermissionMode,
+  ComposerPermissionSubmission,
+  ComposerPermissionOptions,
+} from './composer-permission'
 
 const runtimeCommands = {
   ...applicationCommands,
   ...composerModelCommands,
   ...composerIntentCommands,
+  ...composerPermissionCommands,
   ...sessionRenameCommands,
   ...planProposalCommands,
 }
@@ -206,10 +216,27 @@ export function createAppRuntime(options: RuntimeOptions) {
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed)
+  const composerPermission = createComposerPermission(local, {
+    configuration: options.configuration,
+    navigation: navigation.reader,
+    isSubmissionLocked: (sessionId) => {
+      const draft = drafts.reader.getSnapshot()[sessionId]
+      const intent = composerIntent.reader.getSnapshot().entries[sessionId]
+      return (
+        draft?.status === 'submitting' ||
+        draft?.status === 'unknown' ||
+        intent?.submission.status === 'submitting' ||
+        intent?.submission.status === 'unknown'
+      )
+    },
+    onSubscriberError,
+  })
   const composerIntent = createComposerIntent(local, {
     goals: options.goals,
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
+    permissions: composerPermission,
+    getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
     onSubscriberError,
@@ -233,7 +260,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   const planProposal = createPlanProposalActions(local, {
     timeline: timeline.reader,
     controls: controls.reader,
-    executeDetachedRun: drafts.executeDetachedRun,
+    executeDetachedRun: (input, execution) => {
+      if (
+        composerIntent.isSubmissionPending(input.sessionId) ||
+        composerPermission.reader.getSnapshot().entries[input.sessionId]?.locked
+      )
+        return Promise.reject(new CommandError('BUSY', 'The ordinary composer owns this session submission'))
+      return drafts.executeDetachedRun(input, execution)
+    },
     getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
@@ -299,6 +333,13 @@ export function createAppRuntime(options: RuntimeOptions) {
       )
         return platform.execute(name, input, execution)
       if (Object.hasOwn(runCommands, name)) return drafts.executeRun(name, input, execution)
+      if (name === 'draft.reconcileSubmission') {
+        return local.execute(name, input, execution).then((value) => {
+          const accepted = runAcceptedSchema.nullable().parse(value)
+          if (accepted) composerIntent.acceptRunReceipt(accepted)
+          return accepted
+        })
+      }
       if (Object.hasOwn(interactionCommands, name)) return interactions.execute(name, input, execution)
       if (Object.hasOwn(modelCommands, name)) return controls.executeModel(name, input, execution)
       if (Object.hasOwn(usageCommands, name)) return controls.executeUsage(name, input, execution)
@@ -326,6 +367,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
+        Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(sessionRenameCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
@@ -365,6 +407,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls: controls.reader,
       composerModel: composerModel.reader,
       composerIntent: composerIntent.reader,
+      composerPermission: composerPermission.reader,
       sessionRename: sessionRename.reader,
       planProposal: planProposal.reader,
       settings: settingsForms.reader,
@@ -404,6 +447,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls.dispose()
       composerModel.dispose()
       composerIntent.dispose()
+      composerPermission.dispose()
       sessionRename.dispose()
       planProposal.dispose()
       settingsForms.dispose()

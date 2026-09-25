@@ -819,6 +819,68 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       copyUnavailable: choose('此环境无法使用剪贴板。', 'Clipboard access is unavailable in this environment.'),
       retryCopy: choose('重试复制', 'Retry copy'),
     },
+    permissionPicker: {
+      title: choose('本次发送的工具审批', 'Tool approval for the next send'),
+      trigger: (value) => choose(`工具审批：${value}`, `Tool approval: ${value}`),
+      close: choose('关闭工具审批选项', 'Close tool approval options'),
+      loading: choose('正在读取服务端默认策略…', 'Loading the Host default policy…'),
+      retry: choose('重新读取默认策略', 'Reload the default policy'),
+      pending: choose('正在准备本次发送…', 'Preparing this send…'),
+      unknown: choose(
+        '本次发送结果未确认，策略已锁定；请核对提交结果。',
+        'This send is not confirmed. Its policy is locked; check the submission result.',
+      ),
+      scopeHint: choose(
+        '仅下一次发送；不会更改服务端默认策略。',
+        'Only the next send; the Host default is not changed.',
+      ),
+      inheritedSnapshotHint: (mode) =>
+        mode
+          ? choose(
+              `当前默认：${mode}。发送时读取并固定本次策略。`,
+              `Current default: ${mode}. This send captures the default when submitted.`,
+            )
+          : choose(
+              '发送时读取服务端默认策略；读取失败不会发送。',
+              'The Host default is captured when sending. A failed read will not send the request.',
+            ),
+      options: {
+        ask: {
+          label: choose('逐次询问', 'Ask'),
+          description: choose('需要审批的工具会等待你的决定。', 'Tools requiring approval wait for your decision.'),
+        },
+        deny: {
+          label: choose('拒绝需审批工具', 'Deny approval requests'),
+          description: choose(
+            '拒绝需要审批的工具；已被策略允许的工具仍可执行，并非只读模式。',
+            'Deny tools requiring approval. Policy-allowed tools can still run; this is not read-only mode.',
+          ),
+        },
+        allow: {
+          label: choose('自动批准', 'Auto-approve'),
+          description: choose(
+            '自动批准需要审批的工具；服务端明确拒绝的策略仍然生效。',
+            'Automatically approve tools requiring approval. Explicit Host denials still apply.',
+          ),
+        },
+        inherit: {
+          label: choose('服务端默认', 'Host default'),
+          description: choose(
+            '读取发送时的默认策略，并固定用于本次运行。',
+            'Capture the default policy at submission and keep it for this run.',
+          ),
+        },
+      },
+      confirmTitle: choose('确认本次自动批准？', 'Auto-approve this send?'),
+      confirmBody: (title) =>
+        choose(
+          `会话“${title}”的下一次发送将自动批准需要审批的工具，可能写入文件或运行命令。服务端拒绝规则仍生效。`,
+          `The next send in “${title}” will automatically approve tools that may write files or execute commands. Host deny rules still apply.`,
+        ),
+      confirmAllow: choose('确认自动批准', 'Confirm auto-approval'),
+      cancel: choose('取消', 'Cancel'),
+      error: (code) => choose(`审批策略操作失败：${code}`, `Could not apply the approval policy: ${code}`),
+    },
     proposedPlan: {
       title: choose('计划提案', 'Proposed plan'),
       document: choose('计划文档', 'Plan document'),
