@@ -262,6 +262,7 @@ test('long session history preserves reading anchors, follows new content on dem
     await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
 
     const viewport = page.locator('.lumen-conversation-messages')
+    const serverFooter = page.getByRole('complementary', { name: 'Projects and sessions' }).locator('footer')
     const virtual = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
     await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '60')
     await expect(page.locator('[data-message-id="history-180"]')).toBeVisible()
@@ -360,7 +361,7 @@ test('long session history preserves reading anchors, follows new content on dem
     if (!browserSocket) throw new Error('The browser RPC WebSocket was not routed')
     const disconnectedSocket = browserSocket
     await disconnectedSocket.close({ code: 1012, reason: 'E2E connection interruption' })
-    await expect(page.locator('footer')).toContainText('Disconnected')
+    await expect(serverFooter).toContainText('Disconnected')
     await expect(prompt).toHaveValue('draft preserved through reconnect')
     await expect(
       page.getByText('Connection lost. Existing history, draft, and attachments are preserved.'),
@@ -371,7 +372,7 @@ test('long session history preserves reading anchors, follows new content on dem
     })
     await page.screenshot({ path: 'artifacts/ui-redesign/session/after/disconnected-1440.png', fullPage: true })
     await page.getByRole('button', { name: 'Reconnect' }).click()
-    await expect(page.locator('footer')).toContainText('Connected')
+    await expect(serverFooter).toContainText('Connected')
     await expect.poll(() => browserSocket !== disconnectedSocket).toBe(true)
     await expect(prompt).toHaveValue('draft preserved through reconnect')
     await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '182')

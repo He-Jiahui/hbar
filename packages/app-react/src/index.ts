@@ -1,4 +1,15 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
+export {
+  HbarMessageBlocks,
+  HbarMessageActionBar,
+  type HbarMessageBlocksProps,
+  type HbarMessageBlocksLabels,
+  type HbarMessageActionBarProps,
+  type HbarMessageActionLabels,
+  type HbarMessageToolPresentation,
+  type HbarMessageActivitySummary,
+} from './session-message'
+export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
 export { createHbarSchemaComponents } from './lumen-schema-components'
 export {
   HbarWorkspaceShell,

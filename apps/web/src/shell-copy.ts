@@ -783,6 +783,38 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ? { user: '你', assistant: 'AI', system: '系', tool: '工' }
       : { user: 'You', assistant: 'AI', system: 'Sy', tool: 'Tl' },
     copy: choose('复制消息', 'Copy message'),
+    messageBlocks: {
+      thinking: choose('思考中', 'Thinking'),
+      thought: choose('思考', 'Thought'),
+      activity: ({ thinkingCount, toolCounts, failedCount }) =>
+        [
+          ...(thinkingCount
+            ? [choose(`${thinkingCount} 段思考`, `${thinkingCount} ${thinkingCount === 1 ? 'thought' : 'thoughts'}`)]
+            : []),
+          ...toolCounts.map(({ name, count }) => choose(`${name} × ${count}`, `${name} × ${count}`)),
+          ...(failedCount ? [choose(`${failedCount} 项失败`, `${failedCount} failed`)] : []),
+        ].join(' · '),
+      tool: (name) => name,
+      failed: choose('失败', 'Failed'),
+      resultAvailable: choose('已完成', 'Completed'),
+      awaitingResult: choose('等待结果', 'Awaiting result'),
+      input: choose('输入', 'Input'),
+      output: choose('输出', 'Output'),
+      emptyOutput: choose('无输出', 'No output'),
+      unavailableInput: choose('参数不可显示', 'Input unavailable'),
+      showFullContent: choose('展开完整内容', 'Show full content'),
+      showLessContent: choose('收起内容', 'Show less'),
+      attachment: (kind, name) =>
+        choose(`${kind === 'image' ? '图片' : '文件'}：${name}`, `${kind === 'image' ? 'Image' : 'File'}: ${name}`),
+    },
+    messageActions: {
+      copy: choose('复制回复', 'Copy reply'),
+      copying: choose('正在复制…', 'Copying…'),
+      copied: choose('已复制', 'Copied'),
+      copyFailed: choose('无法写入剪贴板，请重试。', 'Could not write to the clipboard. Try again.'),
+      copyUnavailable: choose('此环境无法使用剪贴板。', 'Clipboard access is unavailable in this environment.'),
+      retryCopy: choose('重试复制', 'Retry copy'),
+    },
     thinking: choose('思考过程', 'Reasoning'),
     toolCall: (name) => choose(`调用工具：${name}`, `Tool call: ${name}`),
     toolResult: (name, failed) =>

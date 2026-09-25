@@ -1,8 +1,5 @@
-import { type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import rehypeSanitize from 'rehype-sanitize'
-import remarkGfm from 'remark-gfm'
 import {
   LumenFrame,
   LumenText,
@@ -22,14 +19,18 @@ import {
   type LumenRunActivityLabels,
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
-import type { SessionAttachmentUpload, SessionControlsState, SessionTimelineState } from '@hbar/app-runtime'
+import type { SessionAttachmentUpload, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
-import { HbarLumenDisclosure } from './lumen-disclosure'
+import {
+  HbarMessageBlocks,
+  HbarMessageActionBar,
+  type HbarMessageBlocksLabels,
+  type HbarMessageActionLabels,
+} from './session-message'
+import { projectSessionMessages } from './session-message-model'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import './lumen-session-workspace.css'
-
-type ContentBlock = SessionTimelineState['messages'][number]['content'][number]
 
 export interface HbarSessionWorkspaceLabels {
   readonly conversationTitle: (title: string) => string
@@ -55,6 +56,8 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: LumenPromptLabels
   readonly modelPicker: HbarComposerModelLabels
   readonly intent: HbarComposerIntentLabels
+  readonly messageBlocks: HbarMessageBlocksLabels
+  readonly messageActions: HbarMessageActionLabels
   readonly tools: {
     readonly label: string
     readonly files: string
@@ -100,55 +103,6 @@ export interface HbarSessionAttachmentSelection {
   readonly kind: 'image' | 'file'
   readonly upload: SessionAttachmentUpload
   release(): void
-}
-
-function Markdown({ text }: { readonly text: string }) {
-  return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-      {text}
-    </ReactMarkdown>
-  )
-}
-
-function MessageBlocks({
-  blocks,
-  labels,
-}: {
-  readonly blocks: readonly ContentBlock[]
-  readonly labels: HbarSessionWorkspaceLabels
-}) {
-  return blocks.map((block, index) => {
-    const key = `${block.type}:${'callId' in block ? block.callId : index}`
-    if (block.type === 'text') return <Markdown key={key} text={block.text} />
-    if (block.type === 'thinking')
-      return (
-        <HbarLumenDisclosure key={key} className="hbar-app-react-thinking" label={labels.thinking}>
-          <Markdown text={block.text} />
-        </HbarLumenDisclosure>
-      )
-    if (block.type === 'tool_call')
-      return (
-        <HbarLumenDisclosure key={key} className="hbar-app-react-tool-block" label={labels.toolCall(block.name)}>
-          <LumenText as="pre">{JSON.stringify(block.args, null, 2)}</LumenText>
-        </HbarLumenDisclosure>
-      )
-    if (block.type === 'tool_result')
-      return (
-        <HbarLumenDisclosure
-          key={key}
-          className="hbar-app-react-tool-block"
-          defaultOpen={block.isError}
-          label={labels.toolResult(block.name, block.isError)}
-        >
-          <LumenText as="pre">{block.text}</LumenText>
-        </HbarLumenDisclosure>
-      )
-    return (
-      <LumenText as="p" key={key} className="hbar-app-react-attachment-block">
-        {labels.attachment(block.type, block.artifact.name)}
-      </LumenText>
-    )
-  })
 }
 
 function decisionState(
@@ -310,15 +264,41 @@ export function HbarSessionWorkspace({
     invoke('app.openPanel', { panelId, workspaceId: navigation.workspaceId, sessionId, binding: 'followActive' })
   }
 
+  const projectedMessages = useMemo(() => projectSessionMessages(timeline.messages), [timeline.messages])
+  const lastAssistantByRun = new Map<string, string>()
+  for (const { message } of projectedMessages) {
+    if (message.role === 'assistant' && message.content.some((block) => block.type === 'text' && block.text.trim()))
+      lastAssistantByRun.set(message.runId, message.id)
+  }
+  const unfinishedRuns = new Set(activeRuns.map((run) => run.id))
   const messages: LumenMessageProps[] = [
-    ...timeline.messages.map((message) => ({
+    ...projectedMessages.map(({ message, blocks, results }) => ({
       id: message.id,
       role: message.role,
       author: labels.author[message.role],
       avatar: labels.avatar[message.role],
-      timestamp: labels.timestamp(message.createdAt),
+      appearance: 'transcript' as const,
       copyLabel: labels.copy,
-      children: <MessageBlocks blocks={message.content} labels={labels} />,
+      children: (
+        <HbarMessageBlocks
+          sessionId={message.sessionId}
+          messageId={message.id}
+          blocks={blocks}
+          results={results}
+          streaming={unfinishedRuns.has(message.runId)}
+          labels={labels.messageBlocks}
+        />
+      ),
+      actions:
+        lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId) ? (
+          <HbarMessageActionBar
+            sessionId={message.sessionId}
+            messageId={message.id}
+            content={message.content}
+            labels={labels.messageActions}
+            metadata={<LumenText as="span">{labels.timestamp(message.createdAt)}</LumenText>}
+          />
+        ) : null,
     })),
     ...Object.values(timeline.streams).map((stream) => ({
       id: stream.id,
@@ -326,16 +306,19 @@ export function HbarSessionWorkspace({
       author: labels.author.assistant,
       avatar: labels.avatar.assistant,
       streaming: true,
+      appearance: 'transcript' as const,
       copyLabel: labels.copy,
       children: (
-        <>
-          {stream.thinking && (
-            <HbarLumenDisclosure className="hbar-app-react-thinking" label={labels.thinking}>
-              <Markdown text={stream.thinking} />
-            </HbarLumenDisclosure>
-          )}
-          {stream.text && <Markdown text={stream.text} />}
-        </>
+        <HbarMessageBlocks
+          sessionId={stream.sessionId}
+          messageId={stream.id}
+          blocks={[
+            { type: 'thinking', text: stream.thinking },
+            { type: 'text', text: stream.text },
+          ]}
+          streaming
+          labels={labels.messageBlocks}
+        />
       ),
     })),
   ]
