@@ -3,6 +3,7 @@ import { createConfigurationCommandClient, createModelCommandClient } from '@hba
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
@@ -32,7 +33,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               name: `Catalog fixture ${index}`,
             })),
           ],
-          thinkingLevels: ['low', 'high'],
+          thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
           defaultThinkingLevel: 'high',
         },
       })
@@ -41,6 +42,54 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const page = await context.newPage()
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
+      const envelope = z
+        .object({
+          id: z.union([z.string(), z.number()]).optional(),
+          params: z.object({ commandId: z.string().optional() }).passthrough().optional(),
+        })
+        .passthrough()
+      let responseMode: 'normal' | 'failure' | 'unknown' = 'normal'
+      const thinkingRequestIds = new Set<string | number>()
+      await page.routeWebSocket('**/rpc', (socket) => {
+        const server = socket.connectToServer()
+        socket.onMessage((message) => {
+          if (typeof message === 'string') {
+            const parsed = envelope.safeParse(JSON.parse(message))
+            if (parsed.success && parsed.data.params?.commandId === 'session.setThinkingLevel') {
+              if (responseMode === 'failure') {
+                socket.send(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.data.id,
+                    error: { code: -32603, message: 'Fixture rejects this change', data: 'INVALID_INPUT' },
+                  }),
+                )
+                return
+              }
+              if (parsed.data.id !== undefined) thinkingRequestIds.add(parsed.data.id)
+            }
+          }
+          server.send(message)
+        })
+        server.onMessage((message) => {
+          if (typeof message === 'string') {
+            const parsed = envelope.safeParse(JSON.parse(message))
+            if (parsed.success && parsed.data.id !== undefined && thinkingRequestIds.delete(parsed.data.id)) {
+              if (responseMode === 'unknown') {
+                socket.send(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.data.id,
+                    error: { code: -32603, message: 'Fixture hides the accepted reply', data: 'RESULT_UNKNOWN' },
+                  }),
+                )
+                return
+              }
+            }
+          }
+          socket.send(message)
+        })
+      })
       await page.goto(base)
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
@@ -79,16 +128,111 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const effort = page.getByRole('dialog', { name: labels.thinking, exact: true })
       const slider = effort.getByRole('slider', { name: labels.thinking })
       await slider.focus()
+      const modelClient = createModelCommandClient(host.client)
+      const beforeThinking = await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })
       await page.keyboard.press('Home')
+      await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('low'))
+      await expect(slider).toHaveAttribute('aria-valuetext', labels.thinkingLevel('low'))
+      await expect(thinking).toHaveText(labels.thinkingLevel('high'))
+      await page.keyboard.press('End')
+      await page.keyboard.press('ArrowLeft')
+      await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('xhigh'))
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
+        beforeThinking.revisions,
+      )
+      await page.keyboard.press('Escape')
+      await expect(effort).not.toBeVisible()
+      await expect(thinking).toHaveText(labels.thinkingLevel('high'))
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
+        beforeThinking.revisions,
+      )
+      await thinking.click()
+      await slider.focus()
+      await page.keyboard.press('Home')
+      await page.keyboard.press('Enter')
       await expect(thinking).toHaveText(labels.thinkingLevel('low'))
-      const savedModel = await createModelCommandClient(host.client).execute('session.getModel', {
+      const savedModel = await modelClient.execute('session.getModel', {
         sessionId: host.ready.sessionId,
       })
       expect(savedModel.thinkingLevel).toBe('low')
       expect(savedModel.model?.modelName).toBe(longModelName)
+      expect(Object.values(savedModel.revisions).reduce((sum, revision) => sum + revision, 0)).toBe(
+        Object.values(beforeThinking.revisions).reduce((sum, revision) => sum + revision, 0) + 1,
+      )
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-${locale}.png` })
       await page.keyboard.press('Escape')
       await expect(effort).not.toBeVisible()
+
+      await page.setViewportSize({ width: 320, height: 720 })
+      await thinking.click()
+      const bounds = await slider.boundingBox()
+      expect(bounds).not.toBeNull()
+      const y = bounds!.y + bounds!.height / 2
+      await page.mouse.move(bounds!.x + bounds!.width * 0.05, y)
+      await page.mouse.down()
+      await page.mouse.move(bounds!.x + bounds!.width * 0.5, y, { steps: 8 })
+      await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('high'))
+      await expect(slider).toHaveAttribute('aria-valuetext', labels.thinkingLevel('high'))
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).thinkingLevel).toBe(
+        'low',
+      )
+      await page.mouse.move(bounds!.x + bounds!.width * 0.95, y, { steps: 8 })
+      await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('max'))
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-drag-preview-${locale}-320.png` })
+      await page.mouse.up()
+      await expect(thinking).toHaveText(labels.thinkingLevel('max'))
+      const afterDrag = await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })
+      expect(afterDrag.thinkingLevel).toBe('max')
+      expect(Object.values(afterDrag.revisions).reduce((sum, revision) => sum + revision, 0)).toBe(
+        Object.values(savedModel.revisions).reduce((sum, revision) => sum + revision, 0) + 1,
+      )
+      await page.keyboard.press('Escape')
+      await expect(effort).not.toBeVisible()
+      await thinking.click()
+      await slider.focus()
+      await page.keyboard.press('End')
+      await page.keyboard.press('Tab')
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
+        afterDrag.revisions,
+      )
+      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await thinking.click()
+      await slider.focus()
+      await page.keyboard.press('Home')
+      await page.keyboard.press('Tab')
+      await expect(thinking).toHaveText(labels.thinkingLevel('low'))
+      const afterBlur = await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })
+      expect(Object.values(afterBlur.revisions).reduce((sum, revision) => sum + revision, 0)).toBe(
+        Object.values(afterDrag.revisions).reduce((sum, revision) => sum + revision, 0) + 1,
+      )
+      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await thinking.click()
+      await slider.focus()
+      await page.keyboard.press('End')
+      responseMode = 'failure'
+      await page.keyboard.press('Enter')
+      await expect(effort.getByRole('alert')).toBeVisible()
+      await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('low'))
+      await expect(thinking).toHaveText(labels.thinkingLevel('low'))
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
+        afterBlur.revisions,
+      )
+      responseMode = 'unknown'
+      await slider.focus()
+      await page.keyboard.press('End')
+      await page.keyboard.press('Enter')
+      await expect(effort.getByText(labels.unknown)).toBeVisible()
+      await expect(effort.getByRole('button', { name: labels.reconcile })).toBeVisible()
+      const acceptedUnknown = await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })
+      expect(acceptedUnknown.thinkingLevel).toBe('max')
+      responseMode = 'normal'
+      await effort.getByRole('button', { name: labels.reconcile }).click()
+      await expect(thinking).toHaveText(labels.thinkingLevel('max'))
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
+        acceptedUnknown.revisions,
+      )
+      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await page.setViewportSize({ width: 1440, height: 960 })
 
       for (const viewport of [
         { width: 1440, height: 960 },

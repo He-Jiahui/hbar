@@ -1,6 +1,11 @@
 import { expect, test } from 'bun:test'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
-import { COMPOSER_MODEL_PAGE_SIZE, filterComposerModels } from '../packages/app-react/src/composer-model-picker'
+import {
+  COMPOSER_MODEL_PAGE_SIZE,
+  filterComposerModels,
+  thinkingPreviewIdentity,
+  visibleThinkingIndex,
+} from '../packages/app-react/src/composer-model-picker'
 
 function fixture(index: number): ModelDescriptor {
   return {
@@ -65,4 +70,46 @@ test('catalog groups use stable provider IDs; duplicate records cannot render du
   expect(result.groups[0]?.[1].models).toEqual([renamed])
   expect(result.groups[0]?.[1].models[0]?.id).toBe(original.id)
   expect(filterComposerModels([another], original.id, 60).groups).toEqual([])
+})
+
+test('a local thinking preview belongs to one session and one confirmed model revision', () => {
+  const model = fixture(0)
+  const configuration = {
+    modelId: model.id,
+    model,
+    thinkingLevel: 'low' as const,
+    revisions: { 'settings:session:a': 2, 'settings:global': 3 },
+  }
+  const identity = thinkingPreviewIdentity('a', configuration)
+  expect(
+    thinkingPreviewIdentity('a', { ...configuration, revisions: { 'settings:global': 3, 'settings:session:a': 2 } }),
+  ).toBe(identity)
+  expect(visibleThinkingIndex(0, identity, { identity, index: 1 })).toBe(1)
+  expect(visibleThinkingIndex(0, thinkingPreviewIdentity('b', configuration), { identity, index: 1 })).toBe(0)
+  expect(
+    visibleThinkingIndex(0, thinkingPreviewIdentity('a', { ...configuration, thinkingLevel: 'high' }), {
+      identity,
+      index: 1,
+    }),
+  ).toBe(0)
+  expect(
+    visibleThinkingIndex(
+      0,
+      thinkingPreviewIdentity('a', {
+        ...configuration,
+        revisions: { ...configuration.revisions, 'settings:session:a': 3 },
+      }),
+      { identity, index: 1 },
+    ),
+  ).toBe(0)
+  expect(
+    visibleThinkingIndex(
+      0,
+      thinkingPreviewIdentity('a', {
+        ...configuration,
+        model: { ...model, thinkingLevels: ['low', 'medium', 'high'] },
+      }),
+      { identity, index: 1 },
+    ),
+  ).toBe(0)
 })

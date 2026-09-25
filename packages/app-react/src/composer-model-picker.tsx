@@ -1,12 +1,36 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenText } from '@lumen/app-ui'
-import type { ComposerModelState } from '@hbar/app-runtime'
+import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './composer-model-picker.css'
 
 type ModelDescriptor = ComposerModelState['models'][number]
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
+type ModelConfiguration = Pick<
+  NonNullable<SessionControlsState['model']>,
+  'modelId' | 'model' | 'thinkingLevel' | 'revisions'
+>
+type ThinkingPreview = { readonly identity: string; readonly index: number }
+
+/** A local slider draft is valid only for the exact confirmed configuration it began with. */
+export function thinkingPreviewIdentity(sessionId: string, model: ModelConfiguration): string {
+  return JSON.stringify([
+    sessionId,
+    model.modelId,
+    model.thinkingLevel,
+    model.model?.thinkingLevels,
+    Object.entries(model.revisions).sort(([a], [b]) => a.localeCompare(b)),
+  ])
+}
+
+export function visibleThinkingIndex(
+  confirmed: number,
+  identity: string | null,
+  preview: ThinkingPreview | null,
+): number {
+  return identity && preview?.identity === identity ? preview.index : confirmed
+}
 
 export interface HbarComposerModelLabels {
   readonly title: string
@@ -181,7 +205,10 @@ export function HbarComposerModelPicker({
   const [open, setOpen] = useState<'model' | 'thinking' | null>(null)
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(COMPOSER_MODEL_PAGE_SIZE)
-  const [sliderDraft, setSliderDraft] = useState<number | null>(null)
+  const [sliderDraft, setSliderDraft] = useState<ThinkingPreview | null>(null)
+  const sliderDraftRef = useRef<ThinkingPreview | null>(null)
+  const pointerIdentityRef = useRef<string | null>(null)
+  const cancelledRef = useRef(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const lastOpenRequest = useRef(openRequest)
   useEffect(() => {
@@ -210,8 +237,22 @@ export function HbarComposerModelPicker({
   const models = catalog.sessionId === sessionId ? catalog.models : []
   const { groups, remaining } = filterComposerModels(models, query, limit, model?.modelId)
   const levels = current?.thinkingLevels ?? []
+  const thinkingIdentity = model ? thinkingPreviewIdentity(sessionId, model) : null
   const levelIndex = Math.max(0, levels.indexOf(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off'))
-  const selectedLevel = levels[sliderDraft ?? levelIndex]
+  const selectedIndex = visibleThinkingIndex(levelIndex, thinkingIdentity, sliderDraft)
+  const selectedLevel = levels[selectedIndex]
+  const resetThinkingPreview = () => {
+    sliderDraftRef.current = null
+    pointerIdentityRef.current = null
+    setSliderDraft(null)
+  }
+  useEffect(() => {
+    if (sliderDraftRef.current && sliderDraftRef.current.identity !== thinkingIdentity) {
+      sliderDraftRef.current = null
+      pointerIdentityRef.current = null
+      setSliderDraft(null)
+    }
+  }, [thinkingIdentity])
   const error = localError ?? action?.error ?? catalog.error
   const capture = (reason: unknown) => {
     const code =
@@ -234,15 +275,49 @@ export function HbarComposerModelPicker({
       })
       .catch(capture)
   }
-  const selectThinking = () => {
-    if (sliderDraft === null || !selectedLevel || unavailable || thinkingWriteRef.current) return
+  const previewThinking = (input: HTMLInputElement) => {
+    if (!thinkingIdentity || unavailable || thinkingWriteRef.current) return
+    const index = Number(input.value)
+    if (!Number.isInteger(index) || !levels[index]) return
+    const preview = {
+      identity: pointerIdentityRef.current ?? sliderDraftRef.current?.identity ?? thinkingIdentity,
+      index,
+    }
+    sliderDraftRef.current = preview
+    setSliderDraft(preview)
+  }
+  const selectThinking = (input: HTMLInputElement) => {
+    if (
+      cancelledRef.current ||
+      unavailable ||
+      thinkingWriteRef.current ||
+      !thinkingIdentity ||
+      (!sliderDraftRef.current && !pointerIdentityRef.current)
+    )
+      return
+    const origin = pointerIdentityRef.current ?? sliderDraftRef.current?.identity ?? thinkingIdentity
+    const index = Number(input.value)
+    const nextLevel = Number.isInteger(index) ? levels[index] : undefined
+    const latest = runtime.state.controls.getSnapshot()
+    const latestIdentity =
+      latest.sessionId === sessionId && latest.model ? thinkingPreviewIdentity(sessionId, latest.model) : null
+    pointerIdentityRef.current = null
+    if (origin !== thinkingIdentity || latestIdentity !== thinkingIdentity) {
+      resetThinkingPreview()
+      setLocalError('VERSION_CONFLICT')
+      return
+    }
+    if (!nextLevel || nextLevel === (model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off')) {
+      resetThinkingPreview()
+      return
+    }
     thinkingWriteRef.current = true
     setLocalError(null)
     void runtime.commands
-      .execute('composerModel.selectThinking', { sessionId, thinkingLevel: selectedLevel })
-      .then(() => setSliderDraft(null))
+      .execute('composerModel.selectThinking', { sessionId, thinkingLevel: nextLevel })
+      .then(resetThinkingPreview)
       .catch((reason: unknown) => {
-        setSliderDraft(null)
+        resetThinkingPreview()
         capture(reason)
       })
       .finally(() => {
@@ -448,11 +523,12 @@ export function HbarComposerModelPicker({
         popupRef={thinkingRef}
         onOpen={() => {
           setOpen('thinking')
+          cancelledRef.current = false
           sliderRef.current?.focus()
         }}
         onClose={() => {
           setOpen((value) => (value === 'thinking' ? null : value))
-          setSliderDraft(null)
+          resetThinkingPreview()
         }}
       >
         <LumenText as="strong" className="hbar-composer-thinking-value">
@@ -463,14 +539,36 @@ export function HbarComposerModelPicker({
           min={0}
           max={Math.max(0, levels.length - 1)}
           step={1}
-          value={sliderDraft ?? levelIndex}
+          value={selectedIndex}
           disabled={unavailable || levels.length < 2}
           aria-label={labels.thinking}
           aria-valuetext={selectedLevel ? labels.thinkingLevel(selectedLevel) : undefined}
-          onChange={(event) => setSliderDraft(Number(event.currentTarget.value))}
-          onPointerUp={selectThinking}
-          onKeyUp={selectThinking}
-          onBlur={selectThinking}
+          onChange={(event) => previewThinking(event.currentTarget)}
+          onPointerDown={() => {
+            pointerIdentityRef.current = thinkingIdentity
+            cancelledRef.current = false
+          }}
+          onPointerUp={(event) => selectThinking(event.currentTarget)}
+          onPointerCancel={() => {
+            cancelledRef.current = true
+            resetThinkingPreview()
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              cancelledRef.current = true
+              resetThinkingPreview()
+              thinkingRef.current?.hidePopover()
+              return
+            }
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              event.stopPropagation()
+              selectThinking(event.currentTarget)
+            }
+          }}
+          onBlur={(event) => selectThinking(event.currentTarget)}
         />
         {feedback}
       </PickerPopover>
