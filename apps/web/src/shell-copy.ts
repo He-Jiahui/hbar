@@ -1106,6 +1106,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       choose: choose('选择模型', 'Choose a model'),
       trigger: (name) => choose(`选择模型：${name}`, `Choose model: ${name}`),
       search: choose('搜索模型', 'Search models'),
+      clearSearch: choose('清除模型搜索', 'Clear model search'),
       empty: choose('尚未配置模型。', 'No models configured.'),
       noMatches: choose('没有匹配的模型。', 'No matching models.'),
       loading: choose('正在加载模型…', 'Loading models…'),

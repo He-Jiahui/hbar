@@ -94,6 +94,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Draft remains attached to this session — 尚未发送的草稿'
+      await expect(prompt).toHaveAttribute('contenteditable', 'true')
       await prompt.fill(draft)
       const model = page.locator('.hbar-composer-model-trigger')
       const popup = page.getByRole('dialog', { name: labels.title, exact: true })
@@ -103,6 +104,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Enter')
       await expect(popup).toBeVisible()
       await expect(search).toBeFocused()
+      const searchSurface = popup.locator('.hbar-composer-model-search')
+      await expect(searchSurface.locator('[data-boundary]')).toHaveCount(0)
+      expect(
+        await searchSurface.evaluate((element) => parseFloat(getComputedStyle(element).outlineWidth)),
+      ).toBeGreaterThanOrEqual(1)
       await expect(popup.getByRole('option')).toHaveCount(60)
       await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveCount(0)
       expect(
@@ -113,8 +119,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-open-${locale}.png` })
       await search.fill('no matching model 123')
       await expect(popup.getByText(labels.noMatches)).toBeVisible()
+      await popup.getByRole('button', { name: labels.clearSearch, exact: true }).click()
+      await expect(search).toBeFocused()
+      await expect(search).toHaveValue('')
+      await expect(popup.getByRole('option')).toHaveCount(60)
       await search.fill('回归测试')
       await expect(popup.getByRole('option')).toHaveCount(1)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-search-active-${locale}.png` })
       await page.keyboard.press('ArrowDown')
       await expect(popup.getByRole('option')).toBeFocused()
       await page.keyboard.press('Enter')

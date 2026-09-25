@@ -8,7 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import { Check, ChevronDown, X } from 'lucide-react'
+import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenText } from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -52,6 +52,7 @@ export interface HbarComposerModelLabels {
   readonly choose: string
   readonly trigger: (name: string) => string
   readonly search: string
+  readonly clearSearch: string
   readonly empty: string
   readonly noMatches: string
   readonly loading: string
@@ -449,17 +450,37 @@ export function HbarComposerModelPicker({
         }}
       >
         <LumenFrame onKeyDown={moveOption} className="hbar-composer-picker-body">
-          <LumenInput
-            ref={searchRef}
-            type="search"
-            value={query}
-            aria-label={labels.search}
-            placeholder={labels.search}
-            onChange={(event) => {
-              setQuery(event.currentTarget.value)
-              setLimit(COMPOSER_MODEL_PAGE_SIZE)
-            }}
-          />
+          <LumenFrame className="hbar-composer-model-search">
+            <LumenIcon icon={Search} tier="sm" aria-hidden="true" />
+            <LumenInput
+              ref={searchRef}
+              type="search"
+              variant="plain"
+              value={query}
+              aria-label={labels.search}
+              placeholder={labels.search}
+              onChange={(event) => {
+                setQuery(event.currentTarget.value)
+                setLimit(COMPOSER_MODEL_PAGE_SIZE)
+              }}
+            />
+            {query && (
+              <LumenButton
+                type="button"
+                size="s"
+                variant="text"
+                indicator="none"
+                aria-label={labels.clearSearch}
+                onClick={() => {
+                  setQuery('')
+                  setLimit(COMPOSER_MODEL_PAGE_SIZE)
+                  searchRef.current?.focus()
+                }}
+              >
+                <LumenIcon icon={X} tier="sm" />
+              </LumenButton>
+            )}
+          </LumenFrame>
           {feedback}
           {catalog.status === 'loading' && (
             <LumenText as="span" role="status">
