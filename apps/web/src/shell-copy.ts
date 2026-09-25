@@ -1097,12 +1097,13 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goal: choose('目标', 'Goal'),
       goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),
       plan: choose('计划', 'Plan'),
+      planSelected: choose('下条仅规划', 'Next: plan only'),
       planHint: choose(
         '下一条消息仅规划；不执行写入操作。',
         'Plan the next message without performing write operations.',
       ),
       cancelGoal: choose('取消目标模式', 'Cancel goal mode'),
-      cancelPlan: choose('取消计划模式', 'Cancel plan mode'),
+      cancelPlan: choose('取消下条仅规划', 'Cancel plan-only next send'),
       goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),
       planPlaceholder: choose('描述希望先规划的任务…', 'Describe the task to plan first…'),
       statuses: {

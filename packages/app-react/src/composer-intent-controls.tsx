@@ -11,6 +11,7 @@ export interface HbarComposerIntentLabels {
   readonly goal: string
   readonly goalHint: string
   readonly plan: string
+  readonly planSelected: string
   readonly planHint: string
   readonly cancelGoal: string
   readonly cancelPlan: string
@@ -96,7 +97,7 @@ export function HbarComposerIntentControls({
         onClick={() => toggle('plan')}
       >
         <LumenIcon icon={Lightbulb} tier="sm" />
-        {labels.plan}
+        {intent === 'plan' ? labels.planSelected : labels.plan}
         {intent === 'plan' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
       {error && (

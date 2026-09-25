@@ -39,7 +39,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, objective)
       await modes.getByRole('button', { name: labels.plan, exact: true }).click()
       await expect(prompt).toHaveAttribute('placeholder', labels.planPlaceholder)
+      await expect(modes.getByRole('button', { name: labels.cancelPlan })).toContainText(labels.planSelected)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}.png` })
+      await page.setViewportSize({ width: 320, height: 720 })
+      await expect(modes.getByRole('button', { name: labels.cancelPlan })).toBeInViewport()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}-320.png` })
+      await page.setViewportSize({ width: 1440, height: 960 })
       await modes.getByRole('button', { name: labels.cancelPlan }).click()
       await expectComposerText(prompt, objective)
 
@@ -105,6 +111,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       await prompt.fill('Plan the next task without making changes.')
       await modes.getByRole('button', { name: labels.plan, exact: true }).click()
+      await expect(modes.getByRole('button', { name: labels.cancelPlan })).toContainText(labels.planSelected)
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await expectComposerText(prompt, '')
       const snapshot = await host.client.call('session.snapshot', { sessionId, limit: 60 })
@@ -114,6 +121,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         'aria-pressed',
         'false',
       )
+      await expect(modes).not.toContainText(labels.planSelected)
       expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
       expect(errors).toEqual([])
     } finally {

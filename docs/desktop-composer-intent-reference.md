@@ -9,6 +9,7 @@ These are untracked reference images, not evidence that the current tracked cc-h
 ## Implemented flow
 
 - Goal/Plan are mutually exclusive, per-session **draft intents** beside the attachment entry. Clicking the selected chip's X cancels only that intent; it does not clear a persisted goal, task list or the current prompt.
+- The selected Plan chip visibly reads “下条仅规划 / Next: plan only” even without hover. Its cancel name carries the same one-send scope; after submission it returns to the short “计划 / Plan” entry. This communicates the actual hbar Run mode without portraying it as cc-haha's persistent permission preset.
 - Every submitted composer message carries an explicit `input.mode`: Plan uses `plan`; ordinary and Goal messages use `default`. The UI does not accidentally inherit an invisible persistent planning mode.
 - Goal submission creates the requested durable goal, then admits the initial run through the existing draft/receipt machinery. It is a recoverable two-stage operation, **not an atomic Goal+Run transaction**. A saved goal plus rejected run is visibly partial. Retrying the unchanged objective reuses the prepared goal, including when repairing a model selection; it does not create another goal.
 - Unknown Goal results are checked against Host facts, never blindly replayed. Unknown Run admission reuses the existing original receipt. Pending actions and stale targets are guarded. Reconciliation does not automatically send a previously uncertain goal draft.
@@ -19,7 +20,7 @@ These are untracked reference images, not evidence that the current tracked cc-h
 
 ## Evidence and verification
 
-`e2e/composer-goal-plan.spec.ts` uses the real temporary Host with a mock provider, in Chinese and English, and checks chip select/cancel, initial Goal+Run acceptance, pause/resume, document edit/discard/save, clear cancel/confirm, actual Plan mode in the persisted Run, and desktop/390/320 geometry. Screenshots are under `artifacts/reference-ux-v2/hbar-goal-*.png`, `hbar-plan-chip-*.png` and `hbar-goal-document-*.png`.
+`e2e/composer-goal-plan.spec.ts` uses the real temporary Host with a mock provider, in Chinese and English, and checks chip select/cancel, initial Goal+Run acceptance, pause/resume, document edit/discard/save, clear cancel/confirm, actual Plan mode in the persisted Run, and desktop/390/320 geometry. The one-send Plan label is checked both before sending and after it resets, with desktop and 320px screenshots. Screenshots are under `artifacts/reference-ux-v2/hbar-goal-*.png`, `hbar-plan-chip-*.png` and `hbar-goal-document-*.png`. A rebuilt Windows x64 release was also checked in an isolated native WebView2 profile for the visible selected Plan label; the general desktop smoke remains separately subject to its current appearance-marker assertion.
 
 The real Run snapshot confirmed that the initial user Goal message is admitted once. A following empty-text run has `source: goal` plus the goal/continuation identity: it is the Host's automatic continuation, not a second UI submission. The fixture model's “Received: image attachment” text on that empty run is fixture behavior, not a real attachment operation.
 
