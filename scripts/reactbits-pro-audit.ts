@@ -264,6 +264,8 @@ export type InteractionCase = Readonly<{
     | 'usage-members-empty'
     | 'usage-requests-error'
     | 'usage-requests-error-open'
+    | 'shell-account'
+    | 'shell-navigation-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1476,6 +1478,39 @@ export function interactionCases(
   return cases
 }
 
+const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
+async function prepareShellSidebarScenario(
+  root: Locator,
+  scenario: (typeof shellSidebarScenarios)[number],
+): Promise<void> {
+  if (scenario === 'shell-account') {
+    await root.getByRole('button', { name: 'Devon Okafor Dispatch lead', exact: true }).click()
+    await root.getByRole('menu', { name: 'Account', exact: true }).waitFor({ state: 'visible' })
+  } else {
+    await root.getByRole('button', { name: 'Close navigation', exact: true }).click()
+    await root.getByRole('dialog', { name: 'Navigation', exact: true }).waitFor({ state: 'hidden' })
+  }
+}
+export function shellSidebarInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario?: (typeof shellSidebarScenarios)[number],
+): readonly InteractionCase[] {
+  const cases = [...interactionCases(snapshot, variantId, scenario)]
+  const close = visibleControls(snapshot).find((control) => control.name === 'Close navigation')
+  if (!scenario && close)
+    cases.push({
+      id: `${variantId}:${close.index}:press-escape`,
+      action: 'press',
+      key: 'Escape',
+      focusBefore: true,
+      control: close,
+    })
+  return cases.map((interaction) =>
+    interaction.action === 'fill' ? { ...interaction, fillValue: 'Kettleworth' } : interaction,
+  )
+}
+
 export function usageBudgetSliderCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
   const input = visibleControls(snapshot).find(
     (control) =>
@@ -2591,6 +2626,8 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-ai-usage-4' && memberScenario) await prepareUsageMemberScenario(root, memberScenario)
   const requestScenario = usageRequestScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-ai-usage-7' && requestScenario) await prepareUsageRequestScenario(root, requestScenario)
+  const shellScenario = shellSidebarScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-1' && shellScenario) await prepareShellSidebarScenario(root, shellScenario)
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2717,6 +2754,9 @@ async function replayReferenceInteraction(
   const requestScenario = usageRequestScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-ai-usage-7' && requestScenario)
     await prepareUsageRequestScenario(root, requestScenario)
+  const shellScenario = shellSidebarScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-1' && shellScenario)
+    await prepareShellSidebarScenario(root, shellScenario)
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3240,6 +3280,16 @@ async function runInteractionsParallel(
             }
             if (spec.id === 'hbar-app-ui-ai-usage-8')
               discovered = [...usageCompactInteractionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-app-shell-1') {
+              discovered = [...shellSidebarInteractionCases(sourceSnapshot, spec.id)]
+              for (const scenario of shellSidebarScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareShellSidebarScenario(sourceRoot, scenario)
+                discovered.push(
+                  ...shellSidebarInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
+              }
+            }
             if (spec.id === 'hbar-app-ui-agent-activity-5') {
               await prepareAgentLogScenario(discoveryPage, sourceRoot, 'away', true)
               discovered.push(...agentLogScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, 'away'))

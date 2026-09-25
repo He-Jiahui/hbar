@@ -14,6 +14,7 @@ import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
+import { AppShellPreviewHost } from './AppShellPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import { ApprovalPreviewHost } from './ApprovalPreviewHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -22,7 +23,6 @@ import { Maximize2, Moon, RotateCcw, Search, Sun, X } from 'lucide-react'
 import {
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
-  HbarAppUiAppShellProvider,
   HbarAppUiAppSidebarProvider,
   HbarAppUiAiChatProvider,
   HbarAppUiKanbanProvider,
@@ -438,7 +438,7 @@ function PreviewApp() {
           <HbarAppUiKanbanProvider content={kanbanContent}>
             <HbarAppUiAiChatProvider content={aiChatContent}>
               <HbarAppUiAppSidebarProvider content={appSidebarContent}>
-                <HbarAppUiAppShellProvider content={appShellContent}>
+                <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
                     <HbarAppUiFeedbackProvider content={feedbackContent}>
                       <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
@@ -541,7 +541,7 @@ function PreviewApp() {
                       </SettingsPreviewHost>
                     </HbarAppUiFeedbackProvider>
                   </HbarAppUiFileManagerProvider>
-                </HbarAppUiAppShellProvider>
+                </AppShellPreviewHost>
               </HbarAppUiAppSidebarProvider>
             </HbarAppUiAiChatProvider>
           </HbarAppUiKanbanProvider>
@@ -674,7 +674,7 @@ function PreviewApp() {
                     <HbarAppUiKanbanProvider content={kanbanContent}>
                       <HbarAppUiAiChatProvider content={aiChatContent}>
                         <HbarAppUiAppSidebarProvider content={appSidebarContent}>
-                          <HbarAppUiAppShellProvider content={appShellContent}>
+                          <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                             <HbarAppUiFileManagerProvider content={fileManagerContent}>
                               <HbarAppUiFeedbackProvider content={feedbackContent}>
                                 <SettingsPreviewHost
@@ -795,7 +795,7 @@ function PreviewApp() {
                                 </SettingsPreviewHost>
                               </HbarAppUiFeedbackProvider>
                             </HbarAppUiFileManagerProvider>
-                          </HbarAppUiAppShellProvider>
+                          </AppShellPreviewHost>
                         </HbarAppUiAppSidebarProvider>
                       </HbarAppUiAiChatProvider>
                     </HbarAppUiKanbanProvider>

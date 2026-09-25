@@ -1099,6 +1099,89 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-1')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '2:click',
+          change: 'Collapse the single nested navigation group',
+        },
+        { viewport: 'desktop', theme: 'dark', suffix: '17:click', change: 'Open the account overlay above the footer' },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'shell-account:18:click',
+          change: 'Choose one account item and restore trigger focus without inventing a destination',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:click',
+          change: 'Workspace options is a verified source no-op action',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '21:fill',
+          change: 'Search accepts text but the original demo does not filter its records',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '22:click',
+          change: 'Book shipment is an independent source no-op action',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '4:click',
+          change: 'A nested anchor changes the fragment, not the selected item or records',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '1:hover', change: 'Shared navigation link pointer feedback' },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '24:click',
+          change: 'Close the default narrow drawer and reveal mobile record cards',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'shell-navigation-closed:18:click',
+          change: 'Reopen the drawer from the narrow header',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'dark',
+          suffix: '24:press-escape',
+          change: 'Escape dismisses the drawer and restores the opening trigger',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated navigation/footer/facility links and account items',
+          basis:
+            'Anchors share fragment navigation; account items share close-and-restore behavior. A representative from each mechanism is replayed, not every label.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated button gestures, backdrop dismissal and other viewport/theme interactions',
+          basis:
+            'Native controls and common close handlers; source Escape/link behavior was manually observed. Eight static pairs cover responsive structure and both themes. Production tests cover the reverse disclosure transition and short-height scroll owners.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Metrics and shipment rows',
+          basis:
+            'Source DOM exposes passive content, not selectable records. Table-to-card flow and read order are compared without adding click tests for static data.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 

@@ -89,6 +89,19 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Shell 1: observed drawer/backdrop, footer-anchored account menu and pane-edge fades.
+  // Only these containers may overlay; content descendants still require normal flow.
+  if (/packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/'))) {
+    const containers = new Set([
+      '.lumen-sidebar-overlay',
+      '.lumen-sidebar-backdrop',
+      '.lumen-sidebar-mobile',
+      '.lumen-sidebar-account-menu',
+      '.lumen-sidebar-nav-frame::after',
+      '.lumen-sidebar-main-frame::after',
+    ])
+    if (selector.split(',').every((part) => containers.has(part.trim()))) return true
+  }
   // Plan 6's main scroll pane has observed pointer-transparent edge fades.
   if (
     /packages\/lumen-app-ui\/src\/agent-plan-summary\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -164,7 +177,12 @@ function validateCss(path, source) {
       if (coordinateProperties.has(property) && !isOverlay) {
         errors.push(`${location}: ${property} is reserved for a real overlay container; use flex flow for content.`)
       }
-      if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay) {
+      const isShellAccessibleText =
+        /packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/')) &&
+        rule.selector.trim() === '.lumen-sidebar-sr' &&
+        /clip-path:\s*inset\(50%\)/.test(rule.body) &&
+        value.trim() === 'absolute'
+      if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay && !isShellAccessibleText) {
         errors.push(
           `${location}: ${value.trim()} positioning is reserved for a real overlay container; use flex flow for content.`,
         )
@@ -413,6 +431,40 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
       process.exit(1)
     }
   }
+  for (const selector of [
+    '.lumen-sidebar-overlay',
+    '.lumen-sidebar-backdrop',
+    '.lumen-sidebar-mobile',
+    '.lumen-sidebar-account-menu',
+    '.lumen-sidebar-nav-frame::after, .lumen-sidebar-main-frame::after',
+  ]) {
+    const path = 'packages/lumen-app-ui/src/app-shell-sidebar.css'
+    if (validateCss(path, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length)
+      throw new Error(`Rejected observed shell overlay: ${selector}`)
+    if (validateCss('other.css', `${selector} {\nposition: absolute;\ninset: 0;\n}`).length < 2)
+      throw new Error('Shell exception leaked across files')
+  }
+  if (
+    validateCss(
+      'packages/lumen-app-ui/src/app-shell-sidebar.css',
+      '.lumen-sidebar-account-menu > button {\nposition: absolute;\n}',
+    ).length !== 1
+  )
+    throw new Error('Shell overlay exception leaked to menu content')
+  if (
+    validateCss(
+      'packages/lumen-app-ui/src/app-shell-sidebar.css',
+      '.lumen-sidebar-sr {\nposition: absolute;\nclip-path: inset(50%);\n}',
+    ).length
+  )
+    throw new Error('Rejected accessible hidden copy')
+  if (
+    validateCss(
+      'packages/lumen-app-ui/src/app-shell-sidebar.css',
+      '.lumen-sidebar-sr {\nposition: fixed;\nclip-path: inset(50%);\n}',
+    ).length !== 1
+  )
+    throw new Error('Hidden text exception allowed fixed placement')
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
 }
