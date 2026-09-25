@@ -1,10 +1,12 @@
-import { FolderTree } from 'lucide-react'
+import { ArrowLeft, FolderTree, Maximize2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
   LumenFrame,
   LumenText,
   LumenButton,
   LumenDialog,
+  LumenIcon,
+  LumenIconButton,
   LumenFileDocument,
   LumenTextarea,
   LumenSelect,
@@ -24,6 +26,10 @@ export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly edit: string
   readonly textPreview: (path: string) => string
   readonly close: string
+  readonly closeWorkbench: string
+  readonly expandWorkbench: string
+  readonly returnToConversation: string
+  readonly returnToWorkspace: string
   readonly root: string
   readonly loadMore: string
   readonly save: string
@@ -45,11 +51,23 @@ export function HbarFileWorkspace({
   connected,
   instanceId: requestedInstanceId,
   targetLabel,
+  mode = 'dock',
+  onExpand,
+  onReturnToSource,
+  onCloseWorkbench,
+  actionError,
+  returnLabel,
 }: {
   readonly labels: HbarFileWorkspaceLabels
   readonly connected: boolean
   readonly instanceId?: string
   readonly targetLabel?: string | undefined
+  readonly mode?: 'dock' | 'workbench'
+  readonly onExpand?: (() => void) | undefined
+  readonly onReturnToSource?: (() => void) | undefined
+  readonly onCloseWorkbench?: (() => void) | undefined
+  readonly actionError?: string | null | undefined
+  readonly returnLabel?: string | undefined
 }) {
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -152,9 +170,25 @@ export function HbarFileWorkspace({
         description={entry ? (entry.path === '.' ? labels.root : entry.path) : undefined}
         icon={FolderTree}
         backLabel={document || diff ? labels.backToFiles : undefined}
-        closeLabel={labels.close}
+        closeLabel={mode === 'workbench' ? labels.closeWorkbench : labels.close}
         onBack={document || diff ? () => invoke('fileWorkspace.showBrowser', { instanceId }) : undefined}
-        onClose={() => invoke('app.closePanel', { instanceId })}
+        onClose={mode === 'workbench' ? onCloseWorkbench : () => invoke('app.closePanel', { instanceId })}
+        actions={
+          mode === 'dock' && onExpand ? (
+            <LumenIconButton label={labels.expandWorkbench} onClick={onExpand}>
+              <LumenIcon icon={Maximize2} tier="sm" />
+            </LumenIconButton>
+          ) : undefined
+        }
+        toolbar={
+          mode === 'workbench' && onReturnToSource ? (
+            <LumenButton variant="text" size="s" onClick={onReturnToSource}>
+              <LumenIcon icon={ArrowLeft} tier="sm" />
+              {returnLabel ?? labels.returnToConversation}
+            </LumenButton>
+          ) : undefined
+        }
+        error={actionError ? <LumenText as="p">{actionError}</LumenText> : undefined}
         busy={Boolean(
           !entry ||
           (!document &&
@@ -163,7 +197,7 @@ export function HbarFileWorkspace({
           diff?.status === 'loading' ||
           busy,
         )}
-        className="hbar-app-react-file-workspace"
+        className={`hbar-app-react-file-workspace${mode === 'workbench' ? ' hbar-app-react-file-workbench' : ''}`}
       >
         <LumenFrame className="hbar-app-react-file-layout" data-view={entry?.view ?? 'browser'}>
           {document ? (

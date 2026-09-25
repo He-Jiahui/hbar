@@ -63,15 +63,25 @@ export function WorkspaceTabsController({
   const items: HbarWorkspaceTabItem[] = tabs.items.map((item) => ({
     id: item.id,
     kind: item.kind,
-    title: directory.sessions[item.sessionId]?.title ?? copy.unknownSession(item.sessionId),
+    title:
+      item.kind === 'workbench'
+        ? copy.workbenchTitle
+        : (directory.sessions[item.sessionId]?.title ?? copy.unknownSession(item.sessionId)),
     detail: directory.workspaces[item.workspaceId]?.name ?? copy.unknownWorkspace(item.workspaceId),
     activity:
+      item.kind === 'session' &&
       timeline.sessionId === item.sessionId &&
       timeline.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
         ? 'running'
         : 'unknown',
   }))
   const busy = closeState !== null || navigation.status === 'loading'
+  const focusAfterClose = () => {
+    if (coordinator.reader.getSnapshot().request !== null) return
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true })
+    })
+  }
   const requestClose = (id: string, scope: HbarWorkspaceTabCloseScope) => {
     const index = tabs.items.findIndex((item) => item.id === id)
     if (index < 0) return
@@ -86,19 +96,22 @@ export function WorkspaceTabsController({
       .map((item) => item.id)
     if (!ids.length) return
     const original = runtime.workspaceTabs.capture(ids)
-    action(coordinator.request(original))
+    action(coordinator.request(original).then(focusAfterClose))
   }
   const resolveClose = (choice: 'cancel' | 'keepRunning' | 'stop' | 'recheck') => {
     if (!closeState) return
-    action(coordinator.resolve(closeState.id, choice))
+    action(coordinator.resolve(closeState.id, choice).then(focusAfterClose))
   }
   const counts = new Map<string, number>()
   for (const operation of closeState?.operations ?? [])
     counts.set(operation.sessionId, (counts.get(operation.sessionId) ?? 0) + 1)
   const targets = (closeState?.targets ?? []).map((target) => ({
     id: target.id,
-    title: directory.sessions[target.sessionId]?.title ?? copy.unknownSession(target.sessionId),
-    runCount: counts.get(target.sessionId) ?? 0,
+    title:
+      target.sessionId === null
+        ? copy.workbenchTitle
+        : (directory.sessions[target.sessionId]?.title ?? copy.unknownSession(target.sessionId)),
+    runCount: target.sessionId === null ? 0 : (counts.get(target.sessionId) ?? 0),
   }))
   const restoreError = tabs.restoreError ?? tabs.persistError
   const error = localError ?? restoreError

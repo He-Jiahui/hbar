@@ -6,6 +6,7 @@ export function workspaceTabsCopy(choose: (zh: string, en: string) => string): {
   readonly close: HbarWorkspaceTabsCloseLabels
   readonly unknownSession: (id: string) => string
   readonly unknownWorkspace: (id: string) => string
+  readonly workbenchTitle: string
   readonly restoring: string
   readonly retry: string
   readonly error: (code: string) => string
@@ -13,6 +14,7 @@ export function workspaceTabsCopy(choose: (zh: string, en: string) => string): {
   return {
     unknownSession: (id) => choose(`会话 ${id}`, `Conversation ${id}`),
     unknownWorkspace: (id) => choose(`项目 ${id}`, `Project ${id}`),
+    workbenchTitle: choose('工作台', 'Workbench'),
     restoring: choose('正在恢复页签…', 'Restoring tabs…'),
     retry: choose('重试', 'Retry'),
     error: (code) => {

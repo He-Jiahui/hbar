@@ -69,6 +69,7 @@ import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
+import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
@@ -122,10 +123,38 @@ function createRuntime(
 }
 
 type WorkspaceBodyProps = {
+  readonly appRuntime: ReturnType<typeof createAppRuntime>
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
   readonly systemPrefersDark: boolean
+}
+
+function errorCode(reason: unknown): string {
+  return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+    ? reason.code
+    : 'EXECUTION_FAILED'
+}
+
+/** Expanded file views own the original surface only while their ephemeral tab exists. */
+function WorkbenchSurfaceCleanup({ runtime }: { readonly runtime: ReturnType<typeof createAppRuntime> }) {
+  const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
+  const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
+  const previous = useRef<ReadonlyMap<string, (typeof surfaces.panels)[string]>>(new Map())
+  useLayoutEffect(() => {
+    const current = new Map(
+      tabs.items
+        .filter((item) => item.kind === 'workbench')
+        .map((item) => [item.panelInstanceId, surfaces.panels[item.panelInstanceId]] as const)
+        .filter((entry): entry is readonly [string, NonNullable<(typeof entry)[1]>] => entry[1] !== undefined),
+    )
+    for (const [instanceId, panel] of previous.current) {
+      if (!current.has(instanceId) && surfaces.panels[instanceId] === panel)
+        void runtime.view.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)
+    }
+    previous.current = current
+  }, [runtime, surfaces.panels, tabs.items])
+  return null
 }
 
 function WorkspaceBody(props: WorkspaceBodyProps) {
@@ -133,13 +162,17 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const copy = getShellCopy(props.locale)
+  const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
   const label =
     presentation.page.kind === 'settings'
       ? copy.settings.pageTitle
       : presentation.page.kind === 'status'
         ? copy.shell.status
-        : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ?? copy.empty.title)
+        : activeTab?.kind === 'workbench'
+          ? copy.files.title
+          : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ?? copy.empty.title)
   return (
     <SettingsPageFocusBoundary pageKind={presentation.page.kind} sidebarOpen={presentation.sidebarOpen} label={label}>
       <WorkspaceBodyContent {...props} />
@@ -147,12 +180,23 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
   )
 }
 
-function WorkspaceBodyContent({ locale, connected, prepareAttachment, systemPrefersDark }: WorkspaceBodyProps) {
+function WorkspaceBodyContent({
+  appRuntime,
+  locale,
+  connected,
+  prepareAttachment,
+  systemPrefersDark,
+}: WorkspaceBodyProps) {
   const copy = getShellCopy(locale)
+  const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const [workbenchError, setWorkbenchError] = useState<string | null>(null)
+  const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
@@ -180,6 +224,50 @@ function WorkspaceBodyContent({ locale, connected, prepareAttachment, systemPref
         }}
       />
     )
+  if (activeTab?.kind === 'workbench') {
+    const panel = surfaces.panels[activeTab.panelInstanceId]
+    if (!panel || panel.panelId !== 'files')
+      return <LumenWorkbenchNotice title={copy.files.title} description={tabCopy.error('PANEL_NOT_FOUND')} />
+    const targetLabel = directory.workspaces[activeTab.workspaceId]?.name ?? activeTab.workspaceId
+    const focusReturnedView = () => {
+      requestAnimationFrame(() => {
+        const target =
+          document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ??
+          document.querySelector<HTMLElement>('.hbar-settings-page-focus')
+        target?.focus({ preventScroll: true })
+      })
+    }
+    const close = () => {
+      setWorkbenchError(null)
+      const captured = appRuntime.workspaceTabs.capture([activeTab.id])
+      void appRuntime.workspaceTabs
+        .closeCaptured(captured, new AbortController().signal)
+        .then(focusReturnedView)
+        .catch((reason: unknown) => {
+          setWorkbenchError(errorCode(reason))
+        })
+    }
+    return (
+      <HbarFileWorkspace
+        key={activeTab.panelInstanceId}
+        labels={copy.files}
+        connected={connected}
+        instanceId={activeTab.panelInstanceId}
+        targetLabel={targetLabel}
+        mode="workbench"
+        returnLabel={activeTab.sourceSessionId ? copy.files.returnToConversation : copy.files.returnToWorkspace}
+        actionError={workbenchError ? tabCopy.error(workbenchError) : null}
+        onReturnToSource={() => {
+          setWorkbenchError(null)
+          void runtime.commands
+            .execute('workspaceTabs.returnToSource', { id: activeTab.id, instanceKey: activeTab.instanceKey })
+            .then(focusReturnedView)
+            .catch((reason: unknown) => setWorkbenchError(errorCode(reason)))
+        }}
+        onCloseWorkbench={close}
+      />
+    )
+  }
   if (session)
     return (
       <HbarSessionWorkspace
@@ -242,12 +330,23 @@ function AppearanceSettingsController({
   )
 }
 
-function WorkspaceTool({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
+function WorkspaceTool({
+  locale,
+  connected,
+  canExpand,
+}: {
+  readonly locale: ShellLocale
+  readonly connected: boolean
+  readonly canExpand: boolean
+}) {
   const copy = getShellCopy(locale)
+  const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
   const runtime = useHbarRuntime()
   const directory = useHbarRuntimeState(runtime.state.directory)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const [expandError, setExpandError] = useState<string | null>(null)
+  const expanding = useRef(false)
   const instanceId = presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   if (!instanceId || !panel) return null
@@ -261,7 +360,48 @@ function WorkspaceTool({ locale, connected }: { readonly locale: ShellLocale; re
           : undefined
   if (panel.panelId === 'files')
     return (
-      <HbarFileWorkspace labels={copy.files} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
+      <HbarFileWorkspace
+        labels={copy.files}
+        connected={connected}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+        actionError={expandError ? tabCopy.error(expandError) : null}
+        onExpand={
+          canExpand && panel.workspaceId
+            ? () => {
+                if (expanding.current || !panel.workspaceId) return
+                expanding.current = true
+                setExpandError(null)
+                const originalBinding = panel.binding
+                void (async () => {
+                  try {
+                    if (originalBinding !== 'pinned')
+                      await runtime.commands.execute('app.openPanel', {
+                        panelId: 'files',
+                        instanceId,
+                        workspaceId: panel.workspaceId!,
+                        ...(panel.sessionId ? { sessionId: panel.sessionId } : {}),
+                        binding: 'pinned',
+                      })
+                    await runtime.commands.execute('workspaceTabs.openWorkbench', {
+                      panelInstanceId: instanceId,
+                      sourceSessionId: panel.sessionId,
+                      workspaceId: panel.workspaceId!,
+                    })
+                  } catch (reason) {
+                    if (originalBinding === 'followActive')
+                      await runtime.commands
+                        .execute('app.openPanel', { panelId: 'files', instanceId, binding: 'followActive' })
+                        .catch(() => undefined)
+                    setExpandError(errorCode(reason))
+                  } finally {
+                    expanding.current = false
+                  }
+                })()
+              }
+            : undefined
+        }
+      />
     )
   if (panel.panelId === 'monitoring')
     return <HbarSessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
@@ -416,6 +556,7 @@ export default function App({
   )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
+  const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
   const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
   const themePreference = preferences.status === 'ready' ? persistedTheme : bootstrapTheme
@@ -510,6 +651,7 @@ export default function App({
   return (
     <LumenProvider appearance={lumenAppearance}>
       <HbarRuntimeProvider view={runtime.view}>
+        <WorkbenchSurfaceCleanup key={hostId} runtime={runtime} />
         <HbarWorkspaceShell
           labels={copy.shell}
           titlebar={
@@ -523,8 +665,15 @@ export default function App({
           onReconnect={reconnect}
           toolLabel={copy.session.tools.label}
           tool={
-            presentation.toolInstanceId ? (
-              <WorkspaceTool locale={locale} connected={connection === 'connected'} />
+            presentation.toolInstanceId &&
+            !tabs.items.some(
+              (item) => item.kind === 'workbench' && item.panelInstanceId === presentation.toolInstanceId,
+            ) ? (
+              <WorkspaceTool
+                locale={locale}
+                connected={connection === 'connected'}
+                canExpand={workspaceLayout.config.tabs.visible}
+              />
             ) : undefined
           }
           overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}
@@ -532,6 +681,7 @@ export default function App({
           {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
             <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
               <WorkspaceBody
+                appRuntime={runtime}
                 locale={locale}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
@@ -540,6 +690,7 @@ export default function App({
             </WorkspaceTabsController>
           ) : (
             <WorkspaceBody
+              appRuntime={runtime}
               locale={locale}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
