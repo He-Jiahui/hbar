@@ -299,6 +299,7 @@ export type InteractionCase = Readonly<{
     | 'sidebar-workspace-open'
     | 'sidebar-tree-menu-open'
     | 'sidebar-drawer-closed'
+    | 'sidebar-full-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -368,7 +369,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 14
-const interactionProtocolVersion = 29
+const interactionProtocolVersion = 30
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1572,6 +1573,10 @@ const sidebarRailScenarios = ['sidebar-rail-flyout-open', 'sidebar-rail-account-
 const sidebarWorkspaceScenarios = ['sidebar-workspace-open'] as const
 const sidebarTreeScenarios = ['sidebar-tree-menu-open'] as const
 const sidebarDrawerScenarios = ['sidebar-drawer-closed'] as const
+const sidebarFullScenarios = ['sidebar-full-closed'] as const
+async function prepareSidebarFullScenario(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Close navigation', exact: true }).click()
+}
 async function prepareSidebarDrawerScenario(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Close navigation', exact: true }).click()
 }
@@ -2540,7 +2545,10 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
   if (interaction.action === 'hover') await control.hover({ force: interaction.scenario === 'running' })
   if (interaction.action === 'focus') await control.focus()
   if (interaction.action === 'click') {
-    if (interaction.id === 'hbar-app-ui-app-sidebar-6:1:click') {
+    if (
+      interaction.id === 'hbar-app-ui-app-sidebar-6:1:click' ||
+      interaction.id === 'hbar-app-ui-app-sidebar-7:15:click'
+    ) {
       const bounds = await control.boundingBox()
       if (!bounds) throw new Error('Navigation scrim is not visible')
       // The actual uncovered scrim is a strip beside the sheet. Its centre
@@ -2934,6 +2942,8 @@ async function replayInteraction(
     await prepareSidebarTreeScenario(root)
   if (spec.id === 'hbar-app-ui-app-sidebar-6' && interaction.scenario === 'sidebar-drawer-closed')
     await prepareSidebarDrawerScenario(root)
+  if (spec.id === 'hbar-app-ui-app-sidebar-7' && interaction.scenario === 'sidebar-full-closed')
+    await prepareSidebarFullScenario(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3092,6 +3102,8 @@ async function replayReferenceInteraction(
     await prepareSidebarTreeScenario(root)
   if (reference.id === 'hbar-app-ui-app-sidebar-6' && interaction.scenario === 'sidebar-drawer-closed')
     await prepareSidebarDrawerScenario(root)
+  if (reference.id === 'hbar-app-ui-app-sidebar-7' && interaction.scenario === 'sidebar-full-closed')
+    await prepareSidebarFullScenario(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3711,6 +3723,13 @@ async function runInteractionsParallel(
               for (const scenario of sidebarDrawerScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareSidebarDrawerScenario(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-sidebar-7') {
+              for (const scenario of sidebarFullScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareSidebarFullScenario(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

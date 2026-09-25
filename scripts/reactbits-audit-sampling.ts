@@ -561,6 +561,35 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-7')
+    return {
+      revision: 1,
+      lumenEntries: ['app-sidebar-full.tsx', 'app-sidebar-full.css', 'app-sidebar-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '3:click', change: 'Desktop Pipelines link retains Overview selection' },
+        { viewport: 'desktop', theme: 'dark', suffix: '13:click', change: 'Separate footer help link has no visible transition' },
+        { viewport: 'desktop', theme: 'dark', suffix: '8:hover', change: 'Desktop unselected Reports hover feedback' },
+        { viewport: 'mobile', theme: 'dark', suffix: '16:click', change: 'Narrow close button collapses the dialog' },
+        { viewport: 'stress', theme: 'light', suffix: '15:click', change: 'Exposed scrim strip closes the stress-width dialog' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'sidebar-full-closed:14:click', change: 'Collapsed trigger reopens the dialog' },
+        { viewport: 'mobile', theme: 'light', suffix: '20:click', change: 'Narrow Pipelines link keeps the dialog open' },
+        { viewport: 'mobile', theme: 'dark', suffix: '16:press-space', change: 'Keyboard Space activates dialog close' },
+      ],
+      inferences: [
+        {
+          scope: 'Remaining favorite, workspace, reporting and account links',
+          basis:
+            'All 13 links and separate footer help link were structurally read from the live iframe. Desktop and narrow Pipelines clicks and desktop help click exercise the two link ownerships; other repeated href and row gestures are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme gestures and Escape',
+          basis:
+            'Eight static pairs cover the wide fixed pane and three narrow overlay widths in both themes. Mobile close/reopen and stress scrim sample distinct transitions; the remaining equivalent permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-6')
     return {
       revision: 1,

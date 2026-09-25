@@ -89,6 +89,12 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Sidebar 7: the narrow-only scrim and drawer overlay the blank
+  // application canvas; navigation, help, and profile remain in flex flow.
+  if (/packages\/lumen-app-ui\/src\/app-sidebar-full\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set(['.lumen-full-scrim', '.lumen-full-dialog'])
+    if (overlays.has(selector.trim())) return true
+  }
   // App Sidebar 6: the scrim covers the preview, with the observed drawer
   // anchored at its left edge; the drawer's internal content remains in flow.
   if (/packages\/lumen-app-ui\/src\/app-sidebar-drawer\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -458,6 +464,14 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   const leakedDrawerOverlay = validateCss('packages/lumen-app-ui/src/other.css', drawerOverlayCss)
   if (drawerOverlay.length !== 0 || leakedDrawerOverlay.length === 0) {
     console.error('Flow layout guard self-test expected path-scoped drawer and scrim overlay exceptions')
+    process.exit(1)
+  }
+  const fullOverlayCss = `.lumen-full-scrim { position: absolute; inset: 0; }
+.lumen-full-dialog { position: absolute; inset-block: 0; inset-inline-start: 0; }`
+  const fullOverlay = validateCss('packages/lumen-app-ui/src/app-sidebar-full.css', fullOverlayCss)
+  const leakedFullOverlay = validateCss('packages/lumen-app-ui/src/other.css', fullOverlayCss)
+  if (fullOverlay.length !== 0 || leakedFullOverlay.length === 0) {
+    console.error('Flow layout guard self-test expected path-scoped full-sidebar overlay exceptions')
     process.exit(1)
   }
   const lumenMaterialOverlay = validateCss(
