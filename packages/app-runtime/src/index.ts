@@ -41,6 +41,7 @@ import { composerModelCommands, createComposerModel } from './composer-model'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { composerPermissionCommands, createComposerPermission } from './composer-permission'
 import { sessionRenameCommands, createSessionRename } from './session-rename'
+import { sessionArchiveCommands, createSessionArchive } from './session-archive'
 import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
@@ -142,6 +143,12 @@ export { SessionSelectionError } from './navigation'
 export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 export type {
+  SessionArchiveState,
+  SessionArchiveMutation,
+  ArchivedSessionsPage,
+  SessionArchiveOptions,
+} from './session-archive'
+export type {
   ComposerPermissionState,
   ComposerPermissionEntry,
   ComposerPermissionChoice,
@@ -156,6 +163,7 @@ const runtimeCommands = {
   ...composerIntentCommands,
   ...composerPermissionCommands,
   ...sessionRenameCommands,
+  ...sessionArchiveCommands,
   ...planProposalCommands,
 }
 
@@ -369,6 +377,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(sessionRenameCommands, name) ||
+        Object.hasOwn(sessionArchiveCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
@@ -376,6 +385,12 @@ export function createAppRuntime(options: RuntimeOptions) {
     },
   }
   const sessionRename = createSessionRename(local, {
+    directory: directory.reader,
+    commands: executor,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const sessionArchive = createSessionArchive(local, {
     directory: directory.reader,
     commands: executor,
     onSubscriberError,
@@ -409,6 +424,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
       sessionRename: sessionRename.reader,
+      sessionArchive: sessionArchive.reader,
       planProposal: planProposal.reader,
       settings: settingsForms.reader,
       providers: providerSettings.reader,
@@ -449,6 +465,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       composerIntent.dispose()
       composerPermission.dispose()
       sessionRename.dispose()
+      sessionArchive.dispose()
       planProposal.dispose()
       settingsForms.dispose()
       providerSettings.dispose()

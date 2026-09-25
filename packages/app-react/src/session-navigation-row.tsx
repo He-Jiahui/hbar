@@ -11,6 +11,7 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
 
 export interface SessionRenameLabels {
   readonly form: (title: string) => string
@@ -31,6 +32,7 @@ export interface SessionNavigationRowLabels {
   readonly sessionActions: (name: string) => string
   readonly renameSession: string
   readonly archiveSession: string
+  readonly archive: SessionArchiveLabels
   readonly renameEditor: SessionRenameLabels
 }
 
@@ -91,17 +93,22 @@ export function SessionNavigationRow({
   connected,
   labels,
   onOpen,
-  onArchive,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
   readonly connected: boolean
   readonly labels: SessionNavigationRowLabels
   readonly onOpen: () => void
-  readonly onArchive: () => void
 }) {
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
+  const { mutation: archive } = useHbarRuntimeState(runtime.state.sessionArchive)
+  const archiving =
+    archive.target?.sessionId === session.id &&
+    archive.target.archived &&
+    archive.status !== 'idle' &&
+    archive.status !== 'succeeded'
+  const archiveLocked = archive.status !== 'idle' && archive.status !== 'succeeded'
   const own = rename.target?.sessionId === session.id && rename.target.workspaceId === session.workspaceId
   const editing = own && rename.status !== 'idle' && rename.status !== 'succeeded'
   const busy = rename.status === 'submitting' || rename.status === 'reconciling'
@@ -124,7 +131,7 @@ export function SessionNavigationRow({
       input.current?.focus()
       input.current?.select()
       restoreFocus.current = true
-    } else if (!editing && wasEditing.current && restoreFocus.current) {
+    } else if (!editing && !archiving && wasEditing.current && restoreFocus.current) {
       const document = row.current?.ownerDocument
       const active = document?.activeElement
       // A disabled submit control may leave focus on the body. Restore only
@@ -132,8 +139,9 @@ export function SessionNavigationRow({
       if (active === document?.body || (active && row.current?.contains(active)))
         row.current?.querySelector<HTMLButtonElement>('.hbar-app-react-session-target')?.focus()
     }
-    wasEditing.current = editing
-  }, [editing])
+    if (archiving) restoreFocus.current = true
+    wasEditing.current = editing || archiving
+  }, [editing, archiving])
   return (
     <LumenFrame
       ref={row}
@@ -142,7 +150,9 @@ export function SessionNavigationRow({
       data-session-id={session.id}
       data-editing={editing || undefined}
     >
-      {editing ? (
+      {archiving ? (
+        <SessionArchiveFeedback labels={labels.archive} connected={connected} focusCancel />
+      ) : editing ? (
         <LumenFrame
           as="form"
           className="hbar-app-react-session-rename"
@@ -244,15 +254,27 @@ export function SessionNavigationRow({
           <LumenActionMenu
             label={labels.sessionActions(session.title)}
             items={[
-              { id: 'rename', label: labels.renameSession, disabled: !['idle', 'succeeded'].includes(rename.status) },
-              { id: 'archive', label: labels.archiveSession, tone: 'danger' },
+              {
+                id: 'rename',
+                label: labels.renameSession,
+                disabled: !['idle', 'succeeded'].includes(rename.status) || archiveLocked,
+              },
+              {
+                id: 'archive',
+                label: labels.archiveSession,
+                disabled: !connected || archiveLocked || !['idle', 'succeeded'].includes(rename.status),
+                tone: 'danger',
+              },
             ]}
             onAction={(action) => {
               if (action === 'rename') {
                 void runtime.commands
                   .execute('sessionRename.begin', { workspaceId: session.workspaceId, sessionId: session.id })
                   .catch(() => {})
-              } else onArchive()
+              } else
+                void runtime.commands
+                  .execute('sessionArchive.begin', { workspaceId: session.workspaceId, sessionId: session.id })
+                  .catch(() => {})
             }}
           />
         </>

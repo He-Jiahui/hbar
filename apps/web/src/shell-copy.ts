@@ -1894,6 +1894,59 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
   }
 }
 
+function createArchiveLabels(locale: ShellLocale): HbarWorkspaceShellLabels['archive'] {
+  const zh = locale === 'zh-CN'
+  return {
+    openList: (name) => (zh ? `查看“${name}”的归档会话` : `Archived sessions in ${name}`),
+    listTitle: (name) => (zh ? `${name} · 已归档会话` : `Archived sessions · ${name}`),
+    close: zh ? '收起归档列表' : 'Close archived list',
+    loading: zh ? '正在加载归档会话…' : 'Loading archived sessions…',
+    empty: zh ? '该项目没有归档会话。' : 'This project has no archived sessions.',
+    emptyPage: zh ? '本页没有归档会话。' : 'No archived sessions on this page.',
+    firstPage: zh ? '刷新并回到第一页' : 'Refresh from first page',
+    nextPage: zh ? '查看下一页' : 'Next page',
+    page: (number) => (zh ? `项目会话第 ${number} 页` : `Project sessions, page ${number}`),
+    restore: zh ? '恢复' : 'Restore',
+    restoreSession: (title) => (zh ? `恢复会话“${title}”` : `Restore session “${title}”`),
+    restoreTitle: (title) => (zh ? `恢复会话“${title}”` : `Restore session “${title}”`),
+    restored: (title) =>
+      zh
+        ? `已恢复“${title}”。可从项目列表打开。`
+        : `“${title}” was restored. Open it from the project list when ready.`,
+    confirmTitle: (title) => (zh ? `归档会话“${title}”` : `Archive session “${title}”`),
+    description: zh
+      ? '归档只从常驻会话列表中隐藏此会话，不删除历史。之后可在此项目的归档列表中恢复。'
+      : 'Archiving hides this session from the regular list without deleting its history. You can restore it from this project’s archived sessions.',
+    confirm: zh ? '确认归档' : 'Archive session',
+    cancel: zh ? '取消' : 'Cancel',
+    archiving: zh ? '正在归档…' : 'Archiving…',
+    restoring: zh ? '正在恢复…' : 'Restoring…',
+    archived: (title) => (zh ? `已归档“${title}”。历史已保留。` : `“${title}” was archived. Its history is preserved.`),
+    unknown: zh
+      ? '操作结果尚未确认。请先核对原会话，不要重复执行。'
+      : 'The result is not confirmed. Check the original session before taking another action.',
+    reconcile: zh ? '核对原会话' : 'Check original session',
+    checking: zh ? '正在核对…' : 'Checking…',
+    dismiss: zh ? '知道了' : 'Dismiss',
+    error: (code) =>
+      code === 'BUSY'
+        ? zh
+          ? '此会话仍有活动运行。停止运行后再归档。'
+          : 'This session still has an active run. Stop it before archiving.'
+        : code === 'STALE_TARGET'
+          ? zh
+            ? '原会话已不可用。请取消并刷新项目列表。'
+            : 'The original session is unavailable. Cancel and refresh the project list.'
+          : code === 'PAGE_STALE'
+            ? zh
+              ? '本页数据已过期，请刷新归档列表。'
+              : 'This page is no longer current. Refresh the archived list.'
+            : zh
+              ? `操作失败：${code}`
+              : `Could not complete the action: ${code}`,
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     shell: {
@@ -1959,6 +2012,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
                 : `标题保存失败：${code}`,
       },
       archiveSession: '归档',
+      archive: createArchiveLabels('zh-CN'),
       error: (code) => `加载失败：${code}`,
     },
     windowControls: {
@@ -2050,6 +2104,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
                 : `Could not save the title: ${code}`,
       },
       archiveSession: 'Archive',
+      archive: createArchiveLabels('en-US'),
       error: (code) => `Loading failed: ${code}`,
     },
     windowControls: {

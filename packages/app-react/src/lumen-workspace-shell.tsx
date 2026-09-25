@@ -39,6 +39,7 @@ import {
 } from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
 import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
+import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } from './session-archive'
 
 export interface HbarWorkspaceShellLabels {
   readonly main: string
@@ -84,6 +85,7 @@ export interface HbarWorkspaceShellLabels {
   readonly renameSession: string
   readonly renameEditor: SessionRenameLabels
   readonly archiveSession: string
+  readonly archive: SessionArchiveLabels
   readonly error: (code: string) => string
 }
 
@@ -325,15 +327,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     void operation.then(closeNarrowSidebar).catch((reason: unknown) => {
       setWorkspaceActionError({ workspaceId, code: reason instanceof Error ? reason.message : String(reason) })
     })
-  }
-  const openCommandForm = (commandId: string, parameters: Readonly<Record<string, string | boolean>> = {}) => {
-    let operation: Promise<unknown> = execute('commandPalette.refresh', {})
-      .then(() => execute('commandPalette.setQuery', { query: commandId }))
-      .then(() => execute('commandPalette.openCommand', { commandId }))
-    for (const [field, value] of Object.entries(parameters))
-      operation = operation.then(() => execute('commandPalette.setParameter', { field, value }))
-    operation = operation.then(() => execute('app.openPanel', { panelId: 'commands' }))
-    settleNavigation(operation)
   }
   const openWorkspace = () => {
     showProjectPicker('open-workspace')
@@ -597,7 +590,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               const sessions = sessionsByWorkspace.get(workspace.id) ?? []
               const nextSessionCursor = sessionCursors[workspace.id]
               return (
-                <LumenFrame as="section" key={workspace.id}>
+                <LumenFrame as="section" key={workspace.id} data-workspace-id={workspace.id}>
                   <LumenFrame className="hbar-app-react-workspace-line">
                     <LumenButton
                       className="hbar-app-react-workspace-row"
@@ -634,10 +627,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         },
                         { id: 'files', label: props.labels.workspaceFiles },
                         { id: 'settings', label: props.labels.workspaceSettings },
+                        { id: 'archived', label: props.labels.archive.openList(workspace.name), disabled: !connected },
                       ]}
                       onAction={(action) => {
                         if (action === 'new-session') newSession(workspace.id)
                         else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
+                        else if (action === 'archived')
+                          void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
                       }}
                     />
                   </LumenFrame>
@@ -654,6 +650,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       {props.labels.error(workspaceActionError.code)}
                     </LumenText>
                   )}
+                  <ArchivedSessions
+                    workspaceId={workspace.id}
+                    workspaceName={workspace.name}
+                    labels={props.labels.archive}
+                    connected={connected}
+                  />
                   {isExpanded && (
                     <LumenFrame className="hbar-app-react-session-list">
                       {loading.has(workspace.id) && sessions.length === 0 ? (
@@ -673,9 +675,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                               navigation.sessionId === session.id
                             }
                             onOpen={() => openSession(session.workspaceId, session.id)}
-                            onArchive={() =>
-                              openCommandForm('app.archiveSession', { sessionId: session.id, archived: true })
-                            }
                           />
                         ))
                       )}
@@ -708,6 +707,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
           </LumenFrame>
           <SessionRenameRecovery labels={props.labels.renameEditor} connected={props.connection === 'connected'} />
+          <SessionArchiveRecovery labels={props.labels.archive} connected={connected} expandedWorkspaces={expanded} />
           {error && (
             <LumenText as="p" role="alert">
               {props.labels.error(error)}

@@ -71,6 +71,33 @@ const labels: HbarWorkspaceShellLabels = {
     error: (code) => `标题操作错误 ${code}`,
   },
   archiveSession: '归档会话',
+  archive: {
+    openList: (name) => `查看 ${name} 的归档会话`,
+    listTitle: (name) => `${name} 中的归档会话`,
+    close: '收起归档列表',
+    loading: '正在加载归档会话',
+    empty: '没有归档会话',
+    emptyPage: '本页没有归档会话，可继续下一页',
+    firstPage: '刷新并返回第一页',
+    nextPage: '查看下一页',
+    page: (page) => `第 ${page} 页`,
+    restore: '恢复',
+    restoreSession: (title) => `恢复原会话 ${title}`,
+    restoreTitle: (title) => `恢复原会话 ${title}`,
+    restored: (title) => `已恢复 ${title}，不会自动切换当前会话`,
+    confirmTitle: (title) => `确认归档原会话 ${title}`,
+    description: '归档只隐藏列表记录，不删除历史，之后可以在原工作区的归档列表中恢复。',
+    confirm: '确认归档此会话',
+    cancel: '取消归档',
+    archiving: '正在归档',
+    restoring: '正在恢复',
+    archived: (title) => `已经归档 ${title}`,
+    unknown: '原操作结果未知，请核对原会话',
+    reconcile: '核对原会话',
+    checking: '正在核对原会话',
+    dismiss: '关闭确认结果',
+    error: (code) => `归档操作错误 ${code}`,
+  },
   error: (code) => `错误 ${code}`,
 }
 
@@ -402,6 +429,64 @@ test('an archived unknown rename exposes only original-target reconciliation, no
     expect(html).not.toContain(labels.renameEditor.save)
     expect(runtime.view.state.sessionRename.getSnapshot().status).toBe('unknown')
     expect(runtime.view.state.directory.getSnapshot().sessions[session.id]?.archived).toBe(true)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('archive confirmation remains in the original session row with reversible host-owned copy', async () => {
+  const runtime = runtimeFixture('archive-long-labels')
+  try {
+    await runtime.view.commands.execute('workspace.list', {})
+    await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
+    await runtime.view.commands.execute('sessionArchive.begin', { workspaceId: workspace.id, sessionId: session.id })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <h1>原会话历史</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain(labels.archive.confirmTitle(session.title))
+    expect(html).toContain(labels.archive.description)
+    expect(html).toContain(labels.archive.confirm)
+    expect(html).toContain(labels.archive.cancel)
+    expect(html).toContain(`data-session-id="${session.id}"`)
+    expect(html).not.toContain('role="dialog"')
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('an inclusive archive page with no archived rows offers next page rather than a false project-wide empty state', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'archive-empty-page',
+    hostId: 'host-test',
+    directory: {
+      execute(name) {
+        if (name === 'workspace.get') return Promise.resolve(workspace)
+        if (name === 'session.list') return Promise.resolve({ items: [session], nextCursor: session.id })
+        throw new Error(`Unexpected ${name}`)
+      },
+    },
+  })
+  try {
+    await runtime.view.commands.execute('workspace.get', { workspaceId: workspace.id })
+    await runtime.view.commands.execute('archivedSessions.open', { workspaceId: workspace.id })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <h1>不改变原选择</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain(labels.archive.listTitle(workspace.name))
+    expect(html).toContain(labels.archive.emptyPage)
+    expect(html).toContain(labels.archive.nextPage)
+    expect(html).toContain(labels.archive.firstPage)
+    expect(html).not.toContain(`>${labels.archive.empty}<`)
+    expect(runtime.view.state.navigation.getSnapshot().workspaceId).toBeNull()
   } finally {
     runtime.dispose()
   }

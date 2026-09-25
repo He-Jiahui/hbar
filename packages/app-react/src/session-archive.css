@@ -1,0 +1,37 @@
+.hbar-app-react-session-archive-feedback,
+.hbar-app-react-archived-sessions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0.375rem;
+  padding: 0.5rem;
+}
+
+.hbar-app-react-session-archive-feedback strong,
+.hbar-app-react-archived-sessions strong,
+.hbar-app-react-session-archive-feedback p,
+.hbar-app-react-archived-sessions p,
+.hbar-app-react-archived-session > span {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.hbar-app-react-session-archive-actions,
+.hbar-app-react-archived-session {
+  display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.hbar-app-react-session-archive-actions > strong,
+.hbar-app-react-archived-session > span {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+}
+
+.hbar-app-react-session-archive-feedback {
+  flex: 1 1 auto;
+}
