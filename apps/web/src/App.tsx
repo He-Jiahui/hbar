@@ -86,6 +86,30 @@ import type { HbarNativeWindowContext } from './native-window'
 import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme, writeThemeBootstrap } from './theme'
 import './App.css'
 
+const lastGlobalSettingsGroupKey = 'hbar:web:last-global-settings-group'
+const knownSettingsGroup = (value: string | null): value is string =>
+  value !== null && WEB_SETTINGS_GROUP_PRESENTATION.some((group) => group.id === value)
+const settingsLanding = {
+  globalGroupId: 'providers',
+  isKnownGlobalGroup: knownSettingsGroup,
+  readLastGlobalGroup: () => {
+    try {
+      const value = window.localStorage.getItem(lastGlobalSettingsGroupKey)
+      return knownSettingsGroup(value) ? value : null
+    } catch {
+      return null
+    }
+  },
+  saveLastGlobalGroup: (groupId: string) => {
+    if (!knownSettingsGroup(groupId)) return
+    try {
+      window.localStorage.setItem(lastGlobalSettingsGroupKey, groupId)
+    } catch {
+      // A disabled storage backend does not make the Settings entry unusable.
+    }
+  },
+}
+
 function createRuntime(
   client: HbarClient,
   hostId: string,
@@ -109,6 +133,7 @@ function createRuntime(
     usage: createUsageCommandClient(client),
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
+    settingsLanding,
     configuration: createConfigurationCommandClient(client),
     planMode: createConfigurationCommandClient(client),
     planModeEvents: {

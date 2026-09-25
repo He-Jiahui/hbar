@@ -96,6 +96,13 @@ export interface RuntimeOptions {
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
+  /** Host-owned global Settings entry preference; scoped settings keep their own explicit targets. */
+  readonly settingsLanding?: {
+    readonly globalGroupId: string
+    readonly isKnownGlobalGroup?: (groupId: string) => boolean
+    readonly readLastGlobalGroup?: () => string | null
+    readonly saveLastGlobalGroup?: (groupId: string) => void
+  }
   readonly configuration?: CommandExecutor
   /** Durable Host mode.get/set for this session, separate from per-send approval choices. */
   readonly planMode?: CommandExecutor

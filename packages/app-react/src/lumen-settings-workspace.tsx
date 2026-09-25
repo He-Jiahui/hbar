@@ -92,6 +92,8 @@ export interface HbarSettingsGroupPresentation {
   readonly id: string
   readonly icon: HbarSettingsGroupIcon
   readonly scope: 'layered' | 'host' | 'client'
+  /** Navigation order only; the Host description still owns form field order. */
+  readonly order?: number
 }
 
 const groupIcons = {
@@ -167,14 +169,19 @@ export function HbarSettingsWorkspace({
       })
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
   }, [additionalGroups, hostGroups])
-  const groups = useMemo(
-    () =>
-      [
-        ...clientGroups.map((group) => ({ ...group, label: group.label })),
-        ...hostGroups.map((group) => ({ ...group, label: labels.resolve(group.labelKey) })),
-      ].sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)),
-    [clientGroups, hostGroups, labels],
-  )
+  const groups = useMemo(() => {
+    const navigationOrder = new Map<string, number>()
+    for (const item of groupPresentation)
+      if (item.order !== undefined && !navigationOrder.has(item.id)) navigationOrder.set(item.id, item.order)
+    return [
+      ...clientGroups.map((group) => ({ ...group, label: group.label })),
+      ...hostGroups.map((group) => ({ ...group, label: labels.resolve(group.labelKey) })),
+    ].sort(
+      (left, right) =>
+        (navigationOrder.get(left.id) ?? left.order) - (navigationOrder.get(right.id) ?? right.order) ||
+        left.id.localeCompare(right.id),
+    )
+  }, [clientGroups, groupPresentation, hostGroups, labels])
   const activeClientGroup = clientGroups.find((group) => group.id === requestedSection)
   const activeGroupId = activeClientGroup?.id ?? entry?.selectedGroup ?? null
   const presentationByGroup = useMemo(() => {

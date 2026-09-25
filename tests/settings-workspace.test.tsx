@@ -144,6 +144,85 @@ async function waitForReady(runtime: ReturnType<typeof createAppRuntime>) {
   throw new Error('Settings form did not become ready')
 }
 
+test('host-owned global settings landing keeps explicit and prior choices without retargeting session settings', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-global-provider-landing',
+    hostId: 'host',
+    directory,
+    settings,
+    settingsLanding: { globalGroupId: 'providers' },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('providers')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'model' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('model')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('model')
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('app.openSettings', { scope: 'session', targetId: session.id })
+    const sessionEntry = await waitForReady(runtime)
+    expect(sessionEntry.scope).toEqual({ kind: 'session', targetId: session.id })
+    expect(sessionEntry.selectedGroup).toBe('model')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('model')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('unavailable device category storage does not block global Settings or lose this runtime selection', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-global-storage-unavailable',
+    hostId: 'host',
+    directory,
+    settings,
+    settingsLanding: {
+      globalGroupId: 'providers',
+      readLastGlobalGroup: () => {
+        throw new Error('Storage unavailable')
+      },
+      saveLastGlobalGroup: () => {
+        throw new Error('Storage unavailable')
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('providers')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'model' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('model')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('model')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('an unsupported explicit global section does not become the remembered Settings destination', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-global-invalid-section',
+    hostId: 'host',
+    directory,
+    settings,
+    settingsLanding: {
+      globalGroupId: 'providers',
+      isKnownGlobalGroup: (groupId) => ['providers', 'model'].includes(groupId),
+    },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'not-registered' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('model')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    expect((await waitForReady(runtime)).selectedGroup).toBe('providers')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 async function readSettingsNavigation(html: string) {
   const result = {
     fixedScope: '',
@@ -465,14 +544,14 @@ test.each(['zh-CN', 'en-US'] as const)(
       expect(restored.form?.dirty).toContain(model)
       expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
       expect(navigation.groups.map((group) => group.text)).toEqual([
+        copy.settings.resolve('i18n:settings.groups.providers'),
         copy.appearance.group,
         copy.settings.resolve('i18n:settings.groups.model'),
         copy.settings.resolve('i18n:settings.groups.session'),
-        copy.settings.resolve('i18n:settings.groups.providers'),
         copy.settings.resolve('i18n:settings.groups.extensions'),
         copy.diagnostics.title,
       ])
-      for (const [index, glyph] of ['palette', 'cpu', 'message-square', 'server', 'puzzle', 'stethoscope'].entries()) {
+      for (const [index, glyph] of ['server', 'palette', 'cpu', 'message-square', 'puzzle', 'stethoscope'].entries()) {
         expect(navigation.groups[index]?.icon).toContain(`lucide-${glyph}`)
         expect(navigation.groups[index]?.tier).toBe('md')
         expect(navigation.groups[index]?.iconHidden).toBe(true)
@@ -520,7 +599,7 @@ test('settings group metadata preserves long labels and ignores unknown or dupli
     const appearance = await readSettingsNavigation(render())
     expect(appearance.fixedScope).toBe(labels.clientScope)
     expect(appearance.groups.filter((group) => group.current).map((group) => group.text)).toEqual([longLabel])
-    expect(appearance.groups[0]?.icon).toContain('lucide-palette')
+    expect(appearance.groups.find((group) => group.current)?.icon).toContain('lucide-palette')
     expect(appearance.groups).toHaveLength(6)
     expect(appearance.groups.map((group) => group.text)).not.toContain('重复项不得覆盖首项')
     expect(appearance.groups.map((group) => group.text)).not.toContain('客户端不得覆盖 Host 分组')

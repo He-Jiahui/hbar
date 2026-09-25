@@ -47,6 +47,13 @@ export function registerSurfaceCommands(
   presentation: ReturnType<typeof createState<PresentationState>>,
 ): () => void {
   const windowTails = new Map<string, Promise<void>>()
+  let lastGlobalSettingsGroup: string | null = null
+  try {
+    const stored = options.settingsLanding?.readLastGlobalGroup?.() ?? null
+    if (stored && (options.settingsLanding?.isKnownGlobalGroup?.(stored) ?? true)) lastGlobalSettingsGroup = stored
+  } catch {
+    // An unavailable device preference must not block the Settings entry.
+  }
   async function serializeWindow<Value>(windowId: string, operation: () => Promise<Value>): Promise<Value> {
     const previous = windowTails.get(windowId) ?? Promise.resolve()
     const result = previous.catch(() => undefined).then(operation)
@@ -175,9 +182,25 @@ export function registerSurfaceCommands(
     presentation.replace({ ...current, sidebarOpen: visible })
     return presentationSummary(presentation.reader.getSnapshot())
   })
-  local.register(surfaceCommands['app.openSettings'], (input) =>
-    openPanel('settings', input, { scope: input.scope, targetId: input.targetId, section: input.section }),
-  )
+  local.register(surfaceCommands['app.openSettings'], (input) => {
+    const landing = options.settingsLanding
+    const section =
+      input.scope === 'global' && landing
+        ? (input.section ?? lastGlobalSettingsGroup ?? landing.globalGroupId)
+        : input.section
+    const opened = openPanel('settings', input, { scope: input.scope, targetId: input.targetId, section })
+    if (input.scope === 'global' && landing && section && (landing.isKnownGlobalGroup?.(section) ?? true)) {
+      lastGlobalSettingsGroup = section
+      if (input.section) {
+        try {
+          landing.saveLastGlobalGroup?.(section)
+        } catch {
+          // Keep this runtime's selection even if the device cannot persist it.
+        }
+      }
+    }
+    return opened
+  })
   local.register(surfaceCommands['app.openStatus'], (input) => openPanel('status', input, { section: input.section }))
   local.register(surfaceCommands['app.openSettingsEditor'], (input) =>
     openPanel('settings-editor', input, {
