@@ -143,8 +143,45 @@ function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabel
     loading: choose('正在读取设备偏好', 'Loading device preferences'),
     unsaved: choose('有未保存的外观更改', 'Appearance changes are not saved'),
     saved: choose('外观偏好已保存', 'Appearance preferences saved'),
+    volatile: choose(
+      '外观更改已应用，但此设备未提供持久化；重启后可能恢复原状。',
+      'Appearance changes apply for this run only; this device has no persistent preferences.',
+    ),
     save: choose('保存外观', 'Save appearance'),
     reset: choose('恢复默认', 'Restore defaults'),
+    discard: choose('舍弃外观草稿', 'Discard appearance draft'),
+    check: choose('核对已保存值', 'Check saved values'),
+    checking: choose('正在核对设备偏好…', 'Checking device preferences…'),
+    continueDraft: choose('保留草稿并继续', 'Keep draft and continue'),
+    continueAfterReset: choose('保留原草稿（不继续重置）', 'Keep previous draft (do not continue reset)'),
+    acceptCurrent: choose('接受当前已保存值', 'Accept currently saved values'),
+    resetConflict: choose(
+      '恢复默认尚未全部完成。核对后可接受当前值，再明确点击“恢复默认”；也可保留原草稿，但不会继续重置。',
+      'Restore defaults did not fully finish. Accept the current values and choose Restore defaults again, or keep the previous draft without continuing the reset.',
+    ),
+    conflict: choose(
+      '已保存的外观与草稿不一致。先核对，再选择继续或舍弃。',
+      'Saved appearance differs from the draft. Check it, then choose to continue or discard.',
+    ),
+    unknown: choose(
+      '保存结果尚未确认。请先核对；不会自动重新提交。',
+      'The save result is unconfirmed. Check before submitting again; it will not replay automatically.',
+    ),
+    restoreError: (code) =>
+      choose(
+        `无法读取设备偏好：${code}。核对前不会覆盖。`,
+        `Could not read device preferences: ${code}. Changes are blocked until a check succeeds.`,
+      ),
+    partial: (count, total) =>
+      choose(
+        `${count}/${total} 项草稿更改目前已应用；其余仍未确认。`,
+        `${count} of ${total} draft changes are currently applied; the rest are not confirmed.`,
+      ),
+    latest: (theme, control, text, corner) =>
+      choose(
+        `当前已保存：${theme}、${control}、${text}、${corner}。`,
+        `Currently saved: ${theme}, ${control}, ${text}, ${corner}.`,
+      ),
     error: (code) => choose(`外观偏好保存失败：${code}`, `Could not save appearance preferences: ${code}`),
   }
 }

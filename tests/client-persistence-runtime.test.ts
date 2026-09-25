@@ -102,6 +102,26 @@ test('corrupt or future persisted data falls back per runtime without leaking in
     values: {},
     restoreError: 'INVALID_PERSISTED_STATE',
   })
+  for (const command of [
+    runtime.view.commands.execute('preferences.set', { key: 'theme', value: 'dark', expectedRevision: 0 }),
+    runtime.view.commands.execute('preferences.unset', { key: 'theme', expectedRevision: 0 }),
+  ]) {
+    try {
+      await command
+      throw new Error('expected preference restore guard')
+    } catch (reason) {
+      expect(reason).toMatchObject({ code: 'PERSISTENCE_RESTORE_FAILED' })
+    }
+  }
+  expect(storage.writes.filter((key) => key.endsWith(':preferences'))).toEqual([])
+  expect(storage.values.get('hbar:host:preferences')).toEqual({ version: 1, revision: -1, value: {} })
+  storage.values.set('hbar:host:preferences', { version: 1, revision: 7, value: { theme: 'light' } })
+  expect(await runtime.clientPreferences.refresh()).toMatchObject({
+    revision: 7,
+    values: { theme: 'light' },
+    restoreError: null,
+  })
+  await runtime.view.commands.execute('preferences.set', { key: 'theme', value: 'dark', expectedRevision: 7 })
   await runtime.view.commands.execute('layout.restore', { source: 'default' })
   expect(storage.values.has('hbar:host:layout')).toBe(false)
   expect(isolated.view.state.layout.getSnapshot().description).toEqual({ marker: 'other' })

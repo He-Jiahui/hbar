@@ -14,6 +14,7 @@ export interface WebAppearancePreferences extends WebAppearanceDimensions {
 export interface PreferenceMutationResult {
   readonly revision: number
   readonly values: Readonly<Record<string, unknown>>
+  readonly persisted?: boolean
 }
 
 export interface PreferenceMutationPort {
@@ -152,7 +153,16 @@ export async function saveWebAppearancePreferences(
 ): Promise<PreferenceMutationResult> {
   let result: PreferenceMutationResult = { revision: expectedRevision, values: currentValues }
   for (const [key, value] of preferenceEntries(preferences)) {
-    if (result.values[key] === value) continue
+    const effective = resolveWebAppearancePreferences(result.values)
+    const dimension =
+      key === 'theme'
+        ? 'theme'
+        : key === WEB_APPEARANCE_DIMENSION_KEYS.controlSize
+          ? 'controlSize'
+          : key === WEB_APPEARANCE_DIMENSION_KEYS.textSize
+            ? 'textSize'
+            : 'cornerSize'
+    if (effective[dimension] === value) continue
     result = await port.set({ key, value, expectedRevision: result.revision })
   }
   return result

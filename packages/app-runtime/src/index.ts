@@ -571,6 +571,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   return {
     view,
+    clientPreferences: Object.freeze({ refresh: clientPersistence.refreshPreferences }),
     workspaceTabs: Object.freeze({
       capture: workspaceTabs.capture,
       closeCaptured: workspaceTabs.closeCaptured,

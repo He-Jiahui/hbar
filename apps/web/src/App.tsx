@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   HbarAgentWorkspace,
   HbarCommandPalette,
@@ -18,6 +18,7 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
+import { CommandError } from '@hbar/commands'
 import { ArrowLeft } from 'lucide-react'
 import {
   applyLumenAppearance,
@@ -59,19 +60,17 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
-import { WebAppearanceSettings, type WebAppearanceSettingsLabels } from './AppearanceSettings'
+import { WebAppearanceSettings } from './AppearanceSettings'
 import {
-  hasWebAppearanceOverrides,
   createWebLumenAppearance,
   readAppearanceBootstrap,
   resetWebAppearancePreferences,
   resolveWebAppearanceDimensions,
-  resolveWebAppearancePreferences,
   sameWebAppearanceDimensions,
   saveWebAppearancePreferences,
   writeAppearanceBootstrap,
-  type WebAppearancePreferences,
 } from './appearance'
+import { createWebAppearanceEditor, type AppearanceEditor } from './appearance-editor'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
@@ -131,8 +130,34 @@ function createRuntime(
   })
 }
 
+function createAppearanceEditorForRuntime(runtime: ReturnType<typeof createAppRuntime>): AppearanceEditor {
+  const state = runtime.view.state.preferences
+  const commands = runtime.view.commands
+  const mutations = {
+    set: (input: { key: string; value: string; expectedRevision: number }) =>
+      commands.execute('preferences.set', input),
+    unset: (input: { key: string; expectedRevision: number }) => commands.execute('preferences.unset', input),
+  }
+  const current = (expectedRevision: number) => {
+    const preferences = state.getSnapshot()
+    if (preferences.restoreError)
+      throw new CommandError('PERSISTENCE_RESTORE_FAILED', 'Read saved preferences before changing appearance')
+    if (preferences.revision !== expectedRevision)
+      throw new CommandError('COMMAND_CONFLICT', 'Appearance preference revision changed')
+    return preferences
+  }
+  return createWebAppearanceEditor(state.getSnapshot(), {
+    save: (target, expectedRevision) =>
+      saveWebAppearancePreferences(mutations, current(expectedRevision).values, target, expectedRevision),
+    reset: (expectedRevision) =>
+      resetWebAppearancePreferences(mutations, current(expectedRevision).values, expectedRevision),
+    refresh: runtime.clientPreferences.refresh,
+  })
+}
+
 type WorkspaceBodyProps = {
   readonly appRuntime: ReturnType<typeof createAppRuntime>
+  readonly appearanceEditor: AppearanceEditor
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
@@ -220,6 +245,7 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
 
 function WorkspaceBodyContent({
   appRuntime,
+  appearanceEditor,
   locale,
   connected,
   prepareAttachment,
@@ -256,7 +282,13 @@ function WorkspaceBodyContent({
         ]}
         renderGroup={(groupId) => {
           if (groupId === 'appearance')
-            return <AppearanceSettingsController labels={copy.appearance} systemPrefersDark={systemPrefersDark} />
+            return (
+              <WebAppearanceSettings
+                labels={copy.appearance}
+                editor={appearanceEditor}
+                systemPrefersDark={systemPrefersDark}
+              />
+            )
           if (groupId === 'providers')
             return <HbarProviderSettings labels={copy.providers.list} connected={connected} />
           if (groupId === 'extensions' && presentation.page.kind === 'settings')
@@ -377,55 +409,6 @@ function WorkspaceBodyContent({
       />
     )
   return <LumenWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
-}
-
-function AppearanceSettingsController({
-  labels,
-  systemPrefersDark,
-}: {
-  readonly labels: WebAppearanceSettingsLabels
-  readonly systemPrefersDark: boolean
-}) {
-  const runtime = useHbarRuntime()
-  const preferences = useHbarRuntimeState(runtime.state.preferences)
-  const value = useMemo(() => resolveWebAppearancePreferences(preferences.values), [preferences.values])
-  const save = useCallback(
-    (target: WebAppearancePreferences, expectedRevision: number) =>
-      saveWebAppearancePreferences(
-        {
-          set: (input) => runtime.commands.execute('preferences.set', input),
-          unset: (input) => runtime.commands.execute('preferences.unset', input),
-        },
-        preferences.values,
-        target,
-        expectedRevision,
-      ),
-    [preferences.values, runtime.commands],
-  )
-  const reset = useCallback(
-    (expectedRevision: number) =>
-      resetWebAppearancePreferences(
-        {
-          set: (input) => runtime.commands.execute('preferences.set', input),
-          unset: (input) => runtime.commands.execute('preferences.unset', input),
-        },
-        preferences.values,
-        expectedRevision,
-      ),
-    [preferences.values, runtime.commands],
-  )
-  return (
-    <WebAppearanceSettings
-      labels={labels}
-      value={value}
-      revision={preferences.revision}
-      ready={preferences.status === 'ready'}
-      canReset={hasWebAppearanceOverrides(preferences.values)}
-      systemPrefersDark={systemPrefersDark}
-      onSave={save}
-      onReset={reset}
-    />
-  )
 }
 
 function WorkspaceTool({
@@ -657,11 +640,14 @@ export default function App({
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
+  const appearanceEditor = useMemo(() => createAppearanceEditorForRuntime(runtime), [runtime])
+  useEffect(() => appearanceEditor.sync(preferences), [appearanceEditor, preferences])
   const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
-  const themePreference = preferences.status === 'ready' ? persistedTheme : bootstrapTheme
+  const preferencesAvailable = preferences.status === 'ready' && !preferences.restoreError
+  const themePreference = preferencesAvailable ? persistedTheme : bootstrapTheme
   const resolvedTheme = resolveWebTheme(themePreference, systemPrefersDark)
   const persistedAppearance = useMemo(() => resolveWebAppearanceDimensions(preferences.values), [preferences.values])
-  const appearance = preferences.status === 'ready' ? persistedAppearance : bootstrapAppearance
+  const appearance = preferencesAvailable ? persistedAppearance : bootstrapAppearance
   const lumenAppearance = useMemo(
     () => createWebLumenAppearance(resolvedTheme, appearance, !systemPrefersReducedMotion),
     [appearance, resolvedTheme, systemPrefersReducedMotion],
@@ -695,18 +681,20 @@ export default function App({
   useLayoutEffect(() => {
     applyWebTheme(document.documentElement, resolvedTheme)
     applyLumenAppearance(document.documentElement, lumenAppearance)
-    writeThemeBootstrap(window.localStorage, themePreference)
-    writeAppearanceBootstrap(window.localStorage, appearance)
-  }, [appearance, lumenAppearance, resolvedTheme, themePreference])
+    if (preferencesAvailable) {
+      writeThemeBootstrap(window.localStorage, themePreference)
+      writeAppearanceBootstrap(window.localStorage, appearance)
+    }
+  }, [appearance, lumenAppearance, preferencesAvailable, resolvedTheme, themePreference])
 
   useEffect(() => {
-    if (preferences.status === 'ready' && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
-  }, [bootstrapTheme, persistedTheme, preferences.status])
+    if (preferencesAvailable && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
+  }, [bootstrapTheme, persistedTheme, preferencesAvailable])
 
   useEffect(() => {
-    if (preferences.status === 'ready' && !sameWebAppearanceDimensions(bootstrapAppearance, persistedAppearance))
+    if (preferencesAvailable && !sameWebAppearanceDimensions(bootstrapAppearance, persistedAppearance))
       setBootstrapAppearance(persistedAppearance)
-  }, [bootstrapAppearance, persistedAppearance, preferences.status])
+  }, [bootstrapAppearance, persistedAppearance, preferencesAvailable])
 
   useEffect(() => {
     const offStatus = client.onStatus(setConnection)
@@ -781,6 +769,7 @@ export default function App({
             <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
               <WorkspaceBody
                 appRuntime={runtime}
+                appearanceEditor={appearanceEditor}
                 locale={locale}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
@@ -791,6 +780,7 @@ export default function App({
           ) : (
             <WorkspaceBody
               appRuntime={runtime}
+              appearanceEditor={appearanceEditor}
               locale={locale}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}

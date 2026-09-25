@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { type FormEvent } from 'react'
 import { Palette } from 'lucide-react'
+import { useStore } from 'zustand'
 import {
   LumenButton,
   LumenFrame,
@@ -13,7 +14,8 @@ import {
   type LumenSize,
 } from '@lumen/app-ui'
 import { resolveWebTheme, type WebResolvedTheme, type WebThemePreference } from './theme'
-import { DEFAULT_WEB_APPEARANCE_PREFERENCES, sameWebAppearance, type WebAppearancePreferences } from './appearance'
+import { hasWebAppearanceOverrides, sameWebAppearance } from './appearance'
+import { partiallyApplied, type AppearanceEditor } from './appearance-editor'
 import './AppearanceSettings.css'
 
 type AppearanceDimension = 'controlSize' | 'textSize' | 'cornerSize'
@@ -46,105 +48,47 @@ export interface WebAppearanceSettingsLabels {
   readonly loading: string
   readonly unsaved: string
   readonly saved: string
+  readonly volatile: string
   readonly save: string
   readonly reset: string
+  readonly discard: string
+  readonly check: string
+  readonly checking: string
+  readonly continueDraft: string
+  readonly continueAfterReset: string
+  readonly acceptCurrent: string
+  readonly resetConflict: string
+  readonly conflict: string
+  readonly unknown: string
+  readonly restoreError: (code: string) => string
+  readonly partial: (count: number, total: number) => string
+  readonly latest: (theme: string, control: string, text: string, corner: string) => string
   readonly error: (code: string) => string
 }
 
 export interface WebAppearanceSettingsProps {
   readonly labels: WebAppearanceSettingsLabels
-  readonly value: WebAppearancePreferences
-  readonly revision: number
-  readonly ready: boolean
-  readonly canReset: boolean
+  readonly editor: AppearanceEditor
   readonly systemPrefersDark: boolean
-  readonly onSave: (value: WebAppearancePreferences, expectedRevision: number) => Promise<{ readonly revision: number }>
-  readonly onReset: (expectedRevision: number) => Promise<{ readonly revision: number }>
-}
-
-interface AppearanceEditorState {
-  readonly baseline: WebAppearancePreferences
-  readonly draft: WebAppearancePreferences
-  readonly revision: number
-}
-
-function errorCode(reason: unknown): string {
-  return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-    ? reason.code
-    : 'EXECUTION_FAILED'
 }
 
 function themeOptionLabel(labels: WebAppearanceSettingsLabels, theme: WebThemePreference): string {
   return theme === 'system' ? labels.theme.system : theme === 'light' ? labels.theme.light : labels.theme.dark
 }
 
-export function WebAppearanceSettings({
-  labels,
-  value,
-  revision,
-  ready,
-  canReset,
-  systemPrefersDark,
-  onSave,
-  onReset,
-}: WebAppearanceSettingsProps) {
-  const [editor, setEditor] = useState<AppearanceEditorState>({ baseline: value, draft: value, revision })
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [error, setError] = useState<string | null>(null)
-  const busy = status === 'saving'
-  const dirty = !sameWebAppearance(editor.draft, editor.baseline)
-  const previewTheme: WebResolvedTheme = resolveWebTheme(editor.draft.theme, systemPrefersDark)
-
-  useEffect(() => {
-    setEditor((current) => {
-      if (!sameWebAppearance(current.draft, current.baseline)) return current
-      if (current.revision === revision && sameWebAppearance(current.baseline, value)) return current
-      return { baseline: value, draft: value, revision }
-    })
-    setStatus((current) => (current === 'saving' ? current : 'idle'))
-    setError(null)
-  }, [revision, value])
-
-  const change = <Key extends keyof WebAppearancePreferences>(key: Key, next: WebAppearancePreferences[Key]) => {
-    setEditor((current) => ({ ...current, draft: { ...current.draft, [key]: next } }))
-    setStatus('idle')
-    setError(null)
-  }
+export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: WebAppearanceSettingsProps) {
+  const state = useStore(editor.store)
+  const ready = state.available
+  const busy = state.status === 'saving' || state.status === 'checking'
+  const locked = busy || state.status === 'unknown' || state.status === 'conflict'
+  const dirty = !sameWebAppearance(state.draft, state.baseline)
+  const canReset = hasWebAppearanceOverrides(state.latestValues)
+  const previewTheme: WebResolvedTheme = resolveWebTheme(state.draft.theme, systemPrefersDark)
+  const progress = partiallyApplied(state)
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!ready || busy || !dirty) return
-    const target = editor.draft
-    const expectedRevision = editor.revision
-    setStatus('saving')
-    setError(null)
-    void onSave(target, expectedRevision)
-      .then((result) => {
-        setEditor({ baseline: target, draft: target, revision: result.revision })
-        setStatus('saved')
-      })
-      .catch((reason: unknown) => {
-        setStatus('error')
-        setError(errorCode(reason))
-      })
-  }
-  const reset = () => {
-    if (!ready || busy || !canReset) return
-    const expectedRevision = editor.revision
-    setStatus('saving')
-    setError(null)
-    void onReset(expectedRevision)
-      .then((result) => {
-        setEditor({
-          baseline: DEFAULT_WEB_APPEARANCE_PREFERENCES,
-          draft: DEFAULT_WEB_APPEARANCE_PREFERENCES,
-          revision: result.revision,
-        })
-        setStatus('saved')
-      })
-      .catch((reason: unknown) => {
-        setStatus('error')
-        setError(errorCode(reason))
-      })
+    if (!ready || locked || !dirty) return
+    void editor.save()
   }
   const sizeField = (
     dimension: AppearanceDimension,
@@ -153,9 +97,9 @@ export function WebAppearanceSettings({
     <LumenFormField controlId={`hbar-appearance-${dimension}`} label={field.label} description={field.description}>
       <LumenSelect
         id={`hbar-appearance-${dimension}`}
-        value={editor.draft[dimension]}
-        disabled={!ready || busy}
-        onChange={(event) => change(dimension, event.currentTarget.value as LumenSize)}
+        value={state.draft[dimension]}
+        disabled={!ready || locked}
+        onChange={(event) => editor.change(dimension, event.currentTarget.value as LumenSize)}
       >
         {(['s', 'm', 'l'] as const).map((size) => (
           <LumenOption key={size} value={size}>
@@ -188,9 +132,9 @@ export function WebAppearanceSettings({
         >
           <LumenSelect
             id="hbar-appearance-theme"
-            value={editor.draft.theme}
-            disabled={!ready || busy}
-            onChange={(event) => change('theme', event.currentTarget.value as WebThemePreference)}
+            value={state.draft.theme}
+            disabled={!ready || locked}
+            onChange={(event) => editor.change('theme', event.currentTarget.value as WebThemePreference)}
           >
             {(['system', 'light', 'dark'] as const).map((theme) => (
               <LumenOption key={theme} value={theme}>
@@ -204,13 +148,14 @@ export function WebAppearanceSettings({
         {sizeField('cornerSize', labels.cornerSize)}
       </LumenFrame>
 
-      <LumenFrame as="section"
+      <LumenFrame
+        as="section"
         className="hbar-web-appearance-preview"
         aria-label={labels.preview.title}
         data-lumen-mode={previewTheme}
-        data-lumen-control-size={editor.draft.controlSize}
-        data-lumen-text-size={editor.draft.textSize}
-        data-lumen-corner-size={editor.draft.cornerSize}
+        data-lumen-control-size={state.draft.controlSize}
+        data-lumen-text-size={state.draft.textSize}
+        data-lumen-corner-size={state.draft.cornerSize}
         data-lumen-shape="rounded"
         style={{ colorScheme: previewTheme }}
       >
@@ -237,22 +182,85 @@ export function WebAppearanceSettings({
       </LumenFrame>
 
       <LumenFrame as="footer" className="hbar-web-appearance-actions">
-        <LumenText as="span" role={error ? 'alert' : 'status'} tone={error ? 'danger' : 'muted'} variant="supporting">
-          {!ready
-            ? labels.loading
-            : error
-              ? labels.error(error)
-              : dirty
-                ? labels.unsaved
-                : status === 'saved'
-                  ? labels.saved
-                  : null}
-        </LumenText>
+        <LumenFrame className="hbar-web-appearance-feedback">
+          <LumenText
+            as="span"
+            role={state.error ? 'alert' : 'status'}
+            tone={state.error ? 'danger' : 'muted'}
+            variant="supporting"
+          >
+            {!ready
+              ? state.restoreError
+                ? labels.restoreError(state.restoreError)
+                : labels.loading
+              : state.status === 'checking'
+                ? labels.checking
+                : state.status === 'unknown'
+                  ? labels.unknown
+                  : state.status === 'conflict'
+                    ? labels.conflict
+                    : state.error
+                      ? labels.error(state.error)
+                      : dirty
+                        ? labels.unsaved
+                        : state.status === 'saved' || state.status === 'volatile'
+                          ? state.status === 'saved'
+                            ? labels.saved
+                            : labels.volatile
+                          : null}
+          </LumenText>
+          {state.status === 'conflict' && state.checked && (
+            <LumenFrame className="hbar-web-appearance-recovery">
+              {state.action?.kind === 'reset' && <LumenText as="p">{labels.resetConflict}</LumenText>}
+              <LumenText as="p">
+                {labels.latest(
+                  themeOptionLabel(labels, state.latest.theme),
+                  labels.sizeOption('controlSize', state.latest.controlSize),
+                  labels.sizeOption('textSize', state.latest.textSize),
+                  labels.sizeOption('cornerSize', state.latest.cornerSize),
+                )}
+              </LumenText>
+              {progress.count > 0 && progress.count < progress.total && (
+                <LumenText as="p">{labels.partial(progress.count, progress.total)}</LumenText>
+              )}
+              <LumenFrame>
+                <LumenButton type="button" size="s" variant="outlined" onClick={editor.continueDraft}>
+                  {state.action?.kind === 'reset' ? labels.continueAfterReset : labels.continueDraft}
+                </LumenButton>
+                <LumenButton type="button" size="s" variant="outlined" onClick={editor.discard}>
+                  {state.action?.kind === 'reset' ? labels.acceptCurrent : labels.discard}
+                </LumenButton>
+              </LumenFrame>
+            </LumenFrame>
+          )}
+          {(state.status === 'unknown' ||
+            (state.status === 'conflict' && !state.checked) ||
+            state.status === 'restore-error') && (
+            <LumenButton type="button" size="s" variant="outlined" disabled={busy} onClick={() => void editor.check()}>
+              {labels.check}
+            </LumenButton>
+          )}
+          {dirty && state.status !== 'unknown' && state.status !== 'conflict' && !busy && ready && (
+            <LumenButton type="button" size="s" variant="text" onClick={editor.discard}>
+              {labels.discard}
+            </LumenButton>
+          )}
+        </LumenFrame>
         <LumenFrame>
-          <LumenButton type="button" variant="outlined" disabled={!ready || busy || !canReset} onClick={reset}>
+          <LumenButton
+            type="button"
+            variant="outlined"
+            disabled={!ready || locked || !canReset}
+            onClick={() => void editor.reset()}
+          >
             {labels.reset}
           </LumenButton>
-          <LumenButton type="submit" tone="primary" loading={busy} disabled={!ready || !dirty}>
+          <LumenButton
+            type="submit"
+            tone="primary"
+            loading={state.status === 'saving'}
+            disabled={!ready || locked || !dirty}
+          >
             {labels.save}
           </LumenButton>
         </LumenFrame>

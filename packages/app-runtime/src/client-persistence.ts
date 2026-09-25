@@ -216,6 +216,8 @@ export function createClientPersistence(
   local.register(clientPersistenceCommands['preferences.set'], (input) =>
     serialize(async () => {
       const current = preferences.reader.getSnapshot()
+      if (current.restoreError)
+        throw new CommandError('PERSISTENCE_RESTORE_FAILED', 'Read saved preferences before changing them')
       assertRevision(current.revision, input.expectedRevision)
       const values = cloneObject({ ...current.values, [input.key]: input.value }, 'Preferences')
       const revision = current.revision + 1
@@ -234,6 +236,8 @@ export function createClientPersistence(
   local.register(clientPersistenceCommands['preferences.unset'], (input) =>
     serialize(async () => {
       const current = preferences.reader.getSnapshot()
+      if (current.restoreError)
+        throw new CommandError('PERSISTENCE_RESTORE_FAILED', 'Read saved preferences before changing them')
       assertRevision(current.revision, input.expectedRevision)
       const { [input.key]: _removed, ...remaining } = current.values
       const values = cloneObject(remaining, 'Preferences')

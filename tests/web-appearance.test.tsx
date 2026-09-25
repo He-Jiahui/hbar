@@ -13,6 +13,7 @@ import {
   writeAppearanceBootstrap,
   type PreferenceMutationPort,
 } from '../apps/web/src/appearance'
+import { createWebAppearanceEditor } from '../apps/web/src/appearance-editor'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 function preferencePort(initial: Readonly<Record<string, unknown>>, revision = 0) {
@@ -94,18 +95,15 @@ test('appearance save and reset serialize formal preference commands with revisi
 
 test('appearance settings renders host copy and shared design-system primitives', () => {
   const labels = getShellCopy('en-US').appearance
-  const html = renderToStaticMarkup(
-    <WebAppearanceSettings
-      labels={labels}
-      value={DEFAULT_WEB_APPEARANCE_PREFERENCES}
-      revision={0}
-      ready
-      canReset={false}
-      systemPrefersDark
-      onSave={() => Promise.resolve({ revision: 1 })}
-      onReset={() => Promise.resolve({ revision: 1 })}
-    />,
+  const editor = createWebAppearanceEditor(
+    { status: 'ready', revision: 0, persisted: true, values: {}, restoreError: null },
+    {
+      save: () => Promise.resolve({ revision: 1, values: {} }),
+      reset: () => Promise.resolve({ revision: 1, values: {} }),
+      refresh: () => Promise.resolve({ status: 'ready', revision: 0, persisted: true, values: {}, restoreError: null }),
+    },
   )
+  const html = renderToStaticMarkup(<WebAppearanceSettings labels={labels} editor={editor} systemPrefersDark />)
   expect(html).toContain('data-variant="body">Appearance</h2>')
   expect(html).toContain('Applies globally on this device')
   expect(html).toContain('aria-label="Live preview"')
