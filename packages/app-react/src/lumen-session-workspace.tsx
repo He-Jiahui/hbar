@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -42,6 +42,8 @@ import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from 
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
+import { localSlashCanSubmit, localSlashCommand } from './composer-slash'
+import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
   HbarComposerAttachmentDropTarget,
   HbarComposerAttachmentTransfers,
@@ -74,6 +76,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: LumenPromptLabels
   readonly attachments: HbarComposerAttachmentLabels
   readonly mentions: HbarComposerMentionLabels
+  readonly slash: HbarComposerSlashLabels
   readonly modelPicker: HbarComposerModelLabels
   readonly intent: HbarComposerIntentLabels
   readonly permissionPicker: HbarComposerPermissionLabels
@@ -194,6 +197,15 @@ export function HbarSessionWorkspace({
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
   const composerWriteError = useRef<{ sessionId: string; error: unknown } | null>(null)
+  const localSlashInFlight = useRef(false)
+  const pendingModelSlash = useRef<{ sessionId: string; workspaceId: string; revision: number } | null>(null)
+  const [modelOpenRequest, setModelOpenRequest] = useState(0)
+  const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string } | null>(null)
+  const slashIds = labels.slash.commands.map((item) => item.id)
+  useEffect(() => {
+    pendingModelSlash.current = null
+    localSlashInFlight.current = false
+  }, [sessionId])
   const saveComposerContent = (
     targetSessionId: string,
     text: string,
@@ -219,6 +231,26 @@ export function HbarSessionWorkspace({
     )
     return promise
   }
+  const clearLocalSlash = async (target: { sessionId: string; workspaceId: string; revision: number }) => {
+    const selected = runtime.state.navigation.getSnapshot()
+    const latest = runtime.state.drafts.getSnapshot()[target.sessionId]
+    if (
+      selected.sessionId !== target.sessionId ||
+      selected.workspaceId !== target.workspaceId ||
+      latest?.revision !== target.revision ||
+      !localSlashCommand(latest.text, slashIds) ||
+      latest.mentions.length ||
+      latest.attachments.length ||
+      latest.attachmentTransfers.length
+    )
+      return
+    await execute('draft.setContent', {
+      sessionId: target.sessionId,
+      text: '',
+      mentions: [],
+      expectedRevision: target.revision,
+    })
+  }
   const submitLatest = async (targetSessionId: string, targetWorkspaceId: string) => {
     const pending = composerWrite.current
     if (pending?.sessionId === targetSessionId) {
@@ -231,6 +263,63 @@ export function HbarSessionWorkspace({
     if (composerWriteError.current?.sessionId === targetSessionId) return
     const selected = runtime.state.navigation.getSnapshot()
     const latest = runtime.state.drafts.getSnapshot()[targetSessionId]
+    const slash = latest && localSlashCommand(latest.text, slashIds)
+    if (slash) {
+      const currentIntent = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
+      const currentPermission = runtime.state.composerPermission.getSnapshot().entries[targetSessionId]
+      const currentModelAction = runtime.state.composerModel.getSnapshot()
+      if (
+        !connected ||
+        selected.sessionId !== targetSessionId ||
+        selected.workspaceId !== targetWorkspaceId ||
+        !latest ||
+        !localSlashCanSubmit({
+          draftStatus: latest.status,
+          modelPending:
+            currentModelAction.sessionId === targetSessionId &&
+            ['submitting', 'unknown'].includes(currentModelAction.action.status),
+          intentPending: ['submitting', 'unknown'].includes(currentIntent?.submission.status ?? ''),
+          permissionLocked: Boolean(currentPermission?.locked),
+        }) ||
+        localSlashInFlight.current
+      )
+        return
+      if (latest.mentions.length || latest.attachments.length || latest.attachmentTransfers.length) {
+        setSlashFailure({ sessionId: targetSessionId, code: 'ATTACHMENTS' })
+        return
+      }
+      if (slash === 'model' && modelPending) return
+      const target = { sessionId: targetSessionId, workspaceId: targetWorkspaceId, revision: latest.revision }
+      localSlashInFlight.current = true
+      setSlashFailure(null)
+      try {
+        if (slash === 'model') {
+          pendingModelSlash.current = target
+          setModelOpenRequest((value) => value + 1)
+        } else {
+          await execute('app.openSettings', {
+            scope: 'session',
+            targetId: targetSessionId,
+            workspaceId: targetWorkspaceId,
+            sessionId: targetSessionId,
+            binding: 'pinned',
+          })
+          const presented = runtime.state.presentation.getSnapshot().page
+          if (presented.kind === 'settings') await clearLocalSlash(target)
+        }
+      } catch (reason) {
+        setSlashFailure({
+          sessionId: targetSessionId,
+          code:
+            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+              ? reason.code
+              : 'EXECUTION_FAILED',
+        })
+      } finally {
+        if (slash !== 'model') localSlashInFlight.current = false
+      }
+      return
+    }
     const modelState = runtime.state.controls.getSnapshot()
     const currentModel = modelState.sessionId === targetSessionId ? modelState.model : null
     const intentState = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
@@ -635,6 +724,7 @@ export function HbarSessionWorkspace({
                     inputLabel={inputLabel}
                     placeholder={placeholder}
                     labels={labels.mentions}
+                    slashLabels={labels.slash}
                     files={files}
                     onContent={(text, mentions, expectedRevision) =>
                       saveComposerContent(sessionId, text, mentions, expectedRevision)
@@ -667,13 +757,20 @@ export function HbarSessionWorkspace({
             attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
           }
           canSubmit={
-            configured &&
-            !modelPending &&
-            !intentPending &&
-            attachmentTransfers.length === 0 &&
-            !permissionEntry?.locked &&
-            draft?.status !== 'unknown' &&
-            Boolean(draft?.text.trim() || draft?.attachments.length)
+            localSlashCommand(draft?.text ?? '', slashIds)
+              ? localSlashCanSubmit({
+                  draftStatus: draft?.status,
+                  modelPending,
+                  intentPending: Boolean(intentPending),
+                  permissionLocked: Boolean(permissionEntry?.locked),
+                })
+              : configured &&
+                !modelPending &&
+                !intentPending &&
+                attachmentTransfers.length === 0 &&
+                !permissionEntry?.locked &&
+                draft?.status !== 'unknown' &&
+                Boolean(draft?.text.trim() || draft?.attachments.length)
           }
           canStop={Boolean(activeRun)}
           runningActions={{
@@ -690,9 +787,14 @@ export function HbarSessionWorkspace({
                 ? labels.error(draft.error)
                 : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
                   ? labels.modelPicker.unknown
-                  : controls.errors.model
-                    ? labels.error(controls.errors.model)
-                    : undefined
+                  : slashFailure?.sessionId === sessionId &&
+                      (slashFailure.code !== 'ATTACHMENTS' || draft?.attachments.length || attachmentTransfers.length)
+                    ? slashFailure.code === 'ATTACHMENTS'
+                      ? labels.slash.attachmentsBlocked
+                      : labels.slash.error(slashFailure.code)
+                    : controls.errors.model
+                      ? labels.error(controls.errors.model)
+                      : undefined
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">
@@ -768,10 +870,35 @@ export function HbarSessionWorkspace({
                 connected={connected}
                 disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
                 labels={labels.modelPicker}
+                openRequest={modelOpenRequest}
+                onOpened={() => {
+                  const target = pendingModelSlash.current
+                  pendingModelSlash.current = null
+                  localSlashInFlight.current = false
+                  if (target?.sessionId === sessionId && target.workspaceId === navigation.workspaceId)
+                    void clearLocalSlash(target).catch((reason: unknown) => {
+                      setSlashFailure({
+                        sessionId: target.sessionId,
+                        code:
+                          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                            ? reason.code
+                            : 'EXECUTION_FAILED',
+                      })
+                    })
+                }}
+                onOpenFailed={(code) => {
+                  const target = pendingModelSlash.current
+                  pendingModelSlash.current = null
+                  localSlashInFlight.current = false
+                  if (target?.sessionId === sessionId) setSlashFailure({ sessionId, code })
+                }}
               />
             </LumenFrame>
           }
-          onChange={(text) => invoke('draft.setText', { sessionId, text })}
+          onChange={(text) => {
+            setSlashFailure(null)
+            invoke('draft.setText', { sessionId, text })
+          }}
           onAddAttachments={prepareAttachment ? addAttachments : undefined}
           onRemoveAttachment={(id, kind) =>
             invoke('draft.removeAttachment', {

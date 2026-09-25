@@ -137,11 +137,17 @@ export function HbarComposerModelPicker({
   connected,
   disabled,
   labels,
+  openRequest = 0,
+  onOpened,
+  onOpenFailed,
 }: {
   readonly sessionId: string
   readonly connected: boolean
   readonly disabled: boolean
   readonly labels: HbarComposerModelLabels
+  readonly openRequest?: number
+  readonly onOpened?: () => void
+  readonly onOpenFailed?: (code: string) => void
 }) {
   const runtime = useHbarRuntime()
   const catalog = useHbarRuntimeState(runtime.state.composerModel)
@@ -166,6 +172,21 @@ export function HbarComposerModelPicker({
   const [limit, setLimit] = useState(COMPOSER_MODEL_PAGE_SIZE)
   const [sliderDraft, setSliderDraft] = useState<number | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
+  const lastOpenRequest = useRef(openRequest)
+  useEffect(() => {
+    if (lastOpenRequest.current === openRequest) return
+    lastOpenRequest.current = openRequest
+    if (unavailable || !modelRef.current) {
+      onOpenFailed?.('CAPABILITY_UNAVAILABLE')
+      return
+    }
+    try {
+      if (modelRef.current.matches(':popover-open')) onOpened?.()
+      else modelRef.current.showPopover()
+    } catch {
+      onOpenFailed?.('CAPABILITY_UNAVAILABLE')
+    }
+  }, [openRequest, unavailable, onOpened, onOpenFailed])
   useEffect(() => {
     if (!open) return
     const reposition = () => {
@@ -317,6 +338,7 @@ export function HbarComposerModelPicker({
           setOpen('model')
           searchRef.current?.focus()
           if (!unresolved && !busy) refresh()
+          onOpened?.()
         }}
         onClose={() => {
           setOpen((value) => (value === 'model' ? null : value))

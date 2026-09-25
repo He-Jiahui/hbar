@@ -1,0 +1,52 @@
+.hbar-composer-slash-items {
+  min-block-size: 0;
+  overflow: auto;
+  padding: 0.25rem;
+}
+
+.hbar-composer-slash-item {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-composer-slash-item[aria-selected='true'] {
+  background: var(--lumen-reading);
+}
+
+.hbar-composer-slash-name {
+  flex: 0 0 auto;
+}
+
+.hbar-composer-slash-description {
+  min-inline-size: 0;
+  margin-inline-start: auto;
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+
+.hbar-composer-slash-hint {
+  padding: 0.5rem 0.7rem;
+  border-top: 0.0625rem solid var(--lumen-edge);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 28rem) {
+  .hbar-composer-slash-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .hbar-composer-slash-description {
+    flex-basis: 100%;
+    margin-inline-start: 1.375rem;
+    text-align: start;
+  }
+}

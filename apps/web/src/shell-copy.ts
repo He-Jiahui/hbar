@@ -1046,6 +1046,24 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '↑↓ Select · Enter/Tab mention · → Browse folder · Esc close',
       ),
     },
+    slash: {
+      menu: choose('本地命令', 'Local commands'),
+      commands: [
+        { id: 'model', label: '/model', description: choose('选择本次会话的模型', 'Choose a model for this session') },
+        {
+          id: 'settings',
+          label: '/settings',
+          description: choose('打开此会话的设置', 'Open settings for this session'),
+        },
+      ],
+      select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
+      hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),
+      attachmentsBlocked: choose(
+        '此本地命令不能连同附件发送；移除附件后再确认。草稿和附件均已保留。',
+        'This local command cannot be sent with attachments. Remove them before confirming; the draft is preserved.',
+      ),
+      error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
+    },
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),
       choose: choose('选择模型', 'Choose a model'),

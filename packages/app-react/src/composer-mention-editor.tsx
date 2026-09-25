@@ -11,6 +11,8 @@ import {
   type PromptMention,
 } from '@hbar/app-runtime'
 import { mapMentionSpans } from './composer-mention-model'
+import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
+import { slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
 import './composer-mention-editor.css'
 
 const MAX_ROWS = 50
@@ -57,6 +59,7 @@ export interface HbarComposerMentionEditorProps {
   readonly inputLabel: string
   readonly placeholder: string
   readonly labels: HbarComposerMentionLabels
+  readonly slashLabels: HbarComposerSlashLabels
   readonly files: { execute(name: string, input: unknown): Promise<unknown> }
   readonly onContent: (text: string, mentions: readonly PromptMention[], revision: number) => Promise<unknown>
   readonly onSubmit: () => void
@@ -128,6 +131,7 @@ function parent(path: string): string {
 
 export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps) {
   const menuId = useId()
+  const slashMenuId = useId()
   const host = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const revisionRef = useRef(props.revision)
@@ -135,11 +139,14 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   const compositionRef = useRef(false)
   const compositionEndedAt = useRef(0)
   const dismissedRef = useRef<Trigger | null>(null)
+  const slashDismissedRef = useRef<Trigger | null>(null)
   const editable = useRef(new Compartment())
   const placeholderSlot = useRef(new Compartment())
   const propsRef = useRef(props)
   propsRef.current = props
   const [trigger, setTrigger] = useState<Trigger | null>(null)
+  const [slashTrigger, setSlashTrigger] = useState<Trigger | null>(null)
+  const [slashSelected, setSlashSelected] = useState(0)
   const [browsePath, setBrowsePath] = useState('.')
   const [search, setSearch] = useState<SearchState | null>(null)
   const [selected, setSelected] = useState(0)
@@ -147,6 +154,10 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   const [generation, setGeneration] = useState(0)
   const triggerRef = useRef(trigger)
   triggerRef.current = trigger
+  const slashTriggerRef = useRef(slashTrigger)
+  slashTriggerRef.current = slashTrigger
+  const slashSelectedRef = useRef(slashSelected)
+  slashSelectedRef.current = slashSelected
   const searchRef = useRef(search)
   searchRef.current = search
   const browseRef = useRef(browsePath)
@@ -155,6 +166,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   selectedRef.current = selected
   const pagingRef = useRef<string | null>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const availableSlash = () => propsRef.current.slashLabels.commands.map((item) => item.id)
 
   useEffect(() => {
     resultsRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
@@ -235,6 +247,30 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   }
   const chooseRef = useRef(choose)
   chooseRef.current = choose
+  const chooseSlash = (command: LocalSlashCommand) => {
+    const view = viewRef.current
+    const active = slashTriggerRef.current
+    const current = propsRef.current
+    if (
+      !view ||
+      !active ||
+      current.disabled ||
+      !current.connected ||
+      active.revision !== revisionRef.current ||
+      !slashMatches(active.term, availableSlash()).includes(command) ||
+      view.state.doc.sliceString(active.from, active.to) !== `/${active.term}`
+    )
+      return
+    const replacement = `/${command} `
+    view.dispatch({
+      changes: { from: active.from, to: active.to, insert: replacement },
+      selection: { anchor: active.from + replacement.length },
+    })
+    setSlashTrigger(null)
+    view.focus()
+  }
+  const chooseSlashRef = useRef(chooseSlash)
+  chooseSlashRef.current = chooseSlash
 
   useEffect(() => {
     if (!host.current) return
@@ -260,6 +296,13 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
                 key: 'Enter',
                 run: (editor) => {
                   if (editor.composing) return false
+                  const slash = slashTriggerRef.current
+                  const slashChoices = slash ? slashMatches(slash.term, availableSlash()) : []
+                  const slashChoice = slashChoices[Math.min(slashSelectedRef.current, slashChoices.length - 1)]
+                  if (slash && slashChoice) {
+                    chooseSlashRef.current(slashChoice)
+                    return true
+                  }
                   const menu = searchRef.current
                   const candidate = menu?.choices[selectedRef.current]
                   if (triggerRef.current && menu?.status === 'ready' && candidate) chooseRef.current(candidate, false)
@@ -271,6 +314,13 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
               {
                 key: 'ArrowDown',
                 run: (editor) => {
+                  if (slashTriggerRef.current && !editor.composing) {
+                    const matches = slashMatches(slashTriggerRef.current.term, availableSlash())
+                    if (matches.length) {
+                      setSlashSelected((index) => Math.min(matches.length - 1, index + 1))
+                      return true
+                    }
+                  }
                   if (!triggerRef.current || editor.composing) return false
                   setSelected((index) => Math.min((searchRef.current?.choices.length ?? 1) - 1, index + 1))
                   return true
@@ -279,6 +329,14 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
               {
                 key: 'ArrowUp',
                 run: (editor) => {
+                  if (
+                    slashTriggerRef.current &&
+                    !editor.composing &&
+                    slashMatches(slashTriggerRef.current.term, availableSlash()).length
+                  ) {
+                    setSlashSelected((index) => Math.max(0, index - 1))
+                    return true
+                  }
                   if (!triggerRef.current || editor.composing) return false
                   setSelected((index) => Math.max(0, index - 1))
                   return true
@@ -287,6 +345,11 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
               {
                 key: 'Escape',
                 run: (editor) => {
+                  if (slashTriggerRef.current && !editor.composing) {
+                    slashDismissedRef.current = slashTriggerRef.current
+                    setSlashTrigger(null)
+                    return true
+                  }
                   if (!triggerRef.current || editor.composing) return false
                   dismissedRef.current = triggerRef.current
                   setTrigger(null)
@@ -297,6 +360,14 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
               ...(['Tab', 'ArrowRight'] as const).map((key) => ({
                 key,
                 run: (editor: EditorView) => {
+                  if (key === 'Tab' && slashTriggerRef.current && !editor.composing) {
+                    const matches = slashMatches(slashTriggerRef.current.term, availableSlash())
+                    const command = matches[Math.min(slashSelectedRef.current, matches.length - 1)]
+                    if (command) {
+                      chooseSlashRef.current(command)
+                      return true
+                    }
+                  }
                   if (!triggerRef.current || editor.composing) return false
                   const menu = searchRef.current
                   const candidate = menu?.choices[selectedRef.current]
@@ -313,11 +384,13 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
             if (suppressRef.current) return
             if (update.focusChanged && !update.view.hasFocus) {
               setTrigger(null)
+              setSlashTrigger(null)
               setSearch(null)
               return
             }
             if (update.docChanged) {
               dismissedRef.current = null
+              slashDismissedRef.current = null
               write(update.view)
               setLocalError(null)
             }
@@ -335,6 +408,30 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
                   : next
               if (next && visible) dismissedRef.current = null
               setTrigger(visible)
+              const token = update.view.state.selection.main.empty
+                ? slashTokenAt(update.view.state.doc.toString(), update.view.state.selection.main.head)
+                : null
+              const nextSlash =
+                token &&
+                !update.view.state.field(mentionField).some((item) => token.from >= item.start && token.from < item.end)
+                  ? { ...token, revision: revisionRef.current }
+                  : null
+              const previousSlash = slashDismissedRef.current
+              const openSlash =
+                nextSlash &&
+                slashMatches(nextSlash.term, availableSlash()).length &&
+                !(
+                  previousSlash &&
+                  previousSlash.from === nextSlash.from &&
+                  previousSlash.to === nextSlash.to &&
+                  previousSlash.term === nextSlash.term &&
+                  previousSlash.revision === nextSlash.revision
+                )
+                  ? nextSlash
+                  : null
+              setSlashTrigger(openSlash)
+              if (openSlash && (!slashTriggerRef.current || slashTriggerRef.current.term !== openSlash.term))
+                setSlashSelected(0)
               if (!visible) {
                 setBrowsePath('.')
                 setSearch(null)
@@ -411,12 +508,17 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   useEffect(() => {
     const editor = viewRef.current?.contentDOM
     if (!editor) return
-    const open = Boolean(trigger && (!props.disabled || !props.connected))
+    const openMention = Boolean(trigger && (!props.disabled || !props.connected))
+    const openSlash = Boolean(slashTrigger && !props.disabled && props.connected)
+    const open = openMention || openSlash
     editor.setAttribute('aria-expanded', String(open))
     if (open) {
-      editor.setAttribute('aria-controls', menuId)
+      editor.setAttribute('aria-controls', openMention ? menuId : slashMenuId)
       editor.setAttribute('aria-autocomplete', 'list')
-      if (search?.status === 'ready' && search.choices[selected])
+      const slashCount = openSlash ? slashMatches(slashTrigger!.term, availableSlash()).length : 0
+      if (slashCount)
+        editor.setAttribute('aria-activedescendant', `${slashMenuId}-option-${Math.min(slashSelected, slashCount - 1)}`)
+      else if (search?.status === 'ready' && search.choices[selected])
         editor.setAttribute('aria-activedescendant', `${menuId}-option-${selected}`)
       else editor.removeAttribute('aria-activedescendant')
     } else {
@@ -424,7 +526,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
       editor.removeAttribute('aria-autocomplete')
       editor.removeAttribute('aria-activedescendant')
     }
-  }, [menuId, props.disabled, props.connected, search, selected, trigger])
+  }, [menuId, slashMenuId, props.disabled, props.connected, search, selected, trigger, slashTrigger, slashSelected])
 
   useEffect(() => {
     if (!trigger || !props.connected || props.disabled) return
@@ -567,6 +669,16 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   return (
     <LumenFrame className="hbar-composer-mention-root">
       <LumenFrame ref={host} className="hbar-composer-mention-editor" data-placeholder={props.placeholder} />
+      {slashTrigger && props.connected && !props.disabled && (
+        <HbarComposerSlashMenu
+          id={slashMenuId}
+          term={slashTrigger.term}
+          selected={slashSelected}
+          labels={props.slashLabels}
+          onSelect={chooseSlash}
+          onHover={setSlashSelected}
+        />
+      )}
       {trigger && (!props.disabled || !props.connected) && (
         <LumenFrame id={menuId} className="hbar-composer-mention-menu" role="listbox" aria-label={props.labels.menu}>
           <LumenFrame className="hbar-composer-mention-heading">
