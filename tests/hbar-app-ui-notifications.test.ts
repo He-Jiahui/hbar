@@ -107,4 +107,33 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(html).toContain('aria-label="移除"')
     expect(html).not.toContain('Ana Reyes')
   })
+
+  test('toast controls, empty summary and distinct payloads come from the host', () => {
+    const html = render(2)
+    const choices = HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!.choices
+    expect((html.match(/data-toast-tone=/g) ?? []).length).toBe(choices.length)
+    for (const choice of choices) expect(html).toContain(choice.label)
+    expect(html).toContain('No active toasts')
+    expect(html).toContain('Clear all')
+    expect(html).toContain('disabled=""')
+    expect(html).not.toContain('Deployment live')
+    const localized: HbarAppUiNotificationsContent = {
+      ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
+      toasts: {
+        ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!,
+        labels: {
+          ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!.labels,
+          title: '短消息', detail: '悬停后展开', empty: '没有消息', clear: '清除所有',
+          active: (count) => `${count} 条`, dismiss: () => '关闭',
+        },
+        choices: [{ id: 'custom', label: '完成', title: '保存成功', detail: '新的内容已同步', tone: 'success', action: '撤销' }],
+        maximum: 1,
+      },
+    }
+    const localizedHtml = render(2, localized)
+    expect(localizedHtml).toContain('短消息')
+    expect(localizedHtml).toContain('没有消息')
+    expect(localizedHtml).toContain('完成')
+    expect(localizedHtml).not.toContain('Toast notifications')
+  })
 })

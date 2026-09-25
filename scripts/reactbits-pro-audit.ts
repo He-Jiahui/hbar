@@ -321,6 +321,8 @@ export type InteractionCase = Readonly<{
     | 'dialog-menu-export'
     | 'dialog-menu-closed'
     | 'dialog-menu-delete-keyboard'
+    | 'toast-success'
+    | 'toast-stack'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1609,6 +1611,18 @@ const dialogWizardScenarios = [
   'dialog-wizard-team-custom', 'dialog-wizard-closed',
 ] as const
 const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
+const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
+async function prepareNotificationToastScenario(root: Locator, scenario: (typeof notificationToastScenarios)[number]): Promise<void> {
+  const clear = root.getByRole('button', { name: 'Clear all', exact: true })
+  if (await clear.isEnabled()) await clear.click()
+  await root.getByRole('button', { name: 'Success', exact: true }).click()
+  await root.getByText('1 active', { exact: true }).waitFor()
+  if (scenario === 'toast-stack') {
+    await root.getByRole('button', { name: 'Error', exact: true }).click()
+    await root.getByText('2 active', { exact: true }).waitFor()
+  }
+  await root.page().waitForTimeout(350)
+}
 async function prepareDialogEvidenceClosed(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Close panel', exact: true }).click()
   await root.getByRole('dialog', { name: 'SOC 2 Type II report' }).waitFor({ state: 'hidden' })
@@ -3073,6 +3087,9 @@ async function replayInteraction(
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-notifications-2' && toastScenario)
+    await prepareNotificationToastScenario(root, toastScenario)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3256,6 +3273,9 @@ async function replayReferenceInteraction(
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-notifications-2' && toastScenario)
+    await prepareNotificationToastScenario(root, toastScenario)
   if (reference.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, true)
   if (reference.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3865,6 +3885,13 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-notifications-2') {
+              for (const scenario of notificationToastScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareNotificationToastScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-ai-usage-6')

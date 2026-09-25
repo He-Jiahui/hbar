@@ -561,6 +561,27 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-notifications-2')
+    return {
+      revision: 1,
+      lumenEntries: ['notifications.tsx', 'notifications-toast-reference.css', 'notifications.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Success toast appears in the corner and enables active-count summary' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Danger toast has independent icon, title and body' },
+        { viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Information toast provides its distinct message' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Progress toast uses the spinner tone and message' },
+        { viewport: 'desktop', theme: 'light', suffix: 'toast-success:5:click', change: 'Success Undo clears only its active toast' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'toast-success:6:click', change: 'Dismiss action clears an active toast' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'toast-stack:5:hover', change: 'A two-toast stack expands on pointer hover' },
+        { viewport: 'desktop', theme: 'light', suffix: 'toast-stack:4:click', change: 'Clear all removes the whole stack and restores the empty bar' },
+        { viewport: 'stress', theme: 'light', suffix: '0:press-space', change: 'Keyboard activation creates a toast beside the narrow card' },
+      ],
+      inferences: [
+        { scope: 'Repeated toast triggers and alternative dismiss targets', basis: 'Four tones have separate real creation screenshots. Shared ID-keyed removal, keyboard activation, Undo and bulk clear are exercised; repeated instances and equivalent buttons are inferred-not-replayed.', verification: 'inferred-not-replayed' },
+        { scope: 'Other viewport and theme gesture permutations', basis: 'Eight static pairs inspect card flow; desktop and 286px stress dynamic screenshots exercise distinct overlay and wrapping boundaries without multiplying every gesture.', verification: 'inferred-not-replayed' },
+        { scope: 'Timed disappearance and hover pause', basis: 'A separate direct live-reference probe records Info disappearing after six seconds. The local timer is tested separately; a timer checkpoint is not mislabeled as a button click in the paired interaction runner.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-notifications-1')
     return {
       revision: 1,

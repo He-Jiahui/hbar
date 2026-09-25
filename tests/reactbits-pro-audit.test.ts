@@ -16,6 +16,17 @@ test('notification center samples distinct feedback and labels repeated rows as 
   expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
 })
 
+test('toast sampling differentiates payload, stack, Undo, dismiss, clear and narrow keyboard feedback', () => {
+  const id = 'hbar-app-ui-notifications-2'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(9)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:0:click`, `${id}:2:click`, `${id}:toast-success:5:click`, `${id}:toast-stack:4:click`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:0:press-space`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('compact usage samples two independent actions and button styles, not passive bars', () => {
   const id = 'hbar-app-ui-ai-usage-8'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(5)
