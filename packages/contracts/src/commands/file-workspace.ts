@@ -52,4 +52,18 @@ export const fileWorkspaceCommands = {
     z.strictObject({ instanceId }),
     summary,
   ),
+  'fileWorkspace.discardAndReload': defineCommand(
+    metadata('fileWorkspace.discardAndReload'),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      path: z.string().min(1).max(4000),
+      expectedDraft: z.string().max(2 * 1024 * 1024),
+      expectedSha256: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/)
+        .nullable(),
+    }),
+    summary,
+  ),
 }

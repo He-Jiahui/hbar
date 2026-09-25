@@ -68,3 +68,51 @@ test('file workspace renders Host entries and a command-owned editable document'
     runtime.dispose()
   }
 })
+
+test('restored file drafts render localized discard and save actions without a second read', async () => {
+  const labels = { ...getShellCopy('zh-CN').files, dirty: '尚未保存的本地草稿会在返回列表和重新打开后保留' }
+  let reads = 0
+  const runtime = createAppRuntime({
+    instanceId: 'files-draft-react',
+    hostId: 'host',
+    directory: { execute: () => Promise.reject(new Error('unused')) },
+    surfaces: { canRender: (id) => id === 'files' },
+    files: {
+      async execute(name) {
+        if (name === 'file.list') return { items: [{ name: '目标说明.md', path: '目标说明.md', directory: false }] }
+        if (name === 'file.read') {
+          reads += 1
+          return {
+            workspaceId: 'w',
+            path: '目标说明.md',
+            text: '来源',
+            size: 6,
+            sha256: createHash('sha256').update('来源').digest('hex'),
+          }
+        }
+        throw new Error('Unexpected write')
+      },
+    },
+  })
+  try {
+    const execute = runtime.view.commands.execute
+    await execute('app.openPanel', { panelId: 'files', workspaceId: 'w' })
+    await execute('fileWorkspace.refresh', { instanceId: 'files' })
+    await execute('fileWorkspace.openEntry', { instanceId: 'files', path: '目标说明.md', directory: false })
+    await execute('fileWorkspace.setText', { instanceId: 'files', text: '保留我的草稿' })
+    await execute('fileWorkspace.showBrowser', { instanceId: 'files' })
+    await execute('fileWorkspace.openEntry', { instanceId: 'files', path: '目标说明.md', directory: false })
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarFileWorkspace labels={labels} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('保留我的草稿')
+    expect(html).toContain(labels.dirty)
+    expect(html).toContain(labels.reload)
+    expect(html).toContain(labels.save)
+    expect(reads).toBe(1)
+  } finally {
+    runtime.dispose()
+  }
+})

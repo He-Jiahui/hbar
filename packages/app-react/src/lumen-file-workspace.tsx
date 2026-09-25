@@ -47,7 +47,13 @@ export function HbarFileWorkspace({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const files = useHbarRuntimeState(runtime.state.files)
-  const [reloadTarget, setReloadTarget] = useState<string | null>(null)
+  const [reloadTarget, setReloadTarget] = useState<{
+    instanceId: string
+    workspaceId: string
+    path: string
+    expectedDraft: string
+    expectedSha256: string | null
+  } | null>(null)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? files.entries[instanceId] : undefined
@@ -62,6 +68,7 @@ export function HbarFileWorkspace({
     if (instanceId && panel?.panelId === 'files' && panel.workspaceId && entry?.workspaceId !== panel.workspaceId)
       invoke('fileWorkspace.refresh', { instanceId })
   }, [entry?.workspaceId, instanceId, invoke, panel?.panelId, panel?.workspaceId])
+  useEffect(() => setReloadTarget(null), [instanceId, panel?.workspaceId])
   if (!instanceId || panel?.panelId !== 'files') return null
   const parent = (path: string) => {
     const normalized = path.replaceAll('\\', '/').replace(/\/+$/, '')
@@ -74,9 +81,19 @@ export function HbarFileWorkspace({
   const dirty = Boolean(document && document.draft !== document.baseline)
   const fileName = (path: string) => path.replaceAll('\\', '/').split('/').at(-1) ?? path
   const reload = () => {
-    const path = reloadTarget
+    const target = reloadTarget
     setReloadTarget(null)
-    if (path) invoke('fileWorkspace.openEntry', { instanceId, path, directory: false })
+    if (target) invoke('fileWorkspace.discardAndReload', target)
+  }
+  const requestReload = () => {
+    if (document && panel.workspaceId)
+      setReloadTarget({
+        instanceId,
+        workspaceId: panel.workspaceId,
+        path: document.path,
+        expectedDraft: document.draft,
+        expectedSha256: document.sha256,
+      })
   }
   return (
     <>
@@ -99,14 +116,13 @@ export function HbarFileWorkspace({
               name={fileName(document.path)}
               labels={labels}
               loading={document.status === 'loading'}
-              error={document.error && document.status !== 'unknown' ? labels.error(document.error) : undefined}
+              error={
+                document.status !== 'unknown' && (document.error || entry?.error)
+                  ? labels.error(document.error ?? entry?.error ?? '')
+                  : undefined
+              }
               contentAvailable={document.sha256 !== null}
               refreshDisabled={dirty || busy || unknown}
-              errorAction={
-                document.error === 'FILE_CONFLICT' ? (
-                  <LumenButton onClick={() => setReloadTarget(document.path)}>{labels.reload}</LumenButton>
-                ) : undefined
-              }
               onRetry={() => invoke('fileWorkspace.openEntry', { instanceId, path: document.path, directory: false })}
             >
               <LumenTextarea
@@ -114,18 +130,25 @@ export function HbarFileWorkspace({
                 variant="plain"
                 aria-label={document.path}
                 value={document.draft}
-                disabled={!connected || unknown}
+                disabled={!connected || unknown || document.status === 'loading'}
                 onChange={(event) => invoke('fileWorkspace.setText', { instanceId, text: event.currentTarget.value })}
               />
+              {unknown && document.error && (
+                <LumenText as="p" role="alert">
+                  {labels.error(document.error)}
+                </LumenText>
+              )}
               <LumenFrame as="footer">
                 <LumenText as="span" role="status">
                   {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
                 </LumenText>
+                {dirty && !unknown && (
+                  <LumenButton disabled={!connected || busy || document.status === 'loading'} onClick={requestReload}>
+                    {labels.reload}
+                  </LumenButton>
+                )}
                 {unknown ? (
-                  <LumenButton
-                    disabled={!connected}
-                    onClick={() => invoke('fileWorkspace.reconcile', { instanceId })}
-                  >
+                  <LumenButton disabled={!connected} onClick={() => invoke('fileWorkspace.reconcile', { instanceId })}>
                     {labels.reconcile}
                   </LumenButton>
                 ) : (
@@ -175,7 +198,7 @@ export function HbarFileWorkspace({
       </LumenToolPane>
       <LumenDialog
         open={reloadTarget !== null}
-        title={labels.reloadTitle(reloadTarget ?? '')}
+        title={labels.reloadTitle(reloadTarget?.path ?? '')}
         closeLabel={labels.keepDraft}
         onClose={() => setReloadTarget(null)}
         footer={
@@ -187,7 +210,12 @@ export function HbarFileWorkspace({
           </>
         }
       >
-        <LumenText as="p" className="hbar-app-react-file-reload-description">{labels.reloadDescription}</LumenText>
+        <LumenText as="p" className="hbar-app-react-file-reload-target">
+          {reloadTarget?.path}
+        </LumenText>
+        <LumenText as="p" className="hbar-app-react-file-reload-description">
+          {labels.reloadDescription}
+        </LumenText>
       </LumenDialog>
     </>
   )

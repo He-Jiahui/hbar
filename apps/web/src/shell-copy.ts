@@ -1045,8 +1045,8 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
     reload: choose('重新加载源文件', 'Reload source'),
     reloadTitle: (path) => choose(`重新加载“${path}”？`, `Reload “${path}”?`),
     reloadDescription: choose(
-      '磁盘上的文件已改变。重新加载会丢弃当前草稿。',
-      'The file changed on disk. Reloading will discard the current draft.',
+      '重新加载源文件会丢弃此文件当前未保存的更改。',
+      'Reloading the source will discard this file’s current unsaved changes.',
     ),
     keepDraft: choose('保留草稿', 'Keep draft'),
     discardAndReload: choose('丢弃并重新加载', 'Discard and reload'),

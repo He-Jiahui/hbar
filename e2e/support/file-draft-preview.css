@@ -1,0 +1,35 @@
+html,
+body,
+#root {
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.file-draft-test-panes {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 100vh;
+  gap: 16px;
+}
+
+.file-draft-test-panes > section {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+}
+
+.file-draft-test-panes .hbar-app-react-file-workspace {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 45rem) {
+  .file-draft-test-panes {
+    flex-direction: column;
+  }
+
+  .file-draft-test-panes > section {
+    min-block-size: 36rem;
+  }
+}
