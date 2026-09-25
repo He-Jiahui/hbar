@@ -561,6 +561,50 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-2')
+    return {
+      revision: 4,
+      lumenEntries: ['app-sidebar-rail.tsx', 'app-sidebar-rail.css', 'app-sidebar-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:hover', change: 'Overview hover reveals flyout or tooltip' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:hover', change: 'Selected Automation hover feedback' },
+        { viewport: 'mobile', theme: 'light', suffix: '6:hover', change: 'Narrow rail second-group hover feedback' },
+        { viewport: 'desktop', theme: 'dark', suffix: '10:hover', change: 'Support affordance feedback' },
+        { viewport: 'desktop', theme: 'light', suffix: '11:click', change: 'Account button opens account feedback' },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'sidebar-rail-flyout-open:1:click',
+          change: 'Clicking the hovered Automation icon retains its flyout',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'sidebar-rail-flyout-open:2:click',
+          change: 'Agent runs selection from an opened flyout',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'sidebar-rail-account-open:12:click',
+          change: 'Account settings selection from the account menu',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other rail icons and repeated pointer/focus gestures',
+          basis:
+            'Each icon family shares one stable ID-bound mechanism; representative selected, unselected, second-group and footer outcomes are replayed, while other icon repeats are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining viewport/theme permutations',
+          basis:
+            'Eight static pairs cover four widths and both themes. The rail preserves layout across widths; desktop and narrow dynamic samples exercise its shared state transitions.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-sidebar-1')
     return {
       revision: 1,

@@ -153,6 +153,7 @@ import { HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-shell-fixtures'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
 import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
+import { appSidebarRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-rail-fixtures'
 import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
@@ -356,6 +357,7 @@ function PreviewApp() {
     () => ({
       ...HBAR_APP_UI_APP_SIDEBAR_FIXTURES,
       primary: appSidebarPrimaryFixture(new URLSearchParams(window.location.search).get('appSidebarFixture')),
+      railPreview: appSidebarRailFixture(new URLSearchParams(window.location.search).get('appSidebarRailFixture')),
     }),
     [],
   )

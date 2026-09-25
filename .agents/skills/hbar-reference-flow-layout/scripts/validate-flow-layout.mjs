@@ -89,6 +89,17 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Sidebar 2: hover flyouts and the account menu anchor to their icon buttons.
+  if (/packages\/lumen-app-ui\/src\/app-sidebar-rail\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-rail-flyout',
+      '.lumen-rail-account-menu',
+      '.lumen-rail-navigation .lumen-rail-flyout',
+      '.lumen-rail-navigation.is-long .lumen-rail-flyout',
+      '.lumen-rail-footer-item .lumen-rail-flyout',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // App Sidebar 1: the account menu is anchored above its profile trigger;
   // the narrow navigation dialog and backdrop cover the blank preview canvas.
   if (/packages\/lumen-app-ui\/src\/app-sidebar-primary\.css$/.test(path.replaceAll('\\', '/'))) {
