@@ -20,7 +20,7 @@ const plugin: PluginInfo = {
 }
 const skill: SkillDescriptor = { id: 'review-helper', path: 'D:/skills/review-helper', scope: 'global' }
 
-test('extension panel renders Host plugins, skills, and command catalog entry points', async () => {
+test('extension panel renders Host plugins, skills, and specific detail entry points', async () => {
   const runtime = createAppRuntime({
     instanceId: 'extensions-react',
     hostId: 'host',
@@ -55,7 +55,8 @@ test('extension panel renders Host plugins, skills, and command catalog entry po
     expect(html).toContain('review-helper')
     expect(html).toContain('D:/skills/review-helper')
     expect(html).toContain('Scope: Global')
-    expect(html).toContain('Open related commands')
+    expect(html).toContain('View Browser use details')
+    expect(html).not.toContain('Open related commands')
     expect(html).toContain('Disable')
     expect(html).toContain('Open system and diagnostic commands')
     expect(html).not.toContain('Close extensions and skills')

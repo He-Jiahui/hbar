@@ -51,6 +51,7 @@ import { createAgentWorkspace } from './agent-workspace'
 import { createGoalPlanWorkspace } from './goal-plan-workspace'
 import { createWorkflowWorkspace } from './workflow-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
+export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import { createStatusWorkspace } from './status-workspace'
 import { createClientPersistence } from './client-persistence'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
@@ -132,6 +133,7 @@ export type {
   WorkflowWorkspacePort,
   WorkflowWorkspaceState,
   ExtensionWorkspaceActionState,
+  ExtensionWorkspaceDetailState,
   ExtensionWorkspaceEntryState,
   ExtensionWorkspaceState,
   StatusWorkspaceEntryState,
@@ -330,6 +332,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     local,
     options,
     surfaces.reader,
+    presentation.reader,
     onSubscriberError,
     () => disposed,
   )

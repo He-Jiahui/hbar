@@ -26,6 +26,26 @@ const metadata = (id: string) => ({
 })
 
 export const extensionWorkspaceCommands = {
+  'extensionWorkspace.inspect': defineCommand(
+    metadata('extensionWorkspace.inspect'),
+    z.strictObject({ instanceId, pluginId: idSchema }),
+    summary,
+  ),
+  'extensionWorkspace.back': defineCommand(
+    metadata('extensionWorkspace.back'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
+  'extensionWorkspace.setQuery': defineCommand(
+    metadata('extensionWorkspace.setQuery'),
+    z.strictObject({ instanceId, query: z.string().max(200) }),
+    summary,
+  ),
+  'extensionWorkspace.setPage': defineCommand(
+    metadata('extensionWorkspace.setPage'),
+    z.strictObject({ instanceId, collection: z.enum(['plugins', 'skills']), page: z.number().int().min(0).max(499) }),
+    summary,
+  ),
   'extensionWorkspace.refresh': defineCommand(
     metadata('extensionWorkspace.refresh'),
     z.strictObject({ instanceId }),

@@ -283,6 +283,13 @@ export interface ExtensionWorkspaceActionState {
   readonly error: string | null
 }
 
+export interface ExtensionWorkspaceDetailState {
+  readonly pluginId: string
+  readonly status: 'loading' | 'ready' | 'error' | 'missing'
+  readonly plugin: Readonly<PluginInfo> | null
+  readonly error: string | null
+}
+
 export interface ExtensionWorkspaceEntryState {
   readonly instanceId: string
   readonly status: 'loading' | 'ready' | 'error'
@@ -290,6 +297,11 @@ export interface ExtensionWorkspaceEntryState {
   readonly skills: readonly Readonly<SkillDescriptor>[]
   readonly actions: Readonly<Record<string, Readonly<ExtensionWorkspaceActionState>>>
   readonly error: string | null
+  readonly query: string
+  readonly pluginPage: number
+  readonly skillPage: number
+  readonly selectedPluginId: string | null
+  readonly detail: Readonly<ExtensionWorkspaceDetailState> | null
 }
 
 export interface ExtensionWorkspaceState {

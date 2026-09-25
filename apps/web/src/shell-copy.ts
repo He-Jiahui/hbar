@@ -1,3 +1,4 @@
+import { extensionDetailCopy } from './extension-detail-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
@@ -1656,10 +1657,11 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale)
   return {
+    ...extensionDetailCopy(locale),
     title: choose('扩展与技能', 'Extensions and skills'),
     description: choose(
-      '查看 Host 已注册能力，管理可选插件，并进入同一命令目录。',
-      'Inspect Host capabilities, manage optional plugins, and open their shared command catalog.',
+      '查看插件详情、管理可选插件，浏览 Host 已发现的技能。',
+      'Inspect plugin details, manage optional plugins, and browse skills discovered by the Host.',
     ),
     hostWide: choose('此分组管理当前 Host 的全局能力。', 'This group manages global capabilities on the current Host.'),
     refresh: choose('刷新', 'Refresh'),
