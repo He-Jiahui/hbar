@@ -1099,6 +1099,135 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-5')
+    return {
+      revision: 3,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '11:click',
+          change: 'Unread filter removes the already-read selection without changing the reading pane',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '12:click',
+          change: 'Assigned filter produces its distinct three-record subset',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '13:click',
+          change: 'Escalated filter reaches the real empty list while preserving the reader',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'inbox-empty:14:click',
+          change: 'Clear filters restores all conversations',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '9:fill',
+          change: 'Search matches list copy, independently of the current reader',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '16:click',
+          change: 'Selecting another conversation replaces its full body and marks only it read',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'inbox-unread:15:click',
+          change: 'Selecting an unread result removes it from the filtered list but retains it in the reader',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '26:click',
+          change: 'Per-conversation star updates icon, accessible label and pressed state',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '29:click',
+          change: 'More actions opens the real four-item menu',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'inbox-menu:30:click',
+          change: 'Menu action closes without inventing a source-side business mutation',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:hover',
+          change: 'Rail hover reveals the shared anchored tooltip',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '25:click',
+          change: 'Reply is a source no-op rather than a fabricated editor',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '30:click',
+          change: 'Attachment action and native scroll-to-target feedback',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '15:click',
+          change: 'Narrow selection replaces the list with the reading pane',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'inbox-reading:24:click',
+          change: 'Back restores the existing list and selection',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '6:click',
+          change: 'Narrow mailbox trigger opens the evidenced overlay',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'inbox-mailboxes:34:click',
+          change: 'Mailbox action closes the drawer without changing the inbox',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated conversations, mailbox icons and menu rows',
+          basis:
+            'Shared ID-bound selection/read/star and close-only action paths. Distinct long/short/attachment data is host-owned, and per-record isolation is tested without repeating each gesture across records.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Sort, compose, account and remaining passive action outputs',
+          basis:
+            'Rendered preview observations establish no business result for equivalent demo callbacks; representative reply, attachment and menu actions retain real paired evidence. No fabricated send/delete/archive success is added.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Keyboard, reverse toggles and responsive permutations',
+          basis:
+            'Representative source keyboard observations and focused local checks cover list selection, filter activation and dismiss/recovery. Eight static pairs retain the complete width/theme matrix without multiplying every action by it.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-4')
     return {
       revision: 1,

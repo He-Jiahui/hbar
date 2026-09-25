@@ -277,6 +277,11 @@ export type InteractionCase = Readonly<{
     | 'editorial-empty'
     | 'editorial-navigation-closed'
     | 'editorial-schedule'
+    | 'inbox-empty'
+    | 'inbox-unread'
+    | 'inbox-menu'
+    | 'inbox-reading'
+    | 'inbox-mailboxes'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1490,6 +1495,36 @@ export function interactionCases(
 }
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
+const inboxScenarios = ['inbox-empty', 'inbox-unread', 'inbox-menu', 'inbox-reading', 'inbox-mailboxes'] as const
+async function prepareInboxScenario(root: Locator, scenario: (typeof inboxScenarios)[number]): Promise<void> {
+  if (scenario === 'inbox-empty' || scenario === 'inbox-unread') {
+    await root.getByRole('radio', { name: scenario === 'inbox-empty' ? 'Escalated' : 'Unread', exact: true }).click()
+  } else if (scenario === 'inbox-menu') {
+    await root.getByRole('radio', { name: 'All', exact: true }).press('Space')
+    await root.getByRole('option').filter({ hasText: 'Priya Raghunathan' }).press('Space')
+    const more = root.getByRole('button', { name: 'More actions', exact: true })
+    if ((await more.getAttribute('aria-expanded')) !== 'true') await more.press('Space')
+  } else if (scenario === 'inbox-reading') {
+    await root.getByRole('option').filter({ hasText: 'Priya Raghunathan' }).click()
+  } else {
+    const back = root.getByRole('button', { name: 'Back to conversations', exact: true })
+    if (await back.isVisible()) await back.click()
+    const open = root.getByRole('button', { name: 'Open mailboxes', exact: true })
+    // Real keyboard preparation avoids Chromium's nested-frame pointer auto-scroll
+    // moving the source shell by 12px after the documentation preview was scrolled.
+    // The sampled mailbox choice still uses its own real pointer action.
+    if ((await open.getAttribute('aria-expanded')) !== 'true') await open.press('Space')
+  }
+}
+function inboxInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario?: InteractionCase['scenario'],
+): readonly InteractionCase[] {
+  return interactionCases(snapshot, variantId, scenario).map((item) =>
+    item.action === 'fill' ? { ...item, fillValue: 'Rotterdam' } : item,
+  )
+}
 const editorialScenarios = ['editorial-empty', 'editorial-navigation-closed', 'editorial-schedule'] as const
 async function prepareEditorialScenario(root: Locator, scenario: (typeof editorialScenarios)[number]): Promise<void> {
   if (scenario === 'editorial-empty') {
@@ -2706,6 +2741,8 @@ async function replayInteraction(
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
+  const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
     await prepareEditorialScenario(root, editorialScenario)
   const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2843,6 +2880,8 @@ async function replayReferenceInteraction(
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
+  const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
     await prepareEditorialScenario(root, editorialScenario)
   const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3394,6 +3433,14 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareEditorialScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-shell-5') {
+              discovered = [...inboxInteractionCases(sourceSnapshot, spec.id)]
+              for (const scenario of inboxScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareInboxScenario(sourceRoot, scenario)
+                discovered.push(...inboxInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

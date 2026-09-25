@@ -89,6 +89,21 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Shell 5: observed mailbox drawer, trigger-relative menu/tooltips and decorative markers.
+  if (/packages\/lumen-app-ui\/src\/app-shell-inbox\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-inbox-overlay',
+      '.lumen-inbox-backdrop',
+      '.lumen-inbox-drawer',
+      '.lumen-inbox-menu',
+      '.lumen-inbox-tooltip',
+      '.lumen-inbox-rail-dot',
+      '.lumen-inbox-search-icon',
+      '.lumen-inbox-scroll-frame::before',
+      '.lumen-inbox-scroll-frame::after',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // cc-haha PermissionModeSelector: composer-trigger overlay / narrow bottom sheet.
   // Only this evidenced top-layer container; its option and confirmation content stays in flex flow.
   if (
@@ -242,7 +257,9 @@ function validateCss(path, source) {
           (/packages\/lumen-app-ui\/src\/app-shell-contracts\.css$/.test(path.replaceAll('\\', '/')) &&
             rule.selector.trim() === '.lumen-contracts-sr') ||
           (/packages\/lumen-app-ui\/src\/app-shell-editorial\.css$/.test(path.replaceAll('\\', '/')) &&
-            rule.selector.trim() === '.lumen-editorial-sr')) &&
+            rule.selector.trim() === '.lumen-editorial-sr') ||
+          (/packages\/lumen-app-ui\/src\/app-shell-inbox\.css$/.test(path.replaceAll('\\', '/')) &&
+            rule.selector.trim() === '.lumen-inbox-sr')) &&
         /clip-path:\s*inset\(50%\)/.test(rule.body) &&
         value.trim() === 'absolute'
       if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay && !isShellAccessibleText) {
@@ -606,6 +623,24 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   }
   if (validateCss(editorialPath, '.lumen-editorial-schedule {\nposition: absolute;\n}').length !== 1)
     throw new Error('Editorial normal-flow schedule cannot become an overlay')
+  const inboxPath = 'packages/lumen-app-ui/src/app-shell-inbox.css'
+  for (const selector of [
+    '.lumen-inbox-overlay',
+    '.lumen-inbox-backdrop',
+    '.lumen-inbox-drawer',
+    '.lumen-inbox-menu',
+    '.lumen-inbox-tooltip',
+    '.lumen-inbox-rail-dot',
+    '.lumen-inbox-search-icon',
+    '.lumen-inbox-scroll-frame::before, .lumen-inbox-scroll-frame::after',
+  ]) {
+    if (validateCss(inboxPath, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length)
+      throw new Error('Rejected observed inbox overlay')
+    if (validateCss('other.css', `${selector} {\nposition: absolute;\ninset: 0;\n}`).length < 2)
+      throw new Error('Inbox overlay exception leaked across files')
+  }
+  if (validateCss(inboxPath, '.lumen-inbox-summary {\nposition: absolute;\n}').length !== 1)
+    throw new Error('Inbox message content cannot use overlay placement')
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
 }
