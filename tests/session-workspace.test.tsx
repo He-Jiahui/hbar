@@ -335,6 +335,8 @@ test('an unconfigured session exposes a localized model recovery action instead 
 
 type SessionToolControl = {
   text: string
+  label: string | null
+  title: string | null
   pressed: string | null
   disabled: boolean
   type: string | null
@@ -355,6 +357,8 @@ async function toolControls(html: string) {
       element(element) {
         controls.push({
           text: '',
+          label: element.getAttribute('aria-label'),
+          title: element.getAttribute('title'),
           pressed: element.getAttribute('aria-pressed'),
           disabled: element.hasAttribute('disabled'),
           type: element.getAttribute('type'),
@@ -393,7 +397,7 @@ function toolRuntime() {
   })
 }
 
-test('five bounded session tools display host-owned text and semantic icons, including long translated labels', async () => {
+test('five bounded session tools expose host-owned names, hints and semantic icons, including long translated labels', async () => {
   const runtime = toolRuntime()
   try {
     const base = getShellCopy('zh-CN').session
@@ -415,7 +419,7 @@ test('five bounded session tools display host-owned text and semantic icons, inc
       if (hasSession) await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
       const result = await toolControls(render())
       expect(result.groupLabel).toBe(labels.tools.label)
-      expect(result.controls.map((control) => control.text)).toEqual([
+      expect(result.controls.map((control) => control.label)).toEqual([
         labels.tools.files,
         labels.tools.monitoring,
         labels.tools.agents,
@@ -424,6 +428,8 @@ test('five bounded session tools display host-owned text and semantic icons, inc
       ])
       expect(result.controls).toHaveLength(5)
       for (const [index, control] of result.controls.entries()) {
+        expect(control.title).toBe(control.label)
+        expect(control.text).toBe('')
         expect(control).toMatchObject({
           disabled: !hasSession,
           pressed: index < 4 ? 'false' : null,

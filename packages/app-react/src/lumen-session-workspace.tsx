@@ -129,14 +129,13 @@ function SessionToolButton({
       size="s"
       variant="text"
       indicator="none"
+      aria-label={label}
+      title={label}
       aria-pressed={selected}
       disabled={disabled}
       onClick={onClick}
     >
       <LumenIcon icon={icon} tier="sm" />
-      <LumenText as="span" className="hbar-app-react-session-tool-label">
-        {label}
-      </LumenText>
     </LumenButton>
   )
 }
@@ -645,8 +644,8 @@ export function HbarSessionWorkspace({
         }
         actionsLabel={labels.tools.label}
         actions={
-          // Five host-labelled actions form a bounded, content-grown collection.
-          // They wrap with the header instead of hiding tools behind a width breakpoint.
+          // Five named icon actions remain directly accessible at every width.
+          // The title shrinks in normal flex flow, not the tool hit areas.
           <>
             <SessionToolButton
               icon={Files}

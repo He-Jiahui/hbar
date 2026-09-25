@@ -49,7 +49,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           const action = tools.getByRole('button', { name: label, exact: true })
           await expect(action).toBeVisible()
           await expect(action).toBeInViewport()
-          await expect(action).toHaveText(label)
+          await expect(action).toHaveAttribute('aria-label', label)
+          await expect(action).toHaveAttribute('title', label)
+          await expect(action).toHaveText('')
           await expect(action.locator('svg')).toHaveAttribute('aria-hidden', 'true')
         }
         expect(
@@ -76,6 +78,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           }),
         ).toEqual({ fits: true, buttonsFit: true, flowing: true })
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        const headerBounds = await page.locator('.hbar-app-react-session-workspace > .lumen-page-header').boundingBox()
+        expect(headerBounds?.height).toBeLessThanOrEqual(80)
         await page.screenshot({ path: `artifacts/desktop-experience/session-tools-${locale}-${viewport.width}.png` })
 
         await tools.getByRole('button', { name: copy.session.tools.files, exact: true }).focus()
