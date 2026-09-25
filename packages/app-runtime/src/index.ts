@@ -32,8 +32,11 @@ import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createWorkspaceTabs, workspaceTabCommands } from './workspace-tabs-runtime'
 import { createAgentChildNavigation, agentChildNavigationCommands } from './agent-child-navigation'
+import { createSessionMessageForkNavigation, sessionMessageForkCommands } from './session-message-fork-navigation'
 export { workspaceTabCommands } from './workspace-tabs-runtime'
 export { agentChildNavigationCommands } from './agent-child-navigation'
+export { sessionMessageForkCommands, messageForkActionKey } from './session-message-fork-navigation'
+export type { SessionMessageForkState, SessionMessageForkAction } from './session-message-fork-navigation'
 export { MAX_WORKSPACE_TABS } from './workspace-tabs-runtime'
 export { isWorkspaceRelativePath } from './composer-mentions'
 export type {
@@ -191,6 +194,7 @@ const runtimeCommands = {
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
   ...agentChildNavigationCommands,
+  ...sessionMessageForkCommands,
   ...systemDiagnosticsCommands,
 }
 
@@ -262,6 +266,18 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     workspaceTabs.hooks,
   )
+  const messageFork = createSessionMessageForkNavigation(local, {
+    workspaces: options.workspaces ?? {
+      execute: () => Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'Session commands are unavailable')),
+    },
+    directory: directory.queries,
+    tabs: workspaceTabs,
+    navigation: navigation.reader,
+    selectSession: (sessionId, workspaceId, execution) =>
+      local.execute('app.setSession', { sessionId, workspaceId }, execution),
+    isDisposed: () => disposed,
+    onSubscriberError,
+  })
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
@@ -433,6 +449,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
         Object.hasOwn(agentChildNavigationCommands, name) ||
+        Object.hasOwn(sessionMessageForkCommands, name) ||
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
         Object.hasOwn(workflowWorkspaceCommands, name) ||
         Object.hasOwn(extensionWorkspaceCommands, name) ||
@@ -479,6 +496,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     state: Object.freeze({
       navigation: navigation.reader,
       workspaceTabs: workspaceTabs.reader,
+      messageFork: messageFork.reader,
       directory: directory.reader,
       forms: forms.reader,
       surfaces: surfaces.reader,
@@ -529,6 +547,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     dispose() {
       if (disposed) return
       disposed = true
+      messageFork.dispose()
       workspaceTabs.dispose()
 
       local.dispose()
