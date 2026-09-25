@@ -304,6 +304,10 @@ export type InteractionCase = Readonly<{
     | 'dialog-plan-closed'
     | 'dialog-delete-valid'
     | 'dialog-delete-closed'
+    | 'dialog-invite-empty'
+    | 'dialog-invite-invalid'
+    | 'dialog-invite-valid'
+    | 'dialog-invite-closed'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1586,6 +1590,23 @@ const sidebarDrawerScenarios = ['sidebar-drawer-closed'] as const
 const sidebarFullScenarios = ['sidebar-full-closed'] as const
 const dialogPlanScenarios = ['dialog-plan-closed'] as const
 const dialogDeleteScenarios = ['dialog-delete-valid', 'dialog-delete-closed'] as const
+const dialogInviteScenarios = ['dialog-invite-empty', 'dialog-invite-invalid', 'dialog-invite-valid', 'dialog-invite-closed'] as const
+async function prepareDialogInviteScenario(root: Locator, scenario: (typeof dialogInviteScenarios)[number]): Promise<void> {
+  if (scenario === 'dialog-invite-closed') {
+    await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
+    await root.getByRole('dialog', { name: 'Invite a member', exact: true }).waitFor({ state: 'hidden' })
+    return
+  }
+  const name = root.getByRole('textbox', { name: 'Full name' })
+  const email = root.getByRole('textbox', { name: 'Work email' })
+  if (scenario !== 'dialog-invite-empty') await name.fill('Jordan Ellis')
+  if (scenario === 'dialog-invite-invalid') await email.fill('not-an-email')
+  if (scenario === 'dialog-invite-valid') {
+    await email.fill('jordan@example.com')
+    return
+  }
+  await root.getByRole('button', { name: 'Send invite', exact: true }).click()
+}
 async function prepareDialogDeleteScenario(root: Locator, scenario: (typeof dialogDeleteScenarios)[number]): Promise<void> {
   if (scenario === 'dialog-delete-valid') {
     await root.getByRole('textbox', { name: 'Type atlas-production to confirm' }).fill('atlas-production')
@@ -2981,6 +3002,10 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-app-dialog-2' &&
       (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed'))
     await prepareDialogDeleteScenario(root, interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-dialog-3') {
+    const scenario = dialogInviteScenarios.find((value) => value === interaction.scenario)
+    if (scenario) await prepareDialogInviteScenario(root, scenario)
+  }
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3146,6 +3171,10 @@ async function replayReferenceInteraction(
   if (reference.id === 'hbar-app-ui-app-dialog-2' &&
       (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed'))
     await prepareDialogDeleteScenario(root, interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-dialog-3') {
+    const scenario = dialogInviteScenarios.find((value) => value === interaction.scenario)
+    if (scenario) await prepareDialogInviteScenario(root, scenario)
+  }
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3790,6 +3819,17 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareDialogDeleteScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-dialog-3') {
+              for (const scenario of dialogInviteScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareDialogInviteScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                  scenario === 'dialog-invite-invalid' && item.action === 'fill' && item.control.index === 3
+                    ? { ...item, fillValue: 'jordan@example.com' }
+                    : item,
+                ))
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

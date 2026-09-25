@@ -561,6 +561,33 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-dialog-3')
+    return {
+      revision: 1,
+      lumenEntries: ['app-dialog.tsx', 'app-dialog-invite.css', 'app-dialog.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '6:click', change: 'Empty submission shows both field errors in place' },
+        { viewport: 'stress', theme: 'dark', suffix: 'dialog-invite-empty:2:fill', change: 'Name correction clears only its own error in narrow flow' },
+        { viewport: 'tablet', theme: 'light', suffix: '4:select', change: 'Role selection changes the selected option without inventing a new hint' },
+        { viewport: 'mobile', theme: 'light', suffix: 'dialog-invite-invalid:3:fill', change: 'Valid email corrects inline validation after a failed attempt' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'dialog-invite-valid:6:click', change: 'Valid submission closes and shows pending invite feedback' },
+        { viewport: 'mobile', theme: 'dark', suffix: '5:click', change: 'Cancel dismisses the stacked-footer form' },
+        { viewport: 'desktop', theme: 'light', suffix: '1:press-space', change: 'Keyboard close dismisses the dialog' },
+        { viewport: 'stress', theme: 'light', suffix: 'dialog-invite-closed:0:click', change: 'Closed trigger reopens in the narrow canvas' },
+      ],
+      inferences: [
+        {
+          scope: 'Equivalent per-field fill strings, role options and close gestures',
+          basis: 'Empty and corrected fields, one option change, valid submit, Cancel, keyboard close and reopen exercise distinct feedback paths. Repeated values and native button/select gestures share the same implementation and are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other theme/viewport permutations',
+          basis: 'Eight static source/local pairs cover four widths and two themes; dynamic cases sample desktop and both narrow boundaries. Validation logic has no theme/viewport branches; omitted permutations are inferred-not-replayed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-dialog-2')
     return {
       revision: 1,

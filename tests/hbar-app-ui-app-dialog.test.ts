@@ -149,4 +149,41 @@ describe('hbar-app-ui app dialog surfaces', () => {
     ])
     expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
   })
+
+  test('invite form preserves the source landmarks, labels, role options and host-owned feedback', () => {
+    const value = render(3)
+    expect(value).toContain('hbar-app-ui-full-canvas-owner')
+    expect(value).toContain('role="banner"')
+    expect(value).toContain('role="contentinfo"')
+    expect(value).toContain('<form id="hbar-app-ui-app-dialog-3-form"')
+    expect(value).toContain('type="submit"')
+    expect(value).toContain('form="hbar-app-ui-app-dialog-3-form"')
+    expect(value).toContain('aria-describedby="hbar-app-ui-app-dialog-3-email-help"')
+    expect(value.match(/<option/g)).toHaveLength(4)
+    expect(value).not.toContain('Enter the member&#x27;s name.')
+    expect(value).not.toContain('Invite sent')
+    const localized = render(3, createHbarAppUiAppDialogLocalizedFixtures())
+    expect(localized).toContain('邀请成员加入工作区')
+    expect(localized).toContain('发送邀请')
+    expect(localized).not.toContain('Invite a member')
+  })
+
+  test('invite options stay host owned and recover missing or duplicate IDs', () => {
+    const original = HBAR_APP_UI_APP_DIALOG_FIXTURES.invite!
+    for (const count of [0, 1, 16, 17]) {
+      const roles = Array.from({ length: count }, (_, index) => ({ id: `role-${index}`, label: `Role ${index}` }))
+      const html = render(3, { invite: { ...original, roles: [...roles, ...roles.slice(0, 1)], initialRoleId: 'stale' } })
+      expect(html.match(/<option/g)?.length ?? 0).toBe(count)
+      if (count) expect(html).toContain('value="role-0" selected=""')
+    }
+  })
+
+  test('invite sampling covers distinct validation, selection and dismissal feedback', () => {
+    const plan = auditSamplingPlan('hbar-app-ui-app-dialog-3')!
+    expect(plan.samples.map((sample) => sample.suffix)).toEqual([
+      '6:click', 'dialog-invite-empty:2:fill', '4:select', 'dialog-invite-invalid:3:fill',
+      'dialog-invite-valid:6:click', '5:click', '1:press-space', 'dialog-invite-closed:0:click',
+    ])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
 })

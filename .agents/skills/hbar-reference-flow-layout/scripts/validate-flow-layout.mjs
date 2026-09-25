@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Dialog 3: success feedback floats over the empty canvas after submit.
+  if (/packages\/lumen-app-ui\/src\/app-dialog-invite\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-dialog-invite-toast') return true
   // App Dialog 2: the observed destructive-action result floats over the
   // canvas after the modal closes; all panel content remains in flex flow.
   if (/packages\/lumen-app-ui\/src\/app-dialog-delete\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -404,6 +407,10 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const inviteToast = '.hbar-app-ui-dialog-invite-toast { position: absolute; inset-block-end: 1rem; }'
+  if (validateCss('packages/lumen-app-ui/src/app-dialog-invite.css', inviteToast).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', inviteToast).length === 0)
+    throw new Error('App Dialog invite toast overlay exception must be path-scoped')
   const deleteToast = '.hbar-app-ui-dialog-delete-toast { position: absolute; inset-block-end: 1rem; }'
   if (validateCss('packages/lumen-app-ui/src/app-dialog-delete.css', deleteToast).length ||
       validateCss('packages/lumen-app-ui/src/other.css', deleteToast).length === 0)
