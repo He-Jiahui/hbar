@@ -89,6 +89,16 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Sidebar 1: the account menu is anchored above its profile trigger;
+  // the narrow navigation dialog and backdrop cover the blank preview canvas.
+  if (/packages\/lumen-app-ui\/src\/app-sidebar-primary\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-primary-account-menu',
+      '.lumen-primary-drawer-layer',
+      '.lumen-primary-backdrop',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // App Shell 9: observed model-trigger menu, narrow navigation drawer/backdrop,
   // the visually hidden Expand control at the model trigger, and the composer
   // label overlaying its native textarea without altering flow.

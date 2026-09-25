@@ -293,6 +293,7 @@ export type InteractionCase = Readonly<{
     | 'scope-account'
     | 'chat-thread-open'
     | 'chat-suggestion'
+    | 'sidebar-account-open'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1544,6 +1545,13 @@ const scopeScenarios = [
   'scope-account',
 ] as const
 const chatScenarios = ['chat-thread-open', 'chat-suggestion'] as const
+const sidebarPrimaryScenarios = ['sidebar-account-open'] as const
+async function prepareSidebarPrimaryScenario(root: Locator): Promise<void> {
+  await root
+    .getByRole('button', { name: /Iris Renner Operations lead/ })
+    .first()
+    .press('Space')
+}
 async function prepareChatScenario(root: Locator, scenario: (typeof chatScenarios)[number]): Promise<void> {
   if (scenario === 'chat-thread-open')
     await root
@@ -2857,6 +2865,8 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-app-shell-7' && scopeScenario) await prepareScopeScenario(root, scopeScenario)
   const chatScenario = chatScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-9' && chatScenario) await prepareChatScenario(root, chatScenario)
+  if (spec.id === 'hbar-app-ui-app-sidebar-1' && interaction.scenario === 'sidebar-account-open')
+    await prepareSidebarPrimaryScenario(root)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3003,6 +3013,8 @@ async function replayReferenceInteraction(
   if (reference.id === 'hbar-app-ui-app-shell-7' && scopeScenario) await prepareScopeScenario(root, scopeScenario)
   const chatScenario = chatScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-9' && chatScenario) await prepareChatScenario(root, chatScenario)
+  if (reference.id === 'hbar-app-ui-app-sidebar-1' && interaction.scenario === 'sidebar-account-open')
+    await prepareSidebarPrimaryScenario(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3587,6 +3599,13 @@ async function runInteractionsParallel(
               for (const scenario of chatScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareChatScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-sidebar-1') {
+              for (const scenario of sidebarPrimaryScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareSidebarPrimaryScenario(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

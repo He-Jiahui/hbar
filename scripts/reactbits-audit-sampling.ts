@@ -561,6 +561,42 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-app-sidebar-1')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'app-sidebar-primary.tsx',
+        'app-sidebar-primary.css',
+        'app-sidebar-workflows.tsx',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '11:click', change: 'Collapse primary sidebar to icon rail' },
+        { viewport: 'desktop', theme: 'dark', suffix: '12:click', change: 'Profile opens account menu' },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'sidebar-account-open:13:click',
+          change: 'Representative account choice after opening the profile menu',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Representative navigation link feedback' },
+        { viewport: 'mobile', theme: 'light', suffix: '15:click', change: 'Close mobile navigation dialog' },
+      ],
+      inferences: [
+        {
+          scope: 'Other navigation links, account items and backdrop closure',
+          basis:
+            'Grouped links and menu items each share an ID-bound handler. A representative link, account choice, collapse and drawer-close outcome are replayed. Backdrop and close button share the same drawer state action; backdrop itself is inferred, not claimed as replayed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme interaction permutations',
+          basis:
+            'Eight static pairs cover all four widths and both themes; dynamic samples exercise desktop and narrow overlay branches whose state logic is theme-independent.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-agent-plan-6')
     return {
       revision: 1,

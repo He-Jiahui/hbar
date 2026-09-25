@@ -152,6 +152,7 @@ import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-u
 import { HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-shell-fixtures'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
+import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
 import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
@@ -351,7 +352,13 @@ function PreviewApp() {
   const supportContent = useMemo(() => HBAR_APP_UI_SUPPORT_FIXTURES, [])
   const wizardContent = useMemo(() => HBAR_APP_UI_WIZARD_FIXTURES, [])
   const appShellContent = useMemo(() => HBAR_APP_UI_APP_SHELL_FIXTURES, [])
-  const appSidebarContent = useMemo(() => HBAR_APP_UI_APP_SIDEBAR_FIXTURES, [])
+  const appSidebarContent = useMemo(
+    () => ({
+      ...HBAR_APP_UI_APP_SIDEBAR_FIXTURES,
+      primary: appSidebarPrimaryFixture(new URLSearchParams(window.location.search).get('appSidebarFixture')),
+    }),
+    [],
+  )
   const aiChatContent = useMemo(
     () =>
       new URLSearchParams(window.location.search).get('aiChatFixture') === 'localized'
