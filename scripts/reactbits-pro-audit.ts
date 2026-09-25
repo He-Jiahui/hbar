@@ -268,6 +268,12 @@ export type InteractionCase = Readonly<{
     | 'shell-navigation-closed'
     | 'rail-workspace'
     | 'rail-navigation-closed'
+    | 'contracts-account'
+    | 'contracts-attention'
+    | 'contracts-empty'
+    | 'contracts-navigation-closed'
+    | 'contracts-search'
+    | 'contracts-search-query'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1482,6 +1488,46 @@ export function interactionCases(
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
 const shellRailScenarios = ['rail-workspace', 'rail-navigation-closed'] as const
+const contractsScenarios = [
+  'contracts-account',
+  'contracts-attention',
+  'contracts-empty',
+  'contracts-navigation-closed',
+  'contracts-search',
+  'contracts-search-query',
+] as const
+async function prepareContractsScenario(root: Locator, scenario: (typeof contractsScenarios)[number]): Promise<void> {
+  if (scenario === 'contracts-account') {
+    await root.getByRole('button', { name: 'Amara Okafor, account menu', exact: true }).click()
+    await root.getByRole('menu', { name: 'Account', exact: true }).waitFor({ state: 'visible' })
+  } else if (scenario === 'contracts-attention' || scenario === 'contracts-empty') {
+    await root.getByRole('radio', { name: 'Needs attention', exact: true }).click()
+    if (scenario === 'contracts-empty')
+      await root
+        .getByRole('searchbox', { name: 'Search contracts and counterparties', exact: true })
+        .fill('no-match-test')
+  } else {
+    const closeNavigation = root.getByRole('button', { name: 'Close navigation', exact: true })
+    if (await closeNavigation.isVisible()) await closeNavigation.click()
+    if (scenario !== 'contracts-navigation-closed') {
+      const searchTrigger = root.getByRole('button', { name: 'Search contracts', exact: true })
+      if ((await searchTrigger.getAttribute('aria-expanded')) !== 'true') await searchTrigger.click()
+      if (scenario === 'contracts-search-query')
+        await root.getByRole('searchbox', { name: 'Search contracts and counterparties', exact: true }).fill('Kestrel')
+    }
+  }
+}
+function contractsInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario?: (typeof contractsScenarios)[number],
+): readonly InteractionCase[] {
+  return interactionCases(snapshot, variantId, scenario).map((item) =>
+    item.action === 'fill'
+      ? { ...item, fillValue: scenario === 'contracts-attention' ? 'no-match-test' : 'Kestrel' }
+      : item,
+  )
+}
 async function prepareShellRailScenario(root: Locator, scenario: (typeof shellRailScenarios)[number]): Promise<void> {
   if (scenario === 'rail-workspace') {
     await root.getByRole('button', { name: 'K Kestrel Freight 24 members', exact: true }).click()
@@ -2642,6 +2688,9 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-app-shell-1' && shellScenario) await prepareShellSidebarScenario(root, shellScenario)
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
+  const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-3' && contractsScenario)
+    await prepareContractsScenario(root, contractsScenario)
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2773,6 +2822,9 @@ async function replayReferenceInteraction(
     await prepareShellSidebarScenario(root, shellScenario)
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
+  const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-3' && contractsScenario)
+    await prepareContractsScenario(root, contractsScenario)
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3312,6 +3364,16 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareShellRailScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-shell-3') {
+              discovered = [...contractsInteractionCases(sourceSnapshot, spec.id)]
+              for (const scenario of contractsScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareContractsScenario(sourceRoot, scenario)
+                discovered.push(
+                  ...contractsInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-agent-activity-5') {

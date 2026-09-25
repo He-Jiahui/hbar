@@ -121,6 +121,20 @@ function isOverlaySelector(path, selector) {
     ])
     if (selector.split(',').every((part) => containers.has(part.trim()))) return true
   }
+  // App Shell 3: observed drawer, account menu, scroll-edge fades and decorative search adornments.
+  if (/packages\/lumen-app-ui\/src\/app-shell-contracts\.css$/.test(path.replaceAll('\\', '/'))) {
+    const containers = new Set([
+      '.lumen-contracts-overlay',
+      '.lumen-contracts-backdrop',
+      '.lumen-contracts-drawer',
+      '.lumen-contracts-account-menu',
+      '.lumen-contracts-nav-frame::after',
+      '.lumen-contracts-main-frame::after',
+      '.lumen-contracts-search-field > svg',
+      '.lumen-contracts-search-field kbd',
+    ])
+    if (selector.split(',').every((part) => containers.has(part.trim()))) return true
+  }
   // Plan 6's main scroll pane has observed pointer-transparent edge fades.
   if (
     /packages\/lumen-app-ui\/src\/agent-plan-summary\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -197,8 +211,10 @@ function validateCss(path, source) {
         errors.push(`${location}: ${property} is reserved for a real overlay container; use flex flow for content.`)
       }
       const isShellAccessibleText =
-        /packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/')) &&
-        rule.selector.trim() === '.lumen-sidebar-sr' &&
+        ((/packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/')) &&
+          rule.selector.trim() === '.lumen-sidebar-sr') ||
+          (/packages\/lumen-app-ui\/src\/app-shell-contracts\.css$/.test(path.replaceAll('\\', '/')) &&
+            rule.selector.trim() === '.lumen-contracts-sr')) &&
         /clip-path:\s*inset\(50%\)/.test(rule.body) &&
         value.trim() === 'absolute'
       if (property === 'position' && /\b(?:absolute|fixed)\b/.test(value) && !isOverlay && !isShellAccessibleText) {
@@ -511,6 +527,27 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const contractsPath = 'packages/lumen-app-ui/src/app-shell-contracts.css'
+  for (const selector of [
+    '.lumen-contracts-overlay',
+    '.lumen-contracts-backdrop',
+    '.lumen-contracts-drawer',
+    '.lumen-contracts-account-menu',
+    '.lumen-contracts-nav-frame::after, .lumen-contracts-main-frame::after',
+    '.lumen-contracts-search-field > svg',
+    '.lumen-contracts-search-field kbd',
+  ]) {
+    if (validateCss(contractsPath, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length)
+      throw new Error(`Rejected observed contracts overlay: ${selector}`)
+    if (validateCss('other.css', `${selector} {\nposition: absolute;\ninset: 0;\n}`).length < 2)
+      throw new Error('Contracts overlay exception leaked across files')
+  }
+  if (validateCss(contractsPath, '.lumen-contracts-account-menu > button {\nposition: absolute;\n}').length !== 1)
+    throw new Error('Contracts overlay exception leaked to content')
+  if (validateCss(contractsPath, '.lumen-contracts-sr {\nposition: absolute;\nclip-path: inset(50%);\n}').length)
+    throw new Error('Rejected contracts accessible hidden copy')
+  if (validateCss(contractsPath, '.lumen-contracts-sr {\nposition: fixed;\nclip-path: inset(50%);\n}').length !== 1)
+    throw new Error('Contracts hidden copy exception allowed fixed positioning')
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
 }

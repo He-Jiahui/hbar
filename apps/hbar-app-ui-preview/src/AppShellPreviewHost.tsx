@@ -7,6 +7,11 @@ import {
 } from 'hbar-app-ui/catalog'
 import { appShellSidebarFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-sidebar-fixtures'
 import { appShellRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-rail-fixtures'
+import { appShellContractsFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-contracts-fixtures'
+import {
+  createAppShellContractsPreviewStore,
+  projectAppShellContractsPreview,
+} from './app-shell-contracts-preview-model'
 import { createAppShellRailPreviewStore, projectAppShellRailPreview } from './app-shell-rail-preview-model'
 import { createAppShellSidebarPreviewStore, projectAppShellSidebarPreview } from './app-shell-sidebar-preview-model'
 
@@ -18,6 +23,13 @@ export function AppShellPreviewHost({
 }: HbarAppUiVariantProps & { readonly content: HbarAppUiAppShellContent; readonly children: ReactNode }) {
   const [store] = useState(createAppShellSidebarPreviewStore)
   const [railStore] = useState(createAppShellRailPreviewStore)
+  const [contractsStore] = useState(createAppShellContractsPreviewStore)
+  const contracts = projectAppShellContractsPreview(
+    useStore(contractsStore),
+    appShellContractsFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
+      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
+    ),
+  )
   const rail = projectAppShellRailPreview(
     useStore(railStore),
     appShellRailFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
@@ -29,5 +41,7 @@ export function AppShellPreviewHost({
     (actionId, value) => onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
   )
   const sidebar = projectAppShellSidebarPreview(useStore(store), fixture)
-  return <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail }}>{children}</HbarAppUiAppShellProvider>
+  return (
+    <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail, contracts }}>{children}</HbarAppUiAppShellProvider>
+  )
 }

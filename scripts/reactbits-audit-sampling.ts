@@ -1099,6 +1099,118 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-3')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Collapse full navigation into the icon rail without losing main content',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '18:click',
+          change: 'Signed selects seven active/renewing agreements',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '19:click',
+          change: 'Attention selects three overdue/approval agreements',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '2:fill',
+          change: 'Search matches contract or counterparty independently of metrics',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'contracts-attention:2:fill',
+          change: 'Search plus filter reaches the real empty result state',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'contracts-empty:20:click',
+          change: 'Clear search restores both the query and All filter',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '7:click',
+          change: 'Open the account menu anchored beneath the avatar',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'contracts-account:8:click',
+          change: 'A representative account item closes the menu and restores focus',
+        },
+        { viewport: 'desktop', theme: 'light', suffix: '9:hover', change: 'Shared navigation hover feedback' },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '9:click',
+          change: 'Fragment navigation retains the selected contracts page',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '6:click',
+          change: 'Create is a source action with no fabricated business result',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '49:click',
+          change: 'Dismiss initial narrow navigation to expose the card flow',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'contracts-navigation-closed:3:click',
+          change: 'Mobile search opens a normal-flow row under the header',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'contracts-search:8:fill',
+          change: 'Mobile query filters the same underlying collection',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'contracts-search-query:9:click',
+          change: 'Close search hides its row while retaining the current query',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated navigation, contract anchors and account choices',
+          basis:
+            'Observed fragment destinations and shared close/focus callbacks; one representative per mechanism is replayed. Data records remain native links, not selectable buttons.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Notifications/settings, reverse collapse, dismissal and equivalent gestures',
+          basis:
+            'Three top actions were observed as source no-ops. Create represents that group; focused production checks cover reverse collapse, menu keyboard navigation and drawer Escape without multiplying themes/viewports.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other queries, radio gestures and static metadata',
+          basis:
+            'Match, filtered result, empty and reset are distinct tested branches; repeated query strings and passive metrics do not need extra screenshots. Eight static pairs retain all responsive structures.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-2')
     return {
       revision: 1,
