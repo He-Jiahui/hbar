@@ -24,7 +24,7 @@ test('project acquisition pages beyond 100 items and keeps the form reachable in
   const copy = getShellCopy('zh-CN')
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     const commands = createWorkspaceSessionCommandClient(host.client)
     // Existing fixture project + 100 additional real Host directories crosses the 100-row page boundary.
     for (let index = 0; index < 100; index += 1) {
@@ -71,7 +71,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const copy = getShellCopy(locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root })
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
       const commands = createWorkspaceSessionCommandClient(host.client)
       const originalTitle = 'Original project A session — 保留草稿'
       await commands.execute('session.rename', { sessionId: host.ready.sessionId, title: originalTitle })
@@ -109,7 +109,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       expect(await countSessions(host.ready.workspaceId)).toBe(1)
       expect(await countSessions(other.id)).toBe(0)
 
-      for (const width of [1440, 390, 320]) {
+      for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width === 320 ? 720 : 960 })
         await showSidebar(page, locale)
         await globalCreate.click()
@@ -140,13 +140,43 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = '工程 A 的草稿不能跟随项目 B 的新建操作丢失 — keep the original draft'
       await prompt.fill(draft)
-      for (const width of [1440, 390, 320]) {
+      for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width === 320 ? 720 : 960 })
         sidebar = await showSidebar(page, locale)
         const beforeA = await countSessions(host.ready.workspaceId)
         const beforeB = await countSessions(other.id)
-        await sidebar.getByTitle(copy.shell.workspaceActions(other.name), { exact: true }).click()
-        await sidebar.getByRole('menuitem', { name: copy.shell.newSessionInWorkspace, exact: true }).click()
+        const project = sidebar.locator(`section[data-workspace-id="${other.id}"]`)
+        const quickCreate = project.getByRole('button', {
+          name: copy.shell.createSessionInWorkspace(other.name),
+          exact: true,
+        })
+        await expect(quickCreate).toHaveCount(1)
+        await project.getByTitle(copy.shell.workspaceActions(other.name), { exact: true }).click()
+        await expect(
+          project.getByRole('menuitem', { name: copy.shell.newSessionInWorkspace, exact: true }),
+        ).toHaveCount(0)
+        await page.keyboard.press('Escape')
+        // The quick action follows the project menu in keyboard order, not inside its list.
+        await page.keyboard.press('Tab')
+        await expect(quickCreate).toBeFocused()
+        await expect(quickCreate).toHaveCSS('opacity', '1')
+        const geometry = await project.locator('.hbar-app-react-workspace-line').evaluate((row) => {
+          const controls = [...row.children].map((child) => child.getBoundingClientRect())
+          return {
+            fits: row.scrollWidth <= row.clientWidth + 1,
+            separated: controls.every((rect, index) => index === 0 || rect.left >= controls[index - 1]!.right - 1),
+            actionWidth: controls.at(-1)?.width ?? 0,
+            menuWidth: row.querySelector('summary')?.getBoundingClientRect().width ?? 0,
+          }
+        })
+        expect(geometry.fits).toBe(true)
+        expect(geometry.separated).toBe(true)
+        expect(geometry.actionWidth).toBeGreaterThanOrEqual(width < 1024 ? 44 : 32)
+        if (width < 1024) expect(geometry.menuWidth).toBeGreaterThanOrEqual(44)
+        await page.screenshot({
+          path: `artifacts/desktop-experience/session-entry/quick-create-${locale}-${width}.png`,
+        })
+        await page.keyboard.press('Enter')
         await expect.poll(() => countSessions(other.id)).toBe(beforeB + 1)
         expect(await countSessions(host.ready.workspaceId)).toBe(beforeA)
         await expect(page.getByRole('dialog')).toHaveCount(0)

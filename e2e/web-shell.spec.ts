@@ -598,9 +598,12 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     const workspaceMenu = page.getByRole('menu', {
       name: `Actions for project ${fixture.ready.workspaceName}`,
     })
-    await expect(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' })).toBeVisible()
+    await expect(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' })).toHaveCount(0)
     await page.screenshot({ path: 'artifacts/ui-redesign/shell/workspace-actions-1440.png', fullPage: true })
-    await createAndOpenSession(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' }))
+    await page.keyboard.press('Escape')
+    await createAndOpenSession(
+      page.getByRole('button', { name: `Create a session in project ${fixture.ready.workspaceName}`, exact: true }),
+    )
     await page.screenshot({
       path: 'artifacts/ui-redesign/shell/workspace-new-session-1440.png',
       fullPage: true,
@@ -1111,8 +1114,8 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await goalStrip.getByRole('button', { name: 'Pause goal continuation', exact: true }).click()
     await expect(goalStrip).toContainText('Paused')
     await goalStrip.getByRole('button', { name: 'Expand goal document', exact: true }).click()
-    await expectGoalPlanLayout('goal')
     await expect(page.getByRole('textbox', { name: 'Goal objective' })).toHaveValue('Complete the browser verification')
+    await expectGoalPlanLayout('goal')
     await page.getByRole('button', { name: 'Budget and execution details', exact: true }).click()
     await page.getByRole('spinbutton', { name: 'Goal token budget' }).fill('16000')
     await page.getByRole('button', { name: 'Save goal' }).click()

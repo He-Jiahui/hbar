@@ -147,7 +147,8 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('打开设置')
     expect(html).toContain('已经连接')
     expect(html).toContain('非常长的工程名称 的工程操作')
-    expect(html).toContain('在该工程新建会话')
+    expect(html).toContain(labels.createSessionInWorkspace(workspace.name))
+    expect(html).not.toContain(labels.newSessionInWorkspace)
     expect(html).toContain(labels.workspaceFiles)
     expect(html).toContain(labels.workspaceSettings)
     expect(html).toContain('需要键盘导航的会话 的操作')
@@ -184,6 +185,48 @@ test('separate React runtime providers keep each window selection private', asyn
   } finally {
     selected.dispose()
     idle.dispose()
+  }
+})
+
+test('project quick-create is a single localized row action and stays disabled for a disconnected cached project', async () => {
+  const runtime = runtimeFixture('project-quick-create')
+  const render = (connection: 'connected' | 'disconnected') =>
+    renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection={connection} onReconnect={() => {}}>
+          <h1>项目上下文</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+  try {
+    expect(render('connected')).not.toContain('hbar-app-react-project-new-session')
+    await runtime.view.commands.execute('workspace.list', { limit: 100 })
+    for (const connection of ['connected', 'disconnected'] as const) {
+      const buttons: { label: string | null; title: string | null; disabled: boolean }[] = []
+      await new HTMLRewriter()
+        .on('button.hbar-app-react-project-new-session', {
+          element(element) {
+            buttons.push({
+              label: element.getAttribute('aria-label'),
+              title: element.getAttribute('title'),
+              disabled: element.hasAttribute('disabled'),
+            })
+          },
+        })
+        .transform(new Response(render(connection)))
+        .text()
+      expect(buttons).toEqual([
+        {
+          label: labels.createSessionInWorkspace(workspace.name),
+          title: labels.createSessionInWorkspace(workspace.name),
+          disabled: connection === 'disconnected',
+        },
+      ])
+      expect(runtime.view.state.navigation.getSnapshot().workspaceId).toBeNull()
+      expect(runtime.view.state.navigation.getSnapshot().sessionId).toBeNull()
+    }
+  } finally {
+    runtime.dispose()
   }
 })
 

@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  SquarePen,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -116,6 +117,7 @@ const workspaceShellIcons = {
   plus: Plus,
   refresh: RefreshCw,
   settings: Settings,
+  'new-session': SquarePen,
 } satisfies Readonly<Record<string, LucideIcon>>
 
 type WorkspaceShellIconName = keyof typeof workspaceShellIcons
@@ -620,22 +622,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     <LumenActionMenu
                       label={props.labels.workspaceActions(workspace.name)}
                       items={[
-                        {
-                          id: 'new-session',
-                          label: props.labels.newSessionInWorkspace,
-                          disabled: !connected || navigationBlocked,
-                        },
                         { id: 'files', label: props.labels.workspaceFiles },
                         { id: 'settings', label: props.labels.workspaceSettings },
                         { id: 'archived', label: props.labels.archive.openList(workspace.name), disabled: !connected },
                       ]}
                       onAction={(action) => {
-                        if (action === 'new-session') newSession(workspace.id)
-                        else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
+                        if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
                         else if (action === 'archived')
                           void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
                       }}
                     />
+                    <LumenIconButton
+                      className="hbar-app-react-project-new-session"
+                      label={props.labels.createSessionInWorkspace(workspace.name)}
+                      disabled={!connected || navigationBlocked}
+                      loading={navigationBusy && actionWorkspaceId === workspace.id}
+                      onClick={() => newSession(workspace.id)}
+                    >
+                      <WorkspaceShellIcon name="new-session" />
+                    </LumenIconButton>
                   </LumenFrame>
                   {actionWorkspaceId === workspace.id && (
                     <NavigationActionFeedback

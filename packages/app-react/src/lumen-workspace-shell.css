@@ -89,13 +89,23 @@
   opacity: 0;
 }
 
-.hbar-app-react-workspace-line > .lumen-action-menu {
+.hbar-app-react-workspace-line > .lumen-action-menu,
+.hbar-app-react-project-new-session {
   margin-inline-end: 0.25rem;
   opacity: 0;
 }
 
+.hbar-app-react-project-new-session {
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+}
+
 .hbar-app-react-workspace-line:hover > .lumen-action-menu,
-.hbar-app-react-workspace-line:focus-within > .lumen-action-menu {
+.hbar-app-react-workspace-line:focus-within > .lumen-action-menu,
+.hbar-app-react-workspace-line:hover > .hbar-app-react-project-new-session,
+.hbar-app-react-workspace-line:focus-within > .hbar-app-react-project-new-session,
+.hbar-app-react-project-new-session[aria-busy='true'] {
   opacity: 1;
 }
 
@@ -252,8 +262,15 @@
     opacity: 1;
   }
 
-  .hbar-app-react-workspace-line > .lumen-action-menu {
+  .hbar-app-react-workspace-line > .lumen-action-menu,
+  .hbar-app-react-project-new-session {
     opacity: 1;
+  }
+
+  .hbar-app-react-project-new-session,
+  .hbar-app-react-workspace-line > .lumen-action-menu > summary {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
   }
 }
 
@@ -262,7 +279,8 @@
     opacity: 1;
   }
 
-  .hbar-app-react-workspace-line > .lumen-action-menu {
+  .hbar-app-react-workspace-line > .lumen-action-menu,
+  .hbar-app-react-project-new-session {
     opacity: 1;
   }
 }
