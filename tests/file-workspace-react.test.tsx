@@ -49,9 +49,17 @@ test('file workspace renders Host entries and a command-owned editable document'
     expect(html).toContain('README.md')
     expect(html).toContain('# Host file')
     expect(html).toContain('Back to files')
-    expect(html).toContain('Save file')
+    expect(html).toContain('Text preview: README.md')
+    expect(html).not.toContain('<textarea')
+    expect(html).not.toContain('Save file')
     expect(html).not.toContain('hbar-app-react-file-browser')
     expect(html).not.toContain('demo.ts')
+    await runtime.view.commands.execute('fileWorkspace.setDocumentMode', {
+      instanceId: 'files',
+      workspaceId: 'workspace-1',
+      path: 'README.md',
+      mode: 'edit',
+    })
     await runtime.view.commands.execute('fileWorkspace.setText', { instanceId: 'files', text: '# Local draft' })
     await expect(runtime.view.commands.execute('fileWorkspace.save', { instanceId: 'files' })).rejects.toMatchObject({
       code: 'FILE_CONFLICT',
@@ -102,6 +110,12 @@ test('restored file drafts render localized discard and save actions without a s
     await execute('fileWorkspace.setText', { instanceId: 'files', text: '保留我的草稿' })
     await execute('fileWorkspace.showBrowser', { instanceId: 'files' })
     await execute('fileWorkspace.openEntry', { instanceId: 'files', path: '目标说明.md', directory: false })
+    await execute('fileWorkspace.setDocumentMode', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      path: '目标说明.md',
+      mode: 'edit',
+    })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
         <HbarFileWorkspace labels={labels} connected />

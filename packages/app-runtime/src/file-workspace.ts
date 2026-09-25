@@ -3,6 +3,12 @@ import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
 import { fileCommands } from '@hbar/contracts/commands/files'
 import { createState, type StateReader } from './state'
 import { canonicalFilePath, fileDocumentKey, FileWorkspaceDocuments } from './file-workspace-documents'
+import {
+  createFileWorkspaceChanges,
+  emptyFileChanges,
+  filteredFileChanges,
+  FILE_CHANGES_PAGE_SIZE,
+} from './file-workspace-changes'
 import type { FileWorkspaceEntryState, FileWorkspaceState, RuntimeOptions, SurfaceState } from './types'
 
 const PAGE_SIZE = 200
@@ -98,13 +104,31 @@ export function createFileWorkspace(
     workspaceId: entry.workspaceId,
     path: entry.path,
     view: entry.view,
-    selectedPath: entry.view === 'document' ? (entry.document?.path ?? null) : null,
-    status: entry.status,
+    selectedPath:
+      entry.view === 'document'
+        ? (entry.document?.path ?? null)
+        : entry.view === 'diff'
+          ? (entry.diff?.path ?? null)
+          : null,
+    status:
+      entry.view === 'diff'
+        ? (entry.diff?.status ?? 'error')
+        : entry.view === 'browser' && entry.browserMode === 'changed'
+          ? entry.changes.status === 'idle'
+            ? 'ready'
+            : entry.changes.status
+          : entry.status,
     documentStatus: entry.document?.status ?? 'idle',
     dirty: Boolean(entry.document && entry.document.draft !== entry.document.baseline),
-    error: (entry.view === 'document' ? entry.document?.error : null) ?? entry.error,
+    error:
+      entry.view === 'diff'
+        ? (entry.diff?.error ?? null)
+        : entry.view === 'browser' && entry.browserMode === 'changed'
+          ? entry.changes.error
+          : ((entry.view === 'document' ? entry.document?.error : null) ?? entry.error),
   })
   const load = async (instanceId: string, path?: string) => {
+    changes.cancel(instanceId)
     const target = panel(instanceId)
     const current = state.reader.getSnapshot().entries[instanceId]
     const requestedPath = path ?? (current?.workspaceId === target.workspaceId ? current.path : '.')
@@ -115,6 +139,10 @@ export function createFileWorkspace(
       workspaceId: target.workspaceId,
       path: requestedPath,
       view: 'browser',
+      browserMode: 'all',
+      documentMode: current?.workspaceId === target.workspaceId ? current.documentMode : 'preview',
+      changes: current?.workspaceId === target.workspaceId ? current.changes : emptyFileChanges(),
+      diff: null,
       status: 'loading',
       items: current?.workspaceId === target.workspaceId && current.path === requestedPath ? current.items : [],
       nextCursor: null,
@@ -171,6 +199,7 @@ export function createFileWorkspace(
     return summary(next)
   }
   const openEntry = async (instanceId: string, rawPath: string, directory: boolean) => {
+    changes.cancel(instanceId)
     if (directory) return load(instanceId, rawPath)
     const path = canonicalFilePath(rawPath)
     const entry = state.reader.getSnapshot().entries[instanceId]
@@ -181,7 +210,7 @@ export function createFileWorkspace(
     generations.set(instanceId, generation)
     const reading = documents.open(target.workspaceId, path)
     const document = documents.get(target.workspaceId, path)
-    if (document) replace({ ...entry, view: 'document', document, error: null })
+    if (document) replace({ ...entry, view: 'document', documentMode: 'preview', document, error: null })
     try {
       await reading
       if (!matchesTarget(instanceId, target.workspaceId, generation))
@@ -196,6 +225,7 @@ export function createFileWorkspace(
     }
   }
   const showBrowser = (instanceId: string) => {
+    changes.cancel(instanceId)
     const target = panel(instanceId)
     const entry = state.reader.getSnapshot().entries[instanceId]
     if (!entry || entry.workspaceId !== target.workspaceId)
@@ -247,11 +277,76 @@ export function createFileWorkspace(
     }
   }
 
+  const changes = createFileWorkspaceChanges(options, {
+    read: (instanceId) => state.reader.getSnapshot().entries[instanceId],
+    replace,
+    workspaceId: (instanceId) => surfaces.getSnapshot().panels[instanceId]?.workspaceId ?? null,
+    openFile: (instanceId, path) => openEntry(instanceId, path, false),
+    isDisposed,
+  })
+  let previousPanels = surfaces.getSnapshot().panels
+  const unsubscribeSurfaces = surfaces.subscribe(() => {
+    const current = surfaces.getSnapshot().panels
+    for (const [instanceId, previous] of Object.entries(previousPanels)) {
+      if (previous.panelId !== 'files' || current[instanceId]?.workspaceId === previous.workspaceId) continue
+      generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
+      changes.cancel(instanceId)
+      const entry = state.reader.getSnapshot().entries[instanceId]
+      if (entry)
+        replace({
+          ...entry,
+          ...(entry.view === 'diff' ? { view: 'browser' as const, diff: null } : {}),
+          changes: { ...entry.changes, status: 'idle', error: null },
+          ...(entry.status === 'loading' ? { status: 'error' as const, error: 'CANCELLED' } : {}),
+        })
+    }
+    previousPanels = current
+  })
+  const requireEntry = (instanceId: string, workspaceId: string) => {
+    const target = panel(instanceId)
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    if (!entry || target.workspaceId !== workspaceId || entry.workspaceId !== workspaceId)
+      throw new CommandError('VERSION_CONFLICT', 'File action belongs to another workspace')
+    return entry
+  }
+  local.register(fileWorkspaceCommands['fileWorkspace.setBrowserMode'], async ({ instanceId, workspaceId, mode }) => {
+    requireEntry(instanceId, workspaceId)
+    generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
+    return mode === 'all' ? load(instanceId) : summary(await changes.load(instanceId, workspaceId))
+  })
+  local.register(fileWorkspaceCommands['fileWorkspace.refreshChanges'], async ({ instanceId, workspaceId }) =>
+    summary(await changes.load(instanceId, workspaceId)),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.filterChanges'], ({ instanceId, workspaceId, filter }) => {
+    const entry = requireEntry(instanceId, workspaceId)
+    const next = { ...entry, changes: { ...entry.changes, filter, page: 0 } }
+    replace(next)
+    return summary(next)
+  })
+  local.register(fileWorkspaceCommands['fileWorkspace.pageChanges'], ({ instanceId, workspaceId, page }) => {
+    const entry = requireEntry(instanceId, workspaceId)
+    const last = Math.max(0, Math.ceil(filteredFileChanges(entry.changes).length / FILE_CHANGES_PAGE_SIZE) - 1)
+    const next = { ...entry, changes: { ...entry.changes, page: Math.min(page, last) } }
+    replace(next)
+    return summary(next)
+  })
+  local.register(fileWorkspaceCommands['fileWorkspace.openChange'], async ({ instanceId, workspaceId, path, cached }) =>
+    summary(await changes.open(instanceId, workspaceId, path, cached)),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.setDocumentMode'], ({ instanceId, workspaceId, path, mode }) => {
+    const entry = requireEntry(instanceId, workspaceId)
+    if (entry.view !== 'document' || entry.document?.path !== canonicalFilePath(path))
+      throw new CommandError('VERSION_CONFLICT', 'File view belongs to another document')
+    const next = { ...entry, documentMode: mode }
+    replace(next)
+    return summary(next)
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.refresh'], ({ instanceId }) => load(instanceId))
   local.register(fileWorkspaceCommands['fileWorkspace.loadMore'], ({ instanceId }) => loadMore(instanceId))
-  local.register(fileWorkspaceCommands['fileWorkspace.openEntry'], ({ instanceId, path, directory }) =>
-    openEntry(instanceId, path, directory),
-  )
+  local.register(fileWorkspaceCommands['fileWorkspace.openEntry'], ({ instanceId, workspaceId, path, directory }) => {
+    if (workspaceId) requireEntry(instanceId, workspaceId)
+    return openEntry(instanceId, path, directory)
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], ({ instanceId }) => showBrowser(instanceId))
   local.register(fileWorkspaceCommands['fileWorkspace.setText'], ({ instanceId, text }) =>
     action(instanceId, () => setText(instanceId, text)),
@@ -287,6 +382,8 @@ export function createFileWorkspace(
     reader: state.reader,
     parent,
     dispose: () => {
+      unsubscribeSurfaces()
+      changes.dispose()
       documents.dispose()
       generations.clear()
       state.dispose()

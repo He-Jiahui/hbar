@@ -362,11 +362,36 @@ export interface FileWorkspaceDocumentState {
   readonly error: string | null
 }
 
+export interface FileWorkspaceChangesState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly cwd: string | null
+  readonly root: string | null
+  readonly branch: string | null
+  readonly items: readonly { readonly path: string; readonly originalPath?: string; readonly index: string; readonly worktree: string }[]
+  readonly filter: string
+  readonly page: number
+  readonly limitReached: boolean
+  readonly error: string | null
+}
+
+export interface FileWorkspaceDiffState {
+  readonly path: string
+  readonly cached: boolean
+  readonly status: 'loading' | 'ready' | 'error'
+  readonly text: string
+  readonly truncated: boolean
+  readonly error: string | null
+}
+
 export interface FileWorkspaceEntryState {
   readonly instanceId: string
   readonly workspaceId: string
   readonly path: string
-  readonly view: 'browser' | 'document'
+  readonly view: 'browser' | 'document' | 'diff'
+  readonly browserMode: 'all' | 'changed'
+  readonly documentMode: 'preview' | 'edit'
+  readonly changes: Readonly<FileWorkspaceChangesState>
+  readonly diff: Readonly<FileWorkspaceDiffState> | null
   readonly status: 'loading' | 'ready' | 'error'
   readonly items: readonly { readonly name: string; readonly path: string; readonly directory: boolean }[]
   readonly nextCursor: string | null

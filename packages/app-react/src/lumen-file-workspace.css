@@ -30,7 +30,7 @@
 .hbar-app-react-file-editor {
   box-sizing: border-box;
   min-inline-size: 0;
-  min-block-size: 12rem;
+  min-block-size: 0;
   flex: 1 1 auto;
   resize: none;
   font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
@@ -44,8 +44,128 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  flex-wrap: wrap;
   padding: 0.5rem 0.75rem;
   border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-file-browser-mode,
+.hbar-file-document-modes,
+.hbar-file-changes-controls,
+.hbar-file-diff-toolbar,
+.hbar-file-changes-pagination {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hbar-file-browser-mode select {
+  max-inline-size: 100%;
+}
+
+.hbar-file-changes,
+.hbar-file-diff {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-file-changes-controls input {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+}
+
+.hbar-file-changes-list {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0 0.5rem;
+  overflow: auto;
+  list-style: none;
+}
+
+.hbar-file-change {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: auto;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-file-change-path {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-change-status {
+  flex: 0 1 7rem;
+  overflow-wrap: anywhere;
+  color: var(--lumen-muted);
+}
+
+.hbar-file-change-path small,
+.hbar-file-diff-caption {
+  color: var(--lumen-muted);
+}
+
+.hbar-file-diff-path {
+  min-inline-size: 0;
+  flex: 1 1 100%;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-diff > p,
+.hbar-file-changes > p,
+.hbar-file-diff-caption,
+.hbar-file-diff-feedback {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-diff-content,
+.hbar-file-text-preview {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.hbar-file-diff-content > span {
+  display: block;
+  min-inline-size: max-content;
+}
+
+.hbar-file-diff-content > [data-kind='addition'] {
+  color: var(--lumen-success);
+}
+
+.hbar-file-diff-content > [data-kind='deletion'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-file-diff-content > [data-kind='hunk'] {
+  color: var(--lumen-primary);
 }
 
 .lumen-file-document-body footer [role='status'] {

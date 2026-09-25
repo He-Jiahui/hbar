@@ -1,4 +1,5 @@
 import { extensionDetailCopy } from './extension-detail-copy'
+import { fileWorkspaceCopy } from './file-workspace-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
@@ -1218,13 +1219,14 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   return {
+    ...fileWorkspaceCopy(zh),
     title: choose('文件管理器', 'File manager'),
     parent: choose('返回上级目录', 'Open parent folder'),
     refresh: choose('刷新文件', 'Refresh files'),
     loading: choose('正在加载文件…', 'Loading files…'),
     empty: choose('此目录为空；选择文件后会在此处打开。', 'This folder is empty; select a file to open it.'),
     retry: choose('重试', 'Retry'),
-    readOnly: choose('可编辑文本', 'Editable text'),
+    readOnly: choose('文本文件', 'Text file'),
     close: choose('关闭文件管理器', 'Close file manager'),
     root: choose('工作区根目录', 'Workspace root'),
     loadMore: choose('加载更多文件', 'Load more files'),

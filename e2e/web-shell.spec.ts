@@ -730,6 +730,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'browser-e2e.md' }).click()
     await expectFileToolLayout('document')
     const fileEditor = page.getByRole('textbox', { name: 'browser-e2e.md' })
+    await page.locator('.hbar-app-react-file-workspace').getByRole('button', { name: 'Edit', exact: true }).click()
     await expect(fileEditor).toHaveValue('# Browser file\n')
     await fileEditor.fill('# Browser file\n\nEdited from the file panel.\n')
     await page.getByRole('button', { name: 'Save file' }).click()
