@@ -34,6 +34,7 @@ import { createState } from './state'
 import type {
   DirectoryState,
   PanelSurface,
+  PresentationState,
   RuntimeOptions,
   SettingsFormEntry,
   SettingsFieldContentState,
@@ -190,6 +191,7 @@ export function createSettingsForms(
   local: CommandRegistry,
   options: RuntimeOptions,
   surfaces: StateReader<SurfaceState>,
+  presentation: StateReader<PresentationState>,
   directory: StateReader<DirectoryState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
@@ -465,6 +467,19 @@ export function createSettingsForms(
     const panel = currentSettingsPanel()
     if (!panel) {
       const current = state.reader.getSnapshot()
+      const surface = surfaces.getSnapshot()
+      const focused = surface.focusedPanelId ? surface.panels[surface.focusedPanelId] : undefined
+      const page = presentation.getSnapshot().page
+      const owner = page.kind === 'settings' ? surface.panels[page.instanceId] : undefined
+      // An editor overlays its current settings page. Preserve that exact form
+      // and its DOM behind the modal, never a form left over from another page.
+      if (focused?.panelId === 'settings-editor' && owner?.panelId === 'settings' && current.activeFormId) {
+        try {
+          if (formKey(owner, panelScope(owner)) === current.activeFormId) return
+        } catch {
+          // Invalid or removed targets cannot retain a background form.
+        }
+      }
       if (current.activeFormId !== null) state.replace({ ...current, activeFormId: null })
       return
     }
@@ -747,11 +762,13 @@ export function createSettingsForms(
   })
 
   const unsubscribe = surfaces.subscribe(syncSurface)
+  const unsubscribePresentation = presentation.subscribe(syncSurface)
   syncSurface()
   return {
     reader: state.reader,
     dispose() {
       unsubscribe()
+      unsubscribePresentation()
       generations.clear()
       pending.clear()
       contentResolver?.dispose()

@@ -1,5 +1,6 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import {
+  HbarError,
   providerInputSchema,
   providerSchema,
   type ProviderConfig,
@@ -68,13 +69,13 @@ const modelFields = [
 ] as const
 
 function errorCode(error: unknown): string {
-  if (error instanceof CommandError || error instanceof SchemaError) return error.code
+  if (error instanceof CommandError || error instanceof SchemaError || error instanceof HbarError) return error.code
   return 'EXECUTION_FAILED'
 }
 
 function commandError(error: unknown): CommandError {
   if (error instanceof CommandError) return error
-  if (error instanceof SchemaError) return new CommandError(error.code, error.message)
+  if (error instanceof SchemaError || error instanceof HbarError) return new CommandError(error.code, error.message)
   return new CommandError('EXECUTION_FAILED', 'Provider editor action failed')
 }
 
@@ -523,7 +524,13 @@ export function createProviderSettings(
     return next
   }
   const settleSuccess = (editorId: string, operation: PendingProviderSave, loaded: ProviderSettingsState) => {
-    const current = editor(editorId)
+    const current = state.reader.getSnapshot().editor
+    if (pending.get(editorId) !== operation) return null
+    if (!current || current.editorId !== editorId) {
+      pending.delete(editorId)
+      secretDrafts.delete(editorId)
+      return null
+    }
     const profile = loaded.profiles[operation.provider.id]
     const saved = providerSchema.parse(profile?.provider ?? operation.provider)
     let form = settleSubmit(current.schema, current.form, operation.submission, 'succeeded')
@@ -561,7 +568,7 @@ export function createProviderSettings(
     replaceEditor(next)
     return next
   }
-  const save = async (editorId: string): Promise<ProviderEditorState> => {
+  const save = async (editorId: string): Promise<ProviderEditorState | null> => {
     const current = editor(editorId)
     if (pending.has(editorId)) throw new CommandError('SUBMISSION_PENDING', 'Provider save is already pending')
     const parsed = providerInputSchema.safeParse(toProviderInput(current.draft))
@@ -577,33 +584,60 @@ export function createProviderSettings(
     }
     pending.set(editorId, operation)
     replaceEditor({ ...current, form: begun.state, error: null })
+    let accepted = false
     try {
       await port().execute('provider.save', {
         provider: operation.provider,
         ...(operation.apiKeyPresent ? { apiKey: operation.apiKey } : {}),
       })
+      accepted = true
       const loaded = await loadList(true)
       const settled = settleSuccess(editorId, operation, loaded)
       refreshSettingsContent()
       return settled
     } catch (error) {
-      const latest = editor(editorId)
+      const latest = state.reader.getSnapshot().editor
+      if (!latest || latest.editorId !== editorId || pending.get(editorId) !== operation) throw error
       const code = errorCode(error)
-      const unknown = code === 'RESULT_UNKNOWN'
+      const unknown =
+        accepted ||
+        [
+          'RESULT_UNKNOWN',
+          'CONNECTION_CLOSED',
+          'DISCONNECTED',
+          'TIMEOUT',
+          'EXECUTION_FAILED',
+          'INVALID_OUTPUT',
+          'ABORTED',
+          'CANCELLED',
+        ].includes(code)
       replaceEditor({
         ...latest,
-        form: settleSubmit(latest.schema, latest.form, operation.submission, unknown ? 'unknown' : 'failed', code),
-        error: code,
+        form: settleSubmit(
+          latest.schema,
+          latest.form,
+          operation.submission,
+          unknown ? 'unknown' : 'failed',
+          unknown ? 'RESULT_UNKNOWN' : code,
+        ),
+        error: unknown ? 'RESULT_UNKNOWN' : code,
       })
       if (!unknown) pending.delete(editorId)
+      if (unknown) throw new CommandError('RESULT_UNKNOWN', 'Provider save result must be reconciled')
       throw error
     }
   }
-  const reconcile = async (editorId: string): Promise<ProviderEditorState> => {
+  const reconcile = async (editorId: string): Promise<ProviderEditorState | null> => {
     const current = editor(editorId)
     const operation = pending.get(editorId)
     if (!operation || current.form.status !== 'unknown')
       throw new CommandError('INVALID_INPUT', 'Provider editor has no unknown save to reconcile')
+    if (operation.apiKeyPresent && operation.apiKey) {
+      // hasKey cannot prove which credential was stored. Retain the original
+      // operation until the Host exposes an exact credential-write receipt.
+      replaceEditor({ ...current, error: 'CREDENTIAL_RESULT_UNKNOWN' })
+      throw new CommandError('CREDENTIAL_RESULT_UNKNOWN', 'The Host cannot confirm the replacement credential')
+    }
     const loaded = await loadList(true)
     if (!profileMatches(loaded.profiles[operation.provider.id], operation))
       throw new CommandError('RESULT_UNKNOWN', 'Provider save is not yet confirmed by the Host')
@@ -745,6 +779,7 @@ export function createProviderSettings(
   local.register(providerEditorCommands['providerEditor.resetField'], ({ editorId, field }) => {
     try {
       const current = editor(editorId)
+      if (pending.has(editorId)) throw new CommandError('SUBMISSION_PENDING', 'Provider save is pending')
       const definition = current.description.fields.find((candidate) => candidate.name === field)
       if (!definition) throw new CommandError('FIELD_NOT_FOUND', 'Provider field is not registered')
       if (definition.sensitive) {
@@ -908,6 +943,8 @@ export function createProviderSettings(
   local.register(providerEditorCommands['providerEditor.resetDraft'], ({ editorId }) => {
     try {
       const current = editor(editorId)
+      if (pending.has(editorId) || current.form.status === 'submitting' || current.form.status === 'unknown')
+        throw new CommandError('SUBMISSION_PENDING', 'Reconcile the original provider save before discarding its draft')
       secretDrafts.delete(editorId)
       const next = updateDraft(
         {

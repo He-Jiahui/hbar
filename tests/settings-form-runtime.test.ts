@@ -180,6 +180,77 @@ test('settings group selection is command-owned and isolated per scoped form', a
   runtime.dispose()
 })
 
+test('a provider modal retains only its original settings page and draft behind the overlay', async () => {
+  const settings = settingsFixture()
+  const runtime = createAppRuntime({
+    instanceId: 'settings-editor-owner',
+    hostId: 'host',
+    directory,
+    settings: settings.port,
+    surfaces: { canRender: (panelId) => ['settings', 'settings-editor', 'status'].includes(panelId) },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('app.openSettings', {
+      scope: 'session',
+      targetId: session.id,
+      instanceId: 'owner-settings',
+    })
+    const form = await waitFor(() => {
+      const state = runtime.view.state.settings.getSnapshot()
+      const entry = state.activeFormId ? state.forms[state.activeFormId] : undefined
+      return entry?.status === 'ready' ? entry : undefined
+    })
+    const model = encodePath([{ kind: 'field', name: 'provider.model' }])
+    await runtime.view.commands.execute('settingsForm.setField', {
+      formId: form.formId,
+      field: model,
+      value: 'unsaved-parent-model',
+    })
+    const original = runtime.view.state.settings.getSnapshot().forms[form.formId]
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'provider-modal',
+    })
+    expect(runtime.view.state.settings.getSnapshot().activeFormId).toBe(form.formId)
+    expect(runtime.view.state.settings.getSnapshot().forms[form.formId]).toBe(original)
+    await runtime.view.commands.execute('app.closePanel', { instanceId: 'provider-modal' })
+    expect(runtime.view.state.settings.getSnapshot().activeFormId).toBe(form.formId)
+    expect(runtime.view.state.settings.getSnapshot().forms[form.formId]).toBe(original)
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'provider-modal',
+    })
+    await runtime.view.commands.execute('app.openStatus', { instanceId: 'status-page' })
+    expect(runtime.view.state.settings.getSnapshot().activeFormId).toBeNull()
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'unrelated-modal',
+    })
+    expect(runtime.view.state.settings.getSnapshot().activeFormId).toBeNull()
+    await runtime.view.commands.execute('app.closePanel', { instanceId: 'unrelated-modal' })
+    await runtime.view.commands.execute('app.openSettings', {
+      scope: 'session',
+      targetId: session.id,
+      instanceId: 'owner-settings',
+    })
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'provider-modal',
+    })
+    await runtime.view.commands.execute('app.closePanel', { instanceId: 'owner-settings' })
+    expect(runtime.view.state.settings.getSnapshot().activeFormId).toBeNull()
+    expect(runtime.view.state.presentation.getSnapshot().page.kind).toBe('session')
+    expect(runtime.view.state.settings.getSnapshot().forms[form.formId]).toBe(original)
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('layered settings forms preserve per-scope drafts, concurrent edits and explicit inheritance', async () => {
   const settings = settingsFixture()
   const runtime = createAppRuntime({

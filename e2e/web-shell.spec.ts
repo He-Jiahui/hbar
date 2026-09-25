@@ -1465,7 +1465,21 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     await page.getByRole('button', { name: 'Set as default' }).click()
     await page.getByLabel('API key').fill('browser-secret')
     await page.getByRole('button', { name: 'Save provider' }).click()
-    await expect(page.getByText('Provider saved.')).toBeVisible()
+    await expect(page.locator('.hbar-app-react-provider-dialog')).toHaveCount(0)
+    const savedProviderActions = page.getByTitle('Actions for Browser provider', { exact: true })
+    await savedProviderActions.click()
+    await page.getByRole('menuitem', { name: 'Delete Browser provider' }).click()
+    const deleteDialog = page.getByRole('dialog', { name: 'Delete provider “Browser provider”?' })
+    await expect(deleteDialog).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/delete-confirm-1440.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await expect(deleteDialog).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(savedProviderActions).toBeFocused()
+    await page.getByRole('button', { name: 'Edit Browser provider', exact: true }).click()
     await expect(page.getByLabel('API key')).toHaveValue('')
     const providerMain = page.locator('.hbar-app-react-provider-dialog > main')
     const providerFooter = page.locator('.hbar-app-react-provider-dialog > footer')
@@ -1480,17 +1494,6 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await expectProviderRegionsSeparated()
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/desktop-1440.png', fullPage: true })
-    const deleteProvider = page.getByRole('button', { name: 'Delete provider' })
-    await deleteProvider.click()
-    const deleteDialog = page.getByRole('dialog', { name: 'Delete provider “Browser provider”?' })
-    await expect(deleteDialog).toBeVisible()
-    await page.screenshot({
-      path: 'artifacts/ui-redesign/provider-editor/after/delete-confirm-1440.png',
-      fullPage: true,
-    })
-    await page.keyboard.press('Escape')
-    await expect(deleteDialog).toBeHidden()
-    await expect(deleteProvider).toBeFocused()
     await page.setViewportSize({ width: 1024, height: 768 })
     await expectNoHorizontalOverflow()
     await providerMain.evaluate((element) => {
@@ -1498,6 +1501,7 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     })
     await expectProviderRegionsSeparated()
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
     await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
     await page.screenshot({
       path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024-models.png',
@@ -1621,6 +1625,8 @@ test('provider presets persist custom models, thinking levels, and independent v
     const selectedModelVisibility = providerModelDetails.getByRole('checkbox', {
       name: 'Show in model selection',
     })
+    await page.getByRole('button', { name: 'Advanced provider options', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
     await providerVisibility.uncheck()
     await selectedModelVisibility.uncheck()
     await providerModelDetails.getByRole('button', { name: 'Remove thinking level Extra high' }).click()
@@ -1631,13 +1637,17 @@ test('provider presets persist custom models, thinking levels, and independent v
     await page.getByRole('textbox', { name: 'Custom model ID' }).fill('browser-custom')
     await page.getByRole('button', { name: 'Add custom model' }).click()
     await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'page')
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
     await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level Off' })).toBeVisible()
     await thinkingLevels.fill('High')
     await page.getByRole('option', { name: 'High', exact: true }).click()
     await providerModelDetails.getByRole('button', { name: 'Set as default' }).click()
     await page.getByLabel('API key').fill('browser-provider-secret')
     await page.getByRole('button', { name: 'Save provider' }).click()
-    await expect(page.getByText('Provider saved.')).toBeVisible()
+    await expect(page.locator('.hbar-app-react-provider-dialog')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Edit Browser provider', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced provider options', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
     await expect(page.getByLabel('API key')).toHaveValue('')
     await expect(providerVisibility).not.toBeChecked()
     await expect(selectedModelVisibility).toBeChecked()
@@ -1690,6 +1700,8 @@ test('provider presets persist custom models, thinking levels, and independent v
 
     await page.getByRole('button', { name: 'Edit Browser provider' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Edit provider · Browser provider' })).toBeVisible()
+    await page.getByRole('button', { name: 'Advanced provider options', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
     await expect(providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' })).not.toBeChecked()
     await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'page')
     await expect(
@@ -1704,8 +1716,7 @@ test('provider presets persist custom models, thinking levels, and independent v
     await providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' }).check()
     await expect(page.getByText('1 unsaved change', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Save provider' }).click()
-    await expect(page.getByText('Provider saved.')).toBeVisible()
-    await page.getByRole('button', { name: 'Back to settings' }).click()
+    await expect(page.locator('.hbar-app-react-provider-dialog')).toHaveCount(0)
     await expect(page.getByText('Hidden', { exact: true })).toHaveCount(0)
     const directClient = new HbarClient(
       `http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`,

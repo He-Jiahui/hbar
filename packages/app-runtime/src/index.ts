@@ -293,6 +293,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     local,
     options,
     surfaces.reader,
+    presentation.reader,
     directory.reader,
     onSubscriberError,
     () => disposed,

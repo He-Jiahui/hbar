@@ -6,6 +6,7 @@ import type { CommandExecutor } from '@hbar/commands'
 import { providerSchema } from '@hbar/contracts'
 import { HBAR_PROVIDER_EDITOR_DESCRIPTION } from '@hbar/kernel'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { HbarProviderEditorView } from '../packages/app-react/src/lumen-provider-editor'
 
 const configured = providerSchema.parse({
   id: 'visible-provider',
@@ -13,6 +14,55 @@ const configured = providerSchema.parse({
   protocol: 'openai-responses',
   baseUrl: 'https://example.invalid/v1',
   model: 'visible-model',
+})
+
+test('advanced provider parameters are collapsed, retain saved values, and disclose invalid model fields', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'provider-progressive',
+    hostId: 'host',
+    directory,
+    configuration,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: configured.id,
+    })
+    const editor = await waitForEditor(runtime)
+    const labels = getShellCopy('zh-CN').providers.dialog
+    const render = (input = editor) =>
+      renderToStaticMarkup(
+        <HbarProviderEditorView
+          editor={input}
+          labels={{
+            ...labels,
+            advancedModel: '展开这一个模型的上下文容量、输入和输出价格、图像能力及推理等级高级参数',
+          }}
+          connected
+          actionError={null}
+          onBack={() => {}}
+          onSave={() => {}}
+          onReconcile={() => {}}
+          onIntent={() => {}}
+        />,
+      )
+    const collapsed = render()
+    expect(collapsed.match(/class="hbar-provider-advanced-content" hidden=""/g)).toHaveLength(2)
+    expect(collapsed).toContain('展开这一个模型的上下文容量')
+    expect(collapsed).toContain(`value="${editor.draft.models[0]?.contextWindow}"`)
+    expect(collapsed).toContain(labels.cancel)
+    expect(collapsed).toContain(labels.checkConfiguration)
+    expect(collapsed).not.toContain('删除供应商')
+    const invalid = render({ ...editor, draftIssues: [{ path: 'models.0.contextWindow', code: 'too_small' }] })
+    expect(invalid.match(/class="hbar-provider-advanced-content" hidden=""/g)).toHaveLength(1)
+    expect(invalid).toContain(labels.validation('models.0.contextWindow', 'too_small'))
+    expect(invalid).toContain(labels.modelIssues(editor.draft.models[0]?.name ?? '', 1))
+    expect(invalid).toContain(labels.issues(1))
+  } finally {
+    runtime.dispose()
+  }
 })
 const directory: CommandExecutor = {
   execute(name) {

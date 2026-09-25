@@ -290,7 +290,6 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
-  const providers = useHbarRuntimeState(runtime.state.providers)
   const commandSearch = useRef<HTMLInputElement>(null)
   const modalInstanceId = presentation.modalInstanceId
   const modal = modalInstanceId ? surfaces.panels[modalInstanceId] : undefined
@@ -318,21 +317,13 @@ function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; r
       </LumenDialog>
     )
   if (modalInstanceId && modal?.panelId === 'settings-editor') {
-    const editor = providers.editor
-    const title = editor?.providerId
-      ? copy.providers.dialog.editTitle(editor.draft.name || editor.providerId)
-      : copy.providers.dialog.addTitle
     return (
-      <LumenDialog
-        open
-        chromeless
-        title={title}
-        closeLabel={copy.providers.dialog.back}
-        className="hbar-app-react-workspace-modal hbar-app-react-provider-modal"
-        onClose={() => close(modalInstanceId)}
-      >
-        <HbarProviderDialog labels={copy.providers.dialog} connected={connected} />
-      </LumenDialog>
+      <HbarProviderDialog
+        key={modalInstanceId}
+        labels={copy.providers.dialog}
+        connected={connected}
+        modalClassName="hbar-app-react-workspace-modal hbar-app-react-provider-modal"
+      />
     )
   }
   return null

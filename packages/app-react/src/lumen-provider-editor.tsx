@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ProviderEditorState } from '@hbar/app-runtime'
 import {
   LumenFrame,
@@ -7,7 +7,6 @@ import {
   LumenButton,
   LumenCheckBox,
   LumenComboBox,
-  LumenDialog,
   LumenFormField,
   LumenIcon,
   LumenInput,
@@ -16,7 +15,7 @@ import {
   LumenSelect,
   type LumenControlOption,
 } from '@lumen/app-ui'
-import { ArrowLeft, Check, EyeOff, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, EyeOff, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 
 type ProviderField = 'id' | 'name' | 'visible' | 'protocol' | 'baseUrl'
 type ThinkingLevel = ProviderEditorState['draft']['models'][number]['thinkingLevels'][number]
@@ -79,6 +78,20 @@ export interface HbarProviderDialogLabels {
   readonly notConfigured: string
   readonly error: (code: string) => string
   readonly requiredIndicator: string
+  readonly advancedConnection: string
+  readonly advancedModel: string
+  readonly advancedDescription: string
+  readonly checkConfiguration: string
+  readonly issues: (count: number) => string
+  readonly validConfiguration: string
+  readonly modelIssues: (name: string, count: number) => string
+  readonly discardTitle: (name: string) => string
+  readonly discardDescription: string
+  readonly discardConfirm: string
+  readonly keepEditing: string
+  readonly saving: string
+  readonly unknown: string
+  readonly credentialUnconfirmed: string
   readonly sections: {
     readonly preset: string
     readonly presetDescription: string
@@ -160,6 +173,43 @@ const protocols: readonly ProviderEditorState['draft']['protocol'][] = [
   'mock',
 ]
 
+function AdvancedSection({
+  label,
+  description,
+  forcedOpen,
+  children,
+}: {
+  readonly label: string
+  readonly description: string
+  readonly forcedOpen: boolean
+  readonly children: ReactNode
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const open = expanded || forcedOpen
+  useEffect(() => {
+    // Resolving the final issue must not collapse the field while it is being edited.
+    if (forcedOpen) setExpanded(true)
+  }, [forcedOpen])
+  return (
+    <LumenFrame className="hbar-provider-advanced" data-open={open}>
+      <LumenButton
+        type="button"
+        variant="text"
+        indicator="none"
+        aria-expanded={open}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <LumenIcon icon={ChevronDown} tier="sm" />
+        {label}
+      </LumenButton>
+      <LumenFrame className="hbar-provider-advanced-content" hidden={!open}>
+        <LumenText as="p">{description}</LumenText>
+        {children}
+      </LumenFrame>
+    </LumenFrame>
+  )
+}
+
 function SectionHeading({ title, description }: { readonly title: string; readonly description: string }) {
   return (
     <LumenFrame as="header" className="hbar-app-react-provider-section-heading">
@@ -196,14 +246,22 @@ function NumberInput({
 }) {
   const [raw, setRaw] = useState(String(value))
   const [focused, setFocused] = useState(false)
+  const rawRef = useRef(raw)
+  const committed = useRef(value)
   useEffect(() => {
-    if (!focused) setRaw(String(value))
+    if (!focused) {
+      setRaw(String(value))
+      rawRef.current = String(value)
+      committed.current = value
+    }
   }, [focused, value])
   const commit = () => {
     setFocused(false)
-    const numeric = Number(raw)
-    if (raw.trim() && Number.isFinite(numeric)) onCommit(numeric)
-    else setRaw(String(value))
+    const numeric = Number(rawRef.current)
+    if (rawRef.current.trim() && Number.isFinite(numeric)) {
+      if (numeric !== committed.current) onCommit(numeric)
+      committed.current = numeric
+    } else setRaw(String(value))
   }
   return (
     <LumenInput
@@ -212,12 +270,24 @@ function NumberInput({
       value={raw}
       disabled={disabled}
       onFocus={() => setFocused(true)}
-      onChange={(event) => setRaw(event.currentTarget.value)}
+      onChange={(event) => {
+        const next = event.currentTarget.value
+        rawRef.current = next
+        setRaw(next)
+        // Commit complete numeric edits immediately, so switching models or
+        // collapsing advanced fields cannot move an unblurred value to another model.
+        const numeric = Number(next)
+        if (next.trim() && Number.isFinite(numeric)) {
+          committed.current = numeric
+          onCommit(numeric)
+        }
+      }}
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur()
         if (event.key === 'Escape') {
           setRaw(String(value))
+          rawRef.current = String(value)
           event.currentTarget.blur()
         }
       }}
@@ -310,22 +380,24 @@ function ProviderConnectionForm({
     <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.connection} description={labels.sections.connectionDescription} />
       <LumenFrame className="hbar-app-react-provider-field-row">
-        <LumenFormField
-          controlId="provider-id"
-          label={labels.provider.id}
-          description={labels.provider.idDescription}
-          required
-          requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, 'id', labels)}
-        >
-          <LumenInput
-            id="provider-id"
-            value={editor.draft.id}
-            readOnly={Boolean(editor.providerId)}
-            disabled={disabled}
-            onChange={(event) => set('id', event.currentTarget.value)}
-          />
-        </LumenFormField>
+        {!editor.providerId && (
+          <LumenFormField
+            controlId="provider-id"
+            label={labels.provider.id}
+            description={labels.provider.idDescription}
+            required
+            requiredIndicator={labels.requiredIndicator}
+            {...draftIssueProps(editor, 'id', labels)}
+          >
+            <LumenInput
+              id="provider-id"
+              value={editor.draft.id}
+              readOnly={Boolean(editor.providerId)}
+              disabled={disabled}
+              onChange={(event) => set('id', event.currentTarget.value)}
+            />
+          </LumenFormField>
+        )}
         <LumenFormField
           controlId="provider-name"
           label={labels.provider.name}
@@ -378,13 +450,25 @@ function ProviderConnectionForm({
           />
         </LumenFormField>
       </LumenFrame>
-      <LumenCheckBox
-        checked={editor.draft.visible}
-        disabled={disabled}
-        label={labels.provider.visible}
+      {editor.providerId && (
+        <LumenText as="p" className="hbar-provider-identity">
+          <LumenText as="span">{labels.provider.id}</LumenText>
+          <LumenText as="span">{editor.providerId}</LumenText>
+        </LumenText>
+      )}
+      <AdvancedSection
+        label={labels.advancedConnection}
         description={labels.provider.visibleDescription}
-        onChange={(event) => set('visible', event.currentTarget.checked)}
-      />
+        forcedOpen={false}
+      >
+        <LumenCheckBox
+          checked={editor.draft.visible}
+          disabled={disabled}
+          label={labels.provider.visible}
+          description={labels.provider.visibleDescription}
+          onChange={(event) => set('visible', event.currentTarget.checked)}
+        />
+      </AdvancedSection>
     </LumenFrame>
   )
 }
@@ -512,7 +596,7 @@ function ModelList({
         {editor.draft.models.length === 0 ? (
           <LumenText as="p">{labels.models.empty}</LumenText>
         ) : (
-          editor.draft.models.map((model) => (
+          editor.draft.models.map((model, index) => (
             <LumenNavigationButton
               key={model.id}
               className="hbar-app-react-provider-model-row"
@@ -524,6 +608,14 @@ function ModelList({
               <LumenText as="span">
                 <LumenText as="strong">{model.name}</LumenText>
                 <LumenText as="small">{model.id}</LumenText>
+                {editor.draftIssues.some((issue) => issue.path.startsWith(`models.${index}.`)) && (
+                  <LumenText as="small" className="hbar-provider-model-error">
+                    {labels.modelIssues(
+                      model.name,
+                      editor.draftIssues.filter((issue) => issue.path.startsWith(`models.${index}.`)).length,
+                    )}
+                  </LumenText>
+                )}
               </LumenText>
               <LumenText as="span" className="hbar-app-react-provider-model-markers">
                 {editor.draft.model === model.id && (
@@ -645,130 +737,140 @@ function ModelEditor({
           />
         </LumenFormField>
       </LumenFrame>
-      <LumenCheckBox
-        checked={model.visible}
-        disabled={disabled}
-        label={labels.models.visible}
-        description={labels.models.visibleDescription}
-        onChange={(event) => set('visible', event.currentTarget.checked)}
-      />
-      <LumenFrame className="hbar-app-react-provider-field-row">
-        <LumenFormField
-          controlId="provider-model-context"
-          label={labels.models.contextWindow}
-          required
-          requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, path('contextWindow'), labels)}
-        >
-          <NumberInput
-            id="provider-model-context"
-            value={model.contextWindow}
-            disabled={disabled}
-            onCommit={(value) => set('contextWindow', value)}
-          />
-        </LumenFormField>
-        <LumenFormField
-          controlId="provider-model-output"
-          label={labels.models.maxOutput}
-          required
-          requiredIndicator={labels.requiredIndicator}
-          {...draftIssueProps(editor, path('maxOutput'), labels)}
-        >
-          <NumberInput
-            id="provider-model-output"
-            value={model.maxOutput}
-            disabled={disabled}
-            onCommit={(value) => set('maxOutput', value)}
-          />
-        </LumenFormField>
-      </LumenFrame>
-      <LumenFrame className="hbar-app-react-provider-field-row">
-        <LumenFormField
-          controlId="provider-model-input-price"
-          label={labels.models.inputPrice}
-          {...draftIssueProps(editor, path('inputPrice'), labels)}
-        >
-          <NumberInput
-            id="provider-model-input-price"
-            value={model.inputPrice}
-            disabled={disabled}
-            onCommit={(value) => set('inputPrice', value)}
-          />
-        </LumenFormField>
-        <LumenFormField
-          controlId="provider-model-output-price"
-          label={labels.models.outputPrice}
-          {...draftIssueProps(editor, path('outputPrice'), labels)}
-        >
-          <NumberInput
-            id="provider-model-output-price"
-            value={model.outputPrice}
-            disabled={disabled}
-            onCommit={(value) => set('outputPrice', value)}
-          />
-        </LumenFormField>
-      </LumenFrame>
-      <LumenFrame className="hbar-app-react-provider-capabilities">
-        <LumenCheckBox
-          checked={model.imageInput}
-          disabled={disabled}
-          label={labels.models.imageInput}
-          description={labels.models.imageInputDescription}
-          onChange={(event) => set('imageInput', event.currentTarget.checked)}
-        />
-        <LumenCheckBox
-          checked={model.reasoning}
-          disabled={disabled}
-          label={labels.models.reasoning}
-          description={labels.models.reasoningDescription}
-          onChange={(event) => set('reasoning', event.currentTarget.checked)}
-        />
-      </LumenFrame>
-      <LumenFormField
-        controlId="provider-model-thinking-levels"
-        label={labels.models.thinkingLevels}
-        description={labels.models.thinkingLevelsDescription}
-        {...draftIssueProps(editor, path('thinkingLevels'), labels)}
+      <AdvancedSection
+        label={labels.advancedModel}
+        description={labels.advancedDescription}
+        forcedOpen={editor.draftIssues.some(
+          (issue) =>
+            issue.path.startsWith(`models.${modelIndex}.`) &&
+            !['id', 'name'].includes(issue.path.split('.').at(-1) ?? ''),
+        )}
       >
-        <LumenMultiSelect
-          id="provider-model-thinking-levels"
-          values={model.thinkingLevels}
-          query={thinkingQuery}
-          open={thinkingOpen}
-          options={levelOptions}
-          labels={{
-            open: labels.models.catalogOpen,
-            empty: labels.models.catalogEmpty,
-            loading: labels.models.catalogLoading,
-            remove: labels.models.removeThinkingLevel,
-          }}
+        <LumenCheckBox
+          checked={model.visible}
           disabled={disabled}
-          onQueryChange={setThinkingQuery}
-          onOpenChange={setThinkingOpen}
-          onValuesChange={(values) => {
-            if (values.length > 0)
-              onIntent({
-                kind: 'set-model-thinking-levels',
-                modelId: model.id,
-                thinkingLevels: values as readonly ThinkingLevel[],
-              })
-          }}
+          label={labels.models.visible}
+          description={labels.models.visibleDescription}
+          onChange={(event) => set('visible', event.currentTarget.checked)}
         />
-      </LumenFormField>
-      <LumenFormField controlId="provider-model-default-thinking" label={labels.models.defaultThinkingLevel}>
-        <LumenSelect
-          id="provider-model-default-thinking"
-          value={model.defaultThinkingLevel}
-          disabled={disabled}
-          onChange={(event) => set('defaultThinkingLevel', event.currentTarget.value)}
+        <LumenFrame className="hbar-app-react-provider-field-row">
+          <LumenFormField
+            controlId="provider-model-context"
+            label={labels.models.contextWindow}
+            required
+            requiredIndicator={labels.requiredIndicator}
+            {...draftIssueProps(editor, path('contextWindow'), labels)}
+          >
+            <NumberInput
+              id="provider-model-context"
+              value={model.contextWindow}
+              disabled={disabled}
+              onCommit={(value) => set('contextWindow', value)}
+            />
+          </LumenFormField>
+          <LumenFormField
+            controlId="provider-model-output"
+            label={labels.models.maxOutput}
+            required
+            requiredIndicator={labels.requiredIndicator}
+            {...draftIssueProps(editor, path('maxOutput'), labels)}
+          >
+            <NumberInput
+              id="provider-model-output"
+              value={model.maxOutput}
+              disabled={disabled}
+              onCommit={(value) => set('maxOutput', value)}
+            />
+          </LumenFormField>
+        </LumenFrame>
+        <LumenFrame className="hbar-app-react-provider-field-row">
+          <LumenFormField
+            controlId="provider-model-input-price"
+            label={labels.models.inputPrice}
+            {...draftIssueProps(editor, path('inputPrice'), labels)}
+          >
+            <NumberInput
+              id="provider-model-input-price"
+              value={model.inputPrice}
+              disabled={disabled}
+              onCommit={(value) => set('inputPrice', value)}
+            />
+          </LumenFormField>
+          <LumenFormField
+            controlId="provider-model-output-price"
+            label={labels.models.outputPrice}
+            {...draftIssueProps(editor, path('outputPrice'), labels)}
+          >
+            <NumberInput
+              id="provider-model-output-price"
+              value={model.outputPrice}
+              disabled={disabled}
+              onCommit={(value) => set('outputPrice', value)}
+            />
+          </LumenFormField>
+        </LumenFrame>
+        <LumenFrame className="hbar-app-react-provider-capabilities">
+          <LumenCheckBox
+            checked={model.imageInput}
+            disabled={disabled}
+            label={labels.models.imageInput}
+            description={labels.models.imageInputDescription}
+            onChange={(event) => set('imageInput', event.currentTarget.checked)}
+          />
+          <LumenCheckBox
+            checked={model.reasoning}
+            disabled={disabled}
+            label={labels.models.reasoning}
+            description={labels.models.reasoningDescription}
+            onChange={(event) => set('reasoning', event.currentTarget.checked)}
+          />
+        </LumenFrame>
+        <LumenFormField
+          controlId="provider-model-thinking-levels"
+          label={labels.models.thinkingLevels}
+          description={labels.models.thinkingLevelsDescription}
+          {...draftIssueProps(editor, path('thinkingLevels'), labels)}
         >
-          {model.thinkingLevels.map((level) => (
-            <LumenOption key={level} value={level}>
-              {labels.thinkingLevel(level)}
-            </LumenOption>
-          ))}
-        </LumenSelect>
-      </LumenFormField>
+          <LumenMultiSelect
+            id="provider-model-thinking-levels"
+            values={model.thinkingLevels}
+            query={thinkingQuery}
+            open={thinkingOpen}
+            options={levelOptions}
+            labels={{
+              open: labels.models.catalogOpen,
+              empty: labels.models.catalogEmpty,
+              loading: labels.models.catalogLoading,
+              remove: labels.models.removeThinkingLevel,
+            }}
+            disabled={disabled}
+            onQueryChange={setThinkingQuery}
+            onOpenChange={setThinkingOpen}
+            onValuesChange={(values) => {
+              if (values.length > 0)
+                onIntent({
+                  kind: 'set-model-thinking-levels',
+                  modelId: model.id,
+                  thinkingLevels: values as readonly ThinkingLevel[],
+                })
+            }}
+          />
+        </LumenFormField>
+        <LumenFormField controlId="provider-model-default-thinking" label={labels.models.defaultThinkingLevel}>
+          <LumenSelect
+            id="provider-model-default-thinking"
+            value={model.defaultThinkingLevel}
+            disabled={disabled}
+            onChange={(event) => set('defaultThinkingLevel', event.currentTarget.value)}
+          >
+            {model.thinkingLevels.map((level) => (
+              <LumenOption key={level} value={level}>
+                {labels.thinkingLevel(level)}
+              </LumenOption>
+            ))}
+          </LumenSelect>
+        </LumenFormField>
+      </AdvancedSection>
     </LumenFrame>
   )
 }
@@ -789,9 +891,19 @@ function ProviderModels({
       <SectionHeading title={labels.sections.models} description={labels.sections.modelsDescription} />
       <LumenFrame className="hbar-app-react-provider-model-workspace">
         <ModelList editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
-        <LumenFrame as="section" className="hbar-app-react-provider-model-details" aria-label={labels.sections.modelDetails}>
+        <LumenFrame
+          as="section"
+          className="hbar-app-react-provider-model-details"
+          aria-label={labels.sections.modelDetails}
+        >
           <SectionHeading title={labels.sections.modelDetails} description={labels.sections.modelDetailsDescription} />
-          <ModelEditor editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+          <ModelEditor
+            key={editor.draft.models.findIndex((model) => model.id === editor.selectedModelId)}
+            editor={editor}
+            labels={labels}
+            disabled={disabled}
+            onIntent={onIntent}
+          />
         </LumenFrame>
       </LumenFrame>
     </LumenFrame>
@@ -811,7 +923,6 @@ export function HbarProviderEditorView({
   onBack,
   onSave,
   onReconcile,
-  onRemove,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
@@ -821,15 +932,62 @@ export function HbarProviderEditorView({
   readonly onBack: () => void
   readonly onSave: () => void
   readonly onReconcile: () => void
-  readonly onRemove: () => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const container = useRef<HTMLElement>(null)
+  const [checked, setChecked] = useState(false)
+  const focusPath = useRef<string | null>(null)
+  const [focusRequest, setFocusRequest] = useState(0)
   const busy = editor.form.status === 'submitting'
   const unknown = editor.form.status === 'unknown'
   const disabled = !connected || busy || unknown
+  const displayedError = actionError ?? editor.error
   const dirtyCount = editor.draftDirty.length + (editor.sensitiveDirty ? 1 : 0)
   const title = editor.providerId ? labels.editTitle(editor.draft.name || editor.providerId) : labels.addTitle
+  const showIssues = checked || editor.draftDirty.length > 0 || Boolean(editor.providerId)
+  // Presentation-only touched paths reveal local schema errors after an explicit check;
+  // the runtime remains the owner of draft values, dirty state, and validation facts.
+  const validatedEditor = checked
+    ? { ...editor, draftDirty: [...editor.draftDirty, ...editor.draftIssues.map((issue) => issue.path)] }
+    : editor
+  const checkConfiguration = () => {
+    setChecked(true)
+    const issue = editor.draftIssues[0]
+    if (!issue) return
+    const match = /^models\.(\d+)\.(.+)$/.exec(issue.path)
+    const model = match ? editor.draft.models[Number(match[1])] : undefined
+    if (model) onIntent({ kind: 'select-model', modelId: model.id })
+    focusPath.current = issue.path
+    setFocusRequest((value) => value + 1)
+  }
+  useEffect(() => {
+    const target = focusPath.current
+    if (!target) return
+    const match = /^models\.(\d+)\.(.+)$/.exec(target)
+    if (match && editor.draft.models[Number(match[1])]?.id !== editor.selectedModelId) return
+    const ids: Readonly<Record<string, string>> = {
+      id: 'provider-id',
+      name: 'provider-name',
+      protocol: 'provider-protocol',
+      baseUrl: 'provider-base-url',
+      models: 'provider-custom-model',
+      model: 'provider-custom-model',
+      provider: 'provider-name',
+      'model.id': 'provider-model-id',
+      'model.name': 'provider-model-name',
+      'model.contextWindow': 'provider-model-context',
+      'model.maxOutput': 'provider-model-output',
+      'model.inputPrice': 'provider-model-input-price',
+      'model.outputPrice': 'provider-model-output-price',
+      'model.thinkingLevels': 'provider-model-thinking-levels',
+      'model.defaultThinkingLevel': 'provider-model-default-thinking',
+    }
+    const id = ids[match ? `model.${match[2]}` : target]
+    const control = id ? container.current?.querySelector<HTMLElement>(`#${id}`) : null
+    control?.scrollIntoView({ block: 'nearest' })
+    control?.focus()
+    focusPath.current = null
+  }, [focusRequest, editor.selectedModelId, editor.draft.models])
   const compatiblePreset = useMemo(
     () =>
       editor.presets.items.find(
@@ -851,53 +1009,81 @@ export function HbarProviderEditorView({
       })
   }, [compatiblePreset, editor.presets.selectedPresetId, editor.presets.status, editor.providerId, onIntent])
   return (
-    <LumenFrame as="section" className="hbar-app-react-provider-dialog" aria-label={title} aria-busy={busy}>
+    <LumenFrame
+      ref={container}
+      as="section"
+      className="hbar-app-react-provider-dialog"
+      aria-label={title}
+      aria-busy={busy}
+    >
       <LumenFrame as="header" className="hbar-app-react-provider-page-header">
-        <LumenButton className="hbar-app-react-provider-back" onClick={onBack}>
-          <LumenIcon icon={ArrowLeft} tier="sm" />
-          {labels.back}
-        </LumenButton>
         <LumenFrame>
           <LumenText as="h1">{title}</LumenText>
           <LumenText as="p">{labels.description}</LumenText>
         </LumenFrame>
+        <LumenButton
+          type="button"
+          className="hbar-app-react-provider-back"
+          variant="text"
+          indicator="none"
+          aria-label={labels.back}
+          disabled={busy || unknown}
+          onClick={onBack}
+        >
+          <LumenIcon icon={X} tier="md" />
+        </LumenButton>
       </LumenFrame>
       <LumenFrame as="main">
         <LumenFrame className="hbar-app-react-provider-primary-column">
           {!editor.providerId && (
             <ProviderPresetPicker editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
           )}
-          <ProviderConnectionForm editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+          <ProviderConnectionForm editor={validatedEditor} labels={labels} disabled={disabled} onIntent={onIntent} />
           <ProviderCredentials editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
         </LumenFrame>
-        <ProviderModels editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+        <ProviderModels editor={validatedEditor} labels={labels} disabled={disabled} onIntent={onIntent} />
       </LumenFrame>
-      {(actionError || editor.error) && (
+      {displayedError && !(unknown && ['RESULT_UNKNOWN', 'CREDENTIAL_RESULT_UNKNOWN'].includes(displayedError)) && (
         <LumenText as="p" className="hbar-app-react-provider-error" role="alert">
-          {labels.error(actionError ?? editor.error ?? 'EXECUTION_FAILED')}
+          {labels.error(displayedError)}
         </LumenText>
       )}
       <LumenFrame as="footer">
-        <LumenText as="span" role="status">
-          {editor.form.status === 'succeeded' && dirtyCount === 0
-            ? labels.saved
-            : dirtyCount > 0
-              ? labels.unsaved(dirtyCount)
-              : null}
-        </LumenText>
-        <LumenFrame>
-          {dirtyCount > 0 && !unknown && (
-            <LumenButton disabled={disabled} onClick={() => onIntent({ kind: 'reset-draft' })}>
-              <LumenIcon icon={RotateCcw} tier="sm" />
-              {labels.reset}
+        <LumenFrame className="hbar-provider-footer-details">
+          <LumenText as="span" role="status">
+            {busy
+              ? labels.saving
+              : unknown
+                ? displayedError === 'CREDENTIAL_RESULT_UNKNOWN'
+                  ? labels.credentialUnconfirmed
+                  : labels.unknown
+                : editor.form.status === 'succeeded' && dirtyCount === 0
+                  ? labels.saved
+                  : dirtyCount > 0
+                    ? labels.unsaved(dirtyCount)
+                    : null}
+            {showIssues && editor.draftIssues.length > 0
+              ? labels.issues(editor.draftIssues.length)
+              : checked && editor.draftIssues.length === 0
+                ? labels.validConfiguration
+                : null}
+          </LumenText>
+          <LumenFrame className="hbar-provider-secondary-actions">
+            {dirtyCount > 0 && !unknown && (
+              <LumenButton disabled={disabled} onClick={() => onIntent({ kind: 'reset-draft' })}>
+                <LumenIcon icon={RotateCcw} tier="sm" />
+                {labels.reset}
+              </LumenButton>
+            )}
+            <LumenButton type="button" variant="text" disabled={busy || unknown} onClick={checkConfiguration}>
+              {labels.checkConfiguration}
             </LumenButton>
-          )}
-          {editor.providerId && (
-            <LumenButton tone="danger" disabled={disabled} onClick={() => setConfirmingDelete(true)}>
-              <LumenIcon icon={Trash2} tier="sm" />
-              {labels.remove}
-            </LumenButton>
-          )}
+          </LumenFrame>
+        </LumenFrame>
+        <LumenFrame className="hbar-provider-primary-actions">
+          <LumenButton type="button" disabled={busy || unknown} onClick={onBack}>
+            {labels.cancel}
+          </LumenButton>
           {unknown ? (
             <LumenButton tone="warning" disabled={!connected} onClick={onReconcile}>
               {labels.reconcile}
@@ -913,30 +1099,6 @@ export function HbarProviderEditorView({
           )}
         </LumenFrame>
       </LumenFrame>
-      <LumenDialog
-        open={confirmingDelete}
-        title={labels.deleteConfirmTitle(editor.draft.name || editor.draft.id)}
-        closeLabel={labels.cancel}
-        onClose={() => setConfirmingDelete(false)}
-        footer={
-          <>
-            <LumenButton onClick={() => setConfirmingDelete(false)}>{labels.cancel}</LumenButton>
-            <LumenButton
-              tone="danger"
-              onClick={() => {
-                setConfirmingDelete(false)
-                onRemove()
-              }}
-            >
-              {labels.remove}
-            </LumenButton>
-          </>
-        }
-      >
-        <LumenText as="p" className="hbar-app-react-provider-delete-copy">
-          {labels.deleteConfirmDescription(editor.draft.name || editor.draft.id)}
-        </LumenText>
-      </LumenDialog>
     </LumenFrame>
   )
 }

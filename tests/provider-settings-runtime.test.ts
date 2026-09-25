@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { providerSchema, type ProviderConfig } from '@hbar/contracts'
+import { HbarError, providerSchema, type ProviderConfig } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { HBAR_PROVIDER_EDITOR_DESCRIPTION, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
@@ -85,7 +85,10 @@ function fixture() {
   const profiles = new Map<string, { provider: ProviderConfig; hasKey: boolean }>([
     ['fixture', { provider: provider('fixture', 'Fixture provider'), hasKey: false }],
   ])
-  let unknown = false
+  let saveError: Error | null = null
+  let hold: Promise<void> | null = null
+  let release = () => {}
+  const saves: unknown[] = []
   const port: CommandExecutor = {
     execute(name, raw) {
       if (name === 'provider.describe') return Promise.resolve(HBAR_PROVIDER_EDITOR_DESCRIPTION)
@@ -100,17 +103,19 @@ function fixture() {
           catalogGeneratedAt: 1,
         })
       if (name === 'provider.save') {
+        saves.push(structuredClone(raw))
         const input = configurationCommands[name].input.parse(raw)
         const saved = providerSchema.parse(input.provider)
         profiles.set(saved.id, {
           provider: saved,
           hasKey: input.apiKey === undefined ? (profiles.get(saved.id)?.hasKey ?? false) : Boolean(input.apiKey),
         })
-        if (unknown) {
-          unknown = false
-          return Promise.reject(new CommandError('RESULT_UNKNOWN', 'response lost'))
+        if (saveError) {
+          const error = saveError
+          saveError = null
+          return Promise.reject(error)
         }
-        return Promise.resolve({})
+        return hold ? hold.then(() => ({})) : Promise.resolve({})
       }
       if (name === 'provider.delete') {
         const { id } = configurationCommands[name].input.parse(raw)
@@ -122,11 +127,242 @@ function fixture() {
   return {
     port,
     profiles,
-    loseNextSave() {
-      unknown = true
+    saves,
+    holdNextSave() {
+      hold = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return () => {
+        hold = null
+        release()
+      }
+    },
+    loseNextSave(error: Error = new CommandError('RESULT_UNKNOWN', 'response lost')) {
+      saveError = error
     },
   }
 }
+
+test('discard clears only unsaved secret input and cannot discard submitting or unknown provider saves', async () => {
+  const configuration = fixture()
+  const runtime = createAppRuntime({
+    instanceId: 'provider-discard',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+      instanceId: 'editor-a',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    const id = editor.editorId
+    await runtime.view.commands.execute('providerEditor.setField', {
+      editorId: id,
+      field: 'apiKey',
+      value: 'cancelled-fixture-secret',
+    })
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: id,
+      field: 'name',
+      value: 'Discard this name',
+    })
+    expect(JSON.stringify(runtime.view.state.providers.getSnapshot())).not.toContain('cancelled-fixture-secret')
+    await runtime.view.commands.execute('providerEditor.resetDraft', { editorId: id })
+    expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
+      draftDirty: [],
+      sensitiveDirty: false,
+      draft: { name: 'Fixture provider' },
+      secretResetRevision: editor.secretResetRevision + 1,
+    })
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: id,
+      field: 'name',
+      value: 'Saved without cancelled key',
+    })
+    const release = configuration.holdNextSave()
+    const saving = runtime.view.commands.execute('providerEditor.save', { editorId: id })
+    await expect(runtime.view.commands.execute('providerEditor.resetDraft', { editorId: id })).rejects.toMatchObject({
+      code: 'SUBMISSION_PENDING',
+    })
+    await expect(
+      runtime.view.commands.execute('providerEditor.resetField', { editorId: id, field: 'apiKey' }),
+    ).rejects.toMatchObject({ code: 'SUBMISSION_PENDING' })
+    release()
+    await saving
+    expect(configuration.saves[0]).not.toHaveProperty('apiKey')
+    expect(configuration.profiles.get('fixture')?.hasKey).toBe(false)
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: id,
+      field: 'name',
+      value: 'Unknown name',
+    })
+    configuration.loseNextSave()
+    await expect(runtime.view.commands.execute('providerEditor.save', { editorId: id })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    await expect(runtime.view.commands.execute('providerEditor.resetDraft', { editorId: id })).rejects.toMatchObject({
+      code: 'SUBMISSION_PENDING',
+    })
+    await runtime.view.commands.execute('providerEditor.reconcile', { editorId: id })
+    expect(runtime.view.state.providers.getSnapshot().editor?.form.status).toBe('succeeded')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('accepted provider saves preserve unknown state for public transport errors and reconcile without writing twice', async () => {
+  for (const error of [
+    new Error('response lost'),
+    ...['RESULT_UNKNOWN', 'CONNECTION_CLOSED', 'TIMEOUT', 'EXECUTION_FAILED'].map(
+      (code) => new HbarError(code, 'response lost'),
+    ),
+  ]) {
+    const configuration = fixture()
+    const runtime = createAppRuntime({
+      instanceId: 'provider-transport',
+      hostId: 'host',
+      directory,
+      configuration: configuration.port,
+      surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+    })
+    try {
+      await runtime.view.commands.execute('app.openSettingsEditor', {
+        scope: 'global',
+        path: 'providers',
+        entryId: 'fixture',
+      })
+      const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+      const editorId = editor.editorId
+      await runtime.view.commands.execute('providerEditor.setProviderField', {
+        editorId,
+        field: 'name',
+        value: 'Accepted but unconfirmed',
+      })
+      configuration.loseNextSave(error)
+      await expect(runtime.view.commands.execute('providerEditor.save', { editorId })).rejects.toMatchObject({
+        code: 'RESULT_UNKNOWN',
+      })
+      expect(runtime.view.state.providers.getSnapshot().editor?.form.status).toBe('unknown')
+      await expect(runtime.view.commands.execute('providerEditor.resetDraft', { editorId })).rejects.toMatchObject({
+        code: 'SUBMISSION_PENDING',
+      })
+      await expect(runtime.view.commands.execute('providerEditor.save', { editorId })).rejects.toMatchObject({
+        code: 'SUBMISSION_PENDING',
+      })
+      await runtime.view.commands.execute('providerEditor.reconcile', { editorId })
+      expect(runtime.view.state.providers.getSnapshot().editor?.form.status).toBe('succeeded')
+      expect(configuration.saves).toHaveLength(1)
+    } finally {
+      runtime.dispose()
+    }
+  }
+})
+
+test('a lost credential replacement cannot be confirmed from hasKey and remains locked without another write', async () => {
+  const configuration = fixture()
+  configuration.profiles.set('fixture', { provider: provider('fixture', 'Fixture provider'), hasKey: true })
+  const runtime = createAppRuntime({
+    instanceId: 'provider-credential-unknown',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    const editorId = editor.editorId
+    await runtime.view.commands.execute('providerEditor.setField', {
+      editorId,
+      field: 'apiKey',
+      value: 'unknown-replacement-key',
+    })
+    configuration.loseNextSave(new HbarError('CONNECTION_CLOSED', 'response lost'))
+    await expect(runtime.view.commands.execute('providerEditor.save', { editorId })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    await expect(runtime.view.commands.execute('providerEditor.reconcile', { editorId })).rejects.toMatchObject({
+      code: 'CREDENTIAL_RESULT_UNKNOWN',
+    })
+    expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
+      form: { status: 'unknown' },
+      sensitiveDirty: true,
+      error: 'CREDENTIAL_RESULT_UNKNOWN',
+    })
+    expect(configuration.profiles.get('fixture')?.hasKey).toBe(true)
+    expect(JSON.stringify(runtime.view.state.providers.getSnapshot())).not.toContain('unknown-replacement-key')
+    await expect(runtime.view.commands.execute('providerEditor.resetDraft', { editorId })).rejects.toMatchObject({
+      code: 'SUBMISSION_PENDING',
+    })
+    await expect(runtime.view.commands.execute('providerEditor.save', { editorId })).rejects.toMatchObject({
+      code: 'SUBMISSION_PENDING',
+    })
+    expect(configuration.saves).toHaveLength(1)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('late provider save confirmation cannot replace a newly opened editor or its draft', async () => {
+  const configuration = fixture()
+  configuration.profiles.set('other', { provider: provider('other', 'Other provider'), hasKey: false })
+  const runtime = createAppRuntime({
+    instanceId: 'provider-late-save',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+      instanceId: 'editor-a',
+    })
+    await waitFor(() => (runtime.view.state.providers.getSnapshot().editor?.editorId === 'editor-a' ? true : undefined))
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: 'editor-a',
+      field: 'name',
+      value: 'Saved A',
+    })
+    const release = configuration.holdNextSave()
+    const saving = runtime.view.commands.execute('providerEditor.save', { editorId: 'editor-a' })
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'other',
+      instanceId: 'editor-b',
+    })
+    await waitFor(() => (runtime.view.state.providers.getSnapshot().editor?.editorId === 'editor-b' ? true : undefined))
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: 'editor-b',
+      field: 'name',
+      value: 'Unsaved B',
+    })
+    release()
+    await saving
+    expect(runtime.view.state.presentation.getSnapshot().modalInstanceId).toBe('editor-b')
+    expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
+      editorId: 'editor-b',
+      draft: { name: 'Unsaved B' },
+      draftDirty: ['name'],
+    })
+    expect(configuration.profiles.get('fixture')?.provider.name).toBe('Saved A')
+    expect(configuration.profiles.get('other')?.provider.name).toBe('Other provider')
+  } finally {
+    runtime.dispose()
+  }
+})
 
 async function waitFor<Value>(read: () => Value | undefined): Promise<Value> {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -136,6 +372,61 @@ async function waitFor<Value>(read: () => Value | undefined): Promise<Value> {
   }
   throw new Error('Timed out waiting for provider state')
 }
+
+test('provider model lists keep original targets and enforce empty, single, duplicate, and capacity boundaries', async () => {
+  const configuration = fixture()
+  const runtime = createAppRuntime({
+    instanceId: 'provider-model-boundaries',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      instanceId: 'bounded-editor',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    const editorId = editor.editorId
+    expect(editor.draft.models).toEqual([])
+    expect(editor.selectedModelId).toBeNull()
+    await runtime.view.commands.execute('providerEditor.addModel', { editorId, modelId: 'first' })
+    await expect(
+      runtime.view.commands.execute('providerEditor.removeModel', { editorId, modelId: 'first' }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(
+      runtime.view.commands.execute('providerEditor.addModel', { editorId, modelId: 'first' }),
+    ).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' })
+    await runtime.view.commands.execute('providerEditor.addModel', { editorId, modelId: 'second' })
+    await runtime.view.commands.execute('providerEditor.removeModel', { editorId, modelId: 'first' })
+    await expect(
+      runtime.view.commands.execute('providerEditor.setModelField', {
+        editorId,
+        modelId: 'first',
+        field: 'name',
+        value: 'Late first edit',
+      }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    expect(runtime.view.state.providers.getSnapshot().editor).toMatchObject({
+      selectedModelId: 'second',
+      draft: { model: 'second', models: [{ id: 'second', name: 'second' }] },
+    })
+    await expect(
+      runtime.view.commands.execute('providerEditor.selectModel', { editorId, modelId: 'missing' }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    for (let index = 1; index < 256; index++)
+      await runtime.view.commands.execute('providerEditor.addModel', { editorId, modelId: `bounded-${index}` })
+    expect(runtime.view.state.providers.getSnapshot().editor?.draft.models).toHaveLength(256)
+    await expect(
+      runtime.view.commands.execute('providerEditor.addModel', { editorId, modelId: 'over-limit' }),
+    ).rejects.toMatchObject({ code: 'INPUT_TOO_LARGE' })
+    expect(runtime.view.state.providers.getSnapshot().editor?.draft.models).toHaveLength(256)
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('provider runtime owns list, editor drafts, secrets, save, and unknown reconciliation', async () => {
   const configuration = fixture()

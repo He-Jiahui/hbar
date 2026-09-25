@@ -569,8 +569,8 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     addTitle: choose('添加供应商', 'Add provider'),
     editTitle: (name) => choose(`编辑供应商 · ${name}`, `Edit provider · ${name}`),
     description: choose(
-      '配置协议、模型能力、价格和凭据引用。',
-      'Configure protocol, model capability, pricing, and credentials.',
+      '填写连接与模型；其他参数可按需展开。',
+      'Set up the connection and models. Expand other parameters when needed.',
     ),
     loading: choose('正在加载供应商编辑器…', 'Loading provider editor…'),
     back: choose('返回设置', 'Back to settings'),
@@ -585,6 +585,37 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     notConfigured: choose('尚未保存凭据', 'No stored credential'),
     error: (code) => choose(`供应商操作失败：${code}`, `Provider action failed: ${code}`),
     requiredIndicator: choose('（必填）', ' (required)'),
+    advancedConnection: choose('供应商高级选项', 'Advanced provider options'),
+    advancedModel: choose('高级模型参数', 'Advanced model parameters'),
+    advancedDescription: choose(
+      '上下文、价格、能力和推理等级。收起不会更改配置。',
+      'Context, pricing, capabilities, and thinking levels. Collapsing keeps your values.',
+    ),
+    checkConfiguration: choose('检查配置', 'Check configuration'),
+    issues: (count) =>
+      choose(` · ${count} 项配置需要修正`, ` · ${count} configuration ${count === 1 ? 'issue' : 'issues'}`),
+    validConfiguration: choose(
+      '字段校验通过；尚未测试服务商连接。',
+      'Fields are valid. The provider connection has not been tested.',
+    ),
+    modelIssues: (name, count) =>
+      choose(`${name}：${count} 项待修正`, `${name}: ${count} ${count === 1 ? 'issue' : 'issues'}`),
+    discardTitle: (name) => choose(`放弃“${name}”的未保存更改？`, `Discard unsaved changes to “${name}”?`),
+    discardDescription: choose(
+      '未保存的配置和本次输入的密钥将被清除，已保存的配置与凭据保持不变。',
+      'Unsaved configuration and the newly entered key will be cleared. Saved configuration and credentials stay unchanged.',
+    ),
+    discardConfirm: choose('放弃更改并关闭', 'Discard and close'),
+    keepEditing: choose('继续编辑', 'Keep editing'),
+    saving: choose('正在保存供应商…', 'Saving provider…'),
+    unknown: choose(
+      '保存结果尚未确认，请先核对；当前不能放弃更改。',
+      'Save result is not confirmed. Reconcile before discarding changes.',
+    ),
+    credentialUnconfirmed: choose(
+      'Host 只能确认存在密钥，无法确认本次新密钥是否保存。操作仍待确认；不能关闭、重发或放弃草稿。',
+      'The Host can confirm that a credential exists, but not whether this replacement was saved. This operation remains unconfirmed; closing, resending, and discarding are unavailable.',
+    ),
     sections: {
       preset: choose('从预设开始', 'Start from a preset'),
       presetDescription: choose(
@@ -608,7 +639,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       ),
       modelDetails: choose('模型详情', 'Model details'),
       modelDetailsDescription: choose(
-        '选择左侧模型后编辑；默认模型会用于新的运行。',
+        '选择模型后编辑；默认模型会用于新的运行。',
         'Select a model to edit it. The default model is used for new runs.',
       ),
     },
