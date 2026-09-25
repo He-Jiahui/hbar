@@ -10,12 +10,10 @@ import {
   LumenPageHeader,
   LumenPromptComposer,
   LumenQuestionnaire,
-  LumenRunActivity,
   type LumenApprovalRequestLabels,
   type LumenMessageProps,
   type LumenPromptLabels,
   type LumenQuestionnaireLabels,
-  type LumenRunActivityLabels,
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
 import { planProposalActionKey, type PlanProposalState, type SessionAttachmentUpload } from '@hbar/app-runtime'
@@ -33,6 +31,7 @@ import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLa
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
+import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import './lumen-session-workspace.css'
 
 export interface HbarSessionWorkspaceLabels {
@@ -73,7 +72,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly goals: string
     readonly settings: string
   }
-  readonly runs: LumenRunActivityLabels
+  readonly runs: HbarSessionRunLabels
   readonly runDetail: (modelId: string) => string
   readonly runDuration: (startedAt: number, endedAt: number | null) => string
   readonly approval: LumenApprovalRequestLabels
@@ -173,7 +172,7 @@ export function HbarSessionWorkspace({
     composerModel.sessionId === sessionId &&
     (composerModel.action.status === 'submitting' || composerModel.action.status === 'unknown')
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
-  const activeRun = activeRuns[0]
+  const activeRun = currentSessionRun(activeRuns)
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
@@ -322,7 +321,8 @@ export function HbarSessionWorkspace({
     timeline.runs.length > 0 || timeline.approvals.length > 0 || timeline.userInputs.length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {timeline.runs.length > 0 && (
-          <LumenRunActivity
+          <HbarSessionRunActivity
+            key={sessionId}
             runs={timeline.runs.map((run) => ({
               id: run.id,
               label: labels.timestamp(run.createdAt),
@@ -331,7 +331,6 @@ export function HbarSessionWorkspace({
               duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
             }))}
             labels={labels.runs}
-            listStrategy="content-grown"
             plan={
               timeline.plan && (timeline.plan.plan.length > 0 || timeline.plan.explanation)
                 ? {
