@@ -55,6 +55,10 @@
 | 只读系统诊断          | 设置中的真实 Host/runtime/storage 概况、刷新与失败时保留旧数据，未提供清理或修复假按钮                       | `bcfaf1f`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
 | 外观草稿恢复          | 设备本地显式保存草稿跨类别保留；部分成功、未知结果、读取失败及非持久写入均就近反馈与核对，不静默重放         | `5f28ce9`                                                        | [外观记录](desktop-appearance-draft-recovery.md)      |
 | 外观预览对比度        | 草稿主题内使用不透明语义背景，切换相反主题仍保持可读；不改变未保存的工作台主题                               | `52eccfe`                                                        | [外观记录](desktop-appearance-draft-recovery.md)      |
+| 外观主题直选          | 系统／浅色／深色直接可见且可用键盘选择；仍须显式保存，保留原草稿与冲突恢复                                   | `8766f29`                                                        | [外观记录](desktop-appearance-draft-recovery.md)      |
+| 外观表单焦点          | 五个表单控件以安静边框呈现，键盘焦点在原生 WebView 中可辨，不再依赖装饰亮边                                  | `b441617`                                                        | [外观记录](desktop-appearance-draft-recovery.md)      |
+| 模型搜索入口          | 搜索图标、独立清除动作与焦点边框使模型筛选入口更明确；中英与窄屏共用同一行为                                 | `3ee3fe9`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
+| 会话级 Plan 模式      | 输入区左侧执行菜单中持久切换，连续发送与刷新保留；写入工具由 Host 拒绝，未知回执只读核对                     | `a40a6ce`                                                        | [Plan 契约](desktop-durable-plan-mode.md)             |
 | 工作区路径与 `@` 提及 | Host/CLI 有界路径发现；composer 从真实文件结果选取路径，保留草稿中的结构化引用，键盘浏览及失联反馈就近可见   | `9f25f77`、`45e082e`、`5a3cd62`、`ab5ddcf`、`8ca1592`、`3d9f19a` | [提及记录](desktop-composer-mentions.md)              |
 | 消息旁 Fork           | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史；原消息旁资格查询、创建、丢回执核对及子会话页签入口 | `3e5e16b`、`7d79aa3`、`9829e57`、`2726679`、`ad9dadb`、`ff5607c` | [Fork 记录](desktop-message-fork-integration.md)      |
 | Composer `/` 本地入口 | 输入框上方搜索与键盘补全；只有完整 `/model`、`/settings` 且无附件时才打开真实本地目标，失败保留草稿          | `e153489`                                                        | [斜杠边界](desktop-slash-command-boundary.md)         |
@@ -100,6 +104,10 @@ Files 加入原会话提交 `37ce66e` 的真实 Host 中英文 2 项与既有 `@
 此后 `6eeb188` 补上按 Host 档位的滑轨刻度/填充，`58fb77c` 把宽屏工程/分支放回工具行；窄屏上下文仍独立流式换行。`5f28ce9` 与 `52eccfe` 分别交付外观草稿恢复和跨主题预览可读性，均不把 cc-haha 的即时主题选择或更多主题/语言假称为已迁移。共享 UI `fffcd14` 的可选边界由 hbar `07f42ad` 明确选用；中英文真实临时 Host E2E 2/2 覆盖 1440px 浅色、390px 深色、320px 强制对比色、聚焦、无整页溢出和真实发送。首次运行遇到并行 Playwright 对默认 trace 路径的文件争用；使用独立输出目录、关闭 trace 重跑通过，未归因于产品行为。
 
 上述更新后的完整 `bun run check` 再次通过原生查询构建、严格 ESLint、TypeScript 与 **1,552 tests / 11,563 assertions**（306 个文件，0 失败）。最新 Windows x64 release 应用及 NSIS 安装包构建成功；隔离数据目录的原生 WebView2 回归确认 `Ctrl+N`、深页已选模型、思考预览/确认、Plan/Goal、实际 Git 分支、置顶刷新持久化，以及 Composer 无装饰横梁且聚焦轮廓可见。原生截图 `artifacts/desktop-experience/session-entry/native-composer-boundary.png` 已人工检查；没有安装或重启用户正在使用的窗口。通用 `scripts/desktop-smoke.ts` 本次没有运行，不能把定向原生回归当成全套 smoke。
+
+随后 `3ee3fe9`、`8766f29`、`b441617`、`a40a6ce` 分别完成模型搜索识别、外观主题直选、外观表单焦点和会话级 Plan 模式，各有独立的定向单测、隔离生产构建与真实临时 Host 中英文 E2E。Plan 不再是先前 `2789e51` 的“下条仅规划”按钮；它由 Host `mode.get/set` 保存并出现在左侧执行菜单，连续发送、刷新、会话切换及断线重读遵从原会话模式。Plan 中写入工具由 Host 拒绝，审批策略保持本次发送语义。旧一次性方案只作为历史记录，不能描述当前入口。提案的“按此计划执行”目前仍是一次显式默认模式 Run，不会自动退出会话 Plan；未知 `mode.set` 回执跨进程不可证明从未到达，这些边界见 [会话级 Plan 契约](desktop-durable-plan-mode.md)。
+
+四项更新后的完整 `bun run check` 通过原生查询构建、严格 ESLint、TypeScript 与 **1,566 tests / 11,658 assertions**（307 个文件，0 失败；测试阶段 339.62s）。Windows x64 release 应用和 NSIS 安装包重新构建成功。隔离数据目录中的原生 WebView2 实际点击 Plan 菜单，读取 Host 模式并刷新核对持久选中；截图 `artifacts/desktop-experience/native-durable-plan-menu.png` 已人工查看。它不是完整原生交互套件：该原生 demo 未配置可发送模型，连续发送及写入工具拒绝由真实临时 Host 浏览器 E2E 验证。没有安装或重启用户正在使用的桌面窗口。外部未提交的 `e2e/web-shell.spec.ts` 仍含旧外观下拉框断言，本轮未运行这份综合 E2E，也未替其他任务修改该文件。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
