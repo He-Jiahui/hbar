@@ -54,6 +54,8 @@
 完整逐入口审计见 [会话](desktop-conversation-interaction-audit.md)、[导航与文件](desktop-navigation-interaction-audit.md)、[设置](desktop-settings-interaction-audit.md)。它们保留起始基线与交付复核的区别。
 Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另见 [剩余工作台入口审计](desktop-workbench-remaining-audit.md)。子 Agent 来源返回已完成，但它使用真实子 Session，不是参考产品中依据 tool-use ID 的独立 run 投影；不能把设计稿的 Team 图或 Terminal 架构图当现行软件画面。
 
+Browser 的同窗 child ACL 测试已通过，但隔离 WebView2 的资源红测发现 WebSocket 仍能触达模拟 Host；当前不能把资源回调当任意不可信网页的网络沙盒。[浏览器安全边界](desktop-browser-preview-boundary.md) 区分已验证的权限前提、失败证据及尚待产品选择的有限本地预览范围。没有 Browser 产品 UI 可交付。
+
 Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及、消息旁 Fork 和有限的 `/` 本地入口已形成上述闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。`/` 菜单只展示 `/model`、`/settings`；未列出的 `/compact`、技能/MCP 等并非 hbar 的本地命令。诊断只读入口已落地。材料预览、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
 
 原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
