@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime, type ClientPersistencePort } from '@hbar/app-runtime'
+import { HbarError } from '@hbar/contracts'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 
@@ -374,4 +375,61 @@ test('aborting a delayed Agent fact read cannot navigate to its child after the 
   expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe('parent')
   expect(runtime.workspaceTabs.capture(['child'])).toEqual([])
   runtime.dispose()
+})
+
+test('Host disconnect codes survive open and return boundaries without leaking messages, and retries only read facts', async () => {
+  let reads = 0
+  const f = fixture({
+    agentResult: () => {
+      reads++
+      if (reads === 1) return Promise.reject(new HbarError('DISCONNECTED', 'secret request payload'))
+      if (reads === 3) return Promise.reject(new HbarError('CONNECTION_CLOSED', 'secret credentials'))
+      return Promise.resolve(record)
+    },
+  })
+  const runtime = f.create()
+  const input = await detail(runtime)
+  await expect(runtime.view.commands.execute('agentChild.open', input)).rejects.toMatchObject({
+    code: 'DISCONNECTED',
+    message: 'Agent navigation could not be completed',
+  })
+  expect(runtime.workspaceTabs.capture(['child'])).toEqual([])
+  const opened = await runtime.view.commands.execute('agentChild.open', input)
+  expect(opened.sourceAttached).toBe(true)
+  await expect(
+    runtime.view.commands.execute('agentChild.return', {
+      childSessionId: opened.childSessionId,
+      childTabInstanceKey: opened.childTabInstanceKey,
+    }),
+  ).rejects.toMatchObject({ code: 'CONNECTION_CLOSED', message: 'Agent navigation could not be completed' })
+  expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe('child')
+  expect(
+    await runtime.view.commands.execute('agentChild.return', {
+      childSessionId: opened.childSessionId,
+      childTabInstanceKey: opened.childTabInstanceKey,
+    }),
+  ).toEqual({ activeId: 'parent' })
+  expect(reads).toBe(4)
+  expect(runtime.view.state.workspaceTabs.getSnapshot().items.map((item) => item.id)).toEqual(['parent', 'child'])
+  runtime.dispose()
+})
+
+test('existing CommandError is preserved, while malformed codes and plain errors become safe generic failures', async () => {
+  const known = new CommandError('AGENT_NOT_FOUND', 'Known typed failure')
+  for (const [reason, code, message] of [
+    [known, 'AGENT_NOT_FOUND', 'Known typed failure'],
+    [
+      new HbarError('DISCONNECTED secret=token', 'secret payload'),
+      'EXECUTION_FAILED',
+      'Agent navigation could not be completed',
+    ],
+    [new Error('private account information'), 'EXECUTION_FAILED', 'Agent navigation could not be completed'],
+  ] as const) {
+    const f = fixture({ agentResult: () => Promise.reject(reason) })
+    const runtime = f.create()
+    const input = await detail(runtime)
+    await expect(runtime.view.commands.execute('agentChild.open', input)).rejects.toMatchObject({ code, message })
+    expect(runtime.workspaceTabs.capture(['child'])).toEqual([])
+    runtime.dispose()
+  }
 })
