@@ -20,6 +20,7 @@
 | 模型与思考            | composer 局部搜索、提供商分组、能力限定档位与键盘调节                                                        | `62ea90d`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
 | 深目录模型可见性      | 重新打开模型目录时，把已选且符合当前筛选的深页模型置于有界列表首位；展开后不重复、不伪造失效项               | `1db64dd`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
 | 思考强度确认边界      | 拖动/连续按键即时本地预览，松开/Enter/失焦单次确认，取消不写入；旧配置与未知结果不越界                       | `67d9917`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
+| 思考强度滑轨刻度      | 按真实 Host 档位显示离散刻度与选中进度；不补造未声明档位                                                     | `6eeb188`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
 | Goal / Plan 意图      | 本轮意图切换、Goal 条、暂停/恢复/清除、目标编辑与预算披露                                                    | `9f3ee84`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
 | Plan 一次性范围       | 选中态直接写明“下条仅规划 / Next: plan only”，取消与发送后恢复短入口，不冒充持久权限预设                     | `2789e51`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
 | Goal 窄屏状态条       | 状态与目标优先，计时/预算/动作在窄窗口流式换行，保留原目标操作与就近反馈                                     | `495b678`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
@@ -43,6 +44,8 @@
 | 项目快捷新建          | 项目行直接入口、菜单去重、键盘顺序与窄屏点击区、原草稿保留                                                   | `1d3801a`                                                        | [项目快捷记录](desktop-project-shortcut.md)           |
 | 项目置顶              | 侧栏原行置顶/取消，按稳定工程 ID 保存、首屏外有界恢复；未知写入就近核对，不阻塞会话启动                      | `84d8102`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
 | 会话工程/分支上下文   | 输入区旁投影实际会话工程与只读 Git 分支；切换、断线和晚响应清旧值，窄屏正常流布局                            | `6fbfcee`                                                        | [上下文记录](desktop-session-project-context.md)      |
+| 输入工具行上下文      | 宽屏把工程/分支移入 composer 工具行，窄屏仍在输入区下方流式呈现；数据继续取自原会话的真实 Host/Git 状态      | `58fb77c`                                                        | [上下文记录](desktop-session-project-context.md)      |
+| Composer 边界         | 共享组件保留默认边界，hbar 会话输入区明确移除装饰横梁，保留聚焦与强制对比色轮廓                              | `07f42ad`；共享 UI `fffcd14`                                     | [边界记录](desktop-composer-boundary.md)              |
 | 插件详情              | Extensions 列表就近展开真实 Host 插件详情、键盘返回与缺省反馈                                                | `73295a9`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
 | Changed / diff        | Files 中查看真实工作区/暂存差异、只读比较与明确编辑入口                                                      | `cc87a9e`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
 | All 文件树            | 按需展开目录、已加载路径筛选、分页上限与失败重试                                                             | `f02f61b`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
@@ -50,6 +53,8 @@
 | Files 工作台页签      | 原面板展开为临时中央页签、Back 返回来源、X 选邻居、保留文件草稿                                              | `c6c2e78`                                                        | [页签集成](desktop-tabs-host-integration.md)          |
 | 子 Agent 返回来源     | 从详情打开真实子会话页签，保留父会话及来源关系；断线就近重试，Back 仅在原父页签有效时显示                    | `3947a8a`、`34f8cfa`、`04b0d02`、`9a2b23a`                       | [剩余入口审计](desktop-workbench-remaining-audit.md)  |
 | 只读系统诊断          | 设置中的真实 Host/runtime/storage 概况、刷新与失败时保留旧数据，未提供清理或修复假按钮                       | `bcfaf1f`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
+| 外观草稿恢复          | 设备本地显式保存草稿跨类别保留；部分成功、未知结果、读取失败及非持久写入均就近反馈与核对，不静默重放         | `5f28ce9`                                                        | [外观记录](desktop-appearance-draft-recovery.md)      |
+| 外观预览对比度        | 草稿主题内使用不透明语义背景，切换相反主题仍保持可读；不改变未保存的工作台主题                               | `52eccfe`                                                        | [外观记录](desktop-appearance-draft-recovery.md)      |
 | 工作区路径与 `@` 提及 | Host/CLI 有界路径发现；composer 从真实文件结果选取路径，保留草稿中的结构化引用，键盘浏览及失联反馈就近可见   | `9f25f77`、`45e082e`、`5a3cd62`、`ab5ddcf`、`8ca1592`、`3d9f19a` | [提及记录](desktop-composer-mentions.md)              |
 | 消息旁 Fork           | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史；原消息旁资格查询、创建、丢回执核对及子会话页签入口 | `3e5e16b`、`7d79aa3`、`9829e57`、`2726679`、`ad9dadb`、`ff5607c` | [Fork 记录](desktop-message-fork-integration.md)      |
 | Composer `/` 本地入口 | 输入框上方搜索与键盘补全；只有完整 `/model`、`/settings` 且无附件时才打开真实本地目标，失败保留草稿          | `e153489`                                                        | [斜杠边界](desktop-slash-command-boundary.md)         |
@@ -65,6 +70,8 @@ Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另�
 Browser 的同窗 child ACL 测试已通过，但隔离 WebView2 的资源红测发现 WebSocket 仍能触达模拟 Host；当前不能把资源回调当任意不可信网页的网络沙盒。[浏览器安全边界](desktop-browser-preview-boundary.md) 区分已验证的权限前提、失败证据及尚待产品选择的有限本地预览范围。没有 Browser 产品 UI 可交付。
 
 Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及、从 Files 加入原会话、消息旁 Fork 和有限的 `/` 本地入口已形成上述闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。`/` 菜单只展示 `/model`、`/settings`；未列出的 `/compact`、技能/MCP 等并非 hbar 的本地命令。诊断只读入口已落地。材料预览、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
+
+参考 `desktop/src/components/GlobalSearchModal.tsx` 的 Search chats 是侧栏一级入口：最近会话、有界跨会话消息匹配与高亮、输入法/键盘选择共同构成“找回对话”，不同于 hbar 当前 `Ctrl/Cmd+K` 的命令目录搜索。hbar 现有 `session.list` 不提供可直接用于跨会话正文搜索的公开契约，因此未把命令弹窗改名伪装为对话搜索。若继续迁移，需要先定义 Host 侧有界索引、隐私/删除/归档生命周期、匹配片段和目标导航语义，再接入侧栏入口与键盘冲突处理。
 
 原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
 
@@ -86,9 +93,13 @@ Files 加入原会话提交 `37ce66e` 的真实 Host 中英文 2 项与既有 `@
 
 `1db64dd` 修复了初始模型目录 `62ea90d` 先截取前 60 项、再判断当前选中项所致的深页模型不可见问题。先用回归测试复现第 65 项选中后重开缺失，再使符合当前筛选的选中项在同样 60 项边界内首位出现；展开后无重复，失效 ID 不被伪造。真实 Host 中英文 2 项 E2E 覆盖搜索选中、重开、320px 与草稿保留；隔离原生 WebView2 也验证深页已选项首位及原入口回归。该提交的首次全仓测试遇到并行未提交的 app-ui dialog fixture 失败；相关任务修正后重跑 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript 与 **1,519 tests / 11,344 assertions**（302 个测试文件）。Windows x64 release 应用和 NSIS 包再次构建成功；通用 desktop smoke 仍有与此功能无关的外观标记断言失败，不以定向原生通过冒充其通过。
 
-后续 `67d9917`、`84d8102`、`6fbfcee` 各按功能独立提交并保留真实参考/Host 边界：思考强度的中英文真实 Host E2E 2/2 与 22 项聚焦测试通过；工程置顶中英文真实 Host E2E 2/2、7 项运行时和 12 项 React 测试通过；工程/分支上下文中英文真实 Git A/B Host E2E 2/2 与 12 项聚焦测试通过，并留有 1440/900/390/320 截图。三项合并后的 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript 与 **1,538 tests / 11,450 assertions**（305 个测试文件，0 失败）。这些验证不宣称参考视觉完全一致：思考滑轨仍缺参考的离散刻度/填充，工程/分支控件在 hbar 宽屏也位于 composer 下方，非 cc-haha 工具行内。
+后续 `67d9917`、`84d8102`、`6fbfcee` 各按功能独立提交并保留真实参考/Host 边界：思考强度的中英文真实 Host E2E 2/2 与 22 项聚焦测试通过；工程置顶中英文真实 Host E2E 2/2、7 项运行时和 12 项 React 测试通过；工程/分支上下文中英文真实 Git A/B Host E2E 2/2 与 12 项聚焦测试通过，并留有 1440/900/390/320 截图。三项合并后的 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript 与 **1,538 tests / 11,450 assertions**（305 个测试文件，0 失败）。在当时的版本，思考滑轨尚缺参考的离散刻度/填充，工程/分支控件在 hbar 宽屏也位于 composer 下方；下段记录后续修正。
 
 本次统一 Windows release/NSIS 构建首次尝试时，Web 阶段被并行未提交的共享 UI 导入缺失 `app-dialog-wizard.css` 阻断，未进入 Rust/打包；该文件随后由原任务加入，本任务未覆盖、删除或代写。使用已核对的 MSVC x64 环境重跑后，生产 Web、Host 资源、Rust release 应用和 NSIS 安装包均构建成功。隔离数据目录启动的原生 WebView2 定向回归通过 `Ctrl+N`、深页已选模型、思考强度本地预览/确认、Plan/Goal、真实只读 Git 分支与置顶刷新持久化；没有安装包或重启用户当前桌面窗口。通用 `scripts/desktop-smoke.ts` 在本次未重跑，不把定向回归冒充全套原生 smoke。
+
+此后 `6eeb188` 补上按 Host 档位的滑轨刻度/填充，`58fb77c` 把宽屏工程/分支放回工具行；窄屏上下文仍独立流式换行。`5f28ce9` 与 `52eccfe` 分别交付外观草稿恢复和跨主题预览可读性，均不把 cc-haha 的即时主题选择或更多主题/语言假称为已迁移。共享 UI `fffcd14` 的可选边界由 hbar `07f42ad` 明确选用；中英文真实临时 Host E2E 2/2 覆盖 1440px 浅色、390px 深色、320px 强制对比色、聚焦、无整页溢出和真实发送。首次运行遇到并行 Playwright 对默认 trace 路径的文件争用；使用独立输出目录、关闭 trace 重跑通过，未归因于产品行为。
+
+上述更新后的完整 `bun run check` 再次通过原生查询构建、严格 ESLint、TypeScript 与 **1,552 tests / 11,563 assertions**（306 个文件，0 失败）。最新 Windows x64 release 应用及 NSIS 安装包构建成功；隔离数据目录的原生 WebView2 回归确认 `Ctrl+N`、深页已选模型、思考预览/确认、Plan/Goal、实际 Git 分支、置顶刷新持久化，以及 Composer 无装饰横梁且聚焦轮廓可见。原生截图 `artifacts/desktop-experience/session-entry/native-composer-boundary.png` 已人工检查；没有安装或重启用户正在使用的窗口。通用 `scripts/desktop-smoke.ts` 本次没有运行，不能把定向原生回归当成全套 smoke。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
