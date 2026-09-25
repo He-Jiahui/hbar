@@ -454,6 +454,7 @@
     "extensionWorkspace.setQuery",
     "extensionWorkspace.setPage",
     "extensionWorkspace.setEnabled",
+    "fileWorkspace.addToComposer",
     "fileWorkspace.discardAndReload",
     "fileWorkspace.filterChanges",
     "fileWorkspace.filterTree",
