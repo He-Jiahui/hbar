@@ -135,6 +135,7 @@ type WorkspaceBodyProps = {
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
+  readonly files: ReturnType<typeof createFileCommandClient>
   readonly systemPrefersDark: boolean
 }
 
@@ -221,6 +222,7 @@ function WorkspaceBodyContent({
   locale,
   connected,
   prepareAttachment,
+  files,
   systemPrefersDark,
 }: WorkspaceBodyProps) {
   const copy = getShellCopy(locale)
@@ -328,6 +330,7 @@ function WorkspaceBodyContent({
         labels={copy.session}
         connected={connected}
         prepareAttachment={prepareAttachment}
+        files={files}
         navigationAccessory={
           activeTab?.kind === 'session' && activeTab.agentSource ? (
             <AgentChildReturn
@@ -632,6 +635,7 @@ export default function App({
   const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
   const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
   const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
+  const composerFiles = useMemo(() => createFileCommandClient(client), [client])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [hostId, setHostId] = useState(() => `pending:${clientUrl}`)
   const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
@@ -777,6 +781,7 @@ export default function App({
                 locale={locale}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
+                files={composerFiles}
                 systemPrefersDark={systemPrefersDark}
               />
             </WorkspaceTabsController>
@@ -786,6 +791,7 @@ export default function App({
               locale={locale}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
+              files={composerFiles}
               systemPrefersDark={systemPrefersDark}
             />
           )}

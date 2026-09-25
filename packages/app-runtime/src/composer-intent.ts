@@ -50,6 +50,7 @@ export interface ComposerIntentOptions {
   readonly navigation: StateReader<NavigationState>
   /** Delegate to the existing draft module so its draft revision and receipt rules remain authoritative. */
   readonly executeRun: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>
+  readonly serializeDraft?: (sessionId: string, revision: number, workspaceId: string, displayText: string) => string
   readonly reconcileRun: (sessionId: string) => Promise<RunAccepted | null>
   readonly getSettledReceipt?: (sessionId: string, key: string) => RunAccepted | null
   readonly permissions?: Pick<
@@ -76,6 +77,7 @@ const metadata = (id: string) => ({
 const sessionInput = z.strictObject({ sessionId: idSchema })
 const result = z.strictObject({ sessionId: idSchema })
 const submitInput = submitRunInputSchema.extend({
+  expectedDraftRevision: z.number().int().nonnegative().optional(),
   expectedIntentRevision: z.number().int().nonnegative().optional(),
   expectedPermissionRevision: z.number().int().nonnegative().optional(),
   goalTokenBudget: z.number().int().positive().optional(),
@@ -315,6 +317,15 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   local.register(composerIntentCommands['composerIntent.submit'], async (input, execution) => {
     const { sessionId } = input
     assertFree(sessionId)
+    const navigation = options.navigation.getSnapshot()
+    if (input.expectedDraftRevision !== undefined) {
+      if (navigation.sessionId !== sessionId || !navigation.workspaceId || !options.serializeDraft)
+        throw new CommandError('VERSION_CONFLICT', 'Composer draft target changed')
+    }
+    const submittedText =
+      input.expectedDraftRevision === undefined
+        ? input.input.text
+        : options.serializeDraft!(sessionId, input.expectedDraftRevision, navigation.workspaceId!, input.input.text)
     const current = entry(sessionId)
     if (
       !state.reader.getSnapshot().entries[sessionId] &&
@@ -328,7 +339,12 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     let request: SubmitRunInput = {
       sessionId,
       modelId: input.modelId,
-      input: { ...input.input, mode: current.intent === 'plan' ? 'plan' : 'default', source: 'user' },
+      input: {
+        ...input.input,
+        text: submittedText,
+        mode: current.intent === 'plan' ? 'plan' : 'default',
+        source: 'user',
+      },
     }
     if (
       current.intent === 'goal' &&

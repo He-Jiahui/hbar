@@ -3,6 +3,7 @@ import { draftCommands, type PromptAttachment } from '@hbar/contracts/commands/d
 import { runAcceptedSchema, type RunAccepted, type SubmitRunInput } from '@hbar/contracts/commands/run'
 import { createState } from './state'
 import { registerDraftAttachments } from './draft-attachments'
+import { serializeMentions, validateMentions } from './composer-mentions'
 import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, SessionDraftState } from './types'
 import type { CommandExecutor } from '@hbar/commands'
 
@@ -31,6 +32,7 @@ function initial(sessionId: string): SessionDraftState {
   return {
     sessionId,
     text: '',
+    mentions: [],
     attachments: [],
     attachmentTransfers: [],
     uploading: 0,
@@ -57,7 +59,7 @@ function matchesInput(draft: SessionDraftState, input: SubmitRunInput): boolean 
     ...(input.input.files ?? []).map((artifact) => ({ kind: 'file' as const, artifact })),
   ]
   return (
-    draft.text === input.input.text &&
+    serializeMentions(draft.text, draft.mentions) === input.input.text &&
     draft.attachments.length === expected.length &&
     draft.attachments.every((item, index) => attachmentKey(item) === attachmentKey(expected[index]!))
   )
@@ -109,7 +111,28 @@ export function createDrafts(
   local.register(draftCommands['draft.setText'], ({ sessionId, text, expectedRevision }) => {
     const current = entry(sessionId)
     checkRevision(current, expectedRevision)
-    const next = { ...current, ...editedStatus(current), text, revision: current.revision + 1 }
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      text,
+      mentions: text === current.text ? current.mentions : [],
+      revision: current.revision + 1,
+    }
+    replace(sessionId, next)
+    return { sessionId, revision: next.revision }
+  })
+
+  local.register(draftCommands['draft.setContent'], ({ sessionId, text, mentions, expectedRevision }) => {
+    const current = entry(sessionId)
+    checkRevision(current, expectedRevision)
+    validateMentions(text, mentions)
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      text,
+      mentions: mentions.map((item) => ({ ...item })),
+      revision: current.revision + 1,
+    }
     replace(sessionId, next)
     return { sessionId, revision: next.revision }
   })
@@ -160,7 +183,7 @@ export function createDrafts(
     const clear = submission.matchesDraft && current.revision === submission.revision
     replace(sessionId, {
       ...current,
-      ...(clear ? { text: '', attachments: [], revision: current.revision + 1 } : {}),
+      ...(clear ? { text: '', mentions: [], attachments: [], revision: current.revision + 1 } : {}),
       status: 'idle',
       error: null,
       lastOperationId: accepted.operationId,
@@ -236,6 +259,13 @@ export function createDrafts(
 
   return {
     reader: state.reader,
+    serializeSubmission(sessionId: string, expectedRevision: number, workspaceId: string, displayText: string): string {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (current.text !== displayText)
+        throw new CommandError('VERSION_CONFLICT', 'The session draft changed before submission')
+      return serializeMentions(current.text, current.mentions, workspaceId)
+    },
     actions: actions.reader,
     /** Recent confirmed receipts remain readable after either UI entry reconciles their single owner. */
     getSettledReceipt(sessionId: string, key: string): RunAccepted | null {

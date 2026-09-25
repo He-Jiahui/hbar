@@ -613,6 +613,7 @@ export interface SessionAttachmentTransfer {
 export interface SessionDraftState {
   readonly sessionId: string
   readonly text: string
+  readonly mentions: readonly Readonly<import('@hbar/contracts/commands/draft').PromptMention>[]
   readonly attachments: readonly Readonly<PromptAttachment>[]
   readonly attachmentTransfers: readonly SessionAttachmentTransfer[]
   readonly uploading: number

@@ -183,6 +183,12 @@ function isOverlaySelector(path, selector) {
     selector.trim() === '.hbar-composer-attachment-drop-overlay'
   )
     return true
+  // cc-haha FileSearchMenu: the composer-width suggestion menu overlays only its owning editor.
+  if (
+    /packages\/app-react\/src\/composer-mention-editor\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-composer-mention-menu'
+  )
+    return true
   // cc-haha TabBar context menu: only the observed trigger-anchored top-layer container.
   if (
     /packages\/app-react\/src\/workspace-tabs\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -678,6 +684,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   ]) {
     if (validateCss(path, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length !== 2)
       throw new Error('Composer attachment overlay exception leaked to content or another file')
+  }
+  const mentionPath = 'packages/app-react/src/composer-mention-editor.css'
+  if (validateCss(mentionPath, '.hbar-composer-mention-menu {\nposition: absolute;\ninset: 0;\n}').length)
+    throw new Error('Rejected evidence-backed composer mention menu overlay')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-composer-mention-menu'],
+    [mentionPath, '.hbar-composer-mention-menu > p'],
+    [mentionPath, '.hbar-composer-mention-row'],
+  ]) {
+    if (validateCss(path, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length !== 2)
+      throw new Error('Composer mention overlay exception leaked to content or another file')
   }
   const permissionPath = 'packages/app-react/src/composer-permission-picker.css'
   const usagePath = 'packages/app-react/src/session-usage-control.css'

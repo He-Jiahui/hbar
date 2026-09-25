@@ -445,6 +445,7 @@
     "draft.reportAttachmentError",
     "draft.reserveAttachments",
     "draft.setAttachments",
+    "draft.setContent",
     "draft.setText",
     "draft.uploadAttachment",
     "extensionWorkspace.refresh",

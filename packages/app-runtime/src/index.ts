@@ -35,6 +35,7 @@ import { createAgentChildNavigation, agentChildNavigationCommands } from './agen
 export { workspaceTabCommands } from './workspace-tabs-runtime'
 export { agentChildNavigationCommands } from './agent-child-navigation'
 export { MAX_WORKSPACE_TABS } from './workspace-tabs-runtime'
+export { isWorkspaceRelativePath } from './composer-mentions'
 export type {
   WorkspaceTabRef,
   WorkspaceTabsState,
@@ -284,6 +285,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     goals: options.goals,
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
+    serializeDraft: drafts.serializeSubmission,
     permissions: composerPermission,
     getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>

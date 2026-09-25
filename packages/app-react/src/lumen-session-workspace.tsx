@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useRef, type ReactNode } from 'react'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -38,6 +38,7 @@ import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-p
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
+import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import {
   HbarComposerAttachmentDropTarget,
   HbarComposerAttachmentTransfers,
@@ -69,6 +70,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly error: (code: string) => string
   readonly prompt: LumenPromptLabels
   readonly attachments: HbarComposerAttachmentLabels
+  readonly mentions: HbarComposerMentionLabels
   readonly modelPicker: HbarComposerModelLabels
   readonly intent: HbarComposerIntentLabels
   readonly permissionPicker: HbarComposerPermissionLabels
@@ -102,6 +104,7 @@ export interface HbarSessionWorkspaceProps {
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
+  readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
   readonly navigationAccessory?: ReactNode | undefined
 }
 
@@ -141,6 +144,7 @@ export function HbarSessionWorkspace({
   labels,
   connected,
   prepareAttachment,
+  files,
   navigationAccessory,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
@@ -173,6 +177,85 @@ export function HbarSessionWorkspace({
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
+  const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
+  const composerWriteError = useRef<{ sessionId: string; error: unknown } | null>(null)
+  const saveComposerContent = (
+    targetSessionId: string,
+    text: string,
+    mentions: readonly import('@hbar/contracts/commands/draft').PromptMention[],
+    expectedRevision: number,
+  ) => {
+    const promise = execute('draft.setContent', { sessionId: targetSessionId, text, mentions, expectedRevision })
+    const token = { sessionId: targetSessionId, promise }
+    composerWrite.current = token
+    void promise.then(
+      () => {
+        if (composerWrite.current === token) {
+          composerWrite.current = null
+          composerWriteError.current = null
+        }
+      },
+      (error) => {
+        if (composerWrite.current === token) {
+          composerWrite.current = null
+          composerWriteError.current = { sessionId: targetSessionId, error }
+        }
+      },
+    )
+    return promise
+  }
+  const submitLatest = async (targetSessionId: string, targetWorkspaceId: string) => {
+    const pending = composerWrite.current
+    if (pending?.sessionId === targetSessionId) {
+      try {
+        await pending.promise
+      } catch {
+        return
+      }
+    }
+    if (composerWriteError.current?.sessionId === targetSessionId) return
+    const selected = runtime.state.navigation.getSnapshot()
+    const latest = runtime.state.drafts.getSnapshot()[targetSessionId]
+    const modelState = runtime.state.controls.getSnapshot()
+    const currentModel = modelState.sessionId === targetSessionId ? modelState.model : null
+    const intentState = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
+    const permissionState = runtime.state.composerPermission.getSnapshot()
+    const permission = permissionState.entries[targetSessionId]
+    const modelAction = runtime.state.composerModel.getSnapshot()
+    const sessionTimeline = runtime.state.timeline.getSnapshot()
+    if (
+      !connected ||
+      selected.sessionId !== targetSessionId ||
+      selected.workspaceId !== targetWorkspaceId ||
+      !latest ||
+      !currentModel ||
+      currentModel.status !== 'configured' ||
+      !currentModel.modelId ||
+      sessionTimeline.sessionId !== targetSessionId ||
+      ['loading', 'error'].includes(sessionTimeline.status) ||
+      latest.status === 'unknown' ||
+      latest.status === 'submitting' ||
+      latest.attachmentTransfers.length ||
+      (!latest.text.trim() && !latest.attachments.length) ||
+      permission?.locked ||
+      (modelAction.sessionId === targetSessionId && ['submitting', 'unknown'].includes(modelAction.action.status)) ||
+      ['submitting', 'unknown'].includes(intentState?.submission.status ?? '')
+    )
+      return
+    invoke('composerIntent.submit', {
+      sessionId: targetSessionId,
+      modelId: currentModel.modelId,
+      expectedIntentRevision: intentState?.revision ?? 0,
+      expectedDraftRevision: latest.revision,
+      ...(permissionState.available ? { expectedPermissionRevision: permission?.revision ?? 0 } : {}),
+      input: {
+        text: latest.text,
+        images: latest.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),
+        files: latest.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
+        ...(currentModel.thinkingLevel ? { thinking: currentModel.thinkingLevel } : {}),
+      },
+    })
+  }
   const attachmentTransfers = draft?.attachmentTransfers ?? []
   const attachmentIntakeEnabled =
     Boolean(prepareAttachment) &&
@@ -460,6 +543,32 @@ export function HbarSessionWorkspace({
       >
         <LumenPromptComposer
           value={draft?.text ?? ''}
+          editor={
+            files && sessionId && navigation.workspaceId
+              ? ({ inputLabel, placeholder, disabled }) => (
+                  <HbarComposerMentionEditor
+                    key={`${sessionId}:${navigation.workspaceId}`}
+                    sessionId={sessionId}
+                    workspaceId={navigation.workspaceId!}
+                    revision={draft?.revision ?? 0}
+                    text={draft?.text ?? ''}
+                    mentions={draft?.mentions ?? []}
+                    disabled={disabled}
+                    connected={connected}
+                    inputLabel={inputLabel}
+                    placeholder={placeholder}
+                    labels={labels.mentions}
+                    files={files}
+                    onContent={(text, mentions, expectedRevision) =>
+                      saveComposerContent(sessionId, text, mentions, expectedRevision)
+                    }
+                    onSubmit={() => {
+                      void submitLatest(sessionId, navigation.workspaceId!)
+                    }}
+                  />
+                )
+              : undefined
+          }
           labels={{
             ...labels.prompt,
             placeholder:
@@ -596,19 +705,7 @@ export function HbarSessionWorkspace({
             })
           }
           onSubmit={() => {
-            if (!draft || !configured || !model.modelId || modelPending || intentPending) return
-            invoke('composerIntent.submit', {
-              sessionId,
-              modelId: model.modelId,
-              expectedIntentRevision: intentEntry?.revision ?? 0,
-              ...(composerPermission.available ? { expectedPermissionRevision: permissionEntry?.revision ?? 0 } : {}),
-              input: {
-                text: draft.text,
-                images: draft.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),
-                files: draft.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
-                ...(model.thinkingLevel ? { thinking: model.thinkingLevel } : {}),
-              },
-            })
+            if (sessionId && navigation.workspaceId) void submitLatest(sessionId, navigation.workspaceId)
           }}
           onStop={() => {
             if (activeRun) invoke('operation.cancel', { operationId: activeRun.id })

@@ -8,6 +8,14 @@ export const promptAttachmentSchema = z.strictObject({
   kind: z.enum(['image', 'file']),
   artifact: artifactSchema,
 })
+export const promptMentionSchema = z.strictObject({
+  start: z.number().int().nonnegative(),
+  end: z.number().int().positive(),
+  label: z.string().min(1).max(1024),
+  path: z.string().min(1).max(4000),
+  workspaceId: idSchema,
+  directory: z.boolean(),
+})
 const draftResultSchema = z.strictObject({ sessionId: idSchema, revision: z.number().int().nonnegative() })
 const attachmentResultSchema = draftResultSchema.extend({ attachment: promptAttachmentSchema })
 const attachmentReservationTarget = z.strictObject({
@@ -42,6 +50,16 @@ export const draftCommands = {
       sessionId: idSchema,
       text: z.string().max(200_000),
       expectedRevision: z.number().int().nonnegative().optional(),
+    }),
+    draftResultSchema,
+  ),
+  'draft.setContent': defineCommand(
+    metadata('draft.setContent'),
+    z.strictObject({
+      sessionId: idSchema,
+      text: z.string().max(200_000),
+      mentions: z.array(promptMentionSchema).max(40),
+      expectedRevision: z.number().int().nonnegative(),
     }),
     draftResultSchema,
   ),
@@ -129,3 +147,4 @@ export const draftCommands = {
 }
 
 export type PromptAttachment = z.output<typeof promptAttachmentSchema>
+export type PromptMention = z.output<typeof promptMentionSchema>
