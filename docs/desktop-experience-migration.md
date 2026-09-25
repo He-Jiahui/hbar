@@ -19,6 +19,7 @@
 | --------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------- |
 | 模型与思考            | composer 局部搜索、提供商分组、能力限定档位与键盘调节                                                        | `62ea90d`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
 | 深目录模型可见性      | 重新打开模型目录时，把已选且符合当前筛选的深页模型置于有界列表首位；展开后不重复、不伪造失效项               | `1db64dd`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
+| 思考强度确认边界      | 拖动/连续按键即时本地预览，松开/Enter/失焦单次确认，取消不写入；旧配置与未知结果不越界                       | `67d9917`                                                        | [模型记录](desktop-model-interaction-reference.md)    |
 | Goal / Plan 意图      | 本轮意图切换、Goal 条、暂停/恢复/清除、目标编辑与预算披露                                                    | `9f3ee84`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
 | Plan 一次性范围       | 选中态直接写明“下条仅规划 / Next: plan only”，取消与发送后恢复短入口，不冒充持久权限预设                     | `2789e51`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
 | Goal 窄屏状态条       | 状态与目标优先，计时/预算/动作在窄窗口流式换行，保留原目标操作与就近反馈                                     | `495b678`                                                        | [意图记录](desktop-composer-intent-reference.md)      |
@@ -40,6 +41,8 @@
 | 输入材料              | 选择/拖放/文件粘贴、12 项批量预约、原会话所属与未知只读核对                                                  | `84f91b7`                                                        | [附件记录](desktop-composer-attachments.md)           |
 | 路径错误恢复          | 无效目录在写入前明确失败，保留错误码并允许修正；未知写入不洗成失败                                           | `b3fbd45`                                                        | [项目入口验证](desktop-project-shortcut.md)           |
 | 项目快捷新建          | 项目行直接入口、菜单去重、键盘顺序与窄屏点击区、原草稿保留                                                   | `1d3801a`                                                        | [项目快捷记录](desktop-project-shortcut.md)           |
+| 项目置顶              | 侧栏原行置顶/取消，按稳定工程 ID 保存、首屏外有界恢复；未知写入就近核对，不阻塞会话启动                      | `84d8102`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
+| 会话工程/分支上下文   | 输入区旁投影实际会话工程与只读 Git 分支；切换、断线和晚响应清旧值，窄屏正常流布局                            | `6fbfcee`                                                        | [上下文记录](desktop-session-project-context.md)      |
 | 插件详情              | Extensions 列表就近展开真实 Host 插件详情、键盘返回与缺省反馈                                                | `73295a9`                                                        | [设置审计](desktop-settings-interaction-audit.md)     |
 | Changed / diff        | Files 中查看真实工作区/暂存差异、只读比较与明确编辑入口                                                      | `cc87a9e`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
 | All 文件树            | 按需展开目录、已加载路径筛选、分页上限与失败重试                                                             | `f02f61b`                                                        | [文件审计](desktop-navigation-interaction-audit.md)   |
@@ -82,6 +85,10 @@ Files 加入原会话提交 `37ce66e` 的真实 Host 中英文 2 项与既有 `@
 后续三个会话入口提交 `2d1a34f`、`2789e51`、`495b678` 均独立验收。快捷键真实 Host 中英文 2 项通过，覆盖无项目选择、原草稿保留、窄屏与 `Ctrl`/`Meta`；Plan/Goal 真实 Host 中英文 2 项通过，覆盖 Plan 实际 Run mode、选中/复位、Goal 暂停/恢复/清除及 1440/390/320 布局。最新 `bun run check` 通过原生查询构建、严格 ESLint、TypeScript 与 **1,517 tests / 11,329 assertions**（302 个测试文件）。Windows x64 release 应用与 NSIS 包构建成功；隔离原生 WebView2 验证了 `Ctrl+N`、Plan 一次性可见文案和 Goal 意图切换。该原生 demo 未配置可发送模型，不能把活动 Goal 条的真实运行验收归于此；活动条由临时真实 Host 浏览器测试覆盖。当前并行修改中的通用 desktop smoke 在与这些入口无关的外观选中标记断言处失败，未宣称全套原生 smoke 通过。
 
 `1db64dd` 修复了初始模型目录 `62ea90d` 先截取前 60 项、再判断当前选中项所致的深页模型不可见问题。先用回归测试复现第 65 项选中后重开缺失，再使符合当前筛选的选中项在同样 60 项边界内首位出现；展开后无重复，失效 ID 不被伪造。真实 Host 中英文 2 项 E2E 覆盖搜索选中、重开、320px 与草稿保留；隔离原生 WebView2 也验证深页已选项首位及原入口回归。该提交的首次全仓测试遇到并行未提交的 app-ui dialog fixture 失败；相关任务修正后重跑 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript 与 **1,519 tests / 11,344 assertions**（302 个测试文件）。Windows x64 release 应用和 NSIS 包再次构建成功；通用 desktop smoke 仍有与此功能无关的外观标记断言失败，不以定向原生通过冒充其通过。
+
+后续 `67d9917`、`84d8102`、`6fbfcee` 各按功能独立提交并保留真实参考/Host 边界：思考强度的中英文真实 Host E2E 2/2 与 22 项聚焦测试通过；工程置顶中英文真实 Host E2E 2/2、7 项运行时和 12 项 React 测试通过；工程/分支上下文中英文真实 Git A/B Host E2E 2/2 与 12 项聚焦测试通过，并留有 1440/900/390/320 截图。三项合并后的 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript 与 **1,538 tests / 11,450 assertions**（305 个测试文件，0 失败）。这些验证不宣称参考视觉完全一致：思考滑轨仍缺参考的离散刻度/填充，工程/分支控件在 hbar 宽屏也位于 composer 下方，非 cc-haha 工具行内。
+
+本次统一 Windows release/NSIS 构建已尝试，MSVC x64 环境可用，但 Web 构建阶段被并行未提交的 `hbar-ui/packages/lumen-app-ui/src/app-dialog.tsx` 对尚不存在的 `app-dialog-wizard.css` 导入阻断，未进入 Rust/打包；因此本组三项**尚无新增原生 WebView2 验收**。该共享 UI 改动及缺失样式文件不属于本单元，未覆盖、删除或代写。待其工作区一致后需重跑构建及隔离原生操作回归。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
