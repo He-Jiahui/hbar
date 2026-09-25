@@ -29,6 +29,25 @@ const metadata = (id: string) => ({
 })
 
 export const fileWorkspaceCommands = {
+  'fileWorkspace.addToComposer': defineCommand(
+    metadata('fileWorkspace.addToComposer'),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      path: z.string().min(1).max(4000),
+      sourceSessionId: z.string().min(1).max(160),
+      sourceTabInstanceKey: z.string().uuid(),
+      workbenchTabId: z.string().min(1).max(160).optional(),
+      workbenchTabInstanceKey: z.string().uuid().optional(),
+      expectedRevision: z.number().int().nonnegative(),
+    }),
+    z.strictObject({
+      sessionId: z.string().min(1).max(160),
+      sessionTitle: z.string().min(1),
+      revision: z.number().int().nonnegative(),
+      added: z.boolean(),
+    }),
+  ),
   'fileWorkspace.setBrowserMode': defineCommand(
     metadata('fileWorkspace.setBrowserMode'),
     z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), mode: z.enum(['all', 'changed']) }),

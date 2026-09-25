@@ -370,7 +370,11 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
-  const fileWorkspace = createFileWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const fileWorkspace = createFileWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed, {
+    tabs: workspaceTabs.reader,
+    drafts: drafts.reader,
+    sessions: directory.queries,
+  })
   const agentWorkspace = createAgentWorkspace(
     local,
     options,

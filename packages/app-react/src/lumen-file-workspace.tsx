@@ -1,5 +1,5 @@
-import { ArrowLeft, FolderTree, Maximize2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { ArrowLeft, FolderTree, Maximize2, MessageCircle } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   LumenFrame,
   LumenText,
@@ -44,6 +44,14 @@ export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly keepDraft: string
   readonly discardAndReload: string
   readonly error: (code: string) => string
+  readonly addToChat: string
+  readonly addedToChat: (session: string) => string
+  readonly alreadyInChat: (session: string) => string
+  readonly addFileDraftPending: string
+  readonly addNoSource: string
+  readonly addOffline: string
+  readonly addingToChat: string
+  readonly addToChatError: (code: string) => string
 }
 
 export function HbarFileWorkspace({
@@ -73,6 +81,17 @@ export function HbarFileWorkspace({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const files = useHbarRuntimeState(runtime.state.files)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const drafts = useHbarRuntimeState(runtime.state.drafts)
+  const addInFlight = useRef(false)
+  const activeAddTarget = useRef('')
+  const [addFeedback, setAddFeedback] = useState<{
+    target: string
+    kind: 'success' | 'error'
+    message: string
+    revision?: number
+  } | null>(null)
+  const [addingTarget, setAddingTarget] = useState<string | null>(null)
   const [reloadTarget, setReloadTarget] = useState<{
     instanceId: string
     workspaceId: string
@@ -146,6 +165,87 @@ export function HbarFileWorkspace({
   const busy = document?.status === 'submitting'
   const unknown = document?.status === 'unknown'
   const dirty = Boolean(document && document.draft !== document.baseline)
+  const selectedPath = document?.path ?? diff?.path ?? null
+  const sourceSessionId = panel.sessionId
+  const sourceTab = tabs.items.find(
+    (item) => item.kind === 'session' && item.id === sourceSessionId && item.workspaceId === workspaceId,
+  )
+  const workbenchTab =
+    mode === 'workbench'
+      ? tabs.items.find(
+          (item) => item.kind === 'workbench' && item.id === tabs.activeId && item.panelInstanceId === instanceId,
+        )
+      : null
+  const addTarget = `${instanceId}:${workspaceId}:${selectedPath}:${sourceTab?.instanceKey}:${workbenchTab?.instanceKey}`
+  activeAddTarget.current = addTarget
+  const blockedFileDraft = Boolean(
+    document &&
+    (dirty || document.status === 'unknown' || document.status === 'submitting' || document.status === 'loading'),
+  )
+  const canAdd = Boolean(
+    connected &&
+    workspaceId &&
+    selectedPath &&
+    sourceSessionId &&
+    sourceTab &&
+    (mode !== 'workbench' || workbenchTab) &&
+    !blockedFileDraft &&
+    (document || diff?.status === 'ready'),
+  )
+  const feedback =
+    addFeedback?.target === addTarget &&
+    (addFeedback.kind === 'error' || drafts[sourceSessionId ?? '']?.revision === addFeedback.revision)
+      ? addFeedback
+      : null
+  const addHint =
+    !sourceTab || !sourceSessionId
+      ? labels.addNoSource
+      : blockedFileDraft
+        ? labels.addFileDraftPending
+        : !connected
+          ? labels.addOffline
+          : addingTarget === addTarget
+            ? labels.addingToChat
+            : null
+  const addCurrentFile = () => {
+    if (!canAdd || !workspaceId || !selectedPath || !sourceSessionId || !sourceTab || addInFlight.current) return
+    const target = addTarget
+    const expectedRevision = runtime.state.drafts.getSnapshot()[sourceSessionId]?.revision ?? 0
+    addInFlight.current = true
+    setAddingTarget(target)
+    setAddFeedback(null)
+    void runtime.commands
+      .execute('fileWorkspace.addToComposer', {
+        instanceId,
+        workspaceId,
+        path: selectedPath,
+        sourceSessionId,
+        sourceTabInstanceKey: sourceTab.instanceKey,
+        ...(workbenchTab ? { workbenchTabId: workbenchTab.id, workbenchTabInstanceKey: workbenchTab.instanceKey } : {}),
+        expectedRevision,
+      })
+      .then((result) => {
+        if (target !== activeAddTarget.current) return
+        setAddFeedback({
+          target,
+          kind: 'success',
+          message: result.added ? labels.addedToChat(result.sessionTitle) : labels.alreadyInChat(result.sessionTitle),
+          revision: result.revision,
+        })
+      })
+      .catch((reason: unknown) => {
+        if (target !== activeAddTarget.current) return
+        const code =
+          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+            ? reason.code
+            : 'EXECUTION_FAILED'
+        setAddFeedback({ target, kind: 'error', message: labels.addToChatError(code) })
+      })
+      .finally(() => {
+        addInFlight.current = false
+        setAddingTarget(null)
+      })
+  }
   const fileName = (path: string) => path.replaceAll('\\', '/').split('/').at(-1) ?? path
   const reload = () => {
     const target = reloadTarget
@@ -246,7 +346,32 @@ export function HbarFileWorkspace({
                 >
                   {labels.edit}
                 </LumenButton>
+                {sourceTab && (mode !== 'workbench' || workbenchTab) && (
+                  <LumenButton
+                    className="hbar-file-add-to-chat"
+                    variant="text"
+                    disabled={!canAdd || addingTarget !== null}
+                    onClick={addCurrentFile}
+                  >
+                    <LumenIcon icon={MessageCircle} tier="sm" />
+                    {labels.addToChat}
+                  </LumenButton>
+                )}
               </LumenFrame>
+              {addHint && (
+                <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                  {addHint}
+                </LumenText>
+              )}
+              {feedback && (
+                <LumenText
+                  as="p"
+                  role={feedback.kind === 'error' ? 'alert' : 'status'}
+                  className="hbar-file-add-feedback"
+                >
+                  {feedback.message}
+                </LumenText>
+              )}
               {editing ? (
                 <LumenTextarea
                   className="hbar-app-react-file-editor"
@@ -308,6 +433,18 @@ export function HbarFileWorkspace({
               onFile={() =>
                 invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: diff.path, directory: false })
               }
+              addToChat={
+                sourceTab && (mode !== 'workbench' || workbenchTab)
+                  ? {
+                      label: labels.addToChat,
+                      disabled: !canAdd || addingTarget !== null,
+                      onClick: addCurrentFile,
+                      feedback: feedback?.message,
+                      feedbackKind: feedback?.kind,
+                    }
+                  : undefined
+              }
+              referenceHint={addHint ?? undefined}
             />
           ) : (
             <LumenFrame className="hbar-app-react-file-browser">

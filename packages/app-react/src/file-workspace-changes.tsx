@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileDiff, Folder, RefreshCw } from 'lucide-react'
+import { FileDiff, Folder, MessageCircle, RefreshCw } from 'lucide-react'
 import {
   LumenButton,
   LumenCollection,
@@ -172,6 +172,8 @@ export function HbarFileDiff({
   connected,
   onOpen,
   onFile,
+  addToChat,
+  referenceHint,
 }: {
   readonly diff: Diff
   readonly change: Change | undefined
@@ -179,6 +181,16 @@ export function HbarFileDiff({
   readonly connected: boolean
   readonly onOpen: (cached: boolean) => void
   readonly onFile: () => void
+  readonly addToChat?:
+    | {
+        readonly label: string
+        readonly disabled: boolean
+        readonly onClick: () => void
+        readonly feedback?: string | undefined
+        readonly feedbackKind?: 'success' | 'error' | undefined
+      }
+    | undefined
+  readonly referenceHint?: string | undefined
 }) {
   const [requestedPage, setPage] = useState(0)
   const lines = diff.text.split('\n')
@@ -209,7 +221,27 @@ export function HbarFileDiff({
         <LumenButton disabled={!connected} onClick={onFile}>
           {labels.openFile}
         </LumenButton>
+        {addToChat && (
+          <LumenButton
+            className="hbar-file-add-to-chat"
+            variant="text"
+            disabled={addToChat.disabled}
+            onClick={addToChat.onClick}
+          >
+            <LumenIcon icon={MessageCircle} tier="sm" />
+            {addToChat.label}
+          </LumenButton>
+        )}
       </LumenFrame>
+      {(addToChat?.feedback || referenceHint) && (
+        <LumenText
+          as="p"
+          className="hbar-file-add-feedback"
+          role={addToChat?.feedbackKind === 'error' ? 'alert' : 'status'}
+        >
+          {addToChat?.feedback ?? referenceHint}
+        </LumenText>
+      )}
       <LumenText as="small" className="hbar-file-diff-caption">
         {labels.readOnlyDiff}
       </LumenText>

@@ -1306,6 +1306,54 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
     ),
     keepDraft: choose('保留草稿', 'Keep draft'),
     discardAndReload: choose('丢弃并重新加载', 'Discard and reload'),
+    addToChat: choose('添加到聊天', 'Add to chat'),
+    addedToChat: (session) =>
+      choose(
+        `已添加到“${session}”的草稿。文件工作台仍保持打开。`,
+        `Added to the draft in “${session}”. Files stays open.`,
+      ),
+    alreadyInChat: (session) =>
+      choose(`“${session}”的草稿已引用此文件。`, `The draft in “${session}” already references this file.`),
+    addFileDraftPending: choose(
+      '文件有未保存或尚待核对的更改；请先保存或核对，再引用磁盘路径。',
+      'This file has unsaved or unconfirmed changes. Save or reconcile before referencing its disk path.',
+    ),
+    addNoSource: choose(
+      '此文件没有仍打开的来源会话；无法添加到聊天。',
+      'No original conversation tab is open for this file.',
+    ),
+    addOffline: choose(
+      '连接 Host 后才能核对来源会话并添加。',
+      'Connect to Host to confirm the source session before adding.',
+    ),
+    addingToChat: choose('正在核对来源会话…', 'Confirming the source session…'),
+    addToChatError: (code) => {
+      if (code === 'RESULT_UNKNOWN')
+        return choose(
+          '添加结果尚未确认；请返回原会话核对草稿，不要重复添加。',
+          'The result is not confirmed. Check the original draft before adding again.',
+        )
+      if (code === 'VERSION_CONFLICT' || code === 'TARGET_CHANGED' || code === 'TAB_NOT_FOUND')
+        return choose(
+          '目标文件或原会话草稿已变化；请核对后再添加。',
+          'The file or source draft changed. Review it before adding again.',
+        )
+      if (code === 'FILE_DRAFT_PENDING')
+        return choose('请先保存或核对文件更改，再添加到聊天。', 'Save or reconcile the file before adding it to chat.')
+      if (code === 'SESSION_NOT_FOUND')
+        return choose(
+          '原会话已不存在或归档；草稿未修改。',
+          'The source session is gone or archived; its draft was not changed.',
+        )
+      if (code === 'BUSY' || code === 'INPUT_TOO_LARGE')
+        return choose('原会话草稿暂不能添加更多引用。', 'The source draft cannot accept another reference right now.')
+      if (code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED' || code === 'TIMEOUT' || code === 'TIMED_OUT')
+        return choose(
+          '连接中断，无法确认是否已添加；请核对原会话草稿。',
+          'The connection closed before confirmation. Check the original draft before trying again.',
+        )
+      return choose(`无法添加：${code}；请核对原会话草稿。`, `Could not add: ${code}. Check the original draft.`)
+    },
     error: (code) => {
       if (code === 'FILE_CONFLICT')
         return choose('源文件已更新；当前草稿仍保留。', 'The source changed; your draft is still preserved.')

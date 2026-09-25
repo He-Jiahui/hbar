@@ -150,6 +150,16 @@
   flex-wrap: wrap;
 }
 
+.hbar-file-add-to-chat {
+  margin-inline-start: auto;
+}
+
+.hbar-file-add-feedback {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
 .hbar-file-browser-mode select {
   max-inline-size: 100%;
 }

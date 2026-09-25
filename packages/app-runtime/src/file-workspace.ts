@@ -1,8 +1,11 @@
-import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
+import { CommandError, createCommandClient, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
 import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
 import { fileCommands } from '@hbar/contracts/commands/files'
+import { draftCommands } from '@hbar/contracts/commands/draft'
+import { sessionSchema } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
 import { canonicalFilePath, fileDocumentKey, FileWorkspaceDocuments } from './file-workspace-documents'
+import { isWorkspaceRelativePath, validateMentions } from './composer-mentions'
 import {
   createFileWorkspaceChanges,
   emptyFileChanges,
@@ -10,7 +13,8 @@ import {
   FILE_CHANGES_PAGE_SIZE,
 } from './file-workspace-changes'
 import { createFileWorkspaceTree, emptyFileTree } from './file-workspace-tree'
-import type { FileWorkspaceEntryState, FileWorkspaceState, RuntimeOptions, SurfaceState } from './types'
+import type { DraftsState, FileWorkspaceEntryState, FileWorkspaceState, RuntimeOptions, SurfaceState } from './types'
+import type { WorkspaceTabsState } from './workspace-tabs-runtime'
 
 const PAGE_SIZE = 200
 const MAX_ENTRIES = 500
@@ -38,6 +42,11 @@ export function createFileWorkspace(
   surfaces: StateReader<SurfaceState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  chatReference?: {
+    readonly tabs: StateReader<WorkspaceTabsState>
+    readonly drafts: StateReader<DraftsState>
+    readonly sessions: CommandExecutor
+  },
 ) {
   const state = createState<FileWorkspaceState>({ entries: {} }, onSubscriberError)
   const client = options.files ? createCommandClient(fileCommands, options.files) : null
@@ -324,6 +333,120 @@ export function createFileWorkspace(
       throw new CommandError('VERSION_CONFLICT', 'File action belongs to another workspace')
     return entry
   }
+  local.register(fileWorkspaceCommands['fileWorkspace.addToComposer'], async (input, execution) => {
+    if (!chatReference) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer references are unavailable')
+    const assertTarget = () => {
+      if (isDisposed()) throw new CommandError('DISPOSED', 'The Files panel is closed')
+      const target = panel(input.instanceId)
+      if (target.workspaceId !== input.workspaceId || target.sessionId !== input.sourceSessionId)
+        throw new CommandError('TARGET_CHANGED', 'The Files panel source changed')
+      const tabs = chatReference.tabs.getSnapshot()
+      const source = tabs.items.find((item) => item.kind === 'session' && item.id === input.sourceSessionId)
+      if (
+        !source ||
+        source.kind !== 'session' ||
+        source.workspaceId !== input.workspaceId ||
+        source.instanceKey !== input.sourceTabInstanceKey
+      )
+        throw new CommandError('TAB_NOT_FOUND', 'The original Session tab changed')
+      if (input.workbenchTabId || input.workbenchTabInstanceKey) {
+        const workbench = tabs.items.find((item) => item.id === input.workbenchTabId)
+        if (
+          !input.workbenchTabId ||
+          !input.workbenchTabInstanceKey ||
+          tabs.activeId !== input.workbenchTabId ||
+          !workbench ||
+          workbench.kind !== 'workbench' ||
+          workbench.instanceKey !== input.workbenchTabInstanceKey ||
+          workbench.panelInstanceId !== input.instanceId ||
+          workbench.sourceSessionId !== input.sourceSessionId ||
+          workbench.workspaceId !== input.workspaceId
+        )
+          throw new CommandError('TARGET_CHANGED', 'The Files workbench tab changed')
+      } else if (
+        tabs.items.some(
+          (item) => item.kind === 'workbench' && item.id === tabs.activeId && item.panelInstanceId === input.instanceId,
+        )
+      ) {
+        throw new CommandError('TARGET_CHANGED', 'The Files workbench tab changed')
+      }
+      const entry = requireEntry(input.instanceId, input.workspaceId)
+      if (!isWorkspaceRelativePath(input.path) || canonicalFilePath(input.path) !== input.path)
+        throw new CommandError('INVALID_INPUT', 'A workspace-relative file path is required')
+      if (
+        (entry.view === 'document' && entry.document?.path !== input.path) ||
+        (entry.view === 'diff' && (entry.diff?.path !== input.path || entry.diff.status !== 'ready')) ||
+        (entry.view !== 'document' && entry.view !== 'diff')
+      )
+        throw new CommandError('TARGET_CHANGED', 'The selected file changed')
+      const document = documents.get(input.workspaceId, input.path)
+      if (
+        document &&
+        (document.draft !== document.baseline ||
+          document.status === 'unknown' ||
+          document.status === 'submitting' ||
+          document.status === 'loading')
+      )
+        throw new CommandError('FILE_DRAFT_PENDING', 'Resolve the unsaved file draft before referencing its path')
+      const draft = chatReference.drafts.getSnapshot()[input.sourceSessionId]
+      if ((draft?.revision ?? 0) !== input.expectedRevision)
+        throw new CommandError('VERSION_CONFLICT', 'The original composer draft changed')
+      if (draft?.status === 'submitting' || draft?.status === 'unknown')
+        throw new CommandError('BUSY', 'The original composer has a pending submission')
+      return draft
+    }
+    assertTarget()
+    // A cached directory entry is not proof that the source still exists. Fail closed offline.
+    const session = sessionSchema
+      .nullable()
+      .parse(
+        await chatReference.sessions.execute(
+          'session.get',
+          { sessionId: input.sourceSessionId },
+          { signal: execution.signal },
+        ),
+      )
+    if (!session || session.archived || session.workspaceId !== input.workspaceId)
+      throw new CommandError('SESSION_NOT_FOUND', 'The original Session is unavailable')
+    const draft = assertTarget()
+    const existing = draft?.mentions.find(
+      (mention) => mention.workspaceId === input.workspaceId && mention.path === input.path,
+    )
+    if (existing)
+      return {
+        sessionId: input.sourceSessionId,
+        sessionTitle: session.title,
+        revision: input.expectedRevision,
+        added: false,
+      }
+    if ((draft?.mentions.length ?? 0) >= 40)
+      throw new CommandError('BUSY', 'The original composer has reached its mention limit')
+    const label = input.path.split('/').at(-1)!.slice(0, 1024)
+    const previous = draft?.text ?? ''
+    const separator = previous && !/\s$/.test(previous) ? ' ' : ''
+    const token = `@${label}`
+    const start = previous.length + separator.length
+    const text = previous + separator + token
+    if (text.length > 200_000) throw new CommandError('INPUT_TOO_LARGE', 'The original composer is full')
+    const mentions = [
+      ...(draft?.mentions ?? []),
+      { start, end: start + token.length, label, path: input.path, workspaceId: input.workspaceId, directory: false },
+    ]
+    validateMentions(text, mentions, input.workspaceId)
+    const result = draftCommands['draft.setContent'].output.parse(
+      await local.execute(
+        'draft.setContent',
+        {
+          sessionId: input.sourceSessionId,
+          text,
+          mentions,
+          expectedRevision: input.expectedRevision,
+        },
+        { signal: execution.signal },
+      ),
+    )
+    return { sessionId: input.sourceSessionId, sessionTitle: session.title, revision: result.revision, added: true }
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.setBrowserMode'], async ({ instanceId, workspaceId, mode }) => {
     const entry = requireEntry(instanceId, workspaceId)
     generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
