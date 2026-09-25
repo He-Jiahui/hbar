@@ -1099,6 +1099,129 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-app-shell-6')
+    return {
+      revision: 1,
+      lumenEntries: ['app-shell-workflows.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Collapse the expanded product folder without changing the selected document',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '9:click',
+          change: 'Expand meeting notes as a distinct three-file subtree',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '12:click',
+          change: 'Selecting API versioning changes title, metadata and word count while retaining the preview body',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '22:fill',
+          change: 'Controlled title synchronizes header, tree and document heading',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '25:click',
+          change: 'Initially active text format can be removed',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '26:click',
+          change: 'Independent text format toggles without restyling the preview body',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '29:click',
+          change: 'Block-format control exposes its own pressed state',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '24:click',
+          change: 'Document actions opens the five-item menu',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'documents-menu:25:click',
+          change: 'Duplicate closes the menu without fabricating a business mutation',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '11:tree-arrowdown',
+          change: 'Tree arrow moves focus only; selection changes only on activation',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:click',
+          change: 'New-document demo callback is a source no-op',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '35:click',
+          change: 'Closing the initial document drawer reveals the narrow reader',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '47:click',
+          change: 'Narrow file selection keeps the drawer open while changing document metadata and both tree copies',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'documents-closed:21:click',
+          change: 'Drawer can be reopened with the current selection retained',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'documents-closed:32:click',
+          change: 'Narrow formatting moves block actions into its own menu',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: 'documents-format-menu:34:press-space',
+          change: 'Narrow Quote action closes its menu; unlike desktop toggle it does not change pressed state',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other file rows, folder toggles and duplicate gestures',
+          basis:
+            'One ID-bound selection/title transition and one disclosure/roving-focus implementation. Two document metadata records are observed; remaining fixture metadata is representative host data, not individually verified reference output.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other text/block toggles and passive menu/action rows',
+          basis:
+            'Shared pressed-state logic is tested with active-off, inactive-on and a block format. Representative close-only and no-op actions retain paired evidence; no persistence, share, export or deletion success is invented.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining widths/themes, hover and keyboard permutations',
+          basis:
+            'Eight static pairs retain all widths/themes. Distinct narrow drawer/formatting mechanisms and one tree keyboard transition are replayed; focused local tests exercise boundary, overflow, localization and remaining navigation keys.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-app-shell-5')
     return {
       revision: 3,

@@ -282,10 +282,13 @@ export type InteractionCase = Readonly<{
     | 'inbox-menu'
     | 'inbox-reading'
     | 'inbox-mailboxes'
+    | 'documents-closed'
+    | 'documents-menu'
+    | 'documents-format-menu'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
-  key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End' | undefined
+  key?: 'Enter' | 'Space' | 'Escape' | 'ArrowRight' | 'ArrowLeft' | 'ArrowDown' | 'ArrowUp' | 'Home' | 'End' | undefined
   control: ControlSnapshot
   wheelDeltaY?: number | undefined
   fillValue?: string | undefined
@@ -350,11 +353,14 @@ export function manualReviewGate(
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
-const captureProtocolVersion = 12
-const interactionProtocolVersion = 26
+const captureProtocolVersion = 13
+const interactionProtocolVersion = 27
 
 export function auditBrowserArguments(http1: boolean): string[] {
-  return http1 ? ['--disable-http2', '--disable-quic'] : []
+  // A reference React update can repaint unchanged prose from LCD to grayscale
+  // antialiasing. Use the same stable rasterization on both sides, not a pixel
+  // threshold exception or a stylesheet injected into the reference component.
+  return ['--disable-lcd-text', ...(http1 ? ['--disable-http2', '--disable-quic'] : [])]
 }
 const sourceCanvasSelector = '#preview-root'
 const localCanvasSelector = '.hbar-app-ui-isolated-canvas'
@@ -849,6 +855,48 @@ async function synchroniseReferenceFrameTheme(page: Page, frame: Frame, theme: A
 async function previewFrame(page: Page): Promise<Frame> {
   const iframe = page.locator('iframe[title="Preview"]')
   await iframe.waitFor({ state: 'visible', timeout: 30_000 })
+  const handle = await iframe.elementHandle()
+  if (!handle) throw new Error('Preview iframe element handle is unavailable')
+  const frame = await handle.contentFrame()
+  if (!frame) throw new Error('Preview iframe content frame is unavailable')
+  await frame.locator('#preview-root').waitFor({ state: 'attached', timeout: 30_000 })
+  await frame.waitForFunction(
+    () => {
+      const root = document.querySelector('#preview-root')
+      return Boolean(
+        root &&
+        ((root.textContent ?? '').trim().length > 0 ||
+          root.querySelector('button,a,input,select,textarea,[role]') ||
+          root.querySelectorAll('*').length > 3),
+      )
+    },
+    undefined,
+    { timeout: 8_000 },
+  )
+  await frame.waitForFunction(
+    () => document.readyState === 'complete' && document.fonts.status === 'loaded',
+    undefined,
+    { timeout: 15_000 },
+  )
+  // Do not freeze the documentation's initial 600px placeholder before the
+  // mounted preview reports its natural canvas (e.g. a 720px app shell).
+  // Observe the real iframe size; never derive or force it from child content.
+  await iframe.evaluate(async (element) => {
+    let last = '',
+      stableSince = performance.now()
+    const deadline = performance.now() + 8000
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const rect = element.getBoundingClientRect(),
+        size = `${rect.width}/${rect.height}`
+      if (size !== last) {
+        last = size
+        stableSince = performance.now()
+      }
+      if (rect.width > 0 && rect.height > 0 && performance.now() - stableSince >= 500) return
+    }
+    throw new Error('Reference iframe canvas did not settle before isolation')
+  })
   // Keep the live iframe's content size, but place it above the documentation
   // site's sticky header and floating controls while capturing its component.
   await iframe.evaluate((element) => {
@@ -870,24 +918,6 @@ async function previewFrame(page: Page): Promise<Frame> {
       margin: '0px',
     })
   })
-  const handle = await iframe.elementHandle()
-  if (!handle) throw new Error('Preview iframe element handle is unavailable')
-  const frame = await handle.contentFrame()
-  if (!frame) throw new Error('Preview iframe content frame is unavailable')
-  await frame.locator('#preview-root').waitFor({ state: 'attached', timeout: 30_000 })
-  await frame.waitForFunction(
-    () => {
-      const root = document.querySelector('#preview-root')
-      return Boolean(
-        root &&
-        ((root.textContent ?? '').trim().length > 0 ||
-          root.querySelector('button,a,input,select,textarea,[role]') ||
-          root.querySelectorAll('*').length > 3),
-      )
-    },
-    undefined,
-    { timeout: 8_000 },
-  )
   return frame
 }
 
@@ -1496,6 +1526,41 @@ export function interactionCases(
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
 const inboxScenarios = ['inbox-empty', 'inbox-unread', 'inbox-menu', 'inbox-reading', 'inbox-mailboxes'] as const
+const documentsScenarios = ['documents-closed', 'documents-menu', 'documents-format-menu'] as const
+async function prepareDocumentsScenario(root: Locator, scenario: (typeof documentsScenarios)[number]): Promise<void> {
+  const menu = root.getByRole('menu')
+  if (await menu.isVisible()) await menu.press('Escape')
+  const close = root.getByRole('button', { name: 'Close documents', exact: true })
+  if (await close.isVisible()) await close.press('Space')
+  if (scenario !== 'documents-closed')
+    await root
+      .getByRole('button', {
+        name: scenario === 'documents-menu' ? 'Document actions' : 'More formatting',
+        exact: true,
+      })
+      .press('Space')
+}
+function documentsInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario?: InteractionCase['scenario'],
+): readonly InteractionCase[] {
+  const cases = interactionCases(snapshot, variantId, scenario).map((item) =>
+    item.action === 'fill' ? { ...item, fillValue: 'Reviewed document title' } : item,
+  )
+  const selected = visibleControls(snapshot).find(
+    (control) => control.role === 'treeitem' && control.name === 'Webhook retry schedule',
+  )
+  if (selected)
+    cases.push({
+      id: `${variantId}:${scenario ? `${scenario}:` : ''}${selected.index}:tree-arrowdown`,
+      action: 'press',
+      key: 'ArrowDown',
+      control: selected,
+      scenario,
+    })
+  return cases
+}
 async function prepareInboxScenario(root: Locator, scenario: (typeof inboxScenarios)[number]): Promise<void> {
   if (scenario === 'inbox-empty' || scenario === 'inbox-unread') {
     await root.getByRole('radio', { name: scenario === 'inbox-empty' ? 'Escalated' : 'Unread', exact: true }).click()
@@ -2743,6 +2808,9 @@ async function replayInteraction(
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
+  const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
+    await prepareDocumentsScenario(root, documentsScenario)
   if (spec.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
     await prepareEditorialScenario(root, editorialScenario)
   const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2882,6 +2950,9 @@ async function replayReferenceInteraction(
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
+  const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
+    await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
     await prepareEditorialScenario(root, editorialScenario)
   const contractsScenario = contractsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3441,6 +3512,16 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareInboxScenario(sourceRoot, scenario)
                 discovered.push(...inboxInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-app-shell-6') {
+              discovered = [...documentsInteractionCases(sourceSnapshot, spec.id)]
+              for (const scenario of documentsScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareDocumentsScenario(sourceRoot, scenario)
+                discovered.push(
+                  ...documentsInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {

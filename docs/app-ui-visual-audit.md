@@ -48,6 +48,13 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 
 ## 证据和门禁
 
+捕获协议 13 / 交互协议 27 起，两侧 Chrome 统一使用 `--disable-lcd-text`，避免同一段未改动的
+文字在 React 更新前后切换 LCD/灰度抗锯齿，被误算为业务反馈。该参数由
+[Chromium 定义](https://chromium.googlesource.com/chromium/src/+/lkgr/content/public/common/content_switches.cc)；
+它不修改组件 DOM、文本、尺寸或交互。旧协议的证据保留，但不能与新协议混用或直接续跑；需用新目录重新捕获。
+隔离 iframe 前先等待真实组件和字体完成加载，再观察 iframe 自身尺寸稳定 500ms；不把文档页的初始
+600px 占位高度提前固定下来，也不从内容高度猜测或强制拉高参考画布。
+
 每次运行都写入被 Git 忽略的 `artifacts/reactbits-pro-visual-audit/<run-id>/`：
 
 - `manifest.json`：参考 URL、源目录哈希、视口/主题矩阵和静态/交互计数；
@@ -75,6 +82,20 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 依据，也不能屏蔽几何差异。
 
 ## 类别修复边界
+
+App Shell 6 的文档工作台使用 16 个代表案例覆盖目录展开/收起、文件选择、标题三处同步、
+文本与块格式开关、树焦点移动、菜单关闭和窄屏抽屉；不逐个点击 19 个文件或每个格式按钮。
+正文、文件树、元数据、字数和文案由宿主提供，100 条以内由导航面板滚动，超过该量由宿主分组/分页；
+101 条输入仍保留可达性。方向键仅移动树焦点，确认才选择；窄屏选择文件保持抽屉打开。
+原版窄屏“更多格式”的菜单项只关闭菜单，并不复用桌面块格式的状态开关。
+仅 `Webhook retry schedule` 与 `API versioning` 的元数据经过真实选择验证，其余记录的元数据是代表性宿主 fixture，
+不能冒充逐条核验的原版内容。
+
+该变体原版的窄屏“更多格式”菜单右对齐在第二个工具栏控件下，菜单左侧越出 iframe，导致文字被裁切。
+Lumen 保持同一菜单内容、顺序和关闭反馈，但将覆盖层约束在所属工具栏内；这属于明确的非主题差异，
+不是颜色/token 白名单。保留真实源/本地截图和 `needs-fix`/待复核状态，不放宽视觉门禁，也不把它登记为完整审计通过。
+本地 `bun scripts/verify-hbar-app-ui-app-shell-documents.ts` 检查九个宽度、短宿主、德语长文案、空树、101 条文档、
+树键盘操作、标题同步、菜单焦点返回及窄屏菜单边界。
 
 AI Usage 8 以五例覆盖 Details/Upgrade 两个独立动作、两种按钮 hover 与窄屏原生 Space 激活。
 原版两个动作都不改变业务状态，不虚构弹窗或升级成功；Enter 与其他视口的等价激活明确记录为推理覆盖。

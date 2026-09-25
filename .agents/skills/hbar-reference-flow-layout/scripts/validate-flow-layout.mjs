@@ -89,6 +89,18 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // App Shell 6: observed trigger-relative menus and document drawer/backdrop only.
+  if (/packages\/lumen-app-ui\/src\/app-shell-documents\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-documents-menu',
+      '.lumen-documents-more-formatting > .lumen-documents-menu',
+      '.lumen-documents-overlay',
+      '.lumen-documents-backdrop',
+      '.lumen-documents-scroll-frame::before',
+      '.lumen-documents-scroll-frame::after',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // App Shell 5: observed mailbox drawer, trigger-relative menu/tooltips and decorative markers.
   if (/packages\/lumen-app-ui\/src\/app-shell-inbox\.css$/.test(path.replaceAll('\\', '/'))) {
     const overlays = new Set([
@@ -658,6 +670,21 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   }
   if (validateCss(inboxPath, '.lumen-inbox-summary {\nposition: absolute;\n}').length !== 1)
     throw new Error('Inbox message content cannot use overlay placement')
+  const documentsPath = 'packages/lumen-app-ui/src/app-shell-documents.css'
+  for (const selector of [
+    '.lumen-documents-menu',
+    '.lumen-documents-more-formatting > .lumen-documents-menu',
+    '.lumen-documents-overlay',
+    '.lumen-documents-backdrop',
+    '.lumen-documents-scroll-frame::before, .lumen-documents-scroll-frame::after',
+  ]) {
+    if (validateCss(documentsPath, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length)
+      throw new Error('Rejected document overlay')
+    if (validateCss('other.css', `${selector} {\nposition: absolute;\ninset: 0;\n}`).length < 2)
+      throw new Error('Document overlay allowance leaked across files')
+  }
+  if (validateCss(documentsPath, '.lumen-documents-reader p {\nposition: absolute;\n}').length !== 1)
+    throw new Error('Document prose cannot use overlay placement')
   console.log('Flow layout guard self-test passed.')
   process.exit(0)
 }

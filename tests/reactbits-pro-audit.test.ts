@@ -317,8 +317,8 @@ describe('React Bits Pro visual audit contract', () => {
   })
 
   test('makes the HTTP/1 browser transport an explicit opt-in', () => {
-    expect(auditBrowserArguments(false)).toEqual([])
-    expect(auditBrowserArguments(true)).toEqual(['--disable-http2', '--disable-quic'])
+    expect(auditBrowserArguments(false)).toEqual(['--disable-lcd-text'])
+    expect(auditBrowserArguments(true)).toEqual(['--disable-lcd-text', '--disable-http2', '--disable-quic'])
   })
 
   test('audits all three distinct decisions and the payload after Show diff', () => {

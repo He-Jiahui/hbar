@@ -10,6 +10,11 @@ import { appShellRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-she
 import { appShellContractsFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-contracts-fixtures'
 import { appShellEditorialFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-editorial-fixtures'
 import { appShellInboxFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-inbox-fixtures'
+import { appShellDocumentsFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-documents-fixtures'
+import {
+  createAppShellDocumentsPreviewStore,
+  projectAppShellDocumentsPreview,
+} from './app-shell-documents-preview-model'
 import { createAppShellInboxPreviewStore, projectAppShellInboxPreview } from './app-shell-inbox-preview-model'
 import {
   createAppShellEditorialPreviewStore,
@@ -33,6 +38,13 @@ export function AppShellPreviewHost({
   const [contractsStore] = useState(createAppShellContractsPreviewStore)
   const [editorialStore] = useState(createAppShellEditorialPreviewStore)
   const [inboxStore] = useState(createAppShellInboxPreviewStore)
+  const [documentsStore] = useState(createAppShellDocumentsPreviewStore)
+  const documents = projectAppShellDocumentsPreview(
+    useStore(documentsStore),
+    appShellDocumentsFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
+      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
+    ),
+  )
   const inbox = projectAppShellInboxPreview(
     useStore(inboxStore),
     appShellInboxFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
@@ -63,7 +75,7 @@ export function AppShellPreviewHost({
   )
   const sidebar = projectAppShellSidebarPreview(useStore(store), fixture)
   return (
-    <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail, contracts, editorial, inbox }}>
+    <HbarAppUiAppShellProvider content={{ ...content, sidebar, rail, contracts, editorial, inbox, documents }}>
       {children}
     </HbarAppUiAppShellProvider>
   )
