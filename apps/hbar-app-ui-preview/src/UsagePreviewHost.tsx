@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import { HbarAppUiUsageProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
-import { USAGE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-usage-fixtures'
 import { usageOverviewDatasets } from '../../../tests/fixtures/hbar-app-ui-usage-overview-fixtures'
 import { createUsageOverviewPreviewStore, projectUsageOverviewPreview } from './usage-overview-preview-model'
 import { modelSpendFixture } from '../../../tests/fixtures/hbar-app-ui-usage-model-fixtures'
@@ -16,13 +15,13 @@ import { usageOverageFixture } from '../../../tests/fixtures/hbar-app-ui-usage-o
 import { createUsageOveragePreviewStore, projectUsageOveragePreview } from './usage-overage-preview-model'
 import { usageRequestFixture } from '../../../tests/fixtures/hbar-app-ui-usage-request-fixtures'
 import { createUsageRequestPreviewStore, projectUsageRequestPreview } from './usage-request-preview-model'
+import { usageCompactFixture } from '../../../tests/fixtures/hbar-app-ui-usage-compact-fixtures'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const base = USAGE_FIXTURES
   const mode = new URLSearchParams(location.search).get('usageFixture')
   const [overviewStore] = useState(() => createUsageOverviewPreviewStore(usageOverviewDatasets(mode)))
   const overview = projectUsageOverviewPreview(useStore(overviewStore), mode === 'localized' ? 'Zeitraum' : 'Range')
@@ -52,6 +51,7 @@ export function UsagePreviewHost({
     createUsageRequestPreviewStore(requestFixture.records, requestFixture.expandedId),
   )
   const requests = projectUsageRequestPreview(useStore(requestStore), requestFixture.copy)
+  const compact = usageCompactFixture(mode, report)
   function report(actionId: string, value?: string) {
     onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) })
   }
@@ -65,7 +65,7 @@ export function UsagePreviewHost({
         budget,
         overage,
         requests,
-        compact: { ...base.compact, action: { label: 'Upgrade', onInvoke: () => report('upgrade') } },
+        compact,
       }}
     >
       {children}

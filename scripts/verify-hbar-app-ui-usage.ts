@@ -7,6 +7,7 @@ import { verifyUsageMembers } from './verify-hbar-app-ui-usage-members'
 import { verifyUsageBudget } from './verify-hbar-app-ui-usage-budget'
 import { verifyUsageOverage } from './verify-hbar-app-ui-usage-overage'
 import { verifyUsageRequests } from './verify-hbar-app-ui-usage-requests'
+import { verifyUsageCompact } from './verify-hbar-app-ui-usage-compact'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -58,6 +59,9 @@ try {
   } else if (process.argv.includes('--requests-only')) {
     await verifyUsageRequests(page, baseUrl)
     expect(errors).toEqual([])
+  } else if (process.argv.includes('--compact-only')) {
+    await verifyUsageCompact(page, baseUrl)
+    expect(errors).toEqual([])
   } else {
     for (const theme of ['dark', 'light'])
       for (const width of [1192, 768, 320]) {
@@ -80,7 +84,7 @@ try {
                           ? '.lumen-usage-overage-panel'
                           : variant === 7
                             ? '.lumen-usage-request-table'
-                            : '.hbar-app-ui-usage-content',
+                            : '.lumen-usage-compact-widget',
             ),
           ).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -89,6 +93,7 @@ try {
         }
       }
     await verifyUsageRequests(page, baseUrl)
+    await verifyUsageCompact(page, baseUrl)
     await verifyUsageMembers(page, baseUrl)
     await verifyUsageBudget(page, baseUrl)
     await verifyUsageOverage(page, baseUrl)

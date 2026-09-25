@@ -4,6 +4,16 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('compact usage samples two independent actions and button styles, not passive bars', () => {
+  const id = 'hbar-app-ui-ai-usage-8'
+  expect(auditSamplingPlan(id)!.samples).toHaveLength(5)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:1:press-space`])
+  const cases = usageCompactInteractionCases(snapshot([control(0), control(1)]), id)
+  expect(cases.filter((c) => c.action === 'press').every((c) => c.focusBefore)).toBe(true)
+  expect(() => usageCompactInteractionCases(snapshot([]), id)).toThrow('actions changed')
+  expect(auditSamplingPlan(id)!.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('request log samples status filtering, exclusive detail, recovery and narrow keyboard collapse', () => {
   const id = 'hbar-app-ui-ai-usage-7'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(7)
@@ -126,6 +136,7 @@ import {
   usageBudgetInteractionCases,
   usageOverageInteractionCases,
   usageRequestInteractionCases,
+  usageCompactInteractionCases,
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,

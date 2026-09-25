@@ -1048,6 +1048,57 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-8')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '0:click',
+          change: 'Details is an independent source no-op action; no dialog or success state is invented',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Upgrade is a separate source no-op action, retaining the compact usage summary',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '0:hover',
+          change: 'The text-style Details action has its own pointer feedback',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:hover',
+          change: 'The filled Upgrade action has distinct pointer feedback',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '1:press-space',
+          change: 'Native keyboard activation keeps the narrow widget stable after focus preparation',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other viewport/theme actions and equivalent Enter activation',
+          basis:
+            'Two native buttons share activation semantics, but each independent action and each visual button style is sampled. Eight static pairs cover responsive layout and both themes.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Sparkline, primary progress and secondary meters',
+          basis:
+            'Rendered DOM exposes passive visual indicators, not controls. Geometry, ratios and text flow are compared without clicking bars or generating fake meter interactions.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 
