@@ -140,6 +140,7 @@ test('workspace-scoped Files can expand without a source conversation and return
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 390, height: 844 } })
   let host: WebSessionHost | undefined
   try {
+    await writeFile(join(root, 'reference-left-aligned.txt'), 'A real workspace file.\n')
     host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
@@ -158,6 +159,19 @@ test('workspace-scoped Files can expand without a source conversation and return
     )
     await expect(page.getByRole('tab')).toHaveCount(1)
     const expanded = page.locator('.hbar-app-react-file-workbench')
+    const row = expanded.getByRole('button', { name: 'reference-left-aligned.txt', exact: true })
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 844 })
+      await expect(row).toBeVisible()
+      const leftGap = await row.evaluate((element) => {
+        const icon = element.querySelector('svg')
+        if (!icon) throw new Error('File row icon is missing')
+        return icon.getBoundingClientRect().left - element.getBoundingClientRect().left
+      })
+      expect(leftGap).toBeLessThan(32)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    }
+    await page.screenshot({ path: 'artifacts/reference-ux-v2/hbar-workbench-all-1440.png' })
     await expanded.getByRole('button', { name: copy.files.returnToWorkspace, exact: true }).click()
     await expect(page.getByRole('tab')).toHaveCount(0)
     await expect(page.getByText(copy.empty.title, { exact: true })).toBeVisible()
