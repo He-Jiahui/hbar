@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Expand, Lightbulb, Pause, Play, Target, Trash2, X } from 'lucide-react'
+import { Expand, Pause, Play, Target, Trash2, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -10,11 +10,7 @@ type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['g
 export interface HbarComposerIntentLabels {
   readonly goal: string
   readonly goalHint: string
-  readonly plan: string
-  readonly planSelected: string
-  readonly planHint: string
   readonly cancelGoal: string
-  readonly cancelPlan: string
   readonly goalPlaceholder: string
   readonly planPlaceholder: string
   readonly statuses: Readonly<Record<Goal['status'], string>>
@@ -48,18 +44,20 @@ export function HbarComposerIntentControls({
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
+  const planState = useHbarRuntimeState(runtime.state.composerPlanMode)
+  const plan = planState.entries[sessionId]
   const entry = state.entries[sessionId]
   const intent = entry?.intent ?? 'default'
   const busy =
     disabled || !connected || entry?.submission.status === 'submitting' || entry?.submission.status === 'unknown'
   const existingGoal = state.facts.sessionId === sessionId ? state.facts.snapshot?.goal : null
   const [error, setError] = useState<string | null>(null)
-  const toggle = (next: 'goal' | 'plan') => {
+  const toggle = () => {
     setError(null)
     void runtime.commands
       .execute('composerIntent.setIntent', {
         sessionId,
-        intent: intent === next ? 'default' : next,
+        intent: intent === 'goal' ? 'default' : 'goal',
         expectedRevision: entry?.revision ?? 0,
       })
       .catch((reason: unknown) => setError(commandCode(reason)))
@@ -76,29 +74,15 @@ export function HbarComposerIntentControls({
         title={labels.goalHint}
         disabled={
           busy ||
+          (intent !== 'goal' && planState.available && (plan?.status !== 'ready' || plan.mode === 'plan')) ||
           (intent !== 'goal' &&
             (state.facts.status !== 'ready' || Boolean(existingGoal && existingGoal.status !== 'complete')))
         }
-        onClick={() => toggle('goal')}
+        onClick={toggle}
       >
         <LumenIcon icon={Target} tier="sm" />
         {labels.goal}
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
-      </LumenButton>
-      <LumenButton
-        type="button"
-        size="s"
-        variant="text"
-        indicator="none"
-        aria-pressed={intent === 'plan'}
-        aria-label={intent === 'plan' ? labels.cancelPlan : labels.plan}
-        title={labels.planHint}
-        disabled={busy}
-        onClick={() => toggle('plan')}
-      >
-        <LumenIcon icon={Lightbulb} tier="sm" />
-        {intent === 'plan' ? labels.planSelected : labels.plan}
-        {intent === 'plan' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
       {error && (
         <LumenText as="span" role="alert">

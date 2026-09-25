@@ -97,6 +97,13 @@ export interface RuntimeOptions {
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
   readonly configuration?: CommandExecutor
+  /** Durable Host mode.get/set for this session, separate from per-send approval choices. */
+  readonly planMode?: CommandExecutor
+  /** Exact Host mode.changed notifications invalidate the active session's confirmed mode projection. */
+  readonly planModeEvents?: {
+    subscribe(listener: (sessionId: string) => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort

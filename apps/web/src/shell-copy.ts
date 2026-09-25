@@ -907,9 +907,30 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       error: (code) => choose(`无法从此消息建立分支：${code}`, `Could not Fork this message: ${code}`),
     },
     permissionPicker: {
-      title: choose('本次发送的工具审批', 'Tool approval for the next send'),
-      trigger: (value) => choose(`工具审批：${value}`, `Tool approval: ${value}`),
-      close: choose('关闭工具审批选项', 'Close tool approval options'),
+      title: choose('执行模式与工具审批', 'Execution mode and tool approval'),
+      plan: {
+        label: choose('计划模式', 'Plan mode'),
+        description: choose('只读规划，写入工具被服务端拒绝。', 'Read-only planning; the Host denies write tools.'),
+        scope: choose(
+          '计划模式保存在此会话中，连续发送仍保持计划；按“退出计划模式”才恢复默认。执行计划文档不会自动退出。工具审批仍只作用于本次发送。',
+          'Plan mode persists for this session across sends. Use Exit Plan mode to return to default. Executing a plan proposal does not exit. Tool approval remains per-send.',
+        ),
+        pending: choose('正在保存会话计划模式…', 'Saving this session’s Plan mode…'),
+        unknown: choose(
+          '计划模式写入结果未确认；发送已暂停，请核对服务端状态。',
+          'Plan mode write is unconfirmed. Sending is paused; check the Host state.',
+        ),
+        loading: choose('正在读取会话计划模式…', 'Loading this session’s Plan mode…'),
+        exit: choose('退出计划模式', 'Exit Plan mode'),
+        retry: choose('重新读取会话模式', 'Reload session mode'),
+        recheck: choose('核对计划模式', 'Recheck Plan mode'),
+        approvalPaused: choose(
+          '计划模式中暂不可改工具审批；先退出计划模式。原本次发送选择保留，服务端仍拒绝写入工具。',
+          'Exit Plan mode before changing tool approval. Your next-send choice is retained; the Host still denies write tools.',
+        ),
+      },
+      trigger: (value) => choose(`执行选项：${value}`, `Execution options: ${value}`),
+      close: choose('关闭执行选项', 'Close execution options'),
       loading: choose('正在读取服务端默认策略…', 'Loading the Host default policy…'),
       retry: choose('重新读取默认策略', 'Reload the default policy'),
       pending: choose('正在准备本次发送…', 'Preparing this send…'),
@@ -918,8 +939,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         'This send is not confirmed. Its policy is locked; check the submission result.',
       ),
       scopeHint: choose(
-        '仅下一次发送；不会更改服务端默认策略。',
-        'Only the next send; the Host default is not changed.',
+        '下列工具审批仅用于下一次发送，不更改服务端默认策略。',
+        'The tool approval choices below apply only to the next send; the Host default is unchanged.',
       ),
       inheritedSnapshotHint: (mode) =>
         mode
@@ -1134,14 +1155,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     intent: {
       goal: choose('目标', 'Goal'),
       goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),
-      plan: choose('计划', 'Plan'),
-      planSelected: choose('下条仅规划', 'Next: plan only'),
-      planHint: choose(
-        '下一条消息仅规划；不执行写入操作。',
-        'Plan the next message without performing write operations.',
-      ),
       cancelGoal: choose('取消目标模式', 'Cancel goal mode'),
-      cancelPlan: choose('取消下条仅规划', 'Cancel plan-only next send'),
       goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),
       planPlaceholder: choose('描述希望先规划的任务…', 'Describe the task to plan first…'),
       statuses: {

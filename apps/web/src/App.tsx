@@ -110,6 +110,17 @@ function createRuntime(
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
     configuration: createConfigurationCommandClient(client),
+    planMode: createConfigurationCommandClient(client),
+    planModeEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (event.method === 'mode.changed') listener(event.params.sessionId)
+        })
+      },
+      onConnection(listener) {
+        return client.onStatus((status) => listener(status === 'connected'))
+      },
+    },
     files: createFileCommandClient(client),
     agents: createAgentCommandClient(client),
     goals: createGoalPlanCommandClient(client),

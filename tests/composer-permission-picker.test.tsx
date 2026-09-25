@@ -8,6 +8,18 @@ import {
 
 const labels: HbarComposerPermissionLabels = {
   title: '下一次发送的工具审批',
+  plan: {
+    label: '计划模式',
+    description: '服务端拒绝写入',
+    scope: '此会话持续生效，不修改审批策略',
+    pending: '保存中',
+    unknown: '尚未确认',
+    loading: '读取中',
+    exit: '退出计划模式',
+    retry: '重试读取',
+    recheck: '核对',
+    approvalPaused: '先退出计划模式才能修改审批选择',
+  },
   trigger: (choice) => `工具审批：${choice}`,
   close: '关闭权限选择',
   loading: '正在读取服务端默认值',
@@ -56,6 +68,35 @@ test('permission picker shows four real options with localized names and next-se
   expect(html).not.toContain('Plan')
   expect(html).not.toContain('bypassPermissions')
   expect(html).not.toContain(labels.confirmTitle)
+})
+
+test('session Plan is a distinct fifth entry, while four approval choices retain their one-send semantics', () => {
+  const input = props()
+  const plan = {
+    entry: { sessionId: 'a', mode: 'plan' as const, status: 'ready' as const, error: null, revision: 3 },
+    onSetMode: async () => {},
+    onRefresh: async () => {},
+    onReconcile: async () => {},
+  }
+  const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} />)
+  expect(html).toContain('aria-label="工具审批：计划模式"')
+  expect(html).toContain('退出计划模式')
+  expect(html).toContain('此会话持续生效，不修改审批策略')
+  expect(html).toContain(labels.plan.approvalPaused)
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
+  expect(html.match(/role="menuitemcheckbox"/g)).toHaveLength(1)
+  expect(html).toContain('role="menuitemcheckbox" aria-checked="true"')
+  expect(html).not.toContain('role="menuitemradio" aria-checked="true"')
+  const uncertain = renderToStaticMarkup(
+    <HbarComposerPermissionPicker
+      {...input}
+      plan={{ ...plan, entry: { ...plan.entry, mode: null, status: 'unknown' } }}
+    />,
+  )
+  expect(uncertain).toContain(labels.plan.unknown)
+  expect(uncertain).toContain(labels.plan.recheck)
+  expect(uncertain).not.toContain('aria-label="工具审批：计划模式"')
 })
 
 test('long host-supplied names and exact default labels remain semantic text without duplicated options', () => {

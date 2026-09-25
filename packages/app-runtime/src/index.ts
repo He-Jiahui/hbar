@@ -58,6 +58,7 @@ import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { composerPermissionCommands, createComposerPermission } from './composer-permission'
+import { composerPlanModeCommands, createComposerPlanMode } from './composer-plan-mode'
 import { sessionRenameCommands, createSessionRename } from './session-rename'
 import { sessionArchiveCommands, createSessionArchive } from './session-archive'
 import { createSettingsForms } from './settings-forms'
@@ -174,6 +175,8 @@ export { systemDiagnosticsCommands } from './system-diagnostics'
 export type { SystemDiagnosticsEntry, SystemDiagnosticsState } from './system-diagnostics'
 
 export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
+export { composerPlanModeCommands } from './composer-plan-mode'
+export type { ComposerPlanModeState, ComposerPlanModeEntry, ComposerPlanMode } from './composer-plan-mode'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 export type {
   SessionArchiveState,
@@ -196,6 +199,7 @@ const runtimeCommands = {
   ...sessionGitContextCommands,
   ...composerIntentCommands,
   ...composerPermissionCommands,
+  ...composerPlanModeCommands,
   ...sessionRenameCommands,
   ...sessionArchiveCommands,
   ...planProposalCommands,
@@ -324,12 +328,24 @@ export function createAppRuntime(options: RuntimeOptions) {
     },
     onSubscriberError,
   })
+  const composerPlanMode = createComposerPlanMode(local, {
+    ...(options.planMode ? { configuration: options.planMode } : {}),
+    ...(options.planModeEvents ? { events: options.planModeEvents } : {}),
+    navigation: navigation.reader,
+    isSubmissionLocked: (sessionId) =>
+      composerIntent.isSubmissionPending(sessionId) ||
+      composerIntent.reader.getSnapshot().entries[sessionId]?.intent === 'goal' ||
+      ['submitting', 'unknown'].includes(drafts.reader.getSnapshot()[sessionId]?.status ?? ''),
+    onSubscriberError,
+  })
   const composerIntent = createComposerIntent(local, {
     goals: options.goals,
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,
     permissions: composerPermission,
+    ...(options.planMode ? { captureMode: composerPlanMode.capture } : {}),
+    ...(options.planMode ? { refreshMode: composerPlanMode.captureFresh } : {}),
     getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
@@ -492,6 +508,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionGitContextCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
+        Object.hasOwn(composerPlanModeCommands, name) ||
         Object.hasOwn(sessionRenameCommands, name) ||
         Object.hasOwn(sessionArchiveCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
@@ -545,6 +562,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionGitContext: sessionGitContext.reader,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
+      composerPlanMode: composerPlanMode.reader,
       sessionRename: sessionRename.reader,
       sessionArchive: sessionArchive.reader,
       planProposal: planProposal.reader,
@@ -599,6 +617,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionGitContext.dispose()
       composerIntent.dispose()
       composerPermission.dispose()
+      composerPlanMode.dispose()
       sessionRename.dispose()
       sessionArchive.dispose()
       planProposal.dispose()

@@ -1,7 +1,12 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { Check, ChevronDown, RotateCcw, ShieldAlert, ShieldCheck, ShieldX, X } from 'lucide-react'
+import { Check, ChevronDown, Lightbulb, RotateCcw, ShieldAlert, ShieldCheck, ShieldX, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
-import type { ComposerPermissionChoice, ComposerPermissionEntry, ComposerPermissionState } from '@hbar/app-runtime'
+import type {
+  ComposerPermissionChoice,
+  ComposerPermissionEntry,
+  ComposerPermissionState,
+  ComposerPlanModeEntry,
+} from '@hbar/app-runtime'
 import './composer-permission-picker.css'
 
 export interface HbarComposerPermissionLabels {
@@ -20,6 +25,18 @@ export interface HbarComposerPermissionLabels {
   readonly confirmAllow: string
   readonly cancel: string
   readonly error: (code: string) => string
+  readonly plan: {
+    readonly label: string
+    readonly description: string
+    readonly scope: string
+    readonly pending: string
+    readonly unknown: string
+    readonly loading: string
+    readonly exit: string
+    readonly retry: string
+    readonly recheck: string
+    readonly approvalPaused: string
+  }
 }
 
 export interface ComposerPermissionSelection {
@@ -39,6 +56,13 @@ export interface HbarComposerPermissionPickerProps {
   readonly labels: HbarComposerPermissionLabels
   readonly onRefresh: () => Promise<void>
   readonly onSelect: (input: ComposerPermissionSelection) => Promise<void>
+  readonly plan?: {
+    readonly entry: ComposerPlanModeEntry | undefined
+    readonly disabled?: boolean
+    readonly onSetMode: (mode: 'default' | 'plan', expectedRevision: number) => Promise<void>
+    readonly onRefresh: () => Promise<void>
+    readonly onReconcile: () => Promise<void>
+  }
 }
 
 // Four actual contract choices, not cc-haha's unsupported five-mode taxonomy.
@@ -101,6 +125,10 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
     localError?.sessionId === sessionId && localError.revision === revision
       ? localError.code
       : (entry?.error ?? (choice === 'inherit' ? hostDefault.error : null))
+  const plan = props.plan
+  const planEntry = plan?.entry?.sessionId === sessionId ? plan.entry : undefined
+  const planSelected = planEntry?.status === 'ready' && planEntry.mode === 'plan'
+  const planBlocked = planEntry?.status !== 'ready' || unavailable || busy || Boolean(plan?.disabled && !planSelected)
 
   useEffect(() => {
     owner.current = { sessionId, revision }
@@ -156,10 +184,50 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         setBusy(false)
       })
   }
+  const changePlan = (mode: 'default' | 'plan') => {
+    if (!plan || planBlocked || inFlight.current) return
+    const target = { sessionId, revision: planEntry?.revision ?? 0 }
+    inFlight.current = true
+    setBusy(true)
+    setLocalError(null)
+    void Promise.resolve()
+      .then(() => plan.onSetMode(mode, target.revision))
+      .then(() => {
+        if (owner.current.sessionId === sessionId) {
+          restoreFocus.current = sessionId
+          popup.current?.hidePopover()
+        }
+      })
+      .catch((reason: unknown) => {
+        if (owner.current.sessionId === target.sessionId) setLocalError({ ...target, code: errorCode(reason) })
+      })
+      .finally(() => {
+        inFlight.current = false
+        setBusy(false)
+      })
+  }
+  const checkPlan = (reconcile: boolean) => {
+    if (!plan || !connected || busy || inFlight.current) return
+    const target = { sessionId, revision }
+    inFlight.current = true
+    setBusy(true)
+    setLocalError(null)
+    void Promise.resolve()
+      .then(() => (reconcile ? plan.onReconcile() : plan.onRefresh()))
+      .catch((reason: unknown) => {
+        if (owner.current.sessionId === target.sessionId) setLocalError({ ...target, code: errorCode(reason) })
+      })
+      .finally(() => {
+        inFlight.current = false
+        setBusy(false)
+      })
+  }
   const moveChoice = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
     const options = [
-      ...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)'),
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitemradio"]:not(:disabled),[role="menuitemcheckbox"]:not(:disabled)',
+      ),
     ]
     if (!options.length) return
     event.preventDefault()
@@ -200,6 +268,26 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           {labels.retry}
         </LumenButton>
       )}
+      {plan && planEntry?.status === 'pending' && (
+        <LumenText as="span" role="status">
+          {labels.plan.pending}
+        </LumenText>
+      )}
+      {plan && planEntry?.status === 'unknown' && (
+        <LumenText as="span" role="alert">
+          {labels.plan.unknown}
+        </LumenText>
+      )}
+      {plan && planEntry?.status === 'loading' && (
+        <LumenText as="span" role="status">
+          {labels.plan.loading}
+        </LumenText>
+      )}
+      {plan && planEntry?.status === 'failed' && (
+        <LumenText as="span" role="alert">
+          {labels.error(planEntry.error ?? 'EXECUTION_FAILED')}
+        </LumenText>
+      )}
     </LumenFrame>
   )
   return (
@@ -211,16 +299,16 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         variant="text"
         indicator="none"
         className="hbar-composer-permission-trigger"
-        data-choice={choice}
-        aria-label={labels.trigger(labels.options[choice].label)}
+        data-choice={planSelected ? 'plan' : choice}
+        aria-label={labels.trigger(planSelected ? labels.plan.label : labels.options[choice].label)}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
         disabled={unavailable || busy}
         popoverTarget={popupId}
       >
-        <LumenIcon icon={icons[choice]} tier="sm" />
-        <LumenText as="span">{labels.options[choice].label}</LumenText>
+        <LumenIcon icon={planSelected ? Lightbulb : icons[choice]} tier="sm" />
+        <LumenText as="span">{planSelected ? labels.plan.label : labels.options[choice].label}</LumenText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       {!open && feedback}
@@ -240,7 +328,11 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           setOpen(opening)
           setConfirmation(null)
           if (opening) {
-            popup.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]')?.focus()
+            popup.current
+              ?.querySelector<HTMLButtonElement>(
+                '[role="menuitemcheckbox"][aria-checked="true"], [role="menuitemradio"][aria-checked="true"]',
+              )
+              ?.focus()
             if (hostDefault.status !== 'loading') refresh()
           }
         }}
@@ -282,6 +374,11 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
               <LumenText as="p" id={bodyId} className="hbar-composer-permission-hint">
                 {labels.scopeHint}
               </LumenText>
+              {planSelected && (
+                <LumenText as="p" className="hbar-composer-permission-hint">
+                  {labels.plan.approvalPaused}
+                </LumenText>
+              )}
               <LumenFrame
                 role="menu"
                 aria-label={labels.title}
@@ -295,8 +392,8 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     variant="text"
                     indicator="none"
                     role="menuitemradio"
-                    aria-checked={value === choice}
-                    disabled={unavailable || busy}
+                    aria-checked={value === choice && !planSelected}
+                    disabled={unavailable || busy || planSelected}
                     className="hbar-composer-permission-option"
                     data-choice={value}
                     onClick={() => {
@@ -310,10 +407,45 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                       <LumenText as="span">{labels.options[value].label}</LumenText>
                       <LumenText as="span">{labels.options[value].description}</LumenText>
                     </LumenFrame>
-                    {value === choice && <LumenIcon icon={Check} tier="sm" />}
+                    {value === choice && !planSelected && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>
                 ))}
+                {plan && (
+                  <LumenButton
+                    type="button"
+                    variant="text"
+                    indicator="none"
+                    role="menuitemcheckbox"
+                    aria-checked={planSelected}
+                    disabled={planBlocked}
+                    className="hbar-composer-permission-option hbar-composer-plan-option"
+                    data-choice="plan"
+                    onClick={() => changePlan(planSelected ? 'default' : 'plan')}
+                  >
+                    <LumenIcon icon={Lightbulb} tier="md" />
+                    <LumenFrame className="hbar-composer-permission-description">
+                      <LumenText as="span">{labels.plan.label}</LumenText>
+                      <LumenText as="span">{planSelected ? labels.plan.exit : labels.plan.description}</LumenText>
+                    </LumenFrame>
+                    {planSelected && <LumenIcon icon={Check} tier="sm" />}
+                  </LumenButton>
+                )}
               </LumenFrame>
+              {plan && (
+                <LumenText as="p" className="hbar-composer-permission-hint">
+                  {labels.plan.scope}
+                </LumenText>
+              )}
+              {plan && planEntry?.status === 'unknown' && (
+                <LumenButton type="button" size="s" disabled={!connected || busy} onClick={() => checkPlan(true)}>
+                  {labels.plan.recheck}
+                </LumenButton>
+              )}
+              {plan && (!planEntry || planEntry.status === 'failed') && (
+                <LumenButton type="button" size="s" disabled={!connected || busy} onClick={() => checkPlan(false)}>
+                  {labels.plan.retry}
+                </LumenButton>
+              )}
               <LumenText as="p" className="hbar-composer-permission-hint">
                 {labels.inheritedSnapshotHint(hostDefault.mode ? labels.options[hostDefault.mode].label : null)}
               </LumenText>

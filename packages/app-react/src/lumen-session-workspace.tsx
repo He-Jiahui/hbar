@@ -185,6 +185,7 @@ export function HbarSessionWorkspace({
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
+  const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const planProposal = useHbarRuntimeState(runtime.state.planProposal)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
@@ -192,6 +193,7 @@ export function HbarSessionWorkspace({
   const draft = sessionId ? drafts[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
   const permissionEntry = sessionId ? composerPermission.entries[sessionId] : undefined
+  const planModeEntry = sessionId ? composerPlanMode.entries[sessionId] : undefined
   const intentPending = intentEntry?.submission.status === 'submitting' || intentEntry?.submission.status === 'unknown'
   const intent = intentEntry?.intent ?? 'default'
   const model = controls.sessionId === sessionId ? controls.model : null
@@ -353,6 +355,7 @@ export function HbarSessionWorkspace({
     const modelState = runtime.state.controls.getSnapshot()
     const currentModel = modelState.sessionId === targetSessionId ? modelState.model : null
     const intentState = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
+    const planModeState = runtime.state.composerPlanMode.getSnapshot()
     const permissionState = runtime.state.composerPermission.getSnapshot()
     const permission = permissionState.entries[targetSessionId]
     const modelAction = runtime.state.composerModel.getSnapshot()
@@ -373,7 +376,9 @@ export function HbarSessionWorkspace({
       (!latest.text.trim() && !latest.attachments.length) ||
       permission?.locked ||
       (modelAction.sessionId === targetSessionId && ['submitting', 'unknown'].includes(modelAction.action.status)) ||
-      ['submitting', 'unknown'].includes(intentState?.submission.status ?? '')
+      ['submitting', 'unknown'].includes(intentState?.submission.status ?? '') ||
+      (planModeState.available &&
+        (planModeState.entries[targetSessionId]?.status !== 'ready' || !planModeState.entries[targetSessionId]?.mode))
     )
       return
     invoke('composerIntent.submit', {
@@ -772,7 +777,7 @@ export function HbarSessionWorkspace({
             placeholder:
               intent === 'goal'
                 ? labels.intent.goalPlaceholder
-                : intent === 'plan'
+                : planModeEntry?.status === 'ready' && planModeEntry.mode === 'plan'
                   ? labels.intent.planPlaceholder
                   : labels.prompt.placeholder,
           }}
@@ -796,6 +801,7 @@ export function HbarSessionWorkspace({
                   permissionLocked: Boolean(permissionEntry?.locked),
                 })
               : configured &&
+                (!composerPlanMode.available || planModeEntry?.status === 'ready') &&
                 !modelPending &&
                 !intentPending &&
                 attachmentTransfers.length === 0 &&
@@ -829,7 +835,7 @@ export function HbarSessionWorkspace({
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">
-              {composerPermission.available && (
+              {(composerPermission.available || composerPlanMode.available) && (
                 <HbarComposerPermissionPicker
                   key={`permission:${sessionId}`}
                   sessionId={sessionId}
@@ -845,6 +851,27 @@ export function HbarSessionWorkspace({
                   onSelect={async (input) => {
                     await runtime.commands.execute('composerPermission.setChoice', input)
                   }}
+                  {...(composerPlanMode.available
+                    ? {
+                        plan: {
+                          entry: planModeEntry,
+                          disabled: intent === 'goal',
+                          onSetMode: async (mode: 'default' | 'plan', expectedRevision: number) => {
+                            await runtime.commands.execute('composerPlanMode.setMode', {
+                              sessionId,
+                              mode,
+                              expectedRevision,
+                            })
+                          },
+                          onRefresh: async () => {
+                            await runtime.commands.execute('composerPlanMode.refresh', { sessionId })
+                          },
+                          onReconcile: async () => {
+                            await runtime.commands.execute('composerPlanMode.reconcile', { sessionId })
+                          },
+                        },
+                      }
+                    : {})}
                 />
               )}
               <HbarComposerIntentControls

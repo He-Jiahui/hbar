@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -8,7 +9,7 @@ import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`Goal and Plan use cancellable composer intents and a local goal strip: ${locale}`, async ({ browser }) => {
+  test(`Goal intent and durable Host Plan mode share the composer entry: ${locale}`, async ({ browser }) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-composer-intent-'))
     const context = await browser.newContext({ locale })
@@ -28,6 +29,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const modes = page.locator('.hbar-composer-intents')
+      const permission = page.locator('.hbar-composer-permission-picker')
+      const planEntry = permission.getByRole('menuitemcheckbox', {
+        name: copy.session.permissionPicker.plan.label,
+        exact: false,
+      })
+      const openModes = () =>
+        permission
+          .getByRole('button', {
+            name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.options.inherit.label),
+          })
+          .click()
       const objective = 'Verify the composer goal controls — 检查目标操作与当前会话绑定'
       await prompt.fill(objective)
       await modes.getByRole('button', { name: labels.goal, exact: true }).click()
@@ -37,16 +49,58 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await modes.getByRole('button', { name: labels.cancelGoal }).click()
       expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
       await expectComposerText(prompt, objective)
-      await modes.getByRole('button', { name: labels.plan, exact: true }).click()
+      await openModes()
+      await planEntry.click()
       await expect(prompt).toHaveAttribute('placeholder', labels.planPlaceholder)
-      await expect(modes.getByRole('button', { name: labels.cancelPlan })).toContainText(labels.planSelected)
+      await expect(
+        permission.getByRole('button', {
+          name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label),
+        }),
+      ).toBeVisible()
+      expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
+      await permission
+        .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
+        .click()
+      await expect(
+        permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+      ).toBeVisible()
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-durable-plan-menu-${locale}-1440.png` })
+      await permission.getByRole('button', { name: copy.session.permissionPicker.close }).click()
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}.png` })
       await page.setViewportSize({ width: 320, height: 720 })
-      await expect(modes.getByRole('button', { name: labels.cancelPlan })).toBeInViewport()
+      await expect(
+        permission.getByRole('button', {
+          name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label),
+        }),
+      ).toBeInViewport()
+      await permission
+        .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
+        .click()
+      await expect(
+        permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+      ).toBeVisible()
+      await page.keyboard.press('End')
+      await expect(
+        permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+      ).toBeFocused()
+      expect(
+        await permission.locator('.hbar-composer-permission-popover').evaluate((popup) => {
+          const option = popup.querySelector('[role="menuitemcheckbox"]')?.getBoundingClientRect()
+          const bounds = popup.getBoundingClientRect()
+          return Boolean(option && option.top >= bounds.top && option.bottom <= bounds.bottom)
+        }),
+      ).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-durable-plan-menu-${locale}-320.png` })
+      await permission.getByRole('button', { name: copy.session.permissionPicker.close }).click()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}-320.png` })
       await page.setViewportSize({ width: 1440, height: 960 })
-      await modes.getByRole('button', { name: labels.cancelPlan }).click()
+      await permission
+        .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
+        .click()
+      await permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
+      expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
       await expectComposerText(prompt, objective)
 
       await modes.getByRole('button', { name: labels.goal, exact: true }).click()
@@ -131,18 +185,65 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
 
       await prompt.fill('Plan the next task without making changes.')
-      await modes.getByRole('button', { name: labels.plan, exact: true }).click()
-      await expect(modes.getByRole('button', { name: labels.cancelPlan })).toContainText(labels.planSelected)
+      await openModes()
+      await planEntry.click()
+      await expect(
+        permission.getByRole('button', {
+          name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label),
+        }),
+      ).toBeVisible()
+      await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await expectComposerText(prompt, '')
+      await prompt.fill('Continue planning in the same session.')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await expectComposerText(prompt, '')
       const snapshot = await host.client.call('session.snapshot', { sessionId, limit: 60 })
       const planRun = snapshot.runs.find((run) => run.input.text === 'Plan the next task without making changes.')
       expect(planRun?.input.mode).toBe('plan')
-      await expect(modes.getByRole('button', { name: labels.plan, exact: true })).toHaveAttribute(
-        'aria-pressed',
-        'false',
+      expect(snapshot.runs.find((run) => run.input.text === 'Continue planning in the same session.')?.input.mode).toBe(
+        'plan',
       )
-      await expect(modes).not.toContainText(labels.planSelected)
+      expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
+      await prompt.fill('/tool write_file {"path":"blocked-plan.txt","text":"must-not-write"}')
+      await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await expectComposerText(prompt, '')
+      await expect
+        .poll(async () => {
+          const runs = (await host!.client.call('session.snapshot', { sessionId, limit: 60 })).runs
+          return runs.find((run) => run.input.text.startsWith('/tool write_file'))?.status
+        })
+        .toBe('completed')
+      const blocked = await host.client.call('session.snapshot', { sessionId, limit: 60 })
+      expect(blocked.runs.find((run) => run.input.text.startsWith('/tool write_file'))?.input.mode).toBe('plan')
+      expect(
+        blocked.messages
+          .flatMap((message) => message.content)
+          .some(
+            (part) =>
+              part.type === 'tool_result' &&
+              part.name === 'write_file' &&
+              part.isError &&
+              /PLAN_READ_ONLY|Plan mode cannot execute/.test(part.text),
+          ),
+      ).toBe(true)
+      expect(existsSync(join(root, 'blocked-plan.txt'))).toBe(false)
+      await page.reload()
+      await expect(
+        permission.getByRole('button', {
+          name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label),
+        }),
+      ).toBeVisible()
+      await permission
+        .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
+        .click()
+      await permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
+      await prompt.fill('Act in default mode after explicit exit.')
+      await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await expectComposerText(prompt, '')
+      const final = await host.client.call('session.snapshot', { sessionId, limit: 60 })
+      expect(final.runs.find((run) => run.input.text === 'Act in default mode after explicit exit.')?.input.mode).toBe(
+        'default',
+      )
       expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
       expect(errors).toEqual([])
     } finally {

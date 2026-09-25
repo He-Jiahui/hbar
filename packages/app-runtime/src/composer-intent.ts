@@ -57,6 +57,8 @@ export interface ComposerIntentOptions {
     ReturnType<typeof createComposerPermission>,
     'prepareComposerSubmission' | 'settleSubmission'
   >
+  readonly captureMode?: (sessionId: string) => 'default' | 'plan'
+  readonly refreshMode?: (sessionId: string) => Promise<'default' | 'plan'>
   readonly onSubscriberError: (error: unknown) => void
 }
 
@@ -305,6 +307,10 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
 
   local.register(composerIntentCommands['composerIntent.setIntent'], ({ sessionId, intent, expectedRevision }) => {
     assertFree(sessionId)
+    if (intent === 'plan' && options.captureMode)
+      throw new CommandError('INVALID_INPUT', 'Plan is a durable Host session mode, not a one-send intent')
+    if (intent === 'goal' && options.captureMode?.(sessionId) === 'plan')
+      throw new CommandError('BUSY', 'Exit Host Plan mode before preparing a Goal')
     const current = entry(sessionId)
     if (expectedRevision !== undefined && current.revision !== expectedRevision)
       throw new CommandError('VERSION_CONFLICT', 'Composer intent changed')
@@ -336,13 +342,26 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       throw new CommandError('VERSION_CONFLICT', 'Composer intent changed before submission')
     if (input.input.continuation || (input.input.source && input.input.source !== 'user'))
       throw new CommandError('INVALID_INPUT', 'Composer submissions must be direct user turns')
+    preparations.add(sessionId)
+    let capturedMode: 'default' | 'plan'
+    try {
+      capturedMode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : (options.captureMode?.(sessionId) ?? (current.intent === 'plan' ? 'plan' : 'default'))
+      if (options.navigation.getSnapshot().sessionId !== sessionId && options.refreshMode)
+        throw new CommandError('STALE_TARGET', 'Composer session changed during mode verification')
+      if (current.intent === 'goal' && capturedMode === 'plan')
+        throw new CommandError('BUSY', 'Exit Host Plan mode before submitting a Goal')
+    } finally {
+      preparations.delete(sessionId)
+    }
     let request: SubmitRunInput = {
       sessionId,
       modelId: input.modelId,
       input: {
         ...input.input,
         text: submittedText,
-        mode: current.intent === 'plan' ? 'plan' : 'default',
+        mode: capturedMode,
         source: 'user',
       },
     }
@@ -367,6 +386,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
       if (entry(sessionId).revision !== current.revision)
         throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during permission preparation')
+      if (options.captureMode && options.captureMode(sessionId) !== capturedMode)
+        throw new CommandError('VERSION_CONFLICT', 'Host session mode changed during submission preparation')
       if (permission) {
         if (request.input.approval !== undefined && request.input.approval !== permission.approval)
           throw new CommandError('INVALID_INPUT', 'Run approval conflicts with the captured composer choice')
