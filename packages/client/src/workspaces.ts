@@ -11,7 +11,7 @@ const writes = new Set(Object.keys(workspaceSessionCommands).filter((id) => id !
 export function createWorkspaceSessionCommandClient(client: ClientTransport) {
   return createCommandClient(allWorkspaceSessionCommands, {
     async execute(commandId, input, options) {
-      if (['session.create', 'session.fork'].includes(commandId) && !options?.idempotencyKey)
+      if (['session.create', 'session.fork', 'session.forkFromMessage'].includes(commandId) && !options?.idempotencyKey)
         throw new CommandError('INVALID_INPUT', 'An idempotency key is required for this command')
       try {
         return await client.call('command.execute', {

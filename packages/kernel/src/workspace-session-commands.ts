@@ -74,6 +74,24 @@ export function createWorkspaceSessionCommands(kernel: Kernel) {
     },
     { durable: true },
   )
+  registry.register(
+    workspaceSessionCommands['session.forkFromMessage'],
+    async (input, context) => {
+      if (!context.actorId || !context.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      const session = await translate(() =>
+        kernel.storage.call('forkFromMessageCommand', {
+          actorId: context.actorId!,
+          idempotencyKey: context.idempotencyKey!,
+          sessionId: input.sessionId,
+          messageId: input.messageId,
+        }),
+      )
+      kernel.changed('sessions')
+      return session
+    },
+    { durable: true },
+  )
   registry.register(workspaceSessionCommands['session.export'], async ({ sessionId, after, limit }) => {
     const rows = await translate(() => kernel.storage.call('events', sessionId, after, limit + 1))
     const events = rows.slice(0, limit)

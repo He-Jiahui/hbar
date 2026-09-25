@@ -90,6 +90,20 @@ export const workspaceSessionCommands = {
     z.strictObject({ sessionId: idSchema, atSeq: z.number().int().positive().optional() }),
     sessionSchema,
   ),
+  'session.forkFromMessage': defineCommand(
+    {
+      ...metadata('session.forkFromMessage', 'command', 'session'),
+      idempotency: 'required',
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'messageId', type: 'string', flag: 'message' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: idSchema, messageId: idSchema }),
+    sessionSchema,
+  ),
   'session.export': defineCommand(
     {
       ...metadata('session.export', 'query', 'session'),

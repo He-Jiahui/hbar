@@ -562,7 +562,7 @@ export async function runWorkspaceSessionCommand(
   const input = definition.input.safeParse(parseArguments(definition.metadata, argv))
   if (!input.success) throw validationError('INVALID_INPUT', input.error)
   const commands = createWorkspaceSessionCommandClient(runtime.client)
-  if (action === 'session.create' || action === 'session.fork') {
+  if (action === 'session.create' || action === 'session.fork' || action === 'session.forkFromMessage') {
     if (!args.idempotencyKey) throw new CommandError('INVALID_INPUT', '--idempotency-key is required')
     output(
       await commands.execute(action, input.data as never, {

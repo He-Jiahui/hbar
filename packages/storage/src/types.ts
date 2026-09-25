@@ -60,6 +60,13 @@ export interface ForkSessionCommandInput {
   atSeq?: number | undefined
 }
 
+export interface ForkFromMessageCommandInput {
+  actorId: string
+  idempotencyKey: string
+  sessionId: string
+  messageId: string
+}
+
 export interface StorageMethods {
   ready(): { version: number }
   createWorkspace(path: string, name: string): Workspace
@@ -95,6 +102,7 @@ export interface StorageMethods {
   compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
   fork(sessionId: string, atSeq?: number): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
+  forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
   enqueue(
     sessionId: string,
     requestId: string,

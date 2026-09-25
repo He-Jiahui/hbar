@@ -4,6 +4,7 @@ import type { StorageMethods, StorageReply } from './types.ts'
 export type {
   CreateSessionCommandInput,
   ForkSessionCommandInput,
+  ForkFromMessageCommandInput,
   SettingsCommitInput,
   SettingsCommitReceipt,
   StoredSettingsLayer,

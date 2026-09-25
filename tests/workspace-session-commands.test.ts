@@ -43,6 +43,7 @@ test('workspace and session commands share the Host catalog and bounded director
     'session.create',
     'session.export',
     'session.fork',
+    'session.forkFromMessage',
     'session.get',
     'session.list',
     'session.rename',
