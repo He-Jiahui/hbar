@@ -80,27 +80,26 @@ export function HbarSessionProjectContext({
   )
 }
 
-/** Owns only the active view's refresh lifecycle; the runtime owns all Git facts. */
-export function HbarSessionProjectContextConnected({
-  workspaceName,
+/** One lifecycle for both responsive presentations; the runtime owns all Git facts. */
+export function useHbarSessionProjectContext({
   sessionId,
   workspaceId,
   connected,
   terminalRunId,
-  labels,
+  enabled,
 }: {
-  readonly workspaceName: string
-  readonly sessionId: string
+  readonly sessionId: string | null
   readonly workspaceId: string
   readonly connected: boolean
   readonly terminalRunId: string | null
-  readonly labels: HbarSessionProjectContextLabels
+  readonly enabled: boolean
 }) {
   const runtime = useHbarRuntime()
   const context = useHbarRuntimeState(runtime.state.sessionGitContext)
   const activity = useRef<{ readonly target: string; readonly terminalRunId: string | null } | null>(null)
 
   useEffect(() => {
+    if (!enabled || !sessionId) return
     const target = { sessionId, workspaceId }
     if (!connected) {
       void runtime.commands.execute('sessionGitContext.invalidate', target).catch(() => undefined)
@@ -133,9 +132,10 @@ export function HbarSessionProjectContextConnected({
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [connected, runtime.commands, sessionId, workspaceId])
+  }, [connected, enabled, runtime.commands, sessionId, workspaceId])
 
   useEffect(() => {
+    if (!enabled || !sessionId) return
     const target = `${sessionId}:${workspaceId}`
     const previous = activity.current
     activity.current = { target, terminalRunId }
@@ -149,19 +149,13 @@ export function HbarSessionProjectContextConnected({
     )
       return
     void runtime.commands.execute('sessionGitContext.refresh', { sessionId, workspaceId }).catch(() => undefined)
-  }, [connected, terminalRunId, runtime.commands, sessionId, workspaceId])
+  }, [connected, enabled, terminalRunId, runtime.commands, sessionId, workspaceId])
 
-  return (
-    <HbarSessionProjectContext
-      workspaceName={workspaceName}
-      sessionId={sessionId}
-      workspaceId={workspaceId}
-      connected={connected}
-      context={context}
-      labels={labels}
-      onRetry={() => {
+  return {
+    context,
+    onRetry: () => {
+      if (sessionId && enabled && connected)
         void runtime.commands.execute('sessionGitContext.refresh', { sessionId, workspaceId }).catch(() => undefined)
-      }}
-    />
-  )
+    },
+  }
 }

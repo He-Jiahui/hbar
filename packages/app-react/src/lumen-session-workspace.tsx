@@ -42,7 +42,11 @@ import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from 
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
-import { HbarSessionProjectContextConnected, type HbarSessionProjectContextLabels } from './session-project-context'
+import {
+  HbarSessionProjectContext,
+  useHbarSessionProjectContext,
+  type HbarSessionProjectContextLabels,
+} from './session-project-context'
 import { localSlashCanSubmit, localSlashCommand } from './composer-slash'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
@@ -197,9 +201,27 @@ export function HbarSessionWorkspace({
     (composerModel.action.status === 'submitting' || composerModel.action.status === 'unknown')
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const activeRun = currentSessionRun(activeRuns)
-  const terminalRunId = [...timeline.runs]
-    .reverse()
-    .find((run) => ['completed', 'failed', 'cancelled'].includes(run.status))?.id ?? null
+  const terminalRunId =
+    [...timeline.runs].reverse().find((run) => ['completed', 'failed', 'cancelled'].includes(run.status))?.id ?? null
+  const projectContext = useHbarSessionProjectContext({
+    sessionId,
+    workspaceId: sessionWorkspaceId,
+    connected,
+    terminalRunId,
+    enabled: Boolean(projectContextLabels),
+  })
+  const projectContextView = () =>
+    projectContextLabels && sessionId ? (
+      <HbarSessionProjectContext
+        workspaceName={workspaceName}
+        sessionId={sessionId}
+        workspaceId={sessionWorkspaceId}
+        connected={connected}
+        context={projectContext.context}
+        labels={projectContextLabels}
+        onRetry={projectContext.onRetry}
+      />
+    ) : null
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
@@ -701,7 +723,7 @@ export function HbarSessionWorkspace({
   )
 
   const composer: ReactNode = sessionId ? (
-    <LumenFrame className="hbar-app-react-session-footer">
+    <LumenFrame className="hbar-app-react-session-footer" data-git-context-status={projectContext.context.status}>
       <HbarComposerGoal
         key={sessionId}
         sessionId={sessionId}
@@ -872,6 +894,9 @@ export function HbarSessionWorkspace({
                 labels={labels.usage}
                 onOpenMonitor={() => toggleTool('monitoring')}
               />
+              {projectContextLabels && (
+                <LumenFrame className="hbar-session-project-context-toolbar">{projectContextView()}</LumenFrame>
+              )}
               <HbarComposerModelPicker
                 key={sessionId}
                 sessionId={sessionId}
@@ -925,15 +950,7 @@ export function HbarSessionWorkspace({
         />
       </HbarComposerAttachmentDropTarget>
       {projectContextLabels && (
-        <HbarSessionProjectContextConnected
-          key={`${sessionId}:${sessionWorkspaceId}`}
-          sessionId={sessionId}
-          workspaceId={sessionWorkspaceId}
-          workspaceName={workspaceName}
-          connected={connected}
-          terminalRunId={terminalRunId}
-          labels={projectContextLabels}
-        />
+        <LumenFrame className="hbar-session-project-context-below">{projectContextView()}</LumenFrame>
       )}
       {sessionUsagePresentation(controls, labels.usage).notice && (
         <LumenText as="p" className="hbar-session-budget-notice" role="status">

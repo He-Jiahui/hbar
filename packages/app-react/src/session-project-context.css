@@ -48,6 +48,51 @@
   flex-wrap: wrap;
 }
 
+.hbar-session-project-context-toolbar {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+}
+
+.hbar-session-project-context-toolbar .hbar-session-project-context {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.hbar-session-project-context-toolbar .hbar-session-project-context-name {
+  max-inline-size: 4.5rem;
+}
+
+.hbar-session-project-context-toolbar .hbar-session-project-context-branch {
+  max-inline-size: 4.5rem;
+}
+
+.hbar-session-project-context-below {
+  display: none;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {
+  display: none;
+}
+
+.hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-below {
+  display: flex;
+}
+
+@container session-project-context (max-width: 44rem) {
+  .hbar-session-project-context-toolbar {
+    display: none;
+  }
+
+  .hbar-session-project-context-below {
+    display: flex;
+  }
+}
+
 @media (max-width: 35rem) {
   .hbar-session-project-context {
     inline-size: min(100%, 22rem);

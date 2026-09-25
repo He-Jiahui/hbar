@@ -137,6 +137,8 @@
   gap: 0.25rem;
   margin-inline: auto;
   padding: 0.5rem 1rem 1rem;
+  container-name: session-project-context;
+  container-type: inline-size;
 }
 
 .hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {

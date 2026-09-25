@@ -92,11 +92,48 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width > 1000 ? 960 : 844 })
         await expect(firstContext).toBeVisible()
+        await expect(
+          page.getByRole('group', { name: copy.project(host.ready.workspaceName), exact: true }),
+        ).toHaveCount(1)
+        const toolbar = page.locator('.hbar-session-project-context-toolbar')
+        const below = page.locator('.hbar-session-project-context-below')
+        if (width >= 900) {
+          await expect(toolbar).toBeVisible()
+          await expect(below).toBeHidden()
+          const permissionBox = await page.locator('.hbar-composer-permission-trigger').boundingBox()
+          const contextBox = await toolbar.boundingBox()
+          expect(Math.abs((permissionBox?.y ?? 0) - (contextBox?.y ?? 0))).toBeLessThanOrEqual(8)
+        } else {
+          await expect(toolbar).toBeHidden()
+          await expect(below).toBeVisible()
+        }
+        for (const selector of ['.hbar-composer-permission-trigger', '.hbar-composer-model-trigger']) {
+          const button = page.locator(selector)
+          await expect(button).toBeVisible()
+          const controlBox = await button.boundingBox()
+          expect(controlBox?.x).toBeGreaterThanOrEqual(0)
+          expect((controlBox?.x ?? 0) + (controlBox?.width ?? 0)).toBeLessThanOrEqual(width + 1)
+        }
+        await expect(
+          page.getByRole('button', { name: getShellCopy(locale).session.prompt.send, exact: true }),
+        ).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         const box = await firstContext.getByTitle(copy.branch(afterRunBranch), { exact: true }).boundingBox()
-        expect(box?.width).toBeGreaterThan(80)
+        expect(box?.width).toBeGreaterThanOrEqual(width >= 900 ? 70 : 100)
         expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width + 1)
         await page.screenshot({ path: `artifacts/session-project-context/context-${locale}-${width}.png` })
+        if (width === 1440 || width === 320) {
+          for (const selector of ['.hbar-composer-permission-trigger', '.hbar-composer-model-trigger']) {
+            const trigger = page.locator(selector)
+            await trigger.click()
+            await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+            await page.keyboard.press('Escape')
+            await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+          }
+          await page.evaluate(() => {
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+          })
+        }
       }
       await stopWebSessionHost(host)
       host = undefined
