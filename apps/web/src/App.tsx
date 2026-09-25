@@ -102,6 +102,7 @@ function createRuntime(
     files: createFileCommandClient(client),
     agents: createAgentCommandClient(client),
     goals: createGoalPlanCommandClient(client),
+    planProposal: copy.planProposal,
     workflows: createWorkflowCommandClient(client),
     extensions: createExtensionCommandClient(client),
     metrics: createMetricsCommandClient(client),

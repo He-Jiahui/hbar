@@ -10,6 +10,12 @@ export {
   type HbarMessageActivitySummary,
 } from './session-message'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
+export {
+  HbarProposedPlan,
+  type HbarProposedPlanProps,
+  type HbarProposedPlanLabels,
+  type HbarProposedPlanTarget,
+} from './proposed-plan'
 export { createHbarSchemaComponents } from './lumen-schema-components'
 export {
   HbarWorkspaceShell,

@@ -59,6 +59,7 @@ import type {
 } from '@hbar/contracts/commands/configuration'
 import type { ThinkingLevel } from '@hbar/contracts'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
+import type { PlanProposalRequestText } from './plan-proposal-actions'
 
 export interface BudgetCommandPort {
   execute(id: 'session.getBudget', input: { sessionId: string }): Promise<SessionBudget | null>
@@ -87,6 +88,7 @@ export interface RuntimeOptions {
   readonly workspaces?: CommandExecutor
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
+  readonly planProposal?: { readonly requestText: PlanProposalRequestText }
   readonly attachments?: CommandExecutor
   readonly interactions?: CommandExecutor
   readonly models?: CommandExecutor

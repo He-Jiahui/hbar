@@ -34,6 +34,7 @@ import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
 import { createDrafts } from './drafts'
+import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
@@ -51,6 +52,18 @@ import { createClientPersistence } from './client-persistence'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export { goalControlStatuses } from './goal-plan-workspace'
 export type { StateReader } from './state'
+export { planProposalCommands, planProposalActionKey } from './plan-proposal-actions'
+export { parseProposedPlan } from './proposed-plan'
+export type { ProposedPlanParseResult } from './proposed-plan'
+export type {
+  PlanProposalTarget,
+  PlanProposalSubmit,
+  PlanProposalRequestText,
+  PlanProposalDocument,
+  PlanProposalActionState,
+  PlanProposalState,
+  PlanProposalOptions,
+} from './plan-proposal-actions'
 export type {
   BudgetCommandPort,
   BudgetFormState,
@@ -126,7 +139,12 @@ export { SessionSelectionError } from './navigation'
 
 export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
 
-const runtimeCommands = { ...applicationCommands, ...composerModelCommands, ...composerIntentCommands }
+const runtimeCommands = {
+  ...applicationCommands,
+  ...composerModelCommands,
+  ...composerIntentCommands,
+  ...planProposalCommands,
+}
 
 export function createAppRuntime(options: RuntimeOptions) {
   if (!options.instanceId || !options.hostId)
@@ -209,6 +227,16 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const planProposal = createPlanProposalActions(local, {
+    timeline: timeline.reader,
+    controls: controls.reader,
+    executeDetachedRun: drafts.executeDetachedRun,
+    getSettledReceipt: drafts.getSettledReceipt,
+    reconcileRun: async (sessionId) =>
+      runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
+    onSubscriberError,
+    ...(options.planProposal ? { requestText: options.planProposal.requestText } : {}),
+  })
   const settingsForms = createSettingsForms(
     local,
     options,
@@ -295,6 +323,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
+        Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -326,6 +355,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls: controls.reader,
       composerModel: composerModel.reader,
       composerIntent: composerIntent.reader,
+      planProposal: planProposal.reader,
       settings: settingsForms.reader,
       providers: providerSettings.reader,
       commandPalette: commandPalette.reader,
@@ -363,6 +393,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls.dispose()
       composerModel.dispose()
       composerIntent.dispose()
+      planProposal.dispose()
       settingsForms.dispose()
       providerSettings.dispose()
       commandPalette.dispose()

@@ -13,6 +13,7 @@ import type {
   HbarWorkspaceShellLabels,
 } from '@hbar/app-react'
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
+import type { PlanProposalRequestText } from '@hbar/app-runtime'
 import { goalExecutionCopy } from './goal-execution-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
@@ -44,6 +45,7 @@ interface ShellCopy {
   }
   readonly empty: { readonly title: string; readonly description: string }
   readonly session: HbarSessionWorkspaceLabels
+  readonly planProposal: { readonly requestText: PlanProposalRequestText }
   readonly settings: HbarSettingsWorkspaceLabels
   readonly appearance: WebAppearanceSettingsLabels
   readonly providers: {
@@ -814,6 +816,34 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       copyFailed: choose('无法写入剪贴板，请重试。', 'Could not write to the clipboard. Try again.'),
       copyUnavailable: choose('此环境无法使用剪贴板。', 'Clipboard access is unavailable in this environment.'),
       retryCopy: choose('重试复制', 'Retry copy'),
+    },
+    proposedPlan: {
+      title: choose('计划提案', 'Proposed plan'),
+      document: choose('计划文档', 'Plan document'),
+      implement: choose('按此计划执行', 'Implement this plan'),
+      continuePlanning: choose('继续规划', 'Keep planning'),
+      feedback: choose('规划反馈（用于继续规划）', 'Feedback for further planning'),
+      feedbackPlaceholder: choose('说明需要完善的内容', 'Describe what should change'),
+      submitting: choose('正在提交请求…', 'Submitting request…'),
+      accepted: choose('请求已受理', 'Request accepted'),
+      unknown: choose('提交结果尚未确认，请先核对。', 'The result is unknown. Check it before retrying.'),
+      reconcile: choose('核对提交结果', 'Check request result'),
+    },
+    proposedPlanReadOnly: choose('计划文档（只读）', 'Plan document (read only)'),
+    proposedPlanAvailability: (value) => {
+      switch (value) {
+        case 'none':
+        case 'ready':
+          return null
+        case 'busy':
+          return choose('等待当前运行结束后再操作。', 'Wait for the current run to finish.')
+        case 'incomplete':
+          return choose('计划来源尚未确认完成。', 'The source plan has not been confirmed complete.')
+        case 'model_unavailable':
+          return choose('请先在输入区选择可用模型。', 'Choose an available model in the composer first.')
+        case 'capability_unavailable':
+          return choose('此客户端未启用计划执行入口。', 'Plan actions are unavailable in this client.')
+      }
     },
     thinking: choose('思考过程', 'Reasoning'),
     toolCall: (name) => choose(`调用工具：${name}`, `Tool call: ${name}`),
@@ -1853,6 +1883,12 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     },
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     session: createSessionLabels('zh-CN'),
+    planProposal: {
+      requestText: ({ action, markdown, feedback }) =>
+        action === 'implement'
+          ? `请按以下计划执行，并遵守现有工具审批策略。\n\n${markdown}`
+          : `请继续完善以下计划，保持规划模式。${feedback ? `\n\n反馈：\n${feedback}` : ''}\n\n完整计划：\n${markdown}`,
+    },
     settings: createSettingsLabels('zh-CN'),
     appearance: createAppearanceLabels('zh-CN'),
     providers: createProviderLabels('zh-CN'),
@@ -1919,6 +1955,12 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     },
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     session: createSessionLabels('en-US'),
+    planProposal: {
+      requestText: ({ action, markdown, feedback }) =>
+        action === 'implement'
+          ? `Implement the following plan, respecting the existing tool approval policy.\n\n${markdown}`
+          : `Continue refining the following plan in planning mode.${feedback ? `\n\nFeedback:\n${feedback}` : ''}\n\nFull plan:\n${markdown}`,
+    },
     settings: createSettingsLabels('en-US'),
     appearance: createAppearanceLabels('en-US'),
     providers: createProviderLabels('en-US'),

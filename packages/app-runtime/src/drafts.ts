@@ -12,6 +12,7 @@ interface PendingSubmission {
   readonly key: string
   readonly revision: number
   readonly matchesDraft: boolean
+  readonly detached: boolean
 }
 
 function initial(sessionId: string): SessionDraftState {
@@ -60,6 +61,8 @@ export function createDrafts(
   const actions = createState<RunActionsState>({}, onSubscriberError)
   const pending = new Map<string, PendingSubmission>()
   const retryKeys = new Map<string, string>()
+  const settledReceipts = new Map<string, RunAccepted>()
+  const receiptKey = (sessionId: string, key: string) => JSON.stringify([sessionId, key])
 
   const replaceAction = (operationId: string, action: RunActionState) => {
     if (isDisposed()) return
@@ -158,6 +161,15 @@ export function createDrafts(
 
   const settle = (sessionId: string, submission: PendingSubmission, accepted: RunAccepted): void => {
     if (pending.get(sessionId) !== submission) return
+    if (accepted.sessionId === sessionId && accepted.idempotencyKey === submission.key) {
+      const key = receiptKey(sessionId, submission.key)
+      settledReceipts.delete(key)
+      if (settledReceipts.size >= MAX_DRAFTS) {
+        const oldest = settledReceipts.keys().next().value
+        if (oldest !== undefined) settledReceipts.delete(oldest)
+      }
+      settledReceipts.set(key, { ...accepted })
+    }
     const current = entry(sessionId)
     const clear = submission.matchesDraft && current.revision === submission.revision
     replace(sessionId, {
@@ -176,13 +188,73 @@ export function createDrafts(
     if (!run || !submission || current.status !== 'unknown')
       throw new CommandError('INVALID_INPUT', 'The session draft has no unknown submission to reconcile')
     const receipt = await run.getReceipt(sessionId, submission.key, 'run.submit')
+    if (
+      receipt &&
+      (!runAcceptedSchema.safeParse(receipt).success ||
+        receipt.sessionId !== sessionId ||
+        receipt.idempotencyKey !== submission.key)
+    )
+      throw new CommandError('RESULT_UNKNOWN', 'Run receipt does not match its original request')
     if (receipt) settle(sessionId, submission, receipt)
     return receipt
   })
 
+  const submitRun = async (
+    submit: SubmitRunInput,
+    options: ExecuteOptions,
+    detached: boolean,
+  ): Promise<RunAccepted> => {
+    if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable in this runtime')
+    const current = entry(submit.sessionId)
+    if (current.status === 'submitting' || current.status === 'unknown')
+      throw new CommandError('BUSY', 'The session draft already has a pending submission')
+    const submission: PendingSubmission = {
+      key: options.idempotencyKey ?? crypto.randomUUID(),
+      revision: current.revision,
+      matchesDraft: !detached && matchesInput(current, submit),
+      detached,
+    }
+    pending.set(submit.sessionId, submission)
+    replace(submit.sessionId, { ...current, status: 'submitting', error: null })
+    try {
+      const parsed = runAcceptedSchema.safeParse(
+        await run.execute('run.submit', submit, { ...options, idempotencyKey: submission.key }),
+      )
+      if (!parsed.success) {
+        throw new CommandError('RESULT_UNKNOWN', 'Run acceptance could not be verified')
+      }
+      const accepted = parsed.data
+      if (accepted.sessionId !== submit.sessionId || accepted.idempotencyKey !== submission.key)
+        throw new CommandError('RESULT_UNKNOWN', 'Run receipt does not match its original request')
+      settle(submit.sessionId, submission, accepted)
+      return accepted
+    } catch (error) {
+      if (pending.get(submit.sessionId) === submission) {
+        const latest = entry(submit.sessionId)
+        const unknown = errorCode(error) === 'RESULT_UNKNOWN'
+        replace(submit.sessionId, {
+          ...latest,
+          status: unknown ? 'unknown' : 'failed',
+          error: errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED'),
+        })
+        if (!unknown) pending.delete(submit.sessionId)
+      }
+      throw error
+    }
+  }
+
   return {
     reader: state.reader,
     actions: actions.reader,
+    /** Recent confirmed receipts remain readable after either UI entry reconciles their single owner. */
+    getSettledReceipt(sessionId: string, key: string): RunAccepted | null {
+      const receipt = settledReceipts.get(receiptKey(sessionId, key))
+      return receipt ? { ...receipt } : null
+    },
+    /** A user action outside the composer shares its receipt owner but never consumes the draft. */
+    executeDetachedRun(input: SubmitRunInput, options: ExecuteOptions = {}): Promise<RunAccepted> {
+      return submitRun(input, options, true)
+    },
     async executeRun(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable in this runtime')
       if (name === 'operation.cancel') {
@@ -232,40 +304,12 @@ export function createDrafts(
         }
       }
       if (name !== 'run.submit') return run.execute(name, input, options)
-      const submit = input as SubmitRunInput
-      const current = entry(submit.sessionId)
-      if (current.status === 'submitting' || current.status === 'unknown')
-        throw new CommandError('BUSY', 'The session draft already has a pending submission')
-      const submission: PendingSubmission = {
-        key: options.idempotencyKey ?? crypto.randomUUID(),
-        revision: current.revision,
-        matchesDraft: matchesInput(current, submit),
-      }
-      pending.set(submit.sessionId, submission)
-      replace(submit.sessionId, { ...current, status: 'submitting', error: null })
-      try {
-        const accepted = runAcceptedSchema.parse(
-          await run.execute(name, input, { ...options, idempotencyKey: submission.key }),
-        )
-        settle(submit.sessionId, submission, accepted)
-        return accepted
-      } catch (error) {
-        if (pending.get(submit.sessionId) === submission) {
-          const latest = entry(submit.sessionId)
-          const unknown = errorCode(error) === 'RESULT_UNKNOWN'
-          replace(submit.sessionId, {
-            ...latest,
-            status: unknown ? 'unknown' : 'failed',
-            error: errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED'),
-          })
-          if (!unknown) pending.delete(submit.sessionId)
-        }
-        throw error
-      }
+      return submitRun(input as SubmitRunInput, options, false)
     },
     dispose() {
       pending.clear()
       retryKeys.clear()
+      settledReceipts.clear()
       state.dispose()
       actions.dispose()
     },

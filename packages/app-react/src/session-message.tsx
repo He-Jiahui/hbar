@@ -73,6 +73,8 @@ export interface HbarMessageBlocksProps {
   readonly labels: HbarMessageBlocksLabels
   /** Domain-owned display metadata, not a hard-coded plugin/tool catalog in the view. */
   readonly describeTool?: (call: SessionToolCall) => HbarMessageToolPresentation
+  /** Domain-owned text rendering, keyed to original block identity; non-text rows retain their order. */
+  readonly renderText?: (row: Extract<SessionMessageRow, { kind: 'text' }>) => ReactNode
 }
 
 export interface HbarMessageActionLabels {
@@ -90,7 +92,7 @@ export interface HbarMessageActionBarProps extends MessageCopyInput {
   readonly metadata?: ReactNode
 }
 
-function Markdown({ text }: { readonly text: string }) {
+export function MessageMarkdown({ text }: { readonly text: string }) {
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
       {text}
@@ -273,7 +275,7 @@ function Activity({
         className="hbar-session-thinking"
       >
         <LumenFrame className="hbar-session-thinking-content">
-          <Markdown text={row.text} />
+          <MessageMarkdown text={row.text} />
         </LumenFrame>
       </Disclosure>
     ) : (
@@ -302,7 +304,14 @@ function Activity({
   )
 }
 
-function MessageBlocksContent({ blocks, results, streaming = false, labels, describeTool }: HbarMessageBlocksProps) {
+function MessageBlocksContent({
+  blocks,
+  results,
+  streaming = false,
+  labels,
+  describeTool,
+  renderText,
+}: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
     { readonly id: string; readonly rows: readonly ActivityRow[] } | Exclude<SessionMessageRow, ActivityRow>
@@ -334,7 +343,7 @@ function MessageBlocksContent({ blocks, results, streaming = false, labels, desc
           />
         ) : group.kind === 'text' ? (
           <LumenFrame key={group.id} className="hbar-session-message-prose">
-            <Markdown text={group.text} />
+            {renderText ? renderText(group) : <MessageMarkdown text={group.text} />}
           </LumenFrame>
         ) : (
           <LumenText as="span" key={group.id} className="hbar-session-message-attachment">

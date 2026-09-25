@@ -18,7 +18,8 @@ import {
   type LumenRunActivityLabels,
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
-import type { SessionAttachmentUpload } from '@hbar/app-runtime'
+import { planProposalActionKey, type PlanProposalState, type SessionAttachmentUpload } from '@hbar/app-runtime'
+import type { HbarProposedPlanLabels } from './proposed-plan'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   HbarMessageBlocks,
@@ -30,6 +31,7 @@ import { projectSessionMessages } from './session-message-model'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
+import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import './lumen-session-workspace.css'
 
 export interface HbarSessionWorkspaceLabels {
@@ -58,6 +60,9 @@ export interface HbarSessionWorkspaceLabels {
   readonly intent: HbarComposerIntentLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  readonly proposedPlan: HbarProposedPlanLabels
+  readonly proposedPlanReadOnly: string
+  readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
   readonly tools: {
     readonly label: string
     readonly files: string
@@ -151,6 +156,7 @@ export function HbarSessionWorkspace({
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
+  const planProposal = useHbarRuntimeState(runtime.state.planProposal)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
@@ -220,6 +226,9 @@ export function HbarSessionWorkspace({
       lastAssistantByRun.set(message.runId, message.id)
   }
   const unfinishedRuns = new Set(activeRuns.map((run) => run.id))
+  const proposal = planProposal.sessionId === sessionId ? planProposal.proposal : null
+  const proposalAction = proposal ? planProposal.actions[planProposalActionKey(proposal.target)] : undefined
+  const proposalBlocked = intentPending || draft?.status === 'submitting' || draft?.status === 'unknown'
   const messages: LumenMessageProps[] = [
     ...projectedMessages.map(({ message, blocks, results }) => ({
       id: message.id,
@@ -228,16 +237,50 @@ export function HbarSessionWorkspace({
       avatar: labels.avatar[message.role],
       appearance: 'transcript' as const,
       copyLabel: labels.copy,
-      children: (
-        <HbarMessageBlocks
-          sessionId={message.sessionId}
-          messageId={message.id}
-          blocks={blocks}
-          results={results}
-          streaming={unfinishedRuns.has(message.runId)}
-          labels={labels.messageBlocks}
-        />
-      ),
+      children:
+        proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
+          <HbarProposedPlanMessage
+            sessionId={message.sessionId}
+            messageId={message.id}
+            blocks={blocks}
+            results={results}
+            streaming={unfinishedRuns.has(message.runId)}
+            labels={labels.messageBlocks}
+            document={proposal}
+            plan={{
+              labels: labels.proposedPlan,
+              state: {
+                status: proposalAction?.status ?? 'idle',
+                canSubmit: connected && !proposalBlocked && planProposal.availability === 'ready',
+                error: proposalAction?.error ? labels.error(proposalAction.error) : null,
+                unavailable: connected
+                  ? labels.proposedPlanAvailability(proposalBlocked ? 'busy' : planProposal.availability)
+                  : labels.disconnected,
+              },
+              onSubmit: (target, action, feedback) => invoke('proposedPlan.submit', { ...target, action, feedback }),
+              onReconcile: (target) => invoke('proposedPlan.reconcile', target),
+            }}
+          />
+        ) : message.role === 'assistant' ? (
+          <HbarHistoricalPlanMessage
+            sessionId={message.sessionId}
+            messageId={message.id}
+            blocks={blocks}
+            results={results}
+            streaming={unfinishedRuns.has(message.runId)}
+            labels={labels.messageBlocks}
+            readOnlyLabel={labels.proposedPlanReadOnly}
+          />
+        ) : (
+          <HbarMessageBlocks
+            sessionId={message.sessionId}
+            messageId={message.id}
+            blocks={blocks}
+            results={results}
+            streaming={unfinishedRuns.has(message.runId)}
+            labels={labels.messageBlocks}
+          />
+        ),
       actions:
         lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId) ? (
           <HbarMessageActionBar
