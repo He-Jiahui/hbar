@@ -256,6 +256,8 @@ try {
     if (size.width < 880 || size.width > 920 || size.height < 580 || size.height > 620)
       throw new Error(`Desktop window has not resized: ${JSON.stringify(size)}`)
   })
+  // WebView size changes before React has applied the narrow-sidebar presentation.
+  await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).waitFor()
   if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop window has horizontal overflow')
   const collapsedGeometry = await assertSessionGeometry('Minimum desktop window')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-min-window.png' })
