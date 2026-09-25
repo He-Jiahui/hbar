@@ -59,6 +59,16 @@ async function fixture() {
       async execute(name, input) {
         const { sessionId } = z.object({ sessionId: z.string() }).parse(input)
         const existing = goals.get(sessionId) ?? null
+        // The composer is now an independent live consumer. Its read is not a Goal mutation.
+        if (name === 'goal.snapshot')
+          return {
+            sessionId,
+            goal: existing,
+            plan: null,
+            remainingTokens: existing?.tokenBudget ?? null,
+            goalSeq: existing?.updatedAt ?? 0,
+            planSeq: 0,
+          }
         if (name === 'plan.get') return null
         if (name === 'goal.get') {
           const result = { goal: existing, remainingTokens: existing?.tokenBudget ?? null }

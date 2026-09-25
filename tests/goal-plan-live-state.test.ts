@@ -75,13 +75,15 @@ async function fixture() {
   })
   runtimes.push(runtime)
   await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+  const composerListeners = new Set(listeners)
+  expect(composerListeners.size).toBe(1)
   const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
   const target = { instanceId: panel.instanceId }
   const entry = () => runtime.view.state.goals.getSnapshot().entries[panel.instanceId]!
   const emit = (change: GoalPlanChange | { kind: 'reset' }) => {
     for (const listener of [...listeners]) listener(change)
   }
-  return { runtime, facts, goal, session, target, entry, emit, listeners }
+  return { runtime, facts, goal, session, target, entry, emit, listeners, composerListeners }
 }
 
 test('a Goal/Plan event between subscribing and snapshot response is never lost', async () => {
@@ -121,7 +123,7 @@ test('a Goal/Plan event between subscribing and snapshot response is never lost'
   await load
   expect(entry().goal).toMatchObject({ tokensUsed: 200, continuation: { reason: 'no_progress' } })
   expect(entry().plan?.plan[0]?.step).toBe('Agent published this')
-  expect(facts.reads).toBe(1)
+  expect(facts.reads).toBe(2) // One initial snapshot for each visible consumer: composer and panel.
 })
 
 test('live facts merge by entity sequence without refetching and preserve a dirty editor', async () => {
@@ -153,22 +155,25 @@ test('live facts merge by entity sequence without refetching and preserve a dirt
   expect(entry().goal).toMatchObject({ status: 'budget_limited', tokensUsed: 1000 })
   expect(entry().plan?.plan[0]?.step).toBe('Independent plan sequence')
   expect(entry().goalDraft).toMatchObject({ tokenBudget: '2000', baseline: { status: 'active', goalId: 'goal' } })
-  expect(facts.reads).toBe(1)
+  expect(facts.reads).toBe(2) // Incoming facts do not refetch either consumer.
 })
 
 test('clear tombstones reject old updates and closing the panel releases its feed', async () => {
-  const { runtime, target, goal, session, emit, entry, listeners } = await fixture()
+  const { runtime, target, goal, session, emit, entry, listeners, composerListeners } = await fixture()
   await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)
   emit({ kind: 'goal', sessionId: session.id, seq: 20, goal: null })
   emit({ kind: 'plan', sessionId: session.id, seq: 21, plan: null })
   emit({ kind: 'goal', sessionId: session.id, seq: 19, goal })
   expect(entry().goal).toBeNull()
   expect(entry().plan).toBeNull()
-  const stale = [...listeners][0]!
+  const stale = [...listeners].find((listener) => !composerListeners.has(listener))!
   await runtime.view.commands.execute('app.closePanel', target)
-  expect(listeners.size).toBe(0)
+  expect([...listeners]).toEqual([...composerListeners])
   stale({ kind: 'goal', sessionId: session.id, seq: 100, goal })
   expect(entry().goal).toBeNull()
+  expect(runtime.view.state.composerIntent.getSnapshot().facts.snapshot?.goal).toBeNull()
+  runtime.dispose()
+  expect(listeners.size).toBe(0)
 })
 
 test('reconnect reconciles authoritative facts automatically and disposes previous listeners', async () => {
@@ -178,14 +183,15 @@ test('reconnect reconciles authoritative facts automatically and disposes previo
   emit({ kind: 'reset' })
   for (let attempt = 0; attempt < 100 && entry().goal?.status !== 'paused'; attempt++) await Bun.sleep(5)
   expect(entry().goal?.status).toBe('paused')
-  expect(facts.reads).toBe(2)
-  expect(listeners.size).toBe(1)
+  expect(facts.reads).toBe(4) // Exactly one reconnect snapshot per consumer.
+  expect(listeners.size).toBe(2)
+  expect(runtime.view.state.composerIntent.getSnapshot().facts.snapshot?.goal?.status).toBe('paused')
   runtime.dispose()
   expect(listeners.size).toBe(0)
 })
 
 test('reopening a cached panel restores its live feed and reconciles facts without manual refresh', async () => {
-  const { runtime, target, goal, session, facts, listeners, entry, emit } = await fixture()
+  const { runtime, target, goal, session, facts, listeners, entry, emit, composerListeners } = await fixture()
   await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)
   await runtime.view.commands.execute('goalPlanWorkspace.showGoalEditor', target)
   await runtime.view.commands.execute('goalPlanWorkspace.setGoalField', {
@@ -194,7 +200,7 @@ test('reopening a cached panel restores its live feed and reconciles facts witho
     value: '2000',
   })
   await runtime.view.commands.execute('app.closePanel', target)
-  expect(listeners.size).toBe(0)
+  expect([...listeners]).toEqual([...composerListeners])
   facts.snapshot = {
     ...facts.snapshot,
     goal: { ...goal, status: 'paused' },
@@ -212,7 +218,7 @@ test('reopening a cached panel restores its live feed and reconciles facts witho
   const reopened = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
   expect(reopened.instanceId).toBe(target.instanceId)
   for (let attempt = 0; attempt < 100 && entry().goal?.status !== 'paused'; attempt++) await Bun.sleep(5)
-  expect(listeners.size).toBe(1)
+  expect(listeners.size).toBe(2)
   expect(entry().goal?.status).toBe('paused')
   expect(entry().goalDirty).toBe(true)
   expect(entry().goalDraft).toMatchObject({ tokenBudget: '2000', baseline: { goalId: 'goal', status: 'active' } })
@@ -227,5 +233,23 @@ test('a stale refresh cannot roll back a newer live Goal fact', async () => {
   emit({ kind: 'goal', sessionId: session.id, seq: 20, goal: { ...goal, tokensUsed: 500 } })
   await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)
   expect(entry().goal?.tokensUsed).toBe(500)
+  expect(facts.reads).toBe(3) // Composer initial read plus two explicit panel reads.
+})
+
+test('closing the Goal panel keeps the composer live, and runtime disposal releases the remaining consumer', async () => {
+  const { runtime, target, goal, session, facts, listeners, composerListeners, emit } = await fixture()
+  await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)
+  expect(listeners.size).toBe(2)
   expect(facts.reads).toBe(2)
+  await runtime.view.commands.execute('app.closePanel', target)
+  expect([...listeners]).toEqual([...composerListeners])
+  emit({ kind: 'goal', sessionId: session.id, seq: 50, goal: { ...goal, status: 'paused' } })
+  expect(runtime.view.state.composerIntent.getSnapshot().facts.snapshot?.goal?.status).toBe('paused')
+  expect(facts.reads).toBe(2)
+  const staleComposerListener = [...listeners][0]!
+  const confirmed = runtime.view.state.composerIntent.getSnapshot()
+  runtime.dispose()
+  expect(listeners.size).toBe(0)
+  staleComposerListener({ kind: 'goal', sessionId: session.id, seq: 51, goal })
+  expect(runtime.view.state.composerIntent.getSnapshot()).toBe(confirmed)
 })
