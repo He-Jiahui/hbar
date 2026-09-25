@@ -46,6 +46,7 @@
 | 工作区路径与 `@` 提及 | Host/CLI 有界路径发现；composer 从真实文件结果选取路径，保留草稿中的结构化引用，键盘浏览及失联反馈就近可见   | `9f25f77`、`45e082e`、`5a3cd62`、`ab5ddcf`、`8ca1592`、`3d9f19a` | [提及记录](desktop-composer-mentions.md)              |
 | 消息旁 Fork           | 幂等 Host 命令从已完成用户消息或最终助手回复复制精确历史；原消息旁资格查询、创建、丢回执核对及子会话页签入口 | `3e5e16b`、`7d79aa3`、`9829e57`、`2726679`、`ad9dadb`、`ff5607c` | [Fork 记录](desktop-message-fork-integration.md)      |
 | Composer `/` 本地入口 | 输入框上方搜索与键盘补全；只有完整 `/model`、`/settings` 且无附件时才打开真实本地目标，失败保留草稿          | `e153489`                                                        | [斜杠边界](desktop-slash-command-boundary.md)         |
+| Files 加入原会话      | 当前文本文件或真实 Git diff 在原文件操作处加入结构化 `@` 路径；保持 Files 打开、保留原草稿与其他会话内容     | `37ce66e`、`6828374`                                             | [文件引用记录](desktop-files-add-to-chat.md)          |
 
 表中提交为本地交付，不代表已经推送、发布或安装到用户正在运行的窗口。各单元的精确测试数量、截图位置与边界以对应记录为准。
 
@@ -56,7 +57,7 @@ Terminal、Browser、子 Agent 与 Team 的证据等级及公开能力边界另�
 
 Browser 的同窗 child ACL 测试已通过，但隔离 WebView2 的资源红测发现 WebSocket 仍能触达模拟 Host；当前不能把资源回调当任意不可信网页的网络沙盒。[浏览器安全边界](desktop-browser-preview-boundary.md) 区分已验证的权限前提、失败证据及尚待产品选择的有限本地预览范围。没有 Browser 产品 UI 可交付。
 
-Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及、消息旁 Fork 和有限的 `/` 本地入口已形成上述闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。`/` 菜单只展示 `/model`、`/settings`；未列出的 `/compact`、技能/MCP 等并非 hbar 的本地命令。诊断只读入口已落地。材料预览、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
+Files 的 All/Changed/diff、会话/文件工作台页签、子 Agent 来源返回、`@` 路径提及、从 Files 加入原会话、消息旁 Fork 和有限的 `/` 本地入口已形成上述闭环；这不等于参考的 Browser、Terminal、Team、任意文件全文搜索或 `@` 行范围引用也已具备。`@` 当前引用的是工作区路径，不自动读取文件正文；Fork 只作用于已完成且已加载的用户消息或最终助手回复，不承诺任意中间消息。`/` 菜单只展示 `/model`、`/settings`；未列出的 `/compact`、技能/MCP 等并非 hbar 的本地命令。诊断只读入口已落地。材料预览、技能详情和存储入口仍需逐一核对真实公开契约；不以模型工具或命令目录里存在某个名称代替完整应用能力。[浏览器安全边界](desktop-browser-preview-boundary.md) 和 [斜杠行为矩阵](desktop-slash-command-boundary.md) 区分已知参考、可迁移范围与未实现能力。
 
 原先全仓 `check` 的九项失败已修复：`7379632` 明确区分 composer 与面板的 Goal 消费者并补监听释放，`357c9a7` 补齐漏登命令。当时稳定产品代码的 `bun run check` 已全部通过：严格 lint、TypeScript、**1,304 tests / 10,025 assertions**，269 个测试文件，测试阶段 242.81s；这是较早基线而非本次新增 Files/页签后的全仓结果。完整输出在忽略目录 `artifacts/reference-ux-v2/integrated-check-final.log`。
 
@@ -71,6 +72,8 @@ Agent UI 提交后的 Windows x64 debug 桌面再次构建成功，隔离 WebVie
 `@` 和消息旁 Fork 接入后，首次全仓检查的原生构建、严格 ESLint 和 TypeScript 均通过，但 app-react 的两个模块边界测试发现 `@` UI 直接依赖了 contracts 子路径（当次 1,474 通过、2 失败）；`3d9f19a` 将解析与类型移到 app-runtime 公开入口，未放宽边界测试。复跑 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript、**1,477 tests / 11,102 assertions**（294 个测试文件，测试阶段 199.86s）。Fork 的真实 Host 中英文交互 3 项及 `@` 的 2 项真实 Host 提及流程另行通过；各自的具体边界见上方记录。Windows x64 release 桌面应用和 NSIS 安装包也已构建成功，随后使用隔离数据目录的原生 WebView smoke 验证连接、文件选择上传、默认/最小窗口布局、侧栏、窗口隐藏与 Host 生命周期、独立取消；没有安装包或重启用户当前窗口。这轮原生 smoke 没有专门操作 `@` 或 Fork，不能拿它替代两者的 Host 浏览器用例。
 
 `e153489` 的 `/` 入口通过 30 项聚焦 Bun 测试/180 次断言、严格定向 lint、TypeScript、内容/图标/流式布局 guard、隔离生产构建及中英真实 Host 新旧 composer 回归 6/6；覆盖菜单补全与执行分离、原会话设置/模型入口、附件保留、IME、未知命令普通提交、`@` 和模型选择器回归。`5c0e58e` 将桌面权限从整个 `main` 窗口收窄至 `main` WebView，定向测试 2/2、Windows MSVC Rust 构建及隔离原生 smoke 中的主视图连接/窗口命令/认证 Host 查询通过。另在受 Git 忽略的同窗 main/child 原生 fixture 中核验 child 对测试连接命令和 core 窗口命令均获 Tauri ACL 明确拒绝；这只证明权限匹配前提，未创建产品 Browser child，也未验证远程不可信页面的实际 profile、凭据或网络隔离。两项提交后的全仓 `bun run check` 已通过原生查询构建、严格 ESLint、TypeScript 和 **1,494 tests / 11,210 assertions**（299 个测试文件，测试阶段 213.15s）。
+
+Files 加入原会话提交 `37ce66e` 的真实 Host 中英文 2 项与既有 `@`/Files 工作台回归 2 项通过，包含 1440/320 布局、原草稿与其他会话隔离、普通文件/Git diff 结构化路径及最终 Host Run。首次全仓检查只有命令清单缺少新 client command 一项失败（1,505 通过、1 失败），`6828374` 只补 inventory 登记，不弱化断言。复跑 `bun run check` 全通过：原生查询构建、严格 ESLint、TypeScript、**1,506 tests / 11,266 assertions**（301 个测试文件，测试阶段 212.05s）。Windows x64 release 应用与 NSIS 安装包重新构建成功；隔离原生 WebView smoke 通过连接、附件选择、窗口布局、Files 面板及 Host 生命周期，但没有专门点击新文件引用按钮，该行为以上述真实 Host E2E 为证。
 
 此前使用同一生产构建组合运行 15 个相关 E2E 文件：**29 passed / 2.3m**，覆盖中英文模型/思考、Goal/Plan、权限、审批/问答、计划提案、附件、排队/停止、Provider、消息/复制、重命名、归档分页、运行历史、工具栏与用量。另有项目入口三项和完整 connected 工作台回归通过；没有把重复运行次数累计成更多独立用例。组合输出为 `artifacts/reference-ux-v2/integrated-browser-final.log`。新 Files/页签组合另用真实临时 Host 运行 **12 项 E2E 全通过**，覆盖中英文与窄屏、原会话草稿、All/Changed/diff、文件草稿、Back/X、工作区无来源返回与丢失活动查询；原生和全仓门禁仍以本轮独立运行结果为准。参考、fixture、真实 Host 和原生证据分别标注，不宣称没有测试的 reference 全功能已经等价。
 
