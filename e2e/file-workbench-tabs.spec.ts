@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -54,7 +55,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-workbench-${locale}-${width}.png` })
       }
       await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
-      await expect(page.getByRole('textbox', { name: copy.session.prompt.input })).toHaveValue(
+      await expectComposerText(
+        page.getByRole('textbox', { name: copy.session.prompt.input }),
         'source conversation draft',
       )
       await expect(dock).toHaveCount(0)
@@ -69,7 +71,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         'true',
       )
       await expect(page.getByRole('tab', { name: host.ready.sessionTitle, exact: true })).toBeFocused()
-      await expect(page.getByRole('textbox', { name: copy.session.prompt.input })).toHaveValue(
+      await expectComposerText(
+        page.getByRole('textbox', { name: copy.session.prompt.input }),
         'source conversation draft',
       )
       await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()

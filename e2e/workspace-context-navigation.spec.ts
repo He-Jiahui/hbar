@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function revealSidebar(page: Page, locale: ShellLocale) {
@@ -71,7 +72,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(files.getByText('second-project.md', { exact: true })).toBeVisible()
         // A project-scoped tool must not replace the main session or its draft.
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(host.ready.sessionTitle)
-        await expect(prompt).toHaveValue('Keep the first project draft')
+        await expectComposerText(prompt, 'Keep the first project draft')
         if (viewport.width > 1024) {
           const ownFiles = page.getByRole('button', { name: copy.session.tools.files, exact: true })
           await expect(ownFiles).toHaveAttribute('aria-pressed', 'false')
@@ -109,7 +110,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         if (viewport.width < 1024)
           await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).first().click()
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-        await expect(prompt).toHaveValue('Keep the first project draft')
+        await expectComposerText(prompt, 'Keep the first project draft')
 
         await revealSidebar(page, locale)
         const expandSecond = page.getByRole('button', { name: copy.shell.expandWorkspace(second.name), exact: true })
@@ -119,7 +120,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(secondSession.title)
         await revealSidebar(page, locale)
         await firstRow.click()
-        await expect(prompt).toHaveValue('Keep the first project draft')
+        await expectComposerText(prompt, 'Keep the first project draft')
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       }
       expect(errors).toEqual([])

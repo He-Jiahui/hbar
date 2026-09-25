@@ -4,6 +4,7 @@ import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -87,7 +88,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const firstText = 'First message queued by Enter — 键盘排队。'
       await prompt.fill(firstText)
       await page.keyboard.press('Enter')
-      await expect(prompt).toHaveValue('')
+      await expectComposerText(prompt, '')
       await expect(queue).toHaveCount(0)
       await expect
         .poll(
@@ -101,7 +102,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill(secondText)
       await queue.focus()
       await page.keyboard.press('Space')
-      await expect(prompt).toHaveValue('')
+      await expectComposerText(prompt, '')
       await expect
         .poll(
           async () =>

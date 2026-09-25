@@ -4,6 +4,7 @@ import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function selectSession(page: Page, title: string, locale: ShellLocale) {
@@ -54,7 +55,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const cancel = popup.getByRole('button', { name: labels.cancel, exact: true })
       await expect(cancel).toBeFocused()
       await expect(popup).toContainText(host.ready.sessionTitle)
-      await expect(prompt).toHaveValue(draft)
+      await expectComposerText(prompt, draft)
       expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(0)
       await cancel.click()
       await expect(popup.locator('[data-choice="allow"]')).toBeFocused()
@@ -77,7 +78,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(popup.getByRole('button', { name: labels.confirmAllow, exact: true })).toBeVisible()
         await page.screenshot({ path: testInfo.outputPath(`permission-confirm-${locale}-${width}.png`) })
         await page.keyboard.press('Escape')
-        await expect(prompt).toHaveValue(draft)
+        await expectComposerText(prompt, draft)
       }
       await page.setViewportSize({ width: 1440, height: 960 })
       await trigger.click()
@@ -88,7 +89,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(trigger).toHaveAttribute('data-choice', 'inherit')
       await selectSession(page, host.ready.sessionTitle, locale)
       await expect(trigger).toHaveAttribute('data-choice', 'inherit')
-      await expect(prompt).toHaveValue(draft)
+      await expectComposerText(prompt, draft)
 
       const choose = async (choice: 'ask' | 'deny' | 'allow' | 'inherit') => {
         await trigger.click()
@@ -103,7 +104,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const text = `/tool write_file ${JSON.stringify({ path, text: `Verified ${path}` })}`
         await prompt.fill(text)
         await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
-        await expect(prompt).toHaveValue('')
+        await expectComposerText(prompt, '')
         await expect
           .poll(
             async () =>

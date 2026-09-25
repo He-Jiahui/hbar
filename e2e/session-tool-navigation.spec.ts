@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -113,7 +114,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           }
           await pane.getByRole('button', { name: panel.close, exact: true }).click()
           await expect(action).toHaveAttribute('aria-pressed', 'false')
-          await expect(prompt).toHaveValue('A draft belongs to this session — 工具切换不应丢失草稿')
+          await expectComposerText(prompt, 'A draft belongs to this session — 工具切换不应丢失草稿')
           await expect(page.getByRole('heading', { level: 1 })).toHaveText(host.ready.sessionTitle)
         }
         const settings = tools.getByRole('button', { name: copy.session.tools.settings, exact: true })
@@ -122,7 +123,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.keyboard.press('Enter')
         await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-        await expect(prompt).toHaveValue('A draft belongs to this session — 工具切换不应丢失草稿')
+        await expectComposerText(prompt, 'A draft belongs to this session — 工具切换不应丢失草稿')
       }
       expect(errors).toEqual([])
     } finally {

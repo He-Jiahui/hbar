@@ -6,6 +6,7 @@ import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -33,11 +34,11 @@ test('real Host session tabs retain independent drafts, close views only, and re
     await expect(page.getByRole('tab', { name: 'Session 002', exact: true })).toBeVisible()
     await page.getByRole('textbox', { name: 'Prompt' }).fill('draft for two')
     await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
-    await expect(page.getByRole('textbox', { name: 'Prompt' })).toHaveValue('draft for one')
+    await expectComposerText(page.getByRole('textbox', { name: 'Prompt' }), 'draft for one')
     await page.getByRole('button', { name: tabCopy.tabs.close('Session 001'), exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Session 001', exact: true })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: 'Session 002', exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('textbox', { name: 'Prompt' })).toHaveValue('draft for two')
+    await expectComposerText(page.getByRole('textbox', { name: 'Prompt' }), 'draft for two')
     await page.screenshot({ path: 'artifacts/reference-ux-v2/hbar-tabs-host-selected-1440.png' })
     await page.reload()
     await expect(page.getByRole('tab', { name: 'Session 002', exact: true })).toHaveAttribute('aria-selected', 'true')

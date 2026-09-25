@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { PlaywrightUiHarness } from './support/playwright-ui-harness.ts'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { readComposerText } from './support/composer-text'
 
 async function until<T>(read: () => Promise<T>, timeout = 15_000): Promise<T> {
   const started = Date.now()
@@ -72,7 +73,7 @@ test('executes deterministic session runs, attachments, cancellation, retry, and
           ui: [
             {
               description: 'prompt exposes the edited session draft',
-              passed: (await prompt.inputValue()) === 'draft isolated to this session',
+              passed: (await readComposerText(prompt)) === 'draft isolated to this session',
             },
             {
               description: 'send action becomes enabled',

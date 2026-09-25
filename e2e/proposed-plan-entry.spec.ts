@@ -5,6 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function seedProposal(host: WebSessionHost, name: string) {
@@ -144,7 +145,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await proposal.scrollIntoViewIfNeeded()
         await expect(proposal.getByRole('button', { name: labels.implement, exact: true })).toBeEnabled()
         await expect(proposal.getByRole('button', { name: labels.continuePlanning, exact: true })).toBeEnabled()
-        await expect(prompt).toHaveValue(draft)
+        await expectComposerText(prompt, draft)
         await expect(attachment).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
         const bounds = await proposal.boundingBox()
@@ -175,7 +176,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(implementationRuns[0]?.input).toMatchObject({ mode: 'default', source: 'user', images: [], files: [] })
       expect(implementationRuns[0]?.input.approval).toBeUndefined()
       expect(implementationRuns[0]?.input.text).toContain(initial.markdown)
-      await expect(prompt).toHaveValue(draft)
+      await expectComposerText(prompt, draft)
       await expect(attachment).toBeVisible()
       expect(await unchangedHostFacts(host)).toEqual(baseline)
       await page.screenshot({ path: testInfo.outputPath(`proposal-implemented-${locale}-320.png`) })
@@ -214,7 +215,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(refinementRuns[0]?.input.approval).toBeUndefined()
       expect(refinementRuns[0]?.input.text).toContain(revision.markdown)
       expect(refinementRuns[0]?.input.text).toContain(feedback)
-      await expect(prompt).toHaveValue(draft)
+      await expectComposerText(prompt, draft)
       await expect(attachment).toBeVisible()
       expect(await unchangedHostFacts(host)).toEqual(baseline)
       expect(errors).toEqual([])

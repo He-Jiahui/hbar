@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -57,7 +58,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.keyboard.press('Escape')
         await expect(dialog).not.toBeVisible()
         await expect(trigger).toBeFocused()
-        await expect(prompt).toHaveValue('Unsaved prompt preserved while inspecting usage — 未发送草稿')
+        await expectComposerText(prompt, 'Unsaved prompt preserved while inspecting usage — 未发送草稿')
         await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeVisible()
       }
       expect(reads()).toBe(before)

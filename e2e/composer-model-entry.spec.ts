@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -70,7 +71,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Enter')
       await expect(popup).not.toBeVisible()
       await expect(model).toContainText(longModelName)
-      await expect(prompt).toHaveValue(draft)
+      await expectComposerText(prompt, draft)
       await expect(model).toBeFocused()
 
       const thinking = page.locator('.hbar-composer-thinking-trigger')
@@ -111,7 +112,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-${locale}-${viewport.width}.png` })
         await popup.getByRole('button', { name: labels.close, exact: true }).click()
         await expect(popup).not.toBeVisible()
-        await expect(prompt).toHaveValue(draft)
+        await expectComposerText(prompt, draft)
       }
       await page.setViewportSize({ width: 1440, height: 960 })
       await model.click()
@@ -121,7 +122,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Escape')
       await expect(popup).not.toBeVisible()
       await expect(model).toContainText(longModelName)
-      await expect(prompt).toHaveValue(draft)
+      await expectComposerText(prompt, draft)
       expect(errors).toEqual([])
     } finally {
       await context.close()

@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -35,18 +36,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-goal-chip-${locale}.png` })
       await modes.getByRole('button', { name: labels.cancelGoal }).click()
       expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
-      await expect(prompt).toHaveValue(objective)
+      await expectComposerText(prompt, objective)
       await modes.getByRole('button', { name: labels.plan, exact: true }).click()
       await expect(prompt).toHaveAttribute('placeholder', labels.planPlaceholder)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}.png` })
       await modes.getByRole('button', { name: labels.cancelPlan }).click()
-      await expect(prompt).toHaveValue(objective)
+      await expectComposerText(prompt, objective)
 
       await modes.getByRole('button', { name: labels.goal, exact: true }).click()
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       const strip = page.locator('.hbar-composer-goal-strip')
       await expect(strip).toContainText(objective)
-      await expect(prompt).toHaveValue('')
+      await expectComposerText(prompt, '')
       expect((await goals.execute('goal.get', { sessionId })).goal?.objective).toBe(objective)
       const initialRuns = (await host.client.call('session.snapshot', { sessionId, limit: 60 })).runs
       expect(initialRuns.filter((run) => run.input.source === 'user')).toHaveLength(1)
@@ -105,7 +106,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill('Plan the next task without making changes.')
       await modes.getByRole('button', { name: labels.plan, exact: true }).click()
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
-      await expect(prompt).toHaveValue('')
+      await expectComposerText(prompt, '')
       const snapshot = await host.client.call('session.snapshot', { sessionId, limit: 60 })
       const planRun = snapshot.runs.find((run) => run.input.text === 'Plan the next task without making changes.')
       expect(planRun?.input.mode).toBe('plan')

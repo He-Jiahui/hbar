@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
@@ -97,7 +98,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.keyboard.press('Enter')
         await expect(pageBoundary).toBeFocused()
         await expect(pageBoundary).toHaveAccessibleName(host.ready.sessionTitle)
-        await expect(prompt).toHaveValue(draft)
+        await expectComposerText(prompt, draft)
       }
 
       // Persistent desktop sidebar triggers regain focus; hidden narrow ones do not.
@@ -113,7 +114,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
         if (width === 1440) await expect(settings).toBeFocused()
         else await expect(pageBoundary).toBeFocused()
-        await expect(prompt).toHaveValue(draft)
+        await expectComposerText(prompt, draft)
       }
       expect(errors).toEqual([])
     } finally {

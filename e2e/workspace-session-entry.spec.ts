@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function showSidebar(page: Page, locale: ShellLocale) {
@@ -180,7 +181,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await expect.poll(() => countSessions(other.id)).toBe(beforeB + 1)
         expect(await countSessions(host.ready.workspaceId)).toBe(beforeA)
         await expect(page.getByRole('dialog')).toHaveCount(0)
-        await expect(prompt).toHaveValue('')
+        await expectComposerText(prompt, '')
         sidebar = await showSidebar(page, locale)
         await expect(sidebar.locator('.hbar-app-react-session-row[data-selected="true"]')).toHaveCount(1)
 
@@ -189,12 +190,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await expect.poll(() => countSessions(other.id)).toBe(beforeB + 2)
         await expect(page.getByRole('dialog')).toHaveCount(0)
         expect(await countSessions(host.ready.workspaceId)).toBe(beforeA)
-        await expect(prompt).toHaveValue('')
+        await expectComposerText(prompt, '')
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/desktop-experience/session-entry/created-${locale}-${width}.png` })
         sidebar = await showSidebar(page, locale)
         await sidebar.getByRole('button', { name: copy.shell.openSession(originalTitle), exact: true }).click()
-        await expect(prompt).toHaveValue(draft)
+        await expectComposerText(prompt, draft)
       }
 
       // Project acquisition operates on Host paths and reports invalid input locally.

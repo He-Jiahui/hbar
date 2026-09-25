@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -71,15 +72,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await row(host.ready.sessionId).click()
       await expect(prompt).toBeEnabled()
       await prompt.fill('Keep my draft — 保留原草稿')
-      const plainWasCancelled = await prompt.evaluate((element) => {
+      await prompt.evaluate((element) => {
         const clipboardData = new DataTransfer()
         clipboardData.setData('text/plain', 'ordinary clipboard text')
         const event = new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true })
         element.dispatchEvent(event)
-        return event.defaultPrevented
       })
-      expect(plainWasCancelled).toBe(false)
+      await expectComposerText(prompt, 'Keep my draft — 保留原草稿ordinary clipboard text')
       expect(uploads).toBe(0)
+      await prompt.fill('Keep my draft — 保留原草稿')
       const dropped = await page.evaluateHandle(() => {
         const data = new DataTransfer()
         data.items.add(new File(['dropped content'], 'dropped-notes.txt', { type: 'text/plain' }))
@@ -103,7 +104,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(
         page.locator('.lumen-attachment-chip[data-kind="image"]').filter({ hasText: 'pasted-image.png' }),
       ).toBeVisible()
-      await expect(prompt).toHaveValue('Keep my draft — 保留原草稿')
+      await expectComposerText(prompt, 'Keep my draft — 保留原草稿')
       expect(uploads).toBe(2)
       mode = 'reject'
       await target
@@ -134,7 +135,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(unknown).toHaveCount(0)
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: unknownName })).toBeVisible()
       expect(uploads).toBe(4)
-      await expect(prompt).toHaveValue('New text while result unknown — 仍保留草稿')
+      await expectComposerText(prompt, 'New text while result unknown — 仍保留草稿')
       for (const name of ['dropped-notes.txt', 'pasted-image.png', unknownName]) {
         await page.locator('.lumen-attachment-chip').filter({ hasText: name }).getByRole('button').click()
       }
@@ -180,12 +181,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await row(other.id).click()
       release?.()
       await expect(page.locator('.lumen-attachment-chip')).toHaveCount(0)
-      await expect(prompt).toHaveValue('')
+      await expectComposerText(prompt, '')
       await row(host.ready.sessionId).click()
       await expect(
         page.locator('.lumen-attachment-chip').filter({ hasText: 'original-session-only.txt' }),
       ).toBeVisible()
-      await expect(prompt).toHaveValue('New text while result unknown — 仍保留草稿')
+      await expectComposerText(prompt, 'New text while result unknown — 仍保留草稿')
       expect(uploads).toBe(5)
       expect(errors).toEqual([])
     } finally {
