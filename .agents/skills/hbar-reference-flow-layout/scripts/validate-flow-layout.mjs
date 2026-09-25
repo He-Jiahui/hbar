@@ -122,6 +122,12 @@ function isOverlaySelector(path, selector) {
     selector.trim() === '.hbar-composer-attachment-drop-overlay'
   )
     return true
+  // cc-haha TabBar context menu: only the observed trigger-anchored top-layer container.
+  if (
+    /packages\/app-react\/src\/workspace-tabs\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-workspace-tab-menu-popover(?::popover-open)?$/.test(selector.trim())
+  )
+    return true
   // cc-haha PermissionModeSelector: composer-trigger overlay / narrow bottom sheet.
   // Only this evidenced top-layer container; its option and confirmation content stays in flex flow.
   if (
@@ -584,6 +590,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
   )
     throw new Error('Rail exception leaked to menu content')
   const composerPath = 'packages/app-react/src/composer-model-picker.css'
+  const tabsPath = 'packages/app-react/src/workspace-tabs.css'
+  if (validateCss(tabsPath, '.hbar-workspace-tab-menu-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed workspace tab menu container')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-workspace-tab-menu-popover'],
+    [tabsPath, '.hbar-workspace-tab-menu-popover > button'],
+    [tabsPath, '.hbar-workspace-tab'],
+  ]) {
+    if (validateCss(path, `${selector} {\nposition: fixed;\ninset: 0;\n}`).length !== 2)
+      throw new Error('Workspace tab menu exception leaked to content or another file')
+  }
   if (validateCss(composerPath, '.hbar-composer-picker-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed composer popover container')
   if (validateCss(composerPath, '.hbar-composer-picker-popover > button { position: fixed; }').length !== 1)

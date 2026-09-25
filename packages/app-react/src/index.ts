@@ -56,3 +56,16 @@ export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflo
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export type { HbarRuntimeView } from './runtime'
+export {
+  HbarWorkspaceTabs,
+  type HbarWorkspaceTabsProps,
+  type HbarWorkspaceTabsLabels,
+  type HbarWorkspaceTabItem,
+  type HbarWorkspaceTabCloseScope,
+} from './workspace-tabs'
+export {
+  HbarWorkspaceTabsCloseDialog,
+  type HbarWorkspaceTabsCloseDialogProps,
+  type HbarWorkspaceTabsCloseLabels,
+  type HbarWorkspaceTabsCloseStatus,
+} from './workspace-tabs-close-dialog'
