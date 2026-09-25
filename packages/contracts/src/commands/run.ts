@@ -2,6 +2,9 @@ import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, inputSchema, runFailureSchema, sessionEventSchema } from '../index'
 import type { SessionEvent } from '../index'
+import { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
+export { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
+export type { ActiveOperationsInput, ActiveOperationsPage } from './active-operations'
 
 export const submitRunInputSchema = z.strictObject({
   sessionId: idSchema,
@@ -67,6 +70,30 @@ export interface OperationWatchResult {
 }
 
 export const runCommands = {
+  'session.activeOperations': defineCommand(
+    {
+      id: 'session.activeOperations',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'query',
+      execution: 'host',
+      stateEffect: 'none',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.session.activeOperations.title',
+      descriptionKey: 'commands.session.activeOperations.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'cursor', type: 'json', flag: 'cursor' },
+          { field: 'limit', type: 'number', flag: 'limit' },
+        ],
+      },
+    },
+    activeOperationsInputSchema,
+    activeOperationsPageSchema,
+  ),
   'run.submit': defineCommand(
     {
       id: 'run.submit',

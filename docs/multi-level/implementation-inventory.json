@@ -202,7 +202,7 @@
         "user_input.resolve",
         "context.compact"
       ],
-      "additionalCommands": ["run.retry", "operation.watch", "interaction.reconcile"],
+      "additionalCommands": ["run.retry", "operation.watch", "interaction.reconcile", "session.activeOperations"],
       "tests": [
         "tests/kernel.test.ts",
         "tests/crash.test.ts",
@@ -212,7 +212,8 @@
         "tests/session-decisions-recovery.test.ts",
         "tests/session-decisions-recovery-host.test.ts",
         "tests/session-decisions-react.test.tsx",
-        "tests/run-commands.test.ts"
+        "tests/run-commands.test.ts",
+        "tests/active-operations.test.ts"
       ]
     },
     {

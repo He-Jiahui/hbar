@@ -37,6 +37,7 @@ import type {
 import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } from './types.ts'
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
+import { readActiveOperations } from './active-operations.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -540,6 +541,7 @@ const methods: StorageMethods = {
       streams: [],
     }
   },
+  activeOperations: (input) => readActiveOperations(db, input),
   context(sessionId) {
     const compacted = db
       .query('SELECT * FROM compactions WHERE sessionId=? ORDER BY eventSeq DESC LIMIT 1')

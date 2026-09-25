@@ -156,6 +156,14 @@ export function createRunCommands(kernel: Kernel) {
     },
     { durable: true },
   )
+  registry.register(runCommands['session.activeOperations'], async (input) => {
+    try {
+      return await kernel.storage.call('activeOperations', input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
   registry.register(runCommands['operation.get'], async ({ operationId }) => {
     try {
       const run = await kernel.storage.call('run', operationId)
