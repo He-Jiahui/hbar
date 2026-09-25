@@ -15,6 +15,7 @@ import type {
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
 import { goalExecutionCopy } from './goal-execution-copy'
+import { composerAttachmentCopy } from './composer-attachment-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -1002,6 +1003,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       addAttachment: choose('添加附件', 'Add attachment'),
       removeAttachment: (attachment) => choose(`移除附件 ${attachment.name}`, `Remove attachment ${attachment.name}`),
     },
+    attachments: composerAttachmentCopy(choose),
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),
       choose: choose('选择模型', 'Choose a model'),

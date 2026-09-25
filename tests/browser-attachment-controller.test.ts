@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { createBrowserAttachmentController } from '@hbar/client'
+import { HbarError } from '@hbar/contracts'
 
 test('browser attachment sources are bounded, opaque and expire before upload', async () => {
   let timestamp = 1_000
@@ -31,5 +32,28 @@ test('browser attachment sources are bounded, opaque and expire before upload', 
     })
   } finally {
     controller.dispose()
+  }
+})
+
+test('attachment command boundary preserves typed Host rejection and uncertain results without trusting arbitrary errors', async () => {
+  for (const [failure, expected] of [
+    [new HbarError('UNSUPPORTED_TYPE', 'Host rejected the file'), 'UNSUPPORTED_TYPE'],
+    [new HbarError('CONNECTION_CLOSED', 'Response lost'), 'CONNECTION_CLOSED'],
+    [new Error('Unknown transport failure'), 'EXECUTION_FAILED'],
+  ] as const) {
+    const controller = createBrowserAttachmentController({
+      async upload() {
+        throw failure
+      },
+    })
+    try {
+      const selection = await controller.prepare(new File(['data'], 'notes.txt', { type: 'text/plain' }))
+      await expect(controller.commands.execute('attachment.upload', selection.upload)).rejects.toMatchObject({
+        code: expected,
+      })
+      selection.release()
+    } finally {
+      controller.dispose()
+    }
   }
 })

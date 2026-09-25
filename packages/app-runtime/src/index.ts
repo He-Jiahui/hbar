@@ -229,7 +229,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
-  const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed)
+  const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed, options.files)
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
     navigation: navigation.reader,

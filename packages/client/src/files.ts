@@ -1,5 +1,5 @@
 import { CommandError, CommandRegistry, createCommandClient, COMMAND_PROTOCOL_VERSION } from '@hbar/commands'
-import type { ArtifactRef } from '@hbar/contracts'
+import { HbarError, type ArtifactRef } from '@hbar/contracts'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { ClientTransport } from './transport'
@@ -59,7 +59,12 @@ export function createAttachmentCommandClient(transport: AttachmentUploadTranspo
       if ((await sha256(file)) !== input.sha256)
         throw new CommandError('SOURCE_CHANGED', 'Attachment source content changed before upload')
       context.signal.throwIfAborted()
-      const artifact = await transport.upload(file, context.signal)
+      const artifact = await transport.upload(file, context.signal).catch((error: unknown) => {
+        // The command registry deliberately hides arbitrary errors; preserve the
+        // authenticated transport's typed rejection/unknown code at this boundary.
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw error
+      })
       if (artifact.id !== input.sha256 || artifact.size !== input.size)
         throw new CommandError('CONTENT_MISMATCH', 'Uploaded artifact does not match the selected source')
       return artifact

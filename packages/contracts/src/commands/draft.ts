@@ -10,6 +10,16 @@ export const promptAttachmentSchema = z.strictObject({
 })
 const draftResultSchema = z.strictObject({ sessionId: idSchema, revision: z.number().int().nonnegative() })
 const attachmentResultSchema = draftResultSchema.extend({ attachment: promptAttachmentSchema })
+const attachmentReservationTarget = z.strictObject({
+  sessionId: idSchema,
+  reservationId: idSchema,
+  ownerRevision: z.number().int().nonnegative(),
+})
+const attachmentReservationSchema = z.strictObject({
+  reservationId: idSchema,
+  ownerRevision: z.number().int().nonnegative(),
+  preparing: z.boolean(),
+})
 const metadata = (id: string) => ({
   id,
   version: 1,
@@ -52,6 +62,59 @@ export const draftCommands = {
       upload: attachmentUploadInputSchema,
     }),
     attachmentResultSchema,
+  ),
+  'draft.reserveAttachments': defineCommand(
+    metadata('draft.reserveAttachments'),
+    z.strictObject({
+      sessionId: idSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      files: z
+        .array(
+          z.strictObject({
+            name: z.string().max(4096),
+            mime: z.string().max(256),
+            size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+          }),
+        )
+        .min(1)
+        .max(12),
+    }),
+    draftResultSchema.extend({ reservations: z.array(attachmentReservationSchema).max(12) }),
+  ),
+  'draft.uploadAttachment': defineCommand(
+    metadata('draft.uploadAttachment'),
+    attachmentReservationTarget.extend({ kind: z.enum(['image', 'file']), upload: attachmentUploadInputSchema }),
+    attachmentResultSchema,
+  ),
+  'draft.failAttachmentPreparation': defineCommand(
+    metadata('draft.failAttachmentPreparation'),
+    attachmentReservationTarget.extend({ error: z.string().min(1).max(200) }),
+    draftResultSchema,
+  ),
+  'draft.removeAttachmentTransfer': defineCommand(
+    metadata('draft.removeAttachmentTransfer'),
+    attachmentReservationTarget,
+    draftResultSchema,
+  ),
+  'draft.reconcileAttachment': defineCommand(
+    metadata('draft.reconcileAttachment'),
+    attachmentReservationTarget,
+    draftResultSchema,
+  ),
+  'draft.acceptReadyAttachment': defineCommand(
+    metadata('draft.acceptReadyAttachment'),
+    attachmentReservationTarget.extend({ expectedRevision: z.number().int().nonnegative() }),
+    draftResultSchema,
+  ),
+  'draft.removeAttachment': defineCommand(
+    metadata('draft.removeAttachment'),
+    z.strictObject({
+      sessionId: idSchema,
+      kind: z.enum(['image', 'file']),
+      artifactId: z.string().regex(/^[a-f0-9]{64}$/),
+      expectedRevision: z.number().int().nonnegative(),
+    }),
+    draftResultSchema,
   ),
   'draft.reportAttachmentError': defineCommand(
     metadata('draft.reportAttachmentError'),

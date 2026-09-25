@@ -104,6 +104,12 @@ function isOverlaySelector(path, selector) {
     ])
     if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
   }
+  // cc-haha ComposerDropOverlay covers only its owning input; text remains in flex flow.
+  if (
+    /packages\/app-react\/src\/composer-attachments\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-composer-attachment-drop-overlay'
+  )
+    return true
   // cc-haha PermissionModeSelector: composer-trigger overlay / narrow bottom sheet.
   // Only this evidenced top-layer container; its option and confirmation content stays in flex flow.
   if (
@@ -572,6 +578,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const attachmentPath = 'packages/app-react/src/composer-attachments.css'
+  if (validateCss(attachmentPath, '.hbar-composer-attachment-drop-overlay {\nposition: absolute;\ninset: 0;\n}').length)
+    throw new Error('Rejected observed composer attachment drop overlay')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-composer-attachment-drop-overlay'],
+    [attachmentPath, '.hbar-composer-attachment-drop-overlay > p'],
+    [attachmentPath, '.hbar-composer-attachment-transfer'],
+  ]) {
+    if (validateCss(path, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length !== 2)
+      throw new Error('Composer attachment overlay exception leaked to content or another file')
+  }
   const permissionPath = 'packages/app-react/src/composer-permission-picker.css'
   const usagePath = 'packages/app-react/src/session-usage-control.css'
   if (validateCss(usagePath, '.hbar-session-usage-popover { position: fixed; inset: 0; }').length)

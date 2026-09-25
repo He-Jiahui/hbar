@@ -535,10 +535,25 @@ export interface RunCommandPort extends CommandExecutor {
   ): Promise<RunAccepted | null>
 }
 
+export interface SessionAttachmentTransfer {
+  readonly id: string
+  readonly ownerRevision: number
+  readonly originalOperationId: string | null
+  readonly name: string
+  readonly mime: string
+  readonly size: number
+  readonly status: 'preparing' | 'uploading' | 'failed' | 'unknown' | 'reconciling' | 'ready'
+  readonly kind: 'image' | 'file'
+  readonly upload: AttachmentUploadInput | null
+  readonly confirmed: PromptAttachment | null
+  readonly error: string | null
+}
+
 export interface SessionDraftState {
   readonly sessionId: string
   readonly text: string
   readonly attachments: readonly Readonly<PromptAttachment>[]
+  readonly attachmentTransfers: readonly SessionAttachmentTransfer[]
   readonly uploading: number
   readonly uploadError: string | null
   readonly revision: number

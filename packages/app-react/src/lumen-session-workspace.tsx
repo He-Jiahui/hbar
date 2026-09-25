@@ -19,7 +19,6 @@ import {
   projectSessionDecisions,
   sessionDecisionAction,
   type PlanProposalState,
-  type SessionAttachmentUpload,
   type SessionDecision,
 } from '@hbar/app-runtime'
 import type { HbarProposedPlanLabels } from './proposed-plan'
@@ -38,6 +37,13 @@ import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsag
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
+import {
+  HbarComposerAttachmentDropTarget,
+  HbarComposerAttachmentTransfers,
+  type HbarComposerAttachmentLabels,
+} from './composer-attachments'
+export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
 
 export interface HbarSessionWorkspaceLabels {
@@ -62,6 +68,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly timestamp: (value: number) => string
   readonly error: (code: string) => string
   readonly prompt: LumenPromptLabels
+  readonly attachments: HbarComposerAttachmentLabels
   readonly modelPicker: HbarComposerModelLabels
   readonly intent: HbarComposerIntentLabels
   readonly permissionPicker: HbarComposerPermissionLabels
@@ -95,12 +102,6 @@ export interface HbarSessionWorkspaceProps {
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
-}
-
-export interface HbarSessionAttachmentSelection {
-  readonly kind: 'image' | 'file'
-  readonly upload: SessionAttachmentUpload
-  release(): void
 }
 
 function SessionToolButton({
@@ -170,33 +171,21 @@ export function HbarSessionWorkspace({
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
+  const attachmentTransfers = draft?.attachmentTransfers ?? []
+  const attachmentIntakeEnabled =
+    Boolean(prepareAttachment) &&
+    connected &&
+    timeline.status !== 'loading' &&
+    timeline.status !== 'error' &&
+    draft?.status !== 'submitting' &&
+    draft?.status !== 'unknown' &&
+    !intentPending &&
+    !attachmentTransfers.some((item) => item.status === 'unknown' || item.status === 'reconciling')
   const addAttachments = (files: readonly File[]) => {
-    if (!sessionId || !prepareAttachment) return
-    const available = Math.max(0, 12 - ((draft?.attachments.length ?? 0) + (draft?.uploading ?? 0)))
-    void (async () => {
-      for (const file of files.slice(0, available)) {
-        let release: (() => void) | undefined
-        try {
-          const selection = await prepareAttachment(file)
-          release = selection.release
-          await execute('draft.addAttachment', {
-            sessionId,
-            kind: selection.kind,
-            upload: selection.upload,
-          })
-        } catch (error) {
-          const code =
-            error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
-              ? error.code
-              : error instanceof Error
-                ? error.message
-                : 'EXECUTION_FAILED'
-          await execute('draft.reportAttachmentError', { sessionId, error: code.slice(0, 200) }).catch(() => {})
-        } finally {
-          release?.()
-        }
-      }
-    })()
+    if (!sessionId || !prepareAttachment || !attachmentIntakeEnabled) return
+    void addComposerAttachments(runtime, { sessionId, revision: draft?.revision ?? 0 }, files, prepareAttachment).catch(
+      () => {},
+    )
   }
   const runErrorAction = timeline.runs.map((run) => runActions[run.id]).find((action) => action?.error)
   const toolInstanceId = presentation.toolInstanceId
@@ -461,137 +450,169 @@ export function HbarSessionWorkspace({
         connected={connected}
         labels={labels.intent}
       />
-      <LumenPromptComposer
-        value={draft?.text ?? ''}
-        labels={{
-          ...labels.prompt,
-          placeholder:
-            intent === 'goal'
-              ? labels.intent.goalPlaceholder
-              : intent === 'plan'
-                ? labels.intent.planPlaceholder
-                : labels.prompt.placeholder,
-        }}
-        attachments={(draft?.attachments ?? []).map((attachment) => ({
-          id: attachment.artifact.id,
-          kind: attachment.kind,
-          name: attachment.artifact.name,
-        }))}
-        disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
-        submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
-        uploading={(draft?.uploading ?? 0) > 0}
-        canAddAttachments={
-          Boolean(prepareAttachment) &&
-          connected &&
-          timeline.status !== 'loading' &&
-          timeline.status !== 'error' &&
-          draft?.status !== 'submitting' &&
-          (draft?.attachments.length ?? 0) + (draft?.uploading ?? 0) < 12
-        }
-        canSubmit={
-          configured &&
-          !modelPending &&
-          !intentPending &&
-          !permissionEntry?.locked &&
-          draft?.status !== 'unknown' &&
-          Boolean(draft?.text.trim() || draft?.attachments.length)
-        }
-        canStop={Boolean(activeRun)}
-        runningActions={{
-          ...labels.runningActions,
-          submit: draft?.text.trim() || draft?.attachments.length ? 'queue' : 'hidden',
-        }}
-        stopping={Boolean(
-          activeRun && ['submitting', 'unknown', 'succeeded'].includes(runActions[activeRun.id]?.status ?? ''),
-        )}
-        error={
-          draft?.uploadError
-            ? labels.error(draft.uploadError)
-            : draft?.error
-              ? labels.error(draft.error)
-              : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
-                ? labels.modelPicker.unknown
-                : controls.errors.model
-                  ? labels.error(controls.errors.model)
-                  : undefined
-        }
-        controls={
-          <LumenFrame className="hbar-session-composer-controls">
-            {composerPermission.available && (
-              <HbarComposerPermissionPicker
-                key={`permission:${sessionId}`}
+      <HbarComposerAttachmentDropTarget
+        key={sessionId}
+        enabled={attachmentIntakeEnabled}
+        label={labels.attachments.drop}
+        onAdd={addAttachments}
+      >
+        <LumenPromptComposer
+          value={draft?.text ?? ''}
+          labels={{
+            ...labels.prompt,
+            placeholder:
+              intent === 'goal'
+                ? labels.intent.goalPlaceholder
+                : intent === 'plan'
+                  ? labels.intent.planPlaceholder
+                  : labels.prompt.placeholder,
+          }}
+          attachments={(draft?.attachments ?? []).map((attachment) => ({
+            id: attachment.artifact.id,
+            kind: attachment.kind,
+            name: attachment.artifact.name,
+          }))}
+          disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
+          submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
+          uploading={(draft?.uploading ?? 0) > 0}
+          canAddAttachments={
+            attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
+          }
+          canSubmit={
+            configured &&
+            !modelPending &&
+            !intentPending &&
+            attachmentTransfers.length === 0 &&
+            !permissionEntry?.locked &&
+            draft?.status !== 'unknown' &&
+            Boolean(draft?.text.trim() || draft?.attachments.length)
+          }
+          canStop={Boolean(activeRun)}
+          runningActions={{
+            ...labels.runningActions,
+            submit: draft?.text.trim() || draft?.attachments.length ? 'queue' : 'hidden',
+          }}
+          stopping={Boolean(
+            activeRun && ['submitting', 'unknown', 'succeeded'].includes(runActions[activeRun.id]?.status ?? ''),
+          )}
+          error={
+            draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
+              ? labels.attachments.error(draft.uploadError)
+              : draft?.error
+                ? labels.error(draft.error)
+                : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
+                  ? labels.modelPicker.unknown
+                  : controls.errors.model
+                    ? labels.error(controls.errors.model)
+                    : undefined
+          }
+          controls={
+            <LumenFrame className="hbar-session-composer-controls">
+              {composerPermission.available && (
+                <HbarComposerPermissionPicker
+                  key={`permission:${sessionId}`}
+                  sessionId={sessionId}
+                  sessionLabel={sessionTitle}
+                  entry={permissionEntry}
+                  hostDefault={composerPermission.hostDefault}
+                  connected={connected}
+                  disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                  labels={labels.permissionPicker}
+                  onRefresh={async () => {
+                    await runtime.commands.execute('composerPermission.refresh', {})
+                  }}
+                  onSelect={async (input) => {
+                    await runtime.commands.execute('composerPermission.setChoice', input)
+                  }}
+                />
+              )}
+              <HbarComposerIntentControls
+                key={sessionId}
                 sessionId={sessionId}
-                sessionLabel={sessionTitle}
-                entry={permissionEntry}
-                hostDefault={composerPermission.hostDefault}
+                connected={connected}
+                disabled={
+                  draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
+                }
+                labels={labels.intent}
+              />
+            </LumenFrame>
+          }
+          context={
+            <HbarComposerAttachmentTransfers
+              transfers={attachmentTransfers}
+              labels={labels.attachments}
+              connected={connected}
+              onRemove={(item) =>
+                invoke('draft.removeAttachmentTransfer', {
+                  sessionId,
+                  reservationId: item.id,
+                  ownerRevision: item.ownerRevision,
+                })
+              }
+              onReconcile={(item) =>
+                invoke('draft.reconcileAttachment', {
+                  sessionId,
+                  reservationId: item.id,
+                  ownerRevision: item.ownerRevision,
+                })
+              }
+              onAccept={(item) =>
+                invoke('draft.acceptReadyAttachment', {
+                  sessionId,
+                  reservationId: item.id,
+                  ownerRevision: item.ownerRevision,
+                  expectedRevision: draft?.revision ?? 0,
+                })
+              }
+            />
+          }
+          modelPicker={
+            <LumenFrame className="hbar-session-composer-options">
+              <HbarSessionUsageControl
+                key={`usage:${sessionId}`}
+                controls={controls}
+                labels={labels.usage}
+                onOpenMonitor={() => toggleTool('monitoring')}
+              />
+              <HbarComposerModelPicker
+                key={sessionId}
+                sessionId={sessionId}
                 connected={connected}
                 disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
-                labels={labels.permissionPicker}
-                onRefresh={async () => {
-                  await runtime.commands.execute('composerPermission.refresh', {})
-                }}
-                onSelect={async (input) => {
-                  await runtime.commands.execute('composerPermission.setChoice', input)
-                }}
+                labels={labels.modelPicker}
               />
-            )}
-            <HbarComposerIntentControls
-              key={sessionId}
-              sessionId={sessionId}
-              connected={connected}
-              disabled={
-                draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
-              }
-              labels={labels.intent}
-            />
-          </LumenFrame>
-        }
-        modelPicker={
-          <LumenFrame className="hbar-session-composer-options">
-            <HbarSessionUsageControl
-              key={`usage:${sessionId}`}
-              controls={controls}
-              labels={labels.usage}
-              onOpenMonitor={() => toggleTool('monitoring')}
-            />
-            <HbarComposerModelPicker
-              key={sessionId}
-              sessionId={sessionId}
-              connected={connected}
-              disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
-              labels={labels.modelPicker}
-            />
-          </LumenFrame>
-        }
-        onChange={(text) => invoke('draft.setText', { sessionId, text })}
-        onAddAttachments={prepareAttachment ? addAttachments : undefined}
-        onRemoveAttachment={(id, kind) =>
-          invoke('draft.setAttachments', {
-            sessionId,
-            attachments: (draft?.attachments ?? []).filter(
-              (attachment) => attachment.kind !== kind || attachment.artifact.id !== id,
-            ),
-          })
-        }
-        onSubmit={() => {
-          if (!draft || !configured || !model.modelId || modelPending || intentPending) return
-          invoke('composerIntent.submit', {
-            sessionId,
-            modelId: model.modelId,
-            expectedIntentRevision: intentEntry?.revision ?? 0,
-            ...(composerPermission.available ? { expectedPermissionRevision: permissionEntry?.revision ?? 0 } : {}),
-            input: {
-              text: draft.text,
-              images: draft.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),
-              files: draft.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
-              ...(model.thinkingLevel ? { thinking: model.thinkingLevel } : {}),
-            },
-          })
-        }}
-        onStop={() => {
-          if (activeRun) invoke('operation.cancel', { operationId: activeRun.id })
-        }}
-      />
+            </LumenFrame>
+          }
+          onChange={(text) => invoke('draft.setText', { sessionId, text })}
+          onAddAttachments={prepareAttachment ? addAttachments : undefined}
+          onRemoveAttachment={(id, kind) =>
+            invoke('draft.removeAttachment', {
+              sessionId,
+              artifactId: id,
+              kind,
+              expectedRevision: draft?.revision ?? 0,
+            })
+          }
+          onSubmit={() => {
+            if (!draft || !configured || !model.modelId || modelPending || intentPending) return
+            invoke('composerIntent.submit', {
+              sessionId,
+              modelId: model.modelId,
+              expectedIntentRevision: intentEntry?.revision ?? 0,
+              ...(composerPermission.available ? { expectedPermissionRevision: permissionEntry?.revision ?? 0 } : {}),
+              input: {
+                text: draft.text,
+                images: draft.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),
+                files: draft.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
+                ...(model.thinkingLevel ? { thinking: model.thinkingLevel } : {}),
+              },
+            })
+          }}
+          onStop={() => {
+            if (activeRun) invoke('operation.cancel', { operationId: activeRun.id })
+          }}
+        />
+      </HbarComposerAttachmentDropTarget>
       {sessionUsagePresentation(controls, labels.usage).notice && (
         <LumenText as="p" className="hbar-session-budget-notice" role="status">
           {sessionUsagePresentation(controls, labels.usage).notice}
