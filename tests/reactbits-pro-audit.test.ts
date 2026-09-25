@@ -4,6 +4,20 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('request log samples status filtering, exclusive detail, recovery and narrow keyboard collapse', () => {
+  const id = 'hbar-app-ui-ai-usage-7'
+  expect(auditSamplingPlan(id)!.samples).toHaveLength(7)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:6:press-enter`])
+  const cases = usageRequestInteractionCases(
+    snapshot([control(3, { tag: 'button', capabilities: ['press', 'click'] })]),
+    id,
+    'usage-requests-error',
+  )
+  expect(cases.filter((c) => c.action === 'press').every((c) => c.focusBefore)).toBe(true)
+  expect(cases.some((c) => c.id === `${id}:usage-requests-error:3:click`)).toBe(true)
+  expect(auditSamplingPlan(id)!.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('overage samples choice feedback and both source no-op actions without replaying every plan', () => {
   const id = 'hbar-app-ui-ai-usage-6'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(6)
@@ -111,6 +125,7 @@ import {
   usageBudgetSliderCases,
   usageBudgetInteractionCases,
   usageOverageInteractionCases,
+  usageRequestInteractionCases,
   planBoardScrollCase,
   passiveScrollDelta,
   checkableStates,

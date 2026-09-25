@@ -14,13 +14,14 @@ import { usageBudgetFixture } from '../../../tests/fixtures/hbar-app-ui-usage-bu
 import { createUsageBudgetPreviewStore, projectUsageBudgetPreview } from './usage-budget-preview-model'
 import { usageOverageFixture } from '../../../tests/fixtures/hbar-app-ui-usage-overage-fixtures'
 import { createUsageOveragePreviewStore, projectUsageOveragePreview } from './usage-overage-preview-model'
+import { usageRequestFixture } from '../../../tests/fixtures/hbar-app-ui-usage-request-fixtures'
+import { createUsageRequestPreviewStore, projectUsageRequestPreview } from './usage-request-preview-model'
 
 export function UsagePreviewHost({
   spec,
   onAction,
   children,
 }: HbarAppUiVariantProps & { readonly children: ReactNode }) {
-  const [filtered, setFiltered] = useState(false)
   const base = USAGE_FIXTURES
   const mode = new URLSearchParams(location.search).get('usageFixture')
   const [overviewStore] = useState(() => createUsageOverviewPreviewStore(usageOverviewDatasets(mode)))
@@ -46,13 +47,11 @@ export function UsagePreviewHost({
   const overage = projectUsageOveragePreview(useStore(overageStore), overageFixture.copy, (action, id) =>
     report(action, id ?? undefined),
   )
-  function collection<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
-    return mode === 'empty'
-      ? []
-      : mode === 'overflow'
-        ? Array.from({ length: 200 }, (_, index) => ({ ...rows[index % rows.length]!, id: `record-${index}` }))
-        : rows
-  }
+  const [requestFixture] = useState(() => usageRequestFixture(mode))
+  const [requestStore] = useState(() =>
+    createUsageRequestPreviewStore(requestFixture.records, requestFixture.expandedId),
+  )
+  const requests = projectUsageRequestPreview(useStore(requestStore), requestFixture.copy)
   function report(actionId: string, value?: string) {
     onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) })
   }
@@ -65,12 +64,7 @@ export function UsagePreviewHost({
         seats,
         budget,
         overage,
-        requests: {
-          ...base.requests,
-          strategy: mode === 'overflow' ? 'virtual' : 'content-grown',
-          rows: collection(base.requests.rows).filter((_, index) => !filtered || index % 2 === 0),
-          filter: { label: filtered ? 'Show all requests' : 'Filter log', onInvoke: () => setFiltered(!filtered) },
-        },
+        requests,
         compact: { ...base.compact, action: { label: 'Upgrade', onInvoke: () => report('upgrade') } },
       }}
     >

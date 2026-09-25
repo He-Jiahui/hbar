@@ -262,6 +262,8 @@ export type InteractionCase = Readonly<{
     | 'usage-limits-raised'
     | 'usage-members-platform'
     | 'usage-members-empty'
+    | 'usage-requests-error'
+    | 'usage-requests-error-open'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1507,6 +1509,26 @@ export function usageOverageInteractionCases(
   )
 }
 
+const usageRequestScenarios = ['usage-requests-error', 'usage-requests-error-open'] as const
+async function prepareUsageRequestScenario(
+  root: Locator,
+  scenario: (typeof usageRequestScenarios)[number],
+): Promise<void> {
+  await root.getByRole('tab', { name: 'Errors', exact: true }).click()
+  const row = root.getByRole('button', { name: /14:30:31/ })
+  const expanded = (await row.getAttribute('aria-expanded')) === 'true'
+  if (expanded !== (scenario === 'usage-requests-error-open')) await row.click()
+}
+export function usageRequestInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario?: (typeof usageRequestScenarios)[number],
+): readonly InteractionCase[] {
+  return interactionCases(snapshot, variantId, scenario).map((interaction) =>
+    interaction.action === 'press' ? { ...interaction, focusBefore: true } : interaction,
+  )
+}
+
 export function planBoardScrollCase(
   variantId: string,
   owner: ControlSnapshot,
@@ -2556,6 +2578,8 @@ async function replayInteraction(
     await root.getByRole('tab', { name: 'Tier 2', exact: true }).click()
   const memberScenario = usageMemberScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-ai-usage-4' && memberScenario) await prepareUsageMemberScenario(root, memberScenario)
+  const requestScenario = usageRequestScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-ai-usage-7' && requestScenario) await prepareUsageRequestScenario(root, requestScenario)
   if (spec.id === 'hbar-app-ui-agent-plan-6' && summaryScenario) await preparePlanSummaryScenario(root, summaryScenario)
   if (spec.id === 'hbar-app-ui-agent-approval-3' && queuePlan) await prepareQueueApprovalScenario(root, queuePlan)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -2679,6 +2703,9 @@ async function replayReferenceInteraction(
   const memberScenario = usageMemberScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-ai-usage-4' && memberScenario)
     await prepareUsageMemberScenario(root, memberScenario)
+  const requestScenario = usageRequestScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-ai-usage-7' && requestScenario)
+    await prepareUsageRequestScenario(root, requestScenario)
   if (reference.id === 'hbar-app-ui-agent-plan-6' && summaryScenario)
     await preparePlanSummaryScenario(root, summaryScenario)
   const permissionScenario = permissionApprovalScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3190,6 +3217,16 @@ async function runInteractionsParallel(
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-ai-usage-6')
               discovered = [...usageOverageInteractionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-ai-usage-7') {
+              discovered = [...usageRequestInteractionCases(sourceSnapshot, spec.id)]
+              for (const scenario of usageRequestScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareUsageRequestScenario(sourceRoot, scenario)
+                discovered.push(
+                  ...usageRequestInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
+              }
+            }
             if (spec.id === 'hbar-app-ui-agent-activity-5') {
               await prepareAgentLogScenario(discoveryPage, sourceRoot, 'away', true)
               discovered.push(...agentLogScenarioCases(await snapshotRoot(frame, sourceSelector), spec.id, 'away'))

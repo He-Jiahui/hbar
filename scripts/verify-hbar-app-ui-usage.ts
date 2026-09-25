@@ -6,6 +6,7 @@ import { verifyUsageLimits } from './verify-hbar-app-ui-usage-limits'
 import { verifyUsageMembers } from './verify-hbar-app-ui-usage-members'
 import { verifyUsageBudget } from './verify-hbar-app-ui-usage-budget'
 import { verifyUsageOverage } from './verify-hbar-app-ui-usage-overage'
+import { verifyUsageRequests } from './verify-hbar-app-ui-usage-requests'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 let server: ReturnType<typeof Bun.spawn> | undefined
@@ -54,6 +55,9 @@ try {
   } else if (process.argv.includes('--overage-only')) {
     await verifyUsageOverage(page, baseUrl)
     expect(errors).toEqual([])
+  } else if (process.argv.includes('--requests-only')) {
+    await verifyUsageRequests(page, baseUrl)
+    expect(errors).toEqual([])
   } else {
     for (const theme of ['dark', 'light'])
       for (const width of [1192, 768, 320]) {
@@ -74,7 +78,9 @@ try {
                         ? '.lumen-usage-budget-panel'
                         : variant === 6
                           ? '.lumen-usage-overage-panel'
-                          : '.hbar-app-ui-usage-content',
+                          : variant === 7
+                            ? '.lumen-usage-request-table'
+                            : '.hbar-app-ui-usage-content',
             ),
           ).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -82,25 +88,10 @@ try {
             await page.screenshot({ path: `artifacts/app-ui-integration/usage/${variant}-${width}-${theme}.png` })
         }
       }
-    for (const variant of [7]) {
-      await page.goto(url(variant, 'dark', 'overflow'), { waitUntil: 'networkidle' })
-      const viewport = page.locator('.hbar-app-ui-virtual-list')
-      expect(await viewport.getByRole('listitem').count()).toBeLessThan(200)
-      expect(
-        await viewport.evaluate((element) => {
-          element.scrollTop = element.scrollHeight
-          return element.scrollTop > 0
-        }),
-      ).toBe(true)
-      await page.goto(url(variant, 'light', 'empty'), { waitUntil: 'networkidle' })
-      await expect(page.locator('.hbar-app-ui-usage-content')).toContainText(/No /)
-    }
+    await verifyUsageRequests(page, baseUrl)
     await verifyUsageMembers(page, baseUrl)
     await verifyUsageBudget(page, baseUrl)
     await verifyUsageOverage(page, baseUrl)
-    await page.goto(url(7), { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: 'Expand request req_91a2', exact: true }).click()
-    await expect(page.locator('pre')).toContainText('model=balanced')
     await verifyUsageModel(page, baseUrl)
     await verifyUsageLimits(page, baseUrl)
     expect(errors).toEqual([])
@@ -108,7 +99,7 @@ try {
       JSON.stringify({
         variants: 8,
         viewportThemes: 48,
-        virtualLists: 1,
+        pagedLists: 1,
         emptyStates: 3,
         interactions: 3,
         pageErrors: errors,

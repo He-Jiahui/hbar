@@ -985,6 +985,69 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-ai-usage-7')
+    return {
+      revision: 1,
+      lumenEntries: ['usage.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Capped filters the log and recomputes billed total while retaining its expanded detail',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '2:click',
+          change: 'Errors shows the upstream-timeout call and its billed total, without opening it automatically',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '3:click',
+          change: 'Opening a completed request replaces the previously expanded capped request',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'usage-requests-error:3:click',
+          change: 'The filtered error row reveals the real timeout status and zero output tokens',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: 'usage-requests-error-open:0:press-enter',
+          change: 'Returning to All retains the expanded error ID and restores all rows and total',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '6:press-enter',
+          change: 'Native Enter collapses the default capped row after real focus/scroll preparation',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '3:hover',
+          change: 'A representative collapsed request shows row pointer feedback without expanding',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other request rows and equivalent click/Space gestures',
+          basis:
+            'Rows share a single ID-keyed exclusive disclosure model. Success/capped/error content was read from the rendered source, while replay samples state mechanisms instead of generating one test per row.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme gestures and large-history pagination',
+          basis:
+            'Eight static pairs cover all widths/themes. Unit and production tests cover filter restoration, duplicate/stale IDs, empty and 50-row pagination; pagination is a host capacity extension, not a source feature.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   return undefined
 }
 
