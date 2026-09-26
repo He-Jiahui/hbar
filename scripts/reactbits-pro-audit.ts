@@ -252,6 +252,9 @@ export type InteractionCase = Readonly<{
     | 'activity-snoozed'
     | 'activity-archived'
     | 'activity-back'
+    | 'system-expanded'
+    | 'system-dismissed'
+    | 'system-empty'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1618,6 +1621,22 @@ const dialogWizardScenarios = [
 const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
 const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
 const notificationActivityScenarios = ['activity-snooze-menu', 'activity-snoozed', 'activity-archived', 'activity-back'] as const
+const notificationSystemScenarios = ['system-expanded', 'system-dismissed', 'system-empty'] as const
+async function prepareNotificationSystemScenario(root: Locator, scenario: (typeof notificationSystemScenarios)[number]): Promise<void> {
+  if (scenario === 'system-expanded') {
+    await root.getByRole('button', { name: 'Show details', exact: true }).click()
+    return
+  }
+  const hide = root.getByRole('button', { name: 'Hide details', exact: true })
+  if (await hide.count()) await hide.click()
+  const titles = scenario === 'system-dismissed'
+    ? ['Scheduled maintenance on Sunday']
+    : ['Scheduled maintenance on Sunday', 'Your card expires in 6 days', '3 of 5 imports failed', 'meridian.example is verified', 'You have used 84% of your monthly events']
+  for (const title of titles) {
+    const dismiss = root.getByRole('button', { name: `Dismiss: ${title}` })
+    if (await dismiss.count()) await dismiss.click()
+  }
+}
 async function prepareNotificationActivityScenario(root: Locator, scenario: (typeof notificationActivityScenarios)[number]): Promise<void> {
   if (scenario === 'activity-snoozed' || scenario === 'activity-archived') {
     await root.getByRole('tab', { name: new RegExp(scenario === 'activity-snoozed' ? '^Snoozed' : '^Archived') }).click()
@@ -3119,6 +3138,8 @@ async function replayInteraction(
     await prepareNotificationPreferencesDirty(root)
   if (spec.id === 'hbar-app-ui-notifications-4' && notificationActivityScenarios.some((value) => value === interaction.scenario))
     await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
+  if (spec.id === 'hbar-app-ui-notifications-5' && notificationSystemScenarios.some((value) => value === interaction.scenario))
+    await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3399,6 +3420,8 @@ async function replayReferenceInteraction(
     await prepareNotificationPreferencesDirty(root)
   if (reference.id === 'hbar-app-ui-notifications-4' && notificationActivityScenarios.some((value) => value === interaction.scenario))
     await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
+  if (reference.id === 'hbar-app-ui-notifications-5' && notificationSystemScenarios.some((value) => value === interaction.scenario))
+    await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3933,6 +3956,13 @@ async function runInteractionsParallel(
               for (const scenario of notificationActivityScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareNotificationActivityScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-notifications-5') {
+              for (const scenario of notificationSystemScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareNotificationSystemScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

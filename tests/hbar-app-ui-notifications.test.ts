@@ -11,6 +11,7 @@ import {
 import {
   createHbarAppUiNotificationActivityFixture,
   createHbarAppUiNotificationPreferencesFixture,
+  createHbarAppUiNotificationSystemFixture,
   createHbarAppUiNotificationsLocalizedFixtures,
   HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
 } from './fixtures/hbar-app-ui-notifications-fixtures'
@@ -63,7 +64,7 @@ describe('hbar-app-ui notification surfaces', () => {
       system: { ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.system!, messages: [] },
     }
     expect(render(1, content)).toContain('No notifications')
-    expect(render(5, content)).toContain('No system messages')
+    expect(render(5, content)).toContain('No messages')
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     expect(render(6)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
   })
@@ -173,5 +174,24 @@ describe('hbar-app-ui notification surfaces', () => {
     expect((render(4, createHbarAppUiNotificationActivityFixture('overflow')).match(/<li/g) ?? []).length).toBe(81)
     expect((render(4, createHbarAppUiNotificationActivityFixture('duplicate')).match(/<li/g) ?? []).length).toBe(3)
     expect(render(4, createHbarAppUiNotificationActivityFixture('unavailable'))).toContain('Action unavailable')
+  })
+
+  test('system banners render host-owned messages, named actions, details and bounded scrolling', () => {
+    const html = render(5)
+    expect((html.match(/class="lumen-system-message"/g) ?? []).length).toBe(5)
+    expect(html).toContain('while we migrate the ingest cluster.')
+    expect(html).toContain('Renewal for Cedar Labs is due on 12 November.')
+    expect(html).toContain('data-hbar-app-ui-action="read-notice"')
+    expect(html).toContain('data-hbar-app-ui-action="remind-later"')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('4.2 of 5 M events')
+    expect(html).not.toContain('role="progressbar"')
+    expect(html).not.toContain('Three source files need a schema mapping')
+    expect(render(5, createHbarAppUiNotificationSystemFixture('localized'))).toContain('Systemmeldungen')
+    expect(render(5, createHbarAppUiNotificationSystemFixture('empty'))).toContain('Dismissed banners do not come back')
+    expect((render(5, createHbarAppUiNotificationSystemFixture('one')).match(/class="lumen-system-message"/g) ?? []).length).toBe(1)
+    expect((render(5, createHbarAppUiNotificationSystemFixture('overflow')).match(/class="lumen-system-message"/g) ?? []).length).toBe(81)
+    expect((render(5, createHbarAppUiNotificationSystemFixture('duplicate')).match(/class="lumen-system-message"/g) ?? []).length).toBe(5)
+    expect(render(5, createHbarAppUiNotificationSystemFixture('unavailable'))).toContain('Action unavailable')
   })
 })

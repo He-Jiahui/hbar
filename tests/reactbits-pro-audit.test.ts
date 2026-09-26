@@ -50,6 +50,17 @@ test('activity sampling distinguishes view projection, move confirmation, menu a
   expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
 })
 
+test('system banner sampling covers dismissal, detail disclosure, restoration and reference no-ops', () => {
+  const id = 'hbar-app-ui-notifications-5'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(10)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:1:click`, `${id}:6:expand`, `${id}:7:click`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([`${id}:system-empty:0:click`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('compact usage samples two independent actions and button styles, not passive bars', () => {
   const id = 'hbar-app-ui-ai-usage-8'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(5)

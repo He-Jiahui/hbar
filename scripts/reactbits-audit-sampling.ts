@@ -561,6 +561,28 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-notifications-5')
+    return {
+      revision: 1,
+      lumenEntries: ['notifications.tsx', 'notifications-system-reference.css', 'notifications.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Read the notice removes only the maintenance banner and enables restoration' },
+        { viewport: 'desktop', theme: 'dark', suffix: '4:click', change: 'Remind me later removes the billing banner through the secondary action' },
+        { viewport: 'desktop', theme: 'light', suffix: '6:expand', change: 'Import failure expands three separate source-error list rows' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'system-expanded:6:click', change: 'Hide details collapses the error list without removing the banner' },
+        { viewport: 'desktop', theme: 'light', suffix: '7:click', change: 'Retry failed has no invented result in the reference demo' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Update card is a distinct source no-op action, not a dismissal' },
+        { viewport: 'tablet', theme: 'light', suffix: 'system-dismissed:0:click', change: 'Restore all brings a dismissed row back and disables itself' },
+        { viewport: 'stress', theme: 'light', suffix: '2:press-space', change: 'Narrow native keyboard dismisses a single message' },
+        { viewport: 'stress', theme: 'dark', suffix: 'system-empty:0:click', change: 'Restore from the fully empty state repopulates all five rows' },
+        { viewport: 'stress', theme: 'light', suffix: '6:expand', change: 'Narrow details expansion preserves independently scrollable rows' },
+      ],
+      inferences: [
+        { scope: 'Other primary outcomes and repeated dismiss buttons', basis: 'Five typed messages share the same ID-targeted callback and row renderer. Real reference probes confirmed View DNS dismisses, while Increase limit is a no-op; one primary dismissal, one secondary dismissal and a keyboard close are paired. The remaining equivalent rows are inferred, not counted as paired clicks.', verification: 'inferred-not-replayed' },
+        { scope: 'Other theme, viewport and input permutations', basis: 'All eight static pairs cover the responsive flow and colors. Desktop and 286px detail states, a tablet restore and native keyboard dismissal cover the different feedback and scrolling owners; no cartesian button matrix is claimed.', verification: 'inferred-not-replayed' },
+        { scope: 'Host persistence failure, capacity and localized input', basis: 'The source demo transitions immediately. Host-confirmed async failure/retry, absent handler, empty/one/duplicate/81 messages and long translated copy are tested locally, not invented as live source outcomes.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-notifications-4')
     return {
       revision: 2,

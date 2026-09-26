@@ -314,51 +314,60 @@ export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent =
       dismiss: (title) => `Dismiss: ${title}`,
       show: 'Show details',
       hide: 'Hide details',
-      progress: (title) => `${title} usage`,
-      empty: 'No system messages',
+      empty: 'No messages',
+      emptyDetail: 'Dismissed banners do not come back unless the condition repeats.',
+      pending: 'Updating message…',
+      actionFailed: 'Could not update this message. Try again.',
+      restoreFailed: 'Could not restore messages. Try again.',
+      unavailable: 'Action unavailable',
     },
     messages: [
       {
         id: 'maintenance',
         tone: 'info',
         title: 'Scheduled maintenance on Sunday',
-        detail: 'Halcyon will be read-only from 02:00 to 04:00 UTC.',
-        primary: 'Read the notice',
+        detail: 'Halcyon will be read-only from 02:00 to 04:00 UTC while we migrate the ingest cluster.',
+        primary: { id: 'read-notice', label: 'Read the notice', variant: 'outlined' },
       },
       {
         id: 'card',
         tone: 'warning',
         title: 'Your card expires in 6 days',
-        detail: 'Update the payment method to avoid an interruption.',
-        primary: 'Update card',
-        secondary: 'Remind me later',
+        detail: 'Renewal for Cedar Labs is due on 12 November. Update the payment method to avoid an interruption.',
+        primary: { id: 'update-card', label: 'Update card', variant: 'solid' },
+        secondary: { id: 'remind-later', label: 'Remind me later' },
       },
       {
         id: 'imports',
         tone: 'danger',
         title: '3 of 5 imports failed',
-        detail: 'The Northwind sync stopped after repeated schema errors.',
-        primary: 'Retry failed',
-        expandable: true,
-        expandedDetail: 'Three source files need a schema mapping before the next retry.',
+        detail: 'The Northwind sync stopped after repeated schema errors. Nothing was written for the failed files.',
+        primary: { id: 'retry-failed', label: 'Retry failed', variant: 'solid' },
+        details: [
+          { id: 'contacts', text: 'contacts-oct.csv: unmapped column at row 118' },
+          { id: 'accounts', text: "accounts-eu.csv: duplicate primary key 'NW-4471'" },
+          { id: 'deals', text: 'deals-q3.csv: date parsed outside the allowed range' },
+        ],
       },
       {
         id: 'domain',
         tone: 'success',
         title: 'meridian.example is verified',
-        detail: 'DNS records propagated and the certificate was issued.',
-        primary: 'View DNS',
+        detail: 'DNS records propagated and the certificate was issued. Outbound mail now sends from this domain.',
+        primary: { id: 'view-dns', label: 'View DNS', variant: 'outlined' },
       },
       {
         id: 'usage',
         tone: 'usage',
         title: 'You have used 84% of your monthly events',
         detail: 'At the current rate the workspace reaches its limit around 26 November.',
-        primary: 'Increase limit',
+        primary: { id: 'increase-limit', label: 'Increase limit', variant: 'solid' },
         usage: { value: 84, label: '4.2 of 5 M events' },
       },
     ],
     listStrategy: scroll,
+    performAction: async (_messageId, actionId) =>
+      actionId === 'restore-all' ? 'restore' : ['dismiss', 'read-notice', 'remind-later', 'view-dns'].includes(actionId) ? 'dismiss' : 'retain',
   },
   bell: {
     labels: {
@@ -534,6 +543,67 @@ export function createHbarAppUiNotificationActivityFixture(
           moveEntry: async () => {
             attempts += 1
             if (attempts === 1) throw new Error('Preview-only failed move')
+          },
+        },
+      }
+    }
+    case null:
+    default: return base
+  }
+}
+
+export function createHbarAppUiNotificationSystemFixture(
+  mode: string | null,
+  base: HbarAppUiNotificationsContent = HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
+): HbarAppUiNotificationsContent {
+  const system = base.system!
+  switch (mode) {
+    case 'localized': return {
+      ...base,
+      system: {
+        ...system,
+        labels: {
+          ...system.labels,
+          title: 'Systemmeldungen',
+          detail: 'Dauerhafte Hinweise für Konto, Abrechnung und Plattformstatus mit ausführlicher Beschreibung.',
+          restore: 'Alle wiederherstellen', dismiss: (title) => `Schließen: ${title}`,
+          show: 'Einzelheiten anzeigen', hide: 'Einzelheiten ausblenden',
+          empty: 'Keine Meldungen', emptyDetail: 'Geschlossene Hinweise kehren erst zurück, wenn die Bedingung erneut eintritt.',
+          pending: 'Meldung wird aktualisiert…', actionFailed: 'Aktualisierung fehlgeschlagen. Erneut versuchen.',
+          restoreFailed: 'Wiederherstellung fehlgeschlagen.', unavailable: 'Aktion nicht verfügbar',
+        },
+        messages: system.messages.map((message) => ({
+          ...message,
+          title: `${message.title} — für diesen Arbeitsbereich`,
+          detail: `${message.detail} Zusätzliche Informationen für einen lokalisierten Arbeitsbereich.`,
+        })),
+      },
+    }
+    case 'empty': return { ...base, system: { ...system, messages: [] } }
+    case 'one': return { ...base, system: { ...system, messages: system.messages.slice(0, 1) } }
+    case 'overflow': return {
+      ...base,
+      system: {
+        ...system,
+        messages: Array.from({ length: 81 }, (_, index) => ({
+          ...system.messages[0]!, id: `system-${index}`, title: `Scheduled maintenance ${index}`,
+        })),
+      },
+    }
+    case 'duplicate': return { ...base, system: { ...system, messages: [...system.messages, system.messages[0]!] } }
+    case 'unavailable': return { ...base, system: { ...system, performAction: undefined } }
+    case 'retry': {
+      const handler = system.performAction
+      if (!handler) return base
+      let attempts = 0
+      return {
+        ...base,
+        system: {
+          ...system,
+          performAction: async (messageId, actionId, signal) => {
+            attempts += 1
+            if (attempts === 1) throw new Error('Preview-only failed action')
+            return handler(messageId, actionId, signal)
           },
         },
       }
