@@ -3,10 +3,12 @@ import { HbarError } from '@hbar/contracts'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { Kernel } from './index'
 import { registerWorkspaceOrganizationCommands } from './workspace-organization-commands'
+import { registerWorkspaceDisplayNamesCommands } from './workspace-display-names-commands'
 
 export function createWorkspaceSessionCommands(kernel: Kernel) {
   const registry = new CommandRegistry({ execution: 'host' })
   registerWorkspaceOrganizationCommands(registry, kernel.storage, () => kernel.changed('workspace-organization'))
+  registerWorkspaceDisplayNamesCommands(registry, kernel.storage, () => kernel.changed('workspace-display-names'))
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
       return await operation()

@@ -42,6 +42,7 @@
     "./commands/usage": "./src/commands/usage.ts",
     "./commands/workspaces": "./src/commands/workspaces.ts",
     "./commands/workspace-organization": "./src/commands/workspace-organization.ts",
+    "./commands/workspace-display-names": "./src/commands/workspace-display-names.ts",
     "./commands/workflows": "./src/commands/workflows.ts",
     "./directory": "./src/state/directory.ts",
     "./metrics": "./src/metrics.ts",

@@ -40,6 +40,7 @@ import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recover
 import { readActiveOperations } from './active-operations.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
+import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -50,7 +51,7 @@ const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 7) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 8) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -121,14 +122,25 @@ if (schemaVersion < 7)
   db.transaction(() => {
     // Another Worker may already have completed this migration while this one waited for the write lock.
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 7) {
+    if (current !== 7 && current !== 8) {
       if (current !== 6) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
       db.exec(WORKSPACE_ORGANIZATION_SQL)
       db.exec('PRAGMA user_version=7;')
     }
   }).immediate()
 
+if (schemaVersion < 8)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current !== 8) {
+      if (current !== 7) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+      db.exec(WORKSPACE_DISPLAY_NAMES_SQL)
+      db.exec('PRAGMA user_version=8;')
+    }
+  }).immediate()
+
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
+const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 db.exec(GOAL_HISTORY_INDEX_SQL)
@@ -415,7 +427,10 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 7 }),
+  ready: () => ({ version: 8 }),
+  workspaceDisplayNames: workspaceDisplayNames.read,
+  applyWorkspaceDisplayNames: workspaceDisplayNames.apply,
+  workspaceDisplayNamesReceipt: workspaceDisplayNames.receipt,
   workspaceOrganization: workspaceOrganization.read,
   applyWorkspaceOrganization: workspaceOrganization.apply,
   workspaceOrganizationReceipt: workspaceOrganization.receipt,

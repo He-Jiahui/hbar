@@ -13,6 +13,7 @@ export type {
   StoredSettingsLayer,
   StorageMethods,
   WorkspaceOrganizationMutationInput,
+  WorkspaceDisplayNamesMutationInput,
 } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'

@@ -27,10 +27,22 @@ import type {
   WorkspaceOrganizationSnapshot,
 } from '@hbar/contracts/commands/workspace-organization'
 
+import type {
+  WorkspaceDisplayNamesApplyInput,
+  WorkspaceDisplayNamesReceipt,
+  WorkspaceDisplayNamesSnapshot,
+} from '@hbar/contracts/commands/workspace-display-names'
+
 export interface WorkspaceOrganizationMutationInput {
   actorId: string
   idempotencyKey: string
   request: WorkspaceOrganizationApplyInput
+}
+
+export interface WorkspaceDisplayNamesMutationInput {
+  actorId: string
+  idempotencyKey: string
+  request: WorkspaceDisplayNamesApplyInput
 }
 
 export interface StoredSettingsLayer {
@@ -104,6 +116,9 @@ export interface StorageMethods {
   workspaceOrganization(): WorkspaceOrganizationSnapshot
   applyWorkspaceOrganization(input: WorkspaceOrganizationMutationInput): WorkspaceOrganizationReceipt
   workspaceOrganizationReceipt(input: WorkspaceOrganizationMutationInput): WorkspaceOrganizationReceipt | null
+  workspaceDisplayNames(): WorkspaceDisplayNamesSnapshot
+  applyWorkspaceDisplayNames(input: WorkspaceDisplayNamesMutationInput): WorkspaceDisplayNamesReceipt
+  workspaceDisplayNamesReceipt(input: WorkspaceDisplayNamesMutationInput): WorkspaceDisplayNamesReceipt | null
   findSession(id: string): Session | null
   workspace(id: string): Workspace
   createSession(workspaceId: string, title?: string, parentId?: string): Session
