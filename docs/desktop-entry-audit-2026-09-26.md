@@ -10,6 +10,7 @@
 - `9ee4935`：设置原位 Token 用量，真实 Host-global summary/activity/model 读取，窗口／面板失效、缺价格和超时边界。[行为与证据](desktop-settings-usage.md)。
 - `3080c71`：侧栏就近会话刷新，双 Client 更新、前台 focus/visibility/周期／重连、有界扫描和缓存容量反馈，不导航或消费草稿。[行为与证据](desktop-session-roster-refresh.md)。
 - `7c6e6e9`、`3e2d02b`、`bea70a7`：Goal 历史公开有界查询、同 watcher 的窗口恢复、header 当前摘要与事件时历史卡；中英文真实 Host、Goal-only 分页、消息窗口失败恢复和独立原生 1440／900×600 已验证。[最新交付与验收边界](desktop-goal-lifecycle.md)。
+- `0247687`：真实消息窗口恢复 en/zh 2/2、独立原生 Goal 验收脚本与原组件视觉证据。最新根严格 lint/typecheck 通过；最终全量 Bun 1692 pass / 2 fail，剩余失败位于并行 notifications 控件边界和 decision-laya 安装 symlink，见上述交付文档与 `artifacts/goal-lifecycle/final-unit-suite.log`。不把上轮1648全绿结果套用于此工作树。
 - 本轮稳定工作树全量 Bun 测试 **1648/1648、0 fail、12353 assertions**；该稳定版本的根严格 lint/typecheck、生产构建通过。首轮曾有三项失败，已通过具体断言修正／稳定版本重跑闭环，不把首轮描述为绿。日志：`artifacts/desktop-followup-tests.log`。
 - 后续复查曾因新的并行未提交变更短暂失败：通知组件增加必填 copy 字段，fixture 尚缺 `all/none/saving/saveFailed/saveUnavailable`。原任务随后补齐 fixture，根 `typecheck` 重跑恢复通过。本轮 Files／设置用量／侧栏没有修改这些并行文件，全部保留；全量1648结果对应上述稳定版本，不自动覆盖随后其他任务仍在变化的通知功能。
 - 新 Files 真 Host E2E 2/2，已有 Files 回归 8/8；设置用量与 provider landing 4/4；增强双 Client 侧栏 2/2；最新模型／permission／Plan／Goal 续作回归 8/8，结果位于 `artifacts/desktop-followups/entry-results`，复核了新截图。

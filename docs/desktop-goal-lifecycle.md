@@ -40,7 +40,9 @@
 
 当前画面：[hbar 中文 1440](../artifacts/goal-lifecycle/host-zh-CN-1440-expanded.png)、[320 展开](../artifacts/goal-lifecycle/host-zh-CN-320-expanded.png)、[320 折叠](../artifacts/goal-lifecycle/host-zh-CN-320-collapsed.png)、[完整消息页 320](../artifacts/goal-lifecycle/message-window/zh-CN-320.png)、[原生 900×600](../artifacts/goal-lifecycle/native/history-expanded-900.png)、[原生验收 JSON](../artifacts/goal-lifecycle/native/verification.json)。
 
-首轮全量 Bun 1694 tests：1691 pass / 3 fail。自有失败是新增 View 直连 contracts 的依赖门禁，已改 runtime 公共 DTO 导出并重跑通过；另两项分别在并行修改的 notifications 原生控件边界、decision-laya 持久工具测试。本次不修改这些外部任务文件。最终全量重跑结果另行记录，不将这次红测称为整仓通过。首轮 root lint 的 floating promise 位于并行 laya fixture，也不是本单元修改。日志：`artifacts/goal-lifecycle/unit-suite.log`。
+首轮全量 Bun 1694 tests：1691 pass / 3 fail。自有失败是新增 View 直连 contracts 的依赖门禁，已改 runtime 公共 DTO 导出并重跑通过；另两项分别在并行修改的 notifications 原生控件边界、decision-laya 持久工具测试。本次不修改这些外部任务文件。首轮 root lint 的 floating promise 位于并行 laya fixture，也不是本单元修改。日志：`artifacts/goal-lifecycle/unit-suite.log`。
+
+最终全量重跑：**1692 pass / 2 fail，12708 assertions，326 文件，284.02 秒**，日志 `artifacts/goal-lifecycle/final-unit-suite.log`。自有依赖门禁已绿；两项仍失败：`notifications.tsx:native-visible-control`，以及 managed decision-laya 安装拒绝 `node_modules\@hbar\contracts` symlink（`PLUGIN_ARCHIVE`）。第二次失败发生在安装阶段，不能冒称与首轮的 decision.evaluated 断言是同一症状。最新根严格 lint 与 typecheck 均已重跑通过；全量 Bun 仍为红，不宣称整仓全绿。
 
 原生首轮在进程身份校验处 fail closed：supervisor 启动参数保留 `../../../dist`，字符串比较误拒。新脚本用 Windows CommandLineToArgvW 读取 argv，对 exe、脚本、唯一 data/cache/workspace 参数规范化后精确比较，保留 PID 父链与创建时间检查；新 fixture 验收通过且正常清理。首失败现场仍保留：临时 Host PID 48668／supervisor PID 9572，以及 `C:\Users\HeJiahui\AppData\Local\Temp\hbar-native-session-goal-sFuoqy`、`...\hbar-native-goal-workspace-UU4B3r`。主线准确校验后的 PowerShell 清理调用被执行策略拒绝，未尝试绕过或终止用户窗口。
 
