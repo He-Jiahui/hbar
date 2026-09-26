@@ -50,6 +50,7 @@ export function HbarFileChanges({
   changes,
   labels,
   connected,
+  selectedPath,
   onRefresh,
   onFilter,
   onPage,
@@ -58,6 +59,7 @@ export function HbarFileChanges({
   readonly changes: Changes
   readonly labels: HbarFileChangesLabels
   readonly connected: boolean
+  readonly selectedPath?: string | null
   readonly onRefresh: () => void
   readonly onFilter: (filter: string) => void
   readonly onPage: (page: number) => void
@@ -120,6 +122,7 @@ export function HbarFileChanges({
               disabled={!connected || busy || changes.status !== 'ready'}
               aria-label={item.directory ? labels.openFolder(item.path) : labels.open(item.path)}
               title={item.path}
+              aria-current={selectedPath === item.path ? 'page' : undefined}
               onClick={() => onOpen(item.path)}
             >
               <LumenIcon icon={item.directory ? Folder : FileDiff} tier="sm" />

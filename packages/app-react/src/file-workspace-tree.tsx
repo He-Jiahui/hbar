@@ -47,6 +47,7 @@ export function HbarFileTree({
   entry,
   labels,
   connected,
+  selectedPath,
   onFilter,
   onToggle,
   onRefreshNode,
@@ -59,6 +60,7 @@ export function HbarFileTree({
   readonly entry: FileWorkspaceEntryState | undefined
   readonly labels: HbarFileTreeLabels
   readonly connected: boolean
+  readonly selectedPath?: string | null
   readonly onFilter: (filter: string) => void
   readonly onToggle: (path: string) => void
   readonly onRefreshNode: (path: string) => void
@@ -104,7 +106,7 @@ export function HbarFileTree({
                 title={item.path}
                 aria-label={caption}
                 aria-expanded={folder && inline ? expanded : undefined}
-                aria-current={!folder && entry?.document?.path === item.path ? 'page' : undefined}
+                aria-current={!folder && selectedPath === item.path ? 'page' : undefined}
                 disabled={!connected || busy}
                 onClick={() =>
                   folder ? (inline ? onToggle(item.path) : onNavigateFolder(item.path)) : onOpenFile(item.path)
@@ -298,6 +300,7 @@ export function HbarFileTree({
                       className="hbar-file-tree-row hbar-file-search-row"
                       aria-label={path}
                       aria-current={index === activeIndex ? 'true' : undefined}
+                      data-selected={selectedPath === path}
                       title={path}
                       disabled={!connected}
                       onMouseEnter={() => setActivePath(path)}

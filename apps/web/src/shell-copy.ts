@@ -1393,6 +1393,9 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
     reconcile: choose('核对保存结果', 'Reconcile save'),
     dirty: choose('有未保存的更改', 'Unsaved changes'),
     backToFiles: choose('返回文件列表', 'Back to files'),
+    showNavigator: choose('显示文件导航', 'Show file navigator'),
+    hideNavigator: choose('隐藏文件导航', 'Hide file navigator'),
+    navigator: choose('文件导航', 'File navigator'),
     reload: choose('重新加载源文件', 'Reload source'),
     reloadTitle: (path) => choose(`重新加载“${path}”？`, `Reload “${path}”?`),
     reloadDescription: choose(

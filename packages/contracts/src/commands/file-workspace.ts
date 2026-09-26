@@ -50,12 +50,17 @@ export const fileWorkspaceCommands = {
   ),
   'fileWorkspace.setBrowserMode': defineCommand(
     metadata('fileWorkspace.setBrowserMode'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), mode: z.enum(['all', 'changed']) }),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      mode: z.enum(['all', 'changed']),
+      preservePreview: z.boolean().optional(),
+    }),
     summary,
   ),
   'fileWorkspace.refreshChanges': defineCommand(
     metadata('fileWorkspace.refreshChanges'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160) }),
+    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), preservePreview: z.boolean().optional() }),
     summary,
   ),
   'fileWorkspace.filterChanges': defineCommand(
@@ -108,12 +113,17 @@ export const fileWorkspaceCommands = {
     z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), filter: z.string().max(160) }),
     summary,
   ),
-  'fileWorkspace.refresh': defineCommand(metadata('fileWorkspace.refresh'), z.strictObject({ instanceId }), summary),
+  'fileWorkspace.refresh': defineCommand(
+    metadata('fileWorkspace.refresh'),
+    z.strictObject({ instanceId, preservePreview: z.boolean().optional() }),
+    summary,
+  ),
   'fileWorkspace.loadMore': defineCommand(metadata('fileWorkspace.loadMore'), z.strictObject({ instanceId }), summary),
   'fileWorkspace.openEntry': defineCommand(
     metadata('fileWorkspace.openEntry'),
     z.strictObject({
       instanceId,
+      preservePreview: z.boolean().optional(),
       workspaceId: z.string().min(1).max(160).optional(),
       path: z.string().min(1).max(4000),
       directory: z.boolean(),

@@ -25,6 +25,7 @@ test('Changed list renders only the current 100 rows and preserves its localized
       changes={changes}
       labels={labels}
       connected
+      selectedPath="很长的目录/文件-4999.ts"
       onRefresh={() => {}}
       onFilter={() => {}}
       onPage={() => {}}
@@ -37,6 +38,7 @@ test('Changed list renders only the current 100 rows and preserves its localized
   expect(html).toContain(labels.page(4901, 5000, 5000))
   expect(html).toContain(labels.limit)
   expect(html).toContain(labels.filter)
+  expect(html.match(/aria-current="page"/g)).toHaveLength(1)
 })
 
 test('read-only diff bounds lines, displays truncation separately, and keeps comparison actions', () => {

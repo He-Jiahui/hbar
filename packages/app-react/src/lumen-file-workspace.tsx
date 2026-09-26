@@ -1,4 +1,4 @@
-import { ArrowLeft, FolderTree, Maximize2, MessageCircle } from 'lucide-react'
+import { ArrowLeft, FolderTree, Maximize2, MessageCircle, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   LumenFrame,
@@ -17,6 +17,7 @@ import {
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './file-workspace-changes'
 import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'
+import { useFileNavigatorPresentation } from './file-navigator-presentation'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
@@ -38,6 +39,9 @@ export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly reconcile: string
   readonly dirty: string
   readonly backToFiles: string
+  readonly showNavigator: string
+  readonly hideNavigator: string
+  readonly navigator: string
   readonly reload: string
   readonly reloadTitle: (path: string) => string
   readonly reloadDescription: string
@@ -103,6 +107,14 @@ export function HbarFileWorkspace({
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const candidate = instanceId ? files.entries[instanceId] : undefined
   const entry = candidate?.workspaceId === panel?.workspaceId ? candidate : undefined
+  const selectedPath =
+    entry?.view === 'document'
+      ? (entry.document?.path ?? null)
+      : entry?.view === 'diff'
+        ? (entry.diff?.path ?? null)
+        : null
+  const navigator = useFileNavigatorPresentation(`${instanceId}:${panel?.workspaceId}`, selectedPath)
+  const hasPreview = entry?.view === 'document' || entry?.view === 'diff'
   const invoke = useCallback(
     (name: string, input: unknown) =>
       void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
@@ -120,11 +132,10 @@ export function HbarFileWorkspace({
       panel?.panelId === 'files' &&
       panel.workspaceId &&
       entry?.workspaceId === panel.workspaceId &&
-      entry.view === 'browser' &&
       entry.browserMode === 'changed' &&
       entry.changes.status === 'idle'
     )
-      invoke('fileWorkspace.refreshChanges', { instanceId, workspaceId: panel.workspaceId })
+      invoke('fileWorkspace.refreshChanges', { instanceId, workspaceId: panel.workspaceId, preservePreview: true })
   }, [
     entry?.browserMode,
     entry?.changes.status,
@@ -141,11 +152,10 @@ export function HbarFileWorkspace({
       panel?.panelId === 'files' &&
       panel.workspaceId &&
       entry?.workspaceId === panel.workspaceId &&
-      entry.view === 'browser' &&
       entry.browserMode === 'all' &&
       entry.tree.revalidateOnOpen
     )
-      invoke('fileWorkspace.refresh', { instanceId })
+      invoke('fileWorkspace.refresh', { instanceId, preservePreview: true })
   }, [
     entry?.browserMode,
     entry?.tree.revalidateOnOpen,
@@ -165,7 +175,6 @@ export function HbarFileWorkspace({
   const busy = document?.status === 'submitting'
   const unknown = document?.status === 'unknown'
   const dirty = Boolean(document && document.draft !== document.baseline)
-  const selectedPath = document?.path ?? diff?.path ?? null
   const sourceSessionId = panel.sessionId
   const sourceTab = tabs.items.find(
     (item) => item.kind === 'session' && item.id === sourceSessionId && item.workspaceId === workspaceId,
@@ -274,11 +283,23 @@ export function HbarFileWorkspace({
         onBack={document || diff ? () => invoke('fileWorkspace.showBrowser', { instanceId }) : undefined}
         onClose={mode === 'workbench' ? onCloseWorkbench : () => invoke('app.closePanel', { instanceId })}
         actions={
-          mode === 'dock' && onExpand ? (
-            <LumenIconButton label={labels.expandWorkbench} onClick={onExpand}>
-              <LumenIcon icon={Maximize2} tier="sm" />
-            </LumenIconButton>
-          ) : undefined
+          <>
+            {hasPreview && (
+              <LumenIconButton
+                ref={navigator.trigger}
+                label={navigator.shown ? labels.hideNavigator : labels.showNavigator}
+                aria-expanded={navigator.shown}
+                onClick={navigator.toggle}
+              >
+                <LumenIcon icon={navigator.shown ? PanelRightClose : PanelRightOpen} tier="sm" />
+              </LumenIconButton>
+            )}
+            {mode === 'dock' && onExpand ? (
+              <LumenIconButton label={labels.expandWorkbench} onClick={onExpand}>
+                <LumenIcon icon={Maximize2} tier="sm" />
+              </LumenIconButton>
+            ) : null}
+          </>
         }
         toolbar={
           mode === 'workbench' && onReturnToSource ? (
@@ -299,199 +320,235 @@ export function HbarFileWorkspace({
         )}
         className={`hbar-app-react-file-workspace${mode === 'workbench' ? ' hbar-app-react-file-workbench' : ''}`}
       >
-        <LumenFrame className="hbar-app-react-file-layout" data-view={entry?.view ?? 'browser'}>
-          {document ? (
-            <LumenFileDocument
-              path={document.path}
-              name={fileName(document.path)}
-              labels={labels}
-              loading={document.status === 'loading'}
-              error={
-                document.status !== 'unknown' && (document.error || entry?.error)
-                  ? labels.error(document.error ?? entry?.error ?? '')
-                  : undefined
-              }
-              contentAvailable={document.sha256 !== null}
-              refreshDisabled={dirty || busy || unknown}
-              onRetry={() =>
-                invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: document.path, directory: false })
-              }
-            >
-              <LumenFrame className="hbar-file-document-modes">
-                <LumenButton
-                  variant={editing ? 'text' : 'outlined'}
-                  aria-pressed={!editing}
-                  onClick={() =>
-                    invoke('fileWorkspace.setDocumentMode', {
-                      instanceId,
-                      workspaceId,
-                      path: document.path,
-                      mode: 'preview',
-                    })
-                  }
-                >
-                  {labels.preview}
-                </LumenButton>
-                <LumenButton
-                  variant={editing ? 'outlined' : 'text'}
-                  aria-pressed={editing}
-                  onClick={() =>
-                    invoke('fileWorkspace.setDocumentMode', {
-                      instanceId,
-                      workspaceId,
-                      path: document.path,
-                      mode: 'edit',
-                    })
-                  }
-                >
-                  {labels.edit}
-                </LumenButton>
-                {sourceTab && (mode !== 'workbench' || workbenchTab) && (
+        <LumenFrame
+          ref={navigator.layout}
+          className="hbar-app-react-file-layout"
+          data-view={entry?.view ?? 'browser'}
+          data-two-pane={hasPreview && navigator.wide && navigator.shown}
+        >
+          <LumenFrame className="hbar-file-reader" hidden={!hasPreview || (!navigator.wide && navigator.shown)}>
+            {document ? (
+              <LumenFileDocument
+                path={document.path}
+                name={fileName(document.path)}
+                labels={labels}
+                loading={document.status === 'loading'}
+                error={
+                  document.status !== 'unknown' && (document.error || entry?.error)
+                    ? labels.error(document.error ?? entry?.error ?? '')
+                    : undefined
+                }
+                contentAvailable={document.sha256 !== null}
+                refreshDisabled={dirty || busy || unknown}
+                onRetry={() =>
+                  invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: document.path, directory: false })
+                }
+              >
+                <LumenFrame className="hbar-file-document-modes">
                   <LumenButton
-                    className="hbar-file-add-to-chat"
-                    variant="text"
-                    disabled={!canAdd || addingTarget !== null}
-                    onClick={addCurrentFile}
-                  >
-                    <LumenIcon icon={MessageCircle} tier="sm" />
-                    {labels.addToChat}
-                  </LumenButton>
-                )}
-              </LumenFrame>
-              {addHint && (
-                <LumenText as="p" role="status" className="hbar-file-add-feedback">
-                  {addHint}
-                </LumenText>
-              )}
-              {feedback && (
-                <LumenText
-                  as="p"
-                  role={feedback.kind === 'error' ? 'alert' : 'status'}
-                  className="hbar-file-add-feedback"
-                >
-                  {feedback.message}
-                </LumenText>
-              )}
-              {editing ? (
-                <LumenTextarea
-                  className="hbar-app-react-file-editor"
-                  variant="plain"
-                  aria-label={document.path}
-                  value={document.draft}
-                  disabled={!connected || unknown || document.status === 'loading'}
-                  onChange={(event) => invoke('fileWorkspace.setText', { instanceId, text: event.currentTarget.value })}
-                />
-              ) : (
-                <LumenText
-                  as="pre"
-                  className="hbar-file-text-preview"
-                  tabIndex={0}
-                  aria-label={labels.textPreview(document.path)}
-                >
-                  {document.draft}
-                </LumenText>
-              )}
-              {unknown && document.error && (
-                <LumenText as="p" role="alert">
-                  {labels.error(document.error)}
-                </LumenText>
-              )}
-              <LumenFrame as="footer">
-                <LumenText as="span" role="status">
-                  {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
-                </LumenText>
-                {dirty && !unknown && (
-                  <LumenButton disabled={!connected || busy || document.status === 'loading'} onClick={requestReload}>
-                    {labels.reload}
-                  </LumenButton>
-                )}
-                {unknown ? (
-                  <LumenButton disabled={!connected} onClick={() => invoke('fileWorkspace.reconcile', { instanceId })}>
-                    {labels.reconcile}
-                  </LumenButton>
-                ) : editing ? (
-                  <LumenButton
-                    disabled={!connected || !dirty || busy}
-                    tone="primary"
-                    onClick={() => invoke('fileWorkspace.save', { instanceId })}
-                  >
-                    {busy ? labels.saving : labels.save}
-                  </LumenButton>
-                ) : null}
-              </LumenFrame>
-            </LumenFileDocument>
-          ) : diff && entry ? (
-            <HbarFileDiff
-              key={`${diff.path}:${diff.cached}`}
-              diff={diff}
-              change={entry.changes.items.find((item) => item.path === diff.path)}
-              labels={labels.changes}
-              connected={connected}
-              onOpen={(cached) =>
-                invoke('fileWorkspace.openChange', { instanceId, workspaceId, path: diff.path, cached })
-              }
-              onFile={() =>
-                invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: diff.path, directory: false })
-              }
-              addToChat={
-                sourceTab && (mode !== 'workbench' || workbenchTab)
-                  ? {
-                      label: labels.addToChat,
-                      disabled: !canAdd || addingTarget !== null,
-                      onClick: addCurrentFile,
-                      feedback: feedback?.message,
-                      feedbackKind: feedback?.kind,
+                    variant={editing ? 'text' : 'outlined'}
+                    aria-pressed={!editing}
+                    onClick={() =>
+                      invoke('fileWorkspace.setDocumentMode', {
+                        instanceId,
+                        workspaceId,
+                        path: document.path,
+                        mode: 'preview',
+                      })
                     }
-                  : undefined
-              }
-              referenceHint={addHint ?? undefined}
-            />
-          ) : (
-            <LumenFrame className="hbar-app-react-file-browser">
-              <LumenFrame className="hbar-file-browser-mode">
-                <LumenSelect
-                  aria-label={labels.changes.mode}
-                  value={entry?.browserMode ?? 'all'}
-                  disabled={!connected || !entry}
-                  onChange={(event) =>
-                    invoke('fileWorkspace.setBrowserMode', { instanceId, workspaceId, mode: event.currentTarget.value })
-                  }
-                >
-                  <LumenOption value="all">{labels.changes.all}</LumenOption>
-                  <LumenOption value="changed">{labels.changes.changed}</LumenOption>
-                </LumenSelect>
-              </LumenFrame>
-              {entry?.browserMode === 'changed' ? (
-                <HbarFileChanges
-                  changes={entry.changes}
-                  labels={labels.changes}
-                  connected={connected}
-                  onRefresh={() => invoke('fileWorkspace.refreshChanges', { instanceId, workspaceId })}
-                  onFilter={(filter) => invoke('fileWorkspace.filterChanges', { instanceId, workspaceId, filter })}
-                  onPage={(page) => invoke('fileWorkspace.pageChanges', { instanceId, workspaceId, page })}
-                  onOpen={(path) => invoke('fileWorkspace.openChange', { instanceId, workspaceId, path })}
-                />
-              ) : (
-                <HbarFileTree
-                  entry={entry}
-                  labels={labels.tree}
-                  connected={connected}
-                  onFilter={(filter) => invoke('fileWorkspace.filterTree', { instanceId, workspaceId, filter })}
-                  onToggle={(path) => invoke('fileWorkspace.toggleTree', { instanceId, workspaceId, path })}
-                  onRefreshNode={(path) => invoke('fileWorkspace.refreshTree', { instanceId, workspaceId, path })}
-                  onMoreNode={(path) => invoke('fileWorkspace.loadMoreTree', { instanceId, workspaceId, path })}
-                  onOpenFile={(path) =>
-                    invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
-                  }
-                  onNavigateFolder={(path) =>
-                    invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: true })
-                  }
-                  onMoreRoot={() => invoke('fileWorkspace.loadMore', { instanceId })}
-                  onRefreshRoot={() => invoke('fileWorkspace.refresh', { instanceId })}
-                />
-              )}
+                  >
+                    {labels.preview}
+                  </LumenButton>
+                  <LumenButton
+                    variant={editing ? 'outlined' : 'text'}
+                    aria-pressed={editing}
+                    onClick={() =>
+                      invoke('fileWorkspace.setDocumentMode', {
+                        instanceId,
+                        workspaceId,
+                        path: document.path,
+                        mode: 'edit',
+                      })
+                    }
+                  >
+                    {labels.edit}
+                  </LumenButton>
+                  {sourceTab && (mode !== 'workbench' || workbenchTab) && (
+                    <LumenButton
+                      className="hbar-file-add-to-chat"
+                      variant="text"
+                      disabled={!canAdd || addingTarget !== null}
+                      onClick={addCurrentFile}
+                    >
+                      <LumenIcon icon={MessageCircle} tier="sm" />
+                      {labels.addToChat}
+                    </LumenButton>
+                  )}
+                </LumenFrame>
+                {addHint && (
+                  <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                    {addHint}
+                  </LumenText>
+                )}
+                {feedback && (
+                  <LumenText
+                    as="p"
+                    role={feedback.kind === 'error' ? 'alert' : 'status'}
+                    className="hbar-file-add-feedback"
+                  >
+                    {feedback.message}
+                  </LumenText>
+                )}
+                {editing ? (
+                  <LumenTextarea
+                    className="hbar-app-react-file-editor"
+                    variant="plain"
+                    aria-label={document.path}
+                    value={document.draft}
+                    disabled={!connected || unknown || document.status === 'loading'}
+                    onChange={(event) =>
+                      invoke('fileWorkspace.setText', { instanceId, text: event.currentTarget.value })
+                    }
+                  />
+                ) : (
+                  <LumenText
+                    as="pre"
+                    className="hbar-file-text-preview"
+                    tabIndex={0}
+                    aria-label={labels.textPreview(document.path)}
+                  >
+                    {document.draft}
+                  </LumenText>
+                )}
+                {unknown && document.error && (
+                  <LumenText as="p" role="alert">
+                    {labels.error(document.error)}
+                  </LumenText>
+                )}
+                <LumenFrame as="footer">
+                  <LumenText as="span" role="status">
+                    {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
+                  </LumenText>
+                  {dirty && !unknown && (
+                    <LumenButton disabled={!connected || busy || document.status === 'loading'} onClick={requestReload}>
+                      {labels.reload}
+                    </LumenButton>
+                  )}
+                  {unknown ? (
+                    <LumenButton
+                      disabled={!connected}
+                      onClick={() => invoke('fileWorkspace.reconcile', { instanceId })}
+                    >
+                      {labels.reconcile}
+                    </LumenButton>
+                  ) : editing ? (
+                    <LumenButton
+                      disabled={!connected || !dirty || busy}
+                      tone="primary"
+                      onClick={() => invoke('fileWorkspace.save', { instanceId })}
+                    >
+                      {busy ? labels.saving : labels.save}
+                    </LumenButton>
+                  ) : null}
+                </LumenFrame>
+              </LumenFileDocument>
+            ) : diff && entry ? (
+              <HbarFileDiff
+                key={`${diff.path}:${diff.cached}`}
+                diff={diff}
+                change={entry.changes.items.find((item) => item.path === diff.path)}
+                labels={labels.changes}
+                connected={connected}
+                onOpen={(cached) =>
+                  invoke('fileWorkspace.openChange', { instanceId, workspaceId, path: diff.path, cached })
+                }
+                onFile={() =>
+                  invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: diff.path, directory: false })
+                }
+                addToChat={
+                  sourceTab && (mode !== 'workbench' || workbenchTab)
+                    ? {
+                        label: labels.addToChat,
+                        disabled: !canAdd || addingTarget !== null,
+                        onClick: addCurrentFile,
+                        feedback: feedback?.message,
+                        feedbackKind: feedback?.kind,
+                      }
+                    : undefined
+                }
+                referenceHint={addHint ?? undefined}
+              />
+            ) : null}
+          </LumenFrame>
+          <LumenFrame
+            ref={navigator.navigator}
+            role="region"
+            aria-label={labels.navigator}
+            className="hbar-app-react-file-browser"
+            hidden={hasPreview && !navigator.shown}
+          >
+            <LumenFrame className="hbar-file-browser-mode">
+              <LumenSelect
+                aria-label={labels.changes.mode}
+                value={entry?.browserMode ?? 'all'}
+                disabled={!connected || !entry}
+                onChange={(event) =>
+                  invoke('fileWorkspace.setBrowserMode', {
+                    instanceId,
+                    workspaceId,
+                    mode: event.currentTarget.value,
+                    preservePreview: true,
+                  })
+                }
+              >
+                <LumenOption value="all">{labels.changes.all}</LumenOption>
+                <LumenOption value="changed">{labels.changes.changed}</LumenOption>
+              </LumenSelect>
             </LumenFrame>
-          )}
+            {entry?.browserMode === 'changed' ? (
+              <HbarFileChanges
+                changes={entry.changes}
+                labels={labels.changes}
+                connected={connected}
+                selectedPath={selectedPath}
+                onRefresh={() =>
+                  invoke('fileWorkspace.refreshChanges', { instanceId, workspaceId, preservePreview: true })
+                }
+                onFilter={(filter) => invoke('fileWorkspace.filterChanges', { instanceId, workspaceId, filter })}
+                onPage={(page) => invoke('fileWorkspace.pageChanges', { instanceId, workspaceId, page })}
+                onOpen={(path) => {
+                  navigator.selected()
+                  invoke('fileWorkspace.openChange', { instanceId, workspaceId, path })
+                }}
+              />
+            ) : (
+              <HbarFileTree
+                entry={entry}
+                labels={labels.tree}
+                connected={connected}
+                selectedPath={selectedPath}
+                onFilter={(filter) => invoke('fileWorkspace.filterTree', { instanceId, workspaceId, filter })}
+                onToggle={(path) => invoke('fileWorkspace.toggleTree', { instanceId, workspaceId, path })}
+                onRefreshNode={(path) => invoke('fileWorkspace.refreshTree', { instanceId, workspaceId, path })}
+                onMoreNode={(path) => invoke('fileWorkspace.loadMoreTree', { instanceId, workspaceId, path })}
+                onOpenFile={(path) => {
+                  navigator.selected()
+                  invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
+                }}
+                onNavigateFolder={(path) =>
+                  invoke('fileWorkspace.openEntry', {
+                    instanceId,
+                    workspaceId,
+                    path,
+                    directory: true,
+                    preservePreview: true,
+                  })
+                }
+                onMoreRoot={() => invoke('fileWorkspace.loadMore', { instanceId })}
+                onRefreshRoot={() => invoke('fileWorkspace.refresh', { instanceId, preservePreview: true })}
+              />
+            )}
+          </LumenFrame>
         </LumenFrame>
       </LumenToolPane>
       <LumenDialog

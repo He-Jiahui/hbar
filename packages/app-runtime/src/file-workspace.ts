@@ -137,23 +137,24 @@ export function createFileWorkspace(
           ? entry.changes.error
           : ((entry.view === 'document' ? entry.document?.error : null) ?? entry.error),
   })
-  const load = async (instanceId: string, path?: string) => {
+  const load = async (instanceId: string, path?: string, preservePreview = false) => {
     changes.cancel(instanceId)
     tree.cancelAll(instanceId)
     const target = panel(instanceId)
     const current = state.reader.getSnapshot().entries[instanceId]
     const requestedPath = path ?? (current?.workspaceId === target.workspaceId ? current.path : '.')
+    const keepPreview = preservePreview && current?.workspaceId === target.workspaceId && current.view !== 'browser'
     const generation = (generations.get(instanceId) ?? 0) + 1
     generations.set(instanceId, generation)
     const loading: FileWorkspaceEntryState = {
       instanceId,
       workspaceId: target.workspaceId,
       path: requestedPath,
-      view: 'browser',
+      view: keepPreview ? current.view : 'browser',
       browserMode: 'all',
       documentMode: current?.workspaceId === target.workspaceId ? current.documentMode : 'preview',
       changes: current?.workspaceId === target.workspaceId ? current.changes : emptyFileChanges(),
-      diff: null,
+      diff: keepPreview ? current.diff : null,
       tree:
         current?.workspaceId === target.workspaceId && current.path === requestedPath
           ? emptyFileTree(current.tree.filter)
@@ -214,9 +215,9 @@ export function createFileWorkspace(
     replace(next)
     return summary(next)
   }
-  const openEntry = async (instanceId: string, rawPath: string, directory: boolean) => {
+  const openEntry = async (instanceId: string, rawPath: string, directory: boolean, preservePreview = false) => {
     changes.cancel(instanceId)
-    if (directory) return load(instanceId, rawPath)
+    if (directory) return load(instanceId, rawPath, preservePreview)
     const path = canonicalFilePath(rawPath)
     const entry = state.reader.getSnapshot().entries[instanceId]
     const target = panel(instanceId)
@@ -448,21 +449,29 @@ export function createFileWorkspace(
     )
     return { sessionId: input.sourceSessionId, sessionTitle: session.title, revision: result.revision, added: true }
   })
-  local.register(fileWorkspaceCommands['fileWorkspace.setBrowserMode'], async ({ instanceId, workspaceId, mode }) => {
-    const entry = requireEntry(instanceId, workspaceId)
-    generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
-    if (mode === 'changed') {
+  local.register(
+    fileWorkspaceCommands['fileWorkspace.setBrowserMode'],
+    async ({ instanceId, workspaceId, mode, preservePreview }) => {
+      requireEntry(instanceId, workspaceId)
+      generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
+      if (mode === 'changed') {
+        tree.cancelAll(instanceId)
+        return summary(await changes.load(instanceId, workspaceId, preservePreview))
+      }
+      changes.cancel(instanceId)
       tree.cancelAll(instanceId)
-      return summary(await changes.load(instanceId, workspaceId))
-    }
-    changes.cancel(instanceId)
-    tree.cancelAll(instanceId)
-    if (entry.status !== 'ready' || entry.tree.revalidateOnOpen) return load(instanceId)
-    const next = { ...entry, view: 'browser' as const, browserMode: 'all' as const }
-    replace(next)
-    if (next.tree.filter.trim()) tree.search(instanceId, workspaceId, next.tree.filter)
-    return summary(next)
-  })
+      const latest = requireEntry(instanceId, workspaceId)
+      if (latest.status !== 'ready' || latest.tree.revalidateOnOpen) return load(instanceId, undefined, preservePreview)
+      const next = {
+        ...latest,
+        view: preservePreview ? latest.view : ('browser' as const),
+        browserMode: 'all' as const,
+      }
+      replace(next)
+      if (next.tree.filter.trim()) tree.search(instanceId, workspaceId, next.tree.filter)
+      return summary(next)
+    },
+  )
   local.register(fileWorkspaceCommands['fileWorkspace.toggleTree'], async ({ instanceId, workspaceId, path }) =>
     summary(await tree.toggle(instanceId, workspaceId, path)),
   )
@@ -477,8 +486,10 @@ export function createFileWorkspace(
     tree.search(instanceId, workspaceId, filter)
     return summary(requireEntry(instanceId, workspaceId))
   })
-  local.register(fileWorkspaceCommands['fileWorkspace.refreshChanges'], async ({ instanceId, workspaceId }) =>
-    summary(await changes.load(instanceId, workspaceId)),
+  local.register(
+    fileWorkspaceCommands['fileWorkspace.refreshChanges'],
+    async ({ instanceId, workspaceId, preservePreview }) =>
+      summary(await changes.load(instanceId, workspaceId, preservePreview)),
   )
   local.register(fileWorkspaceCommands['fileWorkspace.filterChanges'], ({ instanceId, workspaceId, filter }) => {
     const entry = requireEntry(instanceId, workspaceId)
@@ -504,12 +515,17 @@ export function createFileWorkspace(
     replace(next)
     return summary(next)
   })
-  local.register(fileWorkspaceCommands['fileWorkspace.refresh'], ({ instanceId }) => load(instanceId))
+  local.register(fileWorkspaceCommands['fileWorkspace.refresh'], ({ instanceId, preservePreview }) =>
+    load(instanceId, undefined, preservePreview),
+  )
   local.register(fileWorkspaceCommands['fileWorkspace.loadMore'], ({ instanceId }) => loadMore(instanceId))
-  local.register(fileWorkspaceCommands['fileWorkspace.openEntry'], ({ instanceId, workspaceId, path, directory }) => {
-    if (workspaceId) requireEntry(instanceId, workspaceId)
-    return openEntry(instanceId, path, directory)
-  })
+  local.register(
+    fileWorkspaceCommands['fileWorkspace.openEntry'],
+    ({ instanceId, workspaceId, path, directory, preservePreview }) => {
+      if (workspaceId) requireEntry(instanceId, workspaceId)
+      return openEntry(instanceId, path, directory, preservePreview)
+    },
+  )
   local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], ({ instanceId }) => showBrowser(instanceId))
   local.register(fileWorkspaceCommands['fileWorkspace.setText'], ({ instanceId, text }) =>
     action(instanceId, () => setText(instanceId, text)),

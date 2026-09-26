@@ -117,12 +117,13 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     return git
   }
 
-  const load = async (instanceId: string, workspaceId: string) => {
-    const entry = target(instanceId, workspaceId)
+  const load = async (instanceId: string, workspaceId: string, preservePreview = false) => {
+    target(instanceId, workspaceId)
     const controller = begin(instanceId)
+    const entry = target(instanceId, workspaceId)
     ports.replace({
       ...entry,
-      view: 'browser',
+      view: preservePreview ? entry.view : 'browser',
       browserMode: 'changed',
       changes: { ...entry.changes, status: 'loading', error: null },
     })
@@ -146,7 +147,13 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
         limitReached: status.entries.length === 5000,
         error: null,
       }
-      ports.replace({ ...latest, changes })
+      const page = preservePreview
+        ? Math.min(
+            latest.changes.page,
+            Math.max(0, Math.ceil(filteredFileChanges(changes).length / FILE_CHANGES_PAGE_SIZE) - 1),
+          )
+        : 0
+      ports.replace({ ...latest, changes: { ...changes, page } })
       return target(instanceId, workspaceId)
     } catch (error) {
       if (matches(instanceId, workspaceId, controller)) {

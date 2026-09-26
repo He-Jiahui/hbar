@@ -237,6 +237,122 @@ test('closed or retargeted panels reject late responses and stale commands even 
   }
 })
 
+test('the reading navigator preserves unknown saves, current view, filters and exact diff selection', async () => {
+  const f = fixture()
+  try {
+    await f.bind()
+    await f.execute('fileWorkspace.openEntry', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      path: 'src/main.ts',
+      directory: false,
+    })
+    await f.execute('fileWorkspace.setDocumentMode', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      path: 'src/main.ts',
+      mode: 'edit',
+    })
+    await f.execute('fileWorkspace.setText', { instanceId: 'files', text: 'protected draft' })
+    await expect(f.execute('fileWorkspace.save', { instanceId: 'files' })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    const document = f.entry().document
+    await f.execute('fileWorkspace.setBrowserMode', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      mode: 'changed',
+      preservePreview: true,
+    })
+    expect(f.entry()).toMatchObject({
+      view: 'document',
+      documentMode: 'edit',
+      document: { status: 'unknown', draft: 'protected draft' },
+    })
+    expect(f.entry().document).toBe(document)
+    await f.execute('fileWorkspace.filterChanges', { instanceId: 'files', workspaceId: 'w', filter: 'main' })
+    await f.execute('fileWorkspace.refreshChanges', { instanceId: 'files', workspaceId: 'w', preservePreview: true })
+    expect(f.entry()).toMatchObject({ view: 'document', changes: { filter: 'main' } })
+    await f.open('src/main.ts', true)
+    const diff = f.entry().diff
+    await f.execute('fileWorkspace.setBrowserMode', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      mode: 'all',
+      preservePreview: true,
+    })
+    await f.execute('fileWorkspace.refresh', { instanceId: 'files', preservePreview: true })
+    expect(f.entry()).toMatchObject({ view: 'diff', browserMode: 'all' })
+    expect(f.entry().diff).toBe(diff)
+    await f.execute('fileWorkspace.setBrowserMode', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      mode: 'changed',
+      preservePreview: true,
+    })
+    expect(f.entry().diff).toBe(diff)
+    expect(f.entry().document).toBe(document)
+    await f.execute('fileWorkspace.openEntry', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      path: 'src/main.ts',
+      directory: false,
+    })
+    expect(f.entry().document).toBe(document)
+    expect(f.calls.filter((call) => call.name === 'file.write')).toHaveLength(1)
+    expect(f.calls.filter((call) => call.name === 'file.read')).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('changing navigator mode during a diff read retains cancellation rather than reviving a loading diff', async () => {
+  const f = fixture()
+  const gate = Promise.withResolvers<void>()
+  try {
+    await f.bind()
+    await f.changes()
+    f.gate(gate.promise)
+    const pending = f.open().catch((error: unknown) => error)
+    await Bun.sleep(0)
+    await f.execute('fileWorkspace.setBrowserMode', {
+      instanceId: 'files',
+      workspaceId: 'w',
+      mode: 'all',
+      preservePreview: true,
+    })
+    expect(f.entry()).toMatchObject({ view: 'diff', browserMode: 'all', diff: { status: 'error', error: 'CANCELLED' } })
+    gate.resolve()
+    expect(await pending).toMatchObject({ code: 'CANCELLED' })
+    expect(f.entry().diff?.status).toBe('error')
+  } finally {
+    gate.resolve()
+    f.runtime.dispose()
+  }
+})
+
+test('navigator changes refresh keeps a valid later page and clamps it when files disappear', async () => {
+  const f = fixture()
+  try {
+    await f.bind()
+    f.setStatus({
+      ...initialStatus(),
+      entries: Array.from({ length: 251 }, (_, index) => ({ path: `app/file-${index}.ts`, index: ' ', worktree: 'M' })),
+    })
+    await f.changes()
+    await f.execute('fileWorkspace.pageChanges', { instanceId: 'files', workspaceId: 'w', page: 2 })
+    await f.open('file-1.ts')
+    await f.execute('fileWorkspace.refreshChanges', { instanceId: 'files', workspaceId: 'w', preservePreview: true })
+    expect(f.entry()).toMatchObject({ view: 'diff', changes: { page: 2 } })
+    f.setStatus(initialStatus())
+    await f.execute('fileWorkspace.refreshChanges', { instanceId: 'files', workspaceId: 'w', preservePreview: true })
+    expect(f.entry()).toMatchObject({ view: 'diff', changes: { page: 0 } })
+    expect(f.entry().diff?.path).toBe('file-1.ts')
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 test('preview/edit and Changed navigation retain the exact unknown-save document without replay', async () => {
   const f = fixture()
   try {
