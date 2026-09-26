@@ -7,9 +7,14 @@
 ## 继续审查的新进展
 
 - `80861aa`：Settings → General 的真实设备语言入口，中英/环境三选项即时切换，不按 locale 重建 runtime；保留原会话、Files returnContext、未保存 Appearance，独立保存与失败恢复焦点。30项定向测试/325断言、3项真实Host生产E2E、26条原组件矩阵与原生900通过。[交付与边界](desktop-device-language.md)、[原参考与旧问题复现](desktop-language-entry-audit.md)。没有native广播或OS实时语言变化的虚假声明。
+- `a56414a`：语言变化只重建当前命令搜索索引，不改查询、参数稿、进行中操作／unknown 锁或结果。10项测试/107断言、2项真实Host生产E2E通过；模型、paused Goal、Plan与单次审批选择、原输入、唯一连接在中英×四宽保持。[复现、截图和边界](desktop-language-search.md)。
+- `a373f93`：插件详情摘要之后增加就近启停，复用原Host命令与共享有界action owner；读当前值不解锁未知写，A迟到ACK不回滚B，容量失败不冒充Host运行忙碌。59项测试/470断言、4项真实Host生产E2E通过，人工检查桌面/390/320和unknown/BUSY/required截图。[交付与限制](desktop-extension-plugin-action.md)。这不是安装／更新／卸载或跨runtime持久receipt能力。
 - `1e0c910`：旧通用导航材质门禁已定位到观察对象错误：真实原生 canonical LumenIndicator 有选中状态、2px竖条与halo，而旧 dirty smoke 读取不存在的 `button::before`。独立断言和截图通过；保留他任务该hunk，仍不把整个通用smoke标绿。[诊断](desktop-navigation-marker-audit.md)。
-- 三agent逐入口审查继续：插件/Skills/MCP/市场原组件70张只读参考图，真Host现有详情2/2；明确详情就近启停是现有契约可闭环缺口，安装/卸载的可靠恢复、市场更新/MCP/技能正文需要对应事实合同。[逐入口矩阵](desktop-extensions-entry-audit.md)。不把没有Host能力的功能做成占位按钮。
+- 三agent逐入口审查继续：插件/Skills/MCP/市场原组件70张只读参考图；详情就近启停已按上述独立单元闭环，安装/卸载的可靠恢复、市场更新/MCP/技能正文仍需要对应事实合同。[逐入口矩阵](desktop-extensions-entry-audit.md)。不把没有Host能力的功能做成占位按钮。
 - 归档确认后残留失效标签已有独立真实Host复现，正按canonical事实退役、保留B草稿/Files、unknown不提前退役、迟到读/恢复竞争/32tab容量/重载不暗选邻居验证。此段尚不是该单元提交或完成声明。
+- 启动入口只读审计又复现了 pending Host identity → confirmed identity 的设置丢页与临时namespace保存问题：中英×1440/320×四场景16/16，实际hello回复延迟326–676ms后原样释放，Run/pageerror均0；只读文档不是修复或通过的导航验收。[复现、历史与最小方案](desktop-startup-entry-audit.md)。不能仅删除hostId依赖或等connected后才点击来掩盖。
+
+本次集成检查的时间点需另行区分：根lint/typecheck曾通过，随后并行Lumen通知修改引入缺失stylesheet，边界suite首次12 pass/1 fail/1加载错误；文件落地后重跑13 pass/0 fail/55断言。继续的 `bun run check` 在严格lint阶段因外部通知 `Header` 未使用与fixture未完成的 `system/handler` 引用退出1；日志 `artifacts/desktop-entry-matrix/final-stable-check.log`。未进入该次typecheck/全量test，不将此串行门禁描述为通过。这些外部文件保留给原任务处理。
 
 ## 已验证并提交的子集
 
@@ -42,7 +47,7 @@
 | 侧栏会话刷新                         | cc `session-main.webp` 的 Search 旁 Refresh；`Sidebar.tsx` 的 focus/visibility 刷新      | 本轮有界刷新已完成。超出1000扫描／缓存的变化仍缺 Host 名单增量事件与可恢复变更游标，明确反馈容量，不声称全局可靠增量。                                                                                                                           |
 | 设置原位用量                         | cc `settings-usage.webp` 的用量分类                                                      | 本轮已完成真实只读分类，不跳 Status。未复制连续天数、头像、最长任务等没有公共事实的参考统计。                                                                                                                                                    |
 | 模型、permission、Goal/Plan 入门路径 | cc `model-picker.webp`、`permission-modes.webp`，现有真实 Host 对比产物                  | 上轮双语真 Host 8/8与本轮完整 Goal 历史／顶部摘要均有证据；全部入口矩阵仍未完成，不能因局部通过宣布达到完整预期。                                                                                                                                |
-| 原生通用视觉门禁                     | 当前 desktop-smoke 的选中导航标记断言                                                    | 本轮看到 shadow=none、width=null。须查相关视觉改动历史与实际当前渲染，再定位产品或测试问题；不能删除断言假装通过                                                                                                                                 |
+| 原生通用视觉门禁                     | 当前 desktop-smoke 的选中导航标记断言                                                    | `1e0c910` 已确认旧观察器读取不存在的伪元素；真实canonical indicator独立断言与截图通过。外部dirty smoke仍未修改或完整通过，不能把整个门禁标绿。[诊断](desktop-navigation-marker-audit.md)                                                         |
 
 设置/导航审查还发现语言选择、插件安装管理和批量归档等候选，但应按真实现有契约独立闭环，不扩大按钮名称。`session.list.title` 是精确标题筛选，不能当全局全文搜索。
 
