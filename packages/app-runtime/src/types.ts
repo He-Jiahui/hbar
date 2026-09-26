@@ -114,6 +114,8 @@ export interface RuntimeOptions {
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
+  /** Explicit read-only canonical Goal history capability, separate from editable current Goal. */
+  readonly goalHistory?: CommandExecutor
   readonly workflows?: WorkflowWorkspacePort
   readonly extensions?: CommandExecutor
   readonly system?: CommandExecutor

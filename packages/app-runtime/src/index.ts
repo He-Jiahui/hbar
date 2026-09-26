@@ -50,6 +50,9 @@ export type {
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
+import { createGoalHistory, goalHistoryCommands } from './goal-history'
+export { goalHistoryCommands, getGoalHistoryProjection, GOAL_HISTORY_MAX_FACTS } from './goal-history'
+export type { GoalHistoryState, GoalHistoryEntry, GoalHistoryProjection } from './goal-history'
 import { createDrafts } from './drafts'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
@@ -205,6 +208,7 @@ const runtimeCommands = {
   ...sessionGitContextCommands,
   ...sessionRosterRefreshCommands,
   ...settingsUsageCommands,
+  ...goalHistoryCommands,
   ...composerIntentCommands,
   ...composerPermissionCommands,
   ...composerPlanModeCommands,
@@ -327,6 +331,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const goalHistory = createGoalHistory(
+    local,
+    options.goalHistory,
+    timeline.history,
+    navigation.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed, options.files)
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
@@ -531,6 +543,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionGitContextCommands, name) ||
         Object.hasOwn(sessionRosterRefreshCommands, name) ||
         Object.hasOwn(settingsUsageCommands, name) ||
+        Object.hasOwn(goalHistoryCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(composerPlanModeCommands, name) ||
@@ -578,6 +591,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       surfaces: surfaces.reader,
       presentation: presentation.reader,
       timeline: timeline.reader,
+      goalHistory: goalHistory.reader,
       drafts: drafts.reader,
       runActions: drafts.actions,
       interactions: interactions.reader,
@@ -636,6 +650,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       platform.dispose()
       directory.dispose()
       forms.dispose()
+      goalHistory.dispose()
       timeline.dispose()
       drafts.dispose()
       interactions.dispose()

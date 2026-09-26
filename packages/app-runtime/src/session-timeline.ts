@@ -1,5 +1,12 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
-import { contentBlockSchema, inputSchema, planStateSchema, usageSchema, userInputRequestSchema } from '@hbar/contracts'
+import {
+  contentBlockSchema,
+  inputSchema,
+  planStateSchema,
+  sessionEventSchema,
+  usageSchema,
+  userInputRequestSchema,
+} from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import type {
   Approval,
@@ -13,6 +20,7 @@ import type {
 } from '@hbar/contracts'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
+import type { GoalHistoryTimelinePort, GoalHistoryTimelineSnapshot, GoalHistoryTimelineUpdate } from './goal-history'
 import type { NavigationState, SessionTimelinePort, SessionTimelineState } from './types'
 
 const MAX_MESSAGES = 1_000
@@ -245,6 +253,40 @@ export function createSessionTimeline(
   let generation = 0
   let olderGeneration = 0
   let closeWatch: (() => void | Promise<void>) | undefined
+  let watching = false
+  const historyListeners = new Set<(update: GoalHistoryTimelineUpdate) => void | Promise<void>>()
+  const historySnapshot = (): GoalHistoryTimelineSnapshot => {
+    const current = state.reader.getSnapshot()
+    return {
+      sessionId: current.sessionId,
+      generation,
+      status: current.status,
+      cursor: current.cursor,
+      messageFromSeq: current.messages[0]?.seq ?? null,
+      hasOlderMessages: current.hasOlder,
+      watching,
+    }
+  }
+  const notifyHistory = async (update: GoalHistoryTimelineUpdate) => {
+    await Promise.all(
+      [...historyListeners].map(async (listener) => {
+        try {
+          await listener(update)
+        } catch (error) {
+          onSubscriberError(error)
+        }
+      }),
+    )
+  }
+  const history: GoalHistoryTimelinePort = {
+    getSnapshot: historySnapshot,
+    subscribe(listener) {
+      historyListeners.add(listener)
+      return () => {
+        historyListeners.delete(listener)
+      }
+    },
+  }
 
   const remember = (value: SessionTimelineState) => {
     if (value.sessionId) {
@@ -258,6 +300,7 @@ export function createSessionTimeline(
   const close = () => {
     const current = closeWatch
     closeWatch = undefined
+    watching = false
     if (current) void Promise.resolve(current()).catch(() => {})
   }
   const load = async (sessionId: string | null) => {
@@ -267,10 +310,12 @@ export function createSessionTimeline(
     if (!port || !sessionId) {
       const unavailable = emptyState(sessionId, sessionId ? 'error' : 'idle')
       remember(sessionId ? { ...unavailable, error: 'Timeline history is unavailable in this runtime' } : unavailable)
+      void notifyHistory({ kind: 'loading', snapshot: historySnapshot() })
       return unavailable
     }
     const cached = cache.get(sessionId)
     remember(cached ? { ...cached, status: 'loading', error: null } : emptyState(sessionId, 'loading'))
+    void notifyHistory({ kind: 'loading', snapshot: historySnapshot() })
     try {
       const [snapshot, loadedPlan] = await Promise.all([
         port.snapshot(sessionId, undefined, PAGE_SIZE),
@@ -292,6 +337,16 @@ export function createSessionTimeline(
           return
         }
         const current = state.reader.getSnapshot()
+        if (update.kind === 'event') {
+          const canonical = sessionEventSchema.safeParse(update.event)
+          if (canonical.success && canonical.data.sessionId !== sessionId) return
+          if (!canonical.success || canonical.data.seq > current.cursor + 1) {
+            void load(sessionId)
+            return
+          }
+          // Replayed facts are already covered by snapshot.cursor. Only contiguous durable facts advance coverage.
+          if (canonical.data.seq <= current.cursor) return
+        }
         if (update.kind === 'stream') {
           const previous = current.streams[update.stream.id]
           const gap =
@@ -308,10 +363,16 @@ export function createSessionTimeline(
           }
         }
         remember(update.kind === 'event' ? projectEvent(current, update.event) : projectStream(current, update.stream))
+        if (update.kind === 'event')
+          void notifyHistory({ kind: 'event', snapshot: historySnapshot(), event: update.event })
       })
       if (isDisposed() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId)
         void Promise.resolve(watcher()).catch(() => {})
-      else closeWatch = watcher
+      else {
+        closeWatch = watcher
+        watching = true
+        void notifyHistory({ kind: 'snapshot', snapshot: historySnapshot() })
+      }
       return state.reader.getSnapshot()
     } catch (error) {
       if (isDisposed() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return undefined
@@ -321,6 +382,7 @@ export function createSessionTimeline(
         error: error instanceof Error ? error.message : String(error),
       } satisfies SessionTimelineState
       remember(failed)
+      void notifyHistory({ kind: 'error', snapshot: historySnapshot() })
       return failed
     }
   }
@@ -370,6 +432,8 @@ export function createSessionTimeline(
         hasOlder: snapshot.hasOlder,
       }
       remember(next)
+      // Goal-only pages use their own cursor. Their failure is local; messages have already been committed above.
+      await notifyHistory({ kind: 'window', snapshot: historySnapshot() })
       return { sessionId, loaded: Math.max(0, loaded), hasOlder: next.hasOlder }
     } catch (error) {
       if (
@@ -407,12 +471,14 @@ export function createSessionTimeline(
 
   return {
     reader: state.reader,
+    history,
     dispose() {
       generation += 1
       unsubscribe()
       close()
       state.dispose()
       cache.clear()
+      historyListeners.clear()
     },
   }
 }
