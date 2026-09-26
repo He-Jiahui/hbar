@@ -466,6 +466,8 @@ export interface CommandCatalogPort {
 
 export interface CommandTextPort {
   resolve(key: string): string
+  /** Reindex localized search without refreshing the catalog, selection or command execution. */
+  subscribe?(listener: () => void): () => void
 }
 
 export interface CommandPaletteItem {

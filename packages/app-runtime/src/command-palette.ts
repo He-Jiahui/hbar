@@ -177,6 +177,16 @@ export function createCommandPalette(
     return [...counts].map(([id, count]) => Object.freeze({ id, count }))
   }
 
+  const textUnsubscribe = options.commandText?.subscribe?.(() => {
+    if (isDisposed()) return
+    const current = state.reader.getSnapshot()
+    const ids = visible(current.items, current.query)
+    if (ids.length === current.visibleIds.length && ids.every((id, index) => id === current.visibleIds[index])) return
+    // Copy changes are not navigation or catalog changes. In particular, never clear an
+    // edited parameter draft, in-flight/unknown execution or result to update a search index.
+    state.replace({ ...current, visibleIds: ids, categories: categories(current.items, ids) })
+  })
+
   const selectDraft = (item: Readonly<CommandPaletteItem> | undefined): void => {
     fullDraft = item ? createCommandParameterDraft(item.form, commandContext(navigation, directory)) : null
   }
@@ -442,6 +452,7 @@ export function createCommandPalette(
   return {
     reader: state.reader,
     dispose() {
+      textUnsubscribe?.()
       generation++
       fullDraft = null
       state.dispose()

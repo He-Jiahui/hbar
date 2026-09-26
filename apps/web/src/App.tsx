@@ -673,11 +673,12 @@ export default function App({
 }) {
   const copy = getShellCopy(locale)
   const localeRef = useRef(locale)
+  const runtimeCopy = useMemo(() => createWebRuntimeCopy(() => localeRef.current), [])
   useLayoutEffect(() => {
     localeRef.current = locale
     document.documentElement.lang = locale
-  }, [locale])
-  const runtimeCopy = useMemo(() => createWebRuntimeCopy(() => localeRef.current), [])
+    runtimeCopy.refresh()
+  }, [locale, runtimeCopy])
   const clientUrl = nativeConnection?.url ?? window.location.origin
   const clientToken = nativeConnection?.token
   const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
