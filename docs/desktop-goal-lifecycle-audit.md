@@ -1,8 +1,8 @@
 # Goal 生命周期时间线：参考证据与最小公开读取合同
 
-本文件是 2026-09-25 对当前工作树的审计与待实施合同，不是实现或验收完成声明。本轮新增审计及原 MessageList 隔离 fixture，不修改产品、不启动业务 Host/provider；截图用独立参考 Vite preview，验证后已停止。参考仓库当前 HEAD 为 `e28d0a65`，画面与路径对应本轮实际读取的工作树组件。按 `hbar-engineering` 的前后端与质量规范，以及 reference-flow-layout、content-contract、icon-scale 审查。
+本文件保留 2026-09-25 的**实施前审计与合同设计**；其中现状差距表是当时状态，不是最新产品缺口。此后的 Host `7c6e6e9`、runtime `3e2d02b`、UI `bea70a7` 及真实浏览器／原生验收见 [Goal 生命周期交付](desktop-goal-lifecycle.md)。参考截图仍由原 MessageList／ActiveSession 的隔离 fixture 生成，不启动业务 Host/provider；它们证明参考表达，不代替 hbar 业务验收。参考 HEAD 为 `e28d0a65`，按 hbar-engineering、reference-flow-layout、content-contract、icon-scale 审查。
 
-## 结论与交付边界
+## 实施前结论与交付边界
 
 `a336682` 已交付的是自动续作 **Run 边界**：根据已持久化 `Run.input.source === 'goal'`，在该 Run 的已加载消息/流前放一条只读分隔。它不证明历史目标、预算、暂停、恢复、完成或清除，也不补取分页范围外的 Run。完整 Goal 生命周期尚未实现。
 
@@ -36,13 +36,16 @@ Host 的 canonical log 已保留 `goal.created`、`goal.updated`、`goal.account
 - 新增 **原 MessageList GoalEventCard 隔离证据**：[英文 1440 展开](../artifacts/goal-lifecycle/reference-en-US-1440-expanded.png)、[中文 1440 展开](../artifacts/goal-lifecycle/reference-zh-CN-1440-expanded.png)、[英文 320 展开](../artifacts/goal-lifecycle/reference-en-US-320-expanded.png)、[中文 320 展开](../artifacts/goal-lifecycle/reference-zh-CN-320-expanded.png)。7条人工 typed `goal_event` 覆盖 created/replaced/status/paused/resumed/completed/cleared；直接 import 原 MessageList，**没有复制 GoalEventCard 源码**。这些输入不是 Host 产生的真实业务历史，不证明生命周期后端已接线。
 - 原 pane 在320宽度需要正常垂直滚动：[英文 320 尾部](../artifacts/goal-lifecycle/reference-en-US-320-expanded-tail.png)、[中文 320 尾部](../artifacts/goal-lifecycle/reference-zh-CN-320-expanded-tail.png) 可看到完成与清除卡；不是隐藏末项或按截图硬缩高度。折叠态：[英文 1440](../artifacts/goal-lifecycle/reference-en-US-1440-collapsed.png)、[中文 1440](../artifacts/goal-lifecycle/reference-zh-CN-1440-collapsed.png)、[英文 320](../artifacts/goal-lifecycle/reference-en-US-320-collapsed.png)、[中文 320](../artifacts/goal-lifecycle/reference-zh-CN-320-collapsed.png)。截图视口高度1280，只有 fixture header 与 MessageList，不模拟完整 App chrome。
 - [新 fixture main.tsx](../artifacts/goal-lifecycle/reference/main.tsx)、[typed fixture 数据](../artifacts/goal-lifecycle/reference/fixture-data.ts)、[Vite 配置](../artifacts/goal-lifecycle/reference.vite.config.ts)、[自动浏览器脚本](../artifacts/goal-lifecycle/capture-reference.ts) 与 [DOM 观察](../artifacts/goal-lifecycle/reference-observations.json) 可复现上述10图。原 `theme/globals.css`、自托管字体与 Tailwind source 均实际载入；DOM body 为 Inter/PingFang SC/Microsoft YaHei 的原字体链，Inter加载确认，不是浏览器 Times 默认字体。独立production build与4组浏览器fixture检查通过：每组7卡默认展开、点击折叠、Enter/Space原位切换且焦点保留、单卡独立展开、无页面水平溢出、无pageerror。未接Host或provider，脚本拒绝API与跨origin请求。
+- 后续已实际挂载**原 ActiveSession 整页**补顶部条，而非复制私有函数：[中文1440 active](../artifacts/goal-lifecycle/header-reference-zh-CN-1440-active.png)、[英文1440 active](../artifacts/goal-lifecycle/header-reference-en-US-1440-active.png)、[中文900 paused](../artifacts/goal-lifecycle/header-reference-zh-CN-900-paused.png)、[中文1440 completed](../artifacts/goal-lifecycle/header-reference-zh-CN-1440-completed.png)。原标题/metadata下方是Goal strip，再到MessageList，原ChatInput留在底部；900的strip metrics隐藏，completed的strip移除而完成卡保留。
+- 原mobile guard实际截图：[中文390 active](../artifacts/goal-lifecycle/header-reference-zh-CN-390-active.png)、[中文320 active](../artifacts/goal-lifecycle/header-reference-zh-CN-320-active.png)、[中文320 paused](../artifacts/goal-lifecycle/header-reference-zh-CN-320-paused.png)。原ActiveSession通过`useMobileViewport(max-width:767px)`不挂header和strip；消息与原composer仍可见。这不证明完整App壳的mobile导航，也不是hbar删除已有工具header/Pause/Clear能力的依据；hbar移动Goal摘要紧凑正常流属于保留能力的明确适配。
+- [header fixture入口](../artifacts/goal-lifecycle/header-reference/main.tsx)、[typed stores输入](../artifacts/goal-lifecycle/header-reference/fixture-data.ts)、[复现与边界](../artifacts/goal-lifecycle/header-reference/README.md)、[捕图脚本](../artifacts/goal-lifecycle/capture-header-reference.ts)、[DOM观察](../artifacts/goal-lifecycle/header-reference-observations.json)记录en/zh×1440/900/390/320×active/paused/completed共24组，高度900，独立port44907/build目录。body与Goal text使用原Inter字体链；header h1用原`--font-headline` Noto Serif SC/宋体/Georgia链（globals.css:694），其衬线外观是原设计，不是漏载样式。桌面是明确non-touch浏览器profile、mobile是touch profile；未挂Electron preload或App导航壳。原ActiveSession/Header/strip/MessageList/ChatInput未被替换，API/health/跨origin HTTP及全部WS被拒绝，pageerror为0、无页面水平溢出；所有Goal状态仍是人工store注入，不证明真实业务迁移或持久恢复。
 - [hbar 真实临时 Host 1440 截图](../artifacts/goal-continuation/host-zh-CN-1440.png) 与 [320 截图](../artifacts/goal-continuation/host-zh-CN-320.png)：续作 divider 已存在，暂停目标 strip 当前位于 composer 上方。
 
-因此，生命周期卡已补**原组件实际渲染**证据，顶部 strip 仍只有**源码与已有 DOM 测试**证据。`ActiveGoalStrip` 是 ActiveSession 文件内部私有函数，没有公开export；本文fixture未挂载ActiveSession，不复制该片段冒充原组件。后续若验证顶部条，应挂载原ActiveSession并提供其所需session/tab/Goal/chat工作台状态，避免连接真实provider；或者在参考库获授权新增原组件export/preview入口后再直接渲染。还缺“标题元数据 → Goal strip → MessageList”的真实整体画面及desktop/mobile guard实测，本轮不拓展。
+因此，生命周期卡与“标题元数据 → Goal strip → MessageList”的**原页面实际渲染**证据均已补齐。`ActiveGoalStrip`虽是私有函数，已通过挂载原ActiveSession而得到，不需复制或改公开export。还未验证完整App导航壳、Electron环境、真实Goal业务状态转换、Host持久刷新与回执；隔离fixture必须与这些能力明确区分。
 
 新画面同时证实源码细节：中文事件标题已翻译，但fixture传入的status仍按原组件原样显示 `active/paused/complete`；elapsed虽在typed事件中提供，GoalEventCard没有渲染它；标题按钮支持原生键盘，但当前未设置aria-expanded。hbar实现时应使用typed host status文案与展开语义，不把这些参考缺口复制成目标要求。旧续作divider证据仍只是已交付子集；新fixture也不是hbar生产生命周期能力或完整应用验收。
 
-## hbar 事实来源与现有读取缺口
+## 实施前的 hbar 事实来源与读取缺口
 
 | 来源                                                                                                                                                                                                                                                                                      | 权威与限制                                                                                                                                                                                                       |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -169,4 +172,4 @@ type GoalHistoryPage = {
 | UI/可达    | 原GoalEventCard与ActiveGoalStrip真实fixture截图；hbar en/zh 1440/390/320、长objective/翻译、键盘折叠/展开；title下摘要与composer无重复条；窄屏控制可达、无水平溢出；历史卡无误导旧Goal操作或Copy/Fork。 |
 | 真实动作   | 设置后已确认卡→暂停确认→恢复确认→实际完成→新目标/清除确认；写回复丢失仅显示unknown与核对，不提前画成功卡；已清除当前Goal不抹旧卡/续作divider。                                                          |
 
-本次完成源码/历史审计与合同文档，并补原MessageList生命周期卡的隔离fixture build与4组浏览器视觉/键盘检查。未运行上述真实Host业务测试、未实现新query或hbar生命周期UI、未拍顶部strip或完整参考应用Goal流程；不得把该清单列为通过结果。
+本次完成源码/历史审计与合同文档，并补原MessageList卡片的4组隔离浏览器视觉/键盘检查及原ActiveSession整页的24组header/strip/mobile guard检查。未运行上述真实Host业务测试、未实施新query或hbar生命周期UI、未验证完整参考App/真实Goal流程；不得把该清单列为通过结果。
