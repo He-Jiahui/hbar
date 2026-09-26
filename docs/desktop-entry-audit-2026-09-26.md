@@ -13,11 +13,17 @@
 - 三agent逐入口审查继续：插件/Skills/MCP/市场原组件70张只读参考图；详情就近启停已按上述独立单元闭环，安装/卸载的可靠恢复、市场更新/MCP/技能正文仍需要对应事实合同。[逐入口矩阵](desktop-extensions-entry-audit.md)。不把没有Host能力的功能做成占位按钮。
 - `35a2852`：确认归档只退役原Session tab，保留B选择/草稿/Files，恢复不导航、刷新原空工程不暗选邻居。短期有界版本fence封住跨工程缓存驱逐后的旧读取、页、Roster、选择/restore与旧归档ACK，原独立consumer DTO仍可完成。110项测试/582断言、6项真实Host生产E2E和封口资源后的原生900通过；容量拒绝是明确failed而非Host Run BUSY或unknown。[参考、实证红测与交付](desktop-navigation-archive-audit.md)。
 - 启动入口只读审计又复现了 pending Host identity → confirmed identity 的设置丢页与临时namespace保存问题：中英×1440/320×四场景16/16，实际hello回复延迟326–676ms后原样释放，Run/pageerror均0；只读文档不是修复或通过的导航验收。[复现、历史与最小方案](desktop-startup-entry-audit.md)。不能仅删除hostId依赖或等connected后才点击来掩盖。
+- 上述启动问题已进入独立修复验收：同 endpoint 首次确认保留全局 Settings 实例、已知分类、Appearance 草稿和正常焦点；pending runtime 无持久化端口，真实 Host 偏好读回后才可保存。分类描述加载不移除原导航按钮，后台旧页签恢复不能抢页，旧导航存储失效也不回退刚才的分类。最新生产真实 Host 27/27、真实原生900×600 4/4通过；原生原有Goal/语言/归档回归同次通过。完整串行门禁结果以本单元[交付与验证记录](desktop-startup-settings-handoff.md)为准。
 - 外部归档保留视图的执行准备能力仍是下一单元：原历史/草稿/附件/Files保留，但Send、模型/思考/Plan/Goal准备入口仍可用。独立真实Host审计3/3与active BUSY→Stop取消1/1有截图；这证明差距与合法控制，不是只读guard已完成。[能力分组与dispatch前后边界](desktop-external-archive-readonly-audit.md)。不能整块disabled连Stop一起封，不能以前端guard承诺撤销已经派发的配置写。
 
 本次集成检查的时间点需另行区分：根lint/typecheck曾通过，随后并行Lumen通知修改引入缺失stylesheet，边界suite首次12 pass/1 fail/1加载错误；文件落地后重跑13 pass/0 fail/55断言。继续的 `bun run check` 在严格lint阶段因外部通知 `Header` 未使用与fixture未完成的 `system/handler` 引用退出1；日志 `artifacts/desktop-entry-matrix/final-stable-check.log`。未进入该次typecheck/全量test，不将此串行门禁描述为通过。这些外部文件保留给原任务处理。
 
-**最后封口后的串行门禁** `bun run check` 已实际重跑：native build、根 strict lint 与根 typecheck通过，全量Bun为 **1789 pass / 1 fail / 13497 assertions，335文件，254.88秒**。唯一失败仍是外部 `hbar-app-ui registry > keeps notification variants split by semantic surface and free of legacy naming`；总命令exit1，日志 `artifacts/desktop-entry-matrix/final-integrated-check.log`。未改该并行组件或断言，不把本单元110项绿或生产/原生子集绿替代整个门禁通过。
+**上一个归档单元封口后的串行门禁** `bun run check` 已实际重跑：native build、根 strict lint 与根 typecheck通过，全量Bun为 **1789 pass / 1 fail / 13497 assertions，335文件，254.88秒**。唯一失败仍是外部 `hbar-app-ui registry > keeps notification variants split by semantic surface and free of legacy naming`；总命令exit1，日志 `artifacts/desktop-entry-matrix/final-integrated-check.log`。未改该并行组件或断言，不把本单元110项绿或生产/原生子集绿替代整个门禁通过。
+
+**启动设置单元最新串行门禁**：定稿后的 `bun run check` **exit0**，原生工具构建、根严格lint/typecheck通过，
+全量 **1854 pass / 0 fail / 13844 assertions，340文件，230.63秒**；日志 `artifacts/startup-handoff/final-check.log`。
+这是当前工作树的总回归，包含并行任务的既有测试；没有修改前述外部通知组件来掩盖旧失败。
+该单元另有最终真实Host浏览器27/27、真实原生startup4/4和同次既有Goal/语言/归档回归。
 
 ## 已验证并提交的子集
 
@@ -56,4 +62,4 @@
 
 Browser、真实终端、定时任务、市场/MCP/模板、图片材料预览及历史 rewind 不是换入口即可迁移的功能：需要相应产品/安全/持久化契约。当前 `browser.*` 是自动化，不是原生内嵌 Browser；内部 wakeup 不是 schedule CRUD；Fork 不是回滚磁盘。不得用占位 UI 声称等价。
 
-完整 Goal 生命周期本单元已经闭环。下一步回到全桌面逐入口矩阵及语言／插件／归档候选，按真实契约选择独立子功能，再复核通用原生导航视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。
+完整 Goal 生命周期、设备语言、插件详情就近启停和确认归档退役已经分别闭环。启动设置连续性本单元之后，下一步是外部归档保留视图的新执行准备边界，并继续全桌面逐入口矩阵与通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。

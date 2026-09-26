@@ -9,6 +9,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from '../e2e/support/composer-text'
 import { cleanupNativeSessionFixture } from './native-fixture-cleanup'
 import { verifyNativeSessionArchive } from './verify-native-session-archive'
+import { verifyNativeStartupSettings } from './verify-native-startup-settings'
 
 // No build, installation or user-process attachment. The caller refreshes debug Host/Web resources first.
 if (process.platform !== 'win32') throw new Error('This isolated native Goal check requires Windows WebView2')
@@ -497,6 +498,7 @@ try {
     sessionId: session.id,
     title: session.title,
   })
+  await verifyNativeStartupSettings(page, api)
   const snapshot = await api.call('session.snapshot', { sessionId: session.id })
   expect(snapshot.runs).toEqual([])
   expect(snapshot.messages).toEqual([])

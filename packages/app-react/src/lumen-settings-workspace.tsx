@@ -74,6 +74,9 @@ export interface HbarSettingsWorkspaceProps {
   readonly connected: boolean
   readonly components?: SchemaComponentRegistry
   readonly additionalGroups?: readonly HbarSettingsAdditionalGroup[]
+  /** Short, host-owned navigation catalogue while the authoritative Settings description is loading.
+   * Supplies labels only, never fields or permission to write. Duplicate IDs keep their first label. */
+  readonly pendingGroups?: readonly HbarSettingsAdditionalGroup[]
   /** Presentation only: fixed-scope groups do not change the underlying layered form or its draft. */
   readonly groupPresentation?: readonly HbarSettingsGroupPresentation[]
   readonly renderGroup?: (groupId: string) => ReactNode
@@ -124,6 +127,7 @@ export function HbarSettingsWorkspace({
   connected,
   components = standardComponents,
   additionalGroups = [],
+  pendingGroups = [],
   groupPresentation = [],
   renderGroup,
   headerActions,
@@ -175,17 +179,28 @@ export function HbarSettingsWorkspace({
     const navigationOrder = new Map<string, number>()
     for (const item of groupPresentation)
       if (item.order !== undefined && !navigationOrder.has(item.id)) navigationOrder.set(item.id, item.order)
-    return [
+    const known = [
       ...clientGroups.map((group) => ({ ...group, label: group.label })),
       ...hostGroups.map((group) => ({ ...group, label: labels.resolve(group.labelKey) })),
-    ].sort(
+    ]
+    if (!entry?.description) {
+      const seen = new Set(known.map((group) => group.id))
+      for (const group of pendingGroups) {
+        if (!group.id || seen.has(group.id)) continue
+        seen.add(group.id)
+        known.push(group)
+      }
+    }
+    return known.sort(
       (left, right) =>
         (navigationOrder.get(left.id) ?? left.order) - (navigationOrder.get(right.id) ?? right.order) ||
         left.id.localeCompare(right.id),
     )
-  }, [clientGroups, groupPresentation, hostGroups, labels])
+  }, [clientGroups, entry?.description, groupPresentation, hostGroups, labels, pendingGroups])
   const activeClientGroup = clientGroups.find((group) => group.id === requestedSection)
-  const activeGroupId = activeClientGroup?.id ?? entry?.selectedGroup ?? null
+  const pendingGroupId =
+    !entry?.description && groups.some((group) => group.id === requestedSection) ? requestedSection : null
+  const activeGroupId = activeClientGroup?.id ?? pendingGroupId ?? entry?.selectedGroup ?? null
   const presentationByGroup = useMemo(() => {
     const knownIds = new Set(groups.map((group) => group.id))
     const result = new Map<string, HbarSettingsGroupPresentation>()

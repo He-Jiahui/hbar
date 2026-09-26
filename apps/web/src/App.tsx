@@ -19,6 +19,8 @@ import {
   useHbarRuntimeState,
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
+import type { GlobalSettingsStartup } from '@hbar/app-runtime'
+import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
 import { ArrowLeft } from 'lucide-react'
 import {
@@ -74,7 +76,8 @@ import {
   saveWebAppearancePreferences,
   writeAppearanceBootstrap,
 } from './appearance'
-import { createWebAppearanceEditor, type AppearanceEditor } from './appearance-editor'
+import type { AppearanceEditor, AppearanceEditorPort } from './appearance-editor'
+import { createWebStartupRuntime } from './startup-runtime'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
@@ -116,15 +119,17 @@ const settingsLanding = {
 
 function createRuntime(
   client: HbarClient,
-  hostId: string,
+  hostId: string | null,
   copy: WebRuntimeCopyPort,
   attachments: ReturnType<typeof createBrowserAttachmentController>['commands'],
   resourcePicker: ReturnType<typeof createBrowserResourcePicker>,
+  initialGlobalSettings?: GlobalSettingsStartup,
 ) {
   const goals = createGoalPlanCommandClient(client)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
-    hostId,
+    hostId: hostId ?? 'pending:identity',
+    initialGlobalSettings,
     directory: createDirectoryQueryAdapter(client),
     workspaces: createWorkspaceSessionCommandClient(client),
     timeline: createSessionTimelineClient(client),
@@ -166,12 +171,12 @@ function createRuntime(
     surfaces: { canRender: canRenderWebSurface },
     defaultLayout: shellLayout,
     layoutDescription: { normalize: normalizeShellLayout },
-    persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web'),
+    ...(hostId === null ? {} : { persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web') }),
     exporter: createBrowserClientExport(),
   })
 }
 
-function createAppearanceEditorForRuntime(runtime: ReturnType<typeof createAppRuntime>): AppearanceEditor {
+function createAppearancePortForRuntime(runtime: ReturnType<typeof createAppRuntime>): AppearanceEditorPort {
   const state = runtime.view.state.preferences
   const commands = runtime.view.commands
   const mutations = {
@@ -187,13 +192,13 @@ function createAppearanceEditorForRuntime(runtime: ReturnType<typeof createAppRu
       throw new CommandError('COMMAND_CONFLICT', 'Appearance preference revision changed')
     return preferences
   }
-  return createWebAppearanceEditor(state.getSnapshot(), {
+  return {
     save: (target, expectedRevision) =>
       saveWebAppearancePreferences(mutations, current(expectedRevision).values, target, expectedRevision),
     reset: (expectedRevision) =>
       resetWebAppearancePreferences(mutations, current(expectedRevision).values, expectedRevision),
     refresh: runtime.clientPreferences.refresh,
-  })
+  }
 }
 
 type WorkspaceBodyProps = {
@@ -319,6 +324,12 @@ function WorkspaceBodyContent({
         labels={copy.settings}
         connected={connected}
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+        pendingGroups={[
+          { id: 'providers', label: copy.settings.resolve('i18n:settings.groups.providers'), order: 0 },
+          { id: 'model', label: copy.settings.resolve('i18n:settings.groups.model'), order: 20 },
+          { id: 'session', label: copy.settings.resolve('i18n:settings.groups.session'), order: 30 },
+          { id: 'extensions', label: copy.settings.resolve('i18n:settings.groups.extensions'), order: 40 },
+        ]}
         additionalGroups={[
           ...(language ? [{ id: 'general', label: copy.general.group, order: 5 }] : []),
           { id: 'appearance', label: copy.appearance.group, order: 0 },
@@ -685,8 +696,6 @@ export default function App({
   const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
   const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
   const composerFiles = useMemo(() => createFileCommandClient(client), [client])
-  const [connection, setConnection] = useState<ConnectionStatus>('connecting')
-  const [hostId, setHostId] = useState(() => `pending:${clientUrl}`)
   const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
   const [bootstrapAppearance, setBootstrapAppearance] = useState(() => readAppearanceBootstrap(window.localStorage))
   const [systemPrefersDark, setSystemPrefersDark] = useState(
@@ -695,18 +704,51 @@ export default function App({
   const [systemPrefersReducedMotion, setSystemPrefersReducedMotion] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
-  const runtime = useMemo(
-    () => createRuntime(client, hostId, runtimeCopy, attachmentController.commands, resourcePicker),
-    [attachmentController, client, hostId, runtimeCopy, resourcePicker],
+  const startup = useMemo(
+    () =>
+      createWebStartupRuntime({
+        endpointId: clientUrl,
+        isKnownSettingsGroup: knownSettingsGroup,
+        bootstrap: () => {
+          const dimensions = readAppearanceBootstrap(window.localStorage)
+          return {
+            status: 'ready',
+            revision: 0,
+            persisted: false,
+            restoreError: null,
+            values: {
+              theme: readThemeBootstrap(window.localStorage),
+              'appearance.controlSize': dimensions.controlSize,
+              'appearance.textSize': dimensions.textSize,
+              'appearance.cornerSize': dimensions.cornerSize,
+            },
+          }
+        },
+        createRuntime: (hostId, initialGlobalSettings) =>
+          createRuntime(
+            client,
+            hostId,
+            runtimeCopy,
+            attachmentController.commands,
+            resourcePicker,
+            initialGlobalSettings,
+          ),
+        appearancePort: createAppearancePortForRuntime,
+        disposeConnection: () => {
+          attachmentController.dispose()
+          resourcePicker.dispose()
+          client.disconnect()
+        },
+      }),
+    [attachmentController, client, clientUrl, runtimeCopy, resourcePicker],
   )
+  const { runtime, appearanceEditor, binding, connection } = useStore(startup.store)
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
-  const appearanceEditor = useMemo(() => createAppearanceEditorForRuntime(runtime), [runtime])
-  useEffect(() => appearanceEditor.sync(preferences), [appearanceEditor, preferences])
   const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
-  const preferencesAvailable = preferences.status === 'ready' && !preferences.restoreError
+  const preferencesAvailable = binding.hostId !== null && preferences.status === 'ready' && !preferences.restoreError
   const themePreference = preferencesAvailable ? persistedTheme : bootstrapTheme
   const resolvedTheme = resolveWebTheme(themePreference, systemPrefersDark)
   const persistedAppearance = useMemo(() => resolveWebAppearanceDimensions(preferences.values), [preferences.values])
@@ -760,40 +802,47 @@ export default function App({
   }, [bootstrapAppearance, persistedAppearance, preferencesAvailable])
 
   useEffect(() => {
-    const offStatus = client.onStatus(setConnection)
+    const release = startup.retain()
+    let active = true
+    const update = (status: ConnectionStatus) => {
+      if (!active) return
+      const host = client.connectionHost()
+      if (status === 'connected' && (!host || !startup.confirmHost(host.instanceId))) {
+        startup.setConnection('connecting')
+        return
+      }
+      startup.setConnection(status)
+    }
+    const offStatus = client.onStatus(update)
+    update(client.connectionStatus())
     void client
       .connect()
-      .then((host) => setHostId(host.instanceId))
+      .then(() => update(client.connectionStatus()))
       .catch(() => {
+        if (!active) return
         const status = client.connectionStatus()
-        if (status === 'pairing') setConnection(status)
+        if (status === 'pairing') startup.setConnection(status)
         else {
           client.disconnect()
-          setConnection('disconnected')
+          startup.setConnection('disconnected')
         }
       })
     return () => {
+      active = false
       offStatus()
-      attachmentController.dispose()
-      resourcePicker.dispose()
-      client.disconnect()
+      release()
     }
-  }, [attachmentController, client, resourcePicker])
-
-  useEffect(() => () => runtime.dispose(), [runtime])
+  }, [client, startup])
 
   const reconnect = () => {
     void createConnectionCommands(client)
       .execute('connection.connect', {})
-      .then((result) => {
-        if (result.host) setHostId(result.host.instanceId)
-      })
       .catch(() => {
         const status = client.connectionStatus()
-        if (status === 'pairing') setConnection(status)
+        if (status === 'pairing') startup.setConnection(status)
         else {
           client.disconnect()
-          setConnection('disconnected')
+          startup.setConnection('disconnected')
         }
       })
   }
@@ -801,7 +850,7 @@ export default function App({
   return (
     <LumenProvider appearance={lumenAppearance}>
       <HbarRuntimeProvider view={runtime.view}>
-        <WorkbenchSurfaceCleanup key={hostId} runtime={runtime} />
+        <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
         <HbarWorkspaceShell
           labels={copy.shell}
           titlebar={

@@ -81,6 +81,13 @@ export interface BudgetFormState {
 }
 export type BudgetFormsState = Readonly<Record<string, BudgetFormState>>
 
+/** Only a client-owned global Settings surface can cross initial Host identity discovery. */
+export interface GlobalSettingsStartup {
+  readonly instanceId: string
+  readonly section?: string | undefined
+  readonly sidebarOpen: boolean
+}
+
 export interface RuntimeOptions {
   readonly instanceId: string
   readonly hostId: string
@@ -96,6 +103,7 @@ export interface RuntimeOptions {
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
+  readonly initialGlobalSettings?: GlobalSettingsStartup | undefined
   /** Host-owned global Settings entry preference; scoped settings keep their own explicit targets. */
   readonly settingsLanding?: {
     readonly globalGroupId: string

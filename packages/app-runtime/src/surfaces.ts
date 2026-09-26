@@ -47,10 +47,11 @@ export function registerSurfaceCommands(
   presentation: ReturnType<typeof createState<PresentationState>>,
 ): () => void {
   const windowTails = new Map<string, Promise<void>>()
-  let lastGlobalSettingsGroup: string | null = null
+  let lastGlobalSettingsGroup: string | null = options.initialGlobalSettings?.section ?? null
   try {
     const stored = options.settingsLanding?.readLastGlobalGroup?.() ?? null
-    if (stored && (options.settingsLanding?.isKnownGlobalGroup?.(stored) ?? true)) lastGlobalSettingsGroup = stored
+    if (!lastGlobalSettingsGroup && stored && (options.settingsLanding?.isKnownGlobalGroup?.(stored) ?? true))
+      lastGlobalSettingsGroup = stored
   } catch {
     // An unavailable device preference must not block the Settings entry.
   }

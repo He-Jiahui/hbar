@@ -1,4 +1,10 @@
-import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
+import {
+  CommandError,
+  defineCommand,
+  type CommandExecutor,
+  type CommandRegistry,
+  type ExecuteOptions,
+} from '@hbar/commands'
 import { z } from 'zod'
 import { sessionSchema, type Session } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
@@ -118,7 +124,7 @@ export interface WorkspaceTabsOptions {
   readonly preferenceCommands: CommandExecutor
   readonly preferencesReady: Promise<void>
   readonly retryPreferencesRestore: () => Promise<ClientPreferencesState>
-  readonly selectSession: (sessionId: string, workspaceId: string) => Promise<unknown>
+  readonly selectSession: (sessionId: string, workspaceId: string, execution?: ExecuteOptions) => Promise<unknown>
   /** Owned navigation writer invalidates older navigations when a selected tab closes. */
   readonly commitLocalSelection: (
     closedId: string | null,
@@ -206,6 +212,10 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   let writeScheduled = false
   let retrySelection: { readonly tab: SessionTabRef; readonly navigation: NavigationState } | null = null
   let focusedWorkbenchId: string | null = null
+  // Restoring old references is background work. An already open or subsequently used
+  // surface owns the foreground, including an open-then-close intent before reads settle.
+  let startupSurfaceIntent = options.surfaces.getSnapshot().focusedPanelId !== null
+  let startupSelection: AbortController | null = null
   let retirementSerial = 0
   // Only in-flight intent fences, not a second Session cache. Released after each selection/restore.
   const selectionFences = new Map<symbol, { sessionId: string | null; archived: Set<string>; overflow: boolean }>()
@@ -281,7 +291,13 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     }
   })
   const surfaceUnsubscribe = options.surfaces.subscribe(() => {
-    if (disposed || !current().items.some((item) => item.kind === 'workbench')) return
+    if (disposed) return
+    if (options.surfaces.getSnapshot().focusedPanelId !== null) {
+      startupSurfaceIntent = true
+      // Only background restoration is cancelled. Explicit tab/Workbench actions have their own intent.
+      startupSelection?.abort()
+    }
+    if (!current().items.some((item) => item.kind === 'workbench')) return
     const items = current().items.filter((item) => {
       if (item.kind === 'session') return true
       const panel = options.surfaces.getSnapshot().panels[item.panelInstanceId]
@@ -724,6 +740,16 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     publish({ items, revision: current().revision + 1 })
     persist()
   }
+  async function selectRestored(tab: SessionTabRef): Promise<void> {
+    if (disposed || startupSurfaceIntent) return
+    const controller = new AbortController()
+    startupSelection = controller
+    try {
+      await options.selectSession(tab.sessionId, tab.workspaceId, { signal: controller.signal })
+    } finally {
+      if (startupSelection === controller) startupSelection = null
+    }
+  }
   async function restore(retry = false) {
     await options.preferencesReady
     if (disposed) return
@@ -819,13 +845,14 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         description.activeId === null
           ? null
           : (available.find((item) => item.id === description.activeId) ?? available[0] ?? null)
-      if (selectedTab && (!retry || navigationAtStart === navigationAtConstruction)) {
+      if (selectedTab && !startupSurfaceIntent && (!retry || navigationAtStart === navigationAtConstruction)) {
         try {
-          await options.selectSession(selectedTab.sessionId, selectedTab.workspaceId)
+          await selectRestored(selectedTab)
         } catch (reason) {
           if (
             code(reason) !== 'NAVIGATION_SUPERSEDED' &&
             !disposed &&
+            !startupSurfaceIntent &&
             options.navigation.getSnapshot().status === 'error' &&
             options.navigation.getSnapshot().sessionId === navigationAtStart.sessionId &&
             options.navigation.getSnapshot().workspaceId === navigationAtStart.workspaceId
@@ -836,7 +863,11 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
           }
         }
       }
-      if (description.activeWorkspaceId && (!retry || navigationAtStart === navigationAtConstruction)) {
+      if (
+        description.activeWorkspaceId &&
+        !startupSurfaceIntent &&
+        (!retry || navigationAtStart === navigationAtConstruction)
+      ) {
         const restoredRevision = current().revision
         try {
           const workspace = await options.queries.execute('workspace.get', {
@@ -844,6 +875,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
           })
           if (
             disposed ||
+            startupSurfaceIntent ||
             current().revision !== restoredRevision ||
             options.navigation.getSnapshot() !== navigationAtStart
           ) {
@@ -868,6 +900,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         } catch (reason) {
           if (
             !disposed &&
+            !startupSurfaceIntent &&
             current().revision === restoredRevision &&
             options.navigation.getSnapshot() === navigationAtStart
           )
@@ -893,12 +926,16 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     if (retrySelection) {
       const saved = retrySelection
       retrySelection = null
-      if (options.navigation.getSnapshot() === saved.navigation && current().items.includes(saved.tab)) {
+      if (
+        !startupSurfaceIntent &&
+        options.navigation.getSnapshot() === saved.navigation &&
+        current().items.includes(saved.tab)
+      ) {
         try {
-          await options.selectSession(saved.tab.sessionId, saved.tab.workspaceId)
+          await selectRestored(saved.tab)
           publish({ restoreStatus: 'ready' })
         } catch (reason) {
-          if (code(reason) !== 'NAVIGATION_SUPERSEDED') {
+          if (!disposed && !startupSurfaceIntent && code(reason) !== 'NAVIGATION_SUPERSEDED') {
             retrySelection = { tab: saved.tab, navigation: options.navigation.getSnapshot() }
             publish({ restoreStatus: 'error', restoreError: code(reason) })
           } else publish({ restoreStatus: 'ready' })
@@ -996,6 +1033,8 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     },
     dispose() {
       disposed = true
+      startupSelection?.abort()
+      startupSelection = null
       navigationUnsubscribe()
       surfaceUnsubscribe()
       sessionsUnsubscribe()

@@ -46,6 +46,7 @@ export interface WebAppearanceSettingsLabels {
     readonly iconButton: string
   }
   readonly loading: string
+  readonly identityPending: string
   readonly unsaved: string
   readonly saved: string
   readonly volatile: string
@@ -87,6 +88,7 @@ function themeChoiceFromKey(key: string, current: number): number | null {
 export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: WebAppearanceSettingsProps) {
   const state = useStore(editor.store)
   const ready = state.available
+  const pendingIdentity = state.binding?.hostId === null
   const busy = state.status === 'saving' || state.status === 'checking'
   const locked = busy || state.status === 'unknown' || state.status === 'conflict'
   const dirty = !sameWebAppearance(state.draft, state.baseline)
@@ -95,7 +97,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
   const progress = partiallyApplied(state)
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!ready || locked || !dirty) return
+    if (!state.writable || locked || !dirty) return
     void editor.save()
   }
   const chooseThemeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: number) => {
@@ -117,7 +119,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
         className="hbar-web-appearance-control"
         variant="plain"
         value={state.draft[dimension]}
-        disabled={!ready || locked}
+        disabled={!state.editable || locked}
         onChange={(event) => editor.change(dimension, event.currentTarget.value as LumenSize)}
       >
         {(['s', 'm', 'l'] as const).map((size) => (
@@ -166,7 +168,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
                 role="radio"
                 aria-checked={state.draft.theme === theme}
                 tabIndex={state.draft.theme === theme ? 0 : -1}
-                disabled={!ready || locked}
+                disabled={!state.editable || locked}
                 onClick={() => editor.change('theme', theme)}
                 onKeyDown={(event) => chooseThemeWithKeyboard(event, index)}
               >
@@ -239,25 +241,27 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             tone={state.error ? 'danger' : 'muted'}
             variant="supporting"
           >
-            {!ready
-              ? state.restoreError
-                ? labels.restoreError(state.restoreError)
-                : labels.loading
-              : state.status === 'checking'
-                ? labels.checking
-                : state.status === 'unknown'
-                  ? labels.unknown
-                  : state.status === 'conflict'
-                    ? labels.conflict
-                    : state.error
-                      ? labels.error(state.error)
-                      : dirty
-                        ? labels.unsaved
-                        : state.status === 'saved' || state.status === 'volatile'
-                          ? state.status === 'saved'
-                            ? labels.saved
-                            : labels.volatile
-                          : null}
+            {pendingIdentity
+              ? labels.identityPending
+              : !ready
+                ? state.restoreError
+                  ? labels.restoreError(state.restoreError)
+                  : labels.loading
+                : state.status === 'checking'
+                  ? labels.checking
+                  : state.status === 'unknown'
+                    ? labels.unknown
+                    : state.status === 'conflict'
+                      ? labels.conflict
+                      : state.error
+                        ? labels.error(state.error)
+                        : dirty
+                          ? labels.unsaved
+                          : state.status === 'saved' || state.status === 'volatile'
+                            ? state.status === 'saved'
+                              ? labels.saved
+                              : labels.volatile
+                            : null}
           </LumenText>
           {state.status === 'conflict' && state.checked && (
             <LumenFrame className="hbar-web-appearance-recovery">
@@ -291,24 +295,28 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
               size="s"
               variant="outlined"
               indicator="none"
-              disabled={busy}
+              disabled={busy || pendingIdentity}
               onClick={() => void editor.check()}
             >
               {labels.check}
             </LumenButton>
           )}
-          {dirty && state.status !== 'unknown' && state.status !== 'conflict' && !busy && ready && (
-            <LumenButton type="button" size="s" variant="text" indicator="none" onClick={editor.discard}>
-              {labels.discard}
-            </LumenButton>
-          )}
+          {dirty &&
+            state.status !== 'unknown' &&
+            state.status !== 'conflict' &&
+            !busy &&
+            (ready || pendingIdentity) && (
+              <LumenButton type="button" size="s" variant="text" indicator="none" onClick={editor.discard}>
+                {labels.discard}
+              </LumenButton>
+            )}
         </LumenFrame>
         <LumenFrame>
           <LumenButton
             type="button"
             variant="outlined"
             indicator="none"
-            disabled={!ready || locked || !canReset}
+            disabled={!state.writable || locked || !canReset}
             onClick={() => void editor.reset()}
           >
             {labels.reset}
@@ -318,7 +326,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             tone="primary"
             indicator={state.status === 'saving' ? 'lamp' : 'none'}
             loading={state.status === 'saving'}
-            disabled={!ready || locked || !dirty}
+            disabled={!state.writable || locked || !dirty}
           >
             {labels.save}
           </LumenButton>

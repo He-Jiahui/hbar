@@ -28,6 +28,7 @@ import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persi
 import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import { createState } from './state'
+import { startupSettingsState } from './startup-settings'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createWorkspaceTabs, workspaceTabCommands } from './workspace-tabs-runtime'
@@ -127,6 +128,7 @@ export type {
   RunActionsState,
   NavigationState,
   RuntimeOptions,
+  GlobalSettingsStartup,
   RunCommandPort,
   SessionDraftState,
   SessionAttachmentUpload,
@@ -232,6 +234,7 @@ const runtimeCommands = {
 export function createAppRuntime(options: RuntimeOptions) {
   if (!options.instanceId || !options.hostId)
     throw new CommandError('INVALID_INPUT', 'Runtime and Host identities are required')
+  const startup = startupSettingsState(options)
   const onSubscriberError = (error: unknown): void => {
     try {
       options.onSubscriberError?.(error)
@@ -243,20 +246,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     { workspaceId: null, sessionId: null, status: 'idle', error: null },
     onSubscriberError,
   )
-  const surfaces = createState<SurfaceState>(
-    { panels: {}, windows: {}, focusedPanelId: null, focusedWindowId: null },
-    onSubscriberError,
-  )
-  const presentation = createState<PresentationState>(
-    {
-      page: { kind: 'session' },
-      toolInstanceId: null,
-      modalInstanceId: null,
-      returnContext: null,
-      sidebarOpen: true,
-    },
-    onSubscriberError,
-  )
+  const surfaces = createState<SurfaceState>(startup.surfaces, onSubscriberError)
+  const presentation = createState<PresentationState>(startup.presentation, onSubscriberError)
 
   const local = new CommandRegistry({ execution: 'client' })
   const platform = new CommandRegistry({ execution: 'platform' })
@@ -309,7 +300,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     preferenceCommands: local,
     preferencesReady: clientPersistence.ready,
     retryPreferencesRestore: clientPersistence.retryPreferencesRestore,
-    selectSession: (sessionId, workspaceId) => local.execute('app.setSession', { sessionId, workspaceId }),
+    selectSession: (sessionId, workspaceId, execution) =>
+      local.execute('app.setSession', { sessionId, workspaceId }, execution),
     commitLocalSelection: (closedId, next) => tabNavigation?.commitLocalSelection(closedId, next),
     onSubscriberError,
   })

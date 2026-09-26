@@ -742,3 +742,57 @@ test('pinned workspace drafts return from fixed-scope groups without borrowing t
     runtime.dispose()
   }
 })
+
+test('pending navigation preserves supplied categories and selection without inventing Host form capabilities', async () => {
+  const description = Promise.withResolvers<unknown>()
+  const copy = getShellCopy('zh-CN').settings
+  const runtime = createAppRuntime({
+    instanceId: 'pending-settings-navigation',
+    hostId: 'confirmed',
+    directory,
+    settings: {
+      execute: (name, input, options) =>
+        name === 'settings.describe' ? description.promise : settings.execute(name, input, options),
+    },
+    settingsLanding: { globalGroupId: 'providers', isKnownGlobalGroup: (id) => id === 'providers' },
+    surfaces: { canRender: (id) => id === 'settings' },
+    initialGlobalSettings: { instanceId: 'original-settings', section: 'providers', sidebarOpen: false },
+  })
+  const pendingLabel = '正在连接时仍可辨认且不会因为描述晚到消失的供应商分类'
+  const render = () =>
+    renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace
+          labels={copy}
+          connected={false}
+          groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+          additionalGroups={[{ id: 'general', label: '设备常规设置', order: 5 }]}
+          pendingGroups={[
+            { id: 'providers', label: pendingLabel, order: 0 },
+            { id: 'providers', label: '重复项目不可覆盖首项', order: 0 },
+            { id: '', label: '空标识不可渲染', order: 1 },
+            { id: 'not-on-host', label: '描述尚未确认的类别', order: 20 },
+            { id: 'general', label: '不可覆盖本地类别', order: 5 },
+          ]}
+        />
+      </HbarRuntimeProvider>,
+    )
+  try {
+    const before = render()
+    const navigation = await readSettingsNavigation(before)
+    expect(navigation.groups.filter((group) => group.current).map((group) => group.text)).toEqual([pendingLabel])
+    expect(navigation.groups.map((group) => group.text)).toEqual([pendingLabel, '设备常规设置', '描述尚未确认的类别'])
+    expect(before).toContain(copy.loading)
+    expect(before).not.toContain('global-model')
+    description.resolve(HBAR_SETTINGS_DESCRIPTION)
+    await waitForReady(runtime)
+    const after = await readSettingsNavigation(render())
+    expect(after.groups.filter((group) => group.current).map((group) => group.text)).toEqual(['供应商'])
+    expect(after.groups.some((group) => group.text === '描述尚未确认的类别')).toBe(false)
+    expect(after.groups.some((group) => group.text === '设备常规设置')).toBe(true)
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBeNull()
+  } finally {
+    description.resolve(HBAR_SETTINGS_DESCRIPTION)
+    runtime.dispose()
+  }
+})

@@ -148,6 +148,10 @@ function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabel
       iconButton: choose('外观操作示例', 'Example appearance action'),
     },
     loading: choose('正在读取设备偏好', 'Loading device preferences'),
+    identityPending: choose(
+      '正在确认 Host。可以编辑外观草稿；确认并读取已保存值后才能保存或恢复默认。',
+      'Confirming the Host. You can edit the appearance draft; saving and restoring defaults require confirmed saved preferences.',
+    ),
     unsaved: choose('有未保存的外观更改', 'Appearance changes are not saved'),
     saved: choose('外观偏好已保存', 'Appearance preferences saved'),
     volatile: choose(
