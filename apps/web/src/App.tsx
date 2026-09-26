@@ -62,6 +62,9 @@ import {
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
+import { WebGeneralSettings } from './GeneralSettings'
+import type { WebLanguageController } from './language'
+import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
 import {
   createWebLumenAppearance,
   readAppearanceBootstrap,
@@ -114,11 +117,10 @@ const settingsLanding = {
 function createRuntime(
   client: HbarClient,
   hostId: string,
-  locale: ShellLocale,
+  copy: WebRuntimeCopyPort,
   attachments: ReturnType<typeof createBrowserAttachmentController>['commands'],
   resourcePicker: ReturnType<typeof createBrowserResourcePicker>,
 ) {
-  const copy = getShellCopy(locale)
   const goals = createGoalPlanCommandClient(client)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
@@ -159,7 +161,7 @@ function createRuntime(
     metrics: createMetricsCommandClient(client),
     git: createGitCommandClient(client),
     commandCatalog: createCommandCatalogClient(client),
-    commandText: { resolve: copy.commandPalette.resolve },
+    commandText: copy.commandText,
     schemaContent: createSchemaCallbackClient(client),
     surfaces: { canRender: canRenderWebSurface },
     defaultLayout: shellLayout,
@@ -198,6 +200,7 @@ type WorkspaceBodyProps = {
   readonly appRuntime: ReturnType<typeof createAppRuntime>
   readonly appearanceEditor: AppearanceEditor
   readonly locale: ShellLocale
+  readonly language?: WebLanguageController | undefined
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
   readonly files: ReturnType<typeof createFileCommandClient>
@@ -286,6 +289,7 @@ function WorkspaceBodyContent({
   appRuntime,
   appearanceEditor,
   locale,
+  language,
   connected,
   prepareAttachment,
   files,
@@ -316,11 +320,13 @@ function WorkspaceBodyContent({
         connected={connected}
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
         additionalGroups={[
+          ...(language ? [{ id: 'general', label: copy.general.group, order: 5 }] : []),
           { id: 'appearance', label: copy.appearance.group, order: 0 },
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
         renderGroup={(groupId) => {
+          if (groupId === 'general' && language) return <WebGeneralSettings labels={copy.general} language={language} />
           if (groupId === 'appearance')
             return (
               <WebAppearanceSettings
@@ -656,14 +662,22 @@ function NativeWindowTitlebar({
 
 export default function App({
   locale,
+  language,
   nativeConnection,
   nativeWindow,
 }: {
   readonly locale: ShellLocale
+  readonly language?: WebLanguageController | undefined
   readonly nativeConnection?: HbarNativeConnection | undefined
   readonly nativeWindow?: HbarNativeWindowContext | undefined
 }) {
   const copy = getShellCopy(locale)
+  const localeRef = useRef(locale)
+  useLayoutEffect(() => {
+    localeRef.current = locale
+    document.documentElement.lang = locale
+  }, [locale])
+  const runtimeCopy = useMemo(() => createWebRuntimeCopy(() => localeRef.current), [])
   const clientUrl = nativeConnection?.url ?? window.location.origin
   const clientToken = nativeConnection?.token
   const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
@@ -681,8 +695,8 @@ export default function App({
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
   const runtime = useMemo(
-    () => createRuntime(client, hostId, locale, attachmentController.commands, resourcePicker),
-    [attachmentController, client, hostId, locale, resourcePicker],
+    () => createRuntime(client, hostId, runtimeCopy, attachmentController.commands, resourcePicker),
+    [attachmentController, client, hostId, runtimeCopy, resourcePicker],
   )
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
@@ -819,6 +833,7 @@ export default function App({
                 appRuntime={runtime}
                 appearanceEditor={appearanceEditor}
                 locale={locale}
+                language={language}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
                 files={composerFiles}
@@ -830,6 +845,7 @@ export default function App({
               appRuntime={runtime}
               appearanceEditor={appearanceEditor}
               locale={locale}
+              language={language}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
               files={composerFiles}

@@ -1,0 +1,137 @@
+# Desktop language entry and runtime-switch audit
+
+Audit baseline: hbar `61069f7df6ed9e9351612262565cd8e7f68562da`; cc-haha `e28d0a653481ef41b7a329411eeb2f0fd5656731`. The original baseline was a read-only product audit. Its missing-entry and destructive-switch findings below describe that baseline, not the subsequently implemented language entry. A dated follow-up at the end records independent component verification of the later implementation. Neither audit edited App, locale, copy, Host, or component product code. Later implementation must recheck these line references against its current tree.
+
+## Evidence levels
+
+- **Published reference images, visually inspected:** `D:/Git/cc-haha/docs/images/app/en/settings-general.webp` and `D:/Git/cc-haha/docs/images/app/zh-CN/settings-general.webp`. Both show the actual Settings/General hierarchy and five display-language buttons. They are desktop views, not evidence of a 320px layout, a live switch, or persistence failure handling.
+- **Reference production source:** cc-haha GeneralSettings, SettingsPill, settingsStore, i18n, browserHost, and Electron IPC. Runtime, navigation, and persistence conclusions below are source-backed; this audit did not boot the original cc-haha application or claim native smoke coverage.
+- **Current hbar mounted-source browser reproduction:** ignored fixture under `D:/Git/hbar/artifacts/desktop-entry-matrix/language/` imports the original hbar App and only adds external host buttons to change App's existing `locale` prop. It uses a temporary real demo Kernel/Host, no submitted Run and no provider. This is not a shipped language selector or a production-bundle E2E.
+- **Observed reproduction report:** `D:/Git/hbar/artifacts/desktop-entry-matrix/language/hbar-locale-prop-switch.json`. The mounted App reproduced navigation/tool and draft loss, with zero browser page errors and zero Host Runs.
+
+## Reference entry, hierarchy and behavior
+
+| Entry / action               | Source and visible placement                                                                                     | Actual meaning / boundary                                                                                                                                                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sidebar Settings             | `desktop/src/components/layout/Sidebar.tsx:1461-1473`; gear/text dock at sidebar bottom in both published images | Opens the stable Settings tab through `openTab(SETTINGS_TAB_ID, ..., 'settings')`, rather than replacing a session or sending a Run.                                                                                                                        |
+| Settings → General           | `desktop/src/pages/Settings.tsx:63-64,88`; second settings-navigation item after Providers                       | `activeSettingsTab` comes from uiStore, independent of locale. The selected category is persisted at `desktop/src/stores/uiStore.ts:368-370`.                                                                                                               |
+| Display language             | `desktop/src/pages/settings/GeneralSettings.tsx:198-204,739-755`                                                 | Heading/description followed by directly visible English / 简体中文 / 繁體中文 / 日本語 / 한국어 buttons. This section sits after Appearance and before Response Language, as shown by both published pictures.                                             |
+| Selected language button     | `desktop/src/components/settings/SettingsSection.tsx:88-141`                                                     | One selected ink-filled chip, outlined alternatives, `aria-pressed`, named text and visible keyboard focus. Native button Enter/Space activates it; this implementation is not a radio group with arrow-key roving focus.                                   |
+| Click language               | `desktop/src/stores/settingsStore.ts:370-377`; `desktop/src/i18n/index.ts:50-58`                                 | Updates Zustand locale, document `lang`, and localStorage immediately; subscribed UI labels re-render. There is no language Save button, reload, tab-navigation command, or settings-category mutation.                                                     |
+| Restart / initial resolution | `desktop/src/i18n/locale.ts:88-159`                                                                              | Browser preference takes precedence, followed by native preference and the first supported environment language. The reference supports five complete locale catalogs; unrecognized languages default to English.                                           |
+| Native propagation           | `desktop/electron/main.ts:389-393,427-442`; `desktop/src/lib/desktopHost/electronHost.ts:80-87`                  | Main window writes native preference and broadcasts locale change to other windows. A non-main window cannot write this IPC. Browser/H5 host does not provide native propagation; its locale persistence is renderer localStorage (`browserHost.ts:55-66`). |
+| Save failure                 | `settingsStore.ts:373-376`                                                                                       | Browser-storage errors are swallowed, native errors only logged. UI remains switched. Do not copy this absence of visible failure feedback into hbar or claim durable saving was confirmed.                                                                 |
+| Response language            | `GeneralSettings.tsx:757-784`; `settingsStore.ts:609-617`                                                        | A separate server-backed model-response preference, not display-language selection. It rolls back on its API error. It must not be fabricated by changing hbar labels or applying a locale prefix to messages.                                              |
+
+Language changes do not key or unmount Settings or GeneralSettings in the inspected source. Its unsaved network/search drafts depend on their corresponding settings values, not locale (`GeneralSettings.tsx:111-126,155-177`). Therefore the source indicates that language alone preserves them. This audit has not measured every reference tool, dialog, draft, or asynchronous save across a live locale switch.
+
+The language row uses `flex flex-wrap gap-2` and intrinsic pills. That source supports wrapping rather than coordinate placement, but the published reference does not prove the entire fixed-width Settings rail works at 320px. Narrow acceptance must be measured, not inferred from these desktop images.
+
+## Current hbar facts
+
+There is **no current `apps/web/src/locale.ts`**. The real entry is `apps/web/src/main.tsx:13-14`: resolve browser language once, set document `lang` once, and pass the resolved value into App. `apps/web/src/shell-copy.ts:26,2563-2569` supports only `en-US` and `zh-CN`; the first recognized `en` / `zh` environment language wins, including zh-TW currently mapping to zh-CN, and the fallback is zh-CN. `tests/web-shell-boundary.test.ts:34-36` pins that existing behavior.
+
+There is currently no user-facing language control, durable language override, `languagechange` listener, or native display-language contract. `packages/contracts/src/commands/` and the Tauri source search did not reveal a corresponding public locale capability. This is a missing product entry, not an existing language-button bug.
+
+Global Settings still lands on Providers and remembers a known last global category (`App.tsx:90-111`; `packages/app-runtime/src/surfaces.ts:185-204`). Appearance remains a real client-owned category, ordered immediately after Providers (`apps/web/src/settings-group-presentation.ts:4-12`), with three theme choices, size controls, a preview and explicit Save/Discard/CAS recovery. Display-language immediacy must not silently change those Appearance save rules.
+
+Client preferences are stored through `apps/web/src/client-persistence.ts:3-21` and `packages/app-runtime/src/client-persistence.ts:124-132,217-241`, with a host-ID-namespaced envelope and a shared revision. A new display-language preference does not require a Host RPC. Using that shared revision for an immediately applied device language would nevertheless interfere with a dirty Appearance draft; a dedicated local language owner is the smaller honest seam.
+
+### Actual naive locale-prop switch reproduction
+
+The existing App constructor includes locale in its runtime identity (`App.tsx:683-686`), disposes the old runtime (`App.tsx:768`), and creates the Appearance editor per runtime (`App.tsx:691-692`). The ignored fixture changes only this supported App prop, without reloading the document.
+
+| Observed step                                           | Result                                                                                                                                                                                                                            |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open original session, type an unsent draft, open Files | Draft text is present and one Files panel is mounted.                                                                                                                                                                             |
+| Change App locale en-US → zh-CN                         | Labels switch to Chinese; the original draft is absent and the editor shows its empty placeholder; Files panel count becomes zero. Session identity is restored via tabs, but the in-memory workspace/tool state is not retained. |
+| Inspect document `lang` after the switch                | Still `en-US`. Startup-only assignment did not follow the new labels.                                                                                                                                                             |
+| Open Appearance in Chinese, choose Dark without saving  | Dark is selected and Unsaved is visible.                                                                                                                                                                                          |
+| Change App locale back to en-US                         | The Settings page is lost and must be reopened. Appearance now selects System, not Dark; Unsaved is absent.                                                                                                                       |
+| Render resulting Settings at 320px                      | Existing responsive group selector is visible and the page has no document horizontal overflow. This does not prove a future language row or its recovery layout.                                                                 |
+
+Evidence images, all from the ignored mounted-source fixture:
+
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/hbar-before-en-1440.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/hbar-after-zh-1440.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/hbar-appearance-draft-zh-1440.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/hbar-appearance-reset-en-1440.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/hbar-settings-en-320.png`
+
+The screenshot audit buttons are external test controls. They must not be interpreted as a user-facing language picker that already exists. The reproduced failure proves that merely adding such a picker and changing App locale is insufficient.
+
+## Minimal complete migration unit
+
+1. Add a real **General / 通用**, client-scoped category between Providers and the existing Appearance category: Providers order 0, General order 5, Appearance order 10. Keep Providers as the cold global landing, preserve last-category restoration and pinned workspace/session targets. The new General page can contain only the supported display-language section; do not add placeholder settings. Keep Appearance in its existing category and preserve its draft owner.
+2. Expose only **English, 简体中文**, and optionally an honest **automatic environment-language** preference. The automatic choice is a new hbar policy using the current `resolveShellLocale`, not one of the reference's five pills and not a claim of five catalogs. Do not add traditional-Chinese, Japanese, Korean, response-language or native menu-translation options without their real implementations.
+3. Use a small typed, device-local Zustand language owner with a versioned independent persistence key, current preference, resolved locale, applied/saved distinction, and local recovery. Selecting a language applies immediately in the same page; no Save button or reload is needed. On persistence failure, retain the current-window language and visibly say it is not saved, with an explicit bounded retry. A failed restore must not pretend a fallback is a saved override. Unknown/invalid values must resolve safely without touching other preferences.
+4. Keep HbarClient, runtime, attachment controller, open tools, tabs, drafts and the Appearance editor identity stable across locale changes. Update only host-owned labels and document `lang`. Runtime `commandText.resolve` and Plan proposal formatter must use stable typed callbacks reading current localized copy; replacing the runtime to update strings is not an acceptable seam. For each already-started asynchronous operation, retain its captured target and payload: a language change may translate feedback, not reinterpret or replay a pending mutation.
+5. Use an intrinsic wrapping choice row and Lumen controls, with a named single-choice group, selected state, visible focus and keyboard discovery. Reuse semantic icon tiers only if an icon genuinely improves the category; language labels themselves need no decorative flag icons. All copy and the supported-option list are supplied by the Web/Desktop host.
+6. Browser startup/reload consumes the saved override, otherwise current automatic resolution. Add/remove `languagechange` and relevant storage listeners with the owner lifecycle. Cross-window synchronization requires actual validation; do not infer WebView2/Tauri native broadcasting from browser storage behavior. If the platform does not update its environment language at runtime, state that boundary rather than promising OS-live-follow.
+
+### Expected implementation paths
+
+- New `apps/web/src/language.ts` or equivalent typed local owner, and a small `GeneralSettings.tsx` / stylesheet / localized-copy module.
+- `apps/web/src/main.tsx`: owned language bootstrap / localized host wrapper and document `lang` update.
+- Small `App.tsx` seams: remove locale from runtime identity; stable dynamic copy ports; General client-group rendering. Do not move or reset Appearance.
+- `apps/web/src/settings-group-presentation.ts` and the settings semantic-icon type/map only if required for the real General group; no Host scope change.
+- New focused owner/component tests and `e2e/settings-language.spec.ts`. Existing dirty `e2e/web-shell.spec.ts` need not be edited.
+- No new Host permissions, provider use, server locale, shared preference revision, or native locale bridge is necessary for the first device-local implementation.
+
+## Acceptance gates for the complete unit
+
+- Real UI entry: sidebar Settings → General in wide and 320px layouts; `/settings` and pinned session/project Settings remain truthful, Providers cold landing unchanged. Immediate language selection stays in the same category and preserves its panel identity and keyboard focus.
+- Both directions: zh-CN ↔ en-US, document `lang`, selected preference, all currently visible settings/sidebar/composer/tool labels and newly opened command palette translate. Automatic detection and unsupported environment-language fallback retain documented behavior.
+- No runtime replacement: exact composer text, structured mentions, attachments, active source session/workspace/tab, Files path/view/edit draft, open tool, model/permission/Plan choices, Settings scope and Appearance unsaved values survive. In-flight query/mutation targets and unknown locks remain bound to the same original operation.
+- Persistence: reload restores explicit choice, automatic mode remains automatic, malformed/old/unreadable storage is handled, failed write is locally visible and explicitly recoverable, no false persisted-success claim. Language writes do not increment Appearance's preferences revision or silently save/discard its draft.
+- Responsive and accessible: English/Chinese at 1440 and 320, long host labels, intrinsic wrapping, no horizontal overflow, no clipped recovery actions, keyboard selection/focus and Back return behavior. Inspect actual screenshots, not only pixel or source guards.
+- Portability: browser and native main-WebView smoke; no remote-preview WebView locale authority, bearer exposure or provider call. Any cross-window or live OS-follow claim needs its own observed platform evidence.
+- Quality: strict scoped/root lint and typecheck, focused tests, real Host production E2E, content/icon/flow guards, diff review and independent commit once the complete subfeature is green. These are future gates, not checks this read-only audit claims to have completed.
+
+## Audit verification and limits
+
+Ran the ignored Playwright capture script against the original App mounted through isolated Vite and a temporary real Host on 45117/45115. It exited successfully and saved the above JSON/screenshots; browser page errors and Host Runs were both zero. The resulting desktop images were manually inspected. Only this document is tracked; fixture code/reports/screenshots remain ignored. No product fix, production Web build, native build, original cc-haha live switch or full repository check was performed by this audit.
+
+## Implementation follow-up — 2026-09-25
+
+The main language subfeature now supplies a real client-scoped General category (`apps/web/src/settings-group-presentation.ts:6`; `App.tsx:323,329`), a typed device-local owner (`language.ts`), host-owned bilingual labels (`general-settings-copy.ts`), and a localized wrapper (`LanguageApp.tsx`). General remains between Providers and Appearance. The visible row contains exactly Follow environment / English / 简体中文, with no unsupported reference locales, response-language setting or native broadcasting claim. The dedicated `hbar:web:language` key does not mutate the Host preferences envelope or Appearance revision. App runtime construction no longer depends on locale (`App.tsx:680,698-699`); the main feature uses stable dynamic copy ports instead. These facts are source evidence, not a claim that this audit independently proved every runtime continuation path.
+
+### Independently mounted original General component
+
+The ignored fixture mounts the actual current `WebGeneralSettings` inside the actual Lumen provider and drives the actual Zustand language owner. Only its storage port is an in-memory, explicitly fault-injected test port. It is therefore evidence for component behavior and owner transitions, not evidence of browser storage, native persistence, production navigation or provider behavior. External Before/After buttons delimit keyboard focus in the audit; they are not product controls.
+
+| Coverage                                | Observed result                                                                                                                                                                                                                                 |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| en-US and zh-CN, 1440 / 900 / 390 / 320 | Three visible choices, real device-scope explanation, intrinsic text wrapping and no document horizontal overflow.                                                                                                                              |
+| Tab, arrows, Home, End                  | One roving tab stop, selected state and focus move together; directional wrap works; Tab exits to the external next audit control. The hbar radio semantics intentionally improve on the reference's native-button `aria-pressed` row.          |
+| Read failure and read retry             | Failure is local and does not claim the fallback was saved. Successful retry removes the alert and focuses the current checked radio. Read retry makes no storage write.                                                                        |
+| Save failure and save retry             | The applied language and checked radio remain intact, the alert explicitly says it was not saved, and explicit retry confirms the same choice. Success focuses the current checked radio.                                                       |
+| Retry remains failed                    | Persistent read/write failures keep the alert and the existing retry button focused. No retry steals focus to a radio while recovery still fails.                                                                                               |
+| Long host labels, all four widths       | All three controls wrap without internal horizontal or vertical clipping. At 320 they are reachable by scrolling; `*-long-320-actions.png` records the scrolled control area instead of interpreting a viewport crop as an inaccessible button. |
+
+Final browser report: `D:/Git/hbar/artifacts/desktop-entry-matrix/language/general-component-report.json` — 26 matrix rows, zero page errors. The success/failure focus assertions are executed, not inferred from markup. The capture script is `check-general.ts`; fixture sources are `general-fixture.tsx`, `general-fixture.css` and `general.html`, all under that ignored directory.
+
+Images were manually inspected against the published English General screenshot. Reference and hbar both expose the language options directly below a heading and explanation and use an ink-filled selected choice with outlined alternatives. The reference also shows its real six palettes and five locales; hbar correctly does not recreate unsupported options. The fixture is deliberately only the General component, so its empty surrounding canvas does not establish the whole Settings navigation layout.
+
+Representative component images:
+
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/general-en-US-1440.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/general-zh-CN-320.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/general-en-US-long-320-actions.png`
+- `D:/Git/hbar/artifacts/desktop-entry-matrix/language/general-zh-CN-save-error-320.png`
+
+Independent focused tests: `tests/web-general-settings.test.tsx` — **7 passed, 0 failed, 74 assertions**. Tests drive actual owner actions and then render the resulting snapshot; the small SSR adapter accounts for Zustand's `getInitialState` semantics instead of inventing state or mocking the component. They cover both typed copies, bounded/named radio selection, immediate application without a Save form, read/invalid-preference/save failures and recovery, dedicated-key writes, and long escaped host content. Strict scoped ESLint and Prettier passed. General component content, icon and flow-layout guards also passed. Root typecheck and complete feature commit are main-agent gates, not independently repeated or claimed here.
+
+### Found defect, correction and first-run limits
+
+The first component browser run found a real recovery-focus defect: after successful reading/saving, the focused retry button unmounted and `document.activeElement` became BODY. Its report is preserved as `general-component-report-before-focus-fix.json`. The main agent added a local choices ref, captures whether the retry trigger owns focus, and restores only a successful recovery to the selected radio. The independent rerun now proves both successful-radio focus and failed-button focus in both languages; no global focus framework was added.
+
+The initial component test import was blocked by an unrelated external `notifications.tsx` stylesheet import whose file had not yet landed. No external file was patched and no old bundle was substituted. After the stylesheet appeared, current-source tests and original-component rendering passed. Two audit-harness mistakes were corrected locally: the isolated Lumen provider initially lacked its required appearance, and SSR initially read Zustand's bootstrap snapshot rather than the post-action state. Neither is a product defect. Settled selection screenshots wait for the real 150ms color transition; an intermediate capture is not treated as an incorrect selected color.
+
+### Main-agent production / native evidence, separately attributed
+
+The main agent reported **3/3 production real-Host E2E** in `e2e/web-language.spec.ts`, including in-place language switching, cold Providers landing, unchanged connection/runtime, original composer and Files return context, dirty Appearance preservation, persisted reload, cross-window storage behavior and offline/save-error handling. Production screenshots exist as `production-{en-US,zh-CN}-{1440,900,390,320}.png`, `production-cross-window-file-draft-1440.png` and `production-offline-save-error-320.png` in the same language artifact directory. This independent audit did not rerun that suite; it validates the component layer and separately records the main agent's evidence.
+
+The main agent also reported native Goal + language smoke at 900px. The observed `native/verification.json` records both languages, no horizontal overflow, unchanged Settings page, dirty Appearance retained, draft kept before reload and persisted Chinese after native reload. Native pictures are `native/general-en-US-900.png`, `native/general-zh-CN-900.png` and `native/saved-reloaded-zh-CN-900.png`. This is a main-WebView reload result, not proof of native broadcasting or live OS-language following.
+
+The first production E2E wrongly expected Files to remain rendered while Settings was open. Settings intentionally hides the tool and keeps it in `returnContext`; the corrected check returns with Back and verifies the same tool and draft. The first native 900px script also failed because the responsive sidebar had not been expanded; the corrected script opens it and the rerun passed. These initial failures are retained as test-assumption corrections, not erased or misreported as product regressions. Browser/native cleanup was reported by the main agent. Original cc-haha live language switching, native multiwindow broadcasting and OS-generated live `languagechange` remain unverified by this audit.

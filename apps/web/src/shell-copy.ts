@@ -22,6 +22,8 @@ import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
 import { goalExecutionCopy } from './goal-execution-copy'
 import { composerAttachmentCopy } from './composer-attachment-copy'
+import { generalSettingsCopy } from './general-settings-copy'
+import type { WebGeneralSettingsLabels } from './GeneralSettings'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -55,6 +57,7 @@ interface ShellCopy {
   readonly planProposal: { readonly requestText: PlanProposalRequestText }
   readonly settings: HbarSettingsWorkspaceLabels
   readonly appearance: WebAppearanceSettingsLabels
+  readonly general: WebGeneralSettingsLabels
   readonly providers: {
     readonly list: HbarProviderSettingsLabels
     readonly dialog: HbarProviderDialogLabels
@@ -2421,6 +2424,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     },
     settings: createSettingsLabels('zh-CN'),
     appearance: createAppearanceLabels('zh-CN'),
+    general: generalSettingsCopy('zh-CN'),
     providers: createProviderLabels('zh-CN'),
     commandPalette: createCommandPaletteLabels('zh-CN'),
     files: createFileLabels('zh-CN'),
@@ -2543,6 +2547,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     },
     settings: createSettingsLabels('en-US'),
     appearance: createAppearanceLabels('en-US'),
+    general: generalSettingsCopy('en-US'),
     providers: createProviderLabels('en-US'),
     commandPalette: createCommandPaletteLabels('en-US'),
     files: createFileLabels('en-US'),

@@ -1,0 +1,158 @@
+import { expect, test } from 'bun:test'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { createStore } from 'zustand/vanilla'
+import { WebGeneralSettings, type WebGeneralSettingsLabels } from '../apps/web/src/GeneralSettings'
+import { generalSettingsCopy } from '../apps/web/src/general-settings-copy'
+import {
+  createWebLanguageController,
+  WEB_LANGUAGE_STORAGE_KEY,
+  type WebLanguageController,
+} from '../apps/web/src/language'
+
+function html(language: WebLanguageController, labels = generalSettingsCopy(language.store.getState().locale)) {
+  // Zustand SSR uses getInitialState, not the post-action client snapshot. Seed
+  // this render-only store from the actual owner's action result, never invented
+  // business state; browser verification separately drives the real live store.
+  const rendered = { ...language, store: createStore(() => language.store.getState()) }
+  return renderToStaticMarkup(<WebGeneralSettings labels={labels} language={rendered} />)
+}
+function storage(initial: string | null = null) {
+  let saved = initial
+  let readFails = false
+  let saveFails = false
+  const writes: { key: string; value: string }[] = []
+  return {
+    failRead: (value: boolean) => {
+      readFails = value
+    },
+    failSave: (value: boolean) => {
+      saveFails = value
+    },
+    saved: () => saved,
+    writes,
+    port: {
+      getItem: () => {
+        if (readFails) throw new Error('Read failed')
+        return saved
+      },
+      setItem: (key: string, value: string) => {
+        if (saveFails) throw new Error('Write failed')
+        writes.push({ key, value })
+        saved = value
+      },
+    },
+  }
+}
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`General language uses host-owned copy, a named bounded radio group and real device scope: ${locale}`, () => {
+    const language = createWebLanguageController(locale, storage().port)
+    const labels = generalSettingsCopy(locale)
+    const rendered = html(language, labels)
+    expect(rendered).toContain(labels.title)
+    expect(rendered).toContain(labels.deviceScope)
+    expect(rendered).toContain(labels.languageDescription)
+    expect(rendered).toContain(labels.currentLanguage(locale))
+    expect(rendered).toContain('role="radiogroup" aria-labelledby="hbar-general-language-label"')
+    expect(rendered).toContain('aria-describedby="hbar-general-language-help"')
+    expect(rendered.match(/role="radio"/g)).toHaveLength(3)
+    expect(rendered.match(/aria-checked="true"/g)).toHaveLength(1)
+    expect(rendered.match(/tabindex="0"/g)).toHaveLength(1)
+    expect(rendered.match(/tabindex="-1"/g)).toHaveLength(2)
+    for (const label of Object.values(labels.options)) expect(rendered).toContain(label)
+    expect(rendered).not.toContain('日本語')
+    expect(rendered).not.toContain('繁體中文')
+    expect(rendered).not.toContain('한국어')
+    expect(rendered).not.toContain('role="alert"')
+    expect(rendered).not.toContain(labels.saved)
+    expect(rendered).not.toContain('type="submit"')
+  })
+}
+
+test('General renders the selected applied choice after an actual owner action without inventing a Save form', () => {
+  const data = storage()
+  const language = createWebLanguageController('en-US', data.port)
+  language.select('zh-CN')
+  const rendered = html(language)
+  const labels = generalSettingsCopy('zh-CN')
+  expect(rendered).toMatch(
+    /<button(?=[^>]*role="radio")(?=[^>]*aria-checked="true")(?=[^>]*tabindex="0")[^>]*>简体中文<\/button>/,
+  )
+  expect(rendered).toContain(labels.currentLanguage('zh-CN'))
+  expect(rendered).toContain(labels.saved)
+  expect(rendered).not.toContain(labels.systemPolicy)
+  expect(data.writes).toEqual([{ key: WEB_LANGUAGE_STORAGE_KEY, value: 'zh-CN' }])
+})
+
+test('General read failure keeps its three choices usable and exposes only the local read retry until confirmed', () => {
+  const data = storage('zh-CN')
+  data.failRead(true)
+  const language = createWebLanguageController('en-US', data.port)
+  const labels = generalSettingsCopy('en-US')
+  const failed = html(language, labels)
+  expect(failed).toContain('role="alert"')
+  expect(failed).toContain(labels.readError('STORAGE_UNAVAILABLE'))
+  expect(failed).toContain(labels.retryRead)
+  expect(failed).not.toContain(labels.retrySave)
+  expect(failed).not.toContain(labels.saved)
+  expect(failed).not.toContain('disabled=""')
+  expect(data.writes).toEqual([])
+  data.failRead(false)
+  language.refresh()
+  const confirmed = html(language)
+  expect(language.store.getState()).toMatchObject({ locale: 'zh-CN', preference: 'zh-CN', status: 'ready' })
+  expect(confirmed).toContain(generalSettingsCopy('zh-CN').currentLanguage('zh-CN'))
+  expect(confirmed).not.toContain('role="alert"')
+  expect(confirmed).not.toContain(generalSettingsCopy('zh-CN').saved)
+  expect(data.writes).toEqual([])
+})
+
+test('General corrupt saved preference is not labelled saved and choosing a real option repairs only its own key', () => {
+  const data = storage('ja-JP')
+  const language = createWebLanguageController('zh-CN', data.port)
+  const labels = generalSettingsCopy('zh-CN')
+  expect(html(language)).toContain(labels.readError('INVALID_PREFERENCE'))
+  expect(html(language)).not.toContain(labels.saved)
+  language.select('en-US')
+  expect(data.writes).toEqual([{ key: WEB_LANGUAGE_STORAGE_KEY, value: 'en-US' }])
+  expect(html(language)).toContain(generalSettingsCopy('en-US').saved)
+  expect(html(language)).not.toContain('role="alert"')
+})
+
+test('General save failure preserves the applied locale, reports non-persistence and retries the same choice explicitly', () => {
+  const data = storage('en-US')
+  const language = createWebLanguageController('en-US', data.port)
+  data.failSave(true)
+  language.select('zh-CN')
+  const labels = generalSettingsCopy('zh-CN')
+  const failed = html(language)
+  expect(language.store.getState()).toMatchObject({ locale: 'zh-CN', preference: 'zh-CN', status: 'save-error' })
+  expect(failed).toContain(labels.saveError)
+  expect(failed).toContain(labels.retrySave)
+  expect(failed).not.toContain(labels.retryRead)
+  expect(failed).not.toContain(labels.saved)
+  expect(data.saved()).toBe('en-US')
+  data.failSave(false)
+  language.persist()
+  expect(language.store.getState()).toMatchObject({ locale: 'zh-CN', status: 'saved' })
+  expect(data.saved()).toBe('zh-CN')
+  expect(html(language)).toContain(labels.saved)
+  expect(html(language)).not.toContain('role="alert"')
+})
+
+test('General preserves deliberately long host labels and escapes content rather than inferring extra locale choices', () => {
+  const language = createWebLanguageController('zh-CN', storage().port)
+  const base = generalSettingsCopy('zh-CN')
+  const long = '环境语言选择及此设备界面偏好说明'.repeat(20)
+  const labels: WebGeneralSettingsLabels = {
+    ...base,
+    title: long,
+    deviceScope: long,
+    options: { system: `<${long}>`, 'en-US': long, 'zh-CN': `${long}简体中文` },
+  }
+  const rendered = html(language, labels)
+  expect(rendered).toContain(long)
+  expect(rendered).toContain(`&lt;${long}&gt;`)
+  expect(rendered.match(/role="radio"/g)).toHaveLength(3)
+  expect(rendered.match(/tabindex="0"/g)).toHaveLength(1)
+})

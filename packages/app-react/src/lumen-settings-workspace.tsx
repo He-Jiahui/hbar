@@ -278,6 +278,8 @@ export function HbarSettingsWorkspace({
   const canRefresh = connected && Boolean(entry) && !busy && !unknown && dirtyCount === 0
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
   const customGroup = activeGroupId ? renderGroup?.(activeGroupId) : null
+  // Device-local groups must remain reachable when an unrelated Host form cannot load.
+  const localCustomGroup = scopePresentation === 'client' && activeClientGroup && customGroup
   const selectedGroup = hostGroups.find((group) => group.id === activeGroupId)
 
   const fieldContext = (field: CompiledField) => {
@@ -352,104 +354,108 @@ export function HbarSettingsWorkspace({
         }
       />
 
-      {!entry || entry.status === 'loading' ? (
-        <LumenText as="p" className="hbar-app-react-settings-state" role="status">
-          {labels.loading}
-        </LumenText>
-      ) : entry.status === 'error' || !entry.description || !entry.schema || !entry.form ? (
-        <LumenFrame className="hbar-app-react-settings-state">
-          <LumenText as="p" role="alert">
-            {labels.error(entry.error ?? 'FORM_NOT_READY')}
-          </LumenText>
-          <LumenButton disabled={!connected} onClick={() => runFormCommand('refresh')}>
-            {labels.refresh}
-          </LumenButton>
+      <LumenFrame className="hbar-app-react-settings-layout">
+        <LumenFrame as="nav" className="hbar-app-react-settings-groups" aria-label={labels.groups}>
+          {groups.map((group) => (
+            <LumenNavigationButton
+              key={group.id}
+              size="s"
+              selected={activeGroupId === group.id}
+              onClick={() => selectGroup(group.id)}
+            >
+              <LumenIcon icon={groupIcons[presentationByGroup.get(group.id)?.icon ?? 'settings']} tier="md" />
+              <LumenText as="span" className="hbar-app-react-settings-group-label">
+                {group.label}
+              </LumenText>
+            </LumenNavigationButton>
+          ))}
         </LumenFrame>
-      ) : (
-        <LumenFrame className="hbar-app-react-settings-layout">
-          <LumenFrame as="nav" className="hbar-app-react-settings-groups" aria-label={labels.groups}>
-            {groups.map((group) => (
-              <LumenNavigationButton
-                key={group.id}
-                size="s"
-                selected={activeGroupId === group.id}
-                onClick={() => selectGroup(group.id)}
-              >
-                <LumenIcon icon={groupIcons[presentationByGroup.get(group.id)?.icon ?? 'settings']} tier="md" />
-                <LumenText as="span" className="hbar-app-react-settings-group-label">
+        <LumenFrame as="main" className="hbar-app-react-settings-main">
+          <LumenFrame className="hbar-app-react-settings-mobile-group">
+            <LumenSelect
+              aria-label={labels.groups}
+              value={activeGroupId ?? ''}
+              onChange={(event) => selectGroup(event.currentTarget.value)}
+            >
+              {groups.map((group) => (
+                <LumenOption key={group.id} value={group.id}>
                   {group.label}
-                </LumenText>
-              </LumenNavigationButton>
-            ))}
+                </LumenOption>
+              ))}
+            </LumenSelect>
           </LumenFrame>
-          <LumenFrame as="main" className="hbar-app-react-settings-main">
-            <LumenFrame className="hbar-app-react-settings-mobile-group">
-              <LumenSelect
-                aria-label={labels.groups}
-                value={activeGroupId ?? ''}
-                onChange={(event) => selectGroup(event.currentTarget.value)}
-              >
-                {groups.map((group) => (
-                  <LumenOption key={group.id} value={group.id}>
-                    {group.label}
-                  </LumenOption>
-                ))}
-              </LumenSelect>
+          {localCustomGroup ? (
+            <LumenFrame className="hbar-app-react-settings-scroll">{customGroup}</LumenFrame>
+          ) : !entry || entry.status === 'loading' ? (
+            <LumenText as="p" className="hbar-app-react-settings-state" role="status">
+              {labels.loading}
+            </LumenText>
+          ) : entry.status === 'error' || !entry.description || !entry.schema || !entry.form ? (
+            <LumenFrame className="hbar-app-react-settings-state">
+              <LumenText as="p" role="alert">
+                {labels.error(entry.error ?? 'FORM_NOT_READY')}
+              </LumenText>
+              <LumenButton disabled={!connected} onClick={() => runFormCommand('refresh')}>
+                {labels.refresh}
+              </LumenButton>
             </LumenFrame>
-            {!customGroup && selectedGroup && (
-              <LumenFrame as="header" className="hbar-app-react-settings-content-header">
-                <LumenText as="h2">{labels.resolve(selectedGroup.labelKey)}</LumenText>
-                <LumenText as="p">{labels.description}</LumenText>
-              </LumenFrame>
-            )}
-            <LumenFrame className="hbar-app-react-settings-scroll">
-              {customGroup ?? (
-                <HbarSchemaForm
-                  schema={entry.schema}
-                  state={entry.form}
-                  components={components}
-                  labels={{
-                    ...labels.form,
-                    resolve: labels.resolve,
-                    help: (field) => {
-                      const key = definitions.get(field.name)?.helpKey
-                      return key ? labels.resolve(key) : undefined
-                    },
-                  }}
-                  content={entry.content}
-                  fieldNames={fieldNames}
-                  renderFieldContext={fieldContext}
-                  renderFieldActions={fieldActions}
-                  onIntent={dispatchIntent}
-                />
+          ) : (
+            <>
+              {!customGroup && selectedGroup && (
+                <LumenFrame as="header" className="hbar-app-react-settings-content-header">
+                  <LumenText as="h2">{labels.resolve(selectedGroup.labelKey)}</LumenText>
+                  <LumenText as="p">{labels.description}</LumenText>
+                </LumenFrame>
               )}
-            </LumenFrame>
-            {!customGroup && (
-              <LumenFrame as="footer" className="hbar-app-react-settings-footer">
-                <LumenFrame className="hbar-app-react-settings-footer-inner">
-                  <LumenText as="span" role="status">
-                    {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
-                  </LumenText>
-                  <LumenFrame>
-                    <LumenButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
-                      {labels.refresh}
-                    </LumenButton>
-                    {unknown ? (
-                      <LumenButton tone="warning" disabled={!connected} onClick={() => runFormCommand('reconcile')}>
-                        {labels.reconcile}
+              <LumenFrame className="hbar-app-react-settings-scroll">
+                {customGroup ?? (
+                  <HbarSchemaForm
+                    schema={entry.schema}
+                    state={entry.form}
+                    components={components}
+                    labels={{
+                      ...labels.form,
+                      resolve: labels.resolve,
+                      help: (field) => {
+                        const key = definitions.get(field.name)?.helpKey
+                        return key ? labels.resolve(key) : undefined
+                      },
+                    }}
+                    content={entry.content}
+                    fieldNames={fieldNames}
+                    renderFieldContext={fieldContext}
+                    renderFieldActions={fieldActions}
+                    onIntent={dispatchIntent}
+                  />
+                )}
+              </LumenFrame>
+              {!customGroup && (
+                <LumenFrame as="footer" className="hbar-app-react-settings-footer">
+                  <LumenFrame className="hbar-app-react-settings-footer-inner">
+                    <LumenText as="span" role="status">
+                      {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
+                    </LumenText>
+                    <LumenFrame>
+                      <LumenButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
+                        {labels.refresh}
                       </LumenButton>
-                    ) : (
-                      <LumenButton tone="primary" disabled={!canSave} onClick={() => runFormCommand('submit')}>
-                        {labels.save}
-                      </LumenButton>
-                    )}
+                      {unknown ? (
+                        <LumenButton tone="warning" disabled={!connected} onClick={() => runFormCommand('reconcile')}>
+                          {labels.reconcile}
+                        </LumenButton>
+                      ) : (
+                        <LumenButton tone="primary" disabled={!canSave} onClick={() => runFormCommand('submit')}>
+                          {labels.save}
+                        </LumenButton>
+                      )}
+                    </LumenFrame>
                   </LumenFrame>
                 </LumenFrame>
-              </LumenFrame>
-            )}
-          </LumenFrame>
+              )}
+            </>
+          )}
         </LumenFrame>
-      )}
+      </LumenFrame>
       {(actionError || (entry?.status === 'ready' && entry.error)) && (
         <LumenText as="p" role="alert">
           {labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}

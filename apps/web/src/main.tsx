@@ -2,7 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@lumen/app-ui/styles.css'
 import { applyLumenAppearance } from '@lumen/app-ui'
-import App from './App'
+import { LanguageApp } from './LanguageApp'
+import { createWebLanguageController } from './language'
 import { createWebLumenAppearance, readAppearanceBootstrap } from './appearance'
 import { loadNativeConnection } from './native-connection'
 import { applyNativeWindowContext, readNativeWindowContext } from './native-window'
@@ -10,8 +11,11 @@ import { resolveShellLocale } from './shell-copy'
 import { applyWebTheme, readThemeBootstrap, resolveWebTheme } from './theme'
 import './document.css'
 
-const locale = resolveShellLocale(navigator.languages)
-document.documentElement.lang = locale
+const language = createWebLanguageController(resolveShellLocale(navigator.languages), {
+  getItem: (key) => window.localStorage.getItem(key),
+  setItem: (key, value) => window.localStorage.setItem(key, value),
+})
+document.documentElement.lang = language.store.getState().locale
 const resolvedTheme = resolveWebTheme(
   readThemeBootstrap(window.localStorage),
   window.matchMedia('(prefers-color-scheme: dark)').matches,
@@ -36,6 +40,10 @@ const nativeWindow = nativeConnection ? readNativeWindowContext(new URL(window.l
 applyNativeWindowContext(document.documentElement, nativeWindow)
 createRoot(root).render(
   <StrictMode>
-    <App locale={locale} nativeConnection={nativeConnection ?? undefined} nativeWindow={nativeWindow ?? undefined} />
+    <LanguageApp
+      language={language}
+      nativeConnection={nativeConnection ?? undefined}
+      nativeWindow={nativeWindow ?? undefined}
+    />
   </StrictMode>,
 )

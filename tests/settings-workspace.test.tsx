@@ -414,6 +414,50 @@ test('settings workspace presents one bounded failure when the Host is unavailab
   }
 })
 
+test('explicit device groups remain reachable without a Host form, but Host groups do not pretend to be local', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-local-offline',
+    hostId: 'host',
+    directory,
+    settings: { execute: () => Promise.reject(new Error('offline')) },
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'general' })
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const state = runtime.view.state.settings.getSnapshot()
+      if (state.activeFormId && state.forms[state.activeFormId]?.status === 'error') break
+      await Bun.sleep(2)
+    }
+    const render = () =>
+      renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarSettingsWorkspace
+            labels={labels}
+            connected={false}
+            additionalGroups={[
+              { id: 'general', label: '通用', order: 5 },
+              { id: 'diagnostics', label: '诊断', order: 50 },
+            ]}
+            groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+            renderGroup={(id) => (id === 'general' ? <div>语言仍可使用</div> : <div>Host 诊断不可假装可用</div>)}
+          />
+        </HbarRuntimeProvider>,
+      )
+    const local = render()
+    expect(local).toContain('语言仍可使用')
+    expect(local).toContain('当前客户端设置')
+    expect(local).toContain('aria-label="设置分组"')
+    expect(local).not.toContain('错误 EXECUTION_FAILED')
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'diagnostics' })
+    const remote = render()
+    expect(remote).not.toContain('Host 诊断不可假装可用')
+    expect(remote).toContain('错误 EXECUTION_FAILED')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('pinned project settings name their project instead of borrowing the active session scope', async () => {
   const target = { ...workspace, id: 'workspace-pinned', name: 'Pinned 工程，与活动会话不同' }
   const runtime = createAppRuntime({

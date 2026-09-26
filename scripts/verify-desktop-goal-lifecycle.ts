@@ -374,6 +374,82 @@ try {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
   await cards.first().scrollIntoViewIfNeeded()
   await page.screenshot({ path: join(output, 'history-restored-900.png') })
+  // Reuse the verified disposable native fixture, never attach to the user's desktop.
+  const languageOutput = resolve('artifacts/desktop-entry-matrix/language/native')
+  await mkdir(languageOutput, { recursive: true })
+  await prompt.fill(draft)
+  const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+  if (await showSidebar.isVisible()) await showSidebar.click()
+  await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
+  await page.getByRole('button', { name: copy.appearance.group, exact: true }).click()
+  await page.getByRole('radio', { name: copy.appearance.theme.dark, exact: true }).click()
+  await expect(page.getByText(copy.appearance.unsaved, { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: copy.general.group, exact: true }).click()
+  const languageGeometry: unknown[] = []
+  for (const languageLocale of ['en-US', 'zh-CN'] as const) {
+    const currentCopy = getShellCopy(languageLocale)
+    const radio = page.getByRole('radio', { name: languageLocale === 'en-US' ? 'English' : '简体中文', exact: true })
+    await radio.click()
+    await expect(page.locator('html')).toHaveAttribute('lang', languageLocale)
+    await expect(radio).toHaveAttribute('aria-checked', 'true')
+    await expect(radio).toBeFocused()
+    await expect(page.getByText(currentCopy.general.saved, { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: currentCopy.general.title, exact: true })).toBeVisible()
+    await expect
+      .poll(() =>
+        page
+          .locator('.hbar-web-general-choices button')
+          .evaluateAll((nodes) =>
+            nodes.every((node) => node.getAnimations().every((animation) => animation.playState !== 'running')),
+          ),
+      )
+      .toBe(true)
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    await page.screenshot({ path: join(languageOutput, `general-${languageLocale}-900.png`) })
+    await page.getByRole('button', { name: currentCopy.appearance.group, exact: true }).click()
+    await expect(page.getByRole('radio', { name: currentCopy.appearance.theme.dark, exact: true })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await expect(page.getByText(currentCopy.appearance.unsaved, { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: currentCopy.general.group, exact: true }).click()
+    languageGeometry.push({
+      locale: languageLocale,
+      width: 900,
+      noHorizontalOverflow: true,
+      sameSettingsPage: true,
+      unsavedAppearanceRetained: true,
+    })
+  }
+  const chineseCopy = getShellCopy('zh-CN')
+  await page.getByRole('button', { name: chineseCopy.settings.back, exact: true }).click()
+  await expectComposerText(page.getByRole('textbox', { name: chineseCopy.session.prompt.input, exact: true }), draft)
+  await expect(cards).toHaveCount(4)
+  await expect(summary).toContainText(nextObjective)
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
+  await expect(cards).toHaveCount(4)
+  const showChineseSidebar = page.getByRole('button', { name: chineseCopy.shell.showSidebar, exact: true })
+  if (await showChineseSidebar.isVisible()) await showChineseSidebar.click()
+  await page.getByRole('button', { name: chineseCopy.shell.settings, exact: true }).click()
+  await expect(page.getByRole('heading', { name: chineseCopy.general.title, exact: true })).toBeVisible()
+  await expect(page.getByRole('radio', { name: '简体中文', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await page.screenshot({ path: join(languageOutput, 'saved-reloaded-zh-CN-900.png') })
+  await writeFile(
+    join(languageOutput, 'verification.json'),
+    JSON.stringify(
+      {
+        executable,
+        debugPort,
+        languageGeometry,
+        draftKeptBeforeReload: true,
+        nativeLanguageReload: true,
+        noNativeBroadcastOrOsLiveFollowClaim: true,
+      },
+      null,
+      2,
+    ),
+  )
   const snapshot = await api.call('session.snapshot', { sessionId: session.id })
   expect(snapshot.runs).toEqual([])
   expect(snapshot.messages).toEqual([])
@@ -404,7 +480,7 @@ try {
     ),
   )
   console.log(
-    'PASS: isolated native Goal history preserves the old objective through complete/clear/new paused Goal and reload; summary stays below header, keyboard disclosures/aria work, drafts stay unchanged before reload, and 1440/900×600 do not horizontally overflow. No provider Run was created.',
+    'PASS: isolated native Goal history preserves the old objective through complete/clear/new paused Goal and reload; summary stays below header, keyboard disclosures/aria work, drafts stay unchanged before reload, and 1440/900×600 do not horizontally overflow. Device language switches in place at 900, preserves the unsaved Appearance draft and conversation, and reloads in saved Chinese. No provider Run was created.',
   )
 } finally {
   api?.disconnect()
