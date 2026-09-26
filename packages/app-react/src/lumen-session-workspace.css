@@ -14,6 +14,18 @@
   flex: 1 1 auto;
 }
 
+.hbar-session-current-goal {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  padding: 0 12px 8px;
+}
+
+.hbar-session-current-goal:has(> .hbar-composer-goal-context:empty) {
+  display: none;
+}
+
 .hbar-app-react-session-workspace > .lumen-page-header {
   min-block-size: 3.5rem;
   align-items: center;

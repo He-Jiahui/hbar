@@ -80,6 +80,11 @@
   flex: 0 0 auto;
 }
 
+.hbar-composer-current-goal-label {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
 .hbar-composer-goal-status,
 .hbar-composer-goal-metric {
   color: var(--lumen-muted);

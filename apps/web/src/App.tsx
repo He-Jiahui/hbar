@@ -119,6 +119,7 @@ function createRuntime(
   resourcePicker: ReturnType<typeof createBrowserResourcePicker>,
 ) {
   const copy = getShellCopy(locale)
+  const goals = createGoalPlanCommandClient(client)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId,
@@ -149,7 +150,8 @@ function createRuntime(
     },
     files: createFileCommandClient(client),
     agents: createAgentCommandClient(client),
-    goals: createGoalPlanCommandClient(client),
+    goals,
+    goalHistory: goals,
     planProposal: copy.planProposal,
     workflows: createWorkflowCommandClient(client),
     extensions: createExtensionCommandClient(client),

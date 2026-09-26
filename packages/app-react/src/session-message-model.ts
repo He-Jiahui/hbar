@@ -1,4 +1,5 @@
 import type { SessionTimelineState } from '@hbar/app-runtime'
+import type { GoalLifecycleRow } from './goal-lifecycle-model'
 
 export type SessionMessage = SessionTimelineState['messages'][number]
 export type SessionMessageBlock = SessionMessage['content'][number]
@@ -46,6 +47,7 @@ export type SessionTimelineSequenceItem =
   | { readonly kind: 'message'; readonly projection: SessionMessageProjection }
   | { readonly kind: 'stream'; readonly stream: SessionTimelineState['streams'][string] }
   | { readonly kind: 'goalContinuation'; readonly continuation: GoalContinuationBoundary }
+  | { readonly kind: 'goalLifecycle'; readonly row: GoalLifecycleRow }
 
 /**
  * Reuse the paged message projection and persistent Run source to mark automatic
@@ -56,6 +58,7 @@ export type SessionTimelineSequenceItem =
  */
 export function projectSessionTimelineSequence(
   timeline: Pick<SessionTimelineState, 'sessionId' | 'messages' | 'runs' | 'streams'>,
+  goalRows: readonly GoalLifecycleRow[] = [],
 ): readonly SessionTimelineSequenceItem[] {
   const sessionId = timeline.sessionId
   if (!sessionId) return []
@@ -119,7 +122,50 @@ export function projectSessionTimelineSequence(
     const item = source[index]
     if (item) result.push(item)
   }
-  return result
+  // Goal lifecycle has canonical session seq, unlike uncommitted streams. Keep
+  // its exact order against messages and empty-envelope continuation anchors.
+  // Unanchored Run markers retain their existing placement; they cannot invent
+  // a Goal sequence or lifecycle event. Remaining committed facts precede streams.
+  const pending = [...goalRows].filter((row) => row.sessionId === sessionId).sort((a, b) => a.seq - b.seq)
+  const merged: SessionTimelineSequenceItem[] = []
+  let goalIndex = 0
+  const emitThrough = (seq: number) => {
+    while (goalIndex < pending.length && pending[goalIndex]!.seq <= seq)
+      merged.push({ kind: 'goalLifecycle', row: pending[goalIndex++]! })
+  }
+  for (const [index, item] of result.entries()) {
+    if (item.kind === 'message') emitThrough(item.projection.message.seq)
+    else if (item.kind === 'goalContinuation' && item.continuation.anchor.kind === 'message')
+      emitThrough(item.continuation.anchor.seq)
+    else if (item.kind === 'stream' || (item.kind === 'goalContinuation' && item.continuation.anchor.kind === 'stream'))
+      emitThrough(Infinity)
+    else if (item.kind === 'goalContinuation' && item.continuation.anchor.kind === 'run') {
+      const following = result
+        .slice(index + 1)
+        .find(
+          (next) =>
+            next.kind === 'message' ||
+            (next.kind === 'goalContinuation' && next.continuation.anchor.kind === 'message'),
+        )
+      const ceiling =
+        following?.kind === 'message'
+          ? following.projection.message.seq
+          : following?.kind === 'goalContinuation' && following.continuation.anchor.kind === 'message'
+            ? following.continuation.anchor.seq
+            : Infinity
+      // Only the unanchored Run's existing time fallback uses time. Goal facts
+      // remain in canonical seq order and cannot cross the next message anchor.
+      while (
+        goalIndex < pending.length &&
+        pending[goalIndex]!.seq < ceiling &&
+        pending[goalIndex]!.time <= item.continuation.createdAt
+      )
+        merged.push({ kind: 'goalLifecycle', row: pending[goalIndex++]! })
+    }
+    merged.push(item)
+  }
+  emitThrough(Infinity)
+  return merged
 }
 
 function toolKey(block: SessionToolCall | SessionToolResult): string {

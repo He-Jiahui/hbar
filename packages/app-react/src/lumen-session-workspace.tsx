@@ -19,6 +19,8 @@ import {
   planProposalActionKey,
   projectSessionDecisions,
   sessionDecisionAction,
+  getGoalHistoryProjection,
+  GOAL_HISTORY_MAX_FACTS,
   type PlanProposalState,
   type PromptMention,
   type SessionDecision,
@@ -58,6 +60,8 @@ import {
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
 import { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
+import { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
+import { projectGoalLifecycleRows } from './goal-lifecycle-model'
 
 export interface HbarSessionWorkspaceLabels {
   readonly conversationTitle: (title: string) => string
@@ -103,6 +107,8 @@ export interface HbarSessionWorkspaceLabels {
   readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
   readonly decisions: HbarSessionDecisionLabels
   readonly goalContinuation: HbarGoalContinuationLabels
+  readonly goalLifecycle: HbarGoalLifecycleLabels
+  readonly goalHistory: HbarGoalHistoryLabels
   readonly proposedPlan: HbarProposedPlanLabels
   readonly proposedPlanReadOnly: string
   readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
@@ -188,6 +194,7 @@ export function HbarSessionWorkspace({
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
+  const goalHistory = useHbarRuntimeState(runtime.state.goalHistory)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const planProposal = useHbarRuntimeState(runtime.state.planProposal)
@@ -196,6 +203,22 @@ export function HbarSessionWorkspace({
   const sessionId = navigation.sessionId
   const draft = sessionId ? drafts[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
+  const goalHistoryEntry = sessionId ? goalHistory.sessions[sessionId] : undefined
+  const goalHistoryProjection = useMemo(
+    () => (goalHistoryEntry ? getGoalHistoryProjection(goalHistoryEntry) : null),
+    [goalHistoryEntry],
+  )
+  const goalLifecycleRows = useMemo(
+    () =>
+      sessionId && goalHistoryProjection?.preceding
+        ? projectGoalLifecycleRows({
+            sessionId,
+            facts: goalHistoryProjection.facts,
+            preceding: goalHistoryProjection.preceding,
+          })
+        : [],
+    [sessionId, goalHistoryProjection],
+  )
   const permissionEntry = sessionId ? composerPermission.entries[sessionId] : undefined
   const planModeEntry = sessionId ? composerPlanMode.entries[sessionId] : undefined
   const intentPending = intentEntry?.submission.status === 'submitting' || intentEntry?.submission.status === 'unknown'
@@ -631,8 +654,20 @@ export function HbarSessionWorkspace({
   ]
 
   const rowsById = new Map(messageRows.map((row) => [row.id, row]))
-  const messages: LumenMessageProps[] = projectSessionTimelineSequence(timeline).flatMap(
+  const messages: LumenMessageProps[] = projectSessionTimelineSequence(timeline, goalLifecycleRows).flatMap(
     (item): LumenMessageProps[] => {
+      if (item.kind === 'goalLifecycle')
+        return [
+          {
+            id: item.row.id,
+            role: 'system',
+            author: labels.author.system,
+            avatar: labels.avatar.system,
+            appearance: 'transcript',
+            copyLabel: labels.copy,
+            children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
+          },
+        ]
       if (item.kind === 'goalContinuation')
         return [
           {
@@ -736,26 +771,92 @@ export function HbarSessionWorkspace({
           </LumenButton>
         </LumenFrame>
       ) : null}
+      {(goalHistory.available ||
+        (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
+        goalHistoryProjection && (
+          <LumenFrame
+            className="hbar-app-react-session-history-page"
+            data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
+          >
+            {goalHistoryProjection.status === 'loading' ? (
+              <LumenText as="span" role="status">
+                {labels.goalHistory.loading}
+              </LumenText>
+            ) : goalHistoryProjection.gapReason ? (
+              <LumenText as="span" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>
+                {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
+              </LumenText>
+            ) : null}
+            {goalHistoryProjection.limit && (
+              <LumenText as="span" role="status">
+                {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
+              </LumenText>
+            )}
+            {goalHistory.available &&
+              goalHistoryProjection.gap &&
+              goalHistoryProjection.status !== 'loading' &&
+              goalHistoryProjection.gapReason !== 'limit' && (
+                <LumenButton
+                  size="s"
+                  disabled={
+                    !connected || timeline.status !== 'ready' || goalHistoryProjection.olderStatus === 'loading'
+                  }
+                  onClick={() => invoke('goalHistory.refresh', { sessionId })}
+                >
+                  {labels.goalHistory.refresh}
+                </LumenButton>
+              )}
+            {goalHistory.available &&
+              !goalHistoryProjection.stale &&
+              !goalHistoryProjection.limit &&
+              goalHistoryProjection.hasOlder &&
+              (!timeline.hasOlder || goalHistoryProjection.gap) && (
+                <LumenButton
+                  size="s"
+                  disabled={
+                    !connected ||
+                    timeline.status !== 'ready' ||
+                    goalHistoryProjection.status === 'loading' ||
+                    goalHistoryProjection.olderStatus === 'loading'
+                  }
+                  onClick={() => invoke('goalHistory.loadOlder', { sessionId })}
+                >
+                  {goalHistoryProjection.olderStatus === 'loading'
+                    ? labels.goalHistory.loadingOlder
+                    : goalHistoryProjection.olderStatus === 'error'
+                      ? labels.goalHistory.retryOlder
+                      : labels.goalHistory.loadOlder}
+                </LumenButton>
+              )}
+          </LumenFrame>
+        )}
     </LumenFrame>
   ) : null
 
-  const welcome = showSessionEmptyHero({
-    connected,
-    sessionId,
-    loadedSessionId: timeline.sessionId,
-    timelineStatus: timeline.status,
-    timelineError: timeline.error,
-    olderStatus: timeline.olderStatus,
-    hasOlder: timeline.hasOlder,
-    messageCount: timeline.messages.length,
-    runCount: timeline.runs.length,
-    streamCount: Object.keys(timeline.streams).length,
-    approvalCount: timeline.approvals.length,
-    userInputCount: timeline.userInputs.length,
-    draftStatus: draft?.status ?? null,
-    lastOperationId: draft?.lastOperationId ?? null,
-    submissionPending: intentPending || Boolean(permissionEntry?.locked),
-  })
+  const welcome =
+    (!goalHistory.available ||
+      (goalHistoryEntry?.status === 'ready' &&
+        !goalHistoryProjection?.gap &&
+        !goalHistoryEntry.hasOlder &&
+        goalHistoryEntry.facts.length === 0)) &&
+    !(composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal) &&
+    showSessionEmptyHero({
+      connected,
+      sessionId,
+      loadedSessionId: timeline.sessionId,
+      timelineStatus: timeline.status,
+      timelineError: timeline.error,
+      olderStatus: timeline.olderStatus,
+      hasOlder: timeline.hasOlder,
+      messageCount: timeline.messages.length,
+      runCount: timeline.runs.length,
+      streamCount: Object.keys(timeline.streams).length,
+      approvalCount: timeline.approvals.length,
+      userInputCount: timeline.userInputs.length,
+      draftStatus: draft?.status ?? null,
+      lastOperationId: draft?.lastOperationId ?? null,
+      submissionPending: intentPending || Boolean(permissionEntry?.locked),
+    })
   const emptyTimeline = welcome ? (
     <HbarSessionEmptyHero labels={labels.emptyHero} />
   ) : (
@@ -783,6 +884,7 @@ export function HbarSessionWorkspace({
         workspaceId={navigation.workspaceId}
         connected={connected}
         labels={labels.intent}
+        surface="submission"
       />
       <HbarComposerAttachmentDropTarget
         key={sessionId}
@@ -1093,6 +1195,18 @@ export function HbarSessionWorkspace({
           </>
         }
       />
+      {sessionId && (
+        <LumenFrame className="hbar-session-current-goal" data-current-goal-session={sessionId}>
+          <HbarComposerGoal
+            key={sessionId}
+            sessionId={sessionId}
+            workspaceId={navigation.workspaceId}
+            connected={connected}
+            labels={labels.intent}
+            surface="summary"
+          />
+        </LumenFrame>
+      )}
       {navigationAccessory}
       <LumenFrame className="hbar-app-react-session-main">
         <LumenConversation
@@ -1104,7 +1218,9 @@ export function HbarSessionWorkspace({
           afterMessages={activity}
           composer={composer}
           scrollKey={sessionId ?? undefined}
-          contentRevision={`${timeline.cursor}:${Object.values(timeline.streams)
+          contentRevision={`${timeline.cursor}:goal:${goalHistoryEntry?.status ?? 'idle'}:${goalLifecycleRows.map((row) => row.eventId).join(',')}:${Object.values(
+            timeline.streams,
+          )
             .map((stream) => `${stream.id}:${stream.version}`)
             .sort()
             .join(',')}`}

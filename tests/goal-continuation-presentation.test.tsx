@@ -48,7 +48,9 @@ function identities(items: readonly SessionTimelineSequenceItem[]) {
       ? `message:${item.projection.message.id}`
       : item.kind === 'stream'
         ? `stream:${item.stream.id}`
-        : `continuation:${item.continuation.runId}`,
+        : item.kind === 'goalContinuation'
+          ? `continuation:${item.continuation.runId}`
+          : `goal:${item.row.eventId}`,
   )
 }
 

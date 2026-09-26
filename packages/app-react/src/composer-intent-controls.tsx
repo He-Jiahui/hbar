@@ -9,6 +9,7 @@ type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['g
 
 export interface HbarComposerIntentLabels {
   readonly goal: string
+  readonly currentGoal: string
   readonly goalHint: string
   readonly cancelGoal: string
   readonly goalPlaceholder: string
@@ -104,11 +105,13 @@ export function HbarComposerGoal({
   workspaceId,
   connected,
   labels,
+  surface = 'all',
 }: {
   readonly sessionId: string
   readonly workspaceId: string | null
   readonly connected: boolean
   readonly labels: HbarComposerIntentLabels
+  readonly surface?: 'all' | 'summary' | 'submission'
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
@@ -123,7 +126,11 @@ export function HbarComposerGoal({
   const submitting = entry?.submission.status === 'submitting'
   const submissionUnknown = entry?.submission.status === 'unknown'
   const busy = !connected || actionPending || actionUnknown || submitting || submissionUnknown
-  const error = localError ?? entry?.goalAction.error ?? entry?.submission.error
+  const showSummary = surface !== 'submission'
+  const showSubmission = surface !== 'summary'
+  const error =
+    localError ?? (showSummary ? entry?.goalAction.error : null) ?? (showSubmission ? entry?.submission.error : null)
+  const unknown = (showSummary && actionUnknown) || (showSubmission && submissionUnknown)
   const control = (action: 'pause' | 'resume' | 'clear', expectedGoalId: string) => {
     setLocalError(null)
     void runtime.commands
@@ -156,10 +163,13 @@ export function HbarComposerGoal({
   const visibleGoal = goal && goal.status !== 'complete'
   return (
     <LumenFrame className="hbar-composer-goal-context">
-      {visibleGoal && (
+      {showSummary && visibleGoal && (
         <LumenFrame className="hbar-composer-goal-strip" aria-label={labels.goal}>
           <LumenFrame className="hbar-composer-goal-summary">
             <LumenIcon icon={Target} tier="sm" />
+            <LumenText as="span" className="hbar-composer-current-goal-label">
+              {labels.currentGoal}
+            </LumenText>
             <LumenText as="span" className="hbar-composer-goal-status">
               {labels.statuses[goal.status]}
             </LumenText>
@@ -238,7 +248,7 @@ export function HbarComposerGoal({
           </LumenFrame>
         </LumenFrame>
       )}
-      {clearTarget && clearTarget === goal?.goalId && (
+      {showSummary && clearTarget && clearTarget === goal?.goalId && (
         <LumenFrame role="group" aria-label={labels.clear} className="hbar-composer-goal-confirm">
           <LumenText as="span">{labels.confirmClear(goal.objective)}</LumenText>
           <LumenButton
@@ -262,17 +272,17 @@ export function HbarComposerGoal({
           </LumenButton>
         </LumenFrame>
       )}
-      {(actionPending || submitting) && (
+      {((showSummary && actionPending) || (showSubmission && submitting)) && (
         <LumenText as="p" role="status">
           {labels.pending}
         </LumenText>
       )}
-      {entry?.submission.status === 'partial' && (
+      {showSubmission && entry?.submission.status === 'partial' && (
         <LumenText as="p" role="status">
           {labels.partial}
         </LumenText>
       )}
-      {actionUnknown || submissionUnknown ? (
+      {unknown ? (
         <LumenFrame className="hbar-composer-intent-feedback" role="alert">
           <LumenText as="span">{labels.unknown}</LumenText>
           <LumenButton
@@ -296,7 +306,7 @@ export function HbarComposerGoal({
           </LumenText>
         )
       )}
-      {facts?.status === 'error' && facts.error !== 'CAPABILITY_UNAVAILABLE' && (
+      {showSummary && facts?.status === 'error' && facts.error !== 'CAPABILITY_UNAVAILABLE' && (
         <LumenFrame className="hbar-composer-intent-feedback" role="alert">
           <LumenText as="span">{labels.error(facts.error ?? 'EXECUTION_FAILED')}</LumenText>
           <LumenButton

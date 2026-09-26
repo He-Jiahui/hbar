@@ -1,6 +1,7 @@
 import { extensionDetailCopy } from './extension-detail-copy'
 import { fileWorkspaceCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
+import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
@@ -868,6 +869,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ? { user: '你', assistant: 'AI', system: '系', tool: '工' }
       : { user: 'You', assistant: 'AI', system: 'Sy', tool: 'Tl' },
     copy: choose('复制消息', 'Copy message'),
+    goalLifecycle: goalLifecycleCopy(zh),
+    goalHistory: goalHistoryCopy(zh),
     goalContinuation: {
       title: choose('目标续作', 'Goal continuation'),
       statuses: zh
@@ -1199,6 +1202,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     intent: {
       goal: choose('目标', 'Goal'),
+      currentGoal: choose('当前目标', 'Current goal'),
       goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),
       cancelGoal: choose('取消目标模式', 'Cancel goal mode'),
       goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),

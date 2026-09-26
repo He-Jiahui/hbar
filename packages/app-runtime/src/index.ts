@@ -52,7 +52,13 @@ import { registerSurfaceCommands } from './surfaces'
 import { createSessionTimeline } from './session-timeline'
 import { createGoalHistory, goalHistoryCommands } from './goal-history'
 export { goalHistoryCommands, getGoalHistoryProjection, GOAL_HISTORY_MAX_FACTS } from './goal-history'
-export type { GoalHistoryState, GoalHistoryEntry, GoalHistoryProjection } from './goal-history'
+export type {
+  GoalHistoryState,
+  GoalHistoryEntry,
+  GoalHistoryProjection,
+  GoalHistoryFact,
+  GoalHistorySnapshot,
+} from './goal-history'
 import { createDrafts } from './drafts'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
