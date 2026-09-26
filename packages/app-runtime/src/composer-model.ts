@@ -9,6 +9,7 @@ import {
 } from '@hbar/contracts/commands/models'
 import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import { createState, type StateReader } from './state'
+import { createModelReadQueue } from './model-read-queue'
 import type { ComposerModelState, NavigationState, SessionControlsState } from './types'
 import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 import type { SessionExecutionTarget } from './session-execution-access'
@@ -51,7 +52,11 @@ export const composerModelCommands = {
 interface ModelProjection {
   readonly reader: StateReader<SessionControlsState>
   refreshModel(sessionId: string, execution?: { readonly signal: AbortSignal }, retainCurrent?: boolean): Promise<void>
-  commitModel(model: ModelConfiguration): void
+  readModel(sessionId: string, execution?: { readonly signal: AbortSignal }): Promise<ModelConfiguration>
+  commitModel(model: ModelConfiguration, expectedGeneration?: number): boolean
+  captureModelGeneration(): number
+  invalidateModels(): void
+  setConnected(connected: boolean): void
 }
 type WriteOperation =
   | { readonly name: 'session.setModel'; readonly input: z.output<(typeof modelCommands)['session.setModel']['input']> }
@@ -89,15 +94,23 @@ export function createComposerModel(
   preparation?: SessionExecutionPreparationPort,
 ) {
   const state = createState<ComposerModelState>(initial(navigation.getSnapshot().sessionId), onSubscriberError)
+  const catalogReads = createModelReadQueue()
+  let disposed = false
+  let connected = true
+  let catalogRequested = false
+  let scheduledCatalog = false
+  const inactive = () => disposed || isDisposed()
   const pending = new Map<string, PendingWrite>()
   const preparing = new Set<string>()
-  const reads = new Map<
-    string,
-    { readonly controller: AbortController; readonly generation: number; readonly promise: Promise<void> }
-  >()
+  let read: {
+    readonly sessionId: string
+    readonly controller: AbortController
+    readonly generation: number
+    readonly promise: Promise<void>
+  } | null = null
   let generation = 0
   const selected = (sessionId: string) =>
-    !isDisposed() &&
+    !inactive() &&
     navigation.getSnapshot().sessionId === sessionId &&
     state.reader.getSnapshot().sessionId === sessionId
   const assertSelected = (sessionId: string) => {
@@ -116,26 +129,31 @@ export function createComposerModel(
       throw new CommandError('SUBMISSION_PENDING', 'Reconcile the pending model change before starting another')
   }
 
-  const refresh = (sessionId: string, signal: AbortSignal): Promise<void> => {
-    requireIdle(sessionId)
-    const existing = reads.get(sessionId)
-    if (existing?.generation === generation) return existing.promise
-    if (existing || reads.size >= 4) throw new CommandError('BUSY', 'Model refresh capacity reached')
+  const refresh = (sessionId: string, signal: AbortSignal, automatic = false): Promise<void> => {
+    if (automatic) assertSelected(sessionId)
+    else requireIdle(sessionId)
+    if (!connected) throw new CommandError('DISCONNECTED', 'Model commands need a connection')
+    catalogRequested = true
+    if (read?.sessionId === sessionId && read.generation === generation) return read.promise
     const controller = new AbortController()
+    const intent = generation
     const abort = () => {
       controller.abort()
-      if (selected(sessionId)) state.replace({ ...state.reader.getSnapshot(), status: 'error', error: 'CANCELLED' })
+      if (selected(sessionId) && intent === generation)
+        state.replace({ ...state.reader.getSnapshot(), status: 'error', error: 'CANCELLED' })
     }
     signal.addEventListener('abort', abort, { once: true })
     if (signal.aborted) abort()
-    const intent = generation
     const initialAction = state.reader.getSnapshot().action
     state.replace({ ...state.reader.getSnapshot(), status: 'loading', error: null })
     const promise = Promise.resolve().then(async () => {
       try {
         const executor = port()
         const [catalog] = await Promise.allSettled([
-          executor.execute('model.list', {}, { signal: controller.signal }),
+          catalogReads.run(
+            (readSignal) => executor.execute('model.list', {}, { signal: readSignal }),
+            controller.signal,
+          ),
           controls.refreshModel(sessionId, { signal: controller.signal }, true),
         ])
         if (controller.signal.aborted && selected(sessionId) && intent === generation)
@@ -157,7 +175,7 @@ export function createComposerModel(
           status: 'ready',
           error: null,
           action:
-            state.reader.getSnapshot().action === initialAction
+            !automatic && state.reader.getSnapshot().action === initialAction
               ? { status: 'idle', error: null }
               : state.reader.getSnapshot().action,
         })
@@ -167,11 +185,44 @@ export function createComposerModel(
         throw error
       } finally {
         signal.removeEventListener('abort', abort)
-        if (reads.get(sessionId)?.controller === controller) reads.delete(sessionId)
+        if (read?.controller === controller) read = null
       }
     })
-    reads.set(sessionId, { controller, generation: intent, promise })
+    read = { sessionId, controller, generation: intent, promise }
     return promise
+  }
+
+  const invalidateCatalog = () => {
+    if (inactive()) return
+    generation += 1
+    read?.controller.abort()
+    catalogReads.cancel()
+    const current = state.reader.getSnapshot()
+    state.replace({
+      ...current,
+      models: [],
+      status: catalogRequested ? (connected ? 'loading' : 'error') : 'idle',
+      error: connected || !catalogRequested ? null : 'DISCONNECTED',
+    })
+    if (!connected || !catalogRequested || !current.sessionId || scheduledCatalog) return
+    scheduledCatalog = true
+    queueMicrotask(() => {
+      scheduledCatalog = false
+      const sessionId = navigation.getSnapshot().sessionId
+      if (!inactive() && connected && catalogRequested && sessionId)
+        void refresh(sessionId, new AbortController().signal, true).catch(() => {})
+    })
+  }
+  const invalidateModels = () => {
+    if (inactive()) return
+    controls.invalidateModels()
+    invalidateCatalog()
+  }
+  const setConnected = (value: boolean) => {
+    if (inactive() || connected === value) return
+    connected = value
+    controls.setConnected(value)
+    invalidateCatalog()
   }
 
   const write = async (
@@ -198,6 +249,7 @@ export function createComposerModel(
       if (signal.aborted) throw new CommandError('CANCELLED', 'Model request was cancelled before dispatch')
       if (target) preparation?.assertCanPrepare(target)
       const executor = port()
+      const projectionGeneration = controls.captureModelGeneration()
       dispatched = true
       const raw = await executor.execute(operation.name, operation.input, { idempotencyKey: operation.key, signal })
       const parsed = modelWriteResultSchema.safeParse(raw)
@@ -210,7 +262,8 @@ export function createComposerModel(
       )
         throw new CommandError('INVALID_OUTPUT', 'Model confirmation does not match the requested session')
       const { commitId: _commitId, revision: _revision, ...configuration } = parsed.data
-      controls.commitModel(modelConfigurationSchema.parse(configuration))
+      const projected = controls.commitModel(modelConfigurationSchema.parse(configuration), projectionGeneration)
+      if (!projected && selected(sessionId)) void controls.refreshModel(sessionId)
       pending.delete(sessionId)
       publishAction(sessionId, { status: 'idle', error: null })
     } catch (error) {
@@ -331,7 +384,7 @@ export function createComposerModel(
             { signal: context.signal },
           ),
         )
-      if (isDisposed() || pending.get(sessionId) !== operation || context.signal.aborted)
+      if (inactive() || pending.get(sessionId) !== operation || context.signal.aborted)
         throw new CommandError('RESULT_UNKNOWN', 'Model receipt recovery no longer belongs to this owner')
       const layerId = `settings:session:${sessionId}`
       const baseline = operation.input.baselineRevisions
@@ -351,19 +404,20 @@ export function createComposerModel(
         result.revision !== result.revisions[layerId]
       )
         throw new CommandError('RESULT_UNKNOWN', 'The original model write has not been confirmed')
-      const current = modelConfigurationSchema.parse(
-        await port().execute('session.getModel', { sessionId }, { signal: context.signal }),
-      )
-      if (isDisposed() || pending.get(sessionId) !== operation || context.signal.aborted)
+      const projectionGeneration = controls.captureModelGeneration()
+      const current = await controls.readModel(sessionId, { signal: context.signal })
+      if (inactive() || pending.get(sessionId) !== operation || context.signal.aborted)
         throw new CommandError('RESULT_UNKNOWN', 'Model receipt recovery no longer belongs to this owner')
       if (
+        !current ||
         current.sessionId !== sessionId ||
         Object.keys(current.revisions).sort().join('\0') !== Object.keys(result.revisions).sort().join('\0') ||
         Object.entries(result.revisions).some(([id, revision]) => (current.revisions[id] ?? -1) < revision)
       )
         throw new CommandError('RESULT_UNKNOWN', 'Current model target could not be verified')
       // The old receipt confirms the operation, but only a fresh read owns the visible model projection.
-      controls.commitModel(current)
+      const projected = controls.commitModel(current, projectionGeneration)
+      if (!projected && selected(sessionId)) void controls.refreshModel(sessionId)
       pending.delete(sessionId)
       publishAction(sessionId, { status: 'idle', error: null })
     } catch (error) {
@@ -380,17 +434,23 @@ export function createComposerModel(
     const sessionId = navigation.getSnapshot().sessionId
     if (sessionId === state.reader.getSnapshot().sessionId) return
     generation += 1
-    for (const read of reads.values()) read.controller.abort()
+    catalogRequested = false
+    read?.controller.abort()
+    catalogReads.cancel()
     const operation = sessionId ? pending.get(sessionId) : undefined
     state.replace(initial(sessionId, operation ? { status: operation.status, error: operation.error } : undefined))
   })
   return {
     reader: state.reader,
+    invalidateModels,
+    setConnected,
     dispose() {
+      disposed = true
       generation += 1
       offNavigation()
-      for (const read of reads.values()) read.controller.abort()
-      reads.clear()
+      read?.controller.abort()
+      catalogReads.dispose()
+      read = null
       pending.clear()
       preparing.clear()
       state.dispose()

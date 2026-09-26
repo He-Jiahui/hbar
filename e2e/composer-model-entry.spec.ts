@@ -300,6 +300,22 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize(viewport)
         await expect(model).toBeVisible()
         await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeVisible()
+        if (viewport.width === 1440) {
+          const modelBounds = await model.boundingBox()
+          const thinkingBounds = await page.locator('.hbar-composer-thinking-trigger').boundingBox()
+          expect(modelBounds).not.toBeNull()
+          expect(thinkingBounds).not.toBeNull()
+          if (!modelBounds || !thinkingBounds)
+            throw new Error('The configured model and reasoning controls must be visible')
+          const centerYDelta = Math.abs(
+            modelBounds.y + modelBounds.height / 2 - thinkingBounds.y - thinkingBounds.height / 2,
+          )
+          await test.info().attach(`configured-model-row-${locale}`, {
+            body: JSON.stringify({ viewport, modelBounds, thinkingBounds, centerYDelta }, null, 2),
+            contentType: 'application/json',
+          })
+          expect(centerYDelta).toBeLessThanOrEqual(1)
+        }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await model.click()
         await expect(search).toHaveValue('')

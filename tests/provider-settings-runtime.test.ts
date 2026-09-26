@@ -86,13 +86,21 @@ function fixture() {
     ['fixture', { provider: provider('fixture', 'Fixture provider'), hasKey: false }],
   ])
   let saveError: Error | null = null
+  let listError: Error | null = null
   let hold: Promise<void> | null = null
   let release = () => {}
   const saves: unknown[] = []
   const port: CommandExecutor = {
     execute(name, raw) {
       if (name === 'provider.describe') return Promise.resolve(HBAR_PROVIDER_EDITOR_DESCRIPTION)
-      if (name === 'provider.list') return Promise.resolve([...profiles.values()])
+      if (name === 'provider.list') {
+        if (listError) {
+          const error = listError
+          listError = null
+          return Promise.reject(error)
+        }
+        return Promise.resolve([...profiles.values()])
+      }
       if (name === 'provider.preset.list')
         return Promise.resolve({ items: [openAiPreset], nextCursor: null, catalogGeneratedAt: 1 })
       if (name === 'provider.preset.models')
@@ -140,8 +148,161 @@ function fixture() {
     loseNextSave(error: Error = new CommandError('RESULT_UNKNOWN', 'response lost')) {
       saveError = error
     },
+    failNextList() {
+      listError = new CommandError('READ_FAILED', 'Provider list refresh failed')
+    },
   }
 }
+
+function modelInvalidationRuntime(configuration: ReturnType<typeof fixture>) {
+  const workspace = { id: 'workspace', path: 'D:/fixture', name: 'Fixture', createdAt: 1 }
+  const session = {
+    id: 'session',
+    workspaceId: workspace.id,
+    title: 'Original session',
+    parentId: null,
+    archived: false,
+    createdAt: 1,
+    updatedAt: 1,
+    seq: 0,
+  }
+  let modelReads = 0
+  const runtime = createAppRuntime({
+    instanceId: 'provider-model-invalidation',
+    hostId: 'host',
+    directory: {
+      execute(name) {
+        if (name === 'workspace.get') return Promise.resolve(workspace)
+        if (name === 'session.get') return Promise.resolve(session)
+        if (name === 'workspace.list') return Promise.resolve({ items: [workspace], nextCursor: null })
+        if (name === 'session.list') return Promise.resolve({ items: [session], nextCursor: null })
+        return Promise.reject(new Error(`Unexpected directory query: ${name}`))
+      },
+    },
+    configuration: configuration.port,
+    models: {
+      execute(name) {
+        if (name !== 'session.getModel') return Promise.reject(new Error(`Unexpected model query: ${name}`))
+        modelReads += 1
+        const profile = configuration.profiles.get('fixture')
+        const descriptor = profile
+          ? {
+              id: 'fixture',
+              providerId: 'fixture',
+              providerName: profile.provider.name,
+              modelId: 'model-1',
+              modelName: profile.provider.name,
+              contextWindow: 128_000,
+              maxOutput: 8_192,
+              imageInput: false,
+              reasoning: true,
+              thinkingLevels: ['off', 'high'],
+              defaultThinkingLevel: 'high',
+              hasKey: false,
+            }
+          : null
+        return Promise.resolve({
+          sessionId: session.id,
+          status: descriptor ? 'configured' : 'unavailable',
+          modelId: 'fixture',
+          model: descriptor,
+          thinkingLevel: descriptor ? 'high' : null,
+          revisions: { global: 1, workspace: 1, session: 1 },
+          sources: { model: 'session', thinkingLevel: 'session' },
+        })
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  return { runtime, modelReads: () => modelReads }
+}
+
+for (const action of ['save', 'delete'] as const) {
+  test(`confirmed provider ${action} invalidates the selected model even when its following list refresh fails`, async () => {
+    const configuration = fixture()
+    const { runtime, modelReads } = modelInvalidationRuntime(configuration)
+    try {
+      await runtime.view.commands.execute('app.setSession', { sessionId: 'session', workspaceId: 'workspace' })
+      await waitFor(() => (runtime.view.state.controls.getSnapshot().model?.status === 'configured' ? true : undefined))
+      await runtime.view.commands.execute('app.openSettingsEditor', {
+        scope: 'global',
+        path: 'providers',
+        entryId: 'fixture',
+        instanceId: 'provider-model-editor',
+      })
+      const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+      if (action === 'save')
+        await runtime.view.commands.execute('providerEditor.setProviderField', {
+          editorId: editor.editorId,
+          field: 'name',
+          value: 'Confirmed new model name',
+        })
+      const previousReads = modelReads()
+      const projectionStates: Array<string | null> = []
+      const off = runtime.view.state.controls.subscribe(() => {
+        projectionStates.push(runtime.view.state.controls.getSnapshot().model?.status ?? null)
+      })
+      configuration.failNextList()
+      const result =
+        action === 'save'
+          ? runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
+          : runtime.view.commands.execute('providerEditor.delete', { providerId: 'fixture' })
+      await expect(result).rejects.toMatchObject({ code: action === 'save' ? 'RESULT_UNKNOWN' : 'READ_FAILED' })
+      await waitFor(() => {
+        const current = runtime.view.state.controls.getSnapshot().model
+        return action === 'save'
+          ? current?.model?.modelName === 'Confirmed new model name'
+            ? true
+            : undefined
+          : current?.status === 'unavailable'
+            ? true
+            : undefined
+      })
+      off()
+      expect(projectionStates).toContain(null)
+      expect(modelReads()).toBeGreaterThan(previousReads)
+      expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe('session')
+      if (action === 'save') expect(runtime.view.state.providers.getSnapshot().editor?.form.status).toBe('unknown')
+    } finally {
+      runtime.dispose()
+    }
+  })
+}
+
+test('provider reconciliation invalidates model facts only after the original unknown change is confirmed', async () => {
+  const configuration = fixture()
+  const { runtime, modelReads } = modelInvalidationRuntime(configuration)
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session', workspaceId: 'workspace' })
+    await waitFor(() => (runtime.view.state.controls.getSnapshot().model?.status === 'configured' ? true : undefined))
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+      instanceId: 'provider-model-editor',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: editor.editorId,
+      field: 'name',
+      value: 'Reconciled model name',
+    })
+    const previousReads = modelReads()
+    configuration.loseNextSave()
+    await expect(
+      runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(modelReads()).toBe(previousReads)
+    await runtime.view.commands.execute('providerEditor.reconcile', { editorId: editor.editorId })
+    await waitFor(() =>
+      runtime.view.state.controls.getSnapshot().model?.model?.modelName === 'Reconciled model name' ? true : undefined,
+    )
+    expect(configuration.saves).toHaveLength(1)
+    expect(runtime.view.state.providers.getSnapshot().editor?.form.status).toBe('succeeded')
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('discard clears only unsaved secret input and cannot discard submitting or unknown provider saves', async () => {
   const configuration = fixture()

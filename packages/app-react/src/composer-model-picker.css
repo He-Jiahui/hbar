@@ -5,6 +5,10 @@
   gap: 0.125rem;
 }
 
+.hbar-composer-model-picker:has(> .hbar-composer-model-closed-recovery) {
+  flex-wrap: wrap;
+}
+
 .hbar-composer-model-trigger {
   min-inline-size: 0;
   max-inline-size: 16rem;
@@ -74,6 +78,29 @@
   min-block-size: 0;
   flex-direction: column;
   gap: 0.375rem;
+}
+
+.hbar-composer-model-recovery {
+  margin: 0;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-composer-model-recovery[role='alert'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-composer-model-closed-recovery {
+  flex: 1 0 100%;
+  min-inline-size: 0;
+  margin: 0;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  color: var(--lumen-muted);
+}
+
+.hbar-composer-model-closed-recovery[role='alert'] {
+  color: var(--lumen-danger);
 }
 
 .hbar-composer-picker-body {

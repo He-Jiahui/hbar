@@ -1085,9 +1085,7 @@ function SessionWorkspaceContent({
                     ? slashFailure.code === 'ATTACHMENTS'
                       ? labels.slash.attachmentsBlocked
                       : labels.slash.error(slashFailure.code)
-                    : controls.errors.model
-                      ? labels.error(controls.errors.model)
-                      : undefined
+                    : undefined
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">

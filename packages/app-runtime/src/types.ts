@@ -108,6 +108,11 @@ export interface RuntimeOptions {
   readonly interactions?: CommandExecutor
   readonly interactionRecovery?: InteractionRecoveryPort
   readonly models?: CommandExecutor
+  /** Catalog/configuration invalidation, never proof of a pending model write's outcome. */
+  readonly modelEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor

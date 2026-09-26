@@ -1277,10 +1277,28 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),
       choose: choose('选择模型', 'Choose a model'),
+      unset: choose('请选择用于此会话的模型。', 'Choose a model for this session.'),
+      unavailable: (modelId) =>
+        choose(
+          `原模型“${modelId}”已不可用，请重新选择模型或配置供应商。`,
+          `The selected model “${modelId}” is unavailable. Choose another model or configure its provider.`,
+        ),
+      unavailableTrigger: choose('模型不可用', 'Model unavailable'),
+      unavailableHint: choose('重新选择模型或配置供应商。', 'Choose another model or configure its provider.'),
+      stale: choose('正在更新模型配置…', 'Updating model configuration…'),
+      readFailed: choose(
+        '暂时无法读取模型配置，请重新加载。草稿已保留。',
+        'Model configuration could not be read. Reload to try again; your draft is preserved.',
+      ),
+      configure: choose('配置模型供应商', 'Configure model provider'),
+      offline: choose(
+        '连接已断开，恢复连接后将更新模型配置。',
+        'Disconnected. Model configuration will refresh after reconnecting.',
+      ),
       trigger: (name) => choose(`选择模型：${name}`, `Choose model: ${name}`),
       search: choose('搜索模型', 'Search models'),
       clearSearch: choose('清除模型搜索', 'Clear model search'),
-      empty: choose('尚未配置模型。', 'No models configured.'),
+      empty: choose('没有可选择的模型。', 'No models are available to choose.'),
       noMatches: choose('没有匹配的模型。', 'No matching models.'),
       loading: choose('正在加载模型…', 'Loading models…'),
       close: choose('关闭', 'Close'),
@@ -1302,7 +1320,26 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       thinking: choose('推理强度', 'Reasoning effort'),
       thinkingTrigger: (level) => choose(`推理强度：${level}`, `Reasoning effort: ${level}`),
       thinkingLevel: (level) => thinkingLevelLabel(locale, level),
-      error,
+      error: (code) => {
+        if (['RESULT_UNKNOWN', 'SUBMISSION_PENDING'].includes(code))
+          return choose('原更改尚未确认，请先核对结果。', 'Check the original change before trying another.')
+        if (['DISCONNECTED', 'CONNECTION_CLOSED'].includes(code))
+          return choose('连接已断开，请恢复连接后重试。', 'Reconnect before trying again.')
+        if (['MODEL_UNAVAILABLE', 'MODEL_NOT_FOUND'].includes(code))
+          return choose(
+            '所选模型已不可用，请重新加载后选择模型。',
+            'This model is unavailable. Reload and choose a model.',
+          )
+        if (['STALE_TARGET', 'COMMAND_CONFLICT'].includes(code))
+          return choose(
+            '模型配置已变化，请重新加载后再操作。',
+            'Model configuration changed. Reload before continuing.',
+          )
+        return choose(
+          '模型操作未能确认，请使用此处的恢复入口。',
+          'The model operation could not be confirmed. Use the recovery action here.',
+        )
+      },
     },
     intent: {
       blocked: composerIntentBlockedCopy(locale),

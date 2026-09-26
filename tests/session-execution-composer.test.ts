@@ -312,15 +312,23 @@ function fixture() {
     },
     () => {},
   )
-  const commitModel = (model: ModelConfiguration) => {
-    if (navigation.reader.getSnapshot().sessionId !== model.sessionId) return
+  let modelGeneration = 0
+  const invalidateModels = () => {
+    modelGeneration += 1
+    projection.replace({ ...projection.reader.getSnapshot(), model: null })
+  }
+  const commitModel = (model: ModelConfiguration, expectedGeneration = modelGeneration) => {
+    if (navigation.reader.getSnapshot().sessionId !== model.sessionId || expectedGeneration !== modelGeneration)
+      return false
     const previous = projection.reader.getSnapshot().model
     if (
       previous &&
       Object.entries(previous.revisions).some(([key, revision]) => revision > (model.revisions[key] ?? 0))
     )
-      return
+      return false
+    modelGeneration += 1
     projection.replace({ ...projection.reader.getSnapshot(), sessionId: model.sessionId, model })
+    return true
   }
   const model = createComposerModel(
     local,
@@ -328,11 +336,20 @@ function fixture() {
     navigation.reader,
     {
       reader: projection.reader,
-      refreshModel: async (id) => {
-        const value = configurations.get(id)
-        if (value) commitModel(value)
+      refreshModel: async (id, execution) => {
+        const value = modelCommands['session.getModel'].output.parse(
+          await modelPort.execute('session.getModel', { sessionId: id }, execution),
+        )
+        commitModel(value)
       },
+      readModel: async (id, execution) =>
+        modelCommands['session.getModel'].output.parse(
+          await modelPort.execute('session.getModel', { sessionId: id }, execution),
+        ),
       commitModel,
+      captureModelGeneration: () => modelGeneration,
+      invalidateModels,
+      setConnected: () => invalidateModels(),
     },
     () => {},
     () => disposed,

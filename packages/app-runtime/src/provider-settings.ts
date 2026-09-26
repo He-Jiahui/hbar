@@ -384,6 +384,7 @@ export function createProviderSettings(
   settings: StateReader<SettingsWorkspaceState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  onModelsChanged?: () => void,
 ) {
   const state = createState<ProviderSettingsState>(
     { status: 'idle', description: null, listSchema: null, list: null, profiles: {}, editor: null, error: null },
@@ -401,6 +402,14 @@ export function createProviderSettings(
   }
   const replace = (next: ProviderSettingsState): void => {
     if (!isDisposed()) state.replace(next)
+  }
+  const modelsChanged = (): void => {
+    if (isDisposed()) return
+    try {
+      onModelsChanged?.()
+    } catch (error) {
+      onSubscriberError(error)
+    }
   }
   const refreshSettingsContent = (): void => {
     for (const [formId, form] of Object.entries(settings.getSnapshot().forms)) {
@@ -591,6 +600,9 @@ export function createProviderSettings(
         ...(operation.apiKeyPresent ? { apiKey: operation.apiKey } : {}),
       })
       accepted = true
+      // A failed provider-list refresh cannot keep an acknowledged old model
+      // configuration eligible for sending in another surface.
+      modelsChanged()
       const loaded = await loadList(true)
       const settled = settleSuccess(editorId, operation, loaded)
       refreshSettingsContent()
@@ -641,6 +653,7 @@ export function createProviderSettings(
     const loaded = await loadList(true)
     if (!profileMatches(loaded.profiles[operation.provider.id], operation))
       throw new CommandError('RESULT_UNKNOWN', 'Provider save is not yet confirmed by the Host')
+    modelsChanged()
     const settled = settleSuccess(editorId, operation, loaded)
     refreshSettingsContent()
     return settled
@@ -1048,6 +1061,7 @@ export function createProviderSettings(
   local.register(providerEditorCommands['providerEditor.delete'], async ({ providerId }) => {
     try {
       await port().execute('provider.delete', { id: providerId })
+      modelsChanged()
       const loaded = await loadList(true)
       if (loaded.editor?.providerId === providerId)
         replace({ ...state.reader.getSnapshot(), editor: null, error: null })

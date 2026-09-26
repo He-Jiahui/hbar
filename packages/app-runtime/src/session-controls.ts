@@ -2,11 +2,13 @@ import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/c
 import {
   modelConfigurationSchema,
   modelWriteResultSchema,
+  modelCommands,
   type ModelConfiguration,
 } from '@hbar/contracts/commands/models'
 import type { SettingsApplyInput } from '@hbar/contracts/commands/settings'
 import { usageQueryResultSchema } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
+import { createModelReadQueue } from './model-read-queue'
 import type { BudgetCommandPort, NavigationState, SessionControlsState, SessionTimelineState } from './types'
 
 function initial(sessionId: string | null, status: SessionControlsState['status']): SessionControlsState {
@@ -22,7 +24,7 @@ function initial(sessionId: string | null, status: SessionControlsState['status'
 
 function code(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') return error.code
-  return error instanceof Error ? error.message : 'EXECUTION_FAILED'
+  return 'EXECUTION_FAILED'
 }
 
 export function createSessionControls(
@@ -35,20 +37,26 @@ export function createSessionControls(
   isDisposed: () => boolean,
 ) {
   const state = createState<SessionControlsState>(initial(null, 'idle'), onSubscriberError)
+  const modelReads = createModelReadQueue()
+  let disposed = false
+  let connected = true
+  const inactive = () => disposed || isDisposed()
   let generation = 0
   // A settings confirmation can invalidate only the model while a previous
   // full load still owns its usage/budget reads. Neither result may erase the other.
   let modelGeneration = 0
   let pendingLoad: number | null = null
   let pendingModel: number | null = null
+  let scheduledModel = false
+  let currentRead: { sessionId: string; generation: number; promise: Promise<void> } | null = null
   let observedTimeline = { sessionId: null as string | null, status: 'idle' as string, cursor: 0 }
 
   const load = async (sessionId: string | null) => {
     const intent = ++generation
-    const modelIntent = ++modelGeneration
     pendingLoad = intent
-    pendingModel = modelIntent
     if (!sessionId) {
+      modelGeneration += 1
+      modelReads.cancel()
       pendingLoad = null
       pendingModel = null
       state.replace(initial(null, 'idle'))
@@ -56,55 +64,56 @@ export function createSessionControls(
     }
     const previous = state.reader.getSnapshot()
     state.replace(previous.sessionId === sessionId ? { ...previous, status: 'loading' } : initial(sessionId, 'loading'))
-    const [modelResult, usageResult, budgetResult] = await Promise.allSettled([
-      models?.execute('session.getModel', { sessionId }) ?? Promise.reject(new Error('CAPABILITY_UNAVAILABLE')),
+    const [, usageResult, budgetResult] = await Promise.allSettled([
+      refreshModel(sessionId, {}, true),
       usage?.execute('usage.query', {
         scope: { kind: 'session', sessionId, includeDescendants: false },
         bucketMs: 60_000,
         maxBuckets: 120,
         maxSamples: 5_000,
         filters: {},
-      }) ?? Promise.reject(new Error('CAPABILITY_UNAVAILABLE')),
-      budget?.execute('session.getBudget', { sessionId }) ?? Promise.reject(new Error('CAPABILITY_UNAVAILABLE')),
+      }) ?? Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'Usage commands are unavailable')),
+      budget?.execute('session.getBudget', { sessionId }) ??
+        Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'Budget commands are unavailable')),
     ])
-    if (isDisposed() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return
+    if (inactive() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return
     pendingLoad = null
     const current = state.reader.getSnapshot()
-    const ownsModel = modelIntent === modelGeneration
-    if (ownsModel) pendingModel = null
-    const model = ownsModel
-      ? modelResult.status === 'fulfilled'
-        ? modelConfigurationSchema.parse(modelResult.value)
-        : null
-      : current.model
     const usageReport = usageResult.status === 'fulfilled' ? usageQueryResultSchema.parse(usageResult.value) : null
     const sessionBudget = budgetResult.status === 'fulfilled' ? budgetResult.value : null
     const errors = {
-      model: ownsModel ? (modelResult.status === 'rejected' ? code(modelResult.reason) : null) : current.errors.model,
+      model: current.errors.model,
       usage: usageResult.status === 'rejected' ? code(usageResult.reason) : null,
       budget: budgetResult.status === 'rejected' ? code(budgetResult.reason) : null,
     }
     state.replace({
       sessionId,
       status: pendingModel !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
-      model,
+      model: current.model,
       usage: usageReport,
       budget: sessionBudget,
       errors,
     })
   }
 
-  const commitModel = (model: ModelConfiguration): void => {
-    if (isDisposed() || navigation.getSnapshot().sessionId !== model.sessionId) return
+  const commitModel = (model: ModelConfiguration, expectedGeneration = modelGeneration): boolean => {
+    if (
+      inactive() ||
+      !connected ||
+      expectedGeneration !== modelGeneration ||
+      navigation.getSnapshot().sessionId !== model.sessionId
+    )
+      return false
     const current = state.reader.getSnapshot()
-    if (current.sessionId !== model.sessionId) return
+    if (current.sessionId !== model.sessionId) return false
     // A delayed confirmation cannot roll back a newer confirmed settings layer.
     if (
       current.model &&
       Object.entries(current.model.revisions).some(([layer, revision]) => revision > (model.revisions[layer] ?? 0))
     )
-      return
+      return false
     modelGeneration += 1
+    modelReads.cancel()
     pendingModel = null
     const errors = { ...current.errors, model: null }
     state.replace({
@@ -113,43 +122,106 @@ export function createSessionControls(
       errors,
       status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
     })
+    return true
   }
 
-  const refreshModel = async (
+  const readModel = (
     sessionId: string,
     execution: ExecuteOptions = {},
-    retainCurrent = false,
-  ): Promise<void> => {
-    if (isDisposed() || navigation.getSnapshot().sessionId !== sessionId) return
+    projection = false,
+  ): Promise<ModelConfiguration> =>
+    modelReads.run(
+      async (signal) => {
+        if (inactive()) throw new CommandError('CANCELLED', 'Model projection was disposed')
+        if (!connected) throw new CommandError('DISCONNECTED', 'Model reads need a connection')
+        if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
+        const result = await models.execute('session.getModel', { sessionId }, { ...execution, signal })
+        if (execution.signal?.aborted) throw new CommandError('CANCELLED', 'Model refresh was cancelled')
+        const parsed = modelConfigurationSchema.safeParse(result)
+        if (!parsed.success || parsed.data.sessionId !== sessionId)
+          throw new CommandError('INVALID_OUTPUT', 'Model response does not match the requested session')
+        return parsed.data
+      },
+      execution.signal,
+      projection ? 'projection' : 'captured',
+    )
+
+  const refreshModel = (sessionId: string, execution: ExecuteOptions = {}, retainCurrent = false): Promise<void> => {
+    if (inactive() || navigation.getSnapshot().sessionId !== sessionId) return Promise.resolve()
+    if (!connected) {
+      const current = state.reader.getSnapshot()
+      state.replace({
+        ...current,
+        model: null,
+        status: 'partial',
+        errors: { ...current.errors, model: 'DISCONNECTED' },
+      })
+      return Promise.resolve()
+    }
+    if (retainCurrent && currentRead?.sessionId === sessionId && currentRead.generation === modelGeneration)
+      return currentRead.promise
     const intent = ++modelGeneration
+    modelReads.cancel()
     pendingModel = intent
     const previous = state.reader.getSnapshot()
     // Confirmed settings writes invalidate the old send configuration. Opening
     // a read-only picker may retain its label until the fresh read settles.
-    state.replace({ ...previous, model: retainCurrent ? previous.model : null, status: 'loading' })
-    let model: ModelConfiguration | null = null
-    let error: string | null = null
-    try {
-      if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
-      const result = await models.execute('session.getModel', { sessionId }, execution)
-      if (execution.signal?.aborted) throw new CommandError('CANCELLED', 'Model refresh was cancelled')
-      const parsed = modelConfigurationSchema.safeParse(result)
-      if (!parsed.success || parsed.data.sessionId !== sessionId)
-        throw new CommandError('INVALID_OUTPUT', 'Model response does not match the requested session')
-      model = parsed.data
-    } catch (failure) {
-      error = code(failure)
-    }
-    if (isDisposed() || intent !== modelGeneration || navigation.getSnapshot().sessionId !== sessionId) return
-    pendingModel = null
-    const current = state.reader.getSnapshot()
-    const errors = { ...current.errors, model: error }
     state.replace({
-      ...current,
-      model,
-      errors,
-      status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+      ...previous,
+      model: retainCurrent ? previous.model : null,
+      errors: { ...previous.errors, model: null },
+      status: 'loading',
     })
+    const promise = (async () => {
+      let model: ModelConfiguration | null = null
+      let error: string | null = null
+      try {
+        model = await readModel(sessionId, execution, true)
+      } catch (failure) {
+        error = code(failure)
+      }
+      if (inactive() || intent !== modelGeneration || navigation.getSnapshot().sessionId !== sessionId) return
+      pendingModel = null
+      const current = state.reader.getSnapshot()
+      const errors = { ...current.errors, model: error }
+      state.replace({
+        ...current,
+        model,
+        errors,
+        status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+      })
+      if (currentRead?.generation === intent) currentRead = null
+    })()
+    currentRead = { sessionId, generation: intent, promise }
+    return promise
+  }
+
+  const invalidateModels = () => {
+    if (inactive()) return
+    modelGeneration += 1
+    modelReads.cancel()
+    const current = state.reader.getSnapshot()
+    const sessionId = navigation.getSnapshot().sessionId
+    pendingModel = connected && sessionId ? modelGeneration : null
+    if (sessionId && current.sessionId === sessionId)
+      state.replace({
+        ...current,
+        model: null,
+        status: connected ? 'loading' : 'partial',
+        errors: { ...current.errors, model: connected ? null : 'DISCONNECTED' },
+      })
+    if (!connected || !sessionId || scheduledModel) return
+    scheduledModel = true
+    queueMicrotask(() => {
+      scheduledModel = false
+      const selectedId = navigation.getSnapshot().sessionId
+      if (!inactive() && connected && selectedId) void refreshModel(selectedId)
+    })
+  }
+  const setConnected = (value: boolean) => {
+    if (inactive() || connected === value) return
+    connected = value
+    invalidateModels()
   }
 
   let selected = navigation.getSnapshot().sessionId
@@ -175,10 +247,14 @@ export function createSessionControls(
 
   return {
     reader: state.reader,
+    invalidateModels,
+    setConnected,
+    captureModelGeneration: () => modelGeneration,
     refreshModel,
+    readModel,
     commitModel,
     async settingsCommitted(input: SettingsApplyInput): Promise<void> {
-      if (isDisposed()) return
+      if (inactive()) return
       const selection = navigation.getSnapshot()
       const affectsModel = input.changes.some(
         ({ path }) =>
@@ -196,16 +272,19 @@ export function createSessionControls(
       const persistent = name === 'session.setModel' || name === 'session.setThinkingLevel'
       const readGeneration = modelGeneration
       try {
-        const result = await models.execute(name, input, {
-          ...options,
-          ...(persistent ? { idempotencyKey: options.idempotencyKey ?? crypto.randomUUID() } : {}),
-        })
+        const result =
+          name === 'session.getModel'
+            ? await readModel(modelCommands[name].input.parse(input).sessionId, options)
+            : await models.execute(name, input, {
+                ...options,
+                ...(persistent ? { idempotencyKey: options.idempotencyKey ?? crypto.randomUUID() } : {}),
+              })
         if (name === 'session.getModel') {
           const model = modelConfigurationSchema.parse(result)
-          if (readGeneration === modelGeneration) commitModel(model)
+          commitModel(model, readGeneration)
         } else if (persistent) {
           const committed = modelWriteResultSchema.parse(result)
-          if (committed.sessionId === navigation.getSnapshot().sessionId) void load(committed.sessionId)
+          if (committed.sessionId === navigation.getSnapshot().sessionId) void refreshModel(committed.sessionId)
         }
         return result
       } catch (error) {
@@ -216,7 +295,7 @@ export function createSessionControls(
         if (persistent && sessionId === navigation.getSnapshot().sessionId) {
           const current = state.reader.getSnapshot()
           state.replace({ ...current, status: 'partial', errors: { ...current.errors, model: code(error) } })
-          if (code(error) === 'RESULT_UNKNOWN') void load(sessionId)
+          if (code(error) === 'RESULT_UNKNOWN' && sessionId) void refreshModel(sessionId)
         }
         throw error
       }
@@ -226,10 +305,13 @@ export function createSessionControls(
       return usage.execute(name, input, options)
     },
     dispose() {
+      disposed = true
       generation += 1
       modelGeneration += 1
       offNavigation()
       offTimeline()
+      modelReads.dispose()
+      currentRead = null
       state.dispose()
     },
   }

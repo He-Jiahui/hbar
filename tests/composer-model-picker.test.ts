@@ -2,11 +2,13 @@ import { expect, test } from 'bun:test'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import {
   COMPOSER_MODEL_PAGE_SIZE,
+  composerModelPresentation,
   filterComposerModels,
   thinkingProgressPercent,
   thinkingPreviewIdentity,
   visibleThinkingIndex,
 } from '../packages/app-react/src/composer-model-picker'
+import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 
 function fixture(index: number): ModelDescriptor {
   return {
@@ -125,4 +127,114 @@ test('a local thinking preview belongs to one session and one confirmed model re
       { identity, index: 1 },
     ),
   ).toBe(0)
+})
+
+function projectionFixture() {
+  const model = fixture(0)
+  const controls: SessionControlsState = {
+    sessionId: 'a',
+    status: 'ready',
+    model: {
+      sessionId: 'a',
+      status: 'configured',
+      modelId: model.id,
+      model,
+      thinkingLevel: 'low',
+      revisions: {},
+      sources: { model: 'session', thinkingLevel: 'session' },
+    },
+    usage: null,
+    budget: null,
+    errors: { model: null, usage: null, budget: null },
+  }
+  const catalog: ComposerModelState = {
+    sessionId: 'a',
+    status: 'ready',
+    models: [model],
+    error: null,
+    action: { status: 'idle', error: null },
+  }
+  return { controls, catalog, model }
+}
+
+test('model validity uses the exact session configuration, not a hidden model missing from the catalog', () => {
+  const f = projectionFixture()
+  const hidden = composerModelPresentation(
+    'a',
+    true,
+    { ...f.controls, status: 'partial', errors: { ...f.controls.errors, usage: 'READ_FAILED' } },
+    { ...f.catalog, models: [] },
+  )
+  expect(hidden.state).toBe('configured')
+  expect(hidden.current).toEqual(f.model)
+  expect(hidden.confirmedEmpty).toBe(false)
+  expect(hidden.recoverProviders).toBe(false)
+  expect(hidden.canChoose).toBe(true)
+  expect(composerModelPresentation('b', true, f.controls, f.catalog)).toMatchObject({
+    state: 'loading',
+    configuration: null,
+    current: null,
+    catalogReady: false,
+    confirmedEmpty: false,
+    canChoose: false,
+  })
+})
+
+test('unset and deleted selections differ while both can use a confirmed alternative model', () => {
+  const f = projectionFixture()
+  if (!f.controls.model) throw new Error('The fixture model is missing')
+  const unset = {
+    ...f.controls,
+    model: { ...f.controls.model, status: 'unset' as const, modelId: null, model: null, thinkingLevel: null },
+  }
+  expect(composerModelPresentation('a', true, unset, f.catalog)).toMatchObject({
+    state: 'unset',
+    confirmedEmpty: false,
+    recoverProviders: false,
+    canChoose: true,
+  })
+  const unavailable = {
+    ...unset,
+    model: { ...unset.model, status: 'unavailable' as const, modelId: 'removed/provider-model' },
+  }
+  expect(composerModelPresentation('a', true, unavailable, f.catalog)).toMatchObject({
+    state: 'unavailable',
+    current: null,
+    confirmedEmpty: false,
+    recoverProviders: true,
+    canChoose: true,
+  })
+  expect(composerModelPresentation('a', true, unset, { ...f.catalog, models: [] })).toMatchObject({
+    confirmedEmpty: true,
+    recoverProviders: true,
+  })
+})
+
+test('unread, stale, failed, foreign and offline empty arrays never imply a confirmed empty catalog', () => {
+  const f = projectionFixture()
+  for (const status of ['idle', 'loading', 'error'] as const) {
+    const result = composerModelPresentation(
+      'a',
+      true,
+      { ...f.controls, model: null, status: 'loading' },
+      { ...f.catalog, models: [], status },
+    )
+    expect(result.confirmedEmpty).toBe(false)
+    expect(result.canChoose).toBe(false)
+    expect(result.state).toBe('loading')
+    expect(result.readFailed).toBe(status === 'error')
+  }
+  const failure = composerModelPresentation(
+    'a',
+    true,
+    { ...f.controls, model: null, status: 'partial', errors: { ...f.controls.errors, model: 'UNAUTHORIZED' } },
+    { ...f.catalog, models: [] },
+  )
+  expect(failure).toMatchObject({ state: 'error', confirmedEmpty: false, canChoose: false, readFailed: true })
+  expect(composerModelPresentation('a', false, f.controls, f.catalog)).toMatchObject({
+    state: 'offline',
+    current: null,
+    canChoose: false,
+    confirmedEmpty: false,
+  })
 })

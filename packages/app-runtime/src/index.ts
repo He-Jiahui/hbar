@@ -554,6 +554,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     executionPreparation,
   )
+  const offModelEvents = options.modelEvents?.subscribe(composerModel.invalidateModels)
+  const offModelConnection = options.modelEvents?.onConnection?.(composerModel.setConnected)
   const providerSettings = createProviderSettings(
     local,
     options,
@@ -561,6 +563,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     settingsForms.reader,
     onSubscriberError,
     () => disposed,
+    composerModel.invalidateModels,
   )
   const fileWorkspace = createFileWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed, {
     tabs: workspaceTabs.reader,
@@ -794,6 +797,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       timeline.dispose()
       drafts.dispose()
       interactions.dispose()
+      offModelEvents?.()
+      offModelConnection?.()
       controls.dispose()
       composerModel.dispose()
       sessionGitContext.dispose()
