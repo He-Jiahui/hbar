@@ -430,8 +430,10 @@ function validateCss(path, source) {
       // The Pro preferences matrix has a real sticky label strip over its own scrolling rows.
       // Permit only its zero vertical anchor, not absolute positioning or arbitrary offsets.
       const isObservedStickyColumns =
-        /packages\/lumen-app-ui\/src\/notifications-preferences-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-        rule.selector.trim() === '.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns' &&
+        ((/packages\/lumen-app-ui\/src\/notifications-preferences-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+          rule.selector.trim() === '.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns') ||
+          (/packages\/lumen-app-ui\/src\/kanban-swimlanes-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+            rule.selector.trim() === '.hbar-app-ui-kanban-swimlane-stages')) &&
         /(?:^|\n)\s*position:\s*sticky;/.test(rule.body) &&
         property === 'inset-block-start' && value.trim() === '0'
       if (coordinateProperties.has(property) && !isOverlay && !isObservedStickyColumns) {
@@ -507,6 +509,15 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
       validateCss('packages/lumen-app-ui/src/notifications-preferences-reference.css', stickyColumns.replace('sticky', 'absolute')).length === 0 ||
       validateCss('packages/lumen-app-ui/src/notifications-preferences-reference.css', stickyColumns.replace('inset-block-start: 0', 'inset-block-start: 1rem')).length === 0)
     throw new Error('Observed preferences sticky strip exception must remain exact and path-scoped')
+  const stickySwimlaneStages = `.hbar-app-ui-kanban-swimlane-stages {
+  position: sticky;
+  inset-block-start: 0;
+}`
+  if (validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', stickySwimlaneStages).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages.replace('sticky', 'absolute')).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages.replace('inset-block-start: 0', 'inset-block-start: 1rem')).length === 0)
+    throw new Error('Observed swimlane sticky header exception must remain exact and path-scoped')
   const wizardToast = '.hbar-app-ui-dialog-wizard-toast { position: absolute; inset-block-end: 1rem; }'
   if (validateCss('packages/lumen-app-ui/src/app-dialog-wizard.css', wizardToast).length ||
       validateCss('packages/lumen-app-ui/src/other.css', wizardToast).length === 0)
