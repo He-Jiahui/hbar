@@ -103,6 +103,14 @@ export type { WorkspacePinAction, WorkspacePinsState } from './workspace-pins'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export { goalControlStatuses } from './goal-plan-workspace'
 export type { StateReader } from './state'
+export { createImageThumbnails, IMAGE_THUMBNAILS_MAX_ITEMS } from './image-thumbnails'
+export type {
+  ImageThumbnails,
+  ImageThumbnailsRequest,
+  ImageThumbnailState,
+  ImageThumbnailsState,
+  ImageThumbnailsOptions,
+} from './image-thumbnails'
 export { createImageViewer, IMAGE_VIEWER_MAX_ITEMS } from './image-viewer'
 export type {
   ImageViewer,
