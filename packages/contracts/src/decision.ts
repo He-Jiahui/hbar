@@ -90,7 +90,7 @@ export const decisionFailureCodeSchema = z.enum([
 ])
 export const decisionMetadataSchema = z.strictObject({
   evaluationId: z.string().min(1).max(100),
-  provider: z.literal('laya'),
+  provider: z.string().min(1).max(100),
   runtimeVersion: z.string().min(1).max(80),
   checkpoint: decisionCheckpointSchema,
   modelRevision: z.string().min(1).max(100).nullable(),
@@ -101,6 +101,11 @@ export const decisionMetadataSchema = z.strictObject({
   elapsedMs: z.number().finite().nonnegative(),
   queueMs: z.number().finite().nonnegative(),
   calibration: z.literal('uncalibrated'),
+  inputTruncated: z.boolean(),
+  questionsTruncated: z.array(name).max(DECISION_MAX_QUESTIONS),
+  device: z.string().min(1).max(80).nullable(),
+  memoryAllocatedBytes: z.number().int().nonnegative().nullable(),
+  memoryReservedBytes: z.number().int().nonnegative().nullable(),
 })
 export const decisionResultSchema = z.discriminatedUnion('status', [
   z.strictObject({

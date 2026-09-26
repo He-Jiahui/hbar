@@ -1,0 +1,26 @@
+{
+  "name": "@hbar/decision-laya",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "hbar": {
+    "apiVersion": "^1.0.0",
+    "scope": "global",
+    "runtimeScope": "host",
+    "host": "./src/index.ts",
+    "permissions": [
+      "process",
+      "network",
+      "storage"
+    ],
+    "activationEvents": [
+      "host.start"
+    ]
+  },
+  "dependencies": {
+    "@hbar/contracts": "workspace:*",
+    "@hbar/plugin-sdk": "workspace:*",
+    "zod": "4.5.4"
+  }
+}
