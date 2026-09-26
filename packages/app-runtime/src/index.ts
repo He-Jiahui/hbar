@@ -103,6 +103,19 @@ export type { WorkspacePinAction, WorkspacePinsState } from './workspace-pins'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
 export { goalControlStatuses } from './goal-plan-workspace'
 export type { StateReader } from './state'
+export { createImageViewer, IMAGE_VIEWER_MAX_ITEMS } from './image-viewer'
+export type {
+  ImageViewer,
+  ImageViewerSource,
+  ImageViewerItem,
+  ImageViewerRequest,
+  ImageViewerState,
+  ImageViewerResource,
+  ImageViewerOptions,
+  ImageResourceLease,
+  ImageResourcePort,
+  ImageResourceErrorCode,
+} from './image-viewer'
 export { projectSessionDecisions, sessionDecisionAction } from './interaction-presentations'
 export type { SessionDecision, SessionDecisionProjection, QuestionnaireFact } from './interaction-presentations'
 export { interactionRecoveryCommands } from './interaction-recovery'
