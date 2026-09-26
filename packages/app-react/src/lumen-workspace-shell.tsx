@@ -43,6 +43,8 @@ import {
 import './lumen-workspace-shell.css'
 import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } from './session-archive'
+import { useSessionRosterRefresh } from './session-roster-refresh'
+import { SessionRosterFeedback, type SessionRosterRefreshLabels } from './session-roster-feedback'
 
 export interface HbarWorkspaceShellLabels {
   readonly main: string
@@ -66,6 +68,7 @@ export interface HbarWorkspaceShellLabels {
   readonly createSessionInWorkspace: (name: string) => string
   readonly commands: string
   readonly commandShortcut: string
+  readonly roster: SessionRosterRefreshLabels
   readonly openWorkspace: string
   readonly status: string
   readonly settings: string
@@ -195,9 +198,17 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const directory = useHbarRuntimeState(runtime.state.directory)
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const rosterRefresh = useHbarRuntimeState(runtime.state.sessionRosterRefresh)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
   )
+  const refreshRoster = useSessionRosterRefresh(
+    runtime,
+    expanded,
+    props.connection === 'connected',
+    presentation.sidebarOpen,
+  )
+  const rosterBusy = Object.values(rosterRefresh.entries).some((entry) => entry.status === 'loading')
   const [workspaceCursor, setWorkspaceCursor] = useState<string | null | undefined>()
   const [sessionCursors, setSessionCursors] = useState<Readonly<Record<string, string | null | undefined>>>({})
   const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
@@ -608,13 +619,24 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   onReconcile={reconcileNavigationAction}
                 />
               )}
-              <WorkspaceSidebarAction
-                icon="command"
-                label={props.labels.commands}
-                detail={props.labels.commandShortcut}
-                selected={presentation.modalInstanceId === 'commands'}
-                onClick={() => openPanel('commands')}
-              />
+              <LumenFrame className="hbar-app-react-sidebar-query-actions">
+                <WorkspaceSidebarAction
+                  icon="command"
+                  label={props.labels.commands}
+                  detail={props.labels.commandShortcut}
+                  selected={presentation.modalInstanceId === 'commands'}
+                  onClick={() => openPanel('commands')}
+                />
+                <LumenIconButton
+                  className="hbar-app-react-roster-refresh"
+                  label={props.labels.roster.refreshExpanded}
+                  loading={rosterBusy}
+                  disabled={!connected || expanded.size === 0 || rosterBusy}
+                  onClick={() => refreshRoster()}
+                >
+                  <WorkspaceShellIcon name="refresh" />
+                </LumenIconButton>
+              </LumenFrame>
             </LumenFrame>
           }
           treeAction={
@@ -713,10 +735,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           disabled: pinBusy || workspacePins.status !== 'ready',
                         },
                         { id: 'archived', label: props.labels.archive.openList(workspace.name), disabled: !connected },
+                        {
+                          id: 'refresh',
+                          label: props.labels.roster.refreshWorkspace(workspace.name),
+                          disabled: !connected || rosterRefresh.entries[workspace.id]?.status === 'loading',
+                        },
                       ]}
                       onAction={(action) => {
                         if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
                         else if (action === 'pin') toggleWorkspacePin(workspace.id)
+                        else if (action === 'refresh') refreshRoster(workspace.id)
                         else if (action === 'archived')
                           void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
                       }}
@@ -731,6 +759,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       <WorkspaceShellIcon name="new-session" />
                     </LumenIconButton>
                   </LumenFrame>
+                  <SessionRosterFeedback
+                    entry={rosterRefresh.entries[workspace.id]}
+                    labels={props.labels.roster}
+                    connected={connected}
+                    onRefresh={() => refreshRoster(workspace.id)}
+                  />
                   {actionWorkspaceId === workspace.id && (
                     <NavigationActionFeedback
                       state={navigationAction}

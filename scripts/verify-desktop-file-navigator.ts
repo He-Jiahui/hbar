@@ -87,6 +87,10 @@ try {
   const locale = await page.evaluate(() => document.documentElement.lang)
   const copy = getShellCopy(locale === 'zh-CN' ? 'zh-CN' : 'en-US')
   await page.getByRole('button', { name: copy.shell.openSession(session.title), exact: true }).click()
+  if (process.env.HBAR_NATIVE_VERIFY_ROSTER === '1')
+    await page
+      .getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      .fill('retained native conversation draft')
   await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
   let files = page.locator('.hbar-app-react-file-workspace')
   await page.screenshot({ path: join(output, 'opened-dock.png') })
@@ -125,6 +129,31 @@ try {
     await page.screenshot({ path: join(output, `draft-return-${width}.png`) })
   }
   expect(await readFile(join(workspacePath, first), 'utf8')).toBe('# original first\n')
+  if (process.env.HBAR_NATIVE_VERIFY_ROSTER === '1') {
+    const external = await createWorkspaceSessionCommandClient(api).execute(
+      'session.create',
+      { workspaceId: workspace.id, title: 'Native external roster check' },
+      { idempotencyKey: crypto.randomUUID() },
+    )
+    const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+    if (await showSidebar.isVisible()) await showSidebar.click()
+    const refresh = page.getByRole('button', { name: copy.shell.roster.refreshExpanded, exact: true })
+    await expect(refresh).toBeEnabled()
+    await refresh.click()
+    await expect(page.getByRole('button', { name: copy.shell.openSession(external.title), exact: true })).toBeVisible()
+    await expect(files.getByLabel(copy.files.textPreview(first), { exact: true })).toContainText(
+      '# retained native draft',
+    )
+    await page.getByRole('button', { name: copy.shell.openSession(session.title), exact: true }).click()
+    await expect(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })).toHaveText(
+      'retained native conversation draft',
+    )
+    await mkdir(resolve('artifacts/session-roster-refresh'), { recursive: true })
+    await page.screenshot({ path: resolve('artifacts/session-roster-refresh/native-900.png') })
+    console.log(
+      'PASS: Native roster refresh discovers an external session without selecting it or changing the retained conversation/file drafts at 900×600.',
+    )
+  }
   if (process.env.HBAR_NATIVE_VERIFY_USAGE === '1') {
     const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await showSidebar.isVisible()) await showSidebar.click()

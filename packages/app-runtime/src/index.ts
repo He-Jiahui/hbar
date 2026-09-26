@@ -73,6 +73,9 @@ import { createExtensionWorkspace } from './extension-workspace'
 export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import { createStatusWorkspace } from './status-workspace'
 import { createSessionGitContext, sessionGitContextCommands } from './session-git-context'
+import { createSessionRosterRefresh, sessionRosterRefreshCommands } from './session-roster-refresh'
+export { sessionRosterRefreshCommands } from './session-roster-refresh'
+export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
 import { createSettingsUsage, settingsUsageCommands } from './settings-usage'
 export { settingsUsageCommands, SETTINGS_USAGE_MAX_BUCKETS } from './settings-usage'
 export type { SettingsUsageWindow, SettingsUsageReport, SettingsUsageEntry, SettingsUsageState } from './settings-usage'
@@ -200,6 +203,7 @@ const runtimeCommands = {
   ...applicationCommands,
   ...composerModelCommands,
   ...sessionGitContextCommands,
+  ...sessionRosterRefreshCommands,
   ...settingsUsageCommands,
   ...composerIntentCommands,
   ...composerPermissionCommands,
@@ -258,6 +262,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   )
   const remote = directory.registry
+  const sessionRosterRefresh = createSessionRosterRefresh(local, {
+    directory: directory.reader,
+    host: options.directory,
+    reconcile: directory.reconcileRosterSessions,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const sessionGitContext = createSessionGitContext(
     local,
     options.git,
@@ -518,6 +529,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(sessionGitContextCommands, name) ||
+        Object.hasOwn(sessionRosterRefreshCommands, name) ||
         Object.hasOwn(settingsUsageCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
@@ -573,6 +585,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls: controls.reader,
       composerModel: composerModel.reader,
       sessionGitContext: sessionGitContext.reader,
+      sessionRosterRefresh: sessionRosterRefresh.reader,
       settingsUsage: settingsUsage.reader,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
@@ -629,6 +642,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls.dispose()
       composerModel.dispose()
       sessionGitContext.dispose()
+      sessionRosterRefresh.dispose()
       settingsUsage.dispose()
       composerIntent.dispose()
       composerPermission.dispose()

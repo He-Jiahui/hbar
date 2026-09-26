@@ -2329,6 +2329,22 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       createSessionInWorkspace: (name) => `在项目“${name}”中新建会话`,
       commands: '命令',
       commandShortcut: 'Ctrl K',
+      roster: {
+        refreshExpanded: '刷新已展开项目的会话',
+        refreshWorkspace: (name) => `刷新 ${name} 的会话`,
+        refreshing: '正在刷新会话…',
+        refreshed: '会话名单已刷新',
+        remaining: (count) => `还有 ${count} 个较早会话待核对；手动刷新可全部核对`,
+        limited: '已达到会话扫描上限；超出范围的变化可能尚未发现',
+        capacity: (count) => `名单容量已满，保留已加载会话；还有 ${count} 个新会话暂未显示`,
+        failure: (code) =>
+          ['CONNECTION_CLOSED', 'DISCONNECTED'].includes(code)
+            ? '连接中断，保留原名单。重新连接后重试。'
+            : code === 'TIMEOUT'
+              ? '刷新超时，保留原名单。请重试。'
+              : `刷新会话失败（${code}），保留原名单`,
+        retry: '重新刷新',
+      },
       openWorkspace: '打开工作区',
       status: '状态中心',
       settings: '设置',
@@ -2435,6 +2451,22 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       createSessionInWorkspace: (name) => `Create a session in project ${name}`,
       commands: 'Commands',
       commandShortcut: 'Ctrl K',
+      roster: {
+        refreshExpanded: 'Refresh sessions in expanded projects',
+        refreshWorkspace: (name) => `Refresh sessions in ${name}`,
+        refreshing: 'Refreshing sessions…',
+        refreshed: 'Session list refreshed',
+        remaining: (count) => `${count} older sessions remain unchecked; refresh manually to verify all`,
+        limited: 'Session scan limit reached; changes beyond this range may not be discovered yet',
+        capacity: (count) => `List capacity reached; loaded sessions kept. ${count} new sessions are not displayed yet`,
+        failure: (code) =>
+          ['CONNECTION_CLOSED', 'DISCONNECTED'].includes(code)
+            ? 'Connection lost; previous list kept. Reconnect and retry.'
+            : code === 'TIMEOUT'
+              ? 'Refresh timed out; previous list kept. Try again.'
+              : `Session refresh failed (${code}); previous list kept`,
+        retry: 'Retry refresh',
+      },
       openWorkspace: 'Open workspace',
       status: 'Status center',
       settings: 'Settings',

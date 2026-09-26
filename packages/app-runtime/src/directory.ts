@@ -12,6 +12,7 @@ import { sessionSchema, workspaceSchema, sessionPageSchema, workspacePageSchema 
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
 import type { DirectoryState, NavigationState, RuntimeOptions } from './types'
+import type { RosterMissingSession } from './session-roster-refresh'
 function decode<Schema extends z.ZodType>(schema: Schema, value: unknown): z.output<Schema> {
   const parsed = schema.safeParse(value)
   if (!parsed.success) throw validationError('INVALID_OUTPUT', parsed.error)
@@ -129,6 +130,40 @@ export function createDirectoryModule(
 
   return {
     queries,
+    /** Observational sidebar reconciliation must not clear the user's active session or touch drafts. */
+    reconcileRosterSessions(
+      items: readonly Session[],
+      absent: readonly RosterMissingSession[],
+    ): { readonly skipped: number } {
+      if (disposed) return { skipped: items.length }
+      if (new Set(items.map((item) => item.id)).size !== items.length)
+        throw new CommandError('INVALID_OUTPUT', 'Duplicate Session IDs')
+      const current = directory.reader.getSnapshot()
+      const sessions = { ...current.sessions }
+      for (const item of absent) {
+        const cached = sessions[item.id]
+        // A null response started before a newer rename/event cannot delete the newer canonical fact.
+        if (cached?.workspaceId === item.workspaceId && cached.seq === item.seq && cached.updatedAt === item.updatedAt)
+          delete sessions[item.id]
+      }
+      let count = Object.keys(sessions).length
+      let skipped = 0
+      for (const item of items) {
+        const prior = sessions[item.id]
+        if (prior) {
+          if (item.seq > prior.seq || (item.seq === prior.seq && item.updatedAt >= prior.updatedAt))
+            sessions[item.id] = item
+        } else if (count < 1000) {
+          sessions[item.id] = item
+          count++
+        } else {
+          // Refresh never evicts an already loaded later-page or other project's member to make room.
+          skipped++
+        }
+      }
+      directory.replace({ ...current, sessions })
+      return { skipped }
+    },
     async createSession(workspaceId: string, title: string | undefined, execution: ExecuteOptions): Promise<Session> {
       if (!options.workspaces)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'This runtime cannot create Host sessions')
