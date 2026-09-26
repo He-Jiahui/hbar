@@ -40,7 +40,7 @@ describe('hbar-app-ui authentication surfaces', () => {
             'hbar-app-ui-auth-passkey-surface',
             'hbar-app-ui-auth-account-reference',
             'hbar-app-ui-auth-workspace-reference',
-            'hbar-app-ui-auth-invitation-surface',
+            'hbar-app-ui-auth-invitation-reference',
             'hbar-app-ui-auth-password-reset-surface',
             'hbar-app-ui-auth-approval-surface',
         ]
@@ -63,6 +63,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(9, localized)).toContain('Mit einem Passkey anmelden')
         expect(renderAuthentication(10, localized)).toContain('Konto auswählen')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
+        expect(renderAuthentication(12, localized)).toContain('Northwind Operations beitreten')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
         expect(renderAuthentication(1, localized)).not.toContain('Continue to the Northwind workspace.')
@@ -302,6 +303,28 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(legacy).toContain('hbar-app-ui-auth-workspace-list')
     })
 
+    test('invitation reference keeps native form, passive project list and confirmation in the Host contract', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.invitation
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected invitation fixture')
+        const initial = renderAuthentication(12)
+        expect(initial).toContain('<form')
+        expect(initial).toContain('type="password"')
+        expect(initial).toContain('disabled=""')
+        expect(initial).toContain('<ul')
+        expect(occurrences(initial, 'hbar-app-ui-auth-invitation-reference-project-row')).toBe(base.projects.length)
+        const ready = renderAuthentication(12, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, invitation: {...base, referenceFlow: {...flow, fullName: 'Dana Whitfield', password: 'StrongPassword1!'}}})
+        expect(ready).not.toContain('disabled=""')
+        const visible = renderAuthentication(12, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, invitation: {...base, referenceFlow: {...flow, passwordVisible: true}}})
+        expect(visible).toContain('type="text"')
+        const success = renderAuthentication(12, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, invitation: {...base, referenceFlow: {...flow, phase: 'success'}}})
+        expect(success).toContain('You’re in')
+        expect(success).toContain('Review the invitation again')
+        expect(success).not.toContain('hbar-app-ui-auth-invitation-reference-accept')
+        const legacy = renderAuthentication(12, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, invitation: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-invitation-layout')
+    })
+
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {
         const passkey = HBAR_APP_UI_AUTHENTICATION_FIXTURES.passkey
         const account = HBAR_APP_UI_AUTHENTICATION_FIXTURES.account
@@ -364,7 +387,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(occurrences(renderAuthentication(10, overflow), 'hbar-app-ui-auth-account-row')).toBe(account.accounts.length + 1)
         expect(occurrences(renderAuthentication(11, overflow), 'hbar-app-ui-auth-workspace-row')).toBe(workspace.workspaces.length)
         expect(occurrences(renderAuthentication(9, overflow), 'hbar-app-ui-auth-passkey-option ')).toBe(passkey.passkeys.length)
-        expect(occurrences(renderAuthentication(12, overflow), 'hbar-app-ui-auth-project-row')).toBe(invitation.projects.length)
+        expect(occurrences(renderAuthentication(12, overflow), 'hbar-app-ui-auth-invitation-reference-project-row')).toBe(invitation.projects.length)
         expect(occurrences(renderAuthentication(13, overflow), 'class="hbar-app-ui-auth-reset-device"')).toBe(passwordReset.devices.length)
         expect(occurrences(renderAuthentication(14, overflow), 'hbar-app-ui-auth-recent-row')).toBe(approval.recent.length)
     })

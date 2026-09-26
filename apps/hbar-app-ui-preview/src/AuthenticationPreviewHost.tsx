@@ -29,7 +29,11 @@ export function AuthenticationPreviewHost({
     [passkeyPhase, setPasskeyPhase] = useState<'choose' | 'request'>(content.passkey?.referenceFlow?.phase ?? 'choose'),
     [accountSelectedId, setAccountSelectedId] = useState(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? ''),
     [workspaceSelectedId, setWorkspaceSelectedId] = useState(content.workspace?.referenceFlow?.selectedId ?? content.workspace?.initialWorkspaceId ?? ''),
-    [workspaceQuery, setWorkspaceQuery] = useState(content.workspace?.referenceFlow?.query ?? '')
+    [workspaceQuery, setWorkspaceQuery] = useState(content.workspace?.referenceFlow?.query ?? ''),
+    [invitationName, setInvitationName] = useState(content.invitation?.referenceFlow?.fullName ?? ''),
+    [invitationPassword, setInvitationPassword] = useState(content.invitation?.referenceFlow?.password ?? ''),
+    [invitationVisible, setInvitationVisible] = useState(content.invitation?.referenceFlow?.passwordVisible ?? false),
+    [invitationPhase, setInvitationPhase] = useState<'form' | 'success'>(content.invitation?.referenceFlow?.phase ?? 'form')
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
@@ -51,6 +55,10 @@ export function AuthenticationPreviewHost({
     setAccountSelectedId(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? '')
     setWorkspaceSelectedId(content.workspace?.referenceFlow?.selectedId ?? content.workspace?.initialWorkspaceId ?? '')
     setWorkspaceQuery(content.workspace?.referenceFlow?.query ?? '')
+    setInvitationName(content.invitation?.referenceFlow?.fullName ?? '')
+    setInvitationPassword(content.invitation?.referenceFlow?.password ?? '')
+    setInvitationVisible(content.invitation?.referenceFlow?.passwordVisible ?? false)
+    setInvitationPhase(content.invitation?.referenceFlow?.phase ?? 'form')
   }
   useEffect(() => {
     if (!seconds) return
@@ -192,6 +200,24 @@ export function AuthenticationPreviewHost({
             query: workspaceQuery,
             onSelect: setWorkspaceSelectedId,
             onQueryChange: setWorkspaceQuery,
+          },
+        },
+        invitation: content.invitation && {
+          ...content.invitation,
+          referenceFlow: content.invitation.referenceFlow && {
+            ...content.invitation.referenceFlow,
+            fullName: invitationName,
+            password: invitationPassword,
+            passwordVisible: invitationVisible,
+            phase: invitationPhase,
+            onFullNameChange: setInvitationName,
+            onPasswordChange: setInvitationPassword,
+            onTogglePassword: () => setInvitationVisible((visible) => !visible),
+            onSubmit: () => {
+              setInvitationPhase('success')
+              onAction?.({ variantId: spec.id, actionId: 'accept' })
+            },
+            onReview: () => setInvitationPhase('form'),
           },
         },
       }}

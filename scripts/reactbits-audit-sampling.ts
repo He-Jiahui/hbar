@@ -561,6 +561,27 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-12')
+    return {
+      revision: 3,
+      lumenEntries: ['authentication.tsx', 'authentication-invitation-reference.css', 'authentication/InvitationAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:fill', change: 'Name entry alone leaves Accept disabled' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-invite-named:2:fill', change: 'Valid password after a name enables the native submit action' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-invite-success:0:click', change: 'Open workspace from confirmation has no documentation navigation' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Password reveal toggles the input type and accessible button name' },
+        { viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'Google alternative has no documentation navigation' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-invite-ready:4:click', change: 'Valid submit replaces the two-column form with confirmation while retaining organization context' },
+        { viewport: 'tablet', theme: 'light', suffix: '5:click', change: 'Decline invitation has no documentation navigation' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'auth-invite-success:1:click', change: 'Review returns from confirmation to the filled invitation form' },
+        { viewport: 'mobile', theme: 'light', suffix: 'auth-invite-ready:4:click', change: 'Valid submit opens the single-column confirmation and review control' },
+        { viewport: 'stress', theme: 'dark', suffix: '1:fill', change: 'Narrow name entry preserves the source form flow and disabled submit' },
+      ],
+      inferences: [
+        { scope: 'Form validation states', basis: 'Name-only and valid name/password represent the two gating branches; password reveal is separate. Repeated typing permutations and viewport combinations are inferred from shared controlled inputs.', verification: 'inferred-not-replayed' },
+        { scope: 'Static organization data', basis: 'Members and projects are passive host records captured in eight light/dark layouts; no clicks are invented for them.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-11')
     return {
       revision: 1,

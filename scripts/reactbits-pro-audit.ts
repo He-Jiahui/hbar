@@ -297,6 +297,9 @@ export type InteractionCase = Readonly<{
     | 'auth-passkey-selected'
     | 'auth-passkey-request'
     | 'auth-account-contractor'
+    | 'auth-invite-named'
+    | 'auth-invite-ready'
+    | 'auth-invite-success'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1763,6 +1766,14 @@ async function prepareAuthenticationPasskeyScenario(root: Locator, scenario: (ty
 }
 async function prepareAuthenticationAccountContractor(root: Locator): Promise<void> {
   await root.getByRole('button', { name: /D\. Whitfield \(contractor\)/ }).click()
+}
+const authenticationInvitationScenarios = ['auth-invite-named', 'auth-invite-ready', 'auth-invite-success'] as const
+async function prepareAuthenticationInvitationScenario(root: Locator, scenario: (typeof authenticationInvitationScenarios)[number]): Promise<void> {
+  await root.getByRole('textbox', { name: 'Full name' }).fill('Dana Whitfield')
+  if (scenario !== 'auth-invite-named')
+    await root.getByRole('textbox', { name: 'Password' }).fill('StrongPassword1!')
+  if (scenario === 'auth-invite-success')
+    await root.getByRole('button', { name: 'Accept invitation' }).click()
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3365,6 +3376,8 @@ async function replayInteraction(
     await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-10' && interaction.scenario === 'auth-account-contractor')
     await prepareAuthenticationAccountContractor(root)
+  if (spec.id === 'hbar-app-ui-authentication-12' && authenticationInvitationScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3668,6 +3681,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-10' && interaction.scenario === 'auth-account-contractor')
     await prepareAuthenticationAccountContractor(root)
+  if (reference.id === 'hbar-app-ui-authentication-12' && authenticationInvitationScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4310,6 +4325,16 @@ async function runInteractionsParallel(
               discovered = discovered.map((item) => item.id === `${spec.id}:1:fill`
                 ? { ...item, fillValue: viewport.id === 'mobile' ? 'no matching workspace' : 'Design' }
                 : item)
+            }
+            if (spec.id === 'hbar-app-ui-authentication-12') {
+              discovered = discovered.map((item) => item.id === `${spec.id}:1:fill` ? { ...item, fillValue: 'Dana Whitfield' } : item)
+              for (const scenario of authenticationInvitationScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationInvitationScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                  item.id === `${spec.id}:auth-invite-named:2:fill` ? { ...item, fillValue: 'StrongPassword1!' } : item,
+                ))
+              }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
