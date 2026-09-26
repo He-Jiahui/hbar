@@ -2,8 +2,11 @@ import { useId, useState } from 'react'
 import { FileText, PencilLine, Play, RefreshCw } from 'lucide-react'
 import { LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
 import ReactMarkdown from 'react-markdown'
-import rehypeSanitize from 'rehype-sanitize'
-import remarkGfm from 'remark-gfm'
+import {
+  sessionMarkdownRemarkPlugins,
+  sessionMarkdownRehypePlugins,
+  sessionMarkdownRehypeOptions,
+} from './session-find-text'
 import './proposed-plan.css'
 
 export interface HbarProposedPlanTarget {
@@ -28,6 +31,7 @@ export interface HbarProposedPlanLabels {
 export interface HbarProposedPlanProps {
   readonly target: HbarProposedPlanTarget
   readonly markdown: string
+  readonly findSegmentId?: string
   readonly labels: HbarProposedPlanLabels
   readonly state: {
     readonly status: 'idle' | 'submitting' | 'unknown' | 'accepted' | 'failed'
@@ -39,7 +43,15 @@ export interface HbarProposedPlanProps {
   readonly onReconcile: (target: HbarProposedPlanTarget) => void
 }
 
-function ProposedPlanContent({ target, markdown, labels, state, onSubmit, onReconcile }: HbarProposedPlanProps) {
+function ProposedPlanContent({
+  target,
+  markdown,
+  findSegmentId,
+  labels,
+  state,
+  onSubmit,
+  onReconcile,
+}: HbarProposedPlanProps) {
   const [feedback, setFeedback] = useState('')
   const feedbackId = useId()
   const blocked =
@@ -56,8 +68,18 @@ function ProposedPlanContent({ target, markdown, labels, state, onSubmit, onReco
         <LumenIcon icon={FileText} tier="md" />
         <LumenText as="strong">{labels.title}</LumenText>
       </LumenFrame>
-      <LumenFrame className="hbar-proposed-plan-document" role="region" aria-label={labels.document} tabIndex={0}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+      <LumenFrame
+        className="hbar-proposed-plan-document"
+        role="region"
+        aria-label={labels.document}
+        tabIndex={0}
+        data-session-find-segment={findSegmentId}
+      >
+        <ReactMarkdown
+          remarkPlugins={sessionMarkdownRemarkPlugins}
+          rehypePlugins={sessionMarkdownRehypePlugins}
+          remarkRehypeOptions={sessionMarkdownRehypeOptions}
+        >
           {markdown}
         </ReactMarkdown>
       </LumenFrame>

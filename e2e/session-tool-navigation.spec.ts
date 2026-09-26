@@ -26,6 +26,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill('A draft belongs to this session — 工具切换不应丢失草稿')
       const tools = page.getByRole('group', { name: copy.session.tools.label, exact: true })
       const labels = [
+        copy.session.find.entry,
         copy.session.tools.files,
         copy.session.tools.monitoring,
         copy.session.tools.agents,
@@ -45,7 +46,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        await expect(tools.getByRole('button')).toHaveCount(5)
+        await expect(tools.getByRole('button')).toHaveCount(6)
         for (const label of labels) {
           const action = tools.getByRole('button', { name: label, exact: true })
           await expect(action).toBeVisible()
@@ -80,10 +81,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         ).toEqual({ fits: true, buttonsFit: true, flowing: true })
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         const headerBounds = await page.locator('.hbar-app-react-session-workspace > .lumen-page-header').boundingBox()
-        expect(headerBounds?.height).toBeLessThanOrEqual(80)
+        const headingBounds = await page.locator('.hbar-app-react-session-workspace .lumen-page-heading').boundingBox()
+        const actionBounds = await tools.boundingBox()
+        if (!headerBounds || !headingBounds || !actionBounds) throw new Error('Session header must remain measurable')
+        expect(headerBounds.height).toBeLessThanOrEqual(headingBounds.height + actionBounds.height + 32)
+        if (viewport.width <= 560)
+          expect(headingBounds.y + headingBounds.height).toBeLessThanOrEqual(actionBounds.y + 1)
         await page.screenshot({ path: `artifacts/desktop-experience/session-tools-${locale}-${viewport.width}.png` })
 
-        await tools.getByRole('button', { name: copy.session.tools.files, exact: true }).focus()
+        await tools.getByRole('button', { name: copy.session.find.entry, exact: true }).focus()
         for (const label of labels.slice(1)) {
           await page.keyboard.press('Tab')
           await expect(tools.getByRole('button', { name: label, exact: true })).toBeFocused()

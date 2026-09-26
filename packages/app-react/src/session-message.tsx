@@ -15,8 +15,11 @@ import {
 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import {
+  sessionMarkdownRemarkPlugins,
+  sessionMarkdownRehypePlugins,
+  sessionMarkdownRehypeOptions,
+} from './session-find-text'
 import {
   copyMessageText,
   messageCopyText,
@@ -137,12 +140,17 @@ export function invokeMessageForkAction(action: HbarMessageForkAction, target: H
   return false
 }
 
-export function MessageMarkdown({ text }: { readonly text: string }) {
-  return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+export function MessageMarkdown({ text, findSegmentId }: { readonly text: string; readonly findSegmentId?: string }) {
+  const content = (
+    <ReactMarkdown
+      remarkPlugins={sessionMarkdownRemarkPlugins}
+      rehypePlugins={sessionMarkdownRehypePlugins}
+      remarkRehypeOptions={sessionMarkdownRehypeOptions}
+    >
       {text}
     </ReactMarkdown>
   )
+  return findSegmentId ? <LumenFrame data-session-find-segment={findSegmentId}>{content}</LumenFrame> : content
 }
 
 function Disclosure({
@@ -466,7 +474,11 @@ function MessageBlocksContent({
             {toolDecisions?.get(group.id)}
           </LumenFrame>
         ) : group.kind === 'text' ? (
-          <LumenFrame key={group.id} className="hbar-session-message-prose">
+          <LumenFrame
+            key={group.id}
+            className="hbar-session-message-prose"
+            data-session-find-segment={renderText ? undefined : group.id}
+          >
             {renderText ? renderText(group) : <MessageMarkdown text={group.text} />}
           </LumenFrame>
         ) : (

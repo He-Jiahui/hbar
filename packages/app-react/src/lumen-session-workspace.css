@@ -353,11 +353,21 @@
 }
 
 @media (max-width: 35rem) {
+  .hbar-app-react-session-workspace > .lumen-page-header {
+    flex-wrap: wrap;
+  }
+
   .hbar-app-react-session-workspace .lumen-page-header-end {
-    max-inline-size: 60%;
+    max-inline-size: 100%;
+    inline-size: 100%;
     align-items: flex-end;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .hbar-app-react-session-workspace .lumen-page-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .hbar-app-react-session-workspace .lumen-page-header-end > .lumen-status {

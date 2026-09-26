@@ -27,6 +27,7 @@ import type { WebGeneralSettingsLabels } from './GeneralSettings'
 import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layout-copy'
 import { sidebarLayoutCopy, type SidebarLayoutLabels } from './sidebar-layout-copy'
 import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
+import { sessionFindCopy } from './session-find-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -909,6 +910,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     retryHistory: choose('重试加载更早消息', 'Retry earlier messages'),
     retryTimeline: choose('重试会话加载', 'Retry session history'),
     historyLimit: choose('已达到此窗口的 1,000 条消息上限。', 'This window reached its 1,000-message history limit.'),
+    find: sessionFindCopy(locale),
     latest: choose('查看最新消息', 'View latest messages'),
     author: zh
       ? { user: '你', assistant: '助手', system: '系统', tool: '工具' }

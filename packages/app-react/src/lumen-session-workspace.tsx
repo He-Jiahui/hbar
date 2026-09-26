@@ -60,6 +60,8 @@ import {
 } from './composer-attachments'
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
+import { useSessionFind } from './session-find'
+import type { HbarSessionFindLabels } from './session-find-view'
 import { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
 import { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 import { projectGoalLifecycleRows } from './goal-lifecycle-model'
@@ -70,6 +72,7 @@ import {
 } from './session-execution-notice'
 
 export interface HbarSessionWorkspaceLabels {
+  readonly find: HbarSessionFindLabels
   readonly conversationTitle: (title: string) => string
   readonly loading: string
   readonly emptyHistory: string
@@ -212,6 +215,7 @@ function SessionWorkspaceContent({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
+  const find = useSessionFind(timeline, labels.find)
   const preparationStatus = sessionPreparationStatus(
     executionAccess,
     sessionId && navigation.workspaceId === sessionWorkspaceId ? { sessionId, workspaceId: sessionWorkspaceId } : null,
@@ -1255,7 +1259,7 @@ function SessionWorkspaceContent({
   ) : null
 
   return (
-    <LumenFrame className="hbar-app-react-session-workspace">
+    <LumenFrame ref={find.workspaceRef} className="hbar-app-react-session-workspace">
       <LumenPageHeader
         title={sessionTitle}
         context={workspaceName}
@@ -1269,9 +1273,10 @@ function SessionWorkspaceContent({
         }
         actionsLabel={labels.tools.label}
         actions={
-          // Five named icon actions remain directly accessible at every width.
-          // The title shrinks in normal flex flow, not the tool hit areas.
+          // Named actions stay directly accessible; narrow headings wrap into
+          // a separate normal-flow row instead of clipping a sixth hit area.
           <>
+            {find.trigger}
             <SessionToolButton
               icon={Files}
               label={labels.tools.files}
@@ -1335,13 +1340,16 @@ function SessionWorkspaceContent({
       <LumenFrame className="hbar-app-react-session-main">
         <LumenConversation
           title={labels.conversationTitle(sessionTitle)}
-          header={null}
+          header={find.bar}
           messages={messages}
           empty={emptyTimeline}
           beforeMessages={historyNotices}
           afterMessages={activity}
           composer={composer}
           scrollKey={sessionId ?? undefined}
+          scrollTarget={find.scrollTarget}
+          onScrollTargetResult={find.onScrollTargetResult}
+          followLatest={!find.open}
           contentRevision={`${timeline.cursor}:goal:${goalHistoryEntry?.status ?? 'idle'}:${goalLifecycleRows.map((row) => row.eventId).join(',')}:${Object.values(
             timeline.streams,
           )

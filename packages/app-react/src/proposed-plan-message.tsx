@@ -3,35 +3,8 @@ import { parseProposedPlan, type PlanProposalDocument } from '@hbar/app-runtime'
 import { LumenFrame, LumenText } from '@lumen/app-ui'
 import { HbarMessageBlocks, MessageMarkdown, type HbarMessageBlocksProps } from './session-message'
 import { HbarProposedPlan, type HbarProposedPlanProps } from './proposed-plan'
-import type { SessionMessageBlock } from './session-message-model'
-
-/** Offsets use the same normalized text join as the runtime parser, without moving tool/attachment blocks. */
-export function planTextSegments(
-  blocks: readonly SessionMessageBlock[],
-  document: Pick<PlanProposalDocument, 'before' | 'after'>,
-) {
-  const source = blocks
-    .flatMap((block) => (block.type === 'text' ? [block.text.replace(/\r\n?/g, '\n')] : []))
-    .join('\n\n')
-  const start = document.before.length
-  const end = source.length - document.after.length
-  const result = new Map<string, { before: string; after: string; insertPlan: boolean }>()
-  let offset = 0
-  let inserted = false
-  for (const [index, block] of blocks.entries()) {
-    if (block.type !== 'text') continue
-    const text = block.text.replace(/\r\n?/g, '\n')
-    const insertPlan = !inserted && Boolean(text.trim()) && offset + text.length > start && offset < end
-    result.set(`text:${index}`, {
-      before: text.slice(0, Math.max(0, Math.min(text.length, start - offset))),
-      after: text.slice(Math.max(0, Math.min(text.length, end - offset))),
-      insertPlan,
-    })
-    if (insertPlan) inserted = true
-    offset += text.length + 2
-  }
-  return result
-}
+import { planTextSegments } from './session-message-text'
+export { planTextSegments } from './session-message-text'
 
 /** Older complete documents remain readable; they never acquire a synthetic executable target. */
 export function HbarHistoricalPlanMessage({
@@ -55,19 +28,19 @@ export function HbarHistoricalPlanMessage({
       {...message}
       renderText={(row) => {
         const segment = segments.get(row.id)
-        if (!segment) return <MessageMarkdown text={row.text} />
+        if (!segment) return <MessageMarkdown text={row.text} findSegmentId={row.id} />
         return (
           <Fragment>
-            {segment.before.trim() && <MessageMarkdown text={segment.before} />}
+            {segment.before.trim() && <MessageMarkdown text={segment.before} findSegmentId={`${row.id}:before`} />}
             {segment.insertPlan && (
               <LumenFrame className="hbar-proposed-plan" as="section" aria-label={readOnlyLabel}>
                 <LumenText as="strong">{readOnlyLabel}</LumenText>
-                <LumenFrame className="hbar-proposed-plan-document" tabIndex={0}>
+                <LumenFrame className="hbar-proposed-plan-document" tabIndex={0} data-session-find-segment="proposal">
                   <MessageMarkdown text={document.markdown} />
                 </LumenFrame>
               </LumenFrame>
             )}
-            {segment.after.trim() && <MessageMarkdown text={segment.after} />}
+            {segment.after.trim() && <MessageMarkdown text={segment.after} findSegmentId={`${row.id}:after`} />}
           </Fragment>
         )
       }}
@@ -89,12 +62,19 @@ export function HbarProposedPlanMessage({
       {...message}
       renderText={(row) => {
         const segment = segments.get(row.id)
-        if (!segment) return <MessageMarkdown text={row.text} />
+        if (!segment) return <MessageMarkdown text={row.text} findSegmentId={row.id} />
         return (
           <Fragment>
-            {segment.before.trim() && <MessageMarkdown text={segment.before} />}
-            {segment.insertPlan && <HbarProposedPlan {...plan} target={document.target} markdown={document.markdown} />}
-            {segment.after.trim() && <MessageMarkdown text={segment.after} />}
+            {segment.before.trim() && <MessageMarkdown text={segment.before} findSegmentId={`${row.id}:before`} />}
+            {segment.insertPlan && (
+              <HbarProposedPlan
+                {...plan}
+                target={document.target}
+                markdown={document.markdown}
+                findSegmentId="proposal"
+              />
+            )}
+            {segment.after.trim() && <MessageMarkdown text={segment.after} findSegmentId={`${row.id}:after`} />}
           </Fragment>
         )
       }}

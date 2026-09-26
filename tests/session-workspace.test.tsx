@@ -416,12 +416,13 @@ function toolRuntime() {
   })
 }
 
-test('five bounded session tools expose host-owned names, hints and semantic icons, including long translated labels', async () => {
+test('Find and five bounded session tools expose host-owned names, hints and semantic icons, including long translated labels', async () => {
   const runtime = toolRuntime()
   try {
     const base = getShellCopy('zh-CN').session
     const labels = {
       ...base,
+      find: { ...base.find, entry: '仅在当前会话中查找已加载的用户与助手正文' },
       tools: {
         ...base.tools,
         files: '当前项目中的文件与目录，包括具有很长名称的文档及附件',
@@ -445,19 +446,21 @@ test('five bounded session tools expose host-owned names, hints and semantic ico
       const result = await toolControls(render())
       expect(result.groupLabel).toBe(labels.tools.label)
       expect(result.controls.map((control) => control.label)).toEqual([
+        labels.find.entry,
         labels.tools.files,
         labels.tools.monitoring,
         labels.tools.agents,
         labels.tools.goals,
         labels.tools.settings,
       ])
-      expect(result.controls).toHaveLength(5)
+      expect(result.controls).toHaveLength(6)
       for (const [index, control] of result.controls.entries()) {
         expect(control.title).toBe(control.label)
         expect(control.text).toBe('')
         expect(control).toMatchObject({
-          disabled: !hasSession,
-          pressed: index < 4 ? 'false' : null,
+          // The local Find owner is created on client mount, never during SSR.
+          disabled: index === 0 || !hasSession,
+          pressed: index > 0 && index < 5 ? 'false' : null,
           type: 'button',
           tabIndex: null,
           hiddenIcons: 1,
@@ -497,25 +500,25 @@ test('tool pressed states track only the matching workspace and session and clea
         sessionId: session.id,
         binding: 'followActive',
       })
-      expect(await read()).toEqual([...[0, 1, 2, 3].map((item) => (item === index ? 'true' : 'false')), null])
+      expect(await read()).toEqual([null, ...[0, 1, 2, 3].map((item) => (item === index ? 'true' : 'false')), null])
       const instanceId = runtime.view.state.presentation.getSnapshot().toolInstanceId
       if (!instanceId) throw new Error('Tool was not opened')
       await runtime.view.commands.execute('app.closePanel', { instanceId })
-      expect(await read()).toEqual(['false', 'false', 'false', 'false', null])
+      expect(await read()).toEqual([null, 'false', 'false', 'false', 'false', null])
     }
     await runtime.view.commands.execute('app.openPanel', {
       panelId: 'files',
       workspaceId: 'another-workspace',
       binding: 'pinned',
     })
-    expect(await read()).toEqual(['false', 'false', 'false', 'false', null])
+    expect(await read()).toEqual([null, 'false', 'false', 'false', 'false', null])
     await runtime.view.commands.execute('app.openPanel', {
       panelId: 'goals',
       workspaceId: workspace.id,
       sessionId: 'another-session',
       binding: 'pinned',
     })
-    expect(await read()).toEqual(['false', 'false', 'false', 'false', null])
+    expect(await read()).toEqual([null, 'false', 'false', 'false', 'false', null])
   } finally {
     runtime.dispose()
   }
