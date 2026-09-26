@@ -1,11 +1,19 @@
 import { expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
-import { createAppRuntime } from '@hbar/app-runtime'
-import { CommandError, type CommandExecutor } from '@hbar/commands'
+import {
+  createAppRuntime,
+  type NavigationState,
+  type PresentationState,
+  type SurfaceState,
+  type WorkspaceTabsState,
+} from '@hbar/app-runtime'
+import { CommandError, CommandRegistry, type CommandExecutor } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import { fileCommands } from '@hbar/contracts/commands/files'
 import type { Session, Workspace } from '@hbar/contracts/directory'
+import { createSessionTools } from '../packages/app-runtime/src/session-tools'
+import { createState } from '../packages/app-runtime/src/state'
 
 function fixture() {
   const workspaces: Workspace[] = ['w', 'other'].map((id) => ({ id, name: id, path: `D:/${id}`, createdAt: 1 }))
@@ -276,6 +284,59 @@ test('project Files remains explicit while expanded session Files stays bound an
   }
 })
 
+test('Workbench preview open/select/refresh remembers the exact source dock across B and tab updates', async () => {
+  for (const operation of ['open', 'select', 'refresh'] as const) {
+    const f = fixture()
+    try {
+      await f.runtime.ready
+      await f.select('s0')
+      const a = await f.open('files')
+      await f.read(a.instanceId)
+      const panel = f.runtime.view.state.surfaces.getSnapshot().panels[a.instanceId]
+      const expanded = await f.commands.execute('workspaceTabs.openWorkbench', {
+        panelInstanceId: a.instanceId,
+        sourceSessionId: 's0',
+        workspaceId: 'w',
+      })
+      expect(f.visible()).toBeNull()
+      await f.select('s1')
+      const b = await f.open('monitoring')
+      await f.commands.execute('workspaceTabs.select', { id: expanded.id })
+      expect(f.visible()).toBeNull()
+      if (operation === 'open') {
+        await f.commands.execute('fileWorkspace.openEntry', {
+          instanceId: a.instanceId,
+          path: 'another.txt',
+          directory: false,
+        })
+      } else {
+        const previewId = f.runtime.view.state.files.getSnapshot().entries[a.instanceId]?.activePreviewId
+        if (!previewId) throw new Error('Missing preview')
+        await f.commands.execute(
+          operation === 'select' ? 'fileWorkspace.selectPreview' : 'fileWorkspace.refreshPreview',
+          { instanceId: a.instanceId, workspaceId: 'w', previewId },
+        )
+      }
+      expect(f.visible()).toBeNull()
+      await f.commands.execute('workspaceTabs.move', { id: expanded.id, beforeId: 's0' })
+      expect(f.visible()).toBeNull()
+      const tab = f.runtime.view.state.workspaceTabs.getSnapshot().items.find((item) => item.id === expanded.id)
+      if (!tab) throw new Error('Missing workbench')
+      await f.commands.execute('workspaceTabs.returnToSource', { id: tab.id, instanceKey: tab.instanceKey })
+      expect(f.runtime.view.state.navigation.getSnapshot().sessionId).toBe('s0')
+      expect(f.visible()).toBe(a.instanceId)
+      expect(f.runtime.view.state.surfaces.getSnapshot().panels[a.instanceId]).toBe(panel)
+      await f.select('s1')
+      expect(f.visible()).toBe(b.instanceId)
+      await f.select('s0')
+      expect(f.visible()).toBe(a.instanceId)
+      expect(f.disk.size).toBe(0)
+    } finally {
+      f.runtime.dispose()
+    }
+  }
+})
+
 test('archive and restore close session visibility without dropping its in-flight and unknown Files write', async () => {
   const f = fixture()
   try {
@@ -408,5 +469,168 @@ test('all protected owners fail capacity explicitly without mutating surfaces or
     expect(f.visible()).toBeNull()
   } finally {
     f.runtime.dispose()
+  }
+})
+
+function toolOwnerFixture() {
+  const errors: unknown[] = []
+  const error = (reason: unknown) => errors.push(reason)
+  const navigation = createState<NavigationState>(
+    { workspaceId: 'w', sessionId: 'a', status: 'idle', error: null },
+    error,
+  )
+  const sourceTabs = ['a', 'b'].map((sessionId) => ({
+    kind: 'session' as const,
+    id: sessionId,
+    sessionId,
+    workspaceId: 'w',
+    instanceKey: crypto.randomUUID(),
+  }))
+  const tabs = createState<WorkspaceTabsState>(
+    { items: sourceTabs, activeId: 'a', revision: 0, restoreStatus: 'ready', restoreError: null, persistError: null },
+    error,
+  )
+  const surfaces = createState<SurfaceState>(
+    { panels: {}, windows: {}, focusedPanelId: null, focusedWindowId: null },
+    error,
+  )
+  const presentation = createState<PresentationState>(
+    { page: { kind: 'session' }, toolInstanceId: null, modalInstanceId: null, returnContext: null, sidebarOpen: false },
+    error,
+  )
+  const archived = new Set<string>()
+  const local = new CommandRegistry({ execution: 'client' })
+  const tools = createSessionTools(local, {
+    navigation: navigation.reader,
+    tabs: tabs.reader,
+    surfaces,
+    presentation,
+    canRender: () => true,
+    isArchived: (_workspaceId, sessionId) => archived.has(sessionId),
+    isProtected: () => false,
+    onSubscriberError: error,
+  })
+  const open = async (sessionId: string, panelId: 'files' | 'agents' = 'files') => {
+    const tab = sourceTabs.find((item) => item.sessionId === sessionId)
+    if (!tab) throw new Error('Missing fixture source')
+    navigation.replace({ ...navigation.reader.getSnapshot(), sessionId })
+    tabs.replace({ ...tabs.reader.getSnapshot(), activeId: sessionId })
+    await local.execute('sessionTools.open', {
+      panelId,
+      workspaceId: 'w',
+      sessionId,
+      sourceTabInstanceKey: tab.instanceKey,
+    })
+    const instanceId = presentation.reader.getSnapshot().toolInstanceId
+    if (!instanceId) throw new Error('Missing opened fixture tool')
+    return instanceId
+  }
+  const expand = (panelInstanceId: string, sourceSessionId: string) => {
+    const workbench = {
+      kind: 'workbench' as const,
+      id: `workbench:${panelInstanceId}`,
+      instanceKey: crypto.randomUUID(),
+      panelInstanceId,
+      sourceSessionId,
+      workspaceId: 'w',
+    }
+    const before = tabs.reader.getSnapshot()
+    tabs.replace({ ...before, items: [...before.items, workbench], activeId: workbench.id })
+    return workbench
+  }
+  const remembered = (sessionId: string) =>
+    tools.navigationTool(
+      { workspaceId: 'w', sessionId, status: 'idle', error: null },
+      { ...presentation.reader.getSnapshot(), toolInstanceId: null, returnContext: null },
+    )
+  return { tools, tabs, surfaces, presentation, archived, errors, open, expand, remembered }
+}
+
+test('only a matching owned Files preview remembers the source dock and existing Workbench updates retain it', async () => {
+  const f = toolOwnerFixture()
+  try {
+    const a = await f.open('a')
+    const workbench = f.expand(a, 'a')
+    expect(f.remembered('a')).toBeNull()
+    expect(f.presentation.reader.getSnapshot().toolInstanceId).toBeNull()
+    const before = f.presentation.reader.getSnapshot()
+    f.tools.previewOpened(a)
+    expect(f.remembered('a')).toBe(a)
+    expect(f.presentation.reader.getSnapshot()).toBe(before)
+    f.tools.previewOpened(a)
+    f.tabs.replace({ ...f.tabs.reader.getSnapshot(), revision: 1 })
+    expect(f.remembered('a')).toBe(a)
+    const b = await f.open('b', 'agents')
+    const atB = f.presentation.reader.getSnapshot()
+    f.tools.previewOpened(a)
+    expect(f.presentation.reader.getSnapshot()).toBe(atB)
+    expect(f.remembered('b')).toBe(b)
+    expect(f.remembered('a')).toBe(a)
+    // Closing a background Workbench preserves A's remembered dock and does not switch B.
+    const tabs = f.tabs.reader.getSnapshot()
+    f.tabs.replace({ ...tabs, items: tabs.items.filter((item) => item.instanceKey !== workbench.instanceKey) })
+    expect(f.presentation.reader.getSnapshot()).toBe(atB)
+    expect(f.remembered('a')).toBe(a)
+    // A later new Workbench instance is a new Expand and starts closed again.
+    f.expand(a, 'a')
+    expect(f.remembered('a')).toBeNull()
+    expect(f.remembered('b')).toBe(b)
+    expect(f.errors).toEqual([])
+  } finally {
+    f.tools.dispose()
+  }
+})
+
+test('preview callbacks cannot revive archived/closed owners or affect generic, foreign and non-Files panels', async () => {
+  const f = toolOwnerFixture()
+  try {
+    const a = await f.open('a')
+    f.tools.hide(a)
+    f.tools.previewOpened(a)
+    expect(f.remembered('a')).toBeNull()
+    const workbench = f.expand(a, 'a')
+    f.archived.add('a')
+    f.tools.previewOpened(a)
+    expect(f.remembered('a')).toBeNull()
+    f.archived.delete('a')
+    const correct = f.tabs.reader.getSnapshot()
+    f.tabs.replace({
+      ...correct,
+      items: correct.items.map((item) => (item === workbench ? { ...workbench, sourceSessionId: 'b' } : item)),
+    })
+    f.tools.previewOpened(a)
+    expect(f.remembered('a')).toBeNull()
+    f.tabs.replace(correct)
+    f.tabs.replace({ ...correct, items: correct.items.filter((item) => item.id !== 'a') })
+    f.tools.previewOpened(a)
+    expect(f.remembered('a')).toBeNull()
+    const agents = await f.open('b', 'agents')
+    f.expand(agents, 'b')
+    f.tools.previewOpened(agents)
+    expect(f.remembered('b')).toBeNull()
+    const surfaces = f.surfaces.reader.getSnapshot()
+    const generic = {
+      instanceId: 'generic-files',
+      panelId: 'files',
+      workspaceId: 'w',
+      sessionId: null,
+      binding: 'pinned' as const,
+      params: {},
+    }
+    f.surfaces.replace({ ...surfaces, panels: { ...surfaces.panels, [generic.instanceId]: generic } })
+    f.tools.previewOpened(generic.instanceId)
+    expect(
+      f.tools.navigationTool(
+        { workspaceId: 'w', sessionId: 'b', status: 'idle', error: null },
+        { ...f.presentation.reader.getSnapshot(), toolInstanceId: generic.instanceId },
+      ),
+    ).toBe(generic.instanceId)
+    f.tabs.replace(correct)
+    f.tools.dispose()
+    f.tools.previewOpened(a)
+    expect(f.remembered('a')).toBeNull()
+    expect(f.errors).toEqual([])
+  } finally {
+    f.tools.dispose()
   }
 })

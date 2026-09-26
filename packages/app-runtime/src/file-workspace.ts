@@ -13,7 +13,22 @@ import {
   FILE_CHANGES_PAGE_SIZE,
 } from './file-workspace-changes'
 import { createFileWorkspaceTree, emptyFileTree } from './file-workspace-tree'
-import type { DraftsState, FileWorkspaceEntryState, FileWorkspaceState, RuntimeOptions, SurfaceState } from './types'
+import {
+  assertFileDiffBudget,
+  closeFilePreviews,
+  filePreviewCloseReason,
+  MAX_FILE_PREVIEWS,
+  projectFileEntry,
+  replaceFilePreview,
+} from './file-workspace-previews'
+import type {
+  DraftsState,
+  FileWorkspaceEntryState,
+  FileWorkspacePreviewState,
+  FileWorkspaceState,
+  RuntimeOptions,
+  SurfaceState,
+} from './types'
 import type { WorkspaceTabsState } from './workspace-tabs-runtime'
 
 const PAGE_SIZE = 200
@@ -46,6 +61,7 @@ export function createFileWorkspace(
     readonly tabs: StateReader<WorkspaceTabsState>
     readonly drafts: StateReader<DraftsState>
     readonly sessions: CommandExecutor
+    readonly onPreviewOpened?: ((instanceId: string) => void) | undefined
   },
 ) {
   const state = createState<FileWorkspaceState>({ entries: {} }, onSubscriberError)
@@ -56,9 +72,9 @@ export function createFileWorkspace(
     (key) =>
       Object.values(state.reader.getSnapshot().entries).some(
         (entry) =>
-          entry.document &&
-          fileDocumentKey(entry.workspaceId, entry.document.path) === key &&
-          surfaces.getSnapshot().panels[entry.instanceId]?.workspaceId === entry.workspaceId,
+          entry.previews.some(
+            (preview) => preview.kind === 'document' && fileDocumentKey(entry.workspaceId, preview.path) === key,
+          ) && surfaces.getSnapshot().panels[entry.instanceId]?.workspaceId === entry.workspaceId,
       ),
     (key, document) => {
       if (isDisposed()) return
@@ -66,9 +82,21 @@ export function createFileWorkspace(
       let changed = false
       const entries = Object.fromEntries(
         Object.entries(current.entries).map(([id, entry]) => {
-          if (!entry.document || fileDocumentKey(entry.workspaceId, entry.document.path) !== key) return [id, entry]
+          if (
+            !entry.previews.some(
+              (preview) => preview.kind === 'document' && fileDocumentKey(entry.workspaceId, preview.path) === key,
+            )
+          )
+            return [id, entry]
           changed = true
-          return [id, { ...entry, document, error: null, ...(document ? {} : { view: 'browser' as const }) }]
+          const previews = entry.previews.flatMap((preview): FileWorkspacePreviewState[] =>
+            preview.kind === 'document' && fileDocumentKey(entry.workspaceId, preview.path) === key
+              ? document
+                ? [{ ...preview, document }]
+                : []
+              : [preview],
+          )
+          return [id, projectFileEntry({ ...entry, previews })]
         }),
       )
       if (changed) state.replace({ entries })
@@ -89,16 +117,25 @@ export function createFileWorkspace(
     !isDisposed() &&
     generations.get(instanceId) === generation &&
     surfaces.getSnapshot().panels[instanceId]?.workspaceId === workspaceId
-  const documentTarget = (instanceId: string) => {
+  type ExpectedPreview = { readonly workspaceId?: string | undefined; readonly previewId?: string | undefined }
+  const assertPreview = (entry: FileWorkspaceEntryState, expected?: ExpectedPreview) => {
+    if (
+      (expected?.workspaceId && expected.workspaceId !== entry.workspaceId) ||
+      (expected?.previewId && expected.previewId !== entry.activePreviewId)
+    )
+      throw new CommandError('VERSION_CONFLICT', 'File action belongs to another preview')
+  }
+  const documentTarget = (instanceId: string, expected?: ExpectedPreview) => {
     const target = panel(instanceId)
     const entry = state.reader.getSnapshot().entries[instanceId]
     if (!entry?.document || entry.workspaceId !== target.workspaceId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh the file panel target')
+    assertPreview(entry, expected)
     return { entry, workspaceId: target.workspaceId, path: entry.document.path }
   }
   const replace = (entry: FileWorkspaceEntryState) => {
     const current = state.reader.getSnapshot()
-    const entries = { ...current.entries, [entry.instanceId]: entry }
+    const entries = { ...current.entries, [entry.instanceId]: projectFileEntry(entry) }
     const ids = Object.keys(entries)
     if (ids.length > MAX_PANELS)
       for (const id of ids) {
@@ -107,6 +144,7 @@ export function createFileWorkspace(
           break
         }
       }
+    assertFileDiffBudget(entries)
     state.replace({ entries })
   }
   const summary = (entry: FileWorkspaceEntryState) => ({
@@ -138,7 +176,7 @@ export function createFileWorkspace(
           : ((entry.view === 'document' ? entry.document?.error : null) ?? entry.error),
   })
   const load = async (instanceId: string, path?: string, preservePreview = false) => {
-    changes.cancel(instanceId)
+    changes.cancelList(instanceId)
     tree.cancelAll(instanceId)
     const target = panel(instanceId)
     const current = state.reader.getSnapshot().entries[instanceId]
@@ -150,6 +188,8 @@ export function createFileWorkspace(
       instanceId,
       workspaceId: target.workspaceId,
       path: requestedPath,
+      previews: current?.workspaceId === target.workspaceId ? current.previews : [],
+      activePreviewId: keepPreview ? current.activePreviewId : null,
       view: keepPreview ? current.view : 'browser',
       browserMode: 'all',
       documentMode: current?.workspaceId === target.workspaceId ? current.documentMode : 'preview',
@@ -216,56 +256,83 @@ export function createFileWorkspace(
     return summary(next)
   }
   const openEntry = async (instanceId: string, rawPath: string, directory: boolean, preservePreview = false) => {
-    changes.cancel(instanceId)
     if (directory) return load(instanceId, rawPath, preservePreview)
     const path = canonicalFilePath(rawPath)
     const entry = state.reader.getSnapshot().entries[instanceId]
     const target = panel(instanceId)
     if (!entry || entry.workspaceId !== target.workspaceId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh panel target')
+    const existing = entry.previews.find((preview) => preview.kind === 'document' && preview.path === path)
+    if (!existing && entry.previews.length >= MAX_FILE_PREVIEWS) {
+      replace({ ...entry, error: 'BUSY' })
+      throw new CommandError('BUSY', 'Close another file preview before opening one')
+    }
+    changes.cancelList(instanceId)
     const generation = (generations.get(instanceId) ?? 0) + 1
     generations.set(instanceId, generation)
     const reading = documents.open(target.workspaceId, path)
     const document = documents.get(target.workspaceId, path)
-    if (document) replace({ ...entry, view: 'document', documentMode: 'preview', document, error: null })
+    const previewId = existing?.id ?? crypto.randomUUID()
+    if (document) {
+      const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
+      replace(
+        replaceFilePreview(
+          { ...latest, error: null },
+          {
+            id: previewId,
+            kind: 'document',
+            path,
+            documentMode: existing?.kind === 'document' ? existing.documentMode : 'preview',
+            document,
+          },
+          true,
+        ),
+      )
+      chatReference?.onPreviewOpened?.(instanceId)
+    }
     try {
       await reading
-      if (!matchesTarget(instanceId, target.workspaceId, generation))
+      if (
+        !matchesTarget(instanceId, target.workspaceId, generation) ||
+        !state.reader.getSnapshot().entries[instanceId]?.previews.some((preview) => preview.id === previewId)
+      )
         throw new CommandError('RESULT_UNKNOWN', 'File read was superseded')
       return summary(state.reader.getSnapshot().entries[instanceId] ?? entry)
     } catch (reason) {
       if (matchesTarget(instanceId, target.workspaceId, generation)) {
         const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
-        replace({ ...latest, error: code(reason) })
+        if (!document || latest.activePreviewId === previewId) replace({ ...latest, error: code(reason) })
       }
       throw commandFailure(reason)
     }
   }
-  const showBrowser = (instanceId: string) => {
-    changes.cancel(instanceId)
+  const showBrowser = (instanceId: string, expected?: ExpectedPreview) => {
     const target = panel(instanceId)
     const entry = state.reader.getSnapshot().entries[instanceId]
     if (!entry || entry.workspaceId !== target.workspaceId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh the file panel')
+    assertPreview(entry, expected)
+    changes.cancelList(instanceId)
     generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
-    const next = { ...entry, view: 'browser' as const }
+    const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
+    const next = projectFileEntry({ ...latest, activePreviewId: null, error: null })
     replace(next)
     return summary(next)
   }
-  const setText = (instanceId: string, text: string) => {
-    const { entry, workspaceId, path } = documentTarget(instanceId)
-    const document = documents.edit(workspaceId, path, text)
-    const next = { ...entry, document, error: null }
-    replace(next)
-    return summary(next)
+  const setText = (instanceId: string, text: string, expected?: ExpectedPreview) => {
+    const { workspaceId, path } = documentTarget(instanceId, expected)
+    documents.edit(workspaceId, path, text)
+    const latest = documentTarget(instanceId, expected).entry
+    replace({ ...latest, error: null })
+    return summary(latest)
   }
-  const save = async (instanceId: string) => {
-    const { entry, workspaceId, path } = documentTarget(instanceId)
+  const save = async (instanceId: string, expected?: ExpectedPreview) => {
+    const { entry, workspaceId, path } = documentTarget(instanceId, expected)
     const document = await documents.save(workspaceId, path)
     return summary({ ...entry, document })
   }
-  const reconcile = async (instanceId: string) => {
-    const { entry, workspaceId, path } = documentTarget(instanceId)
+  const reconcile = async (instanceId: string, expected?: ExpectedPreview) => {
+    const { entry, workspaceId, path } = documentTarget(instanceId, expected)
     const document = await documents.reconcile(workspaceId, path)
     return summary({ ...entry, document })
   }
@@ -273,7 +340,7 @@ export function createFileWorkspace(
   const action = async <Value>(
     instanceId: string,
     operation: () => Value | Promise<Value>,
-    expected?: { readonly workspaceId: string; readonly path: string },
+    expected?: ExpectedPreview & { readonly path?: string | undefined },
   ) => {
     const before = state.reader.getSnapshot().entries[instanceId]
     try {
@@ -284,10 +351,11 @@ export function createFileWorkspace(
         before &&
         latest &&
         (!expected ||
-          (before.workspaceId === expected.workspaceId &&
-            before.document?.path === canonicalFilePath(expected.path))) &&
+          ((!expected.workspaceId || before.workspaceId === expected.workspaceId) &&
+            (!expected.path || before.document?.path === canonicalFilePath(expected.path)) &&
+            (!expected.previewId || before.activePreviewId === expected.previewId))) &&
         before.workspaceId === latest.workspaceId &&
-        before.document?.path === latest.document?.path
+        before.activePreviewId === latest.activePreviewId
       )
         replace({ ...latest, error: code(reason) })
       throw commandFailure(reason)
@@ -301,6 +369,7 @@ export function createFileWorkspace(
     openFile: (instanceId, path) => openEntry(instanceId, path, false),
     openFolder: (instanceId, path) => openEntry(instanceId, path, true),
     isDisposed,
+    onPreviewOpened: chatReference?.onPreviewOpened,
   })
   const tree = createFileWorkspaceTree(options, {
     read: (instanceId) => state.reader.getSnapshot().entries[instanceId],
@@ -329,7 +398,8 @@ export function createFileWorkspace(
       if (entry)
         replace({
           ...entry,
-          ...(entry.view === 'diff' ? { view: 'browser' as const, diff: null } : {}),
+          previews: entry.previews.filter((preview) => preview.kind === 'document'),
+          activePreviewId: null,
           changes: { ...entry.changes, status: 'idle', error: null },
           tree: emptyFileTree(entry.tree.filter, true),
           ...(entry.status === 'loading' ? { status: 'error' as const, error: 'CANCELLED' } : {}),
@@ -344,6 +414,41 @@ export function createFileWorkspace(
       throw new CommandError('VERSION_CONFLICT', 'File action belongs to another workspace')
     return entry
   }
+  const selectPreview = async (instanceId: string, workspaceId: string, previewId: string, explicitRefresh = false) => {
+    const entry = requireEntry(instanceId, workspaceId)
+    const preview = entry.previews.find((value) => value.id === previewId)
+    if (!preview) throw new CommandError('VERSION_CONFLICT', 'The original file preview is closed')
+    if (explicitRefresh && filePreviewCloseReason(preview))
+      throw new CommandError('FILE_DRAFT_PENDING', 'Save, discard or reconcile the original document first')
+    replace({ ...entry, activePreviewId: previewId, error: null })
+    if (preview.kind === 'diff') {
+      const reading = changes.refresh(instanceId, workspaceId, previewId)
+      return summary(await reading)
+    }
+    chatReference?.onPreviewOpened?.(instanceId)
+    // Shared canonical writes keep their original ownership. Selecting is not a receipt read.
+    if (filePreviewCloseReason(preview)) return summary(requireEntry(instanceId, workspaceId))
+    await documents.open(workspaceId, preview.path)
+    const latest = requireEntry(instanceId, workspaceId)
+    if (!latest.previews.some((value) => value.id === previewId))
+      throw new CommandError('TARGET_CHANGED', 'The original file preview is closed')
+    return summary(latest)
+  }
+  local.register(fileWorkspaceCommands['fileWorkspace.selectPreview'], ({ instanceId, workspaceId, previewId }) =>
+    selectPreview(instanceId, workspaceId, previewId),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.refreshPreview'], ({ instanceId, workspaceId, previewId }) =>
+    selectPreview(instanceId, workspaceId, previewId, true),
+  )
+  local.register(fileWorkspaceCommands['fileWorkspace.closePreviews'], ({ instanceId, workspaceId, previewIds }) => {
+    const entry = requireEntry(instanceId, workspaceId)
+    const result = closeFilePreviews(entry, previewIds)
+    if (result.blocked.length || result.closed.length === 0) return { closed: result.closed, blocked: result.blocked }
+    // Remove the UUIDs before invalidating their reads, so cancellation cannot recreate a ref.
+    replace(result.entry)
+    for (const previewId of result.closed) changes.cancelDiff(instanceId, previewId)
+    return { closed: result.closed, blocked: result.blocked }
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.addToComposer'], async (input, execution) => {
     if (!chatReference) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer references are unavailable')
     const assertTarget = () => {
@@ -382,6 +487,8 @@ export function createFileWorkspace(
         throw new CommandError('TARGET_CHANGED', 'The Files workbench tab changed')
       }
       const entry = requireEntry(input.instanceId, input.workspaceId)
+      if (input.previewId && entry.activePreviewId !== input.previewId)
+        throw new CommandError('TARGET_CHANGED', 'The original file preview changed')
       if (!isWorkspaceRelativePath(input.path) || canonicalFilePath(input.path) !== input.path)
         throw new CommandError('INVALID_INPUT', 'A workspace-relative file path is required')
       if (
@@ -467,13 +574,13 @@ export function createFileWorkspace(
         tree.cancelAll(instanceId)
         return summary(await changes.load(instanceId, workspaceId, preservePreview))
       }
-      changes.cancel(instanceId)
+      changes.cancelList(instanceId)
       tree.cancelAll(instanceId)
       const latest = requireEntry(instanceId, workspaceId)
       if (latest.status !== 'ready' || latest.tree.revalidateOnOpen) return load(instanceId, undefined, preservePreview)
       const next = {
         ...latest,
-        view: preservePreview ? latest.view : ('browser' as const),
+        activePreviewId: preservePreview ? latest.activePreviewId : null,
         browserMode: 'all' as const,
       }
       replace(next)
@@ -513,17 +620,33 @@ export function createFileWorkspace(
     replace(next)
     return summary(next)
   })
-  local.register(fileWorkspaceCommands['fileWorkspace.openChange'], async ({ instanceId, workspaceId, path, cached }) =>
-    summary(await changes.open(instanceId, workspaceId, path, cached)),
+  local.register(
+    fileWorkspaceCommands['fileWorkspace.openChange'],
+    async ({ instanceId, workspaceId, previewId, path, cached }) => {
+      const entry = requireEntry(instanceId, workspaceId)
+      assertPreview(entry, { previewId })
+      return summary(await changes.open(instanceId, workspaceId, path, cached))
+    },
   )
-  local.register(fileWorkspaceCommands['fileWorkspace.setDocumentMode'], ({ instanceId, workspaceId, path, mode }) => {
-    const entry = requireEntry(instanceId, workspaceId)
-    if (entry.view !== 'document' || entry.document?.path !== canonicalFilePath(path))
-      throw new CommandError('VERSION_CONFLICT', 'File view belongs to another document')
-    const next = { ...entry, documentMode: mode }
-    replace(next)
-    return summary(next)
-  })
+  local.register(
+    fileWorkspaceCommands['fileWorkspace.setDocumentMode'],
+    ({ instanceId, workspaceId, previewId, path, mode }) => {
+      const entry = requireEntry(instanceId, workspaceId)
+      assertPreview(entry, { previewId })
+      if (entry.view !== 'document' || entry.document?.path !== canonicalFilePath(path))
+        throw new CommandError('VERSION_CONFLICT', 'File view belongs to another document')
+      const next = projectFileEntry({
+        ...entry,
+        previews: entry.previews.map((preview) =>
+          preview.id === entry.activePreviewId && preview.kind === 'document'
+            ? { ...preview, documentMode: mode }
+            : preview,
+        ),
+      })
+      replace(next)
+      return summary(next)
+    },
+  )
   local.register(fileWorkspaceCommands['fileWorkspace.refresh'], ({ instanceId, preservePreview }) =>
     load(instanceId, undefined, preservePreview),
   )
@@ -535,21 +658,21 @@ export function createFileWorkspace(
       return openEntry(instanceId, path, directory, preservePreview)
     },
   )
-  local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], ({ instanceId }) => showBrowser(instanceId))
-  local.register(fileWorkspaceCommands['fileWorkspace.setText'], ({ instanceId, text }) =>
-    action(instanceId, () => setText(instanceId, text)),
+  local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], (input) => showBrowser(input.instanceId, input))
+  local.register(fileWorkspaceCommands['fileWorkspace.setText'], (input) =>
+    action(input.instanceId, () => setText(input.instanceId, input.text, input), input),
   )
-  local.register(fileWorkspaceCommands['fileWorkspace.save'], ({ instanceId }) =>
-    action(instanceId, () => save(instanceId)),
+  local.register(fileWorkspaceCommands['fileWorkspace.save'], (input) =>
+    action(input.instanceId, () => save(input.instanceId, input), input),
   )
-  local.register(fileWorkspaceCommands['fileWorkspace.reconcile'], ({ instanceId }) =>
-    action(instanceId, () => reconcile(instanceId)),
+  local.register(fileWorkspaceCommands['fileWorkspace.reconcile'], (input) =>
+    action(input.instanceId, () => reconcile(input.instanceId, input), input),
   )
   local.register(fileWorkspaceCommands['fileWorkspace.discardAndReload'], (input) =>
     action(
       input.instanceId,
       async () => {
-        const target = documentTarget(input.instanceId)
+        const target = documentTarget(input.instanceId, input)
         if (
           target.workspaceId !== input.workspaceId ||
           canonicalFilePath(target.path) !== canonicalFilePath(input.path)

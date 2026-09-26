@@ -435,10 +435,29 @@ export interface FileWorkspaceTreeState {
   readonly error: string | null
 }
 
+export type FileWorkspacePreviewState =
+  | {
+      readonly id: string
+      readonly kind: 'document'
+      readonly path: string
+      readonly documentMode: 'preview' | 'edit'
+      readonly document: Readonly<FileWorkspaceDocumentState>
+    }
+  | {
+      readonly id: string
+      readonly kind: 'diff'
+      readonly path: string
+      readonly cwd: string
+      readonly originalPath: string | null
+      readonly diff: Readonly<FileWorkspaceDiffState>
+    }
+
 export interface FileWorkspaceEntryState {
   readonly instanceId: string
   readonly workspaceId: string
   readonly path: string
+  readonly previews: readonly Readonly<FileWorkspacePreviewState>[]
+  readonly activePreviewId: string | null
   readonly view: 'browser' | 'document' | 'diff'
   readonly browserMode: 'all' | 'changed'
   readonly documentMode: 'preview' | 'edit'

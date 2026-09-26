@@ -102,6 +102,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input })
       await expectComposerText(prompt, `Review this @${filename} @${changedFile}`)
       await expect(page.locator('.hbar-composer-mention-pill')).toHaveText([`@${filename}`, `@${changedFile}`])
+      // Preview interaction in Workbench restores the source Files dock on Back.
+      // At 320px it owns the full tool page; explicitly return to the composer before sending.
+      await expect(dock).toBeVisible()
+      expect(await prompt.evaluate((element) => element.closest('[inert]') !== null)).toBe(true)
+      await dock.getByRole('button', { name: copy.files.close, exact: true }).click()
+      await expect(dock).toHaveCount(0)
+      await prompt.click()
       await prompt.press('Enter')
       await expect
         .poll(

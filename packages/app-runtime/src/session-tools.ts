@@ -56,6 +56,38 @@ export function createSessionTools(local: CommandRegistry, options: SessionTools
   const { surfaces, presentation } = options
   const state = createState<readonly Owner[]>([], options.onSubscriberError)
   let previousTabs = options.tabs.getSnapshot().items
+  let disposed = false
+
+  function previewOpened(instanceId: string): void {
+    if (disposed) return
+    const panel = surfaces.reader.getSnapshot().panels[instanceId]
+    if (!panel?.sessionTool || panel.panelId !== 'files' || !panel.sessionId || !panel.workspaceId) return
+    const items = options.tabs.getSnapshot().items
+    if (
+      options.isArchived(panel.workspaceId, panel.sessionId) ||
+      !items.some(
+        (tab) => tab.kind === 'session' && tab.sessionId === panel.sessionId && tab.workspaceId === panel.workspaceId,
+      ) ||
+      !items.some(
+        (tab) =>
+          tab.kind === 'workbench' &&
+          tab.panelInstanceId === instanceId &&
+          tab.sourceSessionId === panel.sessionId &&
+          tab.workspaceId === panel.workspaceId,
+      )
+    )
+      return
+    const owners = state.reader.getSnapshot()
+    const owner = owners.find(
+      (item) =>
+        item.sessionId === panel.sessionId &&
+        item.workspaceId === panel.workspaceId &&
+        item.panels.files === instanceId,
+    )
+    if (!owner || owner.selected === instanceId) return
+    // Opening inside Workbench remembers its source dock without mounting a second view beside it.
+    state.replace(owners.map((item) => (item === owner ? { ...item, selected: instanceId } : item)))
+  }
 
   function hide(instanceId: string): { instanceId: string; closed: boolean } | null {
     if (!surfaces.reader.getSnapshot().panels[instanceId]?.sessionTool) return null
@@ -208,7 +240,12 @@ export function createSessionTools(local: CommandRegistry, options: SessionTools
         } else hide(owner.selected)
       }
     }
-    for (const tab of items) if (tab.kind === 'workbench') hide(tab.panelInstanceId)
+    for (const tab of items)
+      if (
+        tab.kind === 'workbench' &&
+        !before.some((item) => item.kind === 'workbench' && item.instanceKey === tab.instanceKey)
+      )
+        hide(tab.panelInstanceId)
     const current = presentation.reader.getSnapshot()
     if (
       items.some((tab) => tab.kind === 'workbench' && tab.id === tabs.activeId) &&
@@ -225,6 +262,7 @@ export function createSessionTools(local: CommandRegistry, options: SessionTools
 
   return {
     hide,
+    previewOpened,
     navigationTool(target: NavigationState, current: PresentationState): string | null {
       const override = current.toolInstanceId ?? current.returnContext?.toolInstanceId
       // Explicit generic/project panels preserve their documented follow/pinned semantics.
@@ -235,6 +273,7 @@ export function createSessionTools(local: CommandRegistry, options: SessionTools
       return owner?.selected ?? null
     },
     dispose() {
+      disposed = true
       offTabs()
       state.dispose()
     },

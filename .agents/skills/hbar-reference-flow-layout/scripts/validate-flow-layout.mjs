@@ -89,6 +89,10 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // cc-haha Files: the five-scope context menu overlays its triggering preview tab.
+  // See docs/desktop-file-preview-reference-audit.md; only the container is positioned.
+  if (/packages\/app-react\/src\/file-preview-tabs\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-file-preview-menu-popover') return true
   // Authentication 1: the reference's password reveal control sits inside the input bounds.
   if (/packages\/lumen-app-ui\/src\/authentication-sign-in-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button') return true
@@ -801,6 +805,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Rail exception leaked to menu content')
   const composerPath = 'packages/app-react/src/composer-model-picker.css'
   const tabsPath = 'packages/app-react/src/workspace-tabs.css'
+  const filePreviewsPath = 'packages/app-react/src/file-preview-tabs.css'
+  if (validateCss(filePreviewsPath, '.hbar-file-preview-menu-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed file preview menu container')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-file-preview-menu-popover'],
+    [filePreviewsPath, '.hbar-file-preview-menu-popover > button'],
+    [filePreviewsPath, '.hbar-file-preview-tab'],
+  ]) {
+    if (validateCss(path, `${selector} { position: fixed; }`).length !== 1)
+      throw new Error('File preview menu exception leaked to content or another file')
+  }
   if (validateCss(tabsPath, '.hbar-workspace-tab-menu-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed workspace tab menu container')
   for (const [path, selector] of [

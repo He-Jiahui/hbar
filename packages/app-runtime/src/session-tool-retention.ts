@@ -13,14 +13,20 @@ export function isSessionToolProtected(
   },
 ): boolean {
   const file = states.files.entries[instanceId]
-  const document = file?.document
+  const protectedPreview = file?.previews.some((preview) =>
+    preview.kind === 'diff'
+      ? preview.diff.status === 'loading'
+      : preview.document.draft !== preview.document.baseline ||
+        preview.document.status === 'loading' ||
+        pending(preview.document.status),
+  )
   if (
     file?.status === 'loading' ||
     file?.changes.status === 'loading' ||
     file?.diff?.status === 'loading' ||
     file?.tree.search.status === 'loading' ||
     Object.values(file?.tree.nodes ?? {}).some((node) => node.status === 'loading') ||
-    (document && (document.draft !== document.baseline || document.status === 'loading' || pending(document.status)))
+    protectedPreview
   )
     return true
   const agent = states.agents.entries[instanceId]

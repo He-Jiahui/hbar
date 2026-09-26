@@ -2,6 +2,17 @@ import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 
 const instanceId = z.string().min(1).max(160)
+const previewId = z.string().uuid()
+const previewTarget = z.strictObject({
+  instanceId,
+  workspaceId: z.string().min(1).max(160),
+  previewId,
+})
+const editablePreviewTarget = z.strictObject({
+  instanceId,
+  workspaceId: z.string().min(1).max(160).optional(),
+  previewId: previewId.optional(),
+})
 const summary = z.strictObject({
   instanceId,
   workspaceId: z.string().min(1).max(160),
@@ -29,10 +40,25 @@ const metadata = (id: string) => ({
 })
 
 export const fileWorkspaceCommands = {
+  'fileWorkspace.selectPreview': defineCommand(metadata('fileWorkspace.selectPreview'), previewTarget, summary),
+  'fileWorkspace.refreshPreview': defineCommand(metadata('fileWorkspace.refreshPreview'), previewTarget, summary),
+  'fileWorkspace.closePreviews': defineCommand(
+    metadata('fileWorkspace.closePreviews'),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      previewIds: z.array(previewId).min(1).max(32),
+    }),
+    z.strictObject({
+      closed: z.array(previewId).max(32),
+      blocked: z.array(z.strictObject({ previewId, reason: z.enum(['dirty', 'submitting', 'unknown']) })).max(32),
+    }),
+  ),
   'fileWorkspace.addToComposer': defineCommand(
     metadata('fileWorkspace.addToComposer'),
     z.strictObject({
       instanceId,
+      previewId: previewId.optional(),
       workspaceId: z.string().min(1).max(160),
       path: z.string().min(1).max(4000),
       sourceSessionId: z.string().min(1).max(160),
@@ -77,6 +103,7 @@ export const fileWorkspaceCommands = {
     metadata('fileWorkspace.openChange'),
     z.strictObject({
       instanceId,
+      previewId: previewId.optional(),
       workspaceId: z.string().min(1).max(160),
       path: z.string().min(1).max(4000),
       cached: z.boolean().optional(),
@@ -87,6 +114,7 @@ export const fileWorkspaceCommands = {
     metadata('fileWorkspace.setDocumentMode'),
     z.strictObject({
       instanceId,
+      previewId: previewId.optional(),
       workspaceId: z.string().min(1).max(160),
       path: z.string().min(1).max(4000),
       mode: z.enum(['preview', 'edit']),
@@ -130,26 +158,19 @@ export const fileWorkspaceCommands = {
     }),
     summary,
   ),
-  'fileWorkspace.showBrowser': defineCommand(
-    metadata('fileWorkspace.showBrowser'),
-    z.strictObject({ instanceId }),
-    summary,
-  ),
+  'fileWorkspace.showBrowser': defineCommand(metadata('fileWorkspace.showBrowser'), editablePreviewTarget, summary),
   'fileWorkspace.setText': defineCommand(
     metadata('fileWorkspace.setText'),
-    z.strictObject({ instanceId, text: z.string().max(2 * 1024 * 1024) }),
+    editablePreviewTarget.extend({ text: z.string().max(2 * 1024 * 1024) }),
     summary,
   ),
-  'fileWorkspace.save': defineCommand(metadata('fileWorkspace.save'), z.strictObject({ instanceId }), summary),
-  'fileWorkspace.reconcile': defineCommand(
-    metadata('fileWorkspace.reconcile'),
-    z.strictObject({ instanceId }),
-    summary,
-  ),
+  'fileWorkspace.save': defineCommand(metadata('fileWorkspace.save'), editablePreviewTarget, summary),
+  'fileWorkspace.reconcile': defineCommand(metadata('fileWorkspace.reconcile'), editablePreviewTarget, summary),
   'fileWorkspace.discardAndReload': defineCommand(
     metadata('fileWorkspace.discardAndReload'),
     z.strictObject({
       instanceId,
+      previewId: previewId.optional(),
       workspaceId: z.string().min(1).max(160),
       path: z.string().min(1).max(4000),
       expectedDraft: z.string().max(2 * 1024 * 1024),

@@ -248,7 +248,7 @@ function AgentChildReturn({
   )
 }
 
-/** Expanded file views own the original surface only while their ephemeral tab exists. */
+/** Generic expanded views release their surface; session tools keep the owner's cached surface on return. */
 function WorkbenchSurfaceCleanup({ runtime }: { readonly runtime: ReturnType<typeof createAppRuntime> }) {
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
@@ -261,7 +261,7 @@ function WorkbenchSurfaceCleanup({ runtime }: { readonly runtime: ReturnType<typ
         .filter((entry): entry is readonly [string, NonNullable<(typeof entry)[1]>] => entry[1] !== undefined),
     )
     for (const [instanceId, panel] of previous.current) {
-      if (!current.has(instanceId) && surfaces.panels[instanceId] === panel)
+      if (!panel.sessionTool && !current.has(instanceId) && surfaces.panels[instanceId] === panel)
         void runtime.view.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)
     }
     previous.current = current

@@ -1,0 +1,85 @@
+.hbar-file-preview-tabs,
+.hbar-file-preview-strip,
+.hbar-file-preview-tab,
+.hbar-file-preview-select {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+.hbar-file-preview-tabs {
+  flex: 0 0 auto;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-file-preview-strip {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.hbar-file-preview-tab {
+  flex: 0 0 auto;
+  max-inline-size: min(24rem, 85%);
+  border-block-end: 0.125rem solid transparent;
+}
+.hbar-file-preview-tab[data-active='true'] {
+  border-block-end-color: var(--lumen-primary);
+  background: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-frost));
+}
+.hbar-file-preview-tab > .hbar-file-preview-select {
+  flex: 1 1 auto;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0;
+}
+.hbar-file-preview-select > span,
+.hbar-file-preview-select > small:not(.hbar-file-preview-status) {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-file-preview-select > small {
+  color: var(--lumen-muted);
+}
+.hbar-file-preview-status,
+.hbar-file-preview-close {
+  flex: 0 0 auto;
+}
+.hbar-file-preview-menu-popover {
+  position: fixed;
+  inset: auto;
+  top: var(--file-preview-menu-top);
+  left: var(--file-preview-menu-left);
+  inline-size: min(18rem, calc(100vw - 1rem));
+  max-block-size: calc(100dvh - var(--file-preview-menu-top) - 0.5rem);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.25rem;
+  overflow: auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  box-shadow: 0 0.5rem 2rem color-mix(in srgb, var(--lumen-ink) 16%, transparent);
+}
+.hbar-file-preview-menu-popover:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+.hbar-file-preview-menu-popover > button {
+  justify-content: flex-start;
+  block-size: auto;
+  white-space: normal;
+  text-align: start;
+}
+.hbar-file-preview-feedback {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.hbar-file-preview-feedback > p {
+  margin: 0;
+}

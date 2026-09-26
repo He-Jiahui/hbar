@@ -80,10 +80,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('all')
       await expect(files.getByLabel(copy.files.changes.diffContent(second), { exact: true })).toBeVisible()
       await navigator.getByRole('button', { name: first, exact: true }).click()
-      await expect(files.getByLabel(copy.files.textPreview(first), { exact: true })).toContainText(
-        '# retained unsaved draft',
+      // The existing preview keeps its own editing mode when selected again.
+      await expect(files.getByRole('button', { name: copy.files.edit, exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
       )
-      await files.getByRole('button', { name: copy.files.edit, exact: true }).click()
       await expect(files.getByRole('textbox', { name: first, exact: true })).toHaveValue('# retained unsaved draft')
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width > 900 ? 960 : 844 })
@@ -105,10 +106,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         if (await files.getByRole('button', { name: copy.files.showNavigator, exact: true }).isVisible())
           await files.getByRole('button', { name: copy.files.showNavigator, exact: true }).click()
         await navigator.getByRole('button', { name: first, exact: true }).click()
-        await expect(files.getByLabel(copy.files.textPreview(first), { exact: true })).toContainText(
-          '# retained unsaved draft',
+        await expect(files.getByRole('textbox', { name: first, exact: true })).toHaveValue('# retained unsaved draft')
+        await expect(files.getByRole('button', { name: copy.files.edit, exact: true })).toHaveAttribute(
+          'aria-pressed',
+          'true',
         )
-        await files.getByRole('button', { name: copy.files.edit, exact: true }).click()
       }
       expect(await readFile(join(root, first), 'utf8')).toBe('# original first\n')
       expect(await readFile(join(root, second), 'utf8')).toBe('# changed second\n')

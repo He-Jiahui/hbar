@@ -105,7 +105,9 @@ test('All-files search finds unopened paths, opens a document, and preserves que
     expect(f.entry()).toMatchObject({
       view: 'browser',
       tree: { filter: 'alpha', search: { status: 'ready' } },
-      document: { path: 'src/deep/alpha.ts', draft: 'unsaved' },
+      activePreviewId: null,
+      document: null,
+      previews: [{ kind: 'document', document: { path: 'src/deep/alpha.ts', draft: 'unsaved' } }],
     })
     await f.filter('')
     expect(f.entry().tree.search).toMatchObject({ status: 'idle', paths: [] })

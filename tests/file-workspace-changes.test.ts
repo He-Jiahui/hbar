@@ -291,7 +291,12 @@ test('the reading navigator preserves unknown saves, current view, filters and e
       preservePreview: true,
     })
     expect(f.entry().diff).toBe(diff)
-    expect(f.entry().document).toBe(document)
+    // The legacy fields describe only the active diff; the original canonical document remains in its tab.
+    expect(f.entry().document).toBeNull()
+    const retained = f
+      .entry()
+      .previews.find((preview) => preview.kind === 'document' && preview.path === document?.path)
+    expect(retained?.kind === 'document' ? retained.document : null).toBe(document)
     await f.execute('fileWorkspace.openEntry', {
       instanceId: 'files',
       workspaceId: 'w',
@@ -306,7 +311,7 @@ test('the reading navigator preserves unknown saves, current view, filters and e
   }
 })
 
-test('changing navigator mode during a diff read retains cancellation rather than reviving a loading diff', async () => {
+test('changing navigator mode leaves an independent preview read alive without changing its identity', async () => {
   const f = fixture()
   const gate = Promise.withResolvers<void>()
   try {
@@ -315,16 +320,25 @@ test('changing navigator mode during a diff read retains cancellation rather tha
     f.gate(gate.promise)
     const pending = f.open().catch((error: unknown) => error)
     await Bun.sleep(0)
+    const request = f.calls.at(-1)
+    const previewId = f.entry().activePreviewId
     await f.execute('fileWorkspace.setBrowserMode', {
       instanceId: 'files',
       workspaceId: 'w',
       mode: 'all',
       preservePreview: true,
     })
-    expect(f.entry()).toMatchObject({ view: 'diff', browserMode: 'all', diff: { status: 'error', error: 'CANCELLED' } })
+    expect(request?.signal?.aborted).toBe(false)
+    expect(f.entry()).toMatchObject({
+      view: 'diff',
+      browserMode: 'all',
+      activePreviewId: previewId,
+      diff: { status: 'loading' },
+    })
     gate.resolve()
-    expect(await pending).toMatchObject({ code: 'CANCELLED' })
-    expect(f.entry().diff?.status).toBe('error')
+    expect(await pending).toMatchObject({ status: 'ready' })
+    expect(f.entry().diff?.status).toBe('ready')
+    expect(f.entry().activePreviewId).toBe(previewId)
   } finally {
     gate.resolve()
     f.runtime.dispose()
@@ -376,7 +390,11 @@ test('preview/edit and Changed navigation retain the exact unknown-save document
     const document = f.entry().document
     await f.changes()
     await f.open()
-    expect(f.entry().document).toBe(document)
+    expect(f.entry().document).toBeNull()
+    const retained = f
+      .entry()
+      .previews.find((preview) => preview.kind === 'document' && preview.path === document?.path)
+    expect(retained?.kind === 'document' ? retained.document : null).toBe(document)
     await f.execute('fileWorkspace.openEntry', {
       instanceId: 'files',
       workspaceId: 'w',
@@ -384,7 +402,7 @@ test('preview/edit and Changed navigation retain the exact unknown-save document
       directory: false,
     })
     expect(f.entry()).toMatchObject({
-      documentMode: 'preview',
+      documentMode: 'edit',
       document: { baseline: 'source', draft: 'unsaved draft', status: 'unknown' },
     })
     expect(f.entry().document?.pendingText).toBe(document?.pendingText)

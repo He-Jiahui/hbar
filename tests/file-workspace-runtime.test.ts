@@ -109,10 +109,21 @@ test('file workspace binds a panel target, pages entries, preserves concurrent e
       error: 'FILE_CONFLICT',
     })
     const browser = await runtime.view.commands.execute('fileWorkspace.showBrowser', { instanceId: 'files' })
-    expect(browser).toMatchObject({ view: 'browser', selectedPath: null, dirty: true })
+    expect(browser).toMatchObject({ view: 'browser', selectedPath: null, dirty: false })
+    // Back hides the active projection, not the unsaved canonical document or its preview reference.
+    const retained = runtime.view.state.files
+      .getSnapshot()
+      .entries.files?.previews.find((preview) => preview.kind === 'document' && preview.document.draft === 'newer edit')
+    expect(retained).toMatchObject({
+      kind: 'document',
+      document: { draft: 'newer edit', status: 'failed', error: 'FILE_CONFLICT' },
+    })
     expect(runtime.view.state.files.getSnapshot().entries.files).toMatchObject({
       view: 'browser',
-      document: { path: 'docs/readme.md', draft: 'newer edit', error: 'FILE_CONFLICT' },
+      document: null,
+      previews: [
+        { kind: 'document', document: { path: 'docs/readme.md', draft: 'newer edit', error: 'FILE_CONFLICT' } },
+      ],
     })
   } finally {
     runtime.dispose()

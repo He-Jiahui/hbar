@@ -87,8 +87,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(files.getByRole('button', { name: copy.files.tree.collapse(folder), exact: true })).toBeVisible()
       await expect(files.getByRole('button', { name: filename, exact: true })).toBeVisible()
       await files.getByRole('button', { name: filename, exact: true }).click()
-      await expect(files.getByLabel(copy.files.textPreview(path), { exact: true })).toContainText(
-        '# An unsaved tree draft',
+      await expect(editor).toHaveValue('# An unsaved tree draft')
+      await expect(files.getByRole('button', { name: copy.files.edit, exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
       )
       await files.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
       await files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
@@ -106,8 +108,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await files.getByRole('button', { name: copy.files.tree.expand(folder), exact: true }).click()
       await files.getByRole('button', { name: copy.files.tree.expand(nested), exact: true }).click()
       await files.getByRole('button', { name: filename, exact: true }).click()
-      await expect(files.getByLabel(copy.files.textPreview(path), { exact: true })).toContainText(
-        '# An unsaved tree draft',
+      await expect(editor).toHaveValue('# An unsaved tree draft')
+      await expect(files.getByRole('button', { name: copy.files.edit, exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
       )
       expect(await readFile(join(root, path), 'utf8')).toBe('# Source\n')
       expect(errors).toEqual([])

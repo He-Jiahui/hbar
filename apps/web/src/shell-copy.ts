@@ -1514,6 +1514,11 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
     error: (code) => {
       if (code === 'FILE_CONFLICT')
         return choose('源文件已更新；当前草稿仍保留。', 'The source changed; your draft is still preserved.')
+      if (code === 'BUSY')
+        return choose(
+          '预览容量或读取并发已达上限。请关闭不用的预览，或等待读取完成后重试。',
+          'The preview or read limit was reached. Close unused previews, or wait for a read to finish and try again.',
+        )
       if (code === 'UNSUPPORTED_TYPE')
         return choose('此文件不是可编辑的 UTF-8 文本。', 'This file is not editable UTF-8 text.')
       if (code === 'INVALID_OUTPUT' || code === 'INPUT_TOO_LARGE')

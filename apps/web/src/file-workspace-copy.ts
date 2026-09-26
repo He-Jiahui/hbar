@@ -2,7 +2,7 @@ import type { HbarFileWorkspaceLabels } from '@hbar/app-react'
 
 export function fileWorkspaceCopy(
   zh: boolean,
-): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview'> {
+): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview' | 'previews'> {
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
   const status = (value: string) => {
     const names: Record<string, string> = {
@@ -18,7 +18,56 @@ export function fileWorkspaceCopy(
     }
     return names[value] ?? value
   }
+  const kinds = {
+    document: choose('文件', 'File'),
+    working: choose('工作区差异', 'Working tree diff'),
+    staged: choose('暂存区差异', 'Staged diff'),
+  }
   return {
+    previews: {
+      tabs: choose('已打开的文件预览', 'Open file previews'),
+      kind: (kind) => kinds[kind],
+      tab: (path, kind) => `${path} — ${kinds[kind]}`,
+      close: (path, kind) => choose(`关闭 ${path} — ${kinds[kind]}`, `Close ${path} — ${kinds[kind]}`),
+      menu: (path, kind) => choose(`${path} — ${kinds[kind]} 的操作`, `Actions for ${path} — ${kinds[kind]}`),
+      action: (scope) =>
+        ({
+          current: choose('关闭', 'Close'),
+          others: choose('关闭其他', 'Close others'),
+          left: choose('关闭左侧', 'Close to the left'),
+          right: choose('关闭右侧', 'Close to the right'),
+          all: choose('全部关闭', 'Close all'),
+        })[scope],
+      status: (state) =>
+        ({
+          dirty: choose('有未保存的更改', 'Unsaved changes'),
+          submitting: choose('正在保存', 'Saving'),
+          unknown: choose('保存结果尚未确认', 'Save result unconfirmed'),
+        })[state],
+      blocked: (path, reason) =>
+        reason === 'dirty'
+          ? choose(
+              `未关闭任何预览：${path} 有未保存的更改。请先保存或明确丢弃草稿。`,
+              `No previews closed: ${path} has unsaved changes. Save or explicitly discard its draft first.`,
+            )
+          : reason === 'submitting'
+            ? choose(
+                `未关闭任何预览：${path} 正在保存。请等待保存结果。`,
+                `No previews closed: ${path} is saving. Wait for its result.`,
+              )
+            : choose(
+                `未关闭任何预览：${path} 的保存结果尚未确认。请先核对保存结果。`,
+                `No previews closed: the save result for ${path} is unconfirmed. Reconcile it first.`,
+              ),
+      showBlocked: choose('打开受保护文件', 'Open protected file'),
+      error: (code) =>
+        code === 'BUSY'
+          ? choose(
+              '预览容量或读取并发已达上限。请关闭不用的预览，或等待读取完成后重试。',
+              'The preview or read limit was reached. Close unused previews, or wait for a read to finish and try again.',
+            )
+          : choose(`无法更改文件预览：${code}`, `Could not change file previews: ${code}`),
+    },
     preview: choose('预览', 'Preview'),
     edit: choose('编辑', 'Edit'),
     textPreview: (path) => choose(`文本预览：${path}`, `Text preview: ${path}`),

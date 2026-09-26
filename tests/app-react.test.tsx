@@ -368,7 +368,19 @@ test('app-react production entry excludes transport, Host, storage, catalog, and
   })
   expect(result.success).toBeTrue()
   expect(inputs.some((path) => /packages\/client|apps\/host|packages\/storage/.test(path))).toBeFalse()
-  expect(inputs.some((path) => /catalog|fixtures|preview/.test(path))).toBeFalse()
+  // File previews are production UI. Reject preview apps/entrypoints and fixtures by path boundary,
+  // not every legitimate source filename containing the word "preview".
+  const previewOnly = (path: string) =>
+    /catalog|fixtures|(?:^|\/)preview(?:\/|\.)|(?:^|\/)apps\/[^/]*preview(?:\/|$)/.test(path)
+  for (const path of [
+    'src/catalog.ts',
+    'tests/fixtures/reader.tsx',
+    'src/preview.tsx',
+    'apps/hbar-app-ui-preview/src/main.tsx',
+  ])
+    expect(previewOnly(path)).toBeTrue()
+  expect(previewOnly('packages/app-react/src/file-preview-tabs.tsx')).toBeFalse()
+  expect(inputs.filter(previewOnly)).toEqual([])
   expect(inputs.some((path) => /packages\/app-react\/src\/workspace-shell\.tsx$/.test(path))).toBeFalse()
 })
 

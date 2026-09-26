@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { FileDiff, Folder, MessageCircle, RefreshCw } from 'lucide-react'
 import {
   LumenButton,
@@ -10,6 +10,7 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import { filteredFileChanges, FILE_CHANGES_PAGE_SIZE, type FileWorkspaceEntryState } from '@hbar/app-runtime'
+import { clampFileDiffPage, FILE_DIFF_LINES_PER_PAGE, type FileDiffPagination } from './file-preview-pagination'
 
 type Changes = FileWorkspaceEntryState['changes']
 type Diff = NonNullable<FileWorkspaceEntryState['diff']>
@@ -157,7 +158,6 @@ export function HbarFileChanges({
   )
 }
 
-const DIFF_LINES_PER_PAGE = 400
 const lineKind = (line: string) =>
   line.startsWith('@@')
     ? 'hunk'
@@ -177,6 +177,9 @@ export function HbarFileDiff({
   onFile,
   addToChat,
   referenceHint,
+  headerActions,
+  onRefresh,
+  pagination,
 }: {
   readonly diff: Diff
   readonly change: Change | undefined
@@ -194,17 +197,24 @@ export function HbarFileDiff({
       }
     | undefined
   readonly referenceHint?: string | undefined
+  readonly headerActions?: ReactNode
+  readonly onRefresh?: (() => void) | undefined
+  readonly pagination?: FileDiffPagination | undefined
 }) {
   const [requestedPage, setPage] = useState(0)
   const lines = diff.text.split('\n')
-  const page = Math.min(requestedPage, Math.max(0, Math.ceil(lines.length / DIFF_LINES_PER_PAGE) - 1))
-  const start = page * DIFF_LINES_PER_PAGE
+  const page = clampFileDiffPage(pagination?.page ?? requestedPage, lines.length)
+  const changePage = pagination?.onChange ?? setPage
+  const start = page * FILE_DIFF_LINES_PER_PAGE
   return (
     <LumenFrame className="hbar-file-diff">
       <LumenFrame className="hbar-file-diff-toolbar">
-        <LumenText as="span" className="hbar-file-diff-path" title={diff.path}>
-          {diff.path}
-        </LumenText>
+        <LumenFrame className="hbar-file-diff-heading">
+          <LumenText as="span" className="hbar-file-diff-path" title={diff.path}>
+            {diff.path}
+          </LumenText>
+          {headerActions}
+        </LumenFrame>
         <LumenButton
           variant={diff.cached ? 'text' : 'outlined'}
           aria-pressed={!diff.cached}
@@ -224,6 +234,17 @@ export function HbarFileDiff({
         <LumenButton disabled={!connected} onClick={onFile}>
           {labels.openFile}
         </LumenButton>
+        {onRefresh && (
+          <LumenButton
+            variant="text"
+            disabled={!connected || diff.status === 'loading'}
+            onClick={onRefresh}
+            aria-label={labels.refresh}
+            title={labels.refresh}
+          >
+            <LumenIcon icon={RefreshCw} tier="sm" />
+          </LumenButton>
+        )}
         {addToChat && (
           <LumenButton
             className="hbar-file-add-to-chat"
@@ -258,7 +279,7 @@ export function HbarFileDiff({
           <LumenText as="p" role="alert">
             {labels.error(diff.error ?? 'EXECUTION_FAILED')}
           </LumenText>
-          <LumenButton disabled={!connected} onClick={() => onOpen(diff.cached)}>
+          <LumenButton disabled={!connected} onClick={onRefresh ?? (() => onOpen(diff.cached))}>
             {labels.refresh}
           </LumenButton>
         </LumenFrame>
@@ -268,7 +289,7 @@ export function HbarFileDiff({
           {labels.truncated}
         </LumenText>
       )}
-      {diff.status === 'ready' &&
+      {(diff.status === 'ready' || Boolean(diff.text)) &&
         (diff.text ? (
           <LumenText
             as="pre"
@@ -276,7 +297,7 @@ export function HbarFileDiff({
             aria-label={labels.diffContent(diff.path)}
             tabIndex={0}
           >
-            {lines.slice(start, start + DIFF_LINES_PER_PAGE).map((line, index) => (
+            {lines.slice(start, start + FILE_DIFF_LINES_PER_PAGE).map((line, index) => (
               <LumenText as="span" data-kind={lineKind(line)} key={start + index}>
                 {line || '\n'}
               </LumenText>
@@ -285,15 +306,15 @@ export function HbarFileDiff({
         ) : (
           <LumenText as="p">{labels.noDiff}</LumenText>
         ))}
-      {diff.status === 'ready' && lines.length > DIFF_LINES_PER_PAGE && (
+      {lines.length > FILE_DIFF_LINES_PER_PAGE && (
         <LumenFrame className="hbar-file-changes-pagination">
           <LumenText as="span">
-            {labels.linePage(start + 1, Math.min(start + DIFF_LINES_PER_PAGE, lines.length), lines.length)}
+            {labels.linePage(start + 1, Math.min(start + FILE_DIFF_LINES_PER_PAGE, lines.length), lines.length)}
           </LumenText>
-          <LumenButton disabled={page === 0} onClick={() => setPage(page - 1)}>
+          <LumenButton disabled={page === 0} onClick={() => changePage(page - 1)}>
             {labels.previousLines}
           </LumenButton>
-          <LumenButton disabled={start + DIFF_LINES_PER_PAGE >= lines.length} onClick={() => setPage(page + 1)}>
+          <LumenButton disabled={start + FILE_DIFF_LINES_PER_PAGE >= lines.length} onClick={() => changePage(page + 1)}>
             {labels.nextLines}
           </LumenButton>
         </LumenFrame>

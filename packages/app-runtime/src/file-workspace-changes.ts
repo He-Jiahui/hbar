@@ -3,7 +3,13 @@ import { directoryCommands } from '@hbar/contracts/commands'
 import { gitCommands } from '@hbar/contracts/commands/git'
 import type { GitStatus } from '@hbar/contracts'
 import { canonicalFilePath } from './file-workspace-documents'
-import type { FileWorkspaceChangesState, FileWorkspaceEntryState, RuntimeOptions } from './types'
+import { MAX_FILE_PREVIEWS, projectFileEntry, replaceFilePreview } from './file-workspace-previews'
+import type {
+  FileWorkspaceChangesState,
+  FileWorkspaceEntryState,
+  FileWorkspacePreviewState,
+  RuntimeOptions,
+} from './types'
 
 export const FILE_CHANGES_PAGE_SIZE = 100
 export const emptyFileChanges = (): FileWorkspaceChangesState => ({
@@ -75,6 +81,7 @@ interface ChangePorts {
   readonly openFile: (instanceId: string, path: string) => Promise<unknown>
   readonly openFolder: (instanceId: string, path: string) => Promise<unknown>
   readonly isDisposed: () => boolean
+  readonly onPreviewOpened?: ((instanceId: string) => void) | undefined
 }
 
 /** Read-only Git projections share the existing panel fact; request controllers own no document data. */
@@ -82,13 +89,15 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
   const directory = createCommandClient(directoryCommands, options.directory)
   const git = options.git ? createCommandClient(gitCommands, options.git) : null
   const pending = new Map<string, AbortController>()
+  const pendingDiffs = new Map<string, AbortController>()
+  const diffKey = (instanceId: string, previewId: string) => `${instanceId}\0${previewId}`
   const target = (instanceId: string, workspaceId: string) => {
     const entry = ports.read(instanceId)
     if (!entry || entry.workspaceId !== workspaceId || ports.workspaceId(instanceId) !== workspaceId)
       throw new CommandError('VERSION_CONFLICT', 'The file operation belongs to another workspace')
     return entry
   }
-  const cancel = (instanceId: string) => {
+  const cancelList = (instanceId: string) => {
     const controller = pending.get(instanceId)
     if (!controller) return
     controller.abort()
@@ -101,11 +110,28 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
           entry.changes.status === 'loading'
             ? { ...entry.changes, status: 'error', error: 'CANCELLED' }
             : entry.changes,
-        diff: entry.diff?.status === 'loading' ? { ...entry.diff, status: 'error', error: 'CANCELLED' } : entry.diff,
       })
   }
+  const cancelDiff = (instanceId: string, previewId: string) => {
+    const key = diffKey(instanceId, previewId)
+    const controller = pendingDiffs.get(key)
+    if (!controller) return
+    controller.abort()
+    pendingDiffs.delete(key)
+    const entry = ports.read(instanceId)
+    const preview = entry?.previews.find((value) => value.id === previewId)
+    if (entry && preview?.kind === 'diff' && preview.diff.status === 'loading')
+      ports.replace(
+        replaceFilePreview(entry, { ...preview, diff: { ...preview.diff, status: 'error', error: 'CANCELLED' } }),
+      )
+  }
+  const cancel = (instanceId: string) => {
+    cancelList(instanceId)
+    for (const key of pendingDiffs.keys())
+      if (key.startsWith(`${instanceId}\0`)) cancelDiff(instanceId, key.slice(instanceId.length + 1))
+  }
   const begin = (instanceId: string) => {
-    cancel(instanceId)
+    cancelList(instanceId)
     const controller = new AbortController()
     pending.set(instanceId, controller)
     return controller
@@ -123,7 +149,7 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     const entry = target(instanceId, workspaceId)
     ports.replace({
       ...entry,
-      view: preservePreview ? entry.view : 'browser',
+      activePreviewId: preservePreview ? entry.activePreviewId : null,
       browserMode: 'changed',
       changes: { ...entry.changes, status: 'loading', error: null },
     })
@@ -166,6 +192,67 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     }
   }
 
+  const refresh = async (instanceId: string, workspaceId: string, previewId: string) => {
+    const entry = target(instanceId, workspaceId)
+    const preview = entry.previews.find((value) => value.id === previewId)
+    if (preview?.kind !== 'diff') throw new CommandError('VERSION_CONFLICT', 'The original diff preview is closed')
+    const key = diffKey(instanceId, previewId)
+    if (pendingDiffs.has(key)) {
+      ports.onPreviewOpened?.(instanceId)
+      return entry
+    }
+    if (pendingDiffs.size >= 8) {
+      ports.replace(
+        replaceFilePreview(entry, { ...preview, diff: { ...preview.diff, status: 'error', error: 'BUSY' } }),
+      )
+      throw new CommandError('BUSY', 'Too many diff previews are loading')
+    }
+    const controller = new AbortController()
+    pendingDiffs.set(key, controller)
+    const previous = preview.diff
+    ports.replace(replaceFilePreview(entry, { ...preview, diff: { ...previous, status: 'loading', error: null } }))
+    ports.onPreviewOpened?.(instanceId)
+    const current = () => {
+      if (ports.isDisposed() || pendingDiffs.get(key) !== controller || ports.workspaceId(instanceId) !== workspaceId)
+        return null
+      const latest = ports.read(instanceId)
+      if (latest?.workspaceId !== workspaceId || !latest.previews.some((value) => value.id === previewId)) return null
+      return latest
+    }
+    try {
+      const result = await requireGit().execute(
+        'git.diff',
+        {
+          cwd: preview.cwd,
+          cached: previous.cached,
+          paths: [preview.path, ...(preview.originalPath ? [preview.originalPath] : [])],
+        },
+        { signal: controller.signal },
+      )
+      const latest = current()
+      if (!latest) throw new CommandError('CANCELLED', 'File diff request was superseded')
+      if (result.cached !== previous.cached || hostPath(result.cwd) !== hostPath(preview.cwd))
+        throw new CommandError('INVALID_OUTPUT', 'Git returned another diff target')
+      ports.replace(
+        replaceFilePreview(latest, {
+          ...preview,
+          diff: { ...previous, status: 'ready', text: result.diff, truncated: result.truncated, error: null },
+        }),
+      )
+      return target(instanceId, workspaceId)
+    } catch (error) {
+      const latest = current()
+      if (latest)
+        ports.replace(
+          replaceFilePreview(latest, { ...preview, diff: { ...previous, status: 'error', error: code(error) } }),
+        )
+      throw error instanceof CommandError
+        ? error
+        : new CommandError(code(error), 'Could not read the original file diff')
+    } finally {
+      if (pendingDiffs.get(key) === controller) pendingDiffs.delete(key)
+    }
+  }
   const open = async (instanceId: string, workspaceId: string, rawPath: string, selectedCached?: boolean) => {
     const entry = target(instanceId, workspaceId)
     const path = canonicalFilePath(rawPath)
@@ -173,54 +260,39 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     if (!change || !entry.changes.cwd || entry.changes.status !== 'ready')
       throw new CommandError('VERSION_CONFLICT', 'Refresh the original changed-file list')
     if (change.index === '?' && change.worktree === '?') {
-      cancel(instanceId)
+      cancelList(instanceId)
       await (change.directory ? ports.openFolder(instanceId, path) : ports.openFile(instanceId, path))
       return target(instanceId, workspaceId)
     }
     const cached = selectedCached ?? (change.worktree === ' ' && change.index !== ' ')
-    const controller = begin(instanceId)
-    ports.replace({
-      ...entry,
-      view: 'diff',
+    const existing = entry.previews.find(
+      (preview) => preview.kind === 'diff' && preview.path === path && preview.diff.cached === cached,
+    )
+    if (!existing && entry.previews.length >= MAX_FILE_PREVIEWS)
+      throw new CommandError('BUSY', 'Close another file preview first')
+    const preview: FileWorkspacePreviewState = existing ?? {
+      id: crypto.randomUUID(),
+      kind: 'diff',
+      path,
+      cwd: entry.changes.cwd,
+      originalPath: change.originalPath ?? null,
       diff: { path, cached, status: 'loading', text: '', truncated: false, error: null },
-    })
-    try {
-      const result = await requireGit().execute(
-        'git.diff',
-        { cwd: entry.changes.cwd, cached, paths: [path, ...(change.originalPath ? [change.originalPath] : [])] },
-        { signal: controller.signal },
-      )
-      if (!matches(instanceId, workspaceId, controller))
-        throw new CommandError('CANCELLED', 'File diff request was superseded')
-      if (result.cached !== cached) throw new CommandError('INVALID_OUTPUT', 'Git returned another diff mode')
-      const latest = target(instanceId, workspaceId)
-      ports.replace({
-        ...latest,
-        diff: { path, cached, status: 'ready', text: result.diff, truncated: result.truncated, error: null },
-      })
-      return target(instanceId, workspaceId)
-    } catch (error) {
-      if (matches(instanceId, workspaceId, controller)) {
-        const latest = target(instanceId, workspaceId)
-        ports.replace({
-          ...latest,
-          diff: { path, cached, status: 'error', text: '', truncated: false, error: code(error) },
-        })
-      }
-      throw error instanceof CommandError
-        ? error
-        : new CommandError(code(error), 'Could not read the original file diff')
-    } finally {
-      if (pending.get(instanceId) === controller) pending.delete(instanceId)
     }
+    ports.replace(projectFileEntry(replaceFilePreview({ ...entry, error: null }, preview, true)))
+    return refresh(instanceId, workspaceId, preview.id)
   }
   return {
     load,
     open,
+    refresh,
     cancel,
+    cancelList,
+    cancelDiff,
     dispose: () => {
       for (const controller of pending.values()) controller.abort()
       pending.clear()
+      for (const controller of pendingDiffs.values()) controller.abort()
+      pendingDiffs.clear()
     },
   }
 }

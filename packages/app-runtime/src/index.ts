@@ -163,6 +163,7 @@ export type {
   CommandPaletteDraftState,
   CommandPaletteState,
   FileWorkspaceDocumentState,
+  FileWorkspacePreviewState,
   FileWorkspaceEntryState,
   FileWorkspaceState,
   AgentWorkspaceDraftState,
@@ -508,6 +509,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     tabs: workspaceTabs.reader,
     drafts: drafts.reader,
     sessions: directory.queries,
+    onPreviewOpened: sessionTools.previewOpened,
   })
   const agentWorkspace = createAgentWorkspace(
     local,

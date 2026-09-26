@@ -2,6 +2,8 @@
 
 本单元迁移 cc-haha 的“工具属于当前会话、切回时恢复该会话视图”体验，不新增 Browser/PTY，也不把本单元验收当作整个桌面迁移完成。参考版本 `e28d0a65`，hbar 修复起点 `090fc0e`；原组件、真实入口、reload 和窄屏边界见[参考审计](desktop-session-tool-reference-audit.md)。
 
+后续 P3 更正：本页的 “Workbench → Back / X 不重新展开” 只对应展开后没有再操作预览的已测分支。重新实测原组件确认：在 Workbench 内打开文件、切换标签或刷新预览后，Back 会恢复同一来源 dock。P3 按此条件补齐，见[原组件两分支证据](desktop-file-preview-reference-audit.md)与[P3 交付](desktop-file-preview-tabs.md)。本页旧资源与当时测试结果仍保留为历史，不回填成当时已覆盖两个分支。
+
 ## 症状与依据
 
 真实 Host 基线在中英文均复现：A 打开 Files 并编辑，切到从未打开工具的 B，B 继承 A 的 Files；B 改开 Monitoring 后返回 A，A 又继承 Monitoring。原文件草稿、composer 和材料仍存在，问题是视图归属而非数据丢失。10 张基线图和两份 observations 在 `artifacts/session-tool-ownership/baseline/`，故意失败的两项测试保留在 `baseline-complete-red-results/`。

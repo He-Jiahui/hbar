@@ -55,6 +55,17 @@ export {
 } from './provider-settings'
 export { HbarCommandPalette, type HbarCommandPaletteLabels, type HbarCommandPaletteProps } from './command-palette'
 export { HbarFileWorkspace, type HbarFileWorkspaceLabels } from './lumen-file-workspace'
+export {
+  HbarFilePreviewTabs,
+  uniqueFilePreviews,
+  filePreviewCloseTargets,
+  type HbarFilePreviewLabels,
+  type HbarFilePreviewTabsProps,
+  type HbarFilePreviewItem,
+  type HbarFilePreviewKind,
+  type HbarFilePreviewProtection,
+  type HbarFilePreviewCloseScope,
+} from './file-preview-tabs'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
 export type { HbarSessionProjectContextLabels } from './session-project-context'
 export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent-workspace'

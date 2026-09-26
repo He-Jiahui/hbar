@@ -133,11 +133,13 @@ test('All tree loads folders on demand, keeps loaded ancestors and original docu
     expect(f.tree()).toMatchObject({
       view: 'browser',
       tree: { filter: 'leaf', nodes: { docs: { expanded: true } } },
-      document: { path: 'docs/nested/leaf.md', draft: 'draft' },
+      activePreviewId: null,
+      document: null,
+      previews: [{ kind: 'document', document: { path: 'docs/nested/leaf.md', draft: 'draft' } }],
     })
     await f.toggle('docs')
     expect(f.tree().tree.nodes).toEqual({})
-    expect(f.tree().document?.draft).toBe('draft')
+    expect(f.tree().previews).toMatchObject([{ kind: 'document', document: { draft: 'draft' } }])
     await expect(f.toggle('elsewhere')).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
     await expect(f.toggle('docs', 'other')).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
   } finally {

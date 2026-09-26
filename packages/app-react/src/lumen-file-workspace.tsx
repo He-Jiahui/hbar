@@ -1,4 +1,4 @@
-import { ArrowLeft, FolderTree, Maximize2, MessageCircle, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { ArrowLeft, FolderTree, Maximize2, MessageCircle, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   LumenFrame,
@@ -18,11 +18,16 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './file-workspace-changes'
 import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'
 import { useFileNavigatorPresentation } from './file-navigator-presentation'
+import { useFilePreviewReadingPosition } from './file-preview-reading-position'
+import { useFilePreviewPagination } from './file-preview-pagination'
+import { filePreviewOwnsFailure, focusVisibleFilePreviewControl } from './file-preview-feedback'
+import { HbarFilePreviewTabs, type HbarFilePreviewItem, type HbarFilePreviewLabels } from './file-preview-tabs'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly changes: HbarFileChangesLabels
   readonly tree: HbarFileTreeLabels
+  readonly previews: HbarFilePreviewLabels
   readonly preview: string
   readonly edit: string
   readonly textPreview: (path: string) => string
@@ -99,9 +104,15 @@ export function HbarFileWorkspace({
   const [reloadTarget, setReloadTarget] = useState<{
     instanceId: string
     workspaceId: string
+    previewId: string
     path: string
     expectedDraft: string
     expectedSha256: string | null
+  } | null>(null)
+  const [previewFeedback, setPreviewFeedback] = useState<{
+    target: string
+    message: string
+    blockedId?: string
   } | null>(null)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
@@ -113,14 +124,47 @@ export function HbarFileWorkspace({
       : entry?.view === 'diff'
         ? (entry.diff?.path ?? null)
         : null
-  const navigator = useFileNavigatorPresentation(`${instanceId}:${panel?.workspaceId}`, selectedPath)
+  const target = `${instanceId}:${panel?.workspaceId}`
+  const activeTarget = useRef(target)
+  const previewIntent = useRef(0)
+  activeTarget.current = target
+  const navigator = useFileNavigatorPresentation(target, entry?.activePreviewId ?? null)
   const hasPreview = entry?.view === 'document' || entry?.view === 'diff'
+  const diffPagination = useFilePreviewPagination(target, entry?.previews ?? [], entry?.activePreviewId ?? null)
+  const reader = useFilePreviewReadingPosition(
+    target,
+    entry?.activePreviewId ?? null,
+    entry?.documentMode ?? 'preview',
+    Boolean(entry?.document?.sha256 || entry?.diff?.text),
+    (entry?.previews ?? []).map((item) => item.id).join('\u0000'),
+    diffPagination?.page,
+  )
   const invoke = useCallback(
-    (name: string, input: unknown) =>
+    (name: string, input: unknown) => {
+      const previewAction = [
+        'fileWorkspace.openEntry',
+        'fileWorkspace.openChange',
+        'fileWorkspace.selectPreview',
+        'fileWorkspace.refreshPreview',
+      ].includes(name)
+      const intent = previewAction ? ++previewIntent.current : null
+      if (previewAction) setPreviewFeedback(null)
       void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
-        () => {},
-      ),
-    [runtime.commands],
+        (reason: unknown) => {
+          if (intent === null || intent !== previewIntent.current || activeTarget.current !== target) return
+          const code =
+            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+              ? reason.code
+              : 'EXECUTION_FAILED'
+          const latest = instanceId ? runtime.state.files.getSnapshot().entries[instanceId] : undefined
+          // A reader already owns this error. Only add strip feedback when no current reader displays it.
+          if (filePreviewOwnsFailure(latest, name, input)) return
+          if (code !== 'CANCELLED' && code !== 'TARGET_CHANGED' && code !== 'RESULT_UNKNOWN')
+            setPreviewFeedback({ target, message: labels.previews.error(code) })
+        },
+      )
+    },
+    [runtime.commands, runtime.state.files, instanceId, target, labels.previews],
   )
   useEffect(() => {
     if (instanceId && panel?.panelId === 'files' && panel.workspaceId && entry?.workspaceId !== panel.workspaceId)
@@ -171,6 +215,75 @@ export function HbarFileWorkspace({
   const document = entry?.view === 'document' ? entry.document : null
   const diff = entry?.view === 'diff' ? entry.diff : null
   const workspaceId = panel.workspaceId
+  const previewId = entry?.activePreviewId ?? undefined
+  const previews: readonly HbarFilePreviewItem[] = (entry?.previews ?? []).map((item) => ({
+    id: item.id,
+    path: item.path,
+    kind: item.kind === 'document' ? 'document' : item.diff.cached ? 'staged' : 'working',
+    protection:
+      item.kind !== 'document'
+        ? null
+        : item.document.status === 'unknown'
+          ? 'unknown'
+          : item.document.status === 'submitting'
+            ? 'submitting'
+            : item.document.draft !== item.document.baseline
+              ? 'dirty'
+              : null,
+  }))
+  const showPreviewTabs = previews.length > 1 || (previews.length === 1 && !previewId)
+  const activePreview = previews.find((item) => item.id === previewId)
+  const selectPreview = (id: string) => {
+    setPreviewFeedback(null)
+    invoke('fileWorkspace.selectPreview', { instanceId, workspaceId, previewId: id })
+  }
+  const closePreviews = (ids: readonly string[]) => {
+    if (!workspaceId || !ids.length) return
+    const owner = navigator.layout.current?.closest<HTMLElement>('.hbar-app-react-file-workspace')
+    const restoreFocus = Boolean(owner?.contains(globalThis.document?.activeElement))
+    setPreviewFeedback(null)
+    void runtime.commands
+      .execute('fileWorkspace.closePreviews', { instanceId, workspaceId, previewIds: [...ids] })
+      .then((result) => {
+        if (activeTarget.current !== target) return
+        const blocked = result.blocked[0]
+        if (blocked) {
+          const item = previews.find((candidate) => candidate.id === blocked.previewId)
+          if (item)
+            setPreviewFeedback({
+              target,
+              message: labels.previews.blocked(item.path, blocked.reason),
+              blockedId: item.id,
+            })
+          return
+        }
+        if (restoreFocus)
+          requestAnimationFrame(() => {
+            if (!owner?.isConnected || !owner.getClientRects().length || activeTarget.current !== target) return
+            const currentFocus = owner.ownerDocument.activeElement
+            if (currentFocus !== owner.ownerDocument.body && !owner.contains(currentFocus)) return
+            focusVisibleFilePreviewControl(owner)
+          })
+      })
+      .catch((reason: unknown) => {
+        if (activeTarget.current !== target) return
+        const code =
+          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+            ? reason.code
+            : 'EXECUTION_FAILED'
+        setPreviewFeedback({ target, message: labels.previews.error(code) })
+      })
+  }
+  const singleClose =
+    !showPreviewTabs && activePreview ? (
+      <LumenIconButton
+        className="hbar-file-single-preview-close"
+        label={labels.previews.close(activePreview.path, activePreview.kind)}
+        onClick={() => closePreviews([activePreview.id])}
+      >
+        <LumenIcon icon={X} tier="sm" />
+      </LumenIconButton>
+    ) : undefined
   const editing = entry?.documentMode === 'edit'
   const busy = document?.status === 'submitting'
   const unknown = document?.status === 'unknown'
@@ -185,7 +298,7 @@ export function HbarFileWorkspace({
           (item) => item.kind === 'workbench' && item.id === tabs.activeId && item.panelInstanceId === instanceId,
         )
       : null
-  const addTarget = `${instanceId}:${workspaceId}:${selectedPath}:${sourceTab?.instanceKey}:${workbenchTab?.instanceKey}`
+  const addTarget = `${instanceId}:${workspaceId}:${previewId}:${selectedPath}:${sourceTab?.instanceKey}:${workbenchTab?.instanceKey}`
   activeAddTarget.current = addTarget
   const blockedFileDraft = Boolean(
     document &&
@@ -227,6 +340,7 @@ export function HbarFileWorkspace({
       .execute('fileWorkspace.addToComposer', {
         instanceId,
         workspaceId,
+        ...(previewId ? { previewId } : {}),
         path: selectedPath,
         sourceSessionId,
         sourceTabInstanceKey: sourceTab.instanceKey,
@@ -262,10 +376,11 @@ export function HbarFileWorkspace({
     if (target) invoke('fileWorkspace.discardAndReload', target)
   }
   const requestReload = () => {
-    if (document && panel.workspaceId)
+    if (document && panel.workspaceId && previewId)
       setReloadTarget({
         instanceId,
         workspaceId: panel.workspaceId,
+        previewId,
         path: document.path,
         expectedDraft: document.draft,
         expectedSha256: document.sha256,
@@ -280,7 +395,11 @@ export function HbarFileWorkspace({
         icon={FolderTree}
         backLabel={document || diff ? labels.backToFiles : undefined}
         closeLabel={mode === 'workbench' ? labels.closeWorkbench : labels.close}
-        onBack={document || diff ? () => invoke('fileWorkspace.showBrowser', { instanceId }) : undefined}
+        onBack={
+          document || diff
+            ? () => invoke('fileWorkspace.showBrowser', { instanceId, workspaceId, previewId })
+            : undefined
+        }
         onClose={mode === 'workbench' ? onCloseWorkbench : () => invoke('app.closePanel', { instanceId })}
         actions={
           <>
@@ -320,13 +439,46 @@ export function HbarFileWorkspace({
         )}
         className={`hbar-app-react-file-workspace${mode === 'workbench' ? ' hbar-app-react-file-workbench' : ''}`}
       >
+        {showPreviewTabs && (
+          <HbarFilePreviewTabs
+            items={previews}
+            activeId={previewId ?? null}
+            labels={labels.previews}
+            onSelect={selectPreview}
+            onClose={closePreviews}
+          />
+        )}
+        {previewFeedback?.target === target && (
+          <LumenFrame className="hbar-file-preview-feedback" role="alert">
+            <LumenText as="p">{previewFeedback.message}</LumenText>
+            {previewFeedback.blockedId &&
+              previewFeedback.blockedId !== previewId &&
+              previews.some((item) => item.id === previewFeedback.blockedId) && (
+                <LumenButton
+                  variant="text"
+                  onClick={() => {
+                    if (previewFeedback.blockedId) selectPreview(previewFeedback.blockedId)
+                  }}
+                >
+                  {labels.previews.showBlocked}
+                </LumenButton>
+              )}
+          </LumenFrame>
+        )}
         <LumenFrame
           ref={navigator.layout}
           className="hbar-app-react-file-layout"
           data-view={entry?.view ?? 'browser'}
           data-two-pane={hasPreview && navigator.wide && navigator.shown}
         >
-          <LumenFrame className="hbar-file-reader" hidden={!hasPreview || (!navigator.wide && navigator.shown)}>
+          <LumenFrame
+            ref={reader}
+            className="hbar-file-reader"
+            id={previewId ? `file-preview-panel-${previewId}` : undefined}
+            role={showPreviewTabs && previewId ? 'tabpanel' : undefined}
+            aria-labelledby={showPreviewTabs && previewId ? `file-preview-tab-${previewId}` : undefined}
+            hidden={!hasPreview || (!navigator.wide && navigator.shown)}
+          >
             {document ? (
               <LumenFileDocument
                 path={document.path}
@@ -339,10 +491,10 @@ export function HbarFileWorkspace({
                     : undefined
                 }
                 contentAvailable={document.sha256 !== null}
+                retainContentWhileLoading
+                headerActions={singleClose}
                 refreshDisabled={dirty || busy || unknown}
-                onRetry={() =>
-                  invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: document.path, directory: false })
-                }
+                onRetry={() => invoke('fileWorkspace.refreshPreview', { instanceId, workspaceId, previewId })}
               >
                 <LumenFrame className="hbar-file-document-modes">
                   <LumenButton
@@ -352,6 +504,7 @@ export function HbarFileWorkspace({
                       invoke('fileWorkspace.setDocumentMode', {
                         instanceId,
                         workspaceId,
+                        previewId,
                         path: document.path,
                         mode: 'preview',
                       })
@@ -366,6 +519,7 @@ export function HbarFileWorkspace({
                       invoke('fileWorkspace.setDocumentMode', {
                         instanceId,
                         workspaceId,
+                        previewId,
                         path: document.path,
                         mode: 'edit',
                       })
@@ -407,7 +561,12 @@ export function HbarFileWorkspace({
                     value={document.draft}
                     disabled={!connected || unknown || document.status === 'loading'}
                     onChange={(event) =>
-                      invoke('fileWorkspace.setText', { instanceId, text: event.currentTarget.value })
+                      invoke('fileWorkspace.setText', {
+                        instanceId,
+                        workspaceId,
+                        previewId,
+                        text: event.currentTarget.value,
+                      })
                     }
                   />
                 ) : (
@@ -437,7 +596,7 @@ export function HbarFileWorkspace({
                   {unknown ? (
                     <LumenButton
                       disabled={!connected}
-                      onClick={() => invoke('fileWorkspace.reconcile', { instanceId })}
+                      onClick={() => invoke('fileWorkspace.reconcile', { instanceId, workspaceId, previewId })}
                     >
                       {labels.reconcile}
                     </LumenButton>
@@ -445,7 +604,7 @@ export function HbarFileWorkspace({
                     <LumenButton
                       disabled={!connected || !dirty || busy}
                       tone="primary"
-                      onClick={() => invoke('fileWorkspace.save', { instanceId })}
+                      onClick={() => invoke('fileWorkspace.save', { instanceId, workspaceId, previewId })}
                     >
                       {busy ? labels.saving : labels.save}
                     </LumenButton>
@@ -454,13 +613,16 @@ export function HbarFileWorkspace({
               </LumenFileDocument>
             ) : diff && entry ? (
               <HbarFileDiff
-                key={`${diff.path}:${diff.cached}`}
+                key={previewId}
                 diff={diff}
                 change={entry.changes.items.find((item) => item.path === diff.path)}
                 labels={labels.changes}
                 connected={connected}
+                pagination={diffPagination}
+                headerActions={singleClose}
+                onRefresh={() => invoke('fileWorkspace.refreshPreview', { instanceId, workspaceId, previewId })}
                 onOpen={(cached) =>
-                  invoke('fileWorkspace.openChange', { instanceId, workspaceId, path: diff.path, cached })
+                  invoke('fileWorkspace.openChange', { instanceId, workspaceId, previewId, path: diff.path, cached })
                 }
                 onFile={() =>
                   invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path: diff.path, directory: false })

@@ -261,9 +261,17 @@
   color: var(--lumen-muted);
 }
 
-.hbar-file-diff-path {
+.hbar-file-diff-heading {
+  display: flex;
   min-inline-size: 0;
   flex: 1 1 100%;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-file-diff-path {
+  min-inline-size: 0;
+  flex: 1 1 auto;
   overflow-wrap: anywhere;
 }
 
