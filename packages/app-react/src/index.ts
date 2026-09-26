@@ -1,5 +1,11 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
 export {
+  HbarSessionImagesModelProvider,
+  useSessionImageGallery,
+  useSessionImageThumbnails,
+  type HbarSessionImagesModelProviderProps,
+} from './session-images-model'
+export {
   HbarMessageBlocks,
   HbarMessageActionBar,
   type HbarMessageBlocksProps,
