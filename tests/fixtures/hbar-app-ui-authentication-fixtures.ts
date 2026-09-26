@@ -8,8 +8,13 @@ const providers = [
 
 export const HBAR_APP_UI_AUTHENTICATION_FIXTURES: HbarAppUiAuthContent = {
     signIn: {
-        labels: {brand: 'Northwind', title: 'Sign in', description: 'Continue to the Northwind workspace.', emailLabel: 'Email or username', emailPlaceholder: 'you@northwind.com', passwordLabel: 'Password', passwordPlaceholder: 'Enter your password', forgotPassword: 'Forgot password?', rememberLabel: 'Keep me signed in for 30 days', signIn: 'Sign in', divider: 'Or continue with', noAccount: 'Need an account?', createAccount: 'Create one', privacy: 'Privacy', terms: 'Terms', status: 'Status', showPassword: 'Show password', hidePassword: 'Hide password'},
+        labels: {brand: 'Northwind', title: 'Sign in', description: 'Continue to the Northwind workspace.', emailLabel: 'Email or username', emailPlaceholder: 'you@northwind.com', passwordLabel: 'Password', passwordPlaceholder: 'Enter your password', forgotPassword: 'Forgot password?', rememberLabel: 'Keep me signed in for 30 days', signIn: 'Sign in', divider: 'Or continue with', noAccount: 'Need an account?', createAccount: 'Create one', privacy: 'Privacy', terms: 'Terms', status: 'Status', showPassword: 'Show password', hidePassword: 'Hide password', invalidEmail: 'Enter a valid email address.', invalidPassword: 'Passwords are at least 8 characters.', signingIn: 'Signing in', signedIn: 'Signed in', signInFailed: 'Sign-in failed. Try again.', signInUnavailable: 'Sign-in is unavailable.'},
         providers, providerListStrategy: {kind: 'content-grown', expectedMaximum: 4}, initialEmail: '', initialRemember: true,
+        onSignIn: (_credentials, signal) => new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve('confirmed') }, 3000)
+            const onAbort = () => { clearTimeout(timeout); reject(new Error('Preview sign-in cancelled')) }
+            signal.addEventListener('abort', onAbort, {once: true})
+        }),
     },
     providerFirst: {
         labels: {brand: 'Northwind', createAccount: 'Create account', title: 'Welcome back', description: 'Sign in to pick up your tasks, timelines, and reviews exactly where you left them.', divider: 'or', emailLabel: 'Work email', emailPlaceholder: 'you@company.com', ssoLabel: 'Company sign-on', ssoPlaceholder: 'company.com', singleSignOn: 'Use single sign-on', helper: 'We match your email to an existing workspace.', continueLabel: 'Continue', termsPrefix: 'By continuing you agree to the', terms: 'terms of service', privacyPrefix: 'and', privacy: 'privacy policy', trouble: 'Trouble signing in? Reach the workspace admin.', systemNormal: 'All systems normal'},
@@ -65,6 +70,29 @@ export const HBAR_APP_UI_AUTHENTICATION_FIXTURES: HbarAppUiAuthContent = {
         labels: {title: 'Approve this sign-in', description: (email) => `A device we have not seen before is trying to open Northwind as ${email}.`, device: 'Device', location: 'Location', ipAddress: 'IP address', requested: 'Requested', expiry: 'The request expires in 4 minutes.', approve: 'Yes, that was me', deny: 'No, secure my account', recent: 'Recent sign-ins', emptyRecentSignIns: 'No recent sign-ins are available.'},
         email: 'dana.whitfield@northwind.com', request: {device: 'Windows 11 · Edge 126', location: 'Rotterdam, Netherlands', ipAddress: '84.29.117.4', requested: 'Just now · 14:06 CET', expiry: 'The request expires in 4 minutes.'}, recent: [{id: 'mac', device: 'MacBook Pro · Chrome', location: 'Lisbon', time: '2 hours ago'}, {id: 'iphone', device: 'iPhone 15 · Safari', location: 'Lisbon', time: 'Yesterday'}, {id: 'unknown', device: 'Unknown · Firefox', location: 'Sofia', time: '3 days ago'}], listStrategy: {kind: 'pane-scroll', expectedMaximum: 8},
     },
+}
+
+export function createHbarAppUiAuthenticationSignInFixture(mode: string | null): HbarAppUiAuthContent {
+    const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES
+    const signIn = base.signIn!
+    switch (mode) {
+        case 'sign-in-failure': return {...base, signIn: {...signIn, onSignIn: async () => { throw new Error('Preview-only sign-in failure') }}}
+        case 'sign-in-retry': {
+            let attempts = 0
+            return {...base, signIn: {...signIn, onSignIn: async (credentials, signal) => {
+                attempts += 1
+                if (attempts === 1) throw new Error('Preview-only first sign-in failure')
+                return signIn.onSignIn?.(credentials, signal) ?? 'unchanged'
+            }}}
+        }
+        case 'sign-in-unavailable': return {...base, signIn: {...signIn, onSignIn: undefined}}
+        case 'sign-in-empty': return {...base, signIn: {...signIn, providers: []}}
+        case 'sign-in-one': return {...base, signIn: {...signIn, providers: signIn.providers.slice(0, 1)}}
+        case 'sign-in-duplicate': return {...base, signIn: {...signIn, providers: [...signIn.providers, signIn.providers[0]!]}}
+        case 'sign-in-overbound': return {...base, signIn: {...signIn, providers: [...signIn.providers, {id: 'microsoft', label: 'Microsoft', icon: 'mail'}, {id: 'passkey', label: 'Passkey', icon: 'key'}]}}
+        case null:
+        default: return base
+    }
 }
 
 export function createHbarAppUiAuthenticationOverflowFixtures(): HbarAppUiAuthContent {

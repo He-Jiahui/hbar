@@ -276,6 +276,8 @@ export type InteractionCase = Readonly<{
     | 'bell-open'
     | 'bell-unread'
     | 'bell-unread-empty'
+    | 'auth-email-only'
+    | 'auth-valid'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1655,6 +1657,11 @@ const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
 const notificationActivityScenarios = ['activity-snooze-menu', 'activity-snoozed', 'activity-archived', 'activity-back'] as const
 const notificationSystemScenarios = ['system-expanded', 'system-dismissed', 'system-empty'] as const
 const notificationBellScenarios = ['bell-open', 'bell-unread', 'bell-unread-empty'] as const
+const authenticationSignInScenarios = ['auth-email-only', 'auth-valid'] as const
+async function prepareAuthenticationSignInScenario(root: Locator, scenario: (typeof authenticationSignInScenarios)[number]): Promise<void> {
+  await root.getByRole('textbox', { name: 'Email or username' }).fill('dana@example.com')
+  if (scenario === 'auth-valid') await root.getByPlaceholder('Enter your password').fill('secret-password')
+}
 async function prepareNotificationBellScenario(root: Locator, scenario: (typeof notificationBellScenarios)[number]): Promise<void> {
   const dialog = root.getByRole('dialog', { name: 'Notifications' })
   if (!(await dialog.count())) await root.getByRole('button', { name: /^Notifications, \d+ unread$/ }).click()
@@ -3183,6 +3190,8 @@ async function replayInteraction(
     await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
   if (spec.id === 'hbar-app-ui-notifications-6' && notificationBellScenarios.some((value) => value === interaction.scenario))
     await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-1' && authenticationSignInScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3467,6 +3476,8 @@ async function replayReferenceInteraction(
     await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
   if (reference.id === 'hbar-app-ui-notifications-6' && notificationBellScenarios.some((value) => value === interaction.scenario))
     await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-1' && authenticationSignInScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4015,6 +4026,13 @@ async function runInteractionsParallel(
               for (const scenario of notificationBellScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareNotificationBellScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-1') {
+              for (const scenario of authenticationSignInScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationSignInScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

@@ -76,6 +76,17 @@ test('bell sampling separates filtering, confirmed reads, close focus and a narr
   expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
 })
 
+test('sign-in samples distinct validation, pending, reveal, remember and demo no-op feedback', () => {
+  const id = 'hbar-app-ui-authentication-1'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(12)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:0:fill`, `${id}:5:click`, `${id}:auth-email-only:5:click`, `${id}:auth-valid:5:click`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:5:press-enter`])
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('compact usage samples two independent actions and button styles, not passive bars', () => {
   const id = 'hbar-app-ui-ai-usage-8'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(5)

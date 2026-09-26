@@ -561,6 +561,29 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-1')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-sign-in-reference.css', 'authentication/SignInAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:fill', change: 'Email input retains host-entered value without submitting' },
+        { viewport: 'desktop', theme: 'light', suffix: '5:click', change: 'Empty submit places validation beside the email input' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-email-only:5:click', change: 'Valid email with missing password reveals the distinct password error' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-valid:5:click', change: 'Valid credentials enter the host-owned pending state' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Password reveal changes the input type and accessible button label' },
+        { viewport: 'desktop', theme: 'dark', suffix: '4:toggle', change: 'Remember-me checkbox toggles its checked state' },
+        { viewport: 'desktop', theme: 'dark', suffix: '6:hover', change: 'Representative provider hover feedback' },
+        { viewport: 'desktop', theme: 'dark', suffix: '6:click', change: 'Provider click leaves the reference demo unchanged' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Forgot-password demo action has no local visual transition' },
+        { viewport: 'tablet', theme: 'light', suffix: '9:click', change: 'Create-account demo action preserves the card' },
+        { viewport: 'tablet', theme: 'light', suffix: '10:click', change: 'Footer links share the no-navigation demo behavior' },
+        { viewport: 'stress', theme: 'light', suffix: '5:press-enter', change: 'Narrow form keyboard submission retains readable validation' },
+      ],
+      inferences: [
+        { scope: 'Other provider and footer links', basis: 'Three providers share one ID-bound renderer, and three footer actions share one host callback. One representative hover/click of each mechanism is paired; remaining labels are not claimed as clicked.', verification: 'inferred-not-replayed' },
+        { scope: 'Repeated themes, widths, gestures and input edits', basis: 'Eight static pairs cover responsive form flow and 12 paired actions cover distinct validation, pending, toggle, reveal and no-op outcomes. Equivalent permutations are inferred; localized/overflow/host-failure cases are local-only.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-notifications-6')
     return {
       revision: 1,

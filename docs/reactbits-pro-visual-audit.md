@@ -18,6 +18,8 @@ Notifications 5 的系统消息采用 **10 个代表案例**：主动作和次�
 
 Notifications 6 已完成关闭态和弹层的增量实现，**仍不是通过签核**。实时原版的四视口×双主题静态配对与 13 个代表性交互前后配对见 `artifacts/reactbits-pro-visual-audit/notifications-6-open-v1/`；调整已读行悬停底色并替换为 Lumen 控件后，基于同一批原版证据的最终本地重放见 `artifacts/reactbits-pro-visual-audit/notifications-6-open-v4/`。八组静态结构无失败，13 组语义状态均匹配，其中 12 组视觉反馈匹配。其余同构行、按钮手势和主题排列在 `sampling-plan.json` 中标为 `inferred-not-replayed`，不逐项点击。原版在 356px/286px iframe 下将弹层左缘及 All 筛选项裁出可视范围；本地按“关键内容不裁切”约束保持筛选项和底部入口可访问，因此极窄屏 Space 打开面板的反馈面积与原版不同，严格比较仍报一项 `visual-feedback-mismatch`，`review-ledger.json` 保持 `needs-fix`，不可人工签核为通过。宿主类型契约提供品牌、链接、五条消息、文案和确认已读回调；失败不伪造已读，可重试，缺少能力时禁用动作。本地浏览器另验证空／单条／重复 ID／81 条与独立滚动、德语长文案、280px 短宿主、关闭焦点和零页面异常；300 个总预览变体挂载且无页面异常。正式宿主持久化尚未接入。首次实时访问曾遭 Vercel Security Checkpoint，证据见 `artifacts/reactbits-pro-visual-audit/notifications-6-access-v1/reference-access.json`，恢复后已重新实时采集。
 
+Authentication 1 的居中登录卡片按实时原版重建了语义表单、原生 email 输入、密码显隐、记住我、三列提供方与桌面／窄屏流布局。12 个代表案例覆盖两种就近校验、宿主待处理、密码显隐、勾选、输入、提供方／辅助链接原版无可见变化及极窄屏键盘提交；其他同构提供方、页脚链接与主题／手势排列在 `sampling-plan.json` 标记为 `inferred-not-replayed`。8 组静态和 12 组前后配对、结构门禁、视觉反馈及人工签核见 `artifacts/reactbits-pro-visual-audit/authentication-1-final-v6/review-ledger.json`，严格比较通过。本地另验证空／单条／三条／超容量提供方、重复 ID、德语长文案、280–356px、宿主确认、失败重试、取消与缺失能力；正式宿主认证 transport 尚未接入，其他 13 个 Authentication 变体仍须逐项审计。首次原版现场捕获见 `artifacts/reactbits-pro-visual-audit/authentication-1-baseline-v1/`，本地重放不将其误写成新的实时捕获。
+
 已配置计划的 Lumen 实现指纹从当前组件及 Provider 入口跟随相对依赖，并继续包含全部全局 CSS/JSON、公开入口和注册文件、hbar wrapper、预览宿主与 fixture。依赖清单写入 `implementation-scope.json`。其他未渲染组件的 TSX 改动不再令当前变体自动失效；共享样式、实际依赖和宿主输入变化仍需重新评估。未配置的旧穷举诊断保留整树指纹，不默默遗漏依赖。
 
 Approval 3 的当前计划为 **11 个代表案例**：展开/收起、批准/拒绝、后续请求、键盘/焦点、窄屏代码滚动与清空队列；覆盖桌面暗色和极窄亮色的关键变化。其余历史组合由共用状态转换和八种纯状态路径测试支撑。下面协议 23/24 的 408/2296 等数量是历史穷举说明，不再是当前默认验收要求。

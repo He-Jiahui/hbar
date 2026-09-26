@@ -64,7 +64,8 @@ async function run(): Promise<void> {
         await remembered.click()
         assert(!(await remembered.isChecked()), 'Sign-in preference did not toggle')
         await page.getByRole('button', {name: 'Show password', exact: true}).click()
-        assert(await page.locator('.hbar-app-ui-auth-sign-in-surface input[type="text"]').count() >= 2, 'Password visibility did not switch')
+        assert(await page.locator('.hbar-app-ui-auth-sign-in-surface input[type="text"]').count() === 1, 'Password visibility did not switch')
+        assert(await page.locator('.hbar-app-ui-auth-sign-in-surface input[type="email"]').count() === 1, 'Email field lost its native type')
 
         await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Use single sign-on', exact: true}).click()

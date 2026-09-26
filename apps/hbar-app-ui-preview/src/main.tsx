@@ -121,6 +121,7 @@ import {
 import {
   createHbarAppUiAuthenticationLocalizedFixtures,
   createHbarAppUiAuthenticationOverflowFixtures,
+  createHbarAppUiAuthenticationSignInFixture,
   HBAR_APP_UI_AUTHENTICATION_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-authentication-fixtures'
 import {
@@ -312,6 +313,14 @@ function PreviewApp() {
         return createHbarAppUiAuthenticationOverflowFixtures()
       case 'localized':
         return createHbarAppUiAuthenticationLocalizedFixtures()
+      case 'sign-in-failure':
+      case 'sign-in-retry':
+      case 'sign-in-unavailable':
+      case 'sign-in-empty':
+      case 'sign-in-one':
+      case 'sign-in-duplicate':
+      case 'sign-in-overbound':
+        return createHbarAppUiAuthenticationSignInFixture(new URLSearchParams(window.location.search).get('authenticationFixture'))
       case null:
       default:
         return HBAR_APP_UI_AUTHENTICATION_FIXTURES

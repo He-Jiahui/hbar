@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Authentication 1: the reference's password reveal control sits inside the input bounds.
+  if (/packages\/lumen-app-ui\/src\/authentication-sign-in-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button') return true
   // Notifications 6: only the observed trigger-anchored popover and its badge overlap the flowing header.
   if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover') return true
@@ -447,6 +450,10 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const authReveal = '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button { position: absolute; inset-inline-end: 0.25rem; }'
+  if (validateCss('packages/lumen-app-ui/src/authentication-sign-in-reference.css', authReveal).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', authReveal).length === 0)
+    throw new Error('Authentication reveal exception must be path-scoped')
   const bellPopover = '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover { position: absolute; inset-inline-end: 0; }'
   if (validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellPopover).length ||
       validateCss('packages/lumen-app-ui/src/other.css', bellPopover).length === 0)
