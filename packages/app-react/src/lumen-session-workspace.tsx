@@ -32,7 +32,7 @@ import {
   type HbarMessageActionLabels,
   type HbarMessageForkAction,
 } from './session-message'
-import { projectSessionMessages } from './session-message-model'
+import { projectSessionMessages, projectSessionTimelineSequence } from './session-message-model'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
@@ -57,6 +57,7 @@ import {
 } from './composer-attachments'
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
+import { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
 
 export interface HbarSessionWorkspaceLabels {
   readonly conversationTitle: (title: string) => string
@@ -101,6 +102,7 @@ export interface HbarSessionWorkspaceLabels {
   }
   readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
   readonly decisions: HbarSessionDecisionLabels
+  readonly goalContinuation: HbarGoalContinuationLabels
   readonly proposedPlan: HbarProposedPlanLabels
   readonly proposedPlanReadOnly: string
   readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
@@ -529,7 +531,7 @@ export function HbarSessionWorkspace({
         : {}),
     }
   }
-  const messages: LumenMessageProps[] = [
+  const messageRows: LumenMessageProps[] = [
     ...projectedMessages.map(({ message, blocks, results }) => ({
       id: message.id,
       role: message.role,
@@ -627,6 +629,26 @@ export function HbarSessionWorkspace({
       ),
     })),
   ]
+
+  const rowsById = new Map(messageRows.map((row) => [row.id, row]))
+  const messages: LumenMessageProps[] = projectSessionTimelineSequence(timeline).flatMap(
+    (item): LumenMessageProps[] => {
+      if (item.kind === 'goalContinuation')
+        return [
+          {
+            id: item.continuation.id,
+            role: 'system',
+            author: labels.author.system,
+            avatar: labels.avatar.system,
+            appearance: 'transcript',
+            copyLabel: labels.copy,
+            children: <HbarGoalContinuation continuation={item.continuation} labels={labels.goalContinuation} />,
+          },
+        ]
+      const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
+      return row ? [row] : []
+    },
+  )
 
   const activity: ReactNode =
     timeline.runs.length > 0 || decisionProjection.fallback.length > 0 ? (

@@ -29,6 +29,99 @@ export interface SessionMessageProjection {
   readonly results: readonly SessionToolResult[]
 }
 
+export interface GoalContinuationBoundary {
+  readonly id: string
+  readonly sessionId: string
+  readonly runId: string
+  readonly status: SessionTimelineState['runs'][number]['status']
+  readonly createdAt: number
+  /** Placement evidence, never a guessed Goal lifecycle event or continuation number. */
+  readonly anchor:
+    | { readonly kind: 'message'; readonly messageId: string; readonly seq: number }
+    | { readonly kind: 'stream'; readonly streamId: string }
+    | { readonly kind: 'run'; readonly createdAt: number }
+}
+
+export type SessionTimelineSequenceItem =
+  | { readonly kind: 'message'; readonly projection: SessionMessageProjection }
+  | { readonly kind: 'stream'; readonly stream: SessionTimelineState['streams'][string] }
+  | { readonly kind: 'goalContinuation'; readonly continuation: GoalContinuationBoundary }
+
+/**
+ * Reuse the paged message projection and persistent Run source to mark automatic
+ * Goal turns once. Empty input envelopes supply an exact seq anchor but remain
+ * hidden. A Run without a message uses its first stream, or its persisted
+ * creation time amongst the loaded messages; no current Goal state is consulted.
+ * Missing paged-out Runs do not acquire markers and no extra history is fetched.
+ */
+export function projectSessionTimelineSequence(
+  timeline: Pick<SessionTimelineState, 'sessionId' | 'messages' | 'runs' | 'streams'>,
+): readonly SessionTimelineSequenceItem[] {
+  const sessionId = timeline.sessionId
+  if (!sessionId) return []
+  const uniqueMessages = new Map<string, SessionMessage>()
+  for (const message of timeline.messages)
+    if (message.sessionId === sessionId && !uniqueMessages.has(message.id)) uniqueMessages.set(message.id, message)
+  const rawMessages = [...uniqueMessages.values()].sort((left, right) => left.seq - right.seq)
+  const projections = projectSessionMessages(rawMessages)
+  const streams = Object.values(timeline.streams).filter((stream) => stream.sessionId === sessionId)
+  const firstMessageByRun = new Map<string, SessionMessage>()
+  for (const message of rawMessages)
+    if (!firstMessageByRun.has(message.runId)) firstMessageByRun.set(message.runId, message)
+  const firstStreamByRun = new Map<string, number>()
+  for (const [index, stream] of streams.entries())
+    if (!firstStreamByRun.has(stream.runId)) firstStreamByRun.set(stream.runId, index)
+  const buckets = new Map<number, GoalContinuationBoundary[]>()
+  const seenRuns = new Set<string>()
+  for (const run of timeline.runs) {
+    if (run.sessionId !== sessionId || seenRuns.has(run.id)) continue
+    seenRuns.add(run.id)
+    if (run.input.source !== 'goal') continue
+    const message = firstMessageByRun.get(run.id)
+    const streamIndex = firstStreamByRun.get(run.id)
+    const stream = streamIndex === undefined ? undefined : streams[streamIndex]
+    const anchor: GoalContinuationBoundary['anchor'] = message
+      ? { kind: 'message', messageId: message.id, seq: message.seq }
+      : stream
+        ? { kind: 'stream', streamId: stream.id }
+        : { kind: 'run', createdAt: run.createdAt }
+    const following = message
+      ? projections.findIndex((item) => item.message.seq >= message.seq)
+      : streamIndex === undefined
+        ? projections.findIndex((item) => item.message.createdAt > run.createdAt)
+        : -1
+    const index = following >= 0 ? following : projections.length + (streamIndex ?? 0)
+    const boundary: GoalContinuationBoundary = {
+      id: `goal-continuation:${JSON.stringify([sessionId, run.id])}`,
+      sessionId,
+      runId: run.id,
+      status: run.status,
+      createdAt: run.createdAt,
+      anchor,
+    }
+    buckets.set(index, [...(buckets.get(index) ?? []), boundary])
+  }
+  const source: SessionTimelineSequenceItem[] = [
+    ...projections.map((projection): SessionTimelineSequenceItem => ({ kind: 'message', projection })),
+    ...streams.map((stream): SessionTimelineSequenceItem => ({ kind: 'stream', stream })),
+  ]
+  const result: SessionTimelineSequenceItem[] = []
+  for (let index = 0; index <= source.length; index += 1) {
+    const boundaries = buckets.get(index) ?? []
+    boundaries.sort((left, right) => {
+      if (left.anchor.kind === 'message' && right.anchor.kind === 'message')
+        return left.anchor.seq - right.anchor.seq || left.runId.localeCompare(right.runId)
+      return left.createdAt - right.createdAt || left.runId.localeCompare(right.runId)
+    })
+    result.push(
+      ...boundaries.map((continuation): SessionTimelineSequenceItem => ({ kind: 'goalContinuation', continuation })),
+    )
+    const item = source[index]
+    if (item) result.push(item)
+  }
+  return result
+}
+
 function toolKey(block: SessionToolCall | SessionToolResult): string {
   return JSON.stringify([block.callId, block.name])
 }

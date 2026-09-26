@@ -865,6 +865,29 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ? { user: '你', assistant: 'AI', system: '系', tool: '工' }
       : { user: 'You', assistant: 'AI', system: 'Sy', tool: 'Tl' },
     copy: choose('复制消息', 'Copy message'),
+    goalContinuation: {
+      title: choose('目标续作', 'Goal continuation'),
+      statuses: zh
+        ? {
+            queued: '已排队',
+            running: '运行中',
+            waiting_approval: '等待审批',
+            completed: '已完成',
+            cancelled: '已取消',
+            failed: '失败',
+            interrupted: '已中断',
+          }
+        : {
+            queued: 'Queued',
+            running: 'Running',
+            waiting_approval: 'Waiting for approval',
+            completed: 'Completed',
+            cancelled: 'Cancelled',
+            failed: 'Failed',
+            interrupted: 'Interrupted',
+          },
+      accessible: (title, status) => choose(`${title}，${status}`, `${title}, ${status}`),
+    },
     messageBlocks: {
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),

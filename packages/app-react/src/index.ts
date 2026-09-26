@@ -77,3 +77,4 @@ export {
   type HbarWorkspaceTabsCloseLabels,
   type HbarWorkspaceTabsCloseStatus,
 } from './workspace-tabs-close-dialog'
+export { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
