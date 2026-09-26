@@ -1,7 +1,6 @@
 import type { HbarAppUiNotificationsContent } from '../../packages/hbar-app-ui/src/index'
 
 const scroll = { kind: 'pane-scroll', expectedMaximum: 80 } as const
-const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 
 export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent = {
   center: {
@@ -371,20 +370,20 @@ export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent =
   },
   bell: {
     labels: {
+      brandMark: 'H',
       brand: 'Halcyon',
-      navigation: 'Primary',
       bell: (count) => `Notifications, ${count} unread`,
       dialog: 'Notifications',
       close: 'Close notifications',
       markAll: 'Mark all read',
       settings: 'Settings',
-      hint: 'Open the bell to review recent activity. The panel closes on Escape or outside click.',
+      hint: 'Open the bell to review recent activity. The panel closes on Escape or on a click outside, and returns focus to the trigger.',
       empty: 'No notifications',
     },
     navItems: [
-      { id: 'overview', label: 'Overview' },
-      { id: 'projects', label: 'Projects' },
-      { id: 'reports', label: 'Reports' },
+      { id: 'overview', label: 'Overview', href: '#' },
+      { id: 'projects', label: 'Projects', href: '#' },
+      { id: 'reports', label: 'Reports', href: '#' },
     ],
     selectedNavId: 'overview',
     messages: [
@@ -393,7 +392,7 @@ export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent =
       { id: 'signin', title: 'New sign-in detected', time: 'Yesterday', unread: true },
     ],
     avatar: 'AR',
-    listStrategy: grown,
+    listStrategy: scroll,
   },
 }
 
@@ -608,6 +607,46 @@ export function createHbarAppUiNotificationSystemFixture(
         },
       }
     }
+    case null:
+    default: return base
+  }
+}
+
+export function createHbarAppUiNotificationBellFixture(
+  mode: string | null,
+  base: HbarAppUiNotificationsContent = HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
+): HbarAppUiNotificationsContent {
+  const bell = base.bell!
+  switch (mode) {
+    case 'localized': return {
+      ...base,
+      bell: {
+        ...bell,
+        labels: {
+          ...bell.labels,
+          brand: 'Halcyon Arbeitsbereich für internationale Zusammenarbeit',
+          bell: (count) => `Benachrichtigungen, ${count} ungelesen`,
+          settings: 'Einstellungen',
+          hint: 'Öffnen Sie die Glocke, um aktuelle Aktivitäten zu lesen. Schließen Sie das Fenster mit Escape oder einem Klick außerhalb; danach erhält der Auslöser den Fokus zurück.',
+        },
+        navItems: bell.navItems.map((item) => ({ ...item, label: `${item.label} für Arbeitsbereiche` })),
+      },
+    }
+    case 'empty': return { ...base, bell: { ...bell, messages: [] } }
+    case 'one': return { ...base, bell: { ...bell, messages: bell.messages.slice(0, 1) } }
+    case 'overflow': return {
+      ...base,
+      bell: {
+        ...bell,
+        navItems: Array.from({ length: 81 }, (_, index) => ({ id: `workspace-${index}`, label: `Workspace ${index}`, href: `#workspace-${index}` })),
+        messages: Array.from({ length: 81 }, (_, index) => ({ id: `alert-${index}`, title: `Alert ${index}`, time: '1m', unread: index % 2 === 0 })),
+      },
+    }
+    case 'duplicate': return {
+      ...base,
+      bell: { ...bell, navItems: [...bell.navItems, bell.navItems[0]!], messages: [...bell.messages, bell.messages[0]!] },
+    }
+    case 'stale': return { ...base, bell: { ...bell, selectedNavId: 'missing' } }
     case null:
     default: return base
   }

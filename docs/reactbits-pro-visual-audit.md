@@ -16,6 +16,8 @@ Notifications 4 的活动收件箱采用 **13 个代表案例**：Inbox 第二�
 
 Notifications 5 的系统消息采用 **10 个代表案例**：主动作和次动作分别移除横幅、错误三行展开／收起、单条与全部移除后的恢复、极窄屏键盘移除与详情展开，以及 Update card／Retry failed 两种真实无可见结果。View DNS 移除和 Increase limit 无变化由额外原版探针确认，不把其他同构按钮计作双侧配对。五条宿主消息的文案、语义图标、具名动作、错误行与用量文案都是类型化数据；移除／恢复等待宿主确认，失败保留原状态并可重试，缺失回调时禁用动作。标题在页头，五条消息在独立 pane 内滚动，空态自然居中。八组静态配对、10 组交互配对、结构硬门禁与人工签核见 `artifacts/reactbits-pro-visual-audit/notifications-5-final-v4/review-ledger.json`。本地另验证空／单条、重复 ID、81 条容量、德语长文案、280–670px 与短宿主；正式宿主操作持久化和 Notifications 6 仍待独立验收。
 
+Notifications 6 目前**只完成关闭态静态对齐，不是通过签核**。实时原版与当前本地的四视口×双主题配对见 `artifacts/reactbits-pro-visual-audit/notifications-6-static-live-v2/`：八组根尺寸、语义树、控件类型、文本行数及响应式导航均匹配，无静态结构失败；视觉差异报告单独保留。首次实时访问曾返回 Vercel Security Checkpoint，证据见 `artifacts/reactbits-pro-visual-audit/notifications-6-access-v1/reference-access.json`，随后网站恢复，八组静态图已重新实时采集。宿主 fixture 提供品牌标记、导航链接和完整提示文案；本地另检查空／单条／重复 ID、81 条导航及消息、缺失选中 ID、德语长文案与 280–670px。弹层打开、关闭、已读、焦点及其他前后状态尚未取得原版配对，`review-ledger.json` 保持 `needs-fix`，不能以静态图宣称 Notifications 6 验收完成。
+
 已配置计划的 Lumen 实现指纹从当前组件及 Provider 入口跟随相对依赖，并继续包含全部全局 CSS/JSON、公开入口和注册文件、hbar wrapper、预览宿主与 fixture。依赖清单写入 `implementation-scope.json`。其他未渲染组件的 TSX 改动不再令当前变体自动失效；共享样式、实际依赖和宿主输入变化仍需重新评估。未配置的旧穷举诊断保留整树指纹，不默默遗漏依赖。
 
 Approval 3 的当前计划为 **11 个代表案例**：展开/收起、批准/拒绝、后续请求、键盘/焦点、窄屏代码滚动与清空队列；覆盖桌面暗色和极窄亮色的关键变化。其余历史组合由共用状态转换和八种纯状态路径测试支撑。下面协议 23/24 的 408/2296 等数量是历史穷举说明，不再是当前默认验收要求。

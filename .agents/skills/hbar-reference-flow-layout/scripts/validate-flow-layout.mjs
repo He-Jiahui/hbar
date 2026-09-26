@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Notifications 6: the observed unread count overlaps only its owning bell trigger.
+  if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge') return true
   // Notifications 4: Snooze opens a trigger-anchored menu over the flowing
   // detail pane. Only its container is positioned; menu choices stay in flex.
   if (/packages\/lumen-app-ui\/src\/notifications-activity-reference\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -441,6 +444,10 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const bellBadge = '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge { position: absolute; inset-block-start: 0; }'
+  if (validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellBadge).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', bellBadge).length === 0)
+    throw new Error('Observed bell badge overlay exception must be path-scoped')
   const stickyColumns = `.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns {
   position: sticky;
   inset-block-start: 0;

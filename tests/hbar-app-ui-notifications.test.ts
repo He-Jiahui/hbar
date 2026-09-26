@@ -10,6 +10,7 @@ import {
 } from '../packages/hbar-app-ui/src/index'
 import {
   createHbarAppUiNotificationActivityFixture,
+  createHbarAppUiNotificationBellFixture,
   createHbarAppUiNotificationPreferencesFixture,
   createHbarAppUiNotificationSystemFixture,
   createHbarAppUiNotificationsLocalizedFixtures,
@@ -66,7 +67,7 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(render(1, content)).toContain('No notifications')
     expect(render(5, content)).toContain('No messages')
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
-    expect(render(6)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+    expect(HBAR_APP_UI_NOTIFICATIONS_FIXTURES.bell?.listStrategy.kind).toBe('pane-scroll')
   })
 
   test('keeps notification groups, counts and action labels host-owned at capacity', () => {
@@ -193,5 +194,21 @@ describe('hbar-app-ui notification surfaces', () => {
     expect((render(5, createHbarAppUiNotificationSystemFixture('overflow')).match(/class="lumen-system-message"/g) ?? []).length).toBe(81)
     expect((render(5, createHbarAppUiNotificationSystemFixture('duplicate')).match(/class="lumen-system-message"/g) ?? []).length).toBe(5)
     expect(render(5, createHbarAppUiNotificationSystemFixture('unavailable'))).toContain('Action unavailable')
+  })
+
+  test('bell shell keeps source navigation semantics and host-owned responsive copy', () => {
+    const html = render(6)
+    expect(html).toContain('role="banner"')
+    expect(html).toContain('<nav>')
+    expect((html.match(/<a /g) ?? []).length).toBe(3)
+    expect(html).toContain('href="#" aria-current="page"')
+    expect(html).toContain('on a click outside, and returns focus to the trigger.')
+    expect(html).toContain('class="lumen-bell-mark">H</span>')
+    expect(render(6, createHbarAppUiNotificationBellFixture('localized'))).toContain('Benachrichtigungen, 3 ungelesen')
+    expect(render(6, createHbarAppUiNotificationBellFixture('empty'))).toContain('Notifications, 0 unread')
+    expect(render(6, createHbarAppUiNotificationBellFixture('one'))).toContain('Notifications, 1 unread')
+    expect((render(6, createHbarAppUiNotificationBellFixture('overflow')).match(/<a /g) ?? []).length).toBe(81)
+    expect((render(6, createHbarAppUiNotificationBellFixture('duplicate')).match(/<a /g) ?? []).length).toBe(3)
+    expect(render(6, createHbarAppUiNotificationBellFixture('stale'))).not.toContain('aria-current="page"')
   })
 })
