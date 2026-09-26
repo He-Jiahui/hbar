@@ -96,6 +96,9 @@ function isOverlaySelector(path, selector) {
   // Authentication 1: the reference's password reveal control sits inside the input bounds.
   if (/packages\/lumen-app-ui\/src\/authentication-sign-in-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button') return true
+  // Authentication 4: password visibility is the one observed control overlaid within its input.
+  if (/packages\/lumen-app-ui\/src\/authentication-two-step-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-auth-two-step-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button') return true
   // Notifications 6: only the observed trigger-anchored popover and its badge overlap the flowing header.
   if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover') return true

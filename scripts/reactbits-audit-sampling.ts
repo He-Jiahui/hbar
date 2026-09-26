@@ -561,6 +561,28 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-4')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-two-step-reference.css', 'authentication/TwoStepAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Continue enters the asynchronous pending state before revealing the account' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-two-step-invalid:1:click', change: 'Invalid email displays a field-level error instead of advancing' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-two-step-password:0:click', change: 'Back returns from the matched-account password view to email' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-two-step-password:4:click', change: 'Sign in enters its own pending state without inventing authentication success' },
+        { viewport: 'tablet', theme: 'light', suffix: '2:click', change: 'Magic-link button leaves this documentation preview unchanged' },
+        { viewport: 'tablet', theme: 'light', suffix: 'auth-two-step-password:2:fill', change: 'Password input keeps the host-entered secret' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'auth-two-step-password:3:click', change: 'Show password toggles input type and accessible button name' },
+        { viewport: 'mobile', theme: 'dark', suffix: '3:click', change: 'Create-account action has no demo navigation result' },
+        { viewport: 'stress', theme: 'light', suffix: '0:fill', change: 'Narrow email edit remains readable in the flowing card' },
+        { viewport: 'stress', theme: 'light', suffix: 'auth-two-step-password:1:click', change: 'Forgot-password action keeps the narrow account view' },
+        { viewport: 'stress', theme: 'light', suffix: 'auth-two-step-password:3:press-space', change: 'Keyboard reveal changes the narrow password input without clipping' },
+      ],
+      inferences: [
+        { scope: 'Repeated email/password strings, theme-width combinations and alternate activation gestures', basis: 'Eight static pairs cover the responsive canvas. Eleven paired states exercise the distinct email gate, pending states, navigation, input, reveal and no-result actions; equivalent combinations are inferred, not replayed.', verification: 'inferred-not-replayed' },
+        { scope: 'Host callback outcomes', basis: 'The documentation preview does not connect magic link, forgot password, account creation or sign-in to a backend. Host callbacks expose those intents without a fabricated success or route.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-3')
     return {
       revision: 1,

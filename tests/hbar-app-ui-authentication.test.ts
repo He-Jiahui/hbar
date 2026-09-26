@@ -55,6 +55,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(1, localized)).toContain('Sehr lange lokalisierte Beschreibung')
         expect(renderAuthentication(2, localized)).toContain('Willkommen zurück')
         expect(renderAuthentication(3, localized)).toContain('Lokalisierter Text mit absichtlich langem Umbruch')
+        expect(renderAuthentication(4, localized)).toContain('Beim Northwind-Arbeitsbereich anmelden')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -133,6 +134,23 @@ describe('hbar-app-ui authentication surfaces', () => {
         const expanded = renderAuthentication(3, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, quote: {...base, quotes: overBound}})
         expect(occurrences(expanded, 'Show quote from Host story')).toBe(overBound.length)
         expect(expanded).toContain('Host story 6')
+    })
+
+    test('two-step email view uses host labels and a native, associated email form', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.twoStep
+        if (!base) throw new Error('Expected two-step fixture')
+        const markup = renderAuthentication(4)
+        expect(markup).toContain('type="email"')
+        expect(markup).toContain('name@company.com')
+        expect(markup).toContain(base.labels.magicLink)
+        expect(markup).toContain(base.labels.step(1, 2))
+        expect(markup).not.toContain(base.account.name)
+        expect(markup).not.toContain('disabled=""')
+        const localized = renderAuthentication(4, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, twoStep: {...base, labels: {...base.labels, title: 'Ein langer lokalisierter Titel', emailLabel: 'Geschäftliche E-Mail', magicLink: 'Anmeldelink per E-Mail senden'}}})
+        expect(localized).toContain('Ein langer lokalisierter Titel')
+        expect(localized).toContain('Geschäftliche E-Mail')
+        expect(localized).toContain('Anmeldelink per E-Mail senden')
+        expect(localized).not.toContain('Sign in to Northwind')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

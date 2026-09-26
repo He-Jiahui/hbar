@@ -281,6 +281,8 @@ export type InteractionCase = Readonly<{
     | 'auth-provider-sso'
     | 'auth-provider-sso-valid'
     | 'auth-provider-email-valid'
+    | 'auth-two-step-password'
+    | 'auth-two-step-invalid'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1687,6 +1689,15 @@ async function prepareAuthenticationProviderFirstScenario(root: Locator, scenari
   if (await root.getByRole('button', { name: 'Use single sign-on' }).count())
     await root.getByRole('button', { name: 'Use single sign-on' }).click()
   if (scenario === 'auth-provider-sso-valid') await root.getByRole('textbox', { name: 'Company domain' }).fill('northwind')
+}
+const authenticationTwoStepScenarios = ['auth-two-step-password', 'auth-two-step-invalid'] as const
+async function prepareAuthenticationTwoStepScenario(root: Locator, scenario: (typeof authenticationTwoStepScenarios)[number]): Promise<void> {
+  if (scenario === 'auth-two-step-invalid') {
+    await root.getByRole('textbox', { name: 'Work email' }).fill('invalid')
+    return
+  }
+  await root.getByRole('button', { name: 'Continue' }).click()
+  await root.getByText('Step 2 of 2').waitFor({ state: 'visible', timeout: 5_000 })
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3228,6 +3239,8 @@ async function replayInteraction(
     await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-2' && authenticationProviderFirstScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-4' && authenticationTwoStepScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3517,6 +3530,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-2' && authenticationProviderFirstScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-4' && authenticationTwoStepScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4091,6 +4106,13 @@ async function runInteractionsParallel(
                     ? { ...item, fillValue: 'northwind' }
                     : item,
                 ))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-4') {
+              for (const scenario of authenticationTwoStepScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationTwoStepScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
