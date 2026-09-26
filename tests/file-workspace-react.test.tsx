@@ -85,7 +85,9 @@ test('file workspace renders Host entries and a command-owned editable document'
     expect(html).toContain('Text preview: README.md')
     expect(html).not.toContain('<textarea')
     expect(html).not.toContain('Save file')
-    expect(html).not.toContain('hbar-app-react-file-browser')
+    expect(html).toContain('class="hbar-app-react-file-browser" hidden=""')
+    expect(html).toContain(labels.showNavigator)
+    expect(html).toContain('aria-current="page"')
     expect(html).not.toContain('demo.ts')
     await runtime.view.commands.execute('fileWorkspace.setDocumentMode', {
       instanceId: 'files',
