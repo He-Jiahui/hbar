@@ -374,11 +374,18 @@ export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent =
       brand: 'Halcyon',
       bell: (count) => `Notifications, ${count} unread`,
       dialog: 'Notifications',
-      close: 'Close notifications',
+      filter: 'Filter',
+      all: 'All',
+      unread: 'Unread',
       markAll: 'Mark all read',
+      openCenter: 'Open notification center',
       settings: 'Settings',
       hint: 'Open the bell to review recent activity. The panel closes on Escape or on a click outside, and returns focus to the trigger.',
       empty: 'No notifications',
+      unreadEmpty: 'No unread notifications',
+      pending: 'Marking as read…',
+      failed: 'Could not mark as read. Try again.',
+      unavailable: 'Read action unavailable',
     },
     navItems: [
       { id: 'overview', label: 'Overview', href: '#' },
@@ -387,12 +394,15 @@ export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent =
     ],
     selectedNavId: 'overview',
     messages: [
-      { id: 'access', title: 'Priya requested access', time: '9m ago', unread: true },
-      { id: 'report', title: 'Billing report is ready', time: '42m ago', unread: true },
-      { id: 'signin', title: 'New sign-in detected', time: 'Yesterday', unread: true },
+      { id: 'ana', actor: 'Ana Reyes', summary: 'mentioned you in Q3 rollout plan', time: '12m', unread: true, icon: 'mention' },
+      { id: 'wei', actor: 'Wei Chen', summary: 'requested review on Billing usage meter', time: '48m', unread: true, icon: 'review' },
+      { id: 'signin', actor: 'Halcyon', summary: 'recorded a sign-in from macOS · Lisbon', time: '3h', unread: true, icon: 'security' },
+      { id: 'marco', actor: 'Marco Silva', summary: 'replied in Onboarding checklist', time: '5h', unread: false, icon: 'reply' },
+      { id: 'sofia', actor: 'Sofia Alvarez', summary: 'resolved your comment in Meridian import', time: '1d', unread: false, icon: 'resolved' },
     ],
     avatar: 'AR',
     listStrategy: scroll,
+    markRead: async () => 'confirmed',
   },
 }
 
@@ -626,10 +636,15 @@ export function createHbarAppUiNotificationBellFixture(
           ...bell.labels,
           brand: 'Halcyon Arbeitsbereich für internationale Zusammenarbeit',
           bell: (count) => `Benachrichtigungen, ${count} ungelesen`,
+          dialog: 'Benachrichtigungen', filter: 'Filter', all: 'Alle', unread: 'Ungelesen',
+          markAll: 'Alle als gelesen markieren', openCenter: 'Benachrichtigungszentrale öffnen',
           settings: 'Einstellungen',
           hint: 'Öffnen Sie die Glocke, um aktuelle Aktivitäten zu lesen. Schließen Sie das Fenster mit Escape oder einem Klick außerhalb; danach erhält der Auslöser den Fokus zurück.',
+          empty: 'Keine Benachrichtigungen', unreadEmpty: 'Keine ungelesenen Benachrichtigungen',
+          pending: 'Als gelesen markieren…', failed: 'Markieren fehlgeschlagen. Erneut versuchen.', unavailable: 'Leseaktion nicht verfügbar',
         },
         navItems: bell.navItems.map((item) => ({ ...item, label: `${item.label} für Arbeitsbereiche` })),
+        messages: bell.messages.map((item) => ({ ...item, summary: `${item.summary} für diesen internationalen Arbeitsbereich` })),
       },
     }
     case 'empty': return { ...base, bell: { ...bell, messages: [] } }
@@ -639,7 +654,7 @@ export function createHbarAppUiNotificationBellFixture(
       bell: {
         ...bell,
         navItems: Array.from({ length: 81 }, (_, index) => ({ id: `workspace-${index}`, label: `Workspace ${index}`, href: `#workspace-${index}` })),
-        messages: Array.from({ length: 81 }, (_, index) => ({ id: `alert-${index}`, title: `Alert ${index}`, time: '1m', unread: index % 2 === 0 })),
+        messages: Array.from({ length: 81 }, (_, index) => ({ id: `alert-${index}`, actor: `Colleague ${index}`, summary: `updated project ${index}`, time: '1m', unread: index % 2 === 0, icon: 'mention' as const })),
       },
     }
     case 'duplicate': return {
@@ -647,6 +662,17 @@ export function createHbarAppUiNotificationBellFixture(
       bell: { ...bell, navItems: [...bell.navItems, bell.navItems[0]!], messages: [...bell.messages, bell.messages[0]!] },
     }
     case 'stale': return { ...base, bell: { ...bell, selectedNavId: 'missing' } }
+    case 'unavailable': return { ...base, bell: { ...bell, markRead: undefined } }
+    case 'retry': {
+      const handler = bell.markRead
+      if (!handler) return base
+      let attempts = 0
+      return { ...base, bell: { ...bell, markRead: async (ids, signal) => {
+        attempts += 1
+        if (attempts === 1) throw new Error('Preview-only failed read action')
+        return handler(ids, signal)
+      } } }
+    }
     case null:
     default: return base
   }

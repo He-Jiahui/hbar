@@ -273,6 +273,9 @@ export type InteractionCase = Readonly<{
     | 'system-expanded'
     | 'system-dismissed'
     | 'system-empty'
+    | 'bell-open'
+    | 'bell-unread'
+    | 'bell-unread-empty'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1651,6 +1654,15 @@ const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialo
 const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
 const notificationActivityScenarios = ['activity-snooze-menu', 'activity-snoozed', 'activity-archived', 'activity-back'] as const
 const notificationSystemScenarios = ['system-expanded', 'system-dismissed', 'system-empty'] as const
+const notificationBellScenarios = ['bell-open', 'bell-unread', 'bell-unread-empty'] as const
+async function prepareNotificationBellScenario(root: Locator, scenario: (typeof notificationBellScenarios)[number]): Promise<void> {
+  const dialog = root.getByRole('dialog', { name: 'Notifications' })
+  if (!(await dialog.count())) await root.getByRole('button', { name: /^Notifications, \d+ unread$/ }).click()
+  if (scenario === 'bell-open') return
+  const unread = dialog.getByRole('tab', { name: 'Unread' })
+  if ((await unread.getAttribute('aria-selected')) !== 'true') await unread.click()
+  if (scenario === 'bell-unread-empty') await dialog.getByRole('button', { name: 'Mark all read' }).click()
+}
 async function prepareNotificationSystemScenario(root: Locator, scenario: (typeof notificationSystemScenarios)[number]): Promise<void> {
   if (scenario === 'system-expanded') {
     await root.getByRole('button', { name: 'Show details', exact: true }).click()
@@ -3169,6 +3181,8 @@ async function replayInteraction(
     await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
   if (spec.id === 'hbar-app-ui-notifications-5' && notificationSystemScenarios.some((value) => value === interaction.scenario))
     await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
+  if (spec.id === 'hbar-app-ui-notifications-6' && notificationBellScenarios.some((value) => value === interaction.scenario))
+    await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3451,6 +3465,8 @@ async function replayReferenceInteraction(
     await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
   if (reference.id === 'hbar-app-ui-notifications-5' && notificationSystemScenarios.some((value) => value === interaction.scenario))
     await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
+  if (reference.id === 'hbar-app-ui-notifications-6' && notificationBellScenarios.some((value) => value === interaction.scenario))
+    await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3992,6 +4008,13 @@ async function runInteractionsParallel(
               for (const scenario of notificationSystemScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareNotificationSystemScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-notifications-6') {
+              for (const scenario of notificationBellScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareNotificationBellScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

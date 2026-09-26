@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Notifications 6: only the observed trigger-anchored popover and its badge overlap the flowing header.
+  if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover') return true
   // Notifications 6: the observed unread count overlaps only its owning bell trigger.
   if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge') return true
@@ -444,6 +447,10 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const bellPopover = '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover { position: absolute; inset-inline-end: 0; }'
+  if (validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellPopover).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', bellPopover).length === 0)
+    throw new Error('Observed bell popover exception must be path-scoped')
   const bellBadge = '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge { position: absolute; inset-block-start: 0; }'
   if (validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellBadge).length ||
       validateCss('packages/lumen-app-ui/src/other.css', bellBadge).length === 0)

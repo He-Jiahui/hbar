@@ -561,6 +561,32 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-notifications-6')
+    return {
+      revision: 1,
+      lumenEntries: ['notifications.tsx', 'notifications-bell-reference.css', 'notifications.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Native Projects link preserves the source fragment-only navigation' },
+        { viewport: 'desktop', theme: 'light', suffix: '3:click', change: 'Bell opens the anchored five-row dialog with filtering and scroll owner' },
+        { viewport: 'desktop', theme: 'light', suffix: 'bell-open:7:click', change: 'An unread row changes only its read treatment and the badge count' },
+        { viewport: 'desktop', theme: 'light', suffix: 'bell-open:12:click', change: 'Footer action closes the panel without inventing a destination' },
+        { viewport: 'desktop', theme: 'dark', suffix: '4:click', change: 'Settings has no reference demo navigation result' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'bell-open:5:click', change: 'Unread tab projects three rows and preserves the fixed panel controls' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'bell-open:10:click', change: 'Already-read row has no invented state change' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'bell-open:6:click', change: 'Mark all read changes row tone, badge, and disabled action state' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'bell-open:3:expand-escape', change: 'Escape closes the popover and restores the bell focus' },
+        { viewport: 'tablet', theme: 'light', suffix: 'bell-unread:6:click', change: 'Mark all read from Unread reveals a separate empty-list state' },
+        { viewport: 'tablet', theme: 'light', suffix: 'bell-unread-empty:4:click', change: 'All restores the five read rows without resetting their status' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'bell-open:3:click', change: 'Bell toggling closes the panel while keeping trigger focus' },
+        { viewport: 'stress', theme: 'light', suffix: '3:press-space', change: 'Native keyboard opens the narrow panel; reference left-edge clipping is surfaced, not hidden' },
+      ],
+      inferences: [
+        { scope: 'Other notification rows and nav links', basis: 'Five typed rows share the same ID-bound read callback, three links share native anchor behavior, and representative unread/read rows plus one link are paired. The remaining same-mechanism items are not counted as individual clicks.', verification: 'inferred-not-replayed' },
+        { scope: 'Outside pointer dismissal and other theme/viewport gesture combinations', basis: 'Live source probes and local browser checks confirm outside dismissal; footer and Escape pairs cover distinct close/focus outcomes. Eight static pairs cover responsive flow; repeated permutations are not replayed.', verification: 'inferred-not-replayed' },
+        { scope: 'Host failure, missing capability, capacity and localized input', basis: 'The source demo applies read state immediately. Host-confirmed failure/retry, unavailable callbacks, empty/one/duplicate/81 rows and translated short hosts are local-only evidence, not live outcomes.', verification: 'inferred-not-replayed' },
+        { scope: 'Other narrow viewport/theme popover permutations', basis: 'A direct source probe shows left-edge clipping at 356px and 286px, and the stress Space pair exposes the feedback mismatch. The local panel stays inside the host; only the repeated widths/themes are inferred, while the paired failure remains explicit until reference fidelity and no-clipping requirements are reconciled.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-notifications-5')
     return {
       revision: 1,

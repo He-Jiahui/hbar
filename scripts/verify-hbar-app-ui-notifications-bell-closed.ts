@@ -55,8 +55,8 @@ export async function verifyNotificationBellClosed(): Promise<void> {
     await root.getByRole('link', { name: 'Workspace 80' }).scrollIntoViewIfNeeded()
     assert(await root.getByRole('button', { name: 'Notifications, 41 unread' }).isVisible(), 'Long navigation obscures bell trigger')
     await root.getByRole('button', { name: 'Notifications, 41 unread' }).click()
-    assert(await root.locator('.lumen-notifications-bell article').count() === 81, 'Message capacity lost items')
-    const pane = root.locator('.lumen-notifications-bell aside > div')
+    assert(await root.locator('.lumen-bell-list .lumen-bell-message').count() === 81, 'Message capacity lost items')
+    const pane = root.locator('.lumen-bell-list')
     assert(await pane.evaluate((element) => element.scrollHeight > element.clientHeight), 'Long messages lack pane-owned scroll')
 
     for (const [width, height, links] of [[670, 440, 3], [356, 560, 0], [286, 420, 0], [280, 320, 0]] as const) {

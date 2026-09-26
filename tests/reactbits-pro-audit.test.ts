@@ -61,6 +61,21 @@ test('system banner sampling covers dismissal, detail disclosure, restoration an
   expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
 })
 
+test('bell sampling separates filtering, confirmed reads, close focus and a narrow source clipping conflict', () => {
+  const id = 'hbar-app-ui-notifications-6'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(13)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:1:click`, `${id}:3:click`, `${id}:bell-open:7:click`, `${id}:bell-open:12:click`,
+  ])
+  expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([
+    `${id}:bell-unread:6:click`, `${id}:bell-unread-empty:4:click`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:3:press-space`])
+  expect(plan.inferences.some((entry) => entry.scope.includes('narrow viewport') && entry.basis.includes('feedback mismatch'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('compact usage samples two independent actions and button styles, not passive bars', () => {
   const id = 'hbar-app-ui-ai-usage-8'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(5)
