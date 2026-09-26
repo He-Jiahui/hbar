@@ -233,6 +233,7 @@ import {
   liveActivityDelta,
   magicLinkInteractionDelta,
   codeAuthenticationInteractionDelta,
+  passwordResetInteractionDelta,
   manualReviewGate,
   rootGeometryMatches,
   selectInteractionCases,
@@ -301,6 +302,25 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('password reset feedback ignores hidden demo bytes but checks device outcomes and accessible copy', () => {
+    const sourceBefore = {...snapshot([control(0, {name: 'Update password', disabled: true})]), axSnapshot: '- checkbox "Sign out of my other devices" [checked]\n- text: Ends', bodyTextLength: 495}
+    const localBefore = {...sourceBefore, bodyTextLength: 405}
+    const sourceAfter = {...snapshot([control(0, {name: 'Update password', disabled: true})]), axSnapshot: '- checkbox "Sign out of my other devices"\n- text: Stays', bodyTextLength: 497}
+    const localAfter = {...sourceAfter, bodyTextLength: 407}
+    expect(passwordResetInteractionDelta(sourceBefore, sourceAfter).signature).toBe(passwordResetInteractionDelta(localBefore, localAfter).signature)
+    expect(passwordResetInteractionDelta(sourceBefore, sourceAfter).changed).toBe(true)
+    expect(passwordResetInteractionDelta(sourceBefore, sourceAfter).signature).not.toBe(passwordResetInteractionDelta(localBefore, {...localAfter, axSnapshot: '- checkbox "Sign out of my other devices"\n- text: Ends'}).signature)
+  })
+  test('password reset samples validation, reveal, sign-out and distinct completion messages without form permutations', () => {
+    const id = 'hbar-app-ui-authentication-13'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(10)
+    expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+      `${id}:0:fill`, `${id}:auth-reset-strong:2:fill`, `${id}:auth-reset-ready-no-signout:4:click`,
+    ])
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([`${id}:3:toggle`])
+    expect(sampledInteractionIds(id, 'mobile', 'light')).toEqual([`${id}:auth-reset-ready:4:click`])
+    expect(auditSamplingPlan(id)?.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+  })
   test('invitation audit samples native validation, reveal, confirmation, review and no-op alternatives', () => {
     const id = 'hbar-app-ui-authentication-12'
     expect(auditSamplingPlan(id)?.samples).toHaveLength(10)

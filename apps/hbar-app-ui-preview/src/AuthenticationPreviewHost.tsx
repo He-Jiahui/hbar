@@ -33,7 +33,12 @@ export function AuthenticationPreviewHost({
     [invitationName, setInvitationName] = useState(content.invitation?.referenceFlow?.fullName ?? ''),
     [invitationPassword, setInvitationPassword] = useState(content.invitation?.referenceFlow?.password ?? ''),
     [invitationVisible, setInvitationVisible] = useState(content.invitation?.referenceFlow?.passwordVisible ?? false),
-    [invitationPhase, setInvitationPhase] = useState<'form' | 'success'>(content.invitation?.referenceFlow?.phase ?? 'form')
+    [invitationPhase, setInvitationPhase] = useState<'form' | 'success'>(content.invitation?.referenceFlow?.phase ?? 'form'),
+    [resetPassword, setResetPassword] = useState(content.passwordReset?.referenceFlow?.password ?? content.passwordReset?.initialPassword ?? ''),
+    [resetConfirmation, setResetConfirmation] = useState(content.passwordReset?.referenceFlow?.confirmation ?? ''),
+    [resetVisible, setResetVisible] = useState(content.passwordReset?.referenceFlow?.passwordVisible ?? false),
+    [resetSignOutOther, setResetSignOutOther] = useState(content.passwordReset?.referenceFlow?.signOutOther ?? true),
+    [resetPhase, setResetPhase] = useState<'form' | 'success'>(content.passwordReset?.referenceFlow?.phase ?? 'form')
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
@@ -59,6 +64,11 @@ export function AuthenticationPreviewHost({
     setInvitationPassword(content.invitation?.referenceFlow?.password ?? '')
     setInvitationVisible(content.invitation?.referenceFlow?.passwordVisible ?? false)
     setInvitationPhase(content.invitation?.referenceFlow?.phase ?? 'form')
+    setResetPassword(content.passwordReset?.referenceFlow?.password ?? content.passwordReset?.initialPassword ?? '')
+    setResetConfirmation(content.passwordReset?.referenceFlow?.confirmation ?? '')
+    setResetVisible(content.passwordReset?.referenceFlow?.passwordVisible ?? false)
+    setResetSignOutOther(content.passwordReset?.referenceFlow?.signOutOther ?? true)
+    setResetPhase(content.passwordReset?.referenceFlow?.phase ?? 'form')
   }
   useEffect(() => {
     if (!seconds) return
@@ -218,6 +228,32 @@ export function AuthenticationPreviewHost({
               onAction?.({ variantId: spec.id, actionId: 'accept' })
             },
             onReview: () => setInvitationPhase('form'),
+          },
+        },
+        passwordReset: content.passwordReset && {
+          ...content.passwordReset,
+          referenceFlow: content.passwordReset.referenceFlow && {
+            ...content.passwordReset.referenceFlow,
+            password: resetPassword,
+            confirmation: resetConfirmation,
+            passwordVisible: resetVisible,
+            signOutOther: resetSignOutOther,
+            phase: resetPhase,
+            onPasswordChange: setResetPassword,
+            onConfirmationChange: setResetConfirmation,
+            onTogglePassword: () => setResetVisible((visible) => !visible),
+            onSignOutOtherChange: setResetSignOutOther,
+            onSubmit: () => {
+              setResetPhase('success')
+              onAction?.({ variantId: spec.id, actionId: 'update-password', value: resetSignOutOther ? 'all-devices' : 'current-device' })
+            },
+            onSetDifferent: () => {
+              setResetPassword('')
+              setResetConfirmation('')
+              setResetVisible(false)
+              setResetSignOutOther(true)
+              setResetPhase('form')
+            },
           },
         },
       }}

@@ -300,6 +300,10 @@ export type InteractionCase = Readonly<{
     | 'auth-invite-named'
     | 'auth-invite-ready'
     | 'auth-invite-success'
+    | 'auth-reset-strong'
+    | 'auth-reset-ready'
+    | 'auth-reset-ready-no-signout'
+    | 'auth-reset-success'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1775,6 +1779,16 @@ async function prepareAuthenticationInvitationScenario(root: Locator, scenario: 
   if (scenario === 'auth-invite-success')
     await root.getByRole('button', { name: 'Accept invitation' }).click()
 }
+const authenticationResetScenarios = ['auth-reset-strong', 'auth-reset-ready', 'auth-reset-ready-no-signout', 'auth-reset-success'] as const
+async function prepareAuthenticationResetScenario(root: Locator, scenario: (typeof authenticationResetScenarios)[number]): Promise<void> {
+  await root.getByRole('textbox', { name: 'New password' }).fill('Abcdefghij1!')
+  if (scenario !== 'auth-reset-strong')
+    await root.getByRole('textbox', { name: 'Confirm password' }).fill('Abcdefghij1!')
+  if (scenario === 'auth-reset-ready-no-signout')
+    await root.getByRole('checkbox', { name: 'Sign out of my other devices' }).uncheck()
+  if (scenario === 'auth-reset-success')
+    await root.getByRole('button', { name: 'Update password' }).click()
+}
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
   if (await first.isVisible()) {
@@ -3132,7 +3146,26 @@ async function interactionDelta(
     return magicLinkInteractionDelta(before, after)
   if (interaction.id.startsWith('hbar-app-ui-authentication-6:'))
     return codeAuthenticationInteractionDelta(before, after)
+  if (interaction.id.startsWith('hbar-app-ui-authentication-13:'))
+    return passwordResetInteractionDelta(before, after)
   return semanticInteractionDelta(before, after)
+}
+
+export function passwordResetInteractionDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> {
+  // The source embeds hidden stylesheet/demo text in textContent. Compare the
+  // full accessible before/after hierarchy and controls, not those hidden bytes.
+  const normalize = (snapshot: SemanticSnapshot): SemanticSnapshot => ({
+    ...snapshot,
+    bodyTextLength: snapshot.axSnapshot.length,
+  })
+  const base = semanticInteractionDelta(normalize(before), normalize(after))
+  return {
+    changed: base.changed || before.axSnapshot !== after.axSnapshot,
+    signature: JSON.stringify({ base: base.signature, beforeAx: before.axSnapshot, afterAx: after.axSnapshot }),
+  }
 }
 
 export function magicLinkInteractionDelta(
@@ -3378,6 +3411,8 @@ async function replayInteraction(
     await prepareAuthenticationAccountContractor(root)
   if (spec.id === 'hbar-app-ui-authentication-12' && authenticationInvitationScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-13' && authenticationResetScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3683,6 +3718,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationAccountContractor(root)
   if (reference.id === 'hbar-app-ui-authentication-12' && authenticationInvitationScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-13' && authenticationResetScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4333,6 +4370,20 @@ async function runInteractionsParallel(
                 await prepareAuthenticationInvitationScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
                   item.id === `${spec.id}:auth-invite-named:2:fill` ? { ...item, fillValue: 'StrongPassword1!' } : item,
+                ))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-13') {
+              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill`
+                ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'abcdefghij' }
+                : item)
+              for (const scenario of authenticationResetScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationResetScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                  item.id === `${spec.id}:auth-reset-strong:2:fill`
+                    ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'Different123!' }
+                    : item,
                 ))
               }
             }

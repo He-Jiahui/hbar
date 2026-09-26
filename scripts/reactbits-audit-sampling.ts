@@ -561,6 +561,27 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-13')
+    return {
+      revision: 2,
+      lumenEntries: ['authentication.tsx', 'authentication-password-reset-reference.css', 'authentication/PasswordResetAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:fill', change: 'Weak password updates only satisfied requirement bars and copy' },
+        { viewport: 'desktop', theme: 'dark', suffix: '0:fill', change: 'Strong password satisfies all requirements while confirmation remains empty' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-reset-strong:2:fill', change: 'Mismatched confirmation keeps Update disabled' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-reset-strong:2:fill', change: 'Matching confirmation enables Update' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Reveal changes native input type and accessible button name' },
+        { viewport: 'tablet', theme: 'light', suffix: '3:toggle', change: 'Other-device sign-out preference toggles independently' },
+        { viewport: 'mobile', theme: 'light', suffix: 'auth-reset-ready:4:click', change: 'Valid update exercises the source completion branch' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-reset-ready-no-signout:4:click', change: 'Valid update with sign-out disabled distinguishes the alternate completion message' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'auth-reset-success:1:click', change: 'Set a different password returns from completion to the form' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-reset-success:0:click', change: 'Continue from completion has no documentation navigation' },
+      ],
+      inferences: [
+        { scope: 'Password requirement combinations', basis: 'Weak and strong values plus mismatched and matching confirmation cover the gating branches without testing every character permutation or viewport.', verification: 'inferred-not-replayed' },
+        { scope: 'Passive device rows', basis: 'Three device types and empty/over-bound host records are rendered as information; only the global sign-out preference is interactive.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-12')
     return {
       revision: 3,
