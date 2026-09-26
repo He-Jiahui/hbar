@@ -93,7 +93,8 @@
 .hbar-proposed-plan-actions {
   justify-content: space-between;
 }
-.hbar-proposed-plan-status {
+.hbar-proposed-plan-status,
+.hbar-proposed-plan-scope {
   margin: 0;
   padding: 8px 12px;
   font-size: 0.75rem;

@@ -1157,14 +1157,45 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     proposedPlan: {
       title: choose('计划提案', 'Proposed plan'),
       document: choose('计划文档', 'Plan document'),
-      implement: choose('按此计划执行', 'Implement this plan'),
-      continuePlanning: choose('继续规划', 'Keep planning'),
+      implement: choose('新一轮执行', 'Start implementation turn'),
+      continuePlanning: choose('新一轮规划', 'Start planning turn'),
+      scope: choose(
+        '以下操作开启新一轮：执行使用普通模式，规划使用计划模式。会话模式不变，输入区草稿和附件不会发送。',
+        'These actions start a new turn: Default mode for implementation, Plan mode for planning. The session mode stays unchanged; your composer draft and attachments are not sent.',
+      ),
       feedback: choose('规划反馈（用于继续规划）', 'Feedback for further planning'),
       feedbackPlaceholder: choose('说明需要完善的内容', 'Describe what should change'),
       submitting: choose('正在提交请求…', 'Submitting request…'),
       accepted: choose('请求已受理', 'Request accepted'),
       unknown: choose('提交结果尚未确认，请先核对。', 'The result is unknown. Check it before retrying.'),
+      checking: choose('正在核对原提交，请稍候…', 'Checking the original submission…'),
       reconcile: choose('核对提交结果', 'Check request result'),
+      error: (code) => {
+        if (code === 'RESULT_UNKNOWN')
+          return choose(
+            '尚未确认原提交结果，请核对原请求。',
+            'The original submission is not confirmed. Check its receipt.',
+          )
+        if (['DISCONNECTED', 'CONNECTION_CLOSED', 'CAPABILITY_UNAVAILABLE'].includes(code))
+          return choose(
+            '当前无法连接服务端，连接恢复后可再次核对。',
+            'The Host is unavailable. Check again after reconnecting.',
+          )
+        if (['MODEL_UNAVAILABLE', 'MODEL_NOT_FOUND'].includes(code))
+          return choose(
+            '原会话的模型已不可用，请先重新选择模型。',
+            'The original session model is unavailable. Choose a model first.',
+          )
+        if (['STALE_TARGET', 'STALE_PROPOSAL', 'PLAN_NOT_COMPLETE'].includes(code))
+          return choose(
+            '原提案已变化或尚未完成，请查看最新计划。',
+            'The original proposal changed or is not complete. Review the latest plan.',
+          )
+        return choose(
+          '操作未能确认。请检查连接，并使用此卡片中的恢复入口。',
+          'The operation could not be confirmed. Check the connection and use this card’s recovery action.',
+        )
+      },
     },
     proposedPlanReadOnly: choose('计划文档（只读）', 'Plan document (read only)'),
     proposedPlanAvailability: (value) => {

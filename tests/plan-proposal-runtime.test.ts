@@ -94,6 +94,8 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
   let hold: Promise<void> | null = null
   let receiptVisible = true
   const receiptHolds: Promise<void>[] = []
+  const receiptReads: Array<{ sessionId: string; key: string }> = []
+  const receiptErrors: unknown[] = []
   const run: RunCommandPort = {
     async execute(name, input, options) {
       const request = input as SubmitRunInput
@@ -117,9 +119,11 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
       if (mode === 'malformed') return { accepted: true }
       return result
     },
-    async getReceipt(_sessionId, key) {
+    async getReceipt(sessionId, key) {
+      receiptReads.push({ sessionId, key })
       const receiptHold = receiptHolds.shift()
       if (receiptHold) await receiptHold
+      if (receiptErrors.length) throw receiptErrors.shift()
       return receiptVisible ? (receipts.get(key) ?? null) : null
     },
   }
@@ -151,6 +155,7 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
     calls,
     run,
     receipts,
+    receiptReads,
     drafts,
     draftClient,
     proposal,
@@ -166,6 +171,9 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
     },
     holdNextReceipt(value: Promise<void>) {
       receiptHolds.push(value)
+    },
+    failNextReceipt(value: unknown) {
+      receiptErrors.push(value)
     },
     async target() {
       for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -363,6 +371,199 @@ test('unknown proposal reuses the draft receipt, blocks both submit paths and do
     expect(f.calls).toHaveLength(1)
     expect(f.drafts.reader.getSnapshot().one?.status).toBe('idle')
   } finally {
+    f.dispose()
+  }
+})
+
+test('receipt reconciliation publishes pending feedback and blocks repeated reads without another Run', async () => {
+  const f = fixture()
+  const hold = Promise.withResolvers<void>()
+  let checking: Promise<RunAccepted | null> | undefined
+  try {
+    const target = await f.target()
+    const key = planProposalActionKey(target)
+    f.setMode('unknown')
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    f.holdNextReceipt(hold.promise)
+    checking = f.commands.execute('proposedPlan.reconcile', target)
+    for (let attempt = 0; attempt < 100 && f.receiptReads.length === 0; attempt += 1) await Bun.sleep(1)
+    expect(f.proposal.reader.getSnapshot().actions[key]).toMatchObject({
+      status: 'unknown',
+      reconciling: true,
+      error: null,
+    })
+    const duplicate = await f.commands.execute('proposedPlan.reconcile', target).catch((error: unknown) => error)
+    expect(duplicate).toMatchObject({ code: 'BUSY' })
+    const originalKey = f.calls[0]?.key
+    if (!originalKey) throw new Error('The original proposal submission key is missing')
+    expect(f.receiptReads).toEqual([{ sessionId: target.sessionId, key: originalKey }])
+    expect(f.calls).toHaveLength(1)
+    hold.resolve()
+    const receipt = await checking
+    expect(f.proposal.reader.getSnapshot().actions[key]).toMatchObject({
+      status: 'accepted',
+      reconciling: false,
+      error: null,
+      operationId: receipt?.operationId,
+    })
+  } finally {
+    hold.resolve()
+    await checking?.catch(() => {})
+    f.dispose()
+  }
+})
+
+test('receipt read errors stay unknown with local safe feedback and the original submission key', async () => {
+  for (const [failure, expected] of [
+    [new CommandError('DISCONNECTED', 'Offline details'), 'DISCONNECTED'],
+    [new CommandError('TIMEOUT', 'Transport details'), 'TIMEOUT'],
+    [new Error('Sensitive raw payload must not become UI copy'), 'EXECUTION_FAILED'],
+  ] as const) {
+    const f = fixture()
+    try {
+      const target = await f.target()
+      const key = planProposalActionKey(target)
+      f.setMode('unknown')
+      await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'continue' })).rejects.toMatchObject({
+        code: 'RESULT_UNKNOWN',
+      })
+      f.failNextReceipt(failure)
+      const error = await f.commands.execute('proposedPlan.reconcile', target).catch((value: unknown) => value)
+      expect(error).toMatchObject({ code: expected })
+      expect(f.proposal.reader.getSnapshot().actions[key]).toMatchObject({
+        target,
+        action: 'continue',
+        status: 'unknown',
+        reconciling: false,
+        error: expected,
+      })
+      expect(JSON.stringify(f.proposal.reader.getSnapshot())).not.toContain('Sensitive raw payload')
+      await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'continue' })).rejects.toMatchObject({
+        code: 'BUSY',
+      })
+      const accepted = await f.commands.execute('proposedPlan.reconcile', target)
+      const originalKey = f.calls[0]?.key
+      if (!originalKey) throw new Error('The original proposal submission key is missing')
+      expect(accepted?.idempotencyKey).toBe(originalKey)
+      expect(f.receiptReads.map((read) => read.key)).toEqual([originalKey, originalKey])
+      expect(f.proposal.reader.getSnapshot().actions[key]).toMatchObject({
+        status: 'accepted',
+        reconciling: false,
+        error: null,
+      })
+      expect(f.calls).toHaveLength(1)
+    } finally {
+      f.dispose()
+    }
+  }
+})
+
+test('missing receipts clear stale read errors but remain unknown even when new proposal preparation is unavailable', async () => {
+  const f = fixture()
+  try {
+    const target = await f.target()
+    const key = planProposalActionKey(target)
+    f.setMode('unknown')
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    f.failNextReceipt(new CommandError('TIMEOUT', 'Read failed'))
+    await f.commands.execute('proposedPlan.reconcile', target).catch(() => {})
+    f.configuration.replace({ ...controls(), model: null })
+    expect(f.proposal.reader.getSnapshot().availability).toBe('model_unavailable')
+    f.showReceipt(false)
+    expect(await f.commands.execute('proposedPlan.reconcile', target)).toBeNull()
+    expect(f.proposal.reader.getSnapshot().actions[key]).toMatchObject({
+      status: 'unknown',
+      reconciling: false,
+      error: null,
+      operationId: null,
+    })
+    expect(f.drafts.reader.getSnapshot().one?.status).toBe('unknown')
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })).rejects.toMatchObject({
+      code: 'BUSY',
+    })
+    f.showReceipt(true)
+    expect((await f.commands.execute('proposedPlan.reconcile', target))?.idempotencyKey).toBe(f.calls[0]?.key)
+    expect(f.calls).toHaveLength(1)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('a late failed receipt read updates only its captured proposal through an A-B-A source change', async () => {
+  const f = fixture()
+  const hold = Promise.withResolvers<void>()
+  let checking: Promise<unknown> | undefined
+  try {
+    const original = timeline()
+    const target = await f.target()
+    const key = planProposalActionKey(target)
+    f.setMode('unknown')
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'continue' })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    f.holdNextReceipt(hold.promise)
+    f.failNextReceipt(new CommandError('DISCONNECTED', 'Original receipt read failed'))
+    checking = f.commands.execute('proposedPlan.reconcile', target).catch((error: unknown) => error)
+    for (let attempt = 0; attempt < 100 && f.receiptReads.length === 0; attempt += 1) await Bun.sleep(1)
+    f.feed.replace({ ...original, sessionId: 'two', messages: [], runs: [] })
+    f.feed.replace({
+      ...original,
+      messages: original.messages.map((message) => ({ ...message, id: 'new-proposal', seq: 2 })),
+    })
+    const replacement = await f.target()
+    expect(replacement.messageId).toBe('new-proposal')
+    hold.resolve()
+    expect(await checking).toMatchObject({ code: 'DISCONNECTED' })
+    expect(f.proposal.reader.getSnapshot().proposal?.target).toEqual(replacement)
+    expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(replacement)]).toBeUndefined()
+    expect(f.proposal.reader.getSnapshot().actions[key]).toMatchObject({
+      target,
+      status: 'unknown',
+      reconciling: false,
+      error: 'DISCONNECTED',
+    })
+    expect((await f.commands.execute('proposedPlan.reconcile', target))?.idempotencyKey).toBe(f.calls[0]?.key)
+    expect(f.proposal.reader.getSnapshot().proposal?.target).toEqual(replacement)
+    expect(f.calls).toHaveLength(1)
+  } finally {
+    hold.resolve()
+    await checking
+    f.dispose()
+  }
+})
+
+test('disposing during receipt reconciliation publishes no late completion or subscriber callback', async () => {
+  const f = fixture()
+  const hold = Promise.withResolvers<void>()
+  let checking: Promise<unknown> | undefined
+  try {
+    const target = await f.target()
+    f.setMode('unknown')
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    f.holdNextReceipt(hold.promise)
+    checking = f.commands.execute('proposedPlan.reconcile', target).catch((error: unknown) => error)
+    for (let attempt = 0; attempt < 100 && f.receiptReads.length === 0; attempt += 1) await Bun.sleep(1)
+    const before = f.proposal.reader.getSnapshot()
+    expect(before.actions[planProposalActionKey(target)]).toMatchObject({ reconciling: true })
+    let notifications = 0
+    f.proposal.reader.subscribe(() => {
+      notifications += 1
+    })
+    f.proposal.dispose()
+    hold.resolve()
+    await checking
+    expect(f.proposal.reader.getSnapshot()).toBe(before)
+    expect(notifications).toBe(0)
+    expect(f.calls).toHaveLength(1)
+  } finally {
+    hold.resolve()
+    await checking
     f.dispose()
   }
 })

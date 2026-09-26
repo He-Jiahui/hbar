@@ -1,12 +1,60 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createConfigurationCommandClient, createFileCommandClient, createRunCommandClient } from '@hbar/client'
 import { createHash } from 'node:crypto'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+async function holdProposalAcceptance(page: Page) {
+  const envelope = z
+    .object({
+      id: z.union([z.string(), z.number()]).optional(),
+      method: z.string().optional(),
+      params: z.object({ commandId: z.string().optional() }).passthrough().optional(),
+    })
+    .passthrough()
+  const ids = new Set<string | number>()
+  let release: (() => void) | null = null
+  await page.routeWebSocket('**/rpc', (socket) => {
+    const server = socket.connectToServer()
+    socket.onMessage((message) => {
+      if (typeof message === 'string') {
+        const parsed = envelope.safeParse(JSON.parse(message))
+        if (
+          parsed.success &&
+          parsed.data.method === 'command.execute' &&
+          parsed.data.params?.commandId === 'run.submit' &&
+          parsed.data.id !== undefined
+        )
+          ids.add(parsed.data.id)
+      }
+      server.send(message)
+    })
+    server.onMessage((message) => {
+      if (typeof message === 'string') {
+        const parsed = envelope.safeParse(JSON.parse(message))
+        if (parsed.success && parsed.data.id !== undefined && ids.delete(parsed.data.id)) {
+          release = () => socket.send(message)
+          return
+        }
+      }
+      socket.send(message)
+    })
+  })
+  return {
+    held: () => release !== null,
+    release() {
+      if (!release) throw new Error('The actual proposal acceptance reply is not held')
+      const current = release
+      release = null
+      current()
+    },
+  }
+}
 
 async function seedProposal(host: WebSessionHost, name: string) {
   const sessionId = host.ready.sessionId
@@ -88,9 +136,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.setDefaultTimeout(15_000)
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
+      const acceptance = await holdProposalAcceptance(page)
+      await page.addInitScript(() => {
+        const events: Array<{ type: string; key: string; target: string; active: string }> = []
+        Object.defineProperty(window, '__proposalFocusAudit', { value: events })
+        for (const type of ['focusin', 'keydown'])
+          document.addEventListener(
+            type,
+            (event) => {
+              const describe = (node: EventTarget | null) =>
+                node instanceof Element
+                  ? `${node.tagName}.${node.className}:${node.getAttribute('data-proposal-message') ?? ''}:${node.textContent?.slice(0, 60) ?? ''}`
+                  : ''
+              events.push({
+                type,
+                key: event instanceof KeyboardEvent ? event.key : '',
+                target: describe(event.target),
+                active: describe(document.activeElement),
+              })
+              if (events.length > 80) events.shift()
+            },
+            true,
+          )
+      })
       await page.goto(base)
       await selectSession(page, host, locale)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      await expect(prompt).toBeEditable()
       await prompt.fill(draft)
       const chooser = page.waitForEvent('filechooser')
       const upload = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/artifacts')
@@ -145,6 +217,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await proposal.scrollIntoViewIfNeeded()
         await expect(proposal.getByRole('button', { name: labels.implement, exact: true })).toBeEnabled()
         await expect(proposal.getByRole('button', { name: labels.continuePlanning, exact: true })).toBeEnabled()
+        await expect(proposal.locator('.hbar-proposed-plan-scope')).toHaveText(labels.scope)
+        await expect(proposal.getByRole('button', { name: labels.implement, exact: true })).toHaveAccessibleDescription(
+          labels.scope,
+        )
+        await expect(
+          proposal.getByRole('button', { name: labels.continuePlanning, exact: true }),
+        ).toHaveAccessibleDescription(labels.scope)
         await expectComposerText(prompt, draft)
         await expect(attachment).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
@@ -161,9 +240,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const implement = proposal.getByRole('button', { name: labels.implement, exact: true })
       await implement.focus()
       await page.keyboard.press('Enter')
-      await page.keyboard.press('Enter')
-      await expect(proposal.getByRole('status')).toHaveText(labels.accepted)
+      await expect.poll(acceptance.held).toBe(true)
       await expect(implement).toBeDisabled()
+      expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+      await page.keyboard.press('Enter')
+      acceptance.release()
+      await expect(proposal.getByRole('status')).toHaveText(labels.accepted)
+      await expect(proposal.getByRole('button')).toHaveCount(0)
+      await expect(proposal.getByRole('textbox')).toHaveCount(0)
+      await writeFile(
+        testInfo.outputPath('implementation-focus-events.json'),
+        JSON.stringify(await page.evaluate(() => Reflect.get(window, '__proposalFocusAudit') as unknown), null, 2),
+      )
+      await expect(proposal).toBeFocused()
       await expect
         .poll(async () => {
           const snapshot = await selectedHost.client.call('session.snapshot', { sessionId })
@@ -200,8 +289,31 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       await revised.getByRole('button', { name: labels.continuePlanning, exact: true }).focus()
       await page.keyboard.press('Space')
+      await expect.poll(acceptance.held).toBe(true)
+      await expect(revised.getByRole('button', { name: labels.continuePlanning, exact: true })).toBeDisabled()
+      expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
       await page.keyboard.press('Space')
+      acceptance.release()
       await expect(revised.getByRole('status')).toHaveText(labels.accepted)
+      await expect(revised.getByRole('button')).toHaveCount(0)
+      await expect(revised.getByRole('textbox')).toHaveCount(0)
+      await writeFile(
+        testInfo.outputPath('refinement-focus-events.json'),
+        JSON.stringify(await page.evaluate(() => Reflect.get(window, '__proposalFocusAudit') as unknown), null, 2),
+      )
+      await expect(revised)
+        .toBeFocused()
+        .catch(async (error: unknown) => {
+          await testInfo.attach('proposal-focus-events', {
+            body: JSON.stringify(
+              await page.evaluate(() => Reflect.get(window, '__proposalFocusAudit') as unknown),
+              null,
+              2,
+            ),
+            contentType: 'application/json',
+          })
+          throw error
+        })
       await expect
         .poll(async () => {
           const snapshot = await selectedHost.client.call('session.snapshot', { sessionId })

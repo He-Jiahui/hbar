@@ -630,7 +630,9 @@ function SessionWorkspaceContent({
               state: {
                 status: proposalAction?.status ?? 'idle',
                 canSubmit: connected && !proposalBlocked && planProposal.availability === 'ready',
-                error: proposalAction?.error ? labels.error(proposalAction.error) : null,
+                connected,
+                reconciling: proposalAction?.reconciling ?? false,
+                error: proposalAction?.error ? labels.proposedPlan.error(proposalAction.error) : null,
                 unavailable: connected
                   ? !canPrepare
                     ? preparationStatus === 'archived'

@@ -60,6 +60,7 @@ export interface PlanProposalActionState {
   readonly target: PlanProposalTarget
   readonly action: PlanProposalSubmit['action']
   readonly status: 'submitting' | 'unknown' | 'failed' | 'accepted'
+  readonly reconciling: boolean
   readonly error: string | null
   readonly operationId: string | null
 }
@@ -308,7 +309,14 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       if (!text.trim() || text.length > 200_000)
         throw new CommandError('INVALID_INPUT', 'Proposal request text must be non-empty and bounded')
       if (executionTarget) options.preparation?.assertCanPrepare(executionTarget)
-      setAction({ target: request.target, action: input.action, status: 'submitting', error: null, operationId: null })
+      setAction({
+        target: request.target,
+        action: input.action,
+        status: 'submitting',
+        reconciling: false,
+        error: null,
+        operationId: null,
+      })
       dispatched = true
       const accepted = await options.executeDetachedRun(
         {
@@ -330,6 +338,7 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
         target: request.target,
         action: input.action,
         status: 'accepted',
+        reconciling: false,
         error: null,
         operationId: accepted.operationId,
       })
@@ -341,6 +350,7 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
         target: request.target,
         action: input.action,
         status: unknown ? 'unknown' : 'failed',
+        reconciling: false,
         error: code(error),
         operationId: null,
       })
@@ -358,10 +368,14 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       request.target.sourceSeq !== target.sourceSeq
     )
       throw new CommandError('STALE_TARGET', 'The pending proposal belongs to another message')
-    if (state.reader.getSnapshot().actions[planProposalActionKey(target)]?.status !== 'unknown')
+    const actionKey = planProposalActionKey(request.target)
+    const original = state.reader.getSnapshot().actions[actionKey]
+    if (original?.status !== 'unknown')
       throw new CommandError('BUSY', 'Proposal submission is still awaiting its response')
     reconciling.add(target.sessionId)
     try {
+      setAction({ ...original, reconciling: true, error: null })
+      if (disposed) throw new CommandError('CANCELLED', 'Proposal actions have been disposed')
       let receipt = options.getSettledReceipt(target.sessionId, request.key)
       if (!receipt) {
         try {
@@ -380,13 +394,23 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
           target: request.target,
           action: request.action,
           status: 'accepted',
+          reconciling: false,
           error: null,
           operationId: receipt.operationId,
         })
       }
       return receipt
+    } catch (error) {
+      const current = state.reader.getSnapshot().actions[actionKey]
+      // A failed read says nothing about the original write. Keep its key and
+      // target locked, including when that proposal is no longer selected.
+      if (pending.get(target.sessionId) === request && current?.status === 'unknown')
+        setAction({ ...current, error: code(error) })
+      throw error
     } finally {
       reconciling.delete(target.sessionId)
+      const current = state.reader.getSnapshot().actions[actionKey]
+      if (current?.target === request.target && current.reconciling) setAction({ ...current, reconciling: false })
     }
   })
   return {

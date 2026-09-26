@@ -52,7 +52,7 @@ test('a proposal split across text blocks preserves surrounding prose, tools and
       document={document(blocks)}
       plan={{
         labels: copy.proposedPlan,
-        state: { status: 'idle', canSubmit: true, error: null, unavailable: null },
+        state: { status: 'idle', canSubmit: true, connected: true, reconciling: false, error: null, unavailable: null },
         onSubmit: () => {},
         onReconcile: () => {},
       }}
