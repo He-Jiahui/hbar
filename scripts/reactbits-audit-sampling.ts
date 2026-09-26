@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-11')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-workspace-reference.css', 'authentication/WorkspacePickerAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '3:click', change: 'Selecting another ordinary workspace updates pressed row and Open action' },
+        { viewport: 'desktop', theme: 'light', suffix: '1:fill', change: 'Search narrows the six workspaces to the Design match' },
+        { viewport: 'desktop', theme: 'dark', suffix: '6:click', change: 'Choosing an invitation updates the primary action and selection' },
+        { viewport: 'tablet', theme: 'light', suffix: '8:click', change: 'Create workspace row demonstrates its own reference feedback' },
+        { viewport: 'tablet', theme: 'dark', suffix: '0:click', change: 'Sign out has no documentation navigation' },
+        { viewport: 'mobile', theme: 'dark', suffix: '1:fill', change: 'A no-match query reveals the host-owned empty state' },
+        { viewport: 'mobile', theme: 'light', suffix: '9:click', change: 'Open action has no documentation navigation' },
+        { viewport: 'stress', theme: 'dark', suffix: '3:press-space', change: 'Keyboard choice updates the narrow selected row without replaying every workspace' },
+      ],
+      inferences: [
+        { scope: 'Repeated workspace rows', basis: 'Ordinary workspace and invitation selection share host state; one of each plus a narrow keyboard choice covers the distinct feedback branches.', verification: 'inferred-not-replayed' },
+        { scope: 'List scroll and responsive layout', basis: 'Eight static pairs show clipping and footer ownership; the invitation and create controls exercise scrolling into the list rather than multiplying every row by every viewport.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-10')
     return {
       revision: 1,

@@ -39,7 +39,7 @@ describe('hbar-app-ui authentication surfaces', () => {
             'hbar-app-ui-auth-enterprise-surface',
             'hbar-app-ui-auth-passkey-surface',
             'hbar-app-ui-auth-account-reference',
-            'hbar-app-ui-auth-workspace-surface',
+            'hbar-app-ui-auth-workspace-reference',
             'hbar-app-ui-auth-invitation-surface',
             'hbar-app-ui-auth-password-reset-surface',
             'hbar-app-ui-auth-approval-surface',
@@ -279,6 +279,27 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(empty).toContain('disabled=""')
         const legacy = renderAuthentication(10, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, account: {...base, referenceFlow: undefined}})
         expect(legacy).toContain('hbar-app-ui-auth-account-list')
+    })
+
+    test('workspace reference retains host selection across filtered, invitation and empty list states', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.workspace
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected workspace fixture')
+        const initial = renderAuthentication(11)
+        expect(occurrences(initial, 'aria-pressed=')).toBe(base.workspaces.length)
+        expect(initial).toContain('Invited by Mina Park')
+        expect(initial).toContain(base.labels.createDescription)
+        const filtered = renderAuthentication(11, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, workspace: {...base, referenceFlow: {...flow, query: 'Design'}}})
+        expect(filtered).toContain('Northwind Design')
+        expect(filtered).not.toContain('Ardent Freight')
+        expect(filtered).toContain('Open Northwind Operations')
+        const invitation = renderAuthentication(11, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, workspace: {...base, referenceFlow: {...flow, selectedId: 'aurelia'}}})
+        expect(invitation).toContain('Accept and open Aurelia Product Studio')
+        const noMatch = renderAuthentication(11, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, workspace: {...base, referenceFlow: {...flow, query: 'no matching workspace'}}})
+        expect(noMatch).toContain('No workspace matches “no matching workspace”')
+        expect(noMatch).toContain(flow.labels.emptyHint)
+        const legacy = renderAuthentication(11, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, workspace: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-workspace-list')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

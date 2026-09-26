@@ -301,6 +301,13 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('workspace audit samples search, invitation, create and sticky action mechanisms without row-layout multiplication', () => {
+    const id = 'hbar-app-ui-authentication-11'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(8)
+    expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:3:click`, `${id}:1:fill`])
+    expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([`${id}:1:fill`])
+    expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([`${id}:3:press-space`])
+  })
   test('account audit samples normal and expired selection plus independent no-ops without row permutations', () => {
     const id = 'hbar-app-ui-authentication-10'
     expect(auditSamplingPlan(id)?.samples).toHaveLength(7)

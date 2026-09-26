@@ -4306,6 +4306,11 @@ async function runInteractionsParallel(
               await prepareAuthenticationAccountContractor(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-account-contractor'))
             }
+            if (spec.id === 'hbar-app-ui-authentication-11') {
+              discovered = discovered.map((item) => item.id === `${spec.id}:1:fill`
+                ? { ...item, fillValue: viewport.id === 'mobile' ? 'no matching workspace' : 'Design' }
+                : item)
+            }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-ai-usage-6')

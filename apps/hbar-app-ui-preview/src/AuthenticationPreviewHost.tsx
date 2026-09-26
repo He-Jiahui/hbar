@@ -27,7 +27,9 @@ export function AuthenticationPreviewHost({
     [enterpriseBusy, setEnterpriseBusy] = useState(false),
     [passkeySelectedId, setPasskeySelectedId] = useState(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? ''),
     [passkeyPhase, setPasskeyPhase] = useState<'choose' | 'request'>(content.passkey?.referenceFlow?.phase ?? 'choose'),
-    [accountSelectedId, setAccountSelectedId] = useState(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? '')
+    [accountSelectedId, setAccountSelectedId] = useState(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? ''),
+    [workspaceSelectedId, setWorkspaceSelectedId] = useState(content.workspace?.referenceFlow?.selectedId ?? content.workspace?.initialWorkspaceId ?? ''),
+    [workspaceQuery, setWorkspaceQuery] = useState(content.workspace?.referenceFlow?.query ?? '')
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
@@ -47,6 +49,8 @@ export function AuthenticationPreviewHost({
     setPasskeySelectedId(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? '')
     setPasskeyPhase(content.passkey?.referenceFlow?.phase ?? 'choose')
     setAccountSelectedId(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? '')
+    setWorkspaceSelectedId(content.workspace?.referenceFlow?.selectedId ?? content.workspace?.initialWorkspaceId ?? '')
+    setWorkspaceQuery(content.workspace?.referenceFlow?.query ?? '')
   }
   useEffect(() => {
     if (!seconds) return
@@ -178,6 +182,16 @@ export function AuthenticationPreviewHost({
             ...content.account.referenceFlow,
             selectedId: accountSelectedId,
             onSelect: setAccountSelectedId,
+          },
+        },
+        workspace: content.workspace && {
+          ...content.workspace,
+          referenceFlow: content.workspace.referenceFlow && {
+            ...content.workspace.referenceFlow,
+            selectedId: workspaceSelectedId,
+            query: workspaceQuery,
+            onSelect: setWorkspaceSelectedId,
+            onQueryChange: setWorkspaceQuery,
           },
         },
       }}
