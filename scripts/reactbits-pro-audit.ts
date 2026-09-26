@@ -293,6 +293,7 @@ export type InteractionCase = Readonly<{
     | 'auth-signup-complete'
     | 'auth-signup-ready'
     | 'auth-signup-invalid-email'
+    | 'auth-enterprise-mismatch'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1743,6 +1744,9 @@ async function prepareAuthenticationSignUpScenario(root: Locator, scenario: (typ
   const agreement = root.getByRole('checkbox', { name: 'I agree to the terms of service and the privacy policy.' })
   if (scenario === 'auth-signup-ready' || scenario === 'auth-signup-invalid-email') await agreement.check()
   else await agreement.uncheck()
+}
+async function prepareAuthenticationEnterpriseMismatch(root: Locator): Promise<void> {
+  await root.getByRole('textbox', { name: 'Work email' }).fill('dana@example.test')
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3339,6 +3343,8 @@ async function replayInteraction(
     await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-7' && authenticationSignUpScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-8' && interaction.scenario === 'auth-enterprise-mismatch')
+    await prepareAuthenticationEnterpriseMismatch(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3636,6 +3642,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-7' && authenticationSignUpScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-8' && interaction.scenario === 'auth-enterprise-mismatch')
+    await prepareAuthenticationEnterpriseMismatch(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4166,6 +4174,8 @@ async function runInteractionsParallel(
                 : item.id === `${spec.id}:1:fill` ? { ...item, fillValue: 'dana@example.test' }
                   : item.id === `${spec.id}:2:fill` ? { ...item, fillValue: theme === 'light' ? 'abcdefghij' : 'Abcdefghij1!' }
                     : item)
+            if (spec.id === 'hbar-app-ui-authentication-8')
+              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: theme === 'dark' ? 'dana@ardentfreight.co' : 'dana@example.test' } : item)
             if (spec.id === 'hbar-app-ui-notifications-2') {
               for (const scenario of notificationToastScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
@@ -4254,6 +4264,12 @@ async function runInteractionsParallel(
                     : item,
                 ))
               }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-8' && sampleIds?.some((id) => id.startsWith(`${spec.id}:auth-enterprise-mismatch:`))) {
+              await prepareAuthenticationEnterpriseMismatch(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-enterprise-mismatch').map((item) =>
+                item.id === `${spec.id}:auth-enterprise-mismatch:0:fill` ? { ...item, fillValue: 'dana@northwind.com' } : item,
+              ))
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

@@ -59,6 +59,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(5, localized)).toContain('Prüfen Sie Ihren Posteingang')
         expect(renderAuthentication(6, localized)).toContain('Bestätigen Sie Ihre Identität')
         expect(renderAuthentication(7, localized)).toContain('Konto erstellen')
+        expect(renderAuthentication(8, localized)).toContain('Mit Ihrem Unternehmenskonto anmelden')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -210,6 +211,34 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(strong).not.toContain('disabled=""')
         const legacy = renderAuthentication(7, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, signUp: {...base, referenceFlow: undefined}})
         expect(legacy).toContain('hbar-app-ui-auth-progress')
+    })
+
+    test('enterprise reference renders controlled email and passive organization metadata without inventing controls', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.enterprise
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected enterprise fixture')
+        const initial = renderAuthentication(8)
+        expect(initial).toContain('<aside')
+        expect(initial).toContain('type="email"')
+        expect(initial).toContain('dana.whitfield@northwind.com')
+        expect(occurrences(initial, '<li')).toBe(3)
+        const alternate = renderAuthentication(8, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, enterprise: {...base, referenceFlow: {...flow, email: 'team@ardentfreight.co'}}})
+        expect(alternate).toContain('Continue with Microsoft Entra ID')
+        expect(alternate).toContain('Sign-in restricted to managed devices')
+        const unmatched = renderAuthentication(8, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, enterprise: {...base, referenceFlow: {...flow, email: 'team@unknown.example', alternateOrganizations: []}}})
+        expect(unmatched).toContain(flow.labels.noMatch)
+        expect(unmatched).toContain(flow.labels.lookupDescription)
+        expect(unmatched).not.toContain('412 members')
+        const many = Array.from({length: 20}, (_, index) => ({organization: {...base.organization, domain: `team-${index}.example`, name: `Host organization ${index}`}, providerHint: `Host provider ${index}`, securityChecks: [`Host policy ${index}`], lockedOut: `Host help ${index}`}))
+        const last = renderAuthentication(8, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, enterprise: {...base, referenceFlow: {...flow, email: 'staff@team-19.example', alternateOrganizations: many}}})
+        expect(last).toContain('Host organization 19')
+        expect(last).toContain('Host policy 19')
+        expect(occurrences(last, '<li')).toBe(1)
+        const pending = renderAuthentication(8, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, enterprise: {...base, referenceFlow: {...flow, email: 'another@northwind.com', busy: true}}})
+        expect(pending).toContain('another@northwind.com')
+        expect(pending).toContain(flow.labels.redirecting)
+        const legacy = renderAuthentication(8, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, enterprise: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-organization-layout')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

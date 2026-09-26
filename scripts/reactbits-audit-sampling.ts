@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-8')
+    return {
+      revision: 2,
+      lumenEntries: ['authentication.tsx', 'authentication-enterprise-reference.css', 'authentication/EnterpriseAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:fill', change: 'Unknown valid domain switches to generic Continue and an explanatory no-match aside' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-enterprise-mismatch:0:fill', change: 'Matching company domain restores provider-specific button and organization summary' },
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Continue enters short disabled Redirecting feedback before returning' },
+        { viewport: 'desktop', theme: 'dark', suffix: '2:click', change: 'Password alternative is a documentation demo no-op' },
+        { viewport: 'desktop', theme: 'dark', suffix: '0:fill', change: 'Second known domain updates provider, organization, directory, session and device policy data' },
+        { viewport: 'tablet', theme: 'dark', suffix: '1:press-enter', change: 'Native keyboard submit triggers the same pending redirect without the desktop aside' },
+        { viewport: 'tablet', theme: 'light', suffix: '0:focus', change: 'Email focus retains the full-width tablet form flow' },
+        { viewport: 'stress', theme: 'light', suffix: '2:press-space', change: 'Narrow keyboard password alternative stays in the documentation preview' },
+        { viewport: 'mobile', theme: 'dark', suffix: '0:focus', change: 'Compact dark email control remains reachable without the aside' },
+      ],
+      inferences: [
+        { scope: 'Other email strings and repeated gestures', basis: 'Domain lookup has one host-owned input; unknown-valid and matched transitions plus invalid-email browser tests cover its branches. The same submit and alternative do not gain new feedback by multiplying themes and viewports.', verification: 'inferred-not-replayed' },
+        { scope: 'Responsive two-column versus compact layout', basis: 'Eight static pairs cover two themes and four viewports; right-side organization data is passive and disappears below the observed breakpoint.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-7')
     return {
       revision: 1,

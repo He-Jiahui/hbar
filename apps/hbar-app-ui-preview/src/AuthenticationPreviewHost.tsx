@@ -22,8 +22,11 @@ export function AuthenticationPreviewHost({
     [signUpEmail, setSignUpEmail] = useState(content.signUp?.referenceFlow?.email ?? content.signUp?.initialEmail ?? ''),
     [signUpPassword, setSignUpPassword] = useState(content.signUp?.referenceFlow?.password ?? ''),
     [signUpVisible, setSignUpVisible] = useState(content.signUp?.referenceFlow?.visible ?? false),
-    [signUpAgreed, setSignUpAgreed] = useState(content.signUp?.referenceFlow?.agreed ?? false)
+    [signUpAgreed, setSignUpAgreed] = useState(content.signUp?.referenceFlow?.agreed ?? false),
+    [enterpriseEmail, setEnterpriseEmail] = useState(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? ''),
+    [enterpriseBusy, setEnterpriseBusy] = useState(false)
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
     setSource(content)
     setCode(content.code?.code ?? '')
@@ -36,6 +39,8 @@ export function AuthenticationPreviewHost({
     setSignUpPassword(content.signUp?.referenceFlow?.password ?? '')
     setSignUpVisible(content.signUp?.referenceFlow?.visible ?? false)
     setSignUpAgreed(content.signUp?.referenceFlow?.agreed ?? false)
+    setEnterpriseEmail(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? '')
+    setEnterpriseBusy(false)
   }
   useEffect(() => {
     if (!seconds) return
@@ -44,10 +49,13 @@ export function AuthenticationPreviewHost({
   }, [seconds])
   useEffect(() => () => {
     if (verificationTimer.current) clearTimeout(verificationTimer.current)
+    if (enterpriseTimer.current) clearTimeout(enterpriseTimer.current)
   }, [])
   useEffect(() => {
     if (verificationTimer.current) clearTimeout(verificationTimer.current)
     verificationTimer.current = null
+    if (enterpriseTimer.current) clearTimeout(enterpriseTimer.current)
+    enterpriseTimer.current = null
   }, [content])
   const verify = content.code
   const requirementsMet = [signUpPassword.length >= 10, /[A-Z]/.test(signUpPassword), /\d/.test(signUpPassword), /[^A-Za-z0-9]/.test(signUpPassword)]
@@ -119,6 +127,29 @@ export function AuthenticationPreviewHost({
             onPasswordChange: setSignUpPassword,
             onVisibleChange: setSignUpVisible,
             onAgreedChange: setSignUpAgreed,
+          },
+        },
+        enterprise: content.enterprise && {
+          ...content.enterprise,
+          referenceFlow: content.enterprise.referenceFlow && {
+            ...content.enterprise.referenceFlow,
+            email: enterpriseEmail,
+            busy: enterpriseBusy,
+            onEmailChange: setEnterpriseEmail,
+            onContinue: () => {
+              const enterprise = content.enterprise
+              if (!enterprise) return
+              if (enterpriseBusy || enterpriseTimer.current) return
+              setEnterpriseBusy(true)
+              const domain = enterpriseEmail.split('@')[1]?.trim().toLowerCase()
+              const provider = enterprise.referenceFlow?.alternateOrganizations.find((entry) => entry.organization.domain.toLowerCase() === domain)?.organization.provider
+                ?? (enterprise.organization.domain.toLowerCase() === domain ? enterprise.organization.provider : '')
+              onAction?.({ variantId: spec.id, actionId: 'continue-sso', value: provider })
+              enterpriseTimer.current = setTimeout(() => {
+                enterpriseTimer.current = null
+                setEnterpriseBusy(false)
+              }, 1800)
+            },
           },
         },
       }}
