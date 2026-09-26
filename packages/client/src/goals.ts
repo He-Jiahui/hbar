@@ -1,6 +1,7 @@
 import { createCommandClient, COMMAND_PROTOCOL_VERSION } from '@hbar/commands'
 import { goalPlanCommands, goalPlanChangeSchema } from '@hbar/contracts/commands/goals'
 import type { GoalPlanChange } from '@hbar/contracts/commands/goals'
+import type { GoalHistoryInput } from '@hbar/contracts/commands/goal-history'
 import type { WireNotification } from '@hbar/contracts'
 import type { ConnectionStatus } from './index'
 import type { ClientTransport } from './transport'
@@ -20,6 +21,7 @@ export function createGoalPlanCommandClient(client: ClientTransport) {
   return {
     ...commands,
     snapshot: (sessionId: string) => commands.execute('goal.snapshot', { sessionId }),
+    history: (input: GoalHistoryInput) => commands.execute('goal.history', input),
     watch(sessionId: string, listener: (change: GoalPlanChange | { kind: 'reset' }) => void) {
       const events = client as ClientTransport & {
         onEvent?: (listener: (event: WireNotification) => void) => () => void

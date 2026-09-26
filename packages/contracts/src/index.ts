@@ -13,6 +13,7 @@ import { MAX_PLAN_STEPS, planStepSchema } from './plan'
 import type { PlanState } from './plan'
 export * from './state/directory'
 export * from './plan'
+export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './commands/goal-history'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'

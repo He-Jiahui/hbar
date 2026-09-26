@@ -134,8 +134,11 @@
         "plan.update",
         "plan.clear"
       ],
-      "additionalCommands": [],
+      "additionalCommands": ["goal.history"],
       "tests": [
+        "tests/goal-history-contract.test.ts",
+        "tests/goal-history-storage.test.ts",
+        "tests/goal-history-host.test.ts",
         "tests/goal.test.ts",
         "tests/goal-plan-commands.test.ts",
         "tests/goal-plan-workspace-runtime.test.ts",

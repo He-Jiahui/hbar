@@ -20,6 +20,7 @@ import type {
 } from '@hbar/contracts'
 import type { ActiveOperationsInput, ActiveOperationsPage, RunCommandRecord } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
+import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 
 export interface StoredSettingsLayer {
   id: string
@@ -102,6 +103,7 @@ export interface StorageMethods {
   ): { session: Session; event: SessionEvent | null }
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent
   events(sessionId: string, after: number, limit?: number): SessionEvent[]
+  goalHistory(input: GoalHistoryInput): GoalHistoryPage
   usageEvents(input: UsageReadInput): UsageReadPage
   commit(
     sessionId: string,

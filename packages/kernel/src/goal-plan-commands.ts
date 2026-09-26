@@ -2,9 +2,12 @@ import { CommandError, CommandRegistry, createCommandClient } from '@hbar/comman
 import { HbarError } from '@hbar/contracts'
 import { goalPlanCommands } from '@hbar/contracts/commands/goals'
 import type { GoalService, PlanService } from '@hbar/plugin-sdk'
+import type { StoragePort } from '@hbar/storage'
+import { registerGoalHistoryCommand } from './goal-history-commands'
 
-export function createGoalPlanCommands(goals: GoalService, plans: PlanService) {
+export function createGoalPlanCommands(goals: GoalService, plans: PlanService, storage?: StoragePort) {
   const registry = new CommandRegistry({ execution: 'host' })
+  registerGoalHistoryCommand(registry, storage)
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
       return await operation()

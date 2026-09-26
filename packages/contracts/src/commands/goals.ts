@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
+import { goalHistoryCommands } from './goal-history'
+export * from './goal-history'
 import {
   goalStatusSchema,
   idSchema,
@@ -54,6 +56,7 @@ const metadata = (id: string, kind: 'command' | 'query') => ({
 const sessionArgument = { field: 'sessionId', type: 'string' as const, flag: 'session' }
 
 export const goalPlanCommands = {
+  ...goalHistoryCommands,
   'goal.snapshot': defineCommand(
     { ...metadata('goal.snapshot', 'query'), cli: { arguments: [sessionArgument] } },
     z.strictObject({ sessionId: idSchema }),

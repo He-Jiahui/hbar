@@ -139,6 +139,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const goalPlanCommands = createGoalPlanCommands(
     kernel.plugins.get<GoalService>('goal'),
     kernel.plugins.get<PlanService>('plan'),
+    kernel.storage,
   )
   const interactionCommands = createInteractionCommands(kernel)
   const settingsService = new SettingsService(kernel.storage, createModelSettingsValidator(kernel))

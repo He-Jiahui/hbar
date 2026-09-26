@@ -14,6 +14,15 @@ import { commandPaletteCommands } from './command-palette'
 import { fileWorkspaceCommands } from './file-workspace'
 import { agentWorkspaceCommands } from './agent-workspace'
 import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
+export {
+  goalHistoryCommands,
+  goalHistoryInputSchema,
+  goalHistoryPageSchema,
+  goalHistoryFactSchema,
+  goalHistorySnapshotSchema,
+  parseGoalHistoryEvent,
+} from './goal-history'
+export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './goal-history'
 import { workflowWorkspaceCommands } from './workflow-workspace'
 import { extensionWorkspaceCommands } from './extension-workspace'
 import { statusWorkspaceCommands } from './status-workspace'

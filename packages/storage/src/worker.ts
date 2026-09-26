@@ -38,6 +38,7 @@ import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } f
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
+import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -114,6 +115,7 @@ if (schemaVersion < 6)
   })()
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
+db.exec(GOAL_HISTORY_INDEX_SQL)
 
 type Row = Record<string, unknown>
 const parseJson = (value: string): unknown => JSON.parse(value) as unknown
@@ -539,6 +541,7 @@ const methods: StorageMethods = {
         .all(sessionId, after, limit) as Row[]
     ).map(eventRow)
   },
+  goalHistory: (input) => readGoalHistory(db, input),
   usageEvents(input: UsageReadInput) {
     const limit = Math.min(Math.max(input.limit, 1), 2_000)
     const params: (string | number | null)[] = [...USAGE_EVENT_TYPES, input.from, input.to]
