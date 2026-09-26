@@ -422,6 +422,46 @@ try {
     })
   }
   const chineseCopy = getShellCopy('zh-CN')
+  await expect
+    .poll(() =>
+      page
+        .locator('.hbar-app-react-settings-groups button[aria-current="page"]')
+        .evaluate((button) =>
+          button.getAnimations({ subtree: true }).every((animation) => animation.playState !== 'running'),
+        ),
+    )
+    .toBe(true)
+  const navigationMarker = await page
+    .locator('.hbar-app-react-settings-groups button[aria-current="page"]')
+    .evaluate((button) => {
+      const obsolete = getComputedStyle(button, '::before')
+      const indicator = button.querySelector('[data-state="selected"][data-edge]')
+      const beam = indicator?.firstElementChild
+      const halo = beam?.firstElementChild
+      return {
+        obsoletePseudo: { content: obsolete.content, width: obsolete.width, shadow: obsolete.boxShadow },
+        canonical:
+          indicator && beam && halo
+            ? {
+                state: indicator.getAttribute('data-state'),
+                edge: indicator.getAttribute('data-edge'),
+                beamWidth: beam.getBoundingClientRect().width,
+                beamHeight: beam.getBoundingClientRect().height,
+                beamOpacity: getComputedStyle(beam).opacity,
+                haloOpacity: getComputedStyle(halo).opacity,
+                haloShadow: getComputedStyle(halo).boxShadow,
+              }
+            : null,
+      }
+    })
+  expect(navigationMarker.canonical?.state).toBe('selected')
+  expect(navigationMarker.canonical?.edge).toBe('right')
+  expect(navigationMarker.canonical?.beamWidth).toBeGreaterThan(0)
+  expect(navigationMarker.canonical?.beamHeight).toBeGreaterThan(navigationMarker.canonical?.beamWidth ?? Infinity)
+  expect(Number(navigationMarker.canonical?.beamOpacity)).toBeGreaterThan(0)
+  expect(Number(navigationMarker.canonical?.haloOpacity)).toBeGreaterThan(0)
+  expect(navigationMarker.canonical?.haloShadow).not.toBe('none')
+  await writeFile(join(languageOutput, 'navigation-marker.json'), JSON.stringify(navigationMarker, null, 2))
   await page.getByRole('button', { name: chineseCopy.settings.back, exact: true }).click()
   await expectComposerText(page.getByRole('textbox', { name: chineseCopy.session.prompt.input, exact: true }), draft)
   await expect(cards).toHaveCount(4)
