@@ -11,6 +11,7 @@ import {
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
+import { KanbanPreviewHost } from './KanbanPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
@@ -25,7 +26,6 @@ import {
   HBAR_APP_UI_CATEGORY_COUNTS,
   HbarAppUiAppSidebarProvider,
   HbarAppUiAiChatProvider,
-  HbarAppUiKanbanProvider,
   HbarAppUiAgentActivityProvider,
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
@@ -164,7 +164,7 @@ import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-ai-chat-fixtures'
-import { HBAR_APP_UI_KANBAN_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-kanban-fixtures'
+import { createHbarAppUiKanbanLocalizedFixtures, createHbarAppUiKanbanOverflowFixtures, HBAR_APP_UI_KANBAN_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-kanban-fixtures'
 import { HBAR_APP_UI_ONBOARDING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-onboarding-fixtures'
 import { HBAR_APP_UI_LIST_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-list-fixtures'
 import { HBAR_APP_UI_FILTERING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-filtering-fixtures'
@@ -416,7 +416,10 @@ function PreviewApp() {
         : HBAR_APP_UI_AI_CHAT_FIXTURES,
     [],
   )
-  const kanbanContent = useMemo(() => HBAR_APP_UI_KANBAN_FIXTURES, [])
+  const kanbanContent = useMemo(() => {
+    const fixture = new URLSearchParams(window.location.search).get('kanbanFixture')
+    return fixture === 'localized' ? createHbarAppUiKanbanLocalizedFixtures() : fixture === 'overflow' ? createHbarAppUiKanbanOverflowFixtures() : HBAR_APP_UI_KANBAN_FIXTURES
+  }, [])
   const onboardingContent = useMemo(() => HBAR_APP_UI_ONBOARDING_FIXTURES, [])
   const listContent = useMemo(() => HBAR_APP_UI_LIST_FIXTURES, [])
   const filteringContent = useMemo(() => HBAR_APP_UI_FILTERING_FIXTURES, [])
@@ -498,7 +501,7 @@ function PreviewApp() {
           style={previewLayoutStyle}
           data-hbar-app-ui-variant={selected.spec.id}
         >
-          <HbarAppUiKanbanProvider content={kanbanContent}>
+          <KanbanPreviewHost content={kanbanContent}>
             <HbarAppUiAiChatProvider content={aiChatContent}>
               <HbarAppUiAppSidebarProvider content={appSidebarContent}>
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
@@ -607,7 +610,7 @@ function PreviewApp() {
                 </AppShellPreviewHost>
               </HbarAppUiAppSidebarProvider>
             </HbarAppUiAiChatProvider>
-          </HbarAppUiKanbanProvider>
+          </KanbanPreviewHost>
         </LumenFrame>
       </LumenProvider>
     )
@@ -734,7 +737,7 @@ function PreviewApp() {
                     data-hbar-app-ui-surface={selected.spec.profile.surface}
                     data-hbar-app-ui-state={selected.spec.profile.initialState}
                   >
-                    <HbarAppUiKanbanProvider content={kanbanContent}>
+                    <KanbanPreviewHost content={kanbanContent}>
                       <HbarAppUiAiChatProvider content={aiChatContent}>
                         <HbarAppUiAppSidebarProvider content={appSidebarContent}>
                           <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
@@ -861,7 +864,7 @@ function PreviewApp() {
                           </AppShellPreviewHost>
                         </HbarAppUiAppSidebarProvider>
                       </HbarAppUiAiChatProvider>
-                    </HbarAppUiKanbanProvider>
+                    </KanbanPreviewHost>
                   </LumenFrame>
                 </LumenFrame>
               </LumenFrame>

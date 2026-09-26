@@ -179,6 +179,40 @@ export const HBAR_APP_UI_KANBAN_FIXTURES: HbarAppUiKanbanContent = {
     { id: 'done', label: 'Done', cardIds: ['HAL-217'] },
   ],
   initialCompactColumnId: 'todo',
+  referenceBoard: {
+    labels: {
+      detail: (count) => `${count} open items. Drag a card, or focus one and press space to move it with the arrow keys.`,
+      card: (card) => `${card.id}: ${card.label}. ${card.priority[0]!.toUpperCase()}${card.priority.slice(1)} priority, assigned to ${card.assigneeName}.`,
+      newCardIn: (column) => `New card in ${column}`,
+      placeholder: 'What needs doing?',
+      add: 'Add',
+      cancel: 'Cancel',
+      newCardTag: 'Triage',
+      grabbed: (id) => `${id} grabbed. Use the arrow keys to move it, then press space to drop.`,
+      dropped: (id, column) => `${id} dropped in ${column}.`,
+      added: (title) => `Added ${title}.`,
+    },
+    columns: [
+      {id: 'backlog', label: 'Backlog', cardIds: ['HAL-241', 'HAL-229', 'HAL-214']},
+      {id: 'progress', label: 'In progress', cardIds: ['HAL-238', 'HAL-221', 'HAL-233'], limit: 4},
+      {id: 'review', label: 'In review', cardIds: ['HAL-236', 'HAL-208'], limit: 3},
+      {id: 'done', label: 'Done', cardIds: ['HAL-226', 'HAL-217']},
+    ],
+    cards: [
+      {id: 'HAL-241', label: 'Retry billing webhooks that fail on timeout', tag: 'Billing', assignee: 'AR', assigneeName: 'Ana Reyes', priority: 'high', comments: 4, files: 1},
+      {id: 'HAL-229', label: 'Deprecate the v1 usage endpoint', tag: 'API', assignee: 'SA', assigneeName: 'Sofia Alvarez', priority: 'low', comments: 1},
+      {id: 'HAL-214', label: 'Backfill workspace regions for EU tenants', tag: 'Platform', assignee: 'WC', assigneeName: 'Wei Chen', priority: 'medium'},
+      {id: 'HAL-238', label: 'Seat count drifts after a downgrade', tag: 'Billing', assignee: 'PN', assigneeName: 'Priya Nandakumar', priority: 'high', comments: 2},
+      {id: 'HAL-221', label: 'Cache invalidation on role change is slow', tag: 'Platform', assignee: 'MS', assigneeName: 'Marco Silva', priority: 'high', comments: 8},
+      {id: 'HAL-233', label: 'Add SCIM group mapping to the admin console', tag: 'Identity', assignee: 'WC', assigneeName: 'Wei Chen', priority: 'medium', comments: 6, files: 2},
+      {id: 'HAL-236', label: 'Audit log export times out past 90 days', tag: 'Platform', assignee: 'MS', assigneeName: 'Marco Silva', priority: 'medium', files: 3},
+      {id: 'HAL-208', label: 'Rotate signing keys without downtime', tag: 'Identity', assignee: 'SA', assigneeName: 'Sofia Alvarez', priority: 'high', comments: 5, files: 1},
+      {id: 'HAL-226', label: 'Rework the empty state on first workspace', tag: 'Growth', assignee: 'AR', assigneeName: 'Ana Reyes', priority: 'medium', comments: 3, files: 1},
+      {id: 'HAL-217', label: 'Ship the invoice PDF redesign', tag: 'Billing', assignee: 'PN', assigneeName: 'Priya Nandakumar', priority: 'low', comments: 2, files: 4},
+    ],
+    composerColumnId: null, draft: '', grabbedCardId: null, targetColumnId: null, announcement: '',
+    onOpenComposer() {}, onDraftChange() {}, onCancelComposer() {}, onAddCard() {}, onGrab() {}, onTargetChange() {}, onDrop() {}, onCancelGrab() {},
+  },
   listStrategy: { kind: 'pane-scroll', expectedMaximum: 96 },
 }
 
@@ -196,5 +230,37 @@ export function createHbarAppUiKanbanLocalizedFixtures(): HbarAppUiKanbanContent
     },
     columns: [{ id: 'todo', label: '待办', cardIds: ['local-card'] }],
     cards: [{ id: 'local-card', label: '核对发票', detail: '刚刚更新', tag: '财务', assignee: '陈' }],
+    referenceBoard: HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard && {
+      ...HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard,
+      labels: {
+        ...HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard.labels,
+        detail: (count) => `${count} 个开放事项。聚焦卡片并按空格键移动。`,
+        card: (card) => `${card.id}：${card.label}，${card.priority === 'high' ? '高' : card.priority === 'medium' ? '中' : '低'}优先级，分配给${card.assigneeName}。`,
+        newCardIn: (column) => `在${column}中新建卡片`,
+        placeholder: '需要做什么？', add: '添加', cancel: '取消', newCardTag: '待分类',
+        grabbed: (id) => `${id} 已抓取，使用方向键移动，再按空格键放下。`,
+        dropped: (id, column) => `${id} 已放到${column}。`,
+        added: (title) => `已添加${title}。`,
+      },
+      columns: [{id: 'todo', label: '待办', cardIds: ['local-card']}],
+      cards: [{id: 'local-card', label: '核对发票', tag: '财务', assignee: '陈', assigneeName: '陈同事', priority: 'medium'}],
+    },
+  }
+}
+
+export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent {
+  const reference = HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard!
+  const extra = Array.from({length: 30}, (_, index) => ({
+    id: `HAL-${300 + index}`,
+    label: `Review the extended platform incident history for workspace ${index + 1}`,
+    tag: 'Platform', assignee: 'WC', assigneeName: 'Wei Chen', priority: 'medium' as const,
+  }))
+  return {
+    ...HBAR_APP_UI_KANBAN_FIXTURES,
+    referenceBoard: {
+      ...reference,
+      columns: reference.columns.map((column) => column.id === 'backlog' ? {...column, cardIds: [...column.cardIds, ...extra.map((card) => card.id)]} : column),
+      cards: [...reference.cards, ...extra],
+    },
   }
 }

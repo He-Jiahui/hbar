@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-kanban-1')
+    return {
+      revision: 3,
+      lumenEntries: ['kanban.tsx', 'kanban.css', 'kanban-reference.css', 'kanban/BoardReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Adding to the first column tests card creation and count feedback' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Clicking a card tests selection/detail feedback without visiting every row' },
+        { viewport: 'mobile', theme: 'light', suffix: '1:press-space', change: 'Native keyboard lift starts the accessible drag path on a narrow board' },
+        { viewport: 'desktop', theme: 'light', suffix: 'kanban-grabbed:1:press-arrowright', change: 'ArrowRight moves the grabbed card to the next column before the drop' },
+        { viewport: 'tablet', theme: 'light', suffix: 'kanban-composer-open:3:click', change: 'Cancel closes the inline composer without creating a card' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'kanban-composer-ready:2:click', change: 'Submitting text inserts the next card and updates the open count' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'kanban-grabbed-target:7:press-space', change: 'Keyboard drop ends the drag and announces its destination' },
+      ],
+      inferences: [
+        { scope: 'Repeated columns, cards and themes', basis: 'The same card and column mechanisms apply to host-provided records; representative creation, click and keyboard lift sample the changing branches without multiplying every card by each layout.', verification: 'inferred-not-replayed' },
+        { scope: 'Board horizontal pan', basis: 'Desktop and narrow static captures expose the board scroll owner; local overflow and responsive checks verify the same container while column positions are inferred.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-14')
     return {
       revision: 2,

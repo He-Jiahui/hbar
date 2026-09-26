@@ -306,6 +306,10 @@ export type InteractionCase = Readonly<{
     | 'auth-reset-success'
     | 'auth-approval-approved'
     | 'auth-approval-blocked'
+    | 'kanban-composer-open'
+    | 'kanban-composer-ready'
+    | 'kanban-grabbed'
+    | 'kanban-grabbed-target'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1794,6 +1798,19 @@ async function prepareAuthenticationResetScenario(root: Locator, scenario: (type
 const authenticationApprovalScenarios = ['auth-approval-approved', 'auth-approval-blocked'] as const
 async function prepareAuthenticationApprovalScenario(root: Locator, scenario: (typeof authenticationApprovalScenarios)[number]): Promise<void> {
   await root.getByRole('button', { name: scenario === 'auth-approval-approved' ? 'Yes, that was me' : 'No, secure my account' }).click()
+}
+const kanbanBoardScenarios = ['kanban-composer-open', 'kanban-composer-ready', 'kanban-grabbed', 'kanban-grabbed-target'] as const
+async function prepareKanbanBoardScenario(root: Locator, scenario: (typeof kanbanBoardScenarios)[number]): Promise<void> {
+  if (scenario === 'kanban-grabbed' || scenario === 'kanban-grabbed-target') {
+    const card = root.getByRole('button', { name: /^HAL-241:/ })
+    await card.focus()
+    await card.press('Space')
+    if (scenario === 'kanban-grabbed-target') await card.press('ArrowRight')
+    return
+  }
+  await root.getByRole('button', { name: 'Add a card to Backlog' }).click()
+  if (scenario === 'kanban-composer-ready')
+    await root.getByRole('textbox', { name: 'New card in Backlog' }).fill('Audit sample card')
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3421,6 +3438,8 @@ async function replayInteraction(
     await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-14' && authenticationApprovalScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
+  if (spec.id === 'hbar-app-ui-kanban-1' && kanbanBoardScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3730,6 +3749,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-14' && authenticationApprovalScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
+  if (reference.id === 'hbar-app-ui-kanban-1' && kanbanBoardScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4402,6 +4423,19 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationApprovalScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-kanban-1') {
+              for (const scenario of kanbanBoardScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareKanbanBoardScenario(sourceRoot, scenario)
+                const scenarioSnapshot = await snapshotRoot(frame, sourceSelector)
+                discovered.push(...interactionCases(scenarioSnapshot, spec.id, scenario))
+                if (scenario === 'kanban-grabbed') {
+                  const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('HAL-241:'))
+                  if (!card) throw new Error('Grabbed HAL-241 card missing from reference board')
+                  discovered.push({ id: `${spec.id}:${scenario}:${card.index}:press-arrowright`, action: 'press', key: 'ArrowRight', control: card, scenario, focusBefore: true })
+                }
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')

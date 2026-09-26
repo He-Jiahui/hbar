@@ -302,6 +302,14 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('status board samples composer, passive click and keyboard move phases without per-card layout multiplication', () => {
+    const id = 'hbar-app-ui-kanban-1'
+    const plan = auditSamplingPlan(id)!
+    expect(plan.samples).toHaveLength(7)
+    expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:click`, `${id}:kanban-grabbed:1:press-arrowright`])
+    expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([`${id}:kanban-grabbed-target:7:press-space`])
+    expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
   test('sign-in approval samples distinct decision outcomes, recovery and source no-op without row permutations', () => {
     const id = 'hbar-app-ui-authentication-14'
     expect(auditSamplingPlan(id)?.samples).toHaveLength(5)
