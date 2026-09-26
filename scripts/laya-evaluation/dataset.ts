@@ -30,7 +30,7 @@ export function validateDataset(raw: unknown): LayaSample[] {
     const question = sample.request.questions.decision
     if (Object.keys(sample.request.questions).length !== 1 || question?.type !== 'choice')
       throw new Error('Effect samples require one choice question named decision')
-    if (!(sample.expected in question.criteria) || !(sample.baseline in question.criteria))
+    if (!Object.hasOwn(question.criteria, sample.expected) || !Object.hasOwn(question.criteria, sample.baseline))
       throw new Error(`Unknown expected/baseline label: ${sample.id}`)
   }
   return samples

@@ -20,13 +20,14 @@ export function summarize(rows: Observation[]) {
   const evaluated = rows.filter((row) => choiceOf(row) !== undefined)
   const correct = evaluated.filter((row) => choiceOf(row) === row.sample.expected).length
   const bins = Array.from({ length: 5 }, () => ({ count: 0, correct: 0, confidenceSum: 0 }))
-  const confusion: Record<string, Record<string, number>> = {}
+  const confusion = new Map<string, Map<string, number>>()
   let brier = 0
   for (const row of rows) {
     const expected = row.sample.expected
     const predicted = choiceOf(row) ?? 'unavailable'
-    const counts = confusion[expected] ?? (confusion[expected] = {})
-    counts[predicted] = (counts[predicted] ?? 0) + 1
+    const counts = confusion.get(expected) ?? new Map<string, number>()
+    confusion.set(expected, counts)
+    counts.set(predicted, (counts.get(predicted) ?? 0) + 1)
     if (row.result.status !== 'evaluated') continue
     const answer = row.result.answers.decision
     if (answer?.type !== 'choice') continue
@@ -86,6 +87,6 @@ export function summarize(rows: Observation[]) {
       rows.map((row) => row.durationMs),
       0.95,
     ),
-    confusion,
+    confusion: Object.fromEntries([...confusion].map(([expected, counts]) => [expected, Object.fromEntries(counts)])),
   }
 }
