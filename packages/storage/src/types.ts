@@ -21,6 +21,17 @@ import type {
 import type { ActiveOperationsInput, ActiveOperationsPage, RunCommandRecord } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
+import type {
+  WorkspaceOrganizationApplyInput,
+  WorkspaceOrganizationReceipt,
+  WorkspaceOrganizationSnapshot,
+} from '@hbar/contracts/commands/workspace-organization'
+
+export interface WorkspaceOrganizationMutationInput {
+  actorId: string
+  idempotencyKey: string
+  request: WorkspaceOrganizationApplyInput
+}
 
 export interface StoredSettingsLayer {
   id: string
@@ -90,6 +101,9 @@ export interface StorageMethods {
   workspacePage(input: WorkspaceListInput): WorkspacePage
   sessionPage(input: SessionListInput): SessionPage
   findWorkspace(id: string): Workspace | null
+  workspaceOrganization(): WorkspaceOrganizationSnapshot
+  applyWorkspaceOrganization(input: WorkspaceOrganizationMutationInput): WorkspaceOrganizationReceipt
+  workspaceOrganizationReceipt(input: WorkspaceOrganizationMutationInput): WorkspaceOrganizationReceipt | null
   findSession(id: string): Session | null
   workspace(id: string): Workspace
   createSession(workspaceId: string, title?: string, parentId?: string): Session

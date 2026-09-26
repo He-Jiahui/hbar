@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, sessionEventSchema } from '../index'
 import { sessionSchema, workspaceSchema } from '../state/directory'
+import { workspaceOrganizationCommands } from './workspace-organization'
 
 const metadata = (id: string, kind: 'command' | 'query', scope: 'global' | 'workspace' | 'session') => ({
   id,
@@ -37,6 +38,7 @@ export const forkableMessagesResultSchema = z.strictObject({
 })
 
 export const workspaceSessionCommands = {
+  ...workspaceOrganizationCommands,
   'workspace.create': defineCommand(
     {
       ...metadata('workspace.create', 'command', 'global'),

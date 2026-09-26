@@ -39,15 +39,18 @@ import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
+import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
 const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
-db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
+// Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
+db.exec('PRAGMA busy_timeout=5000;')
+db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 6) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 7) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -113,6 +116,19 @@ if (schemaVersion < 6)
       'ALTER TABLE approvals ADD COLUMN feedback TEXT; ALTER TABLE approvals ADD COLUMN decidedBy TEXT; PRAGMA user_version=6;',
     )
   })()
+
+if (schemaVersion < 7)
+  db.transaction(() => {
+    // Another Worker may already have completed this migration while this one waited for the write lock.
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current !== 7) {
+      if (current !== 6) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+      db.exec(WORKSPACE_ORGANIZATION_SQL)
+      db.exec('PRAGMA user_version=7;')
+    }
+  }).immediate()
+
+const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 db.exec(GOAL_HISTORY_INDEX_SQL)
@@ -399,7 +415,10 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 4 }),
+  ready: () => ({ version: 7 }),
+  workspaceOrganization: workspaceOrganization.read,
+  applyWorkspaceOrganization: workspaceOrganization.apply,
+  workspaceOrganizationReceipt: workspaceOrganization.receipt,
   createWorkspace(path, name) {
     const existing = db.query('SELECT * FROM workspaces WHERE path=?').get(path)
     if (existing) return existing as Workspace

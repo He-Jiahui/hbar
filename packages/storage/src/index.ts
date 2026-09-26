@@ -12,6 +12,7 @@ export type {
   SettingsCommitReceipt,
   StoredSettingsLayer,
   StorageMethods,
+  WorkspaceOrganizationMutationInput,
 } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'
