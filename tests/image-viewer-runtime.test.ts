@@ -122,6 +122,50 @@ function fixture(validate: (request: ImageViewerRequest) => boolean = () => true
 }
 const turn = () => Bun.sleep(0)
 
+test('DOM decode failure binds the exact ready snapshot, releases once and retries only the original read', async () => {
+  const testbed = fixture()
+  testbed.viewer.open(request())
+  const first = testbed.settle(0)
+  await turn()
+  const rendered = testbed.viewer.reader.getSnapshot()
+  testbed.viewer.reportDecodeFailure(rendered)
+  testbed.viewer.reportDecodeFailure(rendered)
+  expect(first.releases).toBe(1)
+  expect(testbed.viewer.reader.getSnapshot()).toMatchObject({
+    status: 'failed',
+    error: 'DECODE_FAILED',
+    resource: null,
+  })
+  expect(testbed.calls).toHaveLength(1)
+  testbed.viewer.retry()
+  expect(testbed.calls).toHaveLength(2)
+  expect(testbed.calls[1]?.artifact).toEqual(testbed.calls[0]?.artifact)
+  testbed.settle(1)
+  await turn()
+  expect(testbed.viewer.reader.getSnapshot().status).toBe('ready')
+  expect(testbed.counts().writes).toBe(0)
+  testbed.viewer.dispose()
+})
+
+test('old DOM decode error cannot damage ABA gallery even when the occurrence and URL repeat', async () => {
+  const testbed = fixture()
+  testbed.viewer.open(request())
+  const first = testbed.settle(0, 'reused-url')
+  await turn()
+  const old = testbed.viewer.reader.getSnapshot()
+  testbed.viewer.close()
+  testbed.viewer.open(request())
+  const next = testbed.settle(1, 'reused-url')
+  await turn()
+  const current = testbed.viewer.reader.getSnapshot()
+  expect(current.resource?.url).toBe(old.resource?.url)
+  testbed.viewer.reportDecodeFailure(old)
+  expect(testbed.viewer.reader.getSnapshot()).toBe(current)
+  expect(first.releases).toBe(1)
+  expect(next.releases).toBe(0)
+  testbed.viewer.dispose()
+})
+
 test('viewer captures immutable source/occurrences, publishes only safe metadata, and closes without writes', async () => {
   const testbed = fixture()
   const mutable = {

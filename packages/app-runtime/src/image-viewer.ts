@@ -82,6 +82,8 @@ export interface ImageViewer {
   open(request: ImageViewerRequest): void
   select(key: string): void
   retry(): void
+  /** Report a DOM decode error only for the exact ready snapshot rendered by that element. */
+  reportDecodeFailure(expected: ImageViewerState): void
   close(): void
   /** Called by the composition root when canonical source/session membership changes. */
   revalidate(): void
@@ -316,6 +318,18 @@ export function createImageViewer(options: ImageViewerOptions): ImageViewer {
       begin(original.request)
     },
     close,
+    reportDecodeFailure(expected) {
+      const original = current
+      if (disposed || !original || expected.status !== 'ready' || state.reader.getSnapshot() !== expected) return
+      if (!isCurrent(original.request)) {
+        if (owns(original)) close()
+        return
+      }
+      if (!owns(original) || state.reader.getSnapshot() !== expected) return
+      releaseCurrent()
+      if (owns(original) && state.reader.getSnapshot() === expected)
+        state.replace({ status: 'failed', request: original.request, resource: null, error: 'DECODE_FAILED' })
+    },
     revalidate() {
       const original = current
       if (!disposed && original && !isCurrent(original.request) && owns(original)) close()

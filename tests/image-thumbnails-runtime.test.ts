@@ -14,6 +14,55 @@ const request = (sourceId = 'host/session/collection', keys = ['first', 'second'
   items: keys.map((key) => ({ key, artifact: artifact() })),
 })
 const turn = () => Bun.sleep(0)
+
+test('thumbnail DOM error releases just the exact rendered occurrence and explicit retry performs one acquire', async () => {
+  const context = fixture()
+  context.owner.activate(request())
+  const first = context.settle(0)
+  await turn()
+  const second = context.settle(1)
+  await turn()
+  const state = context.owner.reader.getSnapshot()
+  const rendered = state.items[0]
+  if (!rendered || !state.sourceId) throw new Error('Missing rendered thumbnail')
+  context.owner.reportDecodeFailure(state.sourceId, rendered)
+  context.owner.reportDecodeFailure(state.sourceId, rendered)
+  expect(first.releases).toBe(1)
+  expect(second.releases).toBe(0)
+  expect(context.owner.reader.getSnapshot().items[0]).toMatchObject({
+    status: 'failed',
+    error: 'DECODE_FAILED',
+    resource: null,
+  })
+  expect(context.calls).toHaveLength(2)
+  context.owner.retry(rendered.key)
+  expect(context.calls).toHaveLength(3)
+  expect(context.calls[2]?.ref).toEqual(context.calls[0]?.ref)
+  context.settle(2)
+  await turn()
+  expect(context.owner.reader.getSnapshot().items[0]?.status).toBe('ready')
+  context.owner.dispose()
+})
+
+test('thumbnail ABA ignores old rendered state with identical key and URL', async () => {
+  const context = fixture()
+  context.owner.activate(request('A', ['same']))
+  const first = context.settle(0, 'same-url')
+  await turn()
+  const old = context.owner.reader.getSnapshot().items[0]
+  context.owner.deactivate()
+  context.owner.activate(request('A', ['same']))
+  const next = context.settle(1, 'same-url')
+  await turn()
+  const current = context.owner.reader.getSnapshot()
+  if (!old) throw new Error('Missing old thumbnail')
+  expect(current.items[0]?.resource?.url).toBe(old.resource?.url)
+  context.owner.reportDecodeFailure('A', old)
+  expect(context.owner.reader.getSnapshot()).toBe(current)
+  expect(first.releases).toBe(1)
+  expect(next.releases).toBe(0)
+  context.owner.dispose()
+})
 function fixture(validate: (value: ImageThumbnailsRequest) => boolean = () => true) {
   const calls: {
     ref: Parameters<ImageResourcePort['acquire']>[0]

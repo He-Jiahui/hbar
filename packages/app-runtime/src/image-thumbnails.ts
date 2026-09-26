@@ -38,6 +38,8 @@ export interface ImageThumbnails {
   activate(request: ImageThumbnailsRequest): void
   deactivate(): void
   retry(key: string): void
+  /** Exact rendered record identity fences delayed DOM errors, including repeated key/URL pairs. */
+  reportDecodeFailure(sourceId: string, expected: ImageThumbnailState): void
   revalidate(): void
   dispose(): void
 }
@@ -278,6 +280,17 @@ export function createImageThumbnails(options: ImageThumbnailsOptions): ImageThu
       pump()
     },
     deactivate,
+    reportDecodeFailure(sourceId, expected) {
+      if (disposed || current?.request.sourceId !== sourceId || expected.status !== 'ready') return
+      const record = current.records.find((entry) => entry.view === expected)
+      if (!record || !validate() || !owns(record) || current?.request.sourceId !== sourceId || record.view !== expected)
+        return
+      releaseRecord(record)
+      if (owns(record) && record.view === expected) {
+        record.view = { ...expected, status: 'failed', resource: null, error: 'DECODE_FAILED' }
+        publish()
+      }
+    },
     retry(key) {
       if (disposed) throw new CommandError('DISCONNECTED', 'Thumbnail owner is disposed')
       if (!validate()) return
