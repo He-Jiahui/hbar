@@ -248,6 +248,10 @@ export type InteractionCase = Readonly<{
     | 'plan-paused'
     | 'plan-draft'
     | 'plan-running'
+    | 'activity-snooze-menu'
+    | 'activity-snoozed'
+    | 'activity-archived'
+    | 'activity-back'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1613,6 +1617,22 @@ const dialogWizardScenarios = [
 ] as const
 const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
 const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
+const notificationActivityScenarios = ['activity-snooze-menu', 'activity-snoozed', 'activity-archived', 'activity-back'] as const
+async function prepareNotificationActivityScenario(root: Locator, scenario: (typeof notificationActivityScenarios)[number]): Promise<void> {
+  if (scenario === 'activity-snoozed' || scenario === 'activity-archived') {
+    await root.getByRole('tab', { name: new RegExp(scenario === 'activity-snoozed' ? '^Snoozed' : '^Archived') }).click()
+    return
+  }
+  await root.getByRole('tab', { name: /^Inbox/ }).click()
+  if (scenario === 'activity-back') {
+    const back = root.getByRole('button', { name: 'Back', exact: true })
+    if (await back.isVisible()) await back.click()
+    return
+  }
+  const snooze = root.getByRole('button', { name: 'Snooze', exact: true })
+  if (!(await snooze.isVisible())) await root.getByRole('button', { name: /Priya Nandakumar/ }).click()
+  await snooze.click()
+}
 async function prepareNotificationPreferencesDirty(root: Locator): Promise<void> {
   await root.getByRole('switch', { name: 'Assigned to you: Push' }).click()
   await root.getByRole('button', { name: 'Save preferences' }).waitFor({ state: 'visible' })
@@ -3097,6 +3117,8 @@ async function replayInteraction(
     await prepareNotificationToastScenario(root, toastScenario)
   if (spec.id === 'hbar-app-ui-notifications-3' && interaction.scenario === 'preferences-dirty')
     await prepareNotificationPreferencesDirty(root)
+  if (spec.id === 'hbar-app-ui-notifications-4' && notificationActivityScenarios.some((value) => value === interaction.scenario))
+    await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3375,6 +3397,8 @@ async function replayReferenceInteraction(
     await prepareDialogMenuScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-notifications-3' && interaction.scenario === 'preferences-dirty')
     await prepareNotificationPreferencesDirty(root)
+  if (reference.id === 'hbar-app-ui-notifications-4' && notificationActivityScenarios.some((value) => value === interaction.scenario))
+    await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3904,6 +3928,13 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-notifications-3' && sampleIds?.some((id) => id.includes(':preferences-dirty:'))) {
               await prepareNotificationPreferencesDirty(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'preferences-dirty'))
+            }
+            if (spec.id === 'hbar-app-ui-notifications-4') {
+              for (const scenario of notificationActivityScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareNotificationActivityScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

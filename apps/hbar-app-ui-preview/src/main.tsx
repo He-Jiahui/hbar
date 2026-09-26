@@ -146,7 +146,7 @@ import { HBAR_APP_UI_DASHBOARD_FIXTURES } from '../../../tests/fixtures/hbar-app
 import { HBAR_APP_UI_ANALYTICS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-analytics-fixtures'
 import { HBAR_APP_UI_FORMS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-forms-fixtures'
 import { appDialogFixture } from '../../../tests/fixtures/hbar-app-ui-app-dialog-fixtures'
-import { createHbarAppUiNotificationPreferencesFixture } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
+import { createHbarAppUiNotificationActivityFixture, createHbarAppUiNotificationPreferencesFixture } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
 import { HBAR_APP_UI_MOBILE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-mobile-fixtures'
 import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-support-fixtures'
 import { HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
@@ -365,7 +365,10 @@ function PreviewApp() {
     [],
   )
   const notificationsContent = useMemo(
-    () => createHbarAppUiNotificationPreferencesFixture(new URLSearchParams(window.location.search).get('notificationsFixture')),
+    () => createHbarAppUiNotificationActivityFixture(
+      new URLSearchParams(window.location.search).get('activityFixture'),
+      createHbarAppUiNotificationPreferencesFixture(new URLSearchParams(window.location.search).get('notificationsFixture')),
+    ),
     [],
   )
   const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])

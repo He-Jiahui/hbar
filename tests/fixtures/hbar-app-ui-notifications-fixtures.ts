@@ -201,48 +201,110 @@ export const HBAR_APP_UI_NOTIFICATIONS_FIXTURES: HbarAppUiNotificationsContent =
     labels: {
       title: 'Activity',
       views: 'Activity views',
-      list: 'Activity inbox',
       back: 'Back',
-      grant: 'Grant access',
       snooze: 'Snooze',
       archive: 'Archive',
-      console: 'Open in console',
-      empty: 'No activity',
+      emptyList: 'No activity',
+      emptyTitle: 'Nothing selected',
+      emptyDetail: 'Choose an item from the list to see its context and actions.',
       emptyFacts: 'No facts',
+      unavailable: 'Action unavailable',
+      moving: 'Updating activity…',
+      moveFailed: 'Could not update activity. Try again.',
+      count: (count) => String(count),
     },
     views: [
       { id: 'inbox', label: 'Inbox' },
       { id: 'snoozed', label: 'Snoozed' },
       { id: 'archived', label: 'Archived' },
     ],
+    inboxViewId: 'inbox',
+    snoozedViewId: 'snoozed',
+    archivedViewId: 'archived',
+    snoozeChoices: [
+      { id: 'later', label: 'Later today' },
+      { id: 'tomorrow', label: 'Tomorrow 09:00' },
+      { id: 'next-week', label: 'Next week' },
+      { id: 'pick-date', label: 'Pick a date' },
+    ],
     initialViewId: 'inbox',
     initialEntryId: 'priya-access',
     entries: [
       {
         id: 'priya-access',
-        person: 'Priya',
+        viewId: 'inbox', icon: 'access', person: 'Priya Nandakumar',
         time: '9m',
-        summary: 'Requested admin access',
+        summary: 'requested admin access to Cedar Labs billing',
+        introduction: 'requested admin access to',
         title: 'Cedar Labs billing',
-        detail: 'Priya needs to reconcile the October statement and issue two credits before Friday.',
+        detail: 'Priya needs to reconcile the October statement and issue two credits before the close on Friday. Access can be time-boxed to 7 days.',
+        primaryAction: { id: 'grant', label: 'Grant access' },
         facts: [
           { id: 'requested', label: 'Requested role', value: 'Billing admin' },
           { id: 'current', label: 'Current role', value: 'Member' },
           { id: 'duration', label: 'Duration', value: '7 days' },
           { id: 'approver', label: 'Approver', value: 'You' },
         ],
+        link: { label: 'Open in console', href: '#' },
       },
       {
-        id: 'review',
-        person: 'Mina',
-        time: '42m',
-        summary: 'Requested a review',
-        title: 'Release review',
-        detail: 'The production release needs approval.',
-        facts: [{ id: 'environment', label: 'Environment', value: 'Production' }],
+        id: 'wei-review', viewId: 'inbox', icon: 'review', person: 'Wei Chen', time: '52m',
+        summary: 'requested your review on Usage metering rewrite',
+        introduction: 'requested your review on', title: 'Usage metering rewrite',
+        detail: 'Replaces the nightly aggregation job with a streaming counter. Adds a backfill script and a feature flag so we can roll back per workspace.',
+        primaryAction: { id: 'start-review', label: 'Start review' },
+        facts: [
+          { id: 'repository', label: 'Repository', value: 'halcyon/metering' },
+          { id: 'files', label: 'Files changed', value: '14' },
+          { id: 'checks', label: 'Checks', value: '8 passing' },
+          { id: 'base', label: 'Base', value: 'main' },
+        ],
+        link: { label: 'Open in repository', href: '#' },
+      },
+      {
+        id: 'halcyon-alert', viewId: 'inbox', icon: 'alert', person: 'Halcyon', time: '3h',
+        summary: 'raised a latency alert on eu-west ingest',
+        introduction: 'raised a latency alert on', title: 'eu-west ingest',
+        detail: 'p95 crossed 800ms for 12 minutes and recovered without intervention. The queue depth peaked at 4,120 messages during the window.',
+        primaryAction: { id: 'open-incident', label: 'Open incident' },
+        facts: [
+          { id: 'severity', label: 'Severity', value: 'Warning' },
+          { id: 'duration', label: 'Duration', value: '12m' },
+          { id: 'p95', label: 'Peak p95', value: '812ms' },
+          { id: 'status', label: 'Status', value: 'Recovered' },
+        ], link: { label: 'Open in console', href: '#' },
+      },
+      {
+        id: 'ana-changes', viewId: 'snoozed', icon: 'comment', person: 'Ana Reyes', time: '1d',
+        summary: 'left changes requested on Sidebar density pass',
+        introduction: 'left changes requested on', title: 'Sidebar density pass',
+        detail: 'Two comments on the collapsed rail widths and one on the tooltip delay. Everything else is approved.',
+        primaryAction: { id: 'open-pull-request', label: 'Open pull request' },
+        facts: [
+          { id: 'repository', label: 'Repository', value: 'halcyon/web' },
+          { id: 'comments', label: 'Comments', value: '3' },
+          { id: 'checks', label: 'Checks', value: '6 passing' },
+          { id: 'until', label: 'Snoozed until', value: 'Tomorrow 09:00' },
+        ],
+        link: { label: 'Open in repository', href: '#' },
+      },
+      {
+        id: 'marco-member', viewId: 'archived', icon: 'member', person: 'Marco Silva', time: '2d',
+        summary: 'was added to Northwind workspace',
+        introduction: 'was added to', title: 'Northwind workspace',
+        detail: 'Marco accepted the invite and completed device enrolment. No further action is needed.',
+        primaryAction: { id: 'view-member', label: 'View member' },
+        facts: [
+          { id: 'role', label: 'Role', value: 'Editor' },
+          { id: 'invited', label: 'Invited by', value: 'You' },
+          { id: 'device', label: 'Device', value: 'Enrolled' },
+          { id: 'status', label: 'Status', value: 'Active' },
+        ],
+        link: { label: 'Open in console', href: '#' },
       },
     ],
     listStrategy: scroll,
+    moveEntry: async () => {},
   },
   system: {
     labels: {
@@ -413,6 +475,71 @@ export function createHbarAppUiNotificationPreferencesFixture(mode: string | nul
     case null:
     default:
       return HBAR_APP_UI_NOTIFICATIONS_FIXTURES
+  }
+}
+
+export function createHbarAppUiNotificationActivityFixture(
+  mode: string | null,
+  base: HbarAppUiNotificationsContent = HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
+): HbarAppUiNotificationsContent {
+  const activity = base.activity!
+  switch (mode) {
+    case 'localized':
+      return {
+        ...base,
+        activity: {
+          ...activity,
+          labels: {
+            ...activity.labels,
+            title: 'Aktivitäten', views: 'Aktivitätsansichten',
+            back: 'Zurück', snooze: 'Später', archive: 'Archivieren',
+            emptyList: 'Keine Aktivitäten', emptyTitle: 'Nichts ausgewählt',
+            emptyDetail: 'Wählen Sie einen Eintrag, um Details und Aktionen anzuzeigen.',
+            emptyFacts: 'Keine Angaben', unavailable: 'Aktion nicht verfügbar',
+            moving: 'Aktivität wird aktualisiert…', moveFailed: 'Aktualisierung fehlgeschlagen.',
+            count: (count) => `${count} Einträge`,
+          },
+          views: [
+            { id: 'inbox', label: 'Posteingang' }, { id: 'snoozed', label: 'Später' },
+            { id: 'archived', label: 'Archiviert' },
+          ],
+          snoozeChoices: activity.snoozeChoices.map((choice, index) => ({ ...choice, label: ['Heute später', 'Morgen 09:00', 'Nächste Woche', 'Datum wählen'][index]! })),
+          entries: activity.entries.map((item) => ({
+            ...item,
+            summary: `${item.summary} — ausführliche Beschreibung für einen lokalisierten Arbeitsbereich`,
+            detail: `${item.detail} Zusätzliche Informationen für diesen Arbeitsbereich.`,
+          })),
+        },
+      }
+    case 'empty': return { ...base, activity: { ...activity, entries: [], initialEntryId: '' } }
+    case 'one': return { ...base, activity: { ...activity, entries: activity.entries.slice(0, 1) } }
+    case 'overflow': return {
+      ...base,
+      activity: {
+        ...activity,
+        entries: Array.from({ length: 81 }, (_, index) => ({
+          ...activity.entries[0]!, id: `activity-${index}`, person: `Workspace member ${index}`,
+          summary: `requested access to a workspace with a very long descriptive name ${index}`,
+        })),
+      },
+    }
+    case 'duplicate': return { ...base, activity: { ...activity, entries: [...activity.entries, activity.entries[0]!] } }
+    case 'unavailable': return { ...base, activity: { ...activity, moveEntry: undefined } }
+    case 'retry': {
+      let attempts = 0
+      return {
+        ...base,
+        activity: {
+          ...activity,
+          moveEntry: async () => {
+            attempts += 1
+            if (attempts === 1) throw new Error('Preview-only failed move')
+          },
+        },
+      }
+    }
+    case null:
+    default: return base
   }
 }
 

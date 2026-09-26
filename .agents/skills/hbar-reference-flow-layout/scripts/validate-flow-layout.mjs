@@ -89,6 +89,10 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Notifications 4: Snooze opens a trigger-anchored menu over the flowing
+  // detail pane. Only its container is positioned; menu choices stay in flex.
+  if (/packages\/lumen-app-ui\/src\/notifications-activity-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-notifications-variant-4 .lumen-activity-menu') return true
   // App Dialog 7: the scrim, trigger-anchored dialog/submenu and action result
   // demonstrably float above the centered trigger and flowing menu rows.
   if (/packages\/lumen-app-ui\/src\/app-dialog-menu-reference\.css$/.test(path.replaceAll('\\', '/'))) {

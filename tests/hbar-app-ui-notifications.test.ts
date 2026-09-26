@@ -9,6 +9,7 @@ import {
   type HbarAppUiNotificationsContent,
 } from '../packages/hbar-app-ui/src/index'
 import {
+  createHbarAppUiNotificationActivityFixture,
   createHbarAppUiNotificationPreferencesFixture,
   createHbarAppUiNotificationsLocalizedFixtures,
   HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
@@ -153,5 +154,24 @@ describe('hbar-app-ui notification surfaces', () => {
     expect((render(3, createHbarAppUiNotificationPreferencesFixture('overflow')).match(/<li/g) ?? []).length).toBe(81)
     expect((render(3, createHbarAppUiNotificationPreferencesFixture('duplicate')).match(/<li/g) ?? []).length).toBe(7)
     expect(render(3, createHbarAppUiNotificationPreferencesFixture('unavailable'))).toContain('disabled=""')
+  })
+
+  test('activity projects host entries into views with typed detail, counts and a confirmed move boundary', () => {
+    const html = render(4)
+    expect(html).toContain('Priya Nandakumar')
+    expect(html).toContain('requested admin access to Cedar Labs billing')
+    expect(html).toContain('Cedar Labs billing')
+    expect(html).toContain('Grant access')
+    expect(html).toContain('Open in console')
+    expect(html).toContain('Inbox<span class="lumen-activity-count">3</span>')
+    expect(html).toContain('Snoozed<span class="lumen-activity-count">1</span>')
+    expect(html).toContain('Archived<span class="lumen-activity-count">1</span>')
+    expect((html.match(/<li/g) ?? []).length).toBe(3)
+    expect(html).not.toContain('Mina')
+    expect(render(4, createHbarAppUiNotificationActivityFixture('localized'))).toContain('Aktivitäten')
+    expect(render(4, createHbarAppUiNotificationActivityFixture('empty'))).toContain('Nothing selected')
+    expect((render(4, createHbarAppUiNotificationActivityFixture('overflow')).match(/<li/g) ?? []).length).toBe(81)
+    expect((render(4, createHbarAppUiNotificationActivityFixture('duplicate')).match(/<li/g) ?? []).length).toBe(3)
+    expect(render(4, createHbarAppUiNotificationActivityFixture('unavailable'))).toContain('Action unavailable')
   })
 })

@@ -561,6 +561,31 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-notifications-4')
+    return {
+      revision: 2,
+      lumenEntries: ['notifications.tsx', 'notifications-activity-reference.css', 'notifications.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Selecting Wei replaces the detail, primary action, facts and destination link' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Snoozed tab filters to Ana and clears the detail without selecting a new row' },
+        { viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Archived tab filters to Marco and retains the empty detail pane' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'activity-snoozed:3:click', change: 'Selecting Ana reveals the snoozed review context and facts' },
+        { viewport: 'desktop', theme: 'light', suffix: 'activity-archived:3:click', change: 'Selecting Marco reveals archived member context and actions' },
+        { viewport: 'desktop', theme: 'dark', suffix: '8:expand', change: 'Snooze opens the anchored four-choice menu' },
+        { viewport: 'desktop', theme: 'light', suffix: 'activity-snooze-menu:9:click', change: 'Later today moves Priya from Inbox to Snoozed and clears the detail' },
+        { viewport: 'desktop', theme: 'dark', suffix: '9:click', change: 'Archive moves Priya to Archived and clears the detail' },
+        { viewport: 'desktop', theme: 'light', suffix: '7:click', change: 'Primary Grant access has no invented completion feedback in the reference demo' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'activity-snooze-menu:8:expand-escape', change: 'Escape closes the narrow anchored menu and restores the trigger' },
+        { viewport: 'stress', theme: 'light', suffix: '6:click', change: 'Back replaces narrow detail with the list' },
+        { viewport: 'stress', theme: 'dark', suffix: 'activity-back:4:click', change: 'Selecting Wei from narrow list returns to the detail pane' },
+        { viewport: 'stress', theme: 'light', suffix: '1:click', change: 'Switching tabs on the narrow detail shows the filtered list' },
+      ],
+      inferences: [
+        { scope: 'Other row selections and repeated primary/link actions', basis: 'Five typed host entries share the ID-keyed projection and detail renderer; both the second inbox row and each other view are actually replayed. Grant is the reference no-op representative; link destinations remain host-owned.', verification: 'inferred-not-replayed' },
+        { scope: 'Other Snooze menu choices, pointer and keyboard equivalents', basis: 'The four menuitems invoke one confirmed transfer path with option ID. The menu-open and one option transfer are paired live; the different labels/options and failure/retry are locally exercised without claiming four source screenshots.', verification: 'inferred-not-replayed' },
+        { scope: 'Other theme/viewport interaction permutations and capacity', basis: 'Eight static source/local pairs inspect four widths and two themes. Desktop, tablet and extreme-narrow dynamic samples cover pane/stack and overlay ownership. Empty/one/duplicate/81 rows, long translated copy and host failures are locally checked.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-notifications-3')
     return {
       revision: 1,
