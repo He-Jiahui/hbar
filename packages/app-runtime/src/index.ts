@@ -56,6 +56,8 @@ import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
+export { createConversationFind, CONVERSATION_FIND_LIMITS } from './conversation-find'
+export type { ConversationFindSource, ConversationFindMatch, ConversationFindState } from './conversation-find'
 import { createGoalHistory, goalHistoryCommands } from './goal-history'
 export { goalHistoryCommands, getGoalHistoryProjection, GOAL_HISTORY_MAX_FACTS } from './goal-history'
 export type {
