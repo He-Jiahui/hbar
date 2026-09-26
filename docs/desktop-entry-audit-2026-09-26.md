@@ -16,6 +16,8 @@
 - 上述启动问题已进入独立修复验收：同 endpoint 首次确认保留全局 Settings 实例、已知分类、Appearance 草稿和正常焦点；pending runtime 无持久化端口，真实 Host 偏好读回后才可保存。分类描述加载不移除原导航按钮，后台旧页签恢复不能抢页，旧导航存储失效也不回退刚才的分类。最新生产真实 Host 27/27、真实原生900×600 4/4通过；原生原有Goal/语言/归档回归同次通过。完整串行门禁结果以本单元[交付与验证记录](desktop-startup-settings-handoff.md)为准。
 - 外部归档保留视图已接入 exact Session／workspace 执行准备能力：历史、草稿、原附件与 Files 保留，新发送／Retry／附件／模型／思考／Plan／Goal 准备受限；旧操作核对与 Stop 等能力独立。新增模型持久回执纯读与 Retry 纯读核对，Restore 前置读取不再清原观察视图。最终真实 Host 10/10、真实原生分视口场景通过；根 lint/typecheck通过，完整Bun1909 pass/1 fail，唯一外部通知控件边界失败仍保留，详见[交付记录](desktop-session-execution-access.md)。原[差距审计](desktop-external-archive-readonly-audit.md)保留为历史红测，不冒充新实现证据。
 - `75763f9`：工具输出就近 Copy 的下一入口审计已独立提交。重新挂载 cc 原 ToolCallBlock 与 hbar 当前消息组件，中英1440/320及真实剪贴板明确证明差距；仅建议下一实现，不声称按钮已补齐。[对照与验收要求](desktop-next-conversation-entry-audit.md)。
+- `2c68156`：工作台容器导航的独立后续审计，原组件／生产真实 Host 共16场景，复核14条跨版面入口。明确900／390／320抽屉背景仍能Tab、关闭／展开焦点丢失，同时保留已正确工作的Back与Settings往返；参考900也有自身裁切，不机械照搬尺寸。下一优先级是完整自适应容器与进出焦点，然后会话显隐归属与多文件预览标签。[实证与边界](desktop-workbench-navigation-followup-audit.md)。这是审计，不是布局修复。
+- 工具输出 Copy 已按原参考入口落地：输出标题旁独立复制完整已加载结果、局部成功／失败重试、1m UTF-16明确容量、按原目标及内容版本失效迟到回执；不扩展正文Copy、不执行工具，归档历史仍可用。最终生产真实Host2/2＋受控DOM2/2、原消息阅读回归1/1及新资源真实原生中英900/1440通过。根串行门禁1931/1931全绿。[交付及各层证据边界](desktop-tool-result-copy.md)。
 
 本次集成检查的时间点需另行区分：根lint/typecheck曾通过，随后并行Lumen通知修改引入缺失stylesheet，边界suite首次12 pass/1 fail/1加载错误；文件落地后重跑13 pass/0 fail/55断言。继续的 `bun run check` 在严格lint阶段因外部通知 `Header` 未使用与fixture未完成的 `system/handler` 引用退出1；日志 `artifacts/desktop-entry-matrix/final-stable-check.log`。未进入该次typecheck/全量test，不将此串行门禁描述为通过。这些外部文件保留给原任务处理。
 
@@ -27,6 +29,8 @@
 该单元另有最终真实Host浏览器27/27、真实原生startup4/4和同次既有Goal/语言/归档回归。
 
 **归档执行准备单元最新串行门禁**：`bun run check` 的原生工具、根 strict lint/typecheck通过；完整Bun **1909 pass / 1 fail / 14208 assertions，344文件，242.98秒**，总exit1。唯一失败为并行未提交 `hbar-ui/packages/lumen-app-ui/src/notifications.tsx` 的原生按钮违反canonical控件边界，独立边界重跑仍2pass/1fail。未改或夹带该外部文件，不把本单元真实Host10/10及原生通过替代全仓全绿。日志 `artifacts/session-execution-access/final-check.log`。
+
+**工具输出Copy单元最新串行门禁**：`bun run check` **exit0**，原生工具构建、根 strict lint/typecheck通过，完整Bun **1931 pass / 0 fail / 14343 assertions，345文件，248.52秒**。日志 `artifacts/tool-result-copy/final-check.log`。外部通知功能已经有它自己的后续提交，本单元未改或夹带；不把前一时点失败写成本轮失败，也不将本轮全绿回填成旧单元当时已绿。
 
 ## 已验证并提交的子集
 
@@ -65,4 +69,4 @@
 
 Browser、真实终端、定时任务、市场/MCP/模板、图片材料预览及历史 rewind 不是换入口即可迁移的功能：需要相应产品/安全/持久化契约。当前 `browser.*` 是自动化，不是原生内嵌 Browser；内部 wakeup 不是 schedule CRUD；Fork 不是回滚磁盘。不得用占位 UI 声称等价。
 
-完整 Goal 生命周期、设备语言、插件详情就近启停、确认归档退役、启动设置连续性及外部归档保留视图的执行准备边界已经分别闭环。下一明确单元是已有工具结果的就近复制，并继续全桌面逐入口矩阵与通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。
+完整 Goal 生命周期、设备语言、插件详情就近启停、确认归档退役、启动设置连续性及外部归档保留视图的执行准备边界已经分别闭环。工具结果就近复制进入本轮独立封口，详见[实现与验证](desktop-tool-result-copy.md)。后续优先落实工作台工具容器的自适应布局、背景可交互性与进出焦点闭环，再审按会话保留显隐与多文件预览标签，继续全桌面逐入口矩阵及通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。

@@ -126,6 +126,44 @@
 .hbar-session-tool-section {
   gap: 4px;
 }
+.hbar-session-tool-result-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+.hbar-session-tool-result-copy-action {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-inline-start: auto;
+  gap: 4px;
+}
+.hbar-session-tool-result-copy {
+  max-inline-size: 100%;
+  padding: 4px 6px;
+  gap: 4px;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  white-space: normal;
+  text-align: start;
+}
+.hbar-session-tool-result-copy > span,
+.hbar-session-tool-result-copy-notice {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-tool-result-copy-notice {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.hbar-session-tool-result-copy-notice[role='alert'] {
+  color: var(--lumen-danger);
+}
 .hbar-session-tool-heading,
 .hbar-session-tool-status {
   color: var(--lumen-muted);

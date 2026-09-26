@@ -931,6 +931,22 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       awaitingResult: choose('等待结果', 'Awaiting result'),
       input: choose('输入', 'Input'),
       output: choose('输出', 'Output'),
+      toolResultCopy: {
+        copy: choose('复制输出', 'Copy output'),
+        copying: choose('正在复制', 'Copying'),
+        copied: choose('已复制', 'Copied'),
+        failed: choose('无法复制输出，请重试。', 'Could not copy the output. Try again.'),
+        unavailable: choose(
+          '此环境无法使用剪贴板。请选择输出文本后复制。',
+          'Clipboard access is unavailable. Select the output text to copy it.',
+        ),
+        tooLarge: (limit) =>
+          choose(
+            `输出超出单次复制上限（${limit.toLocaleString('zh-CN')} 个 UTF-16 单元），请分段选择复制。`,
+            `Output exceeds the single-copy limit (${limit.toLocaleString('en-US')} UTF-16 units). Select smaller sections to copy.`,
+          ),
+        retry: choose('重试复制', 'Retry copy'),
+      },
       emptyOutput: choose('无输出', 'No output'),
       unavailableInput: choose('参数不可显示', 'Input unavailable'),
       showFullContent: choose('展开完整内容', 'Show full content'),

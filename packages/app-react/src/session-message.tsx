@@ -35,6 +35,7 @@ import {
   type SessionToolRow,
 } from './session-message-model'
 import './session-message.css'
+import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-result-copy-action'
 
 export interface HbarMessageActivitySummary {
   readonly thinkingCount: number
@@ -52,6 +53,7 @@ export interface HbarMessageBlocksLabels {
   readonly awaitingResult: string
   readonly input: string
   readonly output: string
+  readonly toolResultCopy: HbarToolResultCopyLabels
   readonly emptyOutput: string
   readonly unavailableInput: string
   readonly showFullContent: string
@@ -72,6 +74,8 @@ export interface HbarMessageBlocksProps {
   readonly results?: readonly SessionToolResult[]
   readonly streaming?: boolean
   readonly labels: HbarMessageBlocksLabels
+  /** Local read-only output actions remain available in archived history. */
+  readonly clipboard?: MessageClipboardPort | null | undefined
   /** Domain-owned display metadata, not a hard-coded plugin/tool catalog in the view. */
   readonly describeTool?: (call: SessionToolCall) => HbarMessageToolPresentation
   /** Domain-owned text rendering, keyed to original block identity; non-text rows retain their order. */
@@ -224,10 +228,16 @@ function ToolRow({
   row,
   labels,
   describeTool,
+  sessionId,
+  messageId,
+  clipboard,
 }: {
   readonly row: SessionToolRow
   readonly labels: HbarMessageBlocksLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool'] | undefined
+  readonly sessionId: string
+  readonly messageId: string
+  readonly clipboard?: HbarMessageBlocksProps['clipboard']
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon =
@@ -262,10 +272,25 @@ function ToolRow({
         </LumenFrame>
       ) : null}
       {row.result ? (
-        <LumenFrame className="hbar-session-tool-section">
-          <LumenText as="span" className="hbar-session-tool-heading">
-            {labels.output}
-          </LumenText>
+        <LumenFrame
+          className="hbar-session-tool-section"
+          data-tool-call-id={row.result.callId}
+          data-tool-name={row.result.name}
+        >
+          <LumenFrame className="hbar-session-tool-result-heading">
+            <LumenText as="span" className="hbar-session-tool-heading">
+              {labels.output}
+            </LumenText>
+            <ToolResultCopyAction
+              sessionId={sessionId}
+              messageId={messageId}
+              callId={row.result.callId}
+              toolName={row.result.name}
+              text={row.result.text}
+              labels={labels.toolResultCopy}
+              clipboard={clipboard}
+            />
+          </LumenFrame>
           <DetailText
             text={row.result.text || labels.emptyOutput}
             labels={labels}
@@ -284,11 +309,17 @@ function Activity({
   streaming,
   labels,
   describeTool,
+  sessionId,
+  messageId,
+  clipboard,
 }: {
   readonly rows: readonly ActivityRow[]
   readonly streaming: boolean
   readonly labels: HbarMessageBlocksLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool'] | undefined
+  readonly sessionId: string
+  readonly messageId: string
+  readonly clipboard?: HbarMessageBlocksProps['clipboard']
 }) {
   const [pinnedOpen, setPinnedOpen] = useState<boolean | null>(null)
   const contentId = useId()
@@ -314,7 +345,15 @@ function Activity({
         </LumenFrame>
       </Disclosure>
     ) : (
-      <ToolRow key={row.id} row={row} labels={labels} describeTool={describeTool} />
+      <ToolRow
+        key={row.id}
+        row={row}
+        labels={labels}
+        describeTool={describeTool}
+        sessionId={sessionId}
+        messageId={messageId}
+        clipboard={clipboard}
+      />
     ),
   )
   if (rows.length === 1) return <LumenFrame className="hbar-session-activity">{children}</LumenFrame>
@@ -340,6 +379,9 @@ function Activity({
 }
 
 function MessageBlocksContent({
+  sessionId,
+  messageId,
+  clipboard,
   blocks,
   results,
   streaming = false,
@@ -381,10 +423,20 @@ function MessageBlocksContent({
             streaming={streaming}
             labels={labels}
             describeTool={describeTool}
+            sessionId={sessionId}
+            messageId={messageId}
+            clipboard={clipboard}
           />
         ) : group.kind === 'tool' ? (
           <LumenFrame key={group.id} className="hbar-session-tool-decision">
-            <ToolRow row={group} labels={labels} describeTool={describeTool} />
+            <ToolRow
+              row={group}
+              labels={labels}
+              describeTool={describeTool}
+              sessionId={sessionId}
+              messageId={messageId}
+              clipboard={clipboard}
+            />
             {toolDecisions?.get(group.id)}
           </LumenFrame>
         ) : group.kind === 'text' ? (

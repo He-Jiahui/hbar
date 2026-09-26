@@ -10,6 +10,87 @@ import {
   type SessionMessageBlock,
 } from '../packages/app-react/src/session-message-model'
 import { describeFixtureTool, messageBlocks, messageLabels, sessionMessage } from './session-message.fixtures'
+import { MAX_TOOL_RESULT_COPY_CHARACTERS } from '../packages/app-react/src/tool-result-copy'
+
+test('output copy belongs beside its result, not input, thinking, reply text, or a missing output', () => {
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const labels = messageLabels(locale).blocks
+    for (const text of ['', ' \r\n\t', 'one', '错误详情\nretry safely']) {
+      const html = renderToStaticMarkup(
+        <HbarMessageBlocks
+          sessionId="original-session"
+          messageId="original-message"
+          blocks={[
+            { type: 'tool_call', callId: 'original-call', name: 'Read', args: { content: 'not the copy source' } },
+            { type: 'tool_result', callId: 'original-call', name: 'Read', text, isError: true },
+          ]}
+          labels={labels}
+        />,
+      )
+      expect(html).toContain('data-tool-call-id="original-call"')
+      expect(html).toContain('data-tool-name="Read"')
+      expect(html).toContain('hbar-session-tool-result-heading')
+      expect(html.includes(labels.toolResultCopy.copy)).toBe(Boolean(text.trim()))
+      expect(html.split('hbar-session-tool-result-copy-action').length - 1).toBe(text.trim() ? 1 : 0)
+    }
+    const missing = renderToStaticMarkup(
+      <HbarMessageBlocks
+        sessionId="s"
+        messageId="m"
+        blocks={[{ type: 'tool_call', callId: 'pending', name: 'Read', args: {} }]}
+        labels={labels}
+      />,
+    )
+    expect(missing).not.toContain('hbar-session-tool-result-copy-action')
+  }
+})
+
+test('copy capacity is separate from the 12k preview and never silently copies a truncated result', () => {
+  const labels = messageLabels('zh-CN').blocks
+  for (const length of [1, 12_000, 12_001, MAX_TOOL_RESULT_COPY_CHARACTERS, MAX_TOOL_RESULT_COPY_CHARACTERS + 1]) {
+    const html = renderToStaticMarkup(
+      <HbarMessageBlocks
+        sessionId="s"
+        messageId="m"
+        blocks={[{ type: 'tool_result', callId: 'orphan', name: 'Read', text: 'x'.repeat(length), isError: true }]}
+        labels={labels}
+      />,
+    )
+    expect(html).toContain(labels.toolResultCopy.copy)
+    expect(html.includes(labels.showFullContent)).toBe(length > 12_000)
+    expect(html.includes('data-copy-status="too_large"')).toBe(length > MAX_TOOL_RESULT_COPY_CHARACTERS)
+    expect(html.includes(labels.toolResultCopy.tooLarge(MAX_TOOL_RESULT_COPY_CHARACTERS))).toBe(
+      length > MAX_TOOL_RESULT_COPY_CHARACTERS,
+    )
+    expect(html.length).toBeLessThan(20_000)
+  }
+})
+
+test('a tool-decision sibling retains the same independently target-bound output copy action', () => {
+  const result = {
+    type: 'tool_result' as const,
+    callId: 'decision-call',
+    name: 'Plan',
+    text: 'saved plan',
+    isError: true,
+  }
+  const rows = buildMessageRows([result])
+  const row = rows[0]
+  if (!row) throw new Error('Expected tool row')
+  const html = renderToStaticMarkup(
+    <HbarMessageBlocks
+      sessionId="s"
+      messageId="m"
+      blocks={[result]}
+      labels={messageLabels('en-US').blocks}
+      toolDecisions={new Map([[row.id, <span key="decision">Test-owned decision</span>]])}
+    />,
+  )
+  expect(html).toContain('hbar-session-tool-decision')
+  expect(html).toContain('data-tool-call-id="decision-call"')
+  expect(html).toContain('Copy output')
+  expect(html).toContain('Test-owned decision')
+})
 
 test('tool rows join call and result once, retain mismatched and orphan results, and ignore duplicate IDs', () => {
   const call = { type: 'tool_call' as const, callId: 'call', name: 'Custom', args: { value: 1 } }

@@ -30,6 +30,18 @@ export function messageLabels(locale: 'zh-CN' | 'en-US'): {
       awaitingResult: zh ? '等待结果' : 'Awaiting result',
       input: zh ? '输入参数' : 'Input',
       output: zh ? '工具输出' : 'Output',
+      toolResultCopy: {
+        copy: zh ? '复制输出' : 'Copy output',
+        copying: zh ? '正在复制' : 'Copying',
+        copied: zh ? '已复制' : 'Copied',
+        failed: zh ? '复制输出失败，请重试。' : 'Output copy failed. Try again.',
+        unavailable: zh ? '剪贴板不可用，请选择输出文本后复制。' : 'Clipboard unavailable. Select the output to copy.',
+        tooLarge: (limit) =>
+          zh
+            ? `超出 ${limit} 个 UTF-16 单元的单次复制上限，请分段复制。`
+            : `Exceeds the ${limit} UTF-16 unit copy limit. Copy smaller sections.`,
+        retry: zh ? '重试复制' : 'Retry copy',
+      },
       emptyOutput: zh ? '结果没有文本输出' : 'The result has no text output',
       unavailableInput: zh ? '无法显示输入参数' : 'Input is unavailable',
       showFullContent: zh ? '显示完整内容' : 'Show full content',
