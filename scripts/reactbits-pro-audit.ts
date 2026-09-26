@@ -304,6 +304,8 @@ export type InteractionCase = Readonly<{
     | 'auth-reset-ready'
     | 'auth-reset-ready-no-signout'
     | 'auth-reset-success'
+    | 'auth-approval-approved'
+    | 'auth-approval-blocked'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1788,6 +1790,10 @@ async function prepareAuthenticationResetScenario(root: Locator, scenario: (type
     await root.getByRole('checkbox', { name: 'Sign out of my other devices' }).uncheck()
   if (scenario === 'auth-reset-success')
     await root.getByRole('button', { name: 'Update password' }).click()
+}
+const authenticationApprovalScenarios = ['auth-approval-approved', 'auth-approval-blocked'] as const
+async function prepareAuthenticationApprovalScenario(root: Locator, scenario: (typeof authenticationApprovalScenarios)[number]): Promise<void> {
+  await root.getByRole('button', { name: scenario === 'auth-approval-approved' ? 'Yes, that was me' : 'No, secure my account' }).click()
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3413,6 +3419,8 @@ async function replayInteraction(
     await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-13' && authenticationResetScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-14' && authenticationApprovalScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3720,6 +3728,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-13' && authenticationResetScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-14' && authenticationApprovalScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4385,6 +4395,13 @@ async function runInteractionsParallel(
                     ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'Different123!' }
                     : item,
                 ))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-14') {
+              for (const scenario of authenticationApprovalScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationApprovalScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')

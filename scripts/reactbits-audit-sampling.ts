@@ -561,6 +561,22 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-14')
+    return {
+      revision: 2,
+      lumenEntries: ['authentication.tsx', 'authentication-sign-in-approval-reference.css', 'authentication/SignInApprovalAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Approval outcome replaces the pending request' },
+        { viewport: 'mobile', theme: 'dark', suffix: '1:click', change: 'Denial outcome distinguishes the security response on a narrow layout' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-approval-approved:0:click', change: 'Back from approval restores the pending request' },
+        { viewport: 'tablet', theme: 'light', suffix: 'auth-approval-blocked:0:click', change: 'Password action from the blocked state tests source navigation feedback' },
+        { viewport: 'tablet', theme: 'dark', suffix: 'auth-approval-blocked:1:click', change: 'Back from denial restores the pending request' },
+      ],
+      inferences: [
+        { scope: 'Button activation modality and theme permutations', basis: 'Both native buttons use the same activation path across themes and widths; click samples cover the two distinct outcomes while keyboard and repeated viewport combinations are inferred.', verification: 'inferred-not-replayed' },
+        { scope: 'Passive recent sign-in rows', basis: 'The source exposes three list items, not interactive controls; host count, locale and overflow boundaries are tested without clicking every row.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-13')
     return {
       revision: 2,

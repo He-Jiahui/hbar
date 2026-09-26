@@ -42,7 +42,7 @@ describe('hbar-app-ui authentication surfaces', () => {
             'hbar-app-ui-auth-workspace-reference',
             'hbar-app-ui-auth-invitation-reference',
             'hbar-app-ui-auth-password-reset-reference',
-            'hbar-app-ui-auth-approval-surface',
+            'hbar-app-ui-auth-approval-reference',
         ]
         expect(new Set(markup).size).toBe(14)
         for (const [index, value] of markup.entries()) {
@@ -66,6 +66,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(12, localized)).toContain('Northwind Operations beitreten')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
+        expect(renderAuthentication(14, localized)).toContain('Anmeldung bestätigen')
         expect(renderAuthentication(1, localized)).not.toContain('Continue to the Northwind workspace.')
     })
 
@@ -357,6 +358,37 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderFlow({phase: 'success'})).not.toContain('hbar-app-ui-auth-password-reset-reference-requirements')
         const legacy = renderAuthentication(13, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passwordReset: {...base, referenceFlow: undefined}})
         expect(legacy).toContain('hbar-app-ui-auth-password-reset-surface')
+    })
+
+    test('sign-in approval reference keeps pending details, two outcomes and passive recent history in Host state', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.approval
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected approval fixture')
+        const renderFlow = (phase: typeof flow.phase) => renderAuthentication(14, {
+            ...HBAR_APP_UI_AUTHENTICATION_FIXTURES,
+            approval: {...base, referenceFlow: {...flow, phase}},
+        })
+        const initial = renderFlow('pending')
+        expect(initial).toContain('hbar-app-ui-auth-approval-reference-request')
+        expect(occurrences(initial, 'class="is-ip-address"')).toBe(1)
+        expect(initial).toContain('dana.whitfield@northwind.com')
+        expect(initial).toContain('The request expires in 4 minutes.')
+        expect(occurrences(initial, '<li')).toBe(base.recent.length)
+        expect(initial).toContain('hbar-app-ui-auth-approval-reference-dot is-attention')
+        const approved = renderFlow('approved')
+        expect(approved).toContain(flow.labels.approvedTitle)
+        expect(approved).toContain(flow.labels.approvedDescription)
+        expect(approved).not.toContain('hbar-app-ui-auth-approval-reference-request')
+        expect(approved).toContain(flow.labels.backToRequest)
+        const blocked = renderFlow('blocked')
+        expect(blocked).toContain(flow.labels.blockedTitle)
+        expect(blocked).toContain(flow.labels.blockedSteps[1])
+        expect(blocked).toContain(flow.labels.changePassword)
+        expect(occurrences(blocked, '<li')).toBe(base.recent.length + flow.labels.blockedSteps.length)
+        const empty = renderAuthentication(14, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, approval: {...base, recent: []}})
+        expect(empty).toContain(base.labels.emptyRecentSignIns)
+        const legacy = renderAuthentication(14, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, approval: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-approval-surface')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

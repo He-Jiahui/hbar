@@ -302,6 +302,14 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('sign-in approval samples distinct decision outcomes, recovery and source no-op without row permutations', () => {
+    const id = 'hbar-app-ui-authentication-14'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(5)
+    expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:click`])
+    expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([`${id}:1:click`])
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([`${id}:auth-approval-blocked:0:click`])
+    expect(auditSamplingPlan(id)?.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+  })
   test('password reset feedback ignores hidden demo bytes but checks device outcomes and accessible copy', () => {
     const sourceBefore = {...snapshot([control(0, {name: 'Update password', disabled: true})]), axSnapshot: '- checkbox "Sign out of my other devices" [checked]\n- text: Ends', bodyTextLength: 495}
     const localBefore = {...sourceBefore, bodyTextLength: 405}

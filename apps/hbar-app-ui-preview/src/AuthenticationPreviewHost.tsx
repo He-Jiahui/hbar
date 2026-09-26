@@ -38,7 +38,8 @@ export function AuthenticationPreviewHost({
     [resetConfirmation, setResetConfirmation] = useState(content.passwordReset?.referenceFlow?.confirmation ?? ''),
     [resetVisible, setResetVisible] = useState(content.passwordReset?.referenceFlow?.passwordVisible ?? false),
     [resetSignOutOther, setResetSignOutOther] = useState(content.passwordReset?.referenceFlow?.signOutOther ?? true),
-    [resetPhase, setResetPhase] = useState<'form' | 'success'>(content.passwordReset?.referenceFlow?.phase ?? 'form')
+    [resetPhase, setResetPhase] = useState<'form' | 'success'>(content.passwordReset?.referenceFlow?.phase ?? 'form'),
+    [approvalPhase, setApprovalPhase] = useState<'pending' | 'approved' | 'blocked'>(content.approval?.referenceFlow?.phase ?? 'pending')
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
@@ -69,6 +70,7 @@ export function AuthenticationPreviewHost({
     setResetVisible(content.passwordReset?.referenceFlow?.passwordVisible ?? false)
     setResetSignOutOther(content.passwordReset?.referenceFlow?.signOutOther ?? true)
     setResetPhase(content.passwordReset?.referenceFlow?.phase ?? 'form')
+    setApprovalPhase(content.approval?.referenceFlow?.phase ?? 'pending')
   }
   useEffect(() => {
     if (!seconds) return
@@ -254,6 +256,17 @@ export function AuthenticationPreviewHost({
               setResetSignOutOther(true)
               setResetPhase('form')
             },
+          },
+        },
+        approval: content.approval && {
+          ...content.approval,
+          referenceFlow: content.approval.referenceFlow && {
+            ...content.approval.referenceFlow,
+            phase: approvalPhase,
+            onApprove: () => setApprovalPhase('approved'),
+            onDeny: () => setApprovalPhase('blocked'),
+            onBack: () => setApprovalPhase('pending'),
+            onChangePassword: () => {},
           },
         },
       }}
