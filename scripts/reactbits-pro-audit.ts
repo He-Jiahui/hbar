@@ -285,6 +285,10 @@ export type InteractionCase = Readonly<{
     | 'auth-two-step-invalid'
     | 'auth-magic-form'
     | 'auth-magic-form-invalid'
+    | 'auth-code-recovery'
+    | 'auth-code-recovery-valid'
+    | 'auth-code-five'
+    | 'auth-code-verified'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1708,6 +1712,24 @@ async function prepareAuthenticationMagicLinkScenario(root: Locator, scenario: (
   await root.getByRole('textbox', { name: 'Work email' }).waitFor({ state: 'visible' })
   if (scenario === 'auth-magic-form-invalid') await root.getByRole('textbox', { name: 'Work email' }).fill('invalid')
 }
+const authenticationCodeScenarios = ['auth-code-recovery', 'auth-code-recovery-valid', 'auth-code-five', 'auth-code-verified'] as const
+async function prepareAuthenticationCodeScenario(root: Locator, scenario: (typeof authenticationCodeScenarios)[number]): Promise<void> {
+  if (scenario === 'auth-code-recovery' || scenario === 'auth-code-recovery-valid') {
+    if (await root.getByRole('button', { name: 'Use a recovery code' }).count())
+      await root.getByRole('button', { name: 'Use a recovery code' }).click()
+    await root.getByRole('textbox', { name: 'Recovery code' }).waitFor({ state: 'visible' })
+    if (scenario === 'auth-code-recovery-valid') await root.getByRole('textbox', { name: 'Recovery code' }).fill('ABCDE-12345')
+    return
+  }
+  if (await root.getByRole('button', { name: 'Verify another device' }).count())
+    await root.getByRole('button', { name: 'Verify another device' }).click()
+  if (await root.getByRole('button', { name: 'Use the texted code' }).count())
+    await root.getByRole('button', { name: 'Use the texted code' }).click()
+  const digits = root.getByRole('textbox', { name: /^Digit \d+$/ })
+  for (let index = 0; index < (scenario === 'auth-code-five' ? 5 : 6); index += 1)
+    await digits.nth(index).fill(String(index + 1))
+  if (scenario === 'auth-code-verified') await root.getByRole('heading', { name: 'Device verified' }).waitFor({ state: 'visible', timeout: 5_000 })
+}
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
   if (await first.isVisible()) {
@@ -3063,6 +3085,8 @@ async function interactionDelta(
     return dialogMenuInteractionDelta(before, after)
   if (interaction.id.startsWith('hbar-app-ui-authentication-5:'))
     return magicLinkInteractionDelta(before, after)
+  if (interaction.id.startsWith('hbar-app-ui-authentication-6:'))
+    return codeAuthenticationInteractionDelta(before, after)
   return semanticInteractionDelta(before, after)
 }
 
@@ -3089,6 +3113,24 @@ export function magicLinkInteractionDelta(
     changed: base.changed || beforeAx !== afterAx,
     signature: JSON.stringify({ base: base.signature, beforeAx, afterAx }),
   }
+}
+
+export function codeAuthenticationInteractionDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> {
+  // Compare accessible content rather than hidden animation stylesheet bytes;
+  // elapsed resend seconds are independent but ready/disabled states are not.
+  const countdown = /Resend in 0:\d{2}/g
+  const accessible = (snapshot: SemanticSnapshot) => snapshot.axSnapshot.replace(countdown, 'Resend in 0:--')
+  const normalize = (snapshot: SemanticSnapshot): SemanticSnapshot => ({
+    ...snapshot,
+    bodyTextLength: accessible(snapshot).length,
+    controls: snapshot.controls.map((control) => ({ ...control, name: control.name.replace(countdown, 'Resend in 0:--') })),
+  })
+  const base = semanticInteractionDelta(normalize(before), normalize(after))
+  const beforeAx = accessible(before), afterAx = accessible(after)
+  return { changed: base.changed || beforeAx !== afterAx, signature: JSON.stringify({ base: base.signature, beforeAx, afterAx }) }
 }
 
 export function dialogMenuInteractionDelta(
@@ -3279,6 +3321,8 @@ async function replayInteraction(
     await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-5' && authenticationMagicLinkScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-6' && authenticationCodeScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3572,6 +3616,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-5' && authenticationMagicLinkScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-6' && authenticationCodeScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4095,6 +4141,8 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-authentication-6')
+              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: '1' } : item)
             if (spec.id === 'hbar-app-ui-notifications-2') {
               for (const scenario of notificationToastScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
@@ -4160,6 +4208,17 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationMagicLinkScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-6') {
+              for (const scenario of authenticationCodeScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationCodeScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                  scenario === 'auth-code-five' && item.id === `${spec.id}:${scenario}:5:fill`
+                    ? { ...item, fillValue: '6' }
+                    : item,
+                ))
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')

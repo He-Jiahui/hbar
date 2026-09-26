@@ -57,6 +57,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(3, localized)).toContain('Lokalisierter Text mit absichtlich langem Umbruch')
         expect(renderAuthentication(4, localized)).toContain('Beim Northwind-Arbeitsbereich anmelden')
         expect(renderAuthentication(5, localized)).toContain('Prüfen Sie Ihren Posteingang')
+        expect(renderAuthentication(6, localized)).toContain('Bestätigen Sie Ihre Identität')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -167,6 +168,29 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(localizedMarkup).toContain('Ein Anmeldelink ist unterwegs an ')
         expect(localizedMarkup).toContain('dana.whitfield+international@northwind.com')
         expect(localizedMarkup).not.toContain('A sign-in link is on its way to ')
+    })
+
+    test('code verification renders controlled text, recovery, pending and verified states from its host', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.code
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected reference code fixture')
+        const initial = renderAuthentication(6)
+        expect(occurrences(initial, 'aria-label="Digit ')).toBe(6)
+        expect(initial).toContain('<fieldset')
+        const recovery = renderAuthentication(6, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, code: {...base, referenceFlow: {...flow, phase: 'recovery', recoveryCode: 'ABCDE-12345', canVerifyRecovery: true}}})
+        expect(recovery).toContain(flow.labels.recoveryTitle)
+        expect(recovery).toContain('value="ABCDE-12345"')
+        expect(recovery).not.toContain('aria-label="Digit ')
+        const pending = renderAuthentication(6, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, code: {...base, busy: true, code: '123456'}})
+        expect(pending).toContain(flow.labels.checkingCode)
+        expect(pending).toContain(flow.labels.verifying)
+        const verified = renderAuthentication(6, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, code: {...base, referenceFlow: {...flow, phase: 'verified', success: {method: 'Host-owned method', trustedUntil: 'Host-owned expiry'}}}})
+        expect(verified).toContain(flow.labels.verifiedTitle)
+        expect(verified).toContain('Host-owned method')
+        expect(verified).toContain('Host-owned expiry')
+        expect(verified).not.toContain('<fieldset')
+        const legacy = renderAuthentication(6, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, code: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-code-verification')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

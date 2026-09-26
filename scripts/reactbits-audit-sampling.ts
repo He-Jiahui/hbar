@@ -561,6 +561,29 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-6')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-code-reference.css', 'authentication/CodeAuthentication.tsx', 'authentication/CodeVerification.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '8:click', change: 'Recovery action replaces six digits with one recovery-code field' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-code-recovery-valid:1:click', change: 'Valid recovery code enters verifying feedback before host-owned success' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-code-five:5:fill', change: 'Sixth digit auto-starts verification and locks the submit while pending' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-code-verified:1:click', change: 'Verify another device returns from success to empty code entry' },
+        { viewport: 'desktop', theme: 'dark', suffix: '0:fill', change: 'First digit edit moves focus and retains a single numeric value' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-code-recovery:0:fill', change: 'Recovery entry uppercases and truncates a long value, enabling submit at eleven characters' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-code-verified:0:click', change: 'Continue has no navigation result in the documentation preview' },
+        { viewport: 'tablet', theme: 'light', suffix: 'auth-code-recovery:3:click', change: 'Switching back restores segmented text-code entry' },
+        { viewport: 'tablet', theme: 'dark', suffix: '9:click', change: 'Back-to-sign-in demo action has no source navigation feedback' },
+        { viewport: 'stress', theme: 'light', suffix: '8:press-space', change: 'Keyboard recovery switch keeps the narrow card and footer in flow' },
+        { viewport: 'stress', theme: 'dark', suffix: '0:focus', change: 'Narrow first-digit focus retains a visible control boundary' },
+      ],
+      inferences: [
+        { scope: 'Repeated digit fields, themes and equivalent gestures', basis: 'The six inputs share one indexed renderer and host code draft. First digit, final digit, direct recovery edit, keyboard mode switch and eight static pairs cover distinct feedback without a Cartesian replay.', verification: 'inferred-not-replayed' },
+        { scope: 'Countdown expiry and resend', basis: 'The live reference decrements its disabled resend label; the host preview timer and re-enable/reset are tested with a simulated browser clock. Source/local timer seconds are not claimed as synchronized screenshot frames.', verification: 'inferred-not-replayed' },
+        { scope: 'Verified result from complete code', basis: 'The source completion was observed live after six digits and after a valid recovery code. Host-owned preview response and cleanup are browser-tested; asynchronous success is not conflated with the immediate pending interaction frame.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-5')
     return {
       revision: 1,

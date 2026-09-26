@@ -232,6 +232,7 @@ import {
   interactiveControlSelector,
   liveActivityDelta,
   magicLinkInteractionDelta,
+  codeAuthenticationInteractionDelta,
   manualReviewGate,
   rootGeometryMatches,
   selectInteractionCases,
@@ -309,6 +310,16 @@ describe('React Bits Pro visual audit contract', () => {
     expect(magicLinkInteractionDelta(sourceBefore, sourceAfter).changed).toBe(true)
     const differentResult = { ...sourceAfter, axSnapshot: '- button "Resend failed"' }
     expect(magicLinkInteractionDelta(sourceBefore, sourceAfter).signature).not.toBe(magicLinkInteractionDelta(localBefore, differentResult).signature)
+  })
+  test('code-verification audit ignores only elapsed seconds while retaining real state feedback', () => {
+    const sourceBefore = { ...snapshot([control(0, { name: 'Resend in 0:21', disabled: true })]), axSnapshot: '- button "Resend in 0:21" [disabled]', bodyTextLength: 400 }
+    const localBefore = { ...snapshot([control(0, { name: 'Resend in 0:28', disabled: true })]), axSnapshot: '- button "Resend in 0:28" [disabled]', bodyTextLength: 320 }
+    const sourceAfter = { ...snapshot([control(0, { name: 'Resend code', disabled: false })]), axSnapshot: '- button "Resend code"', bodyTextLength: 385 }
+    const localAfter = { ...sourceAfter, bodyTextLength: 305 }
+    expect(codeAuthenticationInteractionDelta(sourceBefore, sourceAfter).signature).toBe(codeAuthenticationInteractionDelta(localBefore, localAfter).signature)
+    expect(codeAuthenticationInteractionDelta(sourceBefore, sourceAfter).changed).toBe(true)
+    const different = { ...sourceAfter, controls: [control(0, { name: 'Resend code', disabled: true })], axSnapshot: '- button "Resend code" [disabled]' }
+    expect(codeAuthenticationInteractionDelta(sourceBefore, sourceAfter).signature).not.toBe(codeAuthenticationInteractionDelta(localBefore, different).signature)
   })
   test('dialog menu result matching cannot equate different same-length action labels', () => {
     const before = { ...snapshot([control(0)]), axSnapshot: '- button "Report actions" [expanded]' }
