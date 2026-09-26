@@ -63,6 +63,7 @@ export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflo
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
+export { HbarSettingsUsage, SETTINGS_USAGE_MODELS_PER_PAGE, type HbarSettingsUsageLabels } from './settings-usage'
 export type { HbarRuntimeView } from './runtime'
 export {
   HbarWorkspaceTabs,

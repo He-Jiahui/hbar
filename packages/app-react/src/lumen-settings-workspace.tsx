@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
   ArrowLeft,
+  ChartNoAxesCombined,
   Cpu,
   MessageSquare,
   Palette,
@@ -86,7 +87,7 @@ export interface HbarSettingsAdditionalGroup {
 }
 
 export type HbarSettingsGroupIcon =
-  'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'diagnostics' | 'settings'
+  'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'diagnostics' | 'usage' | 'settings'
 
 export interface HbarSettingsGroupPresentation {
   readonly id: string
@@ -103,6 +104,7 @@ const groupIcons = {
   providers: Server,
   extensions: Puzzle,
   diagnostics: Stethoscope,
+  usage: ChartNoAxesCombined,
   settings: Settings,
 } satisfies Readonly<Record<HbarSettingsGroupIcon, LucideIcon>>
 

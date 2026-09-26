@@ -39,6 +39,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         modelLabel,
         copy.settings.resolve('i18n:settings.groups.session'),
         copy.settings.resolve('i18n:settings.groups.extensions'),
+        copy.settingsUsage.title,
         copy.diagnostics.title,
       ])
       await providers.focus()
@@ -52,7 +53,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await mobileGroups
           .locator('option')
           .evaluateAll((options: Element[]) => options.map((option) => option.getAttribute('value'))),
-      ).toEqual(['providers', 'appearance', 'model', 'session', 'extensions', 'diagnostics'])
+      ).toEqual(['providers', 'appearance', 'model', 'session', 'extensions', 'usage', 'diagnostics'])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/provider-landing-${locale}-320.png` })
       await mobileGroups.selectOption('appearance')

@@ -125,6 +125,25 @@ try {
     await page.screenshot({ path: join(output, `draft-return-${width}.png`) })
   }
   expect(await readFile(join(workspacePath, first), 'utf8')).toBe('# original first\n')
+  if (process.env.HBAR_NATIVE_VERIFY_USAGE === '1') {
+    const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+    if (await showSidebar.isVisible()) await showSidebar.click()
+    await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
+    const settings = page.locator('.hbar-app-react-settings-workspace')
+    await settings.getByRole('button', { name: copy.settingsUsage.title, exact: true }).click()
+    const usage = page.getByRole('region', { name: copy.settingsUsage.title, exact: true })
+    await expect(usage.getByText(copy.settingsUsage.empty, { exact: true }).first()).toBeVisible()
+    const last = copy.settingsUsage.windows.find((item) => item.id === '30d')
+    if (!last) throw new Error('The 30-day usage choice is unavailable')
+    await usage.getByRole('button', { name: last.label, exact: true }).click()
+    await expect(usage.getByRole('button', { name: last.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(usage.getByRole('button', { name: copy.settingsUsage.refresh, exact: true })).toBeEnabled()
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    await page.screenshot({ path: resolve('artifacts/settings-usage/native-empty-900.png') })
+    console.log(
+      'PASS: Native Settings reads real Host-global empty usage in place, changes its window and has no horizontal overflow at 900×600.',
+    )
+  }
   expect(errors).toEqual([])
   console.log(
     'PASS: Independent native WebView uses current Host/Web resources; Files navigator selection and draft return work at 1440 and 900×600 without automatic disk writes or horizontal overflow.',

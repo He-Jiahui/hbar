@@ -1,5 +1,6 @@
 import { extensionDetailCopy } from './extension-detail-copy'
 import { fileWorkspaceCopy } from './file-workspace-copy'
+import { settingsUsageCopy } from './settings-usage-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
@@ -11,6 +12,7 @@ import type {
   HbarSessionMonitoringLabels,
   HbarSessionWorkspaceLabels,
   HbarSettingsWorkspaceLabels,
+  HbarSettingsUsageLabels,
   HbarStatusWorkspaceLabels,
   HbarSystemDiagnosticsLabels,
   HbarWorkspaceShellLabels,
@@ -64,6 +66,7 @@ interface ShellCopy {
   readonly extensions: HbarExtensionWorkspaceLabels
   readonly status: HbarStatusWorkspaceLabels
   readonly diagnostics: HbarSystemDiagnosticsLabels
+  readonly settingsUsage: HbarSettingsUsageLabels
 }
 
 function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabels {
@@ -2407,6 +2410,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     extensions: createExtensionWorkspaceLabels('zh-CN'),
     status: createStatusWorkspaceLabels('zh-CN'),
     diagnostics: createSystemDiagnosticsLabels('zh-CN'),
+    settingsUsage: settingsUsageCopy('zh-CN'),
   },
   'en-US': {
     shell: {
@@ -2512,6 +2516,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     extensions: createExtensionWorkspaceLabels('en-US'),
     status: createStatusWorkspaceLabels('en-US'),
     diagnostics: createSystemDiagnosticsLabels('en-US'),
+    settingsUsage: settingsUsageCopy('en-US'),
   },
 }
 

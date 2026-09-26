@@ -11,6 +11,7 @@ import {
   HbarSessionMonitoring,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
+  HbarSettingsUsage,
   HbarStatusWorkspace,
   HbarSystemDiagnostics,
   HbarWorkspaceShell,
@@ -314,6 +315,7 @@ function WorkspaceBodyContent({
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
         additionalGroups={[
           { id: 'appearance', label: copy.appearance.group, order: 0 },
+          { id: 'usage', label: copy.settingsUsage.title, order: 85 },
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
         renderGroup={(groupId) => {
@@ -331,6 +333,14 @@ function WorkspaceBodyContent({
             return (
               <HbarExtensionWorkspace
                 labels={copy.extensions}
+                connected={connected}
+                instanceId={presentation.page.instanceId}
+              />
+            )
+          if (groupId === 'usage' && presentation.page.kind === 'settings')
+            return (
+              <HbarSettingsUsage
+                labels={copy.settingsUsage}
                 connected={connected}
                 instanceId={presentation.page.instanceId}
               />

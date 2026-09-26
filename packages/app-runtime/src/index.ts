@@ -73,6 +73,9 @@ import { createExtensionWorkspace } from './extension-workspace'
 export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import { createStatusWorkspace } from './status-workspace'
 import { createSessionGitContext, sessionGitContextCommands } from './session-git-context'
+import { createSettingsUsage, settingsUsageCommands } from './settings-usage'
+export { settingsUsageCommands, SETTINGS_USAGE_MAX_BUCKETS } from './settings-usage'
+export type { SettingsUsageWindow, SettingsUsageReport, SettingsUsageEntry, SettingsUsageState } from './settings-usage'
 export type { SessionGitContextState } from './session-git-context'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
@@ -197,6 +200,7 @@ const runtimeCommands = {
   ...applicationCommands,
   ...composerModelCommands,
   ...sessionGitContextCommands,
+  ...settingsUsageCommands,
   ...composerIntentCommands,
   ...composerPermissionCommands,
   ...composerPlanModeCommands,
@@ -395,6 +399,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     controls.settingsCommitted,
   )
+  const settingsUsage = createSettingsUsage(
+    local,
+    options.usage,
+    surfaces.reader,
+    onSubscriberError,
+    () => disposed,
+    presentation.reader,
+  )
   const composerModel = createComposerModel(
     local,
     options.models,
@@ -506,6 +518,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(sessionGitContextCommands, name) ||
+        Object.hasOwn(settingsUsageCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(composerPlanModeCommands, name) ||
@@ -560,6 +573,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls: controls.reader,
       composerModel: composerModel.reader,
       sessionGitContext: sessionGitContext.reader,
+      settingsUsage: settingsUsage.reader,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
       composerPlanMode: composerPlanMode.reader,
@@ -615,6 +629,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls.dispose()
       composerModel.dispose()
       sessionGitContext.dispose()
+      settingsUsage.dispose()
       composerIntent.dispose()
       composerPermission.dispose()
       composerPlanMode.dispose()
