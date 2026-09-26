@@ -11,10 +11,13 @@
 - `a373f93`：插件详情摘要之后增加就近启停，复用原Host命令与共享有界action owner；读当前值不解锁未知写，A迟到ACK不回滚B，容量失败不冒充Host运行忙碌。59项测试/470断言、4项真实Host生产E2E通过，人工检查桌面/390/320和unknown/BUSY/required截图。[交付与限制](desktop-extension-plugin-action.md)。这不是安装／更新／卸载或跨runtime持久receipt能力。
 - `1e0c910`：旧通用导航材质门禁已定位到观察对象错误：真实原生 canonical LumenIndicator 有选中状态、2px竖条与halo，而旧 dirty smoke 读取不存在的 `button::before`。独立断言和截图通过；保留他任务该hunk，仍不把整个通用smoke标绿。[诊断](desktop-navigation-marker-audit.md)。
 - 三agent逐入口审查继续：插件/Skills/MCP/市场原组件70张只读参考图；详情就近启停已按上述独立单元闭环，安装/卸载的可靠恢复、市场更新/MCP/技能正文仍需要对应事实合同。[逐入口矩阵](desktop-extensions-entry-audit.md)。不把没有Host能力的功能做成占位按钮。
-- 归档确认后残留失效标签已有独立真实Host复现，正按canonical事实退役、保留B草稿/Files、unknown不提前退役、迟到读/恢复竞争/32tab容量/重载不暗选邻居验证。此段尚不是该单元提交或完成声明。
+- `35a2852`：确认归档只退役原Session tab，保留B选择/草稿/Files，恢复不导航、刷新原空工程不暗选邻居。短期有界版本fence封住跨工程缓存驱逐后的旧读取、页、Roster、选择/restore与旧归档ACK，原独立consumer DTO仍可完成。110项测试/582断言、6项真实Host生产E2E和封口资源后的原生900通过；容量拒绝是明确failed而非Host Run BUSY或unknown。[参考、实证红测与交付](desktop-navigation-archive-audit.md)。
 - 启动入口只读审计又复现了 pending Host identity → confirmed identity 的设置丢页与临时namespace保存问题：中英×1440/320×四场景16/16，实际hello回复延迟326–676ms后原样释放，Run/pageerror均0；只读文档不是修复或通过的导航验收。[复现、历史与最小方案](desktop-startup-entry-audit.md)。不能仅删除hostId依赖或等connected后才点击来掩盖。
+- 外部归档保留视图的执行准备能力仍是下一单元：原历史/草稿/附件/Files保留，但Send、模型/思考/Plan/Goal准备入口仍可用。独立真实Host审计3/3与active BUSY→Stop取消1/1有截图；这证明差距与合法控制，不是只读guard已完成。[能力分组与dispatch前后边界](desktop-external-archive-readonly-audit.md)。不能整块disabled连Stop一起封，不能以前端guard承诺撤销已经派发的配置写。
 
 本次集成检查的时间点需另行区分：根lint/typecheck曾通过，随后并行Lumen通知修改引入缺失stylesheet，边界suite首次12 pass/1 fail/1加载错误；文件落地后重跑13 pass/0 fail/55断言。继续的 `bun run check` 在严格lint阶段因外部通知 `Header` 未使用与fixture未完成的 `system/handler` 引用退出1；日志 `artifacts/desktop-entry-matrix/final-stable-check.log`。未进入该次typecheck/全量test，不将此串行门禁描述为通过。这些外部文件保留给原任务处理。
+
+**最后封口后的串行门禁** `bun run check` 已实际重跑：native build、根 strict lint 与根 typecheck通过，全量Bun为 **1789 pass / 1 fail / 13497 assertions，335文件，254.88秒**。唯一失败仍是外部 `hbar-app-ui registry > keeps notification variants split by semantic surface and free of legacy naming`；总命令exit1，日志 `artifacts/desktop-entry-matrix/final-integrated-check.log`。未改该并行组件或断言，不把本单元110项绿或生产/原生子集绿替代整个门禁通过。
 
 ## 已验证并提交的子集
 
