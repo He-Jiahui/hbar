@@ -189,5 +189,5 @@ V5 生产资源的两个维护 spec 共 **4 passed、28.3s**，详见 [浏览器
 - 第一次全套测试遇到外部认证导入尚未创建的 `authentication-password-reset-reference.css`：1588 pass、160 fail，其中 159 为加载错误；V4 首次构建同样失败。这一外部文件随后由其所有者落地，本任务未修改或补写它。
 - 对可加载的 V4 树重跑完整 `bun run test`：**2428 pass / 3 fail / 25916 assertions**，375 files、297.49s，见 [最终全仓日志](../artifacts/plan-proposal-clarity/full-test-final.log)。剩余三项为外部认证的十四工作流/列表行断言及 canonical Lumen 边界，本次提案文件均通过。最终 V5 仅收窄 unavailable 文案条件并补充 8 条断言，已重跑定向测试、根 typecheck、scoped lint、生产 E2E 与原生验收，没有再跑完整五分钟测试；不能据此声称全仓 `check` 全绿。
 - Runtime 新测试首次 root tsc 暴露两处可能 undefined 的回执 key；已改为显式前置校验与缩窄，再做 root tsc 通过，没有用非空断言或忽略指令绕过。
-- `bun artifacts/plan-proposal-v2/verify.mjs`：8 组浏览器检查、19 张截图、page errors 为空；只连接两个本地隔离 origin。
-- 上述隔离浏览器检查不替代全仓回归，未声称完整全仓检查或原生 smoke 已完成。
+- 历史隔离脚本 `bun artifacts/plan-proposal-v2/verify.mjs` 的初始记录是 8 组检查、19 张截图、page errors 为空，仅连接两个本地隔离 origin。本轮复看其中原组件截图，没有重跑该旧脚本；不能把这一历史记录当作 V5 验证。
+- 隔离参考证据不替代真实 Host、全仓回归或原生验收，以上各项覆盖与失败状态分别记录。
