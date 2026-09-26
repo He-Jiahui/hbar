@@ -89,6 +89,13 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // cc-haha AttachmentGallery.tsx:235/286: only the sibling remove control
+  // overlays the image corner; captions, status and retry remain normal flow.
+  if (
+    /packages\/lumen-app-ui\/src\/image-gallery\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-image-tile > .lumen-image-tile-remove-overlay'
+  )
+    return true
   // cc-haha Files: the five-scope context menu overlays its triggering preview tab.
   // See docs/desktop-file-preview-reference-audit.md; only the container is positioned.
   if (/packages\/app-react\/src\/file-preview-tabs\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -457,6 +464,21 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const imageRemove =
+    '.lumen-image-tile > .lumen-image-tile-remove-overlay { position: absolute; inset-block-start: 0; inset-inline-end: 0; }'
+  if (
+    validateCss('hbar-ui/packages/lumen-app-ui/src/image-gallery.css', imageRemove).length ||
+    validateCss('hbar-ui/packages/lumen-app-ui/src/other.css', imageRemove).length === 0 ||
+    validateCss(
+      'hbar-ui/packages/lumen-app-ui/src/image-gallery.css',
+      imageRemove.replace('remove-overlay {', 'remove-overlay span {'),
+    ).length === 0 ||
+    validateCss(
+      'hbar-ui/packages/lumen-app-ui/src/image-gallery.css',
+      imageRemove.replace('remove-overlay', 'open'),
+    ).length === 0
+  )
+    throw new Error('Image remove overlay exception must be exact, path-scoped and exclude its content')
   const authReveal = '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button { position: absolute; inset-inline-end: 0.25rem; }'
   if (validateCss('packages/lumen-app-ui/src/authentication-sign-in-reference.css', authReveal).length ||
       validateCss('packages/lumen-app-ui/src/other.css', authReveal).length === 0)
