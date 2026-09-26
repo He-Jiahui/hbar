@@ -12,6 +12,7 @@ import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/
 import { GoalPlanFeed } from './goal-plan-feed'
 import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 import { createState, type StateReader } from './state'
+import { isSessionToolVisible } from './session-tool-visibility'
 import type {
   GoalPlanGoalDraftState,
   GoalPlanPlanDraftState,
@@ -19,6 +20,7 @@ import type {
   GoalPlanWorkspaceState,
   RuntimeOptions,
   SurfaceState,
+  PresentationState,
 } from './types'
 
 const MAX_PANELS = 8
@@ -88,32 +90,63 @@ export function createGoalPlanWorkspace(
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
   preparation?: SessionExecutionPreparationPort,
+  presentation?: StateReader<PresentationState>,
 ) {
   const state = createState<GoalPlanWorkspaceState>({ entries: {} }, onSubscriberError)
   const client = options.goals ? createCommandClient(goalPlanCommands, options.goals) : null
   const generations = new Map<string, number>()
+  let generationSequence = 0
   const detachedPanels = new Set<string>()
   const goalOperations = new Map<string, { sessionId: string; token: symbol }>()
+  const suspendedPanels = new Set<string>()
+  const factVersions = new Map<string, number>()
+  const reads = new Map<string, { controller: AbortController; promise: Promise<ReturnType<typeof summary>> }>()
   const pendingGoal = (instanceId: string, sessionId: string) => goalOperations.get(instanceId)?.sessionId === sessionId
   const isTarget = (instanceId: string, sessionId: string) =>
     !isDisposed() && surfaces.getSnapshot().panels[instanceId]?.sessionId === sessionId
+  const visible = (instanceId: string) =>
+    isSessionToolVisible(surfaces.getSnapshot().panels[instanceId], presentation?.getSnapshot())
+  const factVersion = (instanceId: string) => Math.max(feed.version(instanceId), factVersions.get(instanceId) ?? -1)
   const feed = new GoalPlanFeed(options.goals, applyChange, (instanceId) => {
-    void load(instanceId, true).catch(() => {})
+    void load(instanceId, true, true).catch(() => {})
   })
-  const offSurfaces = surfaces.subscribe(() => {
+  const synchronizeVisibility = () => {
     for (const [id, entry] of Object.entries(state.reader.getSnapshot().entries)) {
       if (isTarget(id, entry.sessionId)) {
+        if (!visible(id)) {
+          if (!suspendedPanels.has(id)) {
+            suspendedPanels.add(id)
+            generations.set(id, ++generationSequence)
+            factVersions.set(id, factVersion(id))
+            reads.get(id)?.controller.abort()
+            reads.delete(id)
+            feed.close(id)
+            if (entry.status === 'loading') replace({ ...entry, status: 'error', error: 'CANCELLED' })
+          }
+          continue
+        }
+        if (suspendedPanels.delete(id)) {
+          void load(id, true).catch(() => {})
+          continue
+        }
         // The View may reuse a cached same-session entry on reopen. Restore
         // the subscription and reconcile while preserving unsaved drafts.
         if (detachedPanels.delete(id)) void load(id).catch(() => {})
         continue
       }
       detachedPanels.add(id)
-      generations.set(id, (generations.get(id) ?? 0) + 1)
+      generations.delete(id)
       goalOperations.delete(id)
+      reads.get(id)?.controller.abort()
+      reads.delete(id)
+      suspendedPanels.delete(id)
+      factVersions.delete(id)
       feed.close(id)
+      if (entry.status === 'loading') replace({ ...entry, status: 'error', error: 'CANCELLED' })
     }
-  })
+  }
+  const offSurfaces = surfaces.subscribe(synchronizeVisibility)
+  const offPresentation = presentation?.subscribe(synchronizeVisibility)
 
   const panel = (instanceId: string) => {
     const value = surfaces.getSnapshot().panels[instanceId]
@@ -136,6 +169,11 @@ export function createGoalPlanWorkspace(
           delete entries[id]
           detachedPanels.delete(id)
           feed.close(id)
+          factVersions.delete(id)
+          suspendedPanels.delete(id)
+          generations.delete(id)
+          reads.get(id)?.controller.abort()
+          reads.delete(id)
           break
         }
       }
@@ -143,7 +181,13 @@ export function createGoalPlanWorkspace(
   }
   function applyChange(instanceId: string, change: GoalPlanChange) {
     const entry = state.reader.getSnapshot().entries[instanceId]
-    if (!entry || entry.sessionId !== change.sessionId || !isTarget(instanceId, change.sessionId)) return
+    if (
+      !entry ||
+      entry.sessionId !== change.sessionId ||
+      !isTarget(instanceId, change.sessionId) ||
+      !visible(instanceId)
+    )
+      return
     if (change.kind === 'goal') {
       const preserve = entry.goalDirty || pendingGoal(instanceId, change.sessionId)
       replace({
@@ -168,12 +212,13 @@ export function createGoalPlanWorkspace(
     planDirty: entry.planDirty,
     error: entry.goalAction.error ?? entry.planAction.error ?? entry.error,
   })
-  const load = async (instanceId: string, background = false) => {
+  const performLoad = async (instanceId: string, background: boolean, controller: AbortController) => {
     const target = panel(instanceId)
+    if (!visible(instanceId)) throw new CommandError('TARGET_CHANGED', 'Session tool is not visible')
     detachedPanels.delete(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
     const sameTarget = previous?.sessionId === target.sessionId
-    const generation = (generations.get(instanceId) ?? 0) + 1
+    const generation = ++generationSequence
     generations.set(instanceId, generation)
     const loading: GoalPlanWorkspaceEntryState = {
       instanceId,
@@ -193,11 +238,12 @@ export function createGoalPlanWorkspace(
       error: null,
     }
     replace(loading)
+    factVersions.set(instanceId, factVersion(instanceId))
     feed.open(instanceId, target.sessionId)
     try {
       let snapshot: GoalPlanSnapshot | undefined
       const [goalResponse, savedPlan] = options.goals?.snapshot
-        ? await options.goals.snapshot(target.sessionId).then((value) => {
+        ? await options.goals.snapshot(target.sessionId, { signal: controller.signal }).then((value) => {
             snapshot = goalPlanSnapshotSchema.parse(value)
             if (
               snapshot.sessionId !== target.sessionId ||
@@ -208,36 +254,60 @@ export function createGoalPlanWorkspace(
             return [snapshot, snapshot.plan] as const
           })
         : await Promise.all([
-            requireClient().execute('goal.get', { sessionId: target.sessionId }),
-            requireClient().execute('plan.get', { sessionId: target.sessionId }),
+            requireClient().execute('goal.get', { sessionId: target.sessionId }, { signal: controller.signal }),
+            requireClient().execute('plan.get', { sessionId: target.sessionId }, { signal: controller.signal }),
           ])
-      if (!isTarget(instanceId, target.sessionId) || generations.get(instanceId) !== generation)
+      if (!isTarget(instanceId, target.sessionId) || !visible(instanceId) || generations.get(instanceId) !== generation)
         throw new CommandError('RESULT_UNKNOWN', 'Goal and plan refresh was superseded')
       const latest = state.reader.getSnapshot().entries[instanceId] ?? loading
+      // A snapshot begun before a confirmed local write cannot roll its ACK back.
+      // Its own subscription still reconciles later canonical facts by sequence.
+      const committedGoal =
+        target.sessionTool && loading.goalAction !== latest.goalAction && latest.goalAction.status === 'succeeded'
+      const committedPlan =
+        target.sessionTool && loading.planAction !== latest.planAction && latest.planAction.status === 'succeeded'
+      const preserveGoal =
+        target.sessionTool &&
+        (committedGoal ||
+          latest.goalAction.status === 'submitting' ||
+          (background && latest.goalAction.status === 'unknown'))
+      const preservePlan =
+        target.sessionTool &&
+        (committedPlan ||
+          latest.planAction.status === 'submitting' ||
+          (background && latest.planAction.status === 'unknown'))
       const reconcileGoal =
-        !pendingGoal(instanceId, target.sessionId) && (latest.goalAction.status === 'unknown' || !latest.goalDirty)
-      const reconcilePlan = latest.planAction.status === 'unknown' || !latest.planDirty
+        !preserveGoal &&
+        !pendingGoal(instanceId, target.sessionId) &&
+        (latest.goalAction.status === 'unknown' || !latest.goalDirty)
+      const reconcilePlan = !preservePlan && (latest.planAction.status === 'unknown' || !latest.planDirty)
+      const projectedPlan = committedPlan ? latest.plan : savedPlan
       const ready: GoalPlanWorkspaceEntryState = {
         ...latest,
         status: 'ready',
-        goal: goalResponse.goal,
-        remainingTokens: goalResponse.remainingTokens,
-        completionBudgetReport: goalResponse.completionBudgetReport ?? null,
+        goal: committedGoal ? latest.goal : goalResponse.goal,
+        remainingTokens: committedGoal ? latest.remainingTokens : goalResponse.remainingTokens,
+        completionBudgetReport: committedGoal
+          ? latest.completionBudgetReport
+          : (goalResponse.completionBudgetReport ?? null),
         goalDraft: reconcileGoal ? goalDraft(goalResponse.goal) : latest.goalDraft,
         goalDirty: reconcileGoal ? false : goalDirty(latest.goalDraft),
         goalAction:
-          background || pendingGoal(instanceId, target.sessionId) ? latest.goalAction : { status: 'idle', error: null },
-        plan: savedPlan,
-        planDraft: reconcilePlan ? planDraft(savedPlan) : latest.planDraft,
-        planDirty: reconcilePlan ? false : planDirty(savedPlan, latest.planDraft),
-        planAction: background ? latest.planAction : { status: 'idle', error: null },
+          background || preserveGoal || pendingGoal(instanceId, target.sessionId)
+            ? latest.goalAction
+            : { status: 'idle', error: null },
+        plan: projectedPlan,
+        planDraft: reconcilePlan ? planDraft(projectedPlan) : latest.planDraft,
+        planDirty: reconcilePlan ? false : planDirty(projectedPlan, latest.planDraft),
+        planAction: background || preservePlan ? latest.planAction : { status: 'idle', error: null },
         error: null,
       }
       replace(ready)
       if (snapshot) feed.finish(instanceId, snapshot)
       return summary(state.reader.getSnapshot().entries[instanceId] ?? ready)
     } catch (reason) {
-      if (!isTarget(instanceId, target.sessionId) || generations.get(instanceId) !== generation) throw reason
+      if (!isTarget(instanceId, target.sessionId) || !visible(instanceId) || generations.get(instanceId) !== generation)
+        throw reason
       feed.close(instanceId)
       const failed = {
         ...(state.reader.getSnapshot().entries[instanceId] ?? loading),
@@ -247,6 +317,18 @@ export function createGoalPlanWorkspace(
       replace(failed)
       throw commandFailure(reason)
     }
+  }
+  function load(instanceId: string, background = false, supersede = false): Promise<ReturnType<typeof summary>> {
+    const target = panel(instanceId)
+    const pending = reads.get(instanceId)
+    if (target.sessionTool && pending && !supersede) return pending.promise
+    if (target.sessionTool) pending?.controller.abort()
+    const controller = new AbortController()
+    const promise = performLoad(instanceId, background, controller).finally(() => {
+      if (reads.get(instanceId)?.controller === controller) reads.delete(instanceId)
+    })
+    reads.set(instanceId, { controller, promise })
+    return promise
   }
   const current = (instanceId: string) => {
     const entry = state.reader.getSnapshot().entries[instanceId]
@@ -320,7 +402,7 @@ export function createGoalPlanWorkspace(
       throw new CommandError('INVALID_INPUT', 'Goal fields are invalid')
     }
     const operation = Symbol('goal-save')
-    const factVersion = feed.version(instanceId)
+    const versionAtStart = factVersion(instanceId)
     goalOperations.set(instanceId, { sessionId: entry.sessionId, token: operation })
     const ownsOperation = () =>
       isTarget(instanceId, entry.sessionId) && goalOperations.get(instanceId)?.token === operation
@@ -343,10 +425,10 @@ export function createGoalPlanWorkspace(
         throw new CommandError('GOAL_CONFLICT', 'A newer Goal superseded this save response')
       const next: GoalPlanWorkspaceEntryState = {
         ...latest,
-        goal: feed.version(instanceId) > factVersion ? latest.goal : response.goal,
-        remainingTokens: feed.version(instanceId) > factVersion ? latest.remainingTokens : response.remainingTokens,
+        goal: factVersion(instanceId) > versionAtStart ? latest.goal : response.goal,
+        remainingTokens: factVersion(instanceId) > versionAtStart ? latest.remainingTokens : response.remainingTokens,
         completionBudgetReport: response.completionBudgetReport ?? null,
-        goalDraft: goalDraft(feed.version(instanceId) > factVersion ? latest.goal : response.goal),
+        goalDraft: goalDraft(factVersion(instanceId) > versionAtStart ? latest.goal : response.goal),
         goalDirty: false,
         goalAction: { status: 'succeeded', error: null },
       }
@@ -625,6 +707,11 @@ export function createGoalPlanWorkspace(
     reader: state.reader,
     dispose() {
       offSurfaces()
+      offPresentation?.()
+      for (const read of reads.values()) read.controller.abort()
+      reads.clear()
+      suspendedPanels.clear()
+      factVersions.clear()
       feed.dispose()
       generations.clear()
       detachedPanels.clear()

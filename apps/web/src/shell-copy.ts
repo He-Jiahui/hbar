@@ -1308,6 +1308,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       agents: choose('子 Agent', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
       settings: choose('会话设置', 'Session settings'),
+      error: (code) =>
+        code === 'BUSY'
+          ? choose(
+              '工具缓存已满。请先回到不用的会话，保存、丢弃或核对其工具更改，再关闭该会话标签。',
+              'Tool storage is full. Return to an unused session, save, discard or reconcile its tool changes, then close its tab.',
+            )
+          : code === 'COMMAND_CONFLICT'
+            ? choose(
+                '工具来源已变化，请在当前会话重新打开。',
+                'The tool source has changed. Open it again from the current session.',
+              )
+            : error(code),
     },
     runs: {
       title: choose('Agent Activity', 'Agent activity'),

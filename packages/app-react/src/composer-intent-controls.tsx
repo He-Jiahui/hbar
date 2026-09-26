@@ -141,15 +141,20 @@ export function HbarComposerGoal({
       .catch((reason: unknown) => setLocalError(commandCode(reason)))
   }
   const expand = () => {
-    if (opening) return
+    if (opening || !workspaceId) return
     setOpening(true)
     setLocalError(null)
     void (async () => {
-      const target = await runtime.commands.execute('app.openPanel', {
+      const sourceTab = runtime.state.workspaceTabs
+        .getSnapshot()
+        .items.find(
+          (item) => item.kind === 'session' && item.sessionId === sessionId && item.workspaceId === workspaceId,
+        )
+      const target = await runtime.commands.execute('sessionTools.open', {
         panelId: 'goals',
         sessionId,
-        ...(workspaceId ? { workspaceId } : {}),
-        binding: 'pinned',
+        workspaceId,
+        sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
       })
       await runtime.commands.execute('goalPlanWorkspace.refresh', { instanceId: target.instanceId })
       if (

@@ -125,6 +125,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly agents: string
     readonly goals: string
     readonly settings: string
+    readonly error: (code: string) => string
   }
   readonly runs: HbarSessionRunLabels
   readonly runDetail: (modelId: string) => string
@@ -457,19 +458,46 @@ export function HbarSessionWorkspace({
   }
   const runErrorAction = timeline.runs.map((run) => runActions[run.id]).find((action) => action?.error)
   const toolInstanceId = presentation.toolInstanceId
+  const [toolFailure, setToolFailure] = useState<{
+    sessionId: string
+    workspaceId: string
+    sourceTabInstanceKey: string | null
+    code: string
+  } | null>(null)
   const activeTool = toolInstanceId ? surfaces.panels[toolInstanceId] : undefined
   const isToolActive = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') =>
     sessionId !== null &&
     activeTool?.panelId === panelId &&
     activeTool.workspaceId === navigation.workspaceId &&
-    (panelId === 'files' || activeTool.sessionId === sessionId)
+    activeTool.sessionId === sessionId
   const toggleTool = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') => {
-    if (!sessionId) return
-    if (toolInstanceId && isToolActive(panelId)) {
-      invoke('app.closePanel', { instanceId: toolInstanceId })
-      return
+    if (!sessionId || !navigation.workspaceId) return
+    const target = {
+      panelId,
+      workspaceId: navigation.workspaceId,
+      sessionId,
+      sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
     }
-    invoke('app.openPanel', { panelId, workspaceId: navigation.workspaceId, sessionId, binding: 'followActive' })
+    setToolFailure(null)
+    void runtime.commands.execute('sessionTools.toggle', target).catch((reason: unknown) => {
+      const current = runtime.state.navigation.getSnapshot()
+      const currentTab = runtime.state.workspaceTabs
+        .getSnapshot()
+        .items.find((item) => item.kind === 'session' && item.sessionId === target.sessionId)
+      if (
+        current.workspaceId !== target.workspaceId ||
+        current.sessionId !== target.sessionId ||
+        (currentTab?.instanceKey ?? null) !== target.sourceTabInstanceKey
+      )
+        return
+      setToolFailure({
+        ...target,
+        code:
+          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+            ? reason.code
+            : 'EXECUTION_FAILED',
+      })
+    })
   }
 
   const projectedMessages = useMemo(() => projectSessionMessages(timeline.messages), [timeline.messages])
@@ -1248,6 +1276,13 @@ export function HbarSessionWorkspace({
           </>
         }
       />
+      {toolFailure?.sessionId === sessionId &&
+        toolFailure.workspaceId === navigation.workspaceId &&
+        toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (
+          <LumenText as="p" role="alert">
+            {labels.tools.error(toolFailure.code)}
+          </LumenText>
+        )}
       {sessionId && (
         <LumenFrame className="hbar-session-current-goal" data-current-goal-session={sessionId}>
           <HbarComposerGoal

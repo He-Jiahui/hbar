@@ -224,7 +224,7 @@ export interface GoalPlanActionState {
 }
 
 export interface GoalPlanWorkspacePort extends CommandExecutor {
-  snapshot?(sessionId: string): Promise<GoalPlanSnapshot>
+  snapshot?(sessionId: string, options?: ExecuteOptions): Promise<GoalPlanSnapshot>
   watch?(sessionId: string, listener: (change: GoalPlanChange | { kind: 'reset' }) => void): () => void
 }
 
@@ -778,6 +778,8 @@ export interface PlatformPort {
   closeWindow(windowId: string): Promise<void>
 }
 export interface PanelSurface {
+  /** Runtime-owned, immutable per-session tool target; absent on generic/project panels. */
+  readonly sessionTool?: true
   readonly instanceId: string
   readonly panelId: string
   readonly workspaceId: string | null

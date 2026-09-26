@@ -80,6 +80,22 @@ export function createAgentWorkspace(
   const client = options.agents ? createCommandClient(agentCommands, options.agents) : null
   const generations = new Map<string, number>()
   const pendingCreateKeys = new Map<string, string>()
+  let previousPanels = surfaces.getSnapshot().panels
+  const offSurfaces = surfaces.subscribe(() => {
+    const panels = surfaces.getSnapshot().panels
+    const removed = Object.entries(previousPanels).filter(
+      ([id, panel]) => panel.panelId === 'agents' && panel.sessionTool && !panels[id],
+    )
+    previousPanels = panels
+    if (!removed.length) return
+    const ids = new Set(removed.map(([id]) => id))
+    for (const id of ids) {
+      generations.delete(id)
+      pendingCreateKeys.delete(id)
+    }
+    const snapshot = state.reader.getSnapshot()
+    state.replace({ entries: Object.fromEntries(Object.entries(snapshot.entries).filter(([id]) => !ids.has(id))) })
+  })
 
   const panel = (instanceId: string) => {
     const value = surfaces.getSnapshot().panels[instanceId]
@@ -369,6 +385,7 @@ export function createAgentWorkspace(
   return {
     reader: state.reader,
     dispose() {
+      offSurfaces()
       generations.clear()
       pendingCreateKeys.clear()
       state.dispose()

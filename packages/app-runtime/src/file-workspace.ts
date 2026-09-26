@@ -316,6 +316,15 @@ export function createFileWorkspace(
       generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
       changes.cancel(instanceId)
       tree.cancelAll(instanceId)
+      if (previous.sessionTool && !current[instanceId]) {
+        // Only the session owner evicts these immutable targets, after checking public dirty/pending state.
+        generations.delete(instanceId)
+        const snapshot = state.reader.getSnapshot()
+        state.replace({
+          entries: Object.fromEntries(Object.entries(snapshot.entries).filter(([id]) => id !== instanceId)),
+        })
+        continue
+      }
       const entry = state.reader.getSnapshot().entries[instanceId]
       if (entry)
         replace({

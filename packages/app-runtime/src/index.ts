@@ -52,6 +52,9 @@ export type {
 } from './workspace-tabs-runtime'
 import { createBudgetForms } from './budget-forms'
 import { registerSurfaceCommands } from './surfaces'
+import { createSessionTools, sessionToolCommands } from './session-tools'
+import { isSessionToolProtected } from './session-tool-retention'
+export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
 import { createGoalHistory, goalHistoryCommands } from './goal-history'
 export { goalHistoryCommands, getGoalHistoryProjection, GOAL_HISTORY_MAX_FACTS } from './goal-history'
@@ -228,6 +231,7 @@ const runtimeCommands = {
   ...planProposalCommands,
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
+  ...sessionToolCommands,
   ...workspacePinCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
@@ -343,7 +347,34 @@ export function createAppRuntime(options: RuntimeOptions) {
     isDisposed: () => disposed,
     onSubscriberError,
   })
-  const disposeSurfaces = registerSurfaceCommands(local, platform, options, navigation.reader, surfaces, presentation)
+  const sessionTools = createSessionTools(local, {
+    navigation: navigation.reader,
+    tabs: workspaceTabs.reader,
+    surfaces,
+    presentation,
+    canRender: (panelId) => options.surfaces?.canRender(panelId) ?? false,
+    isArchived: (workspaceId, sessionId) => {
+      const session = directory.reader.getSnapshot().sessions[sessionId]
+      return session?.workspaceId === workspaceId && session.archived
+    },
+    isProtected: (instanceId) =>
+      isSessionToolProtected(instanceId, {
+        files: fileWorkspace.reader.getSnapshot(),
+        agents: agentWorkspace.reader.getSnapshot(),
+        goals: goalPlanWorkspace.reader.getSnapshot(),
+        workflow: workflowWorkspace.reader.getSnapshot(),
+      }),
+    onSubscriberError,
+  })
+  const disposeSurfaces = registerSurfaceCommands(
+    local,
+    platform,
+    options,
+    navigation.reader,
+    surfaces,
+    presentation,
+    sessionTools,
+  )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
   const goalHistory = createGoalHistory(
@@ -504,8 +535,16 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
     executionPreparation,
+    presentation.reader,
   )
-  const workflowWorkspace = createWorkflowWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const workflowWorkspace = createWorkflowWorkspace(
+    local,
+    options,
+    surfaces.reader,
+    onSubscriberError,
+    () => disposed,
+    presentation.reader,
+  )
   const extensionWorkspace = createExtensionWorkspace(
     local,
     options,
@@ -585,6 +624,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionArchiveCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(workspaceTabCommands, name) ||
+        Object.hasOwn(sessionToolCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
@@ -715,6 +755,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       systemDiagnostics.dispose()
       clientPersistence.dispose()
       disposeSurfaces()
+      sessionTools.dispose()
       surfaces.dispose()
       presentation.dispose()
       navigation.dispose()

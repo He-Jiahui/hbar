@@ -1,6 +1,7 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import { surfaceCommands } from '@hbar/contracts/commands'
 import type { createState, StateReader } from './state'
+import type { createSessionTools } from './session-tools'
 import type {
   NavigationState,
   PanelSurface,
@@ -45,6 +46,7 @@ export function registerSurfaceCommands(
   navigation: StateReader<NavigationState>,
   surfaces: ReturnType<typeof createState<SurfaceState>>,
   presentation: ReturnType<typeof createState<PresentationState>>,
+  sessionTools: Pick<ReturnType<typeof createSessionTools>, 'hide' | 'navigationTool'>,
 ): () => void {
   const windowTails = new Map<string, Promise<void>>()
   let lastGlobalSettingsGroup: string | null = options.initialGlobalSettings?.section ?? null
@@ -94,6 +96,8 @@ export function registerSurfaceCommands(
       (input.binding === 'followActive' ? panelId : `${panelId}:${workspaceId ?? 'global'}:${sessionId ?? 'none'}`)
     const current = surfaces.reader.getSnapshot()
     const existing = current.panels[instanceId]
+    if (existing?.sessionTool)
+      throw new CommandError('COMMAND_CONFLICT', 'Session tool targets are owned by their source session')
     if (existing && existing.panelId !== panelId)
       throw new CommandError('COMMAND_CONFLICT', 'Panel instance is already bound to another kind')
     const panel: PanelSurface = { instanceId, panelId, workspaceId, sessionId, binding: input.binding, params }
@@ -131,6 +135,8 @@ export function registerSurfaceCommands(
   }
 
   function closePanel(instanceId: string) {
+    const owned = sessionTools.hide(instanceId)
+    if (owned) return owned
     const current = surfaces.reader.getSnapshot()
     if (!current.panels[instanceId]) return { instanceId, closed: false }
     const panels = Object.fromEntries(Object.entries(current.panels).filter(([id]) => id !== instanceId))
@@ -260,6 +266,7 @@ export function registerSurfaceCommands(
       ? {
           ...currentPresentation,
           page: { kind: 'session' },
+          toolInstanceId: sessionTools.navigationTool(target, currentPresentation),
           modalInstanceId: null,
           returnContext: null,
         }

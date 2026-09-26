@@ -72,4 +72,4 @@
 
 Browser、真实终端、定时任务、市场/MCP/模板、图片材料预览及历史 rewind 不是换入口即可迁移的功能：需要相应产品/安全/持久化契约。当前 `browser.*` 是自动化，不是原生内嵌 Browser；内部 wakeup 不是 schedule CRUD；Fork 不是回滚磁盘。不得用占位 UI 声称等价。
 
-完整 Goal 生命周期、设备语言、插件详情就近启停、确认归档退役、启动设置连续性、归档视图的执行准备、[工具结果复制](desktop-tool-result-copy.md)和[工具容器 P1](desktop-workbench-navigation-presentation.md)已分别实现并按各自记录验收。后续优先落实按会话保留工具显隐（P2）与真正多文件预览标签（P3），继续全桌面逐入口矩阵及通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。
+完整 Goal 生命周期、设备语言、插件详情就近启停、确认归档退役、启动设置连续性、归档视图的执行准备、[工具结果复制](desktop-tool-result-copy.md)、[工具容器 P1](desktop-workbench-navigation-presentation.md)和[会话工具归属 P2](desktop-session-tool-ownership.md)已分别实现并按各自记录验收。P2 的新原组件参考为84图，最终根检查2001/0、新真实Host7/7、既有交互28/28、原生中英900/1440四条完整路径通过；外部归档仍保留当前Files/设置返回上下文，只清后续自动展开记忆。后续优先落实真正多文件预览标签（P3），继续全桌面逐入口矩阵及通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。

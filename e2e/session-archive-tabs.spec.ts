@@ -311,7 +311,8 @@ test('external active archive retires its tab observationally; the loaded view s
         { idempotencyKey: crypto.randomUUID() },
       ),
     ).rejects.toMatchObject({ code: 'ARCHIVED' })
-    await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
+    await expect(page.locator('[data-session-execution-access="archived"]')).toBeVisible()
     await page.screenshot({ path: `${evidence}/external-active-boundary-1440.png` })
     await waitSavedEmptyWorkspace(page, host.ready.workspaceId)
     await page.reload()
