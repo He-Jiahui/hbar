@@ -2,6 +2,8 @@
 
 This unit moves existing attachment upload capability into the composer’s local interaction flow. It does not introduce remote directory selection, media preview, or a second Run-submission path.
 
+Follow-up: authenticated image thumbnails, the media gallery and sent-image history viewing are now delivered in [Image resources and product verification](desktop-image-resources.md). The named-image-chip descriptions below record this earlier intake unit, not the current image UI. The upload/unknown-receipt owner remains unchanged.
+
 ## Reference and implementation
 
 The reference is cc-haha’s `desktop/src/components/chat/ChatInput.tsx`, `AttachmentGallery.tsx`, and `ComposerDropOverlay.tsx`. The gallery puts file names and per-item removal above the input in a wrapping row; the drop prompt is a real overlay of the composer, not coordinate-positioned ordinary content. Read-only fixtures rendered those original components with their original theme CSS at desktop and narrow widths. No reference Host or user workspace was opened.

@@ -102,7 +102,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
       })
       await expect(
-        page.locator('.lumen-attachment-chip[data-kind="image"]').filter({ hasText: 'pasted-image.png' }),
+        page.getByRole('button', {
+          name: copy.session.prompt.removeAttachment({ id: '', kind: 'image', name: 'pasted-image.png' }),
+          exact: true,
+        }),
       ).toBeVisible()
       await expectComposerText(prompt, 'Keep my draft — 保留原草稿')
       expect(uploads).toBe(2)
@@ -137,9 +140,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(uploads).toBe(4)
       await expectComposerText(prompt, 'New text while result unknown — 仍保留草稿')
       for (const name of ['dropped-notes.txt', 'pasted-image.png', unknownName]) {
-        await page.locator('.lumen-attachment-chip').filter({ hasText: name }).getByRole('button').click()
+        await page
+          .getByRole('button', {
+            name: copy.session.prompt.removeAttachment({
+              id: '',
+              kind: name === 'pasted-image.png' ? 'image' : 'file',
+              name,
+            }),
+            exact: true,
+          })
+          .click()
       }
       await expect(page.locator('.lumen-attachment-chip')).toHaveCount(0)
+      await expect(page.locator('.lumen-image-tile[data-variant="composer"]')).toHaveCount(0)
       await target.locator('input[type="file"]').setInputFiles(
         Array.from({ length: 12 }, (_, index) => ({
           name: `${index}-需要明确指出问题并允许移除的长文件名.txt`,

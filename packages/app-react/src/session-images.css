@@ -1,0 +1,56 @@
+.hbar-session-images-layer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.hbar-message-image-content,
+.hbar-draft-image-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hbar-image-entries {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hbar-image-entry {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hbar-image-entries[data-variant='composer'] .hbar-image-entry {
+  flex: 0 1 auto;
+}
+
+.hbar-image-entries[data-variant='message'] .hbar-image-entry {
+  flex: 0 1 auto;
+}
+
+.hbar-image-entries[data-variant='message'][data-count='1'] .hbar-image-entry {
+  flex-basis: 22.5rem;
+}
+
+.hbar-image-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hbar-image-file-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

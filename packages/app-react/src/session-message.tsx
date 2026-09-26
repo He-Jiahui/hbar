@@ -36,6 +36,11 @@ import {
 } from './session-message-model'
 import './session-message.css'
 import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-result-copy-action'
+import {
+  HbarMessageImageContent,
+  type HbarMessageImageOccurrence,
+  type HbarMessageImageRenderer,
+} from './session-images'
 
 export interface HbarMessageActivitySummary {
   readonly thinkingCount: number
@@ -82,6 +87,7 @@ export interface HbarMessageBlocksProps {
   readonly renderText?: (row: Extract<SessionMessageRow, { kind: 'text' }>) => ReactNode
   /** Decisions are siblings after their tool disclosure, never inside its collapsed details. */
   readonly toolDecisions?: ReadonlyMap<string, ReactNode> | undefined
+  readonly renderImages?: HbarMessageImageRenderer | undefined
 }
 
 export interface HbarMessageActionLabels {
@@ -389,20 +395,35 @@ function MessageBlocksContent({
   describeTool,
   renderText,
   toolDecisions,
+  renderImages,
 }: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
     | { readonly id: string; readonly rows: readonly ActivityRow[] }
     | Exclude<SessionMessageRow, ActivityRow>
     | SessionToolRow
+    | { readonly kind: 'images'; readonly id: string; readonly images: readonly HbarMessageImageOccurrence[] }
   > = []
   let activity: ActivityRow[] = []
+  let images: HbarMessageImageOccurrence[] = []
+  let imageOrdinal = 0
   const flush = () => {
     const first = activity[0]
     if (first) groups.push({ id: first.id, rows: activity })
     activity = []
   }
+  const flushImages = () => {
+    const first = images[0]
+    if (first) groups.push({ kind: 'images', id: `images:${first.ordinal}`, images })
+    images = []
+  }
   for (const row of rows) {
+    if (renderImages && row.kind === 'attachment' && row.block.type === 'image') {
+      flush()
+      images.push({ key: row.id, ordinal: imageOrdinal++, artifact: row.block.artifact })
+      continue
+    }
+    flushImages()
     if (row.kind === 'tool' && toolDecisions?.has(row.id)) {
       flush()
       groups.push(row)
@@ -413,6 +434,7 @@ function MessageBlocksContent({
     }
   }
   flush()
+  flushImages()
   return (
     <LumenFrame className="hbar-session-message-blocks">
       {groups.map((group) =>
@@ -427,6 +449,10 @@ function MessageBlocksContent({
             messageId={messageId}
             clipboard={clipboard}
           />
+        ) : group.kind === 'images' ? (
+          <LumenFrame key={group.id} className="hbar-session-message-images">
+            {renderImages?.(group.images)}
+          </LumenFrame>
         ) : group.kind === 'tool' ? (
           <LumenFrame key={group.id} className="hbar-session-tool-decision">
             <ToolRow
@@ -456,7 +482,19 @@ function MessageBlocksContent({
 
 /** Normal-flow message content; the timeline remains the owner of history paging/virtualization. */
 export function HbarMessageBlocks(props: HbarMessageBlocksProps) {
-  return <MessageBlocksContent key={JSON.stringify([props.sessionId, props.messageId])} {...props} />
+  if (!props.blocks.some((block) => block.type === 'image'))
+    return <MessageBlocksContent key={JSON.stringify([props.sessionId, props.messageId])} {...props} />
+  return (
+    <HbarMessageImageContent sessionId={props.sessionId} messageId={props.messageId}>
+      {(renderImages) => (
+        <MessageBlocksContent
+          key={JSON.stringify([props.sessionId, props.messageId])}
+          {...props}
+          renderImages={renderImages ?? props.renderImages}
+        />
+      )}
+    </HbarMessageImageContent>
+  )
 }
 
 type CopyStatus = MessageCopyResult['status'] | 'idle' | 'copying'

@@ -1,4 +1,5 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
+export type { HbarSessionImageLabels, HbarSessionImagesOptions } from './session-images'
 export {
   HbarSessionImagesModelProvider,
   useSessionImageGallery,

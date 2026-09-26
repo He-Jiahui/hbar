@@ -2,7 +2,9 @@
 
 本轮为只读产品审查，不是“全部迁移完成”声明。2026-09-26 核查 hbar `a62f098`（含 `0ee3099` 文件多预览、`cdf2b49` 会话工具所有权），cc-haha `e28d0a65`。遵守 hbar-engineering、reference-flow-layout、content-contract、icon-scale；参考仓库 AGENTS 已读。仅新增本文件及 ignored evidence；没有修改产品、维护测试、索引或提交。问卷 AskUserQuestion 的布局与答案输入由主线审查，此处不重复。
 
-## 本轮最高优先级结论
+后续状态：本次审计发现的图片 P1 已完成 composer / 历史消息接线和真实原生验收，见 [图片交付记录](desktop-image-resources.md)。下文矩阵与缺口描述保留审计基线，不表示修复后的界面仍只有名称。
+
+## 本轮最高优先级结论（审计时点）
 
 **P1：已上传图片没有发送前内容确认，也没有发送后原位回看。** 这不是旧“工具结果缺 Copy”问题：`cb4a241` 已完成工具输出复制，本轮不再将它列为缺口。
 

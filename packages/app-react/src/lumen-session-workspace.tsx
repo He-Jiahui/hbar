@@ -27,6 +27,7 @@ import {
 } from '@hbar/app-runtime'
 import type { HbarProposedPlanLabels } from './proposed-plan'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarDraftImageAttachments, HbarSessionImageLayer, type HbarSessionImagesOptions } from './session-images'
 import {
   HbarMessageBlocks,
   HbarMessageActionBar,
@@ -146,6 +147,7 @@ export interface HbarSessionWorkspaceProps {
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
   readonly navigationAccessory?: ReactNode | undefined
   readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
+  readonly images?: HbarSessionImagesOptions | undefined
 }
 
 function SessionToolButton({
@@ -178,7 +180,7 @@ function SessionToolButton({
   )
 }
 
-export function HbarSessionWorkspace({
+function SessionWorkspaceContent({
   sessionTitle,
   workspaceName,
   sessionWorkspaceId,
@@ -188,6 +190,7 @@ export function HbarSessionWorkspace({
   files,
   navigationAccessory,
   projectContextLabels,
+  images,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -1011,6 +1014,27 @@ export function HbarSessionWorkspace({
             kind: attachment.kind,
             name: attachment.artifact.name,
           }))}
+          attachmentContent={
+            images && draft?.attachments.length ? (
+              <HbarDraftImageAttachments
+                draft={draft}
+                removeLabel={labels.prompt.removeAttachment}
+                removeDisabled={
+                  draft.status === 'submitting' ||
+                  draft.status === 'unknown' ||
+                  intentEntry?.submission.status === 'submitting'
+                }
+                onRemove={(id, kind) =>
+                  invoke('draft.removeAttachment', {
+                    sessionId,
+                    artifactId: id,
+                    kind,
+                    expectedRevision: draft.revision,
+                  })
+                }
+              />
+            ) : undefined
+          }
           disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
           submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
           uploading={(draft?.uploading ?? 0) > 0}
@@ -1317,5 +1341,13 @@ export function HbarSessionWorkspace({
         />
       </LumenFrame>
     </LumenFrame>
+  )
+}
+
+export function HbarSessionWorkspace(props: HbarSessionWorkspaceProps) {
+  return (
+    <HbarSessionImageLayer options={props.images}>
+      <SessionWorkspaceContent {...props} />
+    </HbarSessionImageLayer>
   )
 }

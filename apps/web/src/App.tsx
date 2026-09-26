@@ -67,6 +67,9 @@ import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import type { WebLanguageController } from './language'
 import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
+import { createBrowserImageResources } from './browser-image-resources'
+import { sessionImageCopy } from './session-image-copy'
+import type { HbarSessionImagesOptions } from '@hbar/app-react'
 import {
   createWebLumenAppearance,
   readAppearanceBootstrap,
@@ -210,6 +213,7 @@ type WorkspaceBodyProps = {
   readonly language?: WebLanguageController | undefined
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
+  readonly images: HbarSessionImagesOptions
   readonly files: ReturnType<typeof createFileCommandClient>
   readonly systemPrefersDark: boolean
 }
@@ -306,6 +310,7 @@ function WorkspaceBodyContent({
   language,
   connected,
   prepareAttachment,
+  images,
   files,
   systemPrefersDark,
 }: WorkspaceBodyProps) {
@@ -434,6 +439,7 @@ function WorkspaceBodyContent({
         labels={copy.session}
         connected={connected}
         prepareAttachment={prepareAttachment}
+        images={images}
         files={files}
         navigationAccessory={
           activeTab?.kind === 'session' && activeTab.agentSource ? (
@@ -781,6 +787,35 @@ export default function App({
     [attachmentController, client, clientUrl, runtimeCopy, resourcePicker],
   )
   const { runtime, appearanceEditor, binding, connection } = useStore(startup.store)
+  // Allocation performs no I/O. Each runtime/Host generation owns a distinct resource adapter.
+  const imageResources = useMemo(
+    () => ({ port: createBrowserImageResources(client), references: 0, hostIdentity: runtime.view.hostId }),
+    [client, runtime],
+  )
+  const images = useMemo<HbarSessionImagesOptions>(
+    () => ({
+      resources: imageResources.port,
+      hostIdentity:
+        connection === 'connected' && binding.hostId === imageResources.hostIdentity ? binding.hostId : null,
+      labels: sessionImageCopy(locale),
+    }),
+    [imageResources, binding.hostId, connection, locale],
+  )
+  useEffect(() => {
+    imageResources.references++
+    const off = client.onStatus((status) => {
+      if (status === 'pairing' || status === 'disconnected') imageResources.port.invalidate()
+    })
+    return () => {
+      off()
+      imageResources.references--
+      imageResources.port.invalidate()
+      // StrictMode's same-owner effect replay re-retains before this microtask.
+      queueMicrotask(() => {
+        if (imageResources.references === 0) imageResources.port.dispose()
+      })
+    }
+  }, [client, imageResources])
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
@@ -990,6 +1025,7 @@ export default function App({
                 language={language}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
+                images={images}
                 files={composerFiles}
                 systemPrefersDark={systemPrefersDark}
               />
@@ -1002,6 +1038,7 @@ export default function App({
               language={language}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
+              images={images}
               files={composerFiles}
               systemPrefersDark={systemPrefersDark}
             />
