@@ -43,7 +43,18 @@ export const settingsEditorCommands = {
   ),
   'settingsForm.refreshContent': defineCommand(
     metadata('settingsForm.refreshContent'),
-    z.strictObject({ formId: formIdSchema }),
+    z.strictObject({
+      formId: formIdSchema,
+      // A user retry belongs to the failed field's original view. Background
+      // provider invalidation omits this guard and can refresh retained forms.
+      retry: z
+        .strictObject({
+          field: z.string().min(1).max(1_024),
+          revision: z.number().int().nonnegative(),
+          groupId: z.string().min(1).max(128),
+        })
+        .optional(),
+    }),
     summarySchema,
   ),
   'settingsForm.setField': defineCommand(

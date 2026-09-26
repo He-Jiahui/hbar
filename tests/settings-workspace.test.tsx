@@ -106,6 +106,7 @@ const labels: HbarSettingsWorkspaceLabels = {
   readOnly: '当前作用域只读',
   applyMode: (mode) => `生效方式 ${mode}`,
   error: (code) => `错误 ${code}`,
+  contentRecovery: getShellCopy('zh-CN').settings.contentRecovery,
   resolve: (key) =>
     ({
       'i18n:settings.groups.model': '模型',

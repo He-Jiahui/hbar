@@ -32,6 +32,11 @@ import {
 import type { SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createHbarSchemaComponents } from './lumen-schema-components'
+import {
+  SettingsContentRecovery,
+  useSettingsContentRecovery,
+  type SettingsContentRecoveryLabels,
+} from './settings-content-recovery'
 import './lumen-settings-workspace.css'
 
 const standardComponents = createHbarSchemaComponents()
@@ -65,6 +70,7 @@ export interface HbarSettingsWorkspaceLabels {
   readonly readOnly: string
   readonly applyMode: (mode: SettingApplyMode) => string
   readonly error: (code: string) => string
+  readonly contentRecovery: SettingsContentRecoveryLabels
   readonly resolve: (key: string) => string
   readonly form: Omit<HbarSchemaFormLabels, 'resolve' | 'help'>
 }
@@ -223,6 +229,7 @@ export function HbarSettingsWorkspace({
         .map((field) => encodePath(field.path)) ?? [],
     [entry?.description, entry?.selectedGroup],
   )
+  const contentRecovery = useSettingsContentRecovery(entry, activeGroupId, fieldNames, connected)
 
   const reportError = useCallback((reason: unknown) => setActionError(reasonCode(reason)), [])
   const openSettings = (scope: 'global' | 'workspace' | 'session', targetId: string | null, section: string | null) => {
@@ -316,15 +323,25 @@ export function HbarSettingsWorkspace({
     )
   }
   const fieldActions = (field: CompiledField) => {
-    if (!entry || entry.scope.kind === 'global' || field.readOnly || Object.hasOwn(entry.unsets, field.name))
-      return null
-    if (!entry.reports[field.name]?.localPresence) return null
+    if (!entry) return null
+    const canRestore =
+      entry.scope.kind !== 'global' &&
+      !field.readOnly &&
+      !Object.hasOwn(entry.unsets, field.name) &&
+      entry.reports[field.name]?.localPresence
     return (
-      <LumenText as="span" className="hbar-schema-form-actions">
-        <LumenButton type="button" disabled={busy || unknown} onClick={() => restoreInheritance(field.name)}>
-          {labels.restoreInheritance}
-        </LumenButton>
-      </LumenText>
+      <>
+        {contentRecovery.field === field.name && (
+          <SettingsContentRecovery controller={contentRecovery} labels={labels.contentRecovery} />
+        )}
+        {canRestore && (
+          <LumenText as="span" className="hbar-schema-form-actions">
+            <LumenButton type="button" disabled={busy || unknown} onClick={() => restoreInheritance(field.name)}>
+              {labels.restoreInheritance}
+            </LumenButton>
+          </LumenText>
+        )}
+      </>
     )
   }
 
@@ -437,6 +454,7 @@ export function HbarSettingsWorkspace({
                       },
                     }}
                     content={entry.content}
+                    disabled={busy || unknown}
                     fieldNames={fieldNames}
                     renderFieldContext={fieldContext}
                     renderFieldActions={fieldActions}

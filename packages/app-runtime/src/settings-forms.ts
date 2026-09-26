@@ -333,6 +333,9 @@ export function createSettingsForms(
     replaceEntry(formId, { ...current, content })
     for (const field of dynamic) {
       const key = encodePath(field.path)
+      // An unrelated draft edit does not invalidate this field's options.
+      // Dependency edits, a newer read or a reloaded form replace this token.
+      const requestState = content[key]
       void activeResolver
         .resolve({
           schemaId: current.description.id,
@@ -354,7 +357,7 @@ export function createSettingsForms(
           } catch {
             return
           }
-          if (latest.form.revision !== current.form.revision) return
+          if (latest.schema !== current.schema || latest.content[key] !== requestState) return
           replaceEntry(formId, {
             ...latest,
             content: {
@@ -371,7 +374,7 @@ export function createSettingsForms(
           } catch {
             return
           }
-          if (latest.form.revision !== current.form.revision) return
+          if (latest.schema !== current.schema || latest.content[key] !== requestState) return
           const failed: SettingsFieldContentState = { status: 'error', errorCode: errorCode(error) }
           replaceEntry(formId, { ...latest, content: { ...latest.content, [key]: failed } })
         })
@@ -605,9 +608,33 @@ export function createSettingsForms(
       throw commandError(error)
     }
   })
-  local.register(settingsEditorCommands['settingsForm.refreshContent'], ({ formId }) => {
+  local.register(settingsEditorCommands['settingsForm.refreshContent'], ({ formId, retry }) => {
     try {
-      ready(formId)
+      const current = ready(formId)
+      if (retry) {
+        const panel = currentSettingsPanel()
+        if (
+          !panel ||
+          formKey(panel, panelScope(panel)) !== formId ||
+          state.reader.getSnapshot().activeFormId !== formId
+        )
+          throw new CommandError('FORM_NOT_FOUND', 'The original settings form is no longer active')
+        if (
+          current.form.status === 'submitting' ||
+          current.form.status === 'unknown' ||
+          Object.values(current.content).some((value) => value.status === 'loading')
+        )
+          throw new CommandError('BUSY', 'Wait for the existing settings operation before retrying options')
+        const field = current.description.fields.find((value) => encodePath(value.path) === retry.field)
+        if (
+          current.form.revision !== retry.revision ||
+          current.selectedGroup !== retry.groupId ||
+          field?.group !== retry.groupId ||
+          !field.content ||
+          current.content[retry.field]?.status !== 'error'
+        )
+          throw new CommandError('COMMAND_CONFLICT', 'The original failed field or its draft has changed')
+      }
       refreshContent(formId, undefined, true)
       return summary(ready(formId))
     } catch (error) {

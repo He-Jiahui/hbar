@@ -164,7 +164,7 @@ function ComboBox(props: SchemaFieldRendererProps) {
         empty: props.labels.empty,
         loading: props.labels.loading,
       }}
-      disabled={props.disabled || props.field.readOnly}
+      disabled={props.disabled || props.field.readOnly || props.content.status === 'unavailable'}
       loading={props.content.status === 'loading'}
       invalid={Boolean(props.issue) || Boolean(selectedId && !selectedOption)}
       {...(describedBy(props) ? { describedBy: describedBy(props)! } : {})}
@@ -205,7 +205,7 @@ function MultiSelect(props: SchemaFieldRendererProps) {
         loading: props.labels.loading,
         remove: props.labels.removeOption,
       }}
-      disabled={props.disabled || props.field.readOnly}
+      disabled={props.disabled || props.field.readOnly || props.content.status === 'unavailable'}
       loading={props.content.status === 'loading'}
       invalid={Boolean(props.issue) || missingOptions.length > 0}
       {...(describedBy(props) ? { describedBy: describedBy(props)! } : {})}

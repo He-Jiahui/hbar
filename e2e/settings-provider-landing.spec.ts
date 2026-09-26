@@ -35,6 +35,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.getByRole('button', { name: copy.providers.list.add, exact: true })).toBeVisible()
       expect(await groups.getByRole('button').allTextContents()).toEqual([
         providerLabel,
+        copy.general.group,
         copy.appearance.group,
         modelLabel,
         copy.settings.resolve('i18n:settings.groups.session'),
@@ -53,7 +54,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await mobileGroups
           .locator('option')
           .evaluateAll((options: Element[]) => options.map((option) => option.getAttribute('value'))),
-      ).toEqual(['providers', 'appearance', 'model', 'session', 'extensions', 'usage', 'diagnostics'])
+      ).toEqual(['providers', 'general', 'appearance', 'model', 'session', 'extensions', 'usage', 'diagnostics'])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/provider-landing-${locale}-320.png` })
       await mobileGroups.selectOption('appearance')

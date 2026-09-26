@@ -120,6 +120,7 @@
   min-block-size: 0;
   flex: 1 1 auto;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 0 1rem 1rem;
 }
 
@@ -175,6 +176,22 @@
   gap: 0.75rem;
   padding: 1rem;
   text-align: center;
+}
+
+.hbar-settings-content-recovery {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hbar-settings-content-recovery button,
+.hbar-settings-content-recovery small {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .hbar-app-react-settings-workspace > [role='alert'] {

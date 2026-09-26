@@ -555,13 +555,36 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
       return modes[mode]
     },
     error: (code) => choose(`设置操作失败：${code}`, `Settings action failed: ${code}`),
+    contentRecovery: {
+      retry: choose('重试表单选项', 'Retry form options'),
+      loading: choose('正在读取表单选项…', 'Loading form options…'),
+      offline: choose('连接恢复后可重试，未保存的更改会保留。', 'Reconnect to retry. Unsaved changes are preserved.'),
+      error: (code) =>
+        code === 'COMMAND_CONFLICT' || code === 'FORM_NOT_FOUND'
+          ? choose('当前设置已变化，请在原字段重新操作。', 'Settings changed. Retry from the current field.')
+          : code === 'BUSY'
+            ? choose('请等待当前设置操作结束后重试。', 'Wait for the current settings operation before retrying.')
+            : choose('未能开始读取选项，请重试。', 'Could not reload the options. Try again.'),
+    },
     resolve: (key) => messages[key] ?? key,
     form: {
       reset: choose('恢复已保存值', 'Restore saved value'),
       loading: choose('正在加载选项…', 'Loading options…'),
       empty: choose('没有可用选项', 'No options available'),
-      unavailable: (code) => choose(`选项当前不可用：${code}`, `Options unavailable: ${code}`),
-      contentError: (code) => choose(`选项加载失败：${code}`, `Option loading failed: ${code}`),
+      unavailable: (code) => {
+        if (code === 'missing_model')
+          return choose('请先选择模型，再选择思考等级。', 'Choose a model before selecting a thinking level.')
+        if (code === 'model_unavailable')
+          return choose(
+            '所选模型已不可用，请重新选择模型。',
+            'The selected model is no longer available. Choose another model.',
+          )
+        if (code === 'missing_dependency')
+          return choose('请先填写有效的相关设置。', 'Enter valid related settings before loading these options.')
+        return choose('当前连接不提供这些选项。', 'These options are not available from this connection.')
+      },
+      contentError: () =>
+        choose('选项读取失败，未保存的更改已保留。', 'Options could not be loaded. Unsaved changes are preserved.'),
       selectedInvalid: (value) =>
         choose(`当前值不可用：${option(value)}`, `Current value unavailable: ${option(value)}`),
       issue: (issue) =>
