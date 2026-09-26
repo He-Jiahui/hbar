@@ -231,6 +231,7 @@ import {
   interactionWorkersPerVariant,
   interactiveControlSelector,
   liveActivityDelta,
+  magicLinkInteractionDelta,
   manualReviewGate,
   rootGeometryMatches,
   selectInteractionCases,
@@ -299,6 +300,16 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('magic-link audit ignores independent countdown clocks but preserves visible state changes', () => {
+    const sourceBefore = { ...snapshot([control(0, { name: 'Resend link in 0:39', disabled: true })]), axSnapshot: '- button "Resend link in 0:39" [disabled]', bodyTextLength: 400 }
+    const localBefore = { ...snapshot([control(0, { name: 'Resend link in 0:45', disabled: true })]), axSnapshot: '- button "Resend link in 0:45" [disabled]', bodyTextLength: 320 }
+    const sourceAfter = { ...snapshot([control(0, { name: 'Resend link', disabled: false })]), axSnapshot: '- button "Resend link"', bodyTextLength: 385 }
+    const localAfter = { ...sourceAfter, bodyTextLength: 305 }
+    expect(magicLinkInteractionDelta(sourceBefore, sourceAfter).signature).toBe(magicLinkInteractionDelta(localBefore, localAfter).signature)
+    expect(magicLinkInteractionDelta(sourceBefore, sourceAfter).changed).toBe(true)
+    const differentResult = { ...sourceAfter, axSnapshot: '- button "Resend failed"' }
+    expect(magicLinkInteractionDelta(sourceBefore, sourceAfter).signature).not.toBe(magicLinkInteractionDelta(localBefore, differentResult).signature)
+  })
   test('dialog menu result matching cannot equate different same-length action labels', () => {
     const before = { ...snapshot([control(0)]), axSnapshot: '- button "Report actions" [expanded]' }
     const rename = { ...snapshot([control(0)]), axSnapshot: '- button "Report actions"\n- paragraph: Rename report selected\n- paragraph: Applied to Weekly active users.', bodyTextLength: 73 }

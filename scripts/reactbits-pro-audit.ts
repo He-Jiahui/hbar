@@ -283,6 +283,8 @@ export type InteractionCase = Readonly<{
     | 'auth-provider-email-valid'
     | 'auth-two-step-password'
     | 'auth-two-step-invalid'
+    | 'auth-magic-form'
+    | 'auth-magic-form-invalid'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1699,6 +1701,13 @@ async function prepareAuthenticationTwoStepScenario(root: Locator, scenario: (ty
   await root.getByRole('button', { name: 'Continue' }).click()
   await root.getByText('Step 2 of 2').waitFor({ state: 'visible', timeout: 5_000 })
 }
+const authenticationMagicLinkScenarios = ['auth-magic-form', 'auth-magic-form-invalid'] as const
+async function prepareAuthenticationMagicLinkScenario(root: Locator, scenario: (typeof authenticationMagicLinkScenarios)[number]): Promise<void> {
+  if (await root.getByRole('button', { name: 'Use a different email' }).count())
+    await root.getByRole('button', { name: 'Use a different email' }).click()
+  await root.getByRole('textbox', { name: 'Work email' }).waitFor({ state: 'visible' })
+  if (scenario === 'auth-magic-form-invalid') await root.getByRole('textbox', { name: 'Work email' }).fill('invalid')
+}
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
   if (await first.isVisible()) {
@@ -3052,7 +3061,34 @@ async function interactionDelta(
   }
   if (interaction.id.startsWith('hbar-app-ui-app-dialog-7:'))
     return dialogMenuInteractionDelta(before, after)
+  if (interaction.id.startsWith('hbar-app-ui-authentication-5:'))
+    return magicLinkInteractionDelta(before, after)
   return semanticInteractionDelta(before, after)
+}
+
+export function magicLinkInteractionDelta(
+  before: SemanticSnapshot,
+  after: SemanticSnapshot,
+): Readonly<{ changed: boolean; signature: string }> {
+  // The reference and local countdown are independent. Compare the actual
+  // accessible content and control state, excluding only elapsed seconds and
+  // hidden demo stylesheet text from the DOM body-length heuristic.
+  const countdown = /Resend link in 0:\d{2}/g
+  const accessible = (snapshot: SemanticSnapshot) => snapshot.axSnapshot.replace(countdown, 'Resend link in 0:--')
+  const normalize = (snapshot: SemanticSnapshot): SemanticSnapshot => ({
+    ...snapshot,
+    bodyTextLength: accessible(snapshot).length,
+    controls: snapshot.controls.map((control) => ({
+      ...control,
+      name: control.name.replace(countdown, 'Resend link in 0:--'),
+    })),
+  })
+  const base = semanticInteractionDelta(normalize(before), normalize(after))
+  const beforeAx = accessible(before), afterAx = accessible(after)
+  return {
+    changed: base.changed || beforeAx !== afterAx,
+    signature: JSON.stringify({ base: base.signature, beforeAx, afterAx }),
+  }
 }
 
 export function dialogMenuInteractionDelta(
@@ -3241,6 +3277,8 @@ async function replayInteraction(
     await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-4' && authenticationTwoStepScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-5' && authenticationMagicLinkScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3532,6 +3570,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-4' && authenticationTwoStepScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-5' && authenticationMagicLinkScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4112,6 +4152,13 @@ async function runInteractionsParallel(
               for (const scenario of authenticationTwoStepScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationTwoStepScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-5') {
+              for (const scenario of authenticationMagicLinkScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationMagicLinkScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }

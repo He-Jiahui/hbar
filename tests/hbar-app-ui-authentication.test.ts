@@ -56,6 +56,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(2, localized)).toContain('Willkommen zurück')
         expect(renderAuthentication(3, localized)).toContain('Lokalisierter Text mit absichtlich langem Umbruch')
         expect(renderAuthentication(4, localized)).toContain('Beim Northwind-Arbeitsbereich anmelden')
+        expect(renderAuthentication(5, localized)).toContain('Prüfen Sie Ihren Posteingang')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -151,6 +152,21 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(localized).toContain('Geschäftliche E-Mail')
         expect(localized).toContain('Anmeldelink per E-Mail senden')
         expect(localized).not.toContain('Sign in to Northwind')
+    })
+
+    test('magic-link summary keeps host-authored rich email copy and bounded metadata rows', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.magicLink
+        if (!base) throw new Error('Expected magic-link fixture')
+        const markup = renderAuthentication(5)
+        expect(markup).toContain(`${base.labels.descriptionBeforeEmail}<span class="hbar-app-ui-auth-magic-link-email">${base.email}${base.labels.descriptionEmailSuffix}</span>${base.labels.descriptionAfterEmail}`)
+        expect(occurrences(markup, 'hbar-app-ui-auth-magic-link-summary-label')).toBe(3)
+        expect(occurrences(markup, 'hbar-app-ui-auth-magic-link-summary-value')).toBe(3)
+        expect(markup).toContain('disabled=""')
+        const localized = createHbarAppUiAuthenticationLocalizedFixtures()
+        const localizedMarkup = renderAuthentication(5, localized)
+        expect(localizedMarkup).toContain('Ein Anmeldelink ist unterwegs an ')
+        expect(localizedMarkup).toContain('dana.whitfield+international@northwind.com')
+        expect(localizedMarkup).not.toContain('A sign-in link is on its way to ')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

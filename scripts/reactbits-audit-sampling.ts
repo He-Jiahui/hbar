@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-5')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-magic-link-reference.css', 'authentication/MagicLinkAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Different email replaces delivery summary with the prefilled email form' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-magic-form-invalid:1:click', change: 'Invalid email reveals a field error without sending' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-magic-form:1:click', change: 'Valid form submission returns to the delivery summary and resets the countdown' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-magic-form:2:click', change: 'Password-sign-in link has no documentation navigation result' },
+        { viewport: 'desktop', theme: 'dark', suffix: '0:hover', change: 'Primary mail-app button pointer feedback' },
+        { viewport: 'tablet', theme: 'light', suffix: '0:click', change: 'Mail-app action does not alter the documentation preview' },
+        { viewport: 'mobile', theme: 'dark', suffix: 'auth-magic-form:0:fill', change: 'Host email input retains an edit in the narrow form' },
+        { viewport: 'stress', theme: 'light', suffix: '2:press-space', change: 'Keyboard opens the form while the narrow confirmation content stays in flow' },
+      ],
+      inferences: [
+        { scope: 'Countdown expiry and resend', basis: 'The live reference decrements the disabled resend label over time; a local browser check tests expiry, re-enable and reset. Independent source/local clocks are not treated as frame-synchronized interaction pairs.', verification: 'inferred-not-replayed' },
+        { scope: 'Repeated themes, viewports and equivalent button gestures', basis: 'Eight static pairs cover the responsive theme matrix. Eight paired actions cover branch navigation, validation, submit, edit, keyboard and no-result actions; equivalent permutations are inferred.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-4')
     return {
       revision: 1,
