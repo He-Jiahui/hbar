@@ -23,5 +23,6 @@
 - 新真实 Host E2E：`e2e/file-reading-navigator.spec.ts`，中英文，1440 / 900 / 390 / 320；验证导航选中、隐藏／打开与焦点、连续选文件、All / Changed 不退出预览、diff 刷新、未保存草稿返回和磁盘不被自动写入。
 - 既有真实 Host Files 回归：workbench tabs / changes / tree，8 pass，0 fail。
 - 实际截图位于 `artifacts/file-navigator/reader-<locale>-<width>.png` 和 `navigator-<locale>-<width>.png`；已经人工检查宽屏两栏及 320px 阅读／导航画面。该证据来自真实 Host 的生产 Web UI，不宣称已经重新编译原生桌面 exe。
+- 原生补验：`bun scripts/verify-desktop-file-navigator.ts` 以独立临时 profile 运行现有 debug launcher 和本轮新构建的 Host/Web resources，通过 1440、900×600 导航选文件、返回原 dirty 草稿、无自动写盘、无横溢检查。产物为 `artifacts/file-navigator/native/reader-and-navigator-1440.png` 与 `draft-return-<width>.png`。初次 fixture 放在 HBAR_HOME 内被正确拒绝 `PATH_DENIED`；修正为独立临时工作区后通过，未改保护策略。
 
 完整 Goal 生命周期、侧栏刷新和设置用量不是本 Files 子功能的完成范围；总入口审计仍在进行。
