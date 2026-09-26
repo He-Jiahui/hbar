@@ -1,6 +1,7 @@
 import {describe, expect, test} from 'bun:test'
 import {createElement} from 'react'
 import {renderToStaticMarkup} from 'react-dom/server'
+import {canContinueProviderFirst} from '../hbar-ui/packages/lumen-app-ui/src/authentication/ProviderFirstAuthentication'
 import {
     getHbarAppUiVariant,
     HbarAppUiAuthenticationProvider,
@@ -76,6 +77,41 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(markup).toContain(base.labels.singleSignOn)
         expect(markup).not.toContain('host-email-route')
         expect(markup).not.toContain('enterprise-route')
+    })
+
+    test('provider-first uses one associated email label, host-owned provider copy, and valid email/domain gates', () => {
+        const markup = renderAuthentication(2)
+        expect(occurrences(markup, '>Work email<')).toBe(1)
+        expect(markup).toContain('Continue with Google')
+        expect(markup.indexOf('Continue with Google')).toBeLessThan(markup.indexOf('Continue with GitHub'))
+        expect(markup.indexOf('Continue with GitHub')).toBeLessThan(markup.indexOf('Continue with Apple'))
+        expect(markup).toContain('type="email"')
+        expect(markup).toContain('disabled=""')
+        expect(canContinueProviderFirst('', false)).toBe(false)
+        expect(canContinueProviderFirst('not-an-email', false)).toBe(false)
+        expect(canContinueProviderFirst('a@b.c', false)).toBe(false)
+        expect(canContinueProviderFirst('dana@example.com', false)).toBe(true)
+        expect(canContinueProviderFirst(' ', true)).toBe(false)
+        expect(canContinueProviderFirst('northwind', true)).toBe(true)
+    })
+
+    test('provider-first retains host provider count and localized/domain content without duplicating controls', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.providerFirst
+        if (!base) throw new Error('Expected provider-first fixture')
+        for (const size of [0, 1, base.providerListStrategy.expectedMaximum, base.providerListStrategy.expectedMaximum + 1]) {
+            const socialProviders = Array.from({length: size}, (_, index) => ({id: `host-${index}`, label: `Provider ${index}`, icon: 'key' as const}))
+            const markup = renderAuthentication(2, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, providerFirst: {...base, socialProviders}})
+            expect(occurrences(markup, 'Provider [0-9]')).toBe(size)
+            expect(markup).toContain(base.labels.emailLabel)
+        }
+        const localized = renderAuthentication(2, {
+            ...HBAR_APP_UI_AUTHENTICATION_FIXTURES,
+            providerFirst: {...base, initialProviderId: base.ssoProviderId, labels: {...base.labels, ssoLabel: 'Lange Unternehmensdomäne', ssoPlaceholder: 'organisationsname', ssoSuffix: '.beispiel.test', ssoHelper: 'Die Verwaltung hat diese Domäne für den Arbeitsbereich festgelegt.'}},
+        })
+        expect(localized).toContain('Lange Unternehmensdomäne')
+        expect(localized).toContain('.beispiel.test')
+        expect(localized).toContain('Die Verwaltung hat diese Domäne')
+        expect(localized).not.toContain('>Work email<')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

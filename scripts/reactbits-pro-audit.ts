@@ -278,6 +278,9 @@ export type InteractionCase = Readonly<{
     | 'bell-unread-empty'
     | 'auth-email-only'
     | 'auth-valid'
+    | 'auth-provider-sso'
+    | 'auth-provider-sso-valid'
+    | 'auth-provider-email-valid'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1661,6 +1664,18 @@ const authenticationSignInScenarios = ['auth-email-only', 'auth-valid'] as const
 async function prepareAuthenticationSignInScenario(root: Locator, scenario: (typeof authenticationSignInScenarios)[number]): Promise<void> {
   await root.getByRole('textbox', { name: 'Email or username' }).fill('dana@example.com')
   if (scenario === 'auth-valid') await root.getByPlaceholder('Enter your password').fill('secret-password')
+}
+const authenticationProviderFirstScenarios = ['auth-provider-sso', 'auth-provider-sso-valid', 'auth-provider-email-valid'] as const
+async function prepareAuthenticationProviderFirstScenario(root: Locator, scenario: (typeof authenticationProviderFirstScenarios)[number]): Promise<void> {
+  if (scenario === 'auth-provider-email-valid') {
+    if (await root.getByRole('button', { name: 'Use email instead' }).count())
+      await root.getByRole('button', { name: 'Use email instead' }).click()
+    await root.getByRole('textbox', { name: 'Work email' }).fill('dana@example.com')
+    return
+  }
+  if (await root.getByRole('button', { name: 'Use single sign-on' }).count())
+    await root.getByRole('button', { name: 'Use single sign-on' }).click()
+  if (scenario === 'auth-provider-sso-valid') await root.getByRole('textbox', { name: 'Company domain' }).fill('northwind')
 }
 async function prepareNotificationBellScenario(root: Locator, scenario: (typeof notificationBellScenarios)[number]): Promise<void> {
   const dialog = root.getByRole('dialog', { name: 'Notifications' })
@@ -3192,6 +3207,8 @@ async function replayInteraction(
     await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-1' && authenticationSignInScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-2' && authenticationProviderFirstScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3478,6 +3495,8 @@ async function replayReferenceInteraction(
     await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-1' && authenticationSignInScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-2' && authenticationProviderFirstScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4034,6 +4053,20 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationSignInScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-2') {
+              const emailFill = discovered.find((item) => item.id === `${spec.id}:5:fill`)
+              if (!emailFill) throw new Error('Provider-first email input changed; re-observe its behavior groups')
+              discovered.push({ ...emailFill, id: `${spec.id}:5:fill-valid`, fillValue: 'dana@example.com' })
+              for (const scenario of authenticationProviderFirstScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationProviderFirstScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                  scenario === 'auth-provider-sso' && item.action === 'fill'
+                    ? { ...item, fillValue: 'northwind' }
+                    : item,
+                ))
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')

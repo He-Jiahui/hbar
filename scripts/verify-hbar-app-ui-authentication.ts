@@ -68,8 +68,22 @@ async function run(): Promise<void> {
         assert(await page.locator('.hbar-app-ui-auth-sign-in-surface input[type="email"]').count() === 1, 'Email field lost its native type')
 
         await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
+        assert(await page.getByRole('textbox', {name: 'Work email'}).count() === 1, 'Provider-first email must have one associated label')
+        const providerContinue = page.getByRole('button', {name: 'Continue', exact: true})
+        assert(await providerContinue.isDisabled(), 'Provider-first email starts disabled')
         await page.getByRole('button', {name: 'Use single sign-on', exact: true}).click()
-        assert(await page.getByText('Company sign-on', {exact: true}).count() >= 2, 'Provider-first flow did not switch to host-defined SSO branch')
+        const domain = page.getByRole('textbox', {name: 'Company domain'})
+        assert(await domain.count() === 1, 'Provider-first flow did not switch to the host-defined domain branch')
+        assert(await page.getByText('.northwind.app', {exact: true}).count() === 1, 'Host domain suffix is missing')
+        assert(await page.getByText('Your admin set this when the workspace was created.', {exact: true}).count() === 1, 'SSO helper is missing')
+        await domain.fill('northwind')
+        assert(!(await providerContinue.isDisabled()), 'Nonempty company domain should enable Continue')
+        await page.getByRole('button', {name: 'Use email instead', exact: true}).click()
+        const workEmail = page.getByRole('textbox', {name: 'Work email'})
+        await workEmail.fill('not-an-email')
+        assert(await providerContinue.isDisabled(), 'Invalid work email must not enable Continue')
+        await workEmail.fill('dana@example.com')
+        assert(!(await providerContinue.isDisabled()), 'Valid work email should enable Continue')
 
         await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Next quote', exact: true}).click()
@@ -155,6 +169,12 @@ async function run(): Promise<void> {
         assert(await page.getByText('Sehr lange lokalisierte Beschreibung für den gemeinsamen Arbeitsbereich.', {exact: true}).count() === 1, 'Localized sign-in copy was not supplied by the host bundle')
         await page.goto(previewUrl(11, 'localized'), {waitUntil: 'networkidle'})
         assert(await page.getByText('Arbeitsbereich auswählen', {exact: true}).count() === 1, 'Localized workspace title was not supplied by the host bundle')
+        await page.setViewportSize({width: 320, height: 800})
+        await page.goto(previewUrl(2, 'localized'), {waitUntil: 'networkidle'})
+        await page.getByRole('button', {name: 'Use single sign-on', exact: true}).click()
+        assert(await page.getByRole('textbox', {name: 'Lange Unternehmensdomäne'}).count() === 1, 'Localized SSO label was not supplied by the host bundle')
+        assert(await page.getByText('.sehr-lange-arbeitsbereich-adresse.beispiel.test', {exact: true}).count() === 1, 'Localized SSO suffix was not retained')
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Localized provider-first SSO branch overflowed horizontally')
 
         const narrowOverflow: Record<string, boolean> = {}
         for (let variant = 1; variant <= 14; variant += 1) {

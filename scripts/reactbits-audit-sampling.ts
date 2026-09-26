@@ -561,6 +561,29 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-2')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-provider-first-reference.css', 'authentication/ProviderFirstAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'dark', suffix: '4:click', change: 'Switch email form to domain label, suffix and admin helper' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-provider-sso:4:click', change: 'Return to email form and its disabled submit state' },
+        { viewport: 'desktop', theme: 'light', suffix: '5:fill', change: 'Invalid email remains disabled without fabricating an error message' },
+        { viewport: 'desktop', theme: 'light', suffix: '5:fill-valid', change: 'Valid email enables Continue without a business result' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-provider-email-valid:6:click', change: 'Email Continue submits with no source demo transition' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-provider-sso:5:fill', change: 'Nonempty domain enables Continue beside the fixed suffix' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-provider-sso-valid:6:click', change: 'SSO Continue is a separate no-result submission path' },
+        { viewport: 'desktop', theme: 'dark', suffix: '1:hover', change: 'Shared social provider pointer feedback' },
+        { viewport: 'desktop', theme: 'dark', suffix: '2:click', change: 'Representative provider click leaves the form unchanged' },
+        { viewport: 'tablet', theme: 'light', suffix: '0:click', change: 'Create account has no source demo navigation result' },
+        { viewport: 'stress', theme: 'light', suffix: '4:press-space', change: 'Narrow keyboard SSO switch reflows the suffix and helper' },
+        { viewport: 'stress', theme: 'light', suffix: '7:click', change: 'Inline legal action retains the narrow form' },
+      ],
+      inferences: [
+        { scope: 'Other provider and legal links', basis: 'Host-owned providers share one ID-bound action and native button template; a representative provider hover/click and one legal action are paired. Their unclicked siblings are inferred, not counted as replayed.', verification: 'inferred-not-replayed' },
+        { scope: 'Repeated themes, sizes, input strings and activation gestures', basis: 'Eight static pairs cover the whole width/theme matrix. Both mode transitions, disabled/enabled gates and both no-result submit routes are paired at representative sizes; local unit tests cover the email/domain boundary and content capacity. No Cartesian replay is claimed.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-1')
     return {
       revision: 1,
