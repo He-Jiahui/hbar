@@ -2,6 +2,8 @@
 
 这是下一子功能的**实施前设计审计**，不是已经交付的图片查看器。基线：hbar `ea0e3a5`、cc-haha `e28d0a65`（2026-09-26）。本轮只写本文件与 ignored evidence，没有产品、维护测试或索引修改，没有 native/付费模型执行。
 
+后续基础实现见 [图片读取、解码与资源归属](desktop-image-resources.md)。下文建议保留其审计时间语境；后续实施预算、测试与尚未完成的 UI/native 接线以该记录为准，不把本审计的提议当作现成能力。
+
 本文件深化 [会话入口收口审查](desktop-conversation-final-entry-audit.md) 的图片P1，不重复其全入口矩阵；[附件加入与恢复](desktop-composer-attachments.md) 已明确图片仍是 named chip、预览单独交付。原数据加入/unknown回执owner不得被预览重新实现。
 
 ## 已证实的原交互，不多推一步
