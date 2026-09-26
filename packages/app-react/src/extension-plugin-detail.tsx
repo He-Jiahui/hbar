@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react'
 import {
   LumenButton,
   LumenCollection,
@@ -9,8 +9,13 @@ import {
   LumenStatus,
   LumenText,
 } from '@lumen/app-ui'
-import { EXTENSION_PAGE_SIZE, type ExtensionWorkspaceDetailState } from '@hbar/app-runtime'
+import {
+  EXTENSION_PAGE_SIZE,
+  type ExtensionWorkspaceActionState,
+  type ExtensionWorkspaceDetailState,
+} from '@hbar/app-runtime'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
+import './extension-plugin-detail.css'
 
 type Plugin = NonNullable<ExtensionWorkspaceDetailState['plugin']>
 
@@ -42,6 +47,17 @@ export interface ExtensionPluginDetailLabels {
   readonly error: (code: string) => string
   readonly count: (count: number) => string
   readonly pagination: ExtensionPaginationLabels
+  readonly actions: {
+    readonly title: string
+    readonly scope: string
+    readonly enable: string
+    readonly disable: string
+    readonly pending: string
+    readonly confirmed: string
+    readonly unknown: string
+    readonly readCurrent: string
+    readonly error: (code: string) => string
+  }
 }
 
 function Collection<Item>({
@@ -91,14 +107,22 @@ export function ExtensionPluginDetail({
   detail,
   labels,
   connected,
+  action,
+  refreshing,
+  operationError,
   onBack,
   onRetry,
+  onSetEnabled,
 }: {
   readonly detail: Readonly<ExtensionWorkspaceDetailState>
   readonly labels: ExtensionPluginDetailLabels
   readonly connected: boolean
+  readonly action: Readonly<ExtensionWorkspaceActionState> | undefined
+  readonly refreshing: boolean
+  readonly operationError?: string | null
   readonly onBack: () => void
   readonly onRetry: () => void
+  readonly onSetEnabled: (enabled: boolean) => void
 }) {
   const plugin = detail.plugin
   const commandMap = new Map(
@@ -112,10 +136,12 @@ export function ExtensionPluginDetail({
           <LumenIcon icon={ArrowLeft} tier="md" />
           {labels.back}
         </LumenButton>
-        <LumenButton variant="text" disabled={!connected || detail.status === 'loading'} onClick={onRetry}>
-          <LumenIcon icon={RefreshCw} tier="md" />
-          {labels.retry}
-        </LumenButton>
+        {!plugin && (
+          <LumenButton variant="text" disabled={!connected || refreshing} onClick={onRetry}>
+            <LumenIcon icon={RefreshCw} tier="md" />
+            {action?.status === 'unknown' ? labels.actions.readCurrent : labels.retry}
+          </LumenButton>
+        )}
       </LumenFrame>
       {detail.status === 'loading' && (
         <LumenText as="p" role="status">
@@ -130,6 +156,11 @@ export function ExtensionPluginDetail({
       {detail.status === 'missing' && (
         <LumenText as="p" role="status">
           {labels.missing}
+        </LumenText>
+      )}
+      {!plugin && action?.status === 'unknown' && (
+        <LumenText as="p" role="status">
+          {labels.actions.unknown}
         </LumenText>
       )}
       {plugin && (
@@ -172,6 +203,54 @@ export function ExtensionPluginDetail({
             {plugin.error && (
               <LumenText as="p" role="alert">
                 {plugin.error}
+              </LumenText>
+            )}
+          </LumenFrame>
+          <LumenFrame as="section" className="hbar-app-react-plugin-actions" aria-label={labels.actions.title}>
+            <LumenText as="p">{labels.actions.scope}</LumenText>
+            <LumenFrame role="group" aria-label={labels.actions.title}>
+              {!plugin.required && action?.status !== 'unknown' && (
+                <LumenButton
+                  variant="outlined"
+                  disabled={!connected || refreshing || action?.status === 'submitting'}
+                  loading={action?.status === 'submitting'}
+                  onClick={() => onSetEnabled(plugin.status !== 'active')}
+                >
+                  <LumenIcon icon={plugin.status === 'active' ? ToggleLeft : ToggleRight} tier="sm" />
+                  {action?.status === 'submitting'
+                    ? labels.actions.pending
+                    : plugin.status === 'active'
+                      ? labels.actions.disable
+                      : labels.actions.enable}
+                </LumenButton>
+              )}
+              <LumenButton
+                variant="text"
+                disabled={!connected || refreshing || action?.status === 'submitting'}
+                onClick={onRetry}
+              >
+                <LumenIcon icon={RefreshCw} tier="sm" />
+                {action?.status === 'unknown' ? labels.actions.readCurrent : labels.retry}
+              </LumenButton>
+            </LumenFrame>
+            {action?.status === 'succeeded' && (
+              <LumenText as="p" role="status">
+                {labels.actions.confirmed}
+              </LumenText>
+            )}
+            {action?.status === 'unknown' && (
+              <LumenText as="p" role="status">
+                {labels.actions.unknown}
+              </LumenText>
+            )}
+            {action?.status === 'failed' && (
+              <LumenText as="p" role="alert">
+                {labels.actions.error(action.error ?? 'EXECUTION_FAILED')}
+              </LumenText>
+            )}
+            {operationError && (
+              <LumenText as="p" role="alert">
+                {labels.actions.error(operationError)}
               </LumenText>
             )}
           </LumenFrame>

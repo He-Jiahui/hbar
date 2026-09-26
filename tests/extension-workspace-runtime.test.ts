@@ -18,7 +18,7 @@ const plugin = (status: PluginInfo['status']): PluginInfo => ({
 })
 const skill: SkillDescriptor = { id: 'review-helper', path: 'D:/skills/review-helper', scope: 'global' }
 
-test('extension workspace lists Host extensions and reconciles an unknown lifecycle mutation', async () => {
+test('extension workspace observes Host extensions without unlocking an unknown lifecycle mutation', async () => {
   let plugins = [plugin('active')]
   let disableAttempts = 0
   const runtime = createAppRuntime({
@@ -74,8 +74,16 @@ test('extension workspace lists Host extensions and reconciles an unknown lifecy
     await runtime.view.commands.execute('extensionWorkspace.refresh', { instanceId: panel.instanceId })
     expect(runtime.view.state.extensions.getSnapshot().entries[panel.instanceId]).toMatchObject({
       plugins: [{ status: 'disabled' }],
-      actions: {},
+      actions: { 'browser.playwright': { status: 'unknown', error: 'RESULT_UNKNOWN' } },
     })
+    await expect(
+      runtime.view.commands.execute('extensionWorkspace.setEnabled', {
+        instanceId: panel.instanceId,
+        pluginId: 'browser.playwright',
+        enabled: true,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    expect(disableAttempts).toBe(1)
   } finally {
     runtime.dispose()
   }

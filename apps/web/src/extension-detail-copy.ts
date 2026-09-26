@@ -30,8 +30,8 @@ export function extensionDetailCopy(
         'This plugin is no longer on the current Host. Return to the list and refresh to see the current state.',
       ),
       readOnly: choose(
-        '这里只展示插件报告的贡献，不会执行命令。启用或禁用请返回列表。',
-        'These are reported contributions, not executable actions. Return to the list to enable or disable this plugin.',
+        '以下是插件报告的贡献，查看详情不会执行这些命令。',
+        'The contributions below are reported by the plugin. Viewing them does not execute their commands.',
       ),
       required: choose(
         '此插件为 Host 必需，不能在此禁用。',
@@ -76,6 +76,57 @@ export function extensionDetailCopy(
           : choose(`无法加载详情（${code}）。请重试。`, `Could not load details (${code}). Try again.`),
       count: (count) => number.format(count),
       pagination,
+      actions: {
+        title: choose('插件启停', 'Plugin activation'),
+        scope: choose(
+          '更改当前 Host 上的此插件；安装与运行范围见上方。',
+          'Change this plugin on the current Host; installation and runtime scopes are shown above.',
+        ),
+        enable: choose('启用插件', 'Enable plugin'),
+        disable: choose('禁用插件', 'Disable plugin'),
+        pending: choose('正在更改插件…', 'Changing plugin…'),
+        confirmed: choose('Host 已确认本次更改。', 'The Host confirmed this change.'),
+        unknown: choose(
+          '尚无法确认原操作。可读取当前状态，但不会重新发送更改。',
+          'The original operation is still unconfirmed. You can read the current state; the change will not be resent.',
+        ),
+        readCurrent: choose('读取当前状态', 'Read current state'),
+        error: (code) => {
+          if (code === 'CAPACITY_EXCEEDED')
+            return choose(
+              '未确认的插件操作已达上限；不会发送新的更改。',
+              'Unconfirmed plugin operations have reached the limit. No new change was sent.',
+            )
+          if (code === 'BUSY')
+            return choose(
+              'Host 仍有活动或排队运行；等待结束后再试。',
+              'The Host has active or queued runs. Wait for them to finish, then try again.',
+            )
+          if (code === 'REQUIRED_PLUGIN' || code === 'INVALID_INPUT')
+            return choose(
+              '此插件不能禁用。读取当前状态以核对。',
+              'This plugin cannot be disabled. Read its current state to check.',
+            )
+          if (code === 'RESTART_REQUIRED')
+            return choose(
+              '此插件需通过启动配置更改并重启 Host。',
+              'Change this plugin through the startup profile and restart the Host.',
+            )
+          if (code === 'PLUGIN_DEPENDENCY' || code === 'PLUGIN_VERSION' || code === 'PLUGIN_CYCLE')
+            return choose(
+              '插件依赖不满足；检查依赖后重试。',
+              'Plugin dependencies are not satisfied. Check them before retrying.',
+            )
+          if (code === 'NOT_FOUND')
+            return choose(
+              '插件已不在此 Host 中；请返回列表并刷新。',
+              'The plugin is no longer on this Host. Return to the list and refresh.',
+            )
+          if (code === 'PERMISSION_DENIED' || code === 'UNAUTHORIZED')
+            return choose('无权更改此插件。', 'You do not have permission to change this plugin.')
+          return choose('未能更改插件。可以重试。', 'The plugin could not be changed. You can try again.')
+        },
+      },
     },
   }
 }

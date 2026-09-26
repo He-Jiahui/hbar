@@ -130,7 +130,7 @@ export function HbarExtensionWorkspace({
         ) : null}
         {entry?.error && (
           <LumenText as="p" role="alert">
-            {labels.error(entry.error)}
+            {entry.error === 'CAPACITY_EXCEEDED' ? labels.detail.actions.error(entry.error) : labels.error(entry.error)}
           </LumenText>
         )}
         {entry && page && (
@@ -197,9 +197,14 @@ export function HbarExtensionWorkspace({
                           <LumenIcon icon={ChevronRight} tier="md" />
                         </LumenButton>
                         <LumenText as="small">{plugin.packageName ?? plugin.path ?? plugin.id}</LumenText>
-                        {action?.error && (
+                        {action?.status === 'unknown' && (
+                          <LumenText as="p" role="status">
+                            {labels.detail.actions.unknown}
+                          </LumenText>
+                        )}
+                        {action?.error && action.status === 'failed' && (
                           <LumenText as="p" role="alert">
-                            {labels.error(action.error)}
+                            {labels.detail.actions.error(action.error)}
                           </LumenText>
                         )}
                         <LumenFrame as="footer">
@@ -210,7 +215,7 @@ export function HbarExtensionWorkspace({
                               disabled={!connected || entry.status === 'loading'}
                               onClick={refresh}
                             >
-                              {labels.reconcile}
+                              {labels.detail.actions.readCurrent}
                             </LumenButton>
                           ) : (
                             !plugin.required && (
@@ -297,6 +302,14 @@ export function HbarExtensionWorkspace({
           detail={detail}
           labels={labels.detail}
           connected={connected}
+          action={entry?.actions[detail.pluginId]}
+          refreshing={entry?.status === 'loading' || detail.status === 'loading'}
+          operationError={entry?.error === 'CAPACITY_EXCEEDED' ? entry.error : null}
+          onSetEnabled={(enabled) =>
+            void runtime.commands
+              .execute('extensionWorkspace.setEnabled', { instanceId, pluginId: detail.pluginId, enabled })
+              .catch(() => {})
+          }
           onBack={() => {
             focusDirection.current = 'list'
             void runtime.commands.execute('extensionWorkspace.back', { instanceId }).catch(() => {})
