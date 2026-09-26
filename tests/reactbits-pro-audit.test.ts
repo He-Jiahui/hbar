@@ -27,6 +27,17 @@ test('toast sampling differentiates payload, stack, Undo, dismiss, clear and nar
   expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
 })
 
+test('preference sampling covers state-changing mechanisms without replaying every matrix cell', () => {
+  const id = 'hbar-app-ui-notifications-3'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(9)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:1:click`, `${id}:30:click`, `${id}:preferences-dirty:38:click`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:8:press-space`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('compact usage samples two independent actions and button styles, not passive bars', () => {
   const id = 'hbar-app-ui-ai-usage-8'
   expect(auditSamplingPlan(id)!.samples).toHaveLength(5)

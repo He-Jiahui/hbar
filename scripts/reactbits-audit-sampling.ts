@@ -561,6 +561,27 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-notifications-3')
+    return {
+      revision: 1,
+      lumenEntries: ['notifications.tsx', 'notifications-preferences-reference.css', 'notifications.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'Collaboration in-app bulk None changes three deliveries and the count' },
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Partially enabled Collaboration email bulk All changes one delivery and the button label' },
+        { viewport: 'desktop', theme: 'dark', suffix: '5:click', change: 'One enabled delivery switches off independently of other channels' },
+        { viewport: 'desktop', theme: 'light', suffix: '30:click', change: 'Quiet hours switch changes without altering the delivery count' },
+        { viewport: 'desktop', theme: 'dark', suffix: '31:click', change: 'An unselected weekday becomes pressed and enables saving' },
+        { viewport: 'desktop', theme: 'light', suffix: 'preferences-dirty:38:click', change: 'Reset restores initial delivery, quiet-hour and day values with saved footer feedback' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'preferences-dirty:39:click', change: 'Save confirms the changed draft and disables the save action' },
+        { viewport: 'stress', theme: 'light', suffix: '8:press-space', change: 'Narrow keyboard activation reaches an off-screen channel and updates the count' },
+        { viewport: 'stress', theme: 'dark', suffix: 'preferences-dirty:38:press-enter', change: 'Narrow footer reset remains accessible after a changed delivery' },
+      ],
+      inferences: [
+        { scope: 'Other event/channel switches and group headers', basis: 'Seven host-supplied event rows share one ID-keyed toggle and three channel groups share one bulk reducer. Both switch directions and All/None paths have real replay; duplicate IDs, empty input and capacity are locally tested, not claimed as individual screenshots.', verification: 'inferred-not-replayed' },
+        { scope: 'Other weekdays, equivalent pointer/keyboard gestures and theme/viewport permutations', basis: 'The weekday buttons share one ID-keyed set, while the business state has no viewport/theme branch. Eight static pairs cover layout and colors; desktop and narrow dynamic cases cover distinct scroll/focus boundaries.', verification: 'inferred-not-replayed' },
+        { scope: 'Host persistence failures and delayed confirmations', basis: 'The public reference demo saves immediately. Host-owned asynchronous success, failure/retry and absent-save behavior are tested locally; no reference-network failure is invented.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-notifications-2')
     return {
       revision: 1,

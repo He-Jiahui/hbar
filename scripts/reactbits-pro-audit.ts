@@ -323,6 +323,7 @@ export type InteractionCase = Readonly<{
     | 'dialog-menu-delete-keyboard'
     | 'toast-success'
     | 'toast-stack'
+    | 'preferences-dirty'
     | QueueApprovalScenario
     | PermissionApprovalScenario
     | undefined
@@ -1612,6 +1613,10 @@ const dialogWizardScenarios = [
 ] as const
 const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
 const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
+async function prepareNotificationPreferencesDirty(root: Locator): Promise<void> {
+  await root.getByRole('switch', { name: 'Assigned to you: Push' }).click()
+  await root.getByRole('button', { name: 'Save preferences' }).waitFor({ state: 'visible' })
+}
 async function prepareNotificationToastScenario(root: Locator, scenario: (typeof notificationToastScenarios)[number]): Promise<void> {
   const clear = root.getByRole('button', { name: 'Clear all', exact: true })
   if (await clear.isEnabled()) await clear.click()
@@ -3090,6 +3095,8 @@ async function replayInteraction(
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
   if (spec.id === 'hbar-app-ui-notifications-2' && toastScenario)
     await prepareNotificationToastScenario(root, toastScenario)
+  if (spec.id === 'hbar-app-ui-notifications-3' && interaction.scenario === 'preferences-dirty')
+    await prepareNotificationPreferencesDirty(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3366,6 +3373,8 @@ async function replayReferenceInteraction(
       (interaction.scenario === 'dialog-menu-export' || interaction.scenario === 'dialog-menu-closed' ||
        interaction.scenario === 'dialog-menu-delete-keyboard'))
     await prepareDialogMenuScenario(root, interaction.scenario)
+  if (reference.id === 'hbar-app-ui-notifications-3' && interaction.scenario === 'preferences-dirty')
+    await prepareNotificationPreferencesDirty(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3891,6 +3900,10 @@ async function runInteractionsParallel(
                 await prepareNotificationToastScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
+            }
+            if (spec.id === 'hbar-app-ui-notifications-3' && sampleIds?.some((id) => id.includes(':preferences-dirty:'))) {
+              await prepareNotificationPreferencesDirty(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'preferences-dirty'))
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

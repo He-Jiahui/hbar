@@ -9,6 +9,7 @@ import {
   type HbarAppUiNotificationsContent,
 } from '../packages/hbar-app-ui/src/index'
 import {
+  createHbarAppUiNotificationPreferencesFixture,
   createHbarAppUiNotificationsLocalizedFixtures,
   HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
 } from './fixtures/hbar-app-ui-notifications-fixtures'
@@ -135,5 +136,22 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(localizedHtml).toContain('没有消息')
     expect(localizedHtml).toContain('完成')
     expect(localizedHtml).not.toContain('Toast notifications')
+  })
+
+  test('preferences preserve the reference groups, controlled channels and host save boundary', () => {
+    const html = render(3)
+    expect(html).toContain('14 of 21 deliveries enabled for this workspace.')
+    expect((html.match(/role="switch"/g) ?? []).length).toBe(22)
+    expect((html.match(/<li/g) ?? []).length).toBe(7)
+    expect(html).toContain('data-hbar-app-ui-action="group:collaboration:in-app"')
+    expect(html).toContain('data-hbar-app-ui-action="delivery:assigned:push"')
+    expect(html).toContain('aria-pressed="true"')
+    expect(html).toContain('All changes saved')
+    expect(html).not.toContain('When someone mentions you')
+    expect(render(3, createHbarAppUiNotificationPreferencesFixture('localized'))).toContain('Benachrichtigungseinstellungen')
+    expect(render(3, createHbarAppUiNotificationPreferencesFixture('empty'))).toContain('No preferences')
+    expect((render(3, createHbarAppUiNotificationPreferencesFixture('overflow')).match(/<li/g) ?? []).length).toBe(81)
+    expect((render(3, createHbarAppUiNotificationPreferencesFixture('duplicate')).match(/<li/g) ?? []).length).toBe(7)
+    expect(render(3, createHbarAppUiNotificationPreferencesFixture('unavailable'))).toContain('disabled=""')
   })
 })
