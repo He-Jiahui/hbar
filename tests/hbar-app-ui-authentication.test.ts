@@ -2,6 +2,7 @@ import {describe, expect, test} from 'bun:test'
 import {createElement} from 'react'
 import {renderToStaticMarkup} from 'react-dom/server'
 import {canContinueProviderFirst} from '../hbar-ui/packages/lumen-app-ui/src/authentication/ProviderFirstAuthentication'
+import {selectQuote} from '../hbar-ui/packages/lumen-app-ui/src/authentication/QuoteAuthentication'
 import {
     getHbarAppUiVariant,
     HbarAppUiAuthenticationProvider,
@@ -112,6 +113,26 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(localized).toContain('.beispiel.test')
         expect(localized).toContain('Die Verwaltung hat diese Domäne')
         expect(localized).not.toContain('>Work email<')
+    })
+
+    test('quote carousel retains host-authored stories, empty recovery, duplicate IDs and over-bound content', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.quote
+        if (!base) throw new Error('Expected quote fixture')
+        expect(selectQuote(base.quotes, 'daniel')?.name).toBe('Daniel Osei')
+        expect(selectQuote(base.quotes, 'stale')?.name).toBe('Mina Park')
+        expect(selectQuote([], 'stale')).toBeUndefined()
+        const markup = renderAuthentication(3)
+        expect(markup).toContain('Show quote from Rachel Lindqvist')
+        expect(occurrences(markup, 'Show quote from ')).toBe(3)
+        const empty = renderAuthentication(3, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, quote: {...base, quotes: []}})
+        expect(empty).toContain(base.labels.emptyQuotes)
+        expect(empty).not.toContain('Previous quote')
+        const duplicated = renderAuthentication(3, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, quote: {...base, quotes: [base.quotes[0]!, base.quotes[0]!, base.quotes[1]!]}})
+        expect(occurrences(duplicated, 'Show quote from ')).toBe(2)
+        const overBound = Array.from({length: base.quoteListStrategy.expectedMaximum + 1}, (_, index) => ({...base.quotes[0]!, id: `story-${index}`, name: `Host story ${index}`}))
+        const expanded = renderAuthentication(3, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, quote: {...base, quotes: overBound}})
+        expect(occurrences(expanded, 'Show quote from Host story')).toBe(overBound.length)
+        expect(expanded).toContain('Host story 6')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

@@ -1505,6 +1505,7 @@ async function captureSource(
     await page.waitForTimeout(150)
   }
   const referenceCanvas = await readReferenceCanvas(frame)
+  if (reference.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   const directory = join(outputRoot, 'source', reference.id, theme)
   await ensureDirectory(directory)
   const screenshot = join(directory, `${viewport.id}.png`)
@@ -1540,6 +1541,7 @@ async function captureLocal(
   outputRoot: string,
   referenceCanvas: ReferenceCanvas,
   pageErrors: string[] = [],
+  sourceQuoteIndex?: number,
 ): Promise<CaptureRecord> {
   const errorStart = pageErrors.length
   await page.setViewportSize({ width: referenceCanvas.width, height: referenceCanvas.height })
@@ -1552,6 +1554,8 @@ async function captureLocal(
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (spec.id === 'hbar-app-ui-authentication-3' && sourceQuoteIndex !== undefined)
+    await root.locator('.hbar-app-ui-auth-quote-dots > button').nth(sourceQuoteIndex).click()
   if (spec.id === 'hbar-app-ui-agent-activity-5') {
     await root.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({ state: 'visible', timeout: 15_000 })
     await root.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((pane) => {
@@ -1584,6 +1588,13 @@ async function captureLocal(
     referenceCanvas,
     errors: pageErrors.slice(errorStart),
   }
+}
+
+async function capturedQuoteIndex(snapshotPath: string): Promise<number | undefined> {
+  const snapshot = await readJson<SemanticSnapshot>(snapshotPath)
+  const dots = snapshot.controls.filter((control) => control.name.startsWith('Show quote from '))
+  const active = dots.findIndex((control) => control.rect.width > 10)
+  return active >= 0 ? active : undefined
 }
 
 export function visibleControls(snapshot: SemanticSnapshot): readonly ControlSnapshot[] {
@@ -1676,6 +1687,13 @@ async function prepareAuthenticationProviderFirstScenario(root: Locator, scenari
   if (await root.getByRole('button', { name: 'Use single sign-on' }).count())
     await root.getByRole('button', { name: 'Use single sign-on' }).click()
   if (scenario === 'auth-provider-sso-valid') await root.getByRole('textbox', { name: 'Company domain' }).fill('northwind')
+}
+async function prepareQuoteInitial(root: Locator): Promise<void> {
+  const first = root.locator('aside button[aria-label^="Show quote from"]').first()
+  if (await first.isVisible()) {
+    await first.click()
+    await first.page().mouse.move(0, 0)
+  }
 }
 async function prepareNotificationBellScenario(root: Locator, scenario: (typeof notificationBellScenarios)[number]): Promise<void> {
   const dialog = root.getByRole('dialog', { name: 'Notifications' })
@@ -3194,6 +3212,7 @@ async function replayInteraction(
   const selector = localCanvasSelector
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (spec.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
   if (spec.id === 'hbar-app-ui-notifications-2' && toastScenario)
     await prepareNotificationToastScenario(root, toastScenario)
@@ -3392,6 +3411,7 @@ async function replayReferenceInteraction(
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (reference.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
   if (reference.id === 'hbar-app-ui-notifications-2' && toastScenario)
     await prepareNotificationToastScenario(root, toastScenario)
@@ -3695,6 +3715,9 @@ async function runCapture(options: AuditOptions, browser: Browser, inventory: Re
                 options.outputRoot,
                 sourceRecord.referenceCanvas,
                 localErrors,
+                spec.id === 'hbar-app-ui-authentication-3'
+                  ? await capturedQuoteIndex(sourceRecord.snapshot)
+                  : undefined,
               ),
             )
           }
@@ -4010,6 +4033,7 @@ async function runInteractionsParallel(
             const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
             const sourceSelector = sourceCanvasSelector
             const sourceRoot = frame.locator(sourceSelector).first()
+            if (spec.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(sourceRoot)
             if (spec.id === 'hbar-app-ui-agent-activity-5')
               await prepareAgentLogScenario(discoveryPage, sourceRoot, undefined, true)
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)

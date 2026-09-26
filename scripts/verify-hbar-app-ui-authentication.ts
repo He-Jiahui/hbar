@@ -88,6 +88,12 @@ async function run(): Promise<void> {
         await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Next quote', exact: true}).click()
         assert(await page.getByText('Daniel Osei', {exact: true}).count() === 1, 'Quote carousel did not change its selected record')
+        await page.getByRole('button', {name: 'Show quote from Rachel Lindqvist', exact: true}).click()
+        assert(await page.getByText('Rachel Lindqvist', {exact: true}).count() === 1, 'Direct quote selection did not change the author and metrics')
+        await page.getByRole('button', {name: 'Previous quote', exact: true}).click()
+        assert(await page.getByText('Daniel Osei', {exact: true}).count() === 1, 'Reverse carousel navigation did not retain the selected record')
+        await page.waitForTimeout(8200)
+        assert(await page.getByText('Rachel Lindqvist', {exact: true}).count() === 1, 'Host-configured quote auto-advance did not rotate to the next story')
 
         await page.goto(previewUrl(4), {waitUntil: 'networkidle'})
         await page.getByRole('button', {name: 'Continue', exact: true}).click()

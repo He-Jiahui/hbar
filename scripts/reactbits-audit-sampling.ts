@@ -561,6 +561,29 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-3')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-quote-reference.css', 'authentication/QuoteAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'dark', suffix: '13:click', change: 'Next arrow changes story, author, metrics and active dot to Daniel' },
+        { viewport: 'desktop', theme: 'light', suffix: '12:click', change: 'Previous wraps from Mina to Rachel and moves the active dot' },
+        { viewport: 'desktop', theme: 'dark', suffix: '11:click', change: 'Named dot directly selects the third story' },
+        { viewport: 'tablet', theme: 'light', suffix: '3:click', change: 'Password visibility swaps the native input type and accessible label' },
+        { viewport: 'tablet', theme: 'light', suffix: '0:fill', change: 'Host email field retains an edit without affecting the hidden quote pane' },
+        { viewport: 'tablet', theme: 'dark', suffix: '4:click', change: 'Sign-in preview submit has no invented success result' },
+        { viewport: 'tablet', theme: 'dark', suffix: '5:hover', change: 'Shared social button pointer feedback' },
+        { viewport: 'tablet', theme: 'dark', suffix: '7:click', change: 'Representative provider action has no source demo transition' },
+        { viewport: 'mobile', theme: 'light', suffix: '8:click', change: 'Account creation link has no source demo navigation result' },
+        { viewport: 'stress', theme: 'light', suffix: '1:click', change: 'Narrow forgot-password action preserves the form' },
+        { viewport: 'stress', theme: 'light', suffix: '3:press-space', change: 'Narrow keyboard password reveal retains field flow' },
+      ],
+      inferences: [
+        { scope: 'Other carousel arrows, active dot and repeated story selections', basis: 'Three host-owned stories share stable ID-based selection; next, wraparound previous and direct third-dot selection expose every distinct content state. Reverse equivalent permutations and the active-dot no-op are inferred, not counted as clicks.', verification: 'inferred-not-replayed' },
+        { scope: 'Autonomous quote rotation', basis: 'A separate live source probe observed the first-to-second transition after roughly eight seconds. Host-configured local timer progression and cleanup are browser-tested; independent clocks are not claimed as frame-synchronized screenshot pairs.', verification: 'inferred-not-replayed' },
+        { scope: 'Other viewport/theme form and provider permutations', basis: 'Eight static pairs cover the responsive split/hide boundary. Field edit, reveal, keyboard activation and representative no-result actions are sampled without replaying every native control in every viewport.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-2')
     return {
       revision: 1,
