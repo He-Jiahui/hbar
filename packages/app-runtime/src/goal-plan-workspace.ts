@@ -10,6 +10,7 @@ import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-wo
 import { goalPlanCommands, goalPlanSnapshotSchema } from '@hbar/contracts/commands/goals'
 import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import { GoalPlanFeed } from './goal-plan-feed'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 import { createState, type StateReader } from './state'
 import type {
   GoalPlanGoalDraftState,
@@ -86,6 +87,7 @@ export function createGoalPlanWorkspace(
   surfaces: StateReader<SurfaceState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  preparation?: SessionExecutionPreparationPort,
 ) {
   const state = createState<GoalPlanWorkspaceState>({ entries: {} }, onSubscriberError)
   const client = options.goals ? createCommandClient(goalPlanCommands, options.goals) : null
@@ -323,7 +325,15 @@ export function createGoalPlanWorkspace(
     const ownsOperation = () =>
       isTarget(instanceId, entry.sessionId) && goalOperations.get(instanceId)?.token === operation
     replace({ ...entry, goalAction: { status: 'submitting', error: null } })
+    let dispatched = false
     try {
+      const target = await preparation?.capture(entry.sessionId)
+      if (!ownsOperation()) throw new CommandError('STALE_TARGET', 'Goal preparation belongs to a previous panel')
+      const scoped = panel(instanceId)
+      if (target && scoped.workspaceId !== null && scoped.workspaceId !== target.workspaceId)
+        throw new CommandError('STALE_TARGET', 'Goal panel workspace no longer matches the captured Session')
+      if (target) preparation?.assertCanPrepare(target)
+      dispatched = true
       const response = baseline.exists
         ? await requireClient().execute('goal.set', parsed.data as never)
         : await requireClient().execute('goal.create', parsed.data as never)
@@ -348,7 +358,10 @@ export function createGoalPlanWorkspace(
       const error = code(reason)
       const failed = {
         ...latest,
-        goalAction: { status: UNKNOWN_CODES.has(error) ? ('unknown' as const) : ('failed' as const), error },
+        goalAction: {
+          status: dispatched && UNKNOWN_CODES.has(error) ? ('unknown' as const) : ('failed' as const),
+          error,
+        },
       }
       replace(failed)
       throw commandFailure(reason)
@@ -496,8 +509,19 @@ export function createGoalPlanWorkspace(
       throw new CommandError('INVALID_INPUT', 'Plan fields are invalid')
     }
     replace({ ...entry, planAction: { status: 'submitting', error: null } })
+    let dispatched = false
     try {
+      const target = await preparation?.capture(entry.sessionId)
+      if (!isTarget(instanceId, entry.sessionId))
+        throw new CommandError('STALE_TARGET', 'Plan preparation belongs to a previous panel')
+      const scoped = panel(instanceId)
+      if (target && scoped.workspaceId !== null && scoped.workspaceId !== target.workspaceId)
+        throw new CommandError('STALE_TARGET', 'Plan panel workspace no longer matches the captured Session')
+      if (target) preparation?.assertCanPrepare(target)
+      dispatched = true
       const saved = await requireClient().execute('plan.update', parsed.data)
+      if (!isTarget(instanceId, entry.sessionId))
+        throw new CommandError('RESULT_UNKNOWN', 'Plan save belongs to a previous panel target')
       const latest = current(instanceId)
       const next: GoalPlanWorkspaceEntryState = {
         ...latest,
@@ -509,11 +533,15 @@ export function createGoalPlanWorkspace(
       replace(next)
       return summary(next)
     } catch (reason) {
+      if (!isTarget(instanceId, entry.sessionId)) throw commandFailure(reason)
       const latest = current(instanceId)
       const error = code(reason)
       const failed = {
         ...latest,
-        planAction: { status: UNKNOWN_CODES.has(error) ? ('unknown' as const) : ('failed' as const), error },
+        planAction: {
+          status: dispatched && UNKNOWN_CODES.has(error) ? ('unknown' as const) : ('failed' as const),
+          error,
+        },
       }
       replace(failed)
       throw commandFailure(reason)

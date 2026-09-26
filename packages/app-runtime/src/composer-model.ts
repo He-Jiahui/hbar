@@ -1,10 +1,17 @@
 import { z } from 'zod'
 import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
 import { idSchema, thinkingLevelSchema } from '@hbar/contracts'
-import { modelCommands, modelConfigurationSchema, modelWriteResultSchema } from '@hbar/contracts/commands/models'
+import {
+  modelCommands,
+  modelConfigurationSchema,
+  modelReceiptSchema,
+  modelWriteResultSchema,
+} from '@hbar/contracts/commands/models'
 import type { ModelConfiguration } from '@hbar/contracts/commands/models'
 import { createState, type StateReader } from './state'
 import type { ComposerModelState, NavigationState, SessionControlsState } from './types'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
+import type { SessionExecutionTarget } from './session-execution-access'
 
 const metadata = (id: string) => ({
   id,
@@ -79,9 +86,11 @@ export function createComposerModel(
   controls: ModelProjection,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  preparation?: SessionExecutionPreparationPort,
 ) {
   const state = createState<ComposerModelState>(initial(navigation.getSnapshot().sessionId), onSubscriberError)
   const pending = new Map<string, PendingWrite>()
+  const preparing = new Set<string>()
   const reads = new Map<
     string,
     { readonly controller: AbortController; readonly generation: number; readonly promise: Promise<void> }
@@ -103,7 +112,7 @@ export function createComposerModel(
   }
   const requireIdle = (sessionId: string) => {
     assertSelected(sessionId)
-    if (pending.has(sessionId))
+    if (pending.has(sessionId) || preparing.has(sessionId))
       throw new CommandError('SUBMISSION_PENDING', 'Reconcile the pending model change before starting another')
   }
 
@@ -165,22 +174,32 @@ export function createComposerModel(
     return promise
   }
 
-  const write = async (sessionId: string, operation: PendingWrite, signal: AbortSignal): Promise<void> => {
+  const write = async (
+    sessionId: string,
+    operation: PendingWrite,
+    signal: AbortSignal,
+    target?: SessionExecutionTarget,
+  ): Promise<void> => {
     if (operation.inFlight)
       throw new CommandError('SUBMISSION_PENDING', 'The original model request is still in flight')
     operation.inFlight = true
     operation.status = 'submitting'
     operation.error = null
     publishAction(sessionId, { status: 'submitting', error: null })
+    let dispatched = false
     const interrupted = () => {
+      if (!dispatched) return
       operation.status = 'unknown'
       operation.error = 'RESULT_UNKNOWN'
       publishAction(sessionId, { status: 'unknown', error: 'RESULT_UNKNOWN' })
     }
     signal.addEventListener('abort', interrupted, { once: true })
     try {
-      if (signal.aborted) throw new CommandError('RESULT_UNKNOWN', 'Model request was interrupted')
-      const raw = await port().execute(operation.name, operation.input, { idempotencyKey: operation.key, signal })
+      if (signal.aborted) throw new CommandError('CANCELLED', 'Model request was cancelled before dispatch')
+      if (target) preparation?.assertCanPrepare(target)
+      const executor = port()
+      dispatched = true
+      const raw = await executor.execute(operation.name, operation.input, { idempotencyKey: operation.key, signal })
       const parsed = modelWriteResultSchema.safeParse(raw)
       if (
         !parsed.success ||
@@ -196,16 +215,18 @@ export function createComposerModel(
       publishAction(sessionId, { status: 'idle', error: null })
     } catch (error) {
       const code = errorCode(error)
-      const unknown = [
-        'RESULT_UNKNOWN',
-        'CANCELLED',
-        'TIMEOUT',
-        'TIMED_OUT',
-        'DISCONNECTED',
-        'CONNECTION_CLOSED',
-        'EXECUTION_FAILED',
-        'INVALID_OUTPUT',
-      ].includes(code)
+      const unknown =
+        dispatched &&
+        [
+          'RESULT_UNKNOWN',
+          'CANCELLED',
+          'TIMEOUT',
+          'TIMED_OUT',
+          'DISCONNECTED',
+          'CONNECTION_CLOSED',
+          'EXECUTION_FAILED',
+          'INVALID_OUTPUT',
+        ].includes(code)
       if (unknown) {
         operation.status = 'unknown'
         operation.error = code
@@ -224,6 +245,7 @@ export function createComposerModel(
     signal: AbortSignal,
   ) => {
     requireIdle(sessionId)
+    const intent = generation
     try {
       const current = state.reader.getSnapshot()
       const configuration = controls.reader.getSnapshot().model
@@ -233,7 +255,13 @@ export function createComposerModel(
         configuration.sessionId !== sessionId
       )
         throw new CommandError('MODEL_NOT_READY', 'Refresh the model catalog before changing configuration')
-      if (pending.size >= 32) throw new CommandError('BUSY', 'Too many unresolved model changes')
+      if (pending.size + preparing.size >= 32) throw new CommandError('BUSY', 'Too many unresolved model changes')
+      preparing.add(sessionId)
+      publishAction(sessionId, { status: 'submitting', error: null })
+      const target = preparation ? await preparation.capture(sessionId, signal) : undefined
+      if (generation !== intent) throw new CommandError('STALE_TARGET', 'Model preparation belongs to an old selection')
+      assertSelected(sessionId)
+      if (target) preparation?.assertCanPrepare(target)
       const baselineRevisions = { ...configuration.revisions }
       let operation: PendingWrite
       if ('modelId' in change) {
@@ -260,10 +288,13 @@ export function createComposerModel(
         }
       }
       pending.set(sessionId, operation)
-      await write(sessionId, operation, signal)
+      preparing.delete(sessionId)
+      await write(sessionId, operation, signal, target)
     } catch (error) {
       if (!pending.has(sessionId)) publishAction(sessionId, { status: 'failed', error: errorCode(error) })
       throw error
+    } finally {
+      preparing.delete(sessionId)
     }
   }
 
@@ -287,7 +318,62 @@ export function createComposerModel(
     const operation = pending.get(sessionId)
     if (!operation || operation.status !== 'unknown')
       throw new CommandError('INVALID_INPUT', 'No unknown model change to reconcile')
-    await write(sessionId, operation, context.signal)
+    if (operation.inFlight)
+      throw new CommandError('SUBMISSION_PENDING', 'The original model request is still in flight')
+    operation.inFlight = true
+    try {
+      const receipt = modelReceiptSchema
+        .nullable()
+        .safeParse(
+          await port().execute(
+            'session.getModelReceipt',
+            { sessionId, idempotencyKey: operation.key },
+            { signal: context.signal },
+          ),
+        )
+      if (isDisposed() || pending.get(sessionId) !== operation || context.signal.aborted)
+        throw new CommandError('RESULT_UNKNOWN', 'Model receipt recovery no longer belongs to this owner')
+      const layerId = `settings:session:${sessionId}`
+      const baseline = operation.input.baselineRevisions
+      const result = receipt.success ? receipt.data : null
+      if (
+        !result ||
+        result.sessionId !== sessionId ||
+        result.idempotencyKey !== operation.key ||
+        (operation.name === 'session.setModel'
+          ? result.modelId !== operation.input.modelId
+          : result.thinkingLevel !== operation.input.thinkingLevel) ||
+        !Object.hasOwn(baseline, layerId) ||
+        Object.keys(result.revisions).sort().join('\0') !== Object.keys(baseline).sort().join('\0') ||
+        Object.entries(baseline).some(
+          ([id, revision]) => result.revisions[id] !== revision + (id === layerId ? 1 : 0),
+        ) ||
+        result.revision !== result.revisions[layerId]
+      )
+        throw new CommandError('RESULT_UNKNOWN', 'The original model write has not been confirmed')
+      const current = modelConfigurationSchema.parse(
+        await port().execute('session.getModel', { sessionId }, { signal: context.signal }),
+      )
+      if (isDisposed() || pending.get(sessionId) !== operation || context.signal.aborted)
+        throw new CommandError('RESULT_UNKNOWN', 'Model receipt recovery no longer belongs to this owner')
+      if (
+        current.sessionId !== sessionId ||
+        Object.keys(current.revisions).sort().join('\0') !== Object.keys(result.revisions).sort().join('\0') ||
+        Object.entries(result.revisions).some(([id, revision]) => (current.revisions[id] ?? -1) < revision)
+      )
+        throw new CommandError('RESULT_UNKNOWN', 'Current model target could not be verified')
+      // The old receipt confirms the operation, but only a fresh read owns the visible model projection.
+      controls.commitModel(current)
+      pending.delete(sessionId)
+      publishAction(sessionId, { status: 'idle', error: null })
+    } catch (error) {
+      operation.status = 'unknown'
+      operation.error = errorCode(error)
+      publishAction(sessionId, { status: 'unknown', error: operation.error })
+      throw new CommandError('RESULT_UNKNOWN', 'Model receipt recovery is uncertain; do not replay the write')
+    } finally {
+      operation.inFlight = false
+    }
     return { sessionId }
   })
   const offNavigation = navigation.subscribe(() => {
@@ -306,6 +392,7 @@ export function createComposerModel(
       for (const read of reads.values()) read.controller.abort()
       reads.clear()
       pending.clear()
+      preparing.clear()
       state.dispose()
     },
   }

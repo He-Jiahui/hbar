@@ -3,6 +3,7 @@ import { artifactSchema } from '@hbar/contracts'
 import { draftCommands, type PromptAttachment } from '@hbar/contracts/commands/draft'
 import { fileCommands, type AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { SessionAttachmentTransfer, SessionDraftState } from './types'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 
 interface TransferTarget {
   readonly sessionId: string
@@ -15,6 +16,7 @@ interface AttachmentDraftPorts {
   readonly uploads: CommandExecutor | undefined
   readonly queries: CommandExecutor | undefined
   readonly isDisposed: () => boolean
+  readonly preparation?: SessionExecutionPreparationPort | undefined
 }
 const codeOf = (error: unknown) =>
   error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
@@ -160,7 +162,13 @@ export function registerDraftAttachments(local: CommandRegistry, ports: Attachme
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Attachment upload is unavailable')
     }
     update(target, { upload: descriptor, status: 'uploading', error: null })
+    let dispatched = false
     try {
+      const sessionTarget = await ports.preparation?.capture(target.sessionId, signal)
+      owned(target)
+      if (sessionTarget) ports.preparation?.assertCanPrepare(sessionTarget)
+      signal.throwIfAborted()
+      dispatched = true
       const artifact = artifactSchema.parse(
         await ports.uploads.execute('attachment.upload', descriptor, { requestId: transfer.id, signal }),
       )
@@ -172,16 +180,18 @@ export function registerDraftAttachments(local: CommandRegistry, ports: Attachme
     } catch (error) {
       if (!ports.isDisposed()) {
         const code = codeOf(error)
-        update(target, { status: rejected.has(code) ? 'failed' : 'unknown', error: code })
+        update(target, { status: !dispatched || rejected.has(code) ? 'failed' : 'unknown', error: code })
         const draft = ports.read(target.sessionId)
         write(target.sessionId, { ...draft, uploadError: code })
       }
       throw error
     }
   }
-  local.register(draftCommands['draft.reserveAttachments'], ({ sessionId, expectedRevision, files }) =>
-    reserve(sessionId, expectedRevision, files),
-  )
+  local.register(draftCommands['draft.reserveAttachments'], async ({ sessionId, expectedRevision, files }, context) => {
+    const target = await ports.preparation?.capture(sessionId, context.signal)
+    if (target) ports.preparation?.assertCanPrepare(target)
+    return reserve(sessionId, expectedRevision, files)
+  })
   local.register(draftCommands['draft.uploadAttachment'], ({ kind, upload: descriptor, ...target }, context) =>
     upload(target, kind, descriptor, context.signal),
   )

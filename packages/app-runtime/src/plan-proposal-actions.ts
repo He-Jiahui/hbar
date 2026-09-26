@@ -5,6 +5,7 @@ import { runAcceptedSchema, type RunAccepted, type SubmitRunInput } from '@hbar/
 import { createState, type StateReader } from './state'
 import type { SessionControlsState, SessionTimelineState } from './types'
 import { parseProposedPlan, proposedPlanFingerprint } from './proposed-plan'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 
 const targetSchema = z.strictObject({
   sessionId: idSchema,
@@ -71,6 +72,7 @@ export interface PlanProposalState {
   readonly actions: Readonly<Record<string, PlanProposalActionState>>
 }
 export interface PlanProposalOptions {
+  readonly preparation?: SessionExecutionPreparationPort
   readonly timeline: StateReader<SessionTimelineState>
   readonly controls: StateReader<SessionControlsState>
   readonly executeDetachedRun: (input: SubmitRunInput, options?: ExecuteOptions) => Promise<RunAccepted>
@@ -292,7 +294,9 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       key: crypto.randomUUID(),
     }
     pending.set(input.sessionId, request)
+    let dispatched = false
     try {
+      const executionTarget = await options.preparation?.capture(input.sessionId, execution.signal)
       const { candidate, modelId, thinkingLevel } = await validate(request.target)
       if (execution.signal.aborted) throw new CommandError('CANCELLED', 'Proposal submission was cancelled')
       const text = requestText({
@@ -303,7 +307,9 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       })
       if (!text.trim() || text.length > 200_000)
         throw new CommandError('INVALID_INPUT', 'Proposal request text must be non-empty and bounded')
+      if (executionTarget) options.preparation?.assertCanPrepare(executionTarget)
       setAction({ target: request.target, action: input.action, status: 'submitting', error: null, operationId: null })
+      dispatched = true
       const accepted = await options.executeDetachedRun(
         {
           sessionId: input.sessionId,
@@ -329,7 +335,7 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       })
       return accepted
     } catch (error) {
-      const unknown = code(error) === 'RESULT_UNKNOWN'
+      const unknown = dispatched && code(error) === 'RESULT_UNKNOWN'
       if (!unknown) pending.delete(input.sessionId)
       setAction({
         target: request.target,

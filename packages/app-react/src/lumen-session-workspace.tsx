@@ -62,6 +62,11 @@ import './lumen-session-workspace.css'
 import { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
 import { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 import { projectGoalLifecycleRows } from './goal-lifecycle-model'
+import {
+  HbarSessionExecutionNotice,
+  sessionPreparationStatus,
+  type HbarSessionExecutionLabels,
+} from './session-execution-notice'
 
 export interface HbarSessionWorkspaceLabels {
   readonly conversationTitle: (title: string) => string
@@ -69,6 +74,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly emptyHistory: string
   readonly emptyHero: HbarSessionEmptyHeroLabels
   readonly disconnected: string
+  readonly executionAccess: HbarSessionExecutionLabels
   readonly refreshing: string
   readonly loadOlder: string
   readonly loadingOlder: string
@@ -184,6 +190,7 @@ export function HbarSessionWorkspace({
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const executionAccess = useHbarRuntimeState(runtime.state.sessionExecutionAccess)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const messageFork = useHbarRuntimeState(runtime.state.messageFork)
@@ -201,6 +208,11 @@ export function HbarSessionWorkspace({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
+  const preparationStatus = sessionPreparationStatus(
+    executionAccess,
+    sessionId && navigation.workspaceId === sessionWorkspaceId ? { sessionId, workspaceId: sessionWorkspaceId } : null,
+  )
+  const canPrepare = preparationStatus === 'ready'
   const draft = sessionId ? drafts[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
   const goalHistoryEntry = sessionId ? goalHistory.sessions[sessionId] : undefined
@@ -254,6 +266,8 @@ export function HbarSessionWorkspace({
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
+  const canPrepareTarget = (targetSessionId: string, targetWorkspaceId: string) =>
+    runtime.getSessionExecutionAccess({ sessionId: targetSessionId, workspaceId: targetWorkspaceId }).kind === 'ready'
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
   const composerWriteError = useRef<{ sessionId: string; error: unknown } | null>(null)
   const localSlashInFlight = useRef(false)
@@ -348,6 +362,7 @@ export function HbarSessionWorkspace({
         return
       }
       if (slash === 'model' && modelPending) return
+      if (slash === 'model' && !canPrepareTarget(targetSessionId, targetWorkspaceId)) return
       const target = { sessionId: targetSessionId, workspaceId: targetWorkspaceId, revision: latest.revision }
       localSlashInFlight.current = true
       setSlashFailure(null)
@@ -389,6 +404,7 @@ export function HbarSessionWorkspace({
     const sessionTimeline = runtime.state.timeline.getSnapshot()
     if (
       !connected ||
+      !canPrepareTarget(targetSessionId, targetWorkspaceId) ||
       selected.sessionId !== targetSessionId ||
       selected.workspaceId !== targetWorkspaceId ||
       !latest ||
@@ -425,6 +441,7 @@ export function HbarSessionWorkspace({
   const attachmentTransfers = draft?.attachmentTransfers ?? []
   const attachmentIntakeEnabled =
     Boolean(prepareAttachment) &&
+    canPrepare &&
     connected &&
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
@@ -523,7 +540,7 @@ export function HbarSessionWorkspace({
   const unfinishedRuns = new Set(activeRuns.map((run) => run.id))
   const proposal = planProposal.sessionId === sessionId ? planProposal.proposal : null
   const proposalAction = proposal ? planProposal.actions[planProposalActionKey(proposal.target)] : undefined
-  const proposalBlocked = intentPending || draft?.status === 'submitting' || draft?.status === 'unknown'
+  const proposalBlocked = !canPrepare || intentPending || draft?.status === 'submitting' || draft?.status === 'unknown'
   const forkKey = (message: (typeof timeline.messages)[number]) =>
     messageForkActionKey({ sessionId: message.sessionId, messageId: message.id })
   const forkActionFor = (message: (typeof timeline.messages)[number]): HbarMessageForkAction | undefined => {
@@ -580,7 +597,11 @@ export function HbarSessionWorkspace({
                 canSubmit: connected && !proposalBlocked && planProposal.availability === 'ready',
                 error: proposalAction?.error ? labels.error(proposalAction.error) : null,
                 unavailable: connected
-                  ? labels.proposedPlanAvailability(proposalBlocked ? 'busy' : planProposal.availability)
+                  ? !canPrepare
+                    ? preparationStatus === 'archived'
+                      ? labels.executionAccess.archived
+                      : labels.executionAccess.unverified
+                    : labels.proposedPlanAvailability(proposalBlocked ? 'busy' : planProposal.availability)
                   : labels.disconnected,
               },
               onSubmit: (target, action, feedback) => invoke('proposedPlan.submit', { ...target, action, feedback }),
@@ -718,9 +739,18 @@ export function HbarSessionWorkspace({
             retryingRunIds={timeline.runs
               .filter((run) => runActions[run.id]?.status === 'submitting')
               .map((run) => run.id)}
+            canRetryNewRun={canPrepare}
+            unknownRetryRunIds={timeline.runs
+              .filter(
+                (run) =>
+                  runActions[run.id]?.commandId === 'run.retry' &&
+                  (runActions[run.id]?.status === 'unknown' ||
+                    (runActions[run.id]?.status === 'submitting' && runActions[run.id]?.phase === 'receipt')),
+              )
+              .map((run) => run.id)}
             feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
             onCancelRun={(operationId) => invoke('operation.cancel', { operationId })}
-            onRetryRun={(operationId) => invoke('run.retry', { sessionId, operationId })}
+            onRetryRun={(operationId: string) => invoke('run.retry', { sessionId, operationId })}
           />
         )}
         {decisionProjection.fallback.map(renderDecision)}
@@ -878,6 +908,22 @@ export function HbarSessionWorkspace({
 
   const composer: ReactNode = sessionId ? (
     <LumenFrame className="hbar-app-react-session-footer" data-git-context-status={projectContext.context.status}>
+      <HbarSessionExecutionNotice
+        key={`${sessionId}:${sessionWorkspaceId}`}
+        status={preparationStatus}
+        workspaceName={workspaceName}
+        connected={connected}
+        labels={labels.executionAccess}
+        onOpenArchived={async () => {
+          const target = { sessionId, workspaceId: sessionWorkspaceId }
+          const selected = runtime.state.navigation.getSnapshot()
+          if (selected.sessionId !== target.sessionId || selected.workspaceId !== target.workspaceId) return
+          await runtime.commands.execute('archivedSessions.open', { workspaceId: target.workspaceId })
+          const latest = runtime.state.navigation.getSnapshot()
+          if (latest.sessionId !== target.sessionId || latest.workspaceId !== target.workspaceId) return
+          await runtime.commands.execute('app.setSidebarVisible', { visible: true })
+        }}
+      />
       <HbarComposerGoal
         key={sessionId}
         sessionId={sessionId}
@@ -885,6 +931,7 @@ export function HbarSessionWorkspace({
         connected={connected}
         labels={labels.intent}
         surface="submission"
+        canPrepare={canPrepare}
       />
       <HbarComposerAttachmentDropTarget
         key={sessionId}
@@ -943,7 +990,8 @@ export function HbarSessionWorkspace({
             attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
           }
           canSubmit={
-            localSlashCommand(draft?.text ?? '', slashIds)
+            (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
+            (localSlashCommand(draft?.text ?? '', slashIds)
               ? localSlashCanSubmit({
                   draftStatus: draft?.status,
                   modelPending,
@@ -957,7 +1005,7 @@ export function HbarSessionWorkspace({
                 attachmentTransfers.length === 0 &&
                 !permissionEntry?.locked &&
                 draft?.status !== 'unknown' &&
-                Boolean(draft?.text.trim() || draft?.attachments.length)
+                Boolean(draft?.text.trim() || draft?.attachments.length))
           }
           canStop={Boolean(activeRun)}
           runningActions={{
@@ -994,6 +1042,7 @@ export function HbarSessionWorkspace({
                   hostDefault={composerPermission.hostDefault}
                   connected={connected}
                   disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                  canPrepare={canPrepare}
                   labels={labels.permissionPicker}
                   onRefresh={async () => {
                     await runtime.commands.execute('composerPermission.refresh', {})
@@ -1029,7 +1078,10 @@ export function HbarSessionWorkspace({
                 sessionId={sessionId}
                 connected={connected}
                 disabled={
-                  draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
+                  !canPrepare ||
+                  draft?.status === 'submitting' ||
+                  draft?.status === 'unknown' ||
+                  Boolean(permissionEntry?.locked)
                 }
                 labels={labels.intent}
               />
@@ -1080,6 +1132,7 @@ export function HbarSessionWorkspace({
                 sessionId={sessionId}
                 connected={connected}
                 disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                canSelect={canPrepare}
                 labels={labels.modelPicker}
                 openRequest={modelOpenRequest}
                 onOpened={() => {
@@ -1204,6 +1257,7 @@ export function HbarSessionWorkspace({
             connected={connected}
             labels={labels.intent}
             surface="summary"
+            canPrepare={canPrepare}
           />
         </LumenFrame>
       )}

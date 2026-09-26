@@ -20,6 +20,8 @@ export interface HbarSessionRunLabels extends LumenRunActivityLabels {
   readonly details: (count: number) => string
   readonly more: (count: number) => string
   readonly activeCount: (count: number) => string
+  readonly recheckLabel: string
+  readonly recheckingLabel: string
 }
 
 export interface HbarSessionRunActivityProps extends Omit<
@@ -27,6 +29,8 @@ export interface HbarSessionRunActivityProps extends Omit<
   'labels' | 'listStrategy' | 'selectedRunId' | 'onSelectRun'
 > {
   readonly labels: HbarSessionRunLabels
+  readonly canRetryNewRun?: boolean
+  readonly unknownRetryRunIds?: readonly string[]
 }
 
 /** Prefer the actual executing Run to a newer queued Run for the current Stop target. */
@@ -43,6 +47,8 @@ export function HbarSessionRunActivity({
   labels,
   cancellingRunIds = [],
   retryingRunIds = [],
+  canRetryNewRun = true,
+  unknownRetryRunIds = [],
   plan,
   feedback,
   onCancelRun,
@@ -59,15 +65,22 @@ export function HbarSessionRunActivity({
   const actions = (run: LumenRunActivityItem) => {
     const cancelling = cancellingRunIds.includes(run.id)
     const retrying = retryingRunIds.includes(run.id)
+    const rechecking = unknownRetryRunIds.includes(run.id)
     return isActive(run) && onCancelRun ? (
       <LumenButton size="s" variant="text" indicator="none" disabled={cancelling} onClick={() => onCancelRun(run.id)}>
         <LumenIcon icon={Square} tier="sm" />
         {cancelling ? labels.cancellingLabel : labels.cancelLabel}
       </LumenButton>
-    ) : ['failed', 'interrupted'].includes(run.status) && onRetryRun ? (
+    ) : ['failed', 'interrupted'].includes(run.status) && onRetryRun && (canRetryNewRun || rechecking) ? (
       <LumenButton size="s" variant="text" indicator="none" disabled={retrying} onClick={() => onRetryRun(run.id)}>
         <LumenIcon icon={RotateCcw} tier="sm" />
-        {retrying ? labels.retryingLabel : labels.retryLabel}
+        {rechecking
+          ? retrying
+            ? labels.recheckingLabel
+            : labels.recheckLabel
+          : retrying
+            ? labels.retryingLabel
+            : labels.retryLabel}
       </LumenButton>
     ) : null
   }

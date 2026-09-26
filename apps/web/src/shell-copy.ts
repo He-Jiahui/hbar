@@ -862,6 +862,19 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       '连接已中断；现有记录、草稿和附件已保留。',
       'Connection lost. Existing history, draft, and attachments are preserved.',
     ),
+    executionAccess: {
+      archived: choose(
+        '此会话已归档。历史、原稿和原附件已保留；恢复后可继续发送。',
+        'This session is archived. History, draft, and existing attachments are preserved; restore it before sending.',
+      ),
+      unverified: choose(
+        '尚未确认此会话是否可执行。原稿已保留；确认后才能发送或准备新执行。',
+        'Execution access is not confirmed for this session. The draft is preserved; confirm access before preparing or sending a new Run.',
+      ),
+      openArchived: (name) => choose(`查看 ${name} 的归档会话`, `View archived sessions in ${name}`),
+      opening: choose('正在打开原项目的归档列表…', 'Opening the original project’s archived sessions…'),
+      error,
+    },
     refreshing: choose('正在刷新会话记录…', 'Refreshing session history…'),
     loadOlder: choose('加载更早消息', 'Load earlier messages'),
     loadingOlder: choose('正在加载更早消息…', 'Loading earlier messages…'),
@@ -1292,6 +1305,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       cancellingLabel: choose('正在取消', 'Cancelling'),
       retryLabel: choose('重试运行', 'Retry run'),
       retryingLabel: choose('正在重试', 'Retrying'),
+      recheckLabel: choose('核对结果', 'Check result'),
+      recheckingLabel: choose('正在核对结果', 'Checking result'),
       planTitle: choose('Agent 计划', 'Agent plan'),
       planProgress: (completed, total) =>
         choose(
@@ -1774,6 +1789,16 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
     loading: choose('正在加载目标与计划…', 'Loading goals and plans…'),
     back: choose('返回目标与计划', 'Back to goals and plans'),
     unavailable: choose('未限定', 'Unlimited'),
+    executionAccess: {
+      archived: choose(
+        '此会话已归档。目标与计划仍可查看，恢复后才能编辑或准备新执行。',
+        'This session is archived. Goals and plans remain readable; restore it before editing or preparing a new Run.',
+      ),
+      unverified: choose(
+        '尚未确认原会话的执行权限。现有内容已保留，确认后才能编辑或准备新执行。',
+        'Execution access is not confirmed for the original session. Existing content is preserved; confirm access before editing or preparing a new Run.',
+      ),
+    },
     goal: {
       execution: goalExecutionCopy(locale),
       title: choose('会话目标', 'Session goal'),

@@ -18,6 +18,8 @@ import { GoalPlanFeed } from './goal-plan-feed'
 import { createState, type StateReader } from './state'
 import type { GoalPlanWorkspacePort, NavigationState } from './types'
 import type { ComposerPermissionSubmission, createComposerPermission } from './composer-permission'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
+import type { SessionExecutionTarget } from './session-execution-access'
 
 export type ComposerIntent = 'default' | 'goal' | 'plan'
 export interface ComposerIntentEntry {
@@ -47,6 +49,7 @@ export interface ComposerIntentState {
 }
 export interface ComposerIntentOptions {
   readonly goals?: GoalPlanWorkspacePort | undefined
+  readonly preparation?: SessionExecutionPreparationPort | undefined
   readonly navigation: StateReader<NavigationState>
   /** Delegate to the existing draft module so its draft revision and receipt rules remain authoritative. */
   readonly executeRun: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>
@@ -305,20 +308,36 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       throw new CommandError('BUSY', 'Reconcile the pending composer operation first')
   }
 
-  local.register(composerIntentCommands['composerIntent.setIntent'], ({ sessionId, intent, expectedRevision }) => {
-    assertFree(sessionId)
-    if (intent === 'plan' && options.captureMode)
-      throw new CommandError('INVALID_INPUT', 'Plan is a durable Host session mode, not a one-send intent')
-    if (intent === 'goal' && options.captureMode?.(sessionId) === 'plan')
-      throw new CommandError('BUSY', 'Exit Host Plan mode before preparing a Goal')
-    const current = entry(sessionId)
-    if (expectedRevision !== undefined && current.revision !== expectedRevision)
-      throw new CommandError('VERSION_CONFLICT', 'Composer intent changed')
-    // Dismissing a prepared Goal chip abandons only the draft operation, never the persisted Goal.
-    submissions.delete(sessionId)
-    replace({ ...current, intent, revision: current.revision + 1, submission: initial(sessionId).submission })
-    return { sessionId }
-  })
+  local.register(
+    composerIntentCommands['composerIntent.setIntent'],
+    async ({ sessionId, intent, expectedRevision }, execution) => {
+      assertFree(sessionId)
+      if (intent === 'plan' && options.captureMode)
+        throw new CommandError('INVALID_INPUT', 'Plan is a durable Host session mode, not a one-send intent')
+      if (intent === 'goal' && options.captureMode?.(sessionId) === 'plan')
+        throw new CommandError('BUSY', 'Exit Host Plan mode before preparing a Goal')
+      const current = entry(sessionId)
+      if (expectedRevision !== undefined && current.revision !== expectedRevision)
+        throw new CommandError('VERSION_CONFLICT', 'Composer intent changed')
+      if (intent !== 'default' && options.preparation) {
+        preparations.add(sessionId)
+        try {
+          const target = await options.preparation.capture(sessionId, execution.signal)
+          options.preparation.assertCanPrepare(target)
+          if (disposed || execution.signal.aborted)
+            throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
+          if (entry(sessionId).revision !== current.revision)
+            throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during preparation')
+        } finally {
+          preparations.delete(sessionId)
+        }
+      }
+      // Dismissing a prepared Goal chip abandons only the draft operation, never the persisted Goal.
+      submissions.delete(sessionId)
+      replace({ ...current, intent, revision: current.revision + 1, submission: initial(sessionId).submission })
+      return { sessionId }
+    },
+  )
 
   local.register(composerIntentCommands['composerIntent.submit'], async (input, execution) => {
     const { sessionId } = input
@@ -344,10 +363,14 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       throw new CommandError('INVALID_INPUT', 'Composer submissions must be direct user turns')
     preparations.add(sessionId)
     let capturedMode: 'default' | 'plan'
+    let target: SessionExecutionTarget | undefined
     try {
+      target = options.preparation ? await options.preparation.capture(sessionId, execution.signal) : undefined
+      if (target) options.preparation?.assertCanPrepare(target)
       capturedMode = options.refreshMode
         ? await options.refreshMode(sessionId)
         : (options.captureMode?.(sessionId) ?? (current.intent === 'plan' ? 'plan' : 'default'))
+      if (target) options.preparation?.assertCanPrepare(target)
       if (options.navigation.getSnapshot().sessionId !== sessionId && options.refreshMode)
         throw new CommandError('STALE_TARGET', 'Composer session changed during mode verification')
       if (current.intent === 'goal' && capturedMode === 'plan')
@@ -374,6 +397,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     preparations.add(sessionId)
     let permission: ComposerPermissionSubmission | null = null
     try {
+      if (target) options.preparation?.assertCanPrepare(target)
       if (input.expectedPermissionRevision !== undefined && !options.permissions)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer approval choices are unavailable')
       permission =
@@ -382,6 +406,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           input.expectedPermissionRevision,
           execution.signal,
         )) ?? null
+      if (target) options.preparation?.assertCanPrepare(target)
       if (disposed || execution.signal.aborted)
         throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
       if (entry(sessionId).revision !== current.revision)
@@ -445,6 +470,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     try {
       if (pending.intent === 'goal') {
         const before = await snapshot(sessionId)
+        if (target) options.preparation?.assertCanPrepare(target)
         if (pending.preparedGoalId) {
           if (before.goal?.goalId !== pending.preparedGoalId || before.goal.status !== 'active')
             throw new CommandError('GOAL_CONFLICT', 'The prepared Goal changed before its Run was submitted')
@@ -453,6 +479,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
             throw new CommandError('GOAL_EXISTS', 'An unfinished Goal already exists')
           pending.baselineGoalId = before.goal?.goalId ?? null
           pending.baselineGoalSeq = before.goalSeq
+          if (target) options.preparation?.assertCanPrepare(target)
           writeStarted = true
           const created = await requireGoals().execute('goal.create', {
             sessionId,
@@ -475,6 +502,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       }
       if (disposed || execution.signal.aborted) throw new CommandError('CANCELLED', 'Composer submission was cancelled')
       pending.phase = 'run'
+      if (target) options.preparation?.assertCanPrepare(target)
       writeStarted = true
       const accepted = runAcceptedSchema.parse(
         await options.executeRun('run.submit', pending.request, { ...execution, idempotencyKey: pending.key }),
@@ -504,13 +532,20 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     await refresh(sessionId)
     return { sessionId }
   })
-  local.register(composerIntentCommands['composerIntent.controlGoal'], async (input) => {
+  local.register(composerIntentCommands['composerIntent.controlGoal'], async (input, execution) => {
     const { sessionId } = input
     assertFree(sessionId)
     controls.set(sessionId, input)
     replace({ ...entry(sessionId), goalAction: { status: 'submitting', error: null } })
+    let dispatched = false
     try {
       const client = requireGoals()
+      if (input.action === 'resume' && options.preparation) {
+        const target = await options.preparation.capture(sessionId, execution.signal)
+        options.preparation.assertCanPrepare(target)
+        if (disposed || execution.signal.aborted) throw new CommandError('CANCELLED', 'Goal preparation was cancelled')
+      }
+      dispatched = true
       if (input.action === 'clear')
         await client.execute('goal.clear', { sessionId, expectedGoalId: input.expectedGoalId })
       else
@@ -523,7 +558,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
       refreshSelected(sessionId)
     } catch (error) {
-      const unknown = UNKNOWN_CODES.has(code(error))
+      const unknown = dispatched && UNKNOWN_CODES.has(code(error))
       if (!unknown) controls.delete(sessionId)
       replace({ ...entry(sessionId), goalAction: { status: unknown ? 'unknown' : 'failed', error: code(error) } })
       throw error

@@ -106,12 +106,14 @@ export function HbarComposerGoal({
   connected,
   labels,
   surface = 'all',
+  canPrepare = true,
 }: {
   readonly sessionId: string
   readonly workspaceId: string | null
   readonly connected: boolean
   readonly labels: HbarComposerIntentLabels
   readonly surface?: 'all' | 'summary' | 'submission'
+  readonly canPrepare?: boolean
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
@@ -155,7 +157,8 @@ export function HbarComposerGoal({
         runtime.state.presentation.getSnapshot().toolInstanceId !== target.instanceId
       )
         return
-      await runtime.commands.execute('goalPlanWorkspace.showGoalEditor', { instanceId: target.instanceId })
+      if (canPrepare && workspaceId && runtime.getSessionExecutionAccess({ sessionId, workspaceId }).kind === 'ready')
+        await runtime.commands.execute('goalPlanWorkspace.showGoalEditor', { instanceId: target.instanceId })
     })()
       .catch((reason: unknown) => setLocalError(commandCode(reason)))
       .finally(() => setOpening(false))
@@ -211,7 +214,7 @@ export function HbarComposerGoal({
                     indicator="none"
                     aria-label={labels.resume}
                     title={labels.resume}
-                    disabled={busy || !goal.goalId}
+                    disabled={busy || !canPrepare || !goal.goalId}
                     onClick={() => {
                       if (goal.goalId) control('resume', goal.goalId)
                     }}

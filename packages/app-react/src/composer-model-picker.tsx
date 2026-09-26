@@ -186,6 +186,7 @@ export function HbarComposerModelPicker({
   sessionId,
   connected,
   disabled,
+  canSelect = true,
   labels,
   openRequest = 0,
   onOpened,
@@ -194,6 +195,7 @@ export function HbarComposerModelPicker({
   readonly sessionId: string
   readonly connected: boolean
   readonly disabled: boolean
+  readonly canSelect?: boolean
   readonly labels: HbarComposerModelLabels
   readonly openRequest?: number
   readonly onOpened?: () => void
@@ -208,6 +210,7 @@ export function HbarComposerModelPicker({
   const busy = action?.status === 'submitting'
   const unresolved = action?.status === 'unknown'
   const unavailable = disabled || !connected || busy || unresolved
+  const writeUnavailable = unavailable || !canSelect
   const groupRef = useRef<HTMLDivElement>(null)
   const modelTriggerRef = useRef<HTMLButtonElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
@@ -282,6 +285,7 @@ export function HbarComposerModelPicker({
     void runtime.commands.execute('composerModel.refresh', { sessionId }).catch(capture)
   }
   const selectModel = (id: string) => {
+    if (writeUnavailable) return
     setLocalError(null)
     void runtime.commands
       .execute('composerModel.selectModel', { sessionId, modelId: id })
@@ -292,7 +296,7 @@ export function HbarComposerModelPicker({
       .catch(capture)
   }
   const previewThinking = (input: HTMLInputElement) => {
-    if (!thinkingIdentity || unavailable || thinkingWriteRef.current) return
+    if (!thinkingIdentity || writeUnavailable || thinkingWriteRef.current) return
     const index = Number(input.value)
     if (!Number.isInteger(index) || !levels[index]) return
     const preview = {
@@ -305,7 +309,7 @@ export function HbarComposerModelPicker({
   const selectThinking = (input: HTMLInputElement) => {
     if (
       cancelledRef.current ||
-      unavailable ||
+      writeUnavailable ||
       thinkingWriteRef.current ||
       !thinkingIdentity ||
       (!sliderDraftRef.current && !pointerIdentityRef.current)
@@ -378,7 +382,7 @@ export function HbarComposerModelPicker({
         <LumenButton
           type="button"
           size="s"
-          disabled={!connected || disabled}
+          disabled={!connected || busy}
           onClick={() => {
             setLocalError(null)
             void runtime.commands.execute('composerModel.reconcile', { sessionId }).catch(capture)
@@ -402,7 +406,7 @@ export function HbarComposerModelPicker({
         aria-haspopup="dialog"
         aria-expanded={open === 'model'}
         aria-controls={modelId}
-        disabled={!connected || disabled}
+        disabled={!connected || (disabled && !unresolved)}
         popoverTarget={modelId}
       >
         <LumenText as="span" title={current?.modelName}>
@@ -423,7 +427,7 @@ export function HbarComposerModelPicker({
           aria-haspopup="dialog"
           aria-expanded={open === 'thinking'}
           aria-controls={thinkingId}
-          disabled={!connected || disabled}
+          disabled={!connected || disabled || !canSelect}
           popoverTarget={thinkingId}
         >
           {labels.thinkingLevel(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off')}
@@ -510,7 +514,7 @@ export function HbarComposerModelPicker({
                     type="button"
                     role="option"
                     aria-selected={option.id === model?.modelId}
-                    disabled={unavailable}
+                    disabled={writeUnavailable}
                     className="hbar-composer-model-option"
                     variant="text"
                     indicator="none"
@@ -583,7 +587,7 @@ export function HbarComposerModelPicker({
             max={Math.max(0, levels.length - 1)}
             step={1}
             value={selectedIndex}
-            disabled={unavailable || levels.length < 2}
+            disabled={writeUnavailable || levels.length < 2}
             aria-label={labels.thinking}
             aria-valuetext={selectedLevel ? labels.thinkingLevel(selectedLevel) : undefined}
             onChange={(event) => previewThinking(event.currentTarget)}

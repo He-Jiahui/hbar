@@ -705,6 +705,10 @@ export interface QuestionnaireDraftState {
 export type QuestionnaireDraftsState = Readonly<Record<string, QuestionnaireDraftState>>
 
 export interface RunActionState {
+  /** Runtime-owned records distinguish retries from cancellation; optional for older external projections. */
+  readonly commandId?: 'run.retry' | 'operation.cancel'
+  /** A receipt read must not be presented as a new Retry, or a new Retry as a read. */
+  readonly phase?: 'request' | 'receipt'
   readonly operationId: string
   readonly status: 'submitting' | 'unknown' | 'failed' | 'succeeded'
   readonly error: string | null

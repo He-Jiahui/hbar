@@ -29,6 +29,8 @@ import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-a
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import { createState } from './state'
 import { startupSettingsState } from './startup-settings'
+import { createSessionExecutionAccess } from './session-execution-access'
+import { createSessionExecutionPreparation } from './session-execution-preparation'
 import { createDirectoryModule } from './directory'
 import { registerNavigationCommands } from './navigation'
 import { createWorkspaceTabs, workspaceTabCommands } from './workspace-tabs-runtime'
@@ -102,6 +104,7 @@ export { projectSessionDecisions, sessionDecisionAction } from './interaction-pr
 export type { SessionDecision, SessionDecisionProjection, QuestionnaireFact } from './interaction-presentations'
 export { interactionRecoveryCommands } from './interaction-recovery'
 export { planProposalCommands, planProposalActionKey } from './plan-proposal-actions'
+export type { SessionExecutionAccess, SessionExecutionTarget } from './session-execution-access'
 export { parseProposedPlan } from './proposed-plan'
 export type { ProposedPlanParseResult } from './proposed-plan'
 export type {
@@ -263,6 +266,18 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   )
   const remote = directory.registry
+  const sessionExecutionAccess = createSessionExecutionAccess({
+    navigation: navigation.reader,
+    directory: directory.reader,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
+    onSubscriberError,
+  })
+  const executionPreparation = createSessionExecutionPreparation({
+    access: sessionExecutionAccess,
+    directory: directory.reader,
+    readSession: (sessionId, signal) => directory.observeSession(sessionId, signal ? { signal } : {}),
+    isDisposed: () => disposed,
+  })
   const sessionRosterRefresh = createSessionRosterRefresh(local, {
     directory: directory.reader,
     host: options.directory,
@@ -339,7 +354,15 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
-  const drafts = createDrafts(local, options.run, options.attachments, onSubscriberError, () => disposed, options.files)
+  const drafts = createDrafts(
+    local,
+    options.run,
+    options.attachments,
+    onSubscriberError,
+    () => disposed,
+    options.files,
+    executionPreparation,
+  )
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
     navigation: navigation.reader,
@@ -356,6 +379,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   })
   const composerPlanMode = createComposerPlanMode(local, {
+    preparation: executionPreparation,
     ...(options.planMode ? { configuration: options.planMode } : {}),
     ...(options.planModeEvents ? { events: options.planModeEvents } : {}),
     navigation: navigation.reader,
@@ -366,6 +390,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
   })
   const composerIntent = createComposerIntent(local, {
+    preparation: executionPreparation,
     goals: options.goals,
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
@@ -396,6 +421,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
   )
   const planProposal = createPlanProposalActions(local, {
+    preparation: executionPreparation,
     timeline: timeline.reader,
     controls: controls.reader,
     executeDetachedRun: (input, execution) => {
@@ -437,6 +463,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     controls,
     onSubscriberError,
     () => disposed,
+    executionPreparation,
   )
   const providerSettings = createProviderSettings(
     local,
@@ -470,7 +497,14 @@ export function createAppRuntime(options: RuntimeOptions) {
       local.execute('app.setSession', { sessionId, workspaceId }, execution),
     isDisposed: () => disposed,
   })
-  const goalPlanWorkspace = createGoalPlanWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
+  const goalPlanWorkspace = createGoalPlanWorkspace(
+    local,
+    options,
+    surfaces.reader,
+    onSubscriberError,
+    () => disposed,
+    executionPreparation,
+  )
   const workflowWorkspace = createWorkflowWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const extensionWorkspace = createExtensionWorkspace(
     local,
@@ -566,6 +600,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const sessionArchive = createSessionArchive(local, {
     directory: directory.reader,
     commands: executor,
+    observeSession: directory.observeSession,
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -583,6 +618,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     hostId: options.hostId,
     state: Object.freeze({
       navigation: navigation.reader,
+      sessionExecutionAccess: sessionExecutionAccess.reader,
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
       messageFork: messageFork.reader,
@@ -621,6 +657,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       preferences: clientPersistence.preferences,
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
+    getSessionExecutionAccess: sessionExecutionAccess.get,
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const [name, ...arguments_] = tokenizeCommand(source)
       const definition = runtimeCommands[name as keyof typeof runtimeCommands]
@@ -649,6 +686,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       local.dispose()
       platform.dispose()
       directory.dispose()
+      sessionExecutionAccess.dispose()
       forms.dispose()
       goalHistory.dispose()
       timeline.dispose()

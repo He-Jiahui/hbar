@@ -42,6 +42,7 @@ export function createDirectoryModule(
 ) {
   const directory = createState<DirectoryState>({ workspaces: {}, sessions: {} }, onSubscriberError)
   const remote = new CommandRegistry({ execution: 'host' })
+  const observational = new CommandRegistry({ execution: 'host' })
   let disposed = false
   const requests = new Map<string, number>()
   // Read/Archive floors live only during the captured request; cache eviction must not make its old reply new.
@@ -215,7 +216,11 @@ export function createDirectoryModule(
       release()
     }
   })
-  remote.register(directoryCommands['session.get'], async (input, context) => {
+  const readSession = async (
+    input: { readonly sessionId: string },
+    context: ExecuteOptions,
+    preserveSelection: boolean,
+  ) => {
     const response = await read('session.get', input, context, input.sessionId)
     const item = decode(sessionSchema.nullable(), response.value)
     if (item && item.id !== input.sessionId) throw new CommandError('INVALID_OUTPUT', 'Session target mismatch')
@@ -224,7 +229,8 @@ export function createDirectoryModule(
     // unavailable side effect are fenced when a newer confirmed fact arrived during this read.
     const canMerge = response.latest && !stale
     const accepted = item && canMerge ? mergeSessions([item]) : []
-    if (canMerge && (!item || accepted.some((fact) => fact.archived))) onSessionUnavailable(input.sessionId)
+    if (!preserveSelection && canMerge && (!item || accepted.some((fact) => fact.archived)))
+      onSessionUnavailable(input.sessionId)
     if (!item && canMerge) {
       const current = directory.reader.getSnapshot()
       directory.replace({
@@ -233,11 +239,17 @@ export function createDirectoryModule(
       })
     }
     return item
-  })
+  }
+  remote.register(directoryCommands['session.get'], (input, context) => readSession(input, context, false))
+  observational.register(directoryCommands['session.get'], (input, context) => readSession(input, context, true))
+  const observations = createCommandClient({ 'session.get': directoryCommands['session.get'] }, observational)
   const queries = createCommandClient(directoryCommands, remote)
 
   return {
     queries,
+    /** A validated, bounded fact read for restore/reconciliation, without changing the observed view. */
+    observeSession: (sessionId: string, execution?: ExecuteOptions) =>
+      observations.execute('session.get', { sessionId }, execution),
     /** Accepted Host facts, not cache absence/loading or speculative mutation intent. */
     subscribeConfirmedSessions,
     /** Observational sidebar reconciliation must not clear the user's active session or touch drafts. */
@@ -374,6 +386,7 @@ export function createDirectoryModule(
     dispose() {
       disposed = true
       remote.dispose()
+      observational.dispose()
       directory.dispose()
       requests.clear()
       pendingSessionProjections.clear()

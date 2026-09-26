@@ -29,6 +29,16 @@ export const modelWriteResultSchema = modelConfigurationSchema.extend({
   commitId: idSchema,
   revision: z.number().int().positive(),
 })
+/** Historical settings receipt, not the current catalog/configuration projection. */
+export const modelReceiptSchema = z.strictObject({
+  sessionId: idSchema,
+  idempotencyKey: idSchema,
+  commitId: idSchema,
+  revision: z.number().int().positive(),
+  modelId: idSchema.nullable(),
+  thinkingLevel: thinkingLevelSchema.nullable(),
+  revisions: z.record(z.string(), z.number().int().nonnegative()),
+})
 const metadata = (id: string, kind: 'command' | 'query', scope: 'global' | 'session') => ({
   id,
   version: 1,
@@ -57,6 +67,15 @@ export const modelCommands = {
     },
     z.strictObject({ sessionId: idSchema }),
     modelConfigurationSchema,
+  ),
+  'session.getModelReceipt': defineCommand(
+    {
+      ...metadata('session.getModelReceipt', 'query', 'session'),
+      visibility: 'internal' as const,
+      surfaces: ['api'] as ('cli' | 'tui' | 'api' | 'palette')[],
+    },
+    z.strictObject({ sessionId: idSchema, idempotencyKey: idSchema }),
+    modelReceiptSchema.nullable(),
   ),
   'session.setModel': defineCommand(
     {
@@ -97,3 +116,4 @@ export const modelCommands = {
 export type ModelDescriptor = z.output<typeof modelDescriptorSchema>
 export type ModelConfiguration = z.output<typeof modelConfigurationSchema>
 export type ModelWriteResult = z.output<typeof modelWriteResultSchema>
+export type ModelReceipt = z.output<typeof modelReceiptSchema>

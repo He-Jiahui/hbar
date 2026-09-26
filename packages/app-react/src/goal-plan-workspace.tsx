@@ -22,6 +22,7 @@ import { HbarGoalExecutionState, type HbarGoalExecutionLabels } from './goal-exe
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 import './goal-plan-workspace.css'
+import { sessionPreparationStatus } from './session-execution-notice'
 
 type GoalStatus = GoalPlanGoalDraftState['status']
 type PlanStepStatus = GoalPlanStepDraftState['status']
@@ -34,6 +35,7 @@ export interface HbarGoalPlanWorkspaceLabels {
   readonly loading: string
   readonly back: string
   readonly unavailable: string
+  readonly executionAccess: { readonly archived: string; readonly unverified: string }
   readonly goal: {
     readonly execution: HbarGoalExecutionLabels
     readonly title: string
@@ -108,10 +110,18 @@ export function HbarGoalPlanWorkspace({
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const goals = useHbarRuntimeState(runtime.state.goals)
   const workflows = useHbarRuntimeState(runtime.state.workflows)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  useHbarRuntimeState(runtime.state.sessionExecutionAccess)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const entry = instanceId ? goals.entries[instanceId] : undefined
   const workflowEntry = instanceId ? workflows.entries[instanceId] : undefined
+  const workspaceId = panel?.workspaceId ?? (panel?.sessionId ? directory.sessions[panel.sessionId]?.workspaceId : null)
+  const executionTarget = panel?.sessionId && workspaceId ? { sessionId: panel.sessionId, workspaceId } : null
+  const preparationStatus = executionTarget
+    ? sessionPreparationStatus(runtime.getSessionExecutionAccess(executionTarget), executionTarget)
+    : 'unverified'
+  const canPrepare = preparationStatus === 'ready'
   const invoke = useCallback(
     (name: string, input: unknown) =>
       void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
@@ -163,6 +173,11 @@ export function HbarGoalPlanWorkspace({
       }
       className="hbar-app-react-goal-plan-workspace"
     >
+      {!canPrepare && (
+        <LumenText as="p" role="status" data-goal-execution-access={preparationStatus}>
+          {preparationStatus === 'archived' ? labels.executionAccess.archived : labels.executionAccess.unverified}
+        </LumenText>
+      )}
       {!entry || entry.status === 'loading' ? (
         <LumenText as="p" className="hbar-app-react-goal-plan-loading">
           {labels.loading}
@@ -178,10 +193,11 @@ export function HbarGoalPlanWorkspace({
             className="hbar-app-react-goal-editor"
             onSubmit={(event) => {
               event.preventDefault()
+              if (!executionTarget || runtime.getSessionExecutionAccess(executionTarget).kind !== 'ready') return
               invoke('goalPlanWorkspace.saveGoal', { instanceId })
             }}
           >
-            <LumenFrame as="fieldset" disabled={!connected || goalBusy}>
+            <LumenFrame as="fieldset" disabled={!connected || !canPrepare || goalBusy}>
               <LumenFormField
                 controlId={`${instanceId}-goal-objective`}
                 label={labels.goal.objective}
@@ -259,7 +275,7 @@ export function HbarGoalPlanWorkspace({
                 <LumenButton
                   type="submit"
                   tone="primary"
-                  disabled={!connected || !entry.goalDirty || entry.goalAction.status === 'submitting'}
+                  disabled={!connected || !canPrepare || !entry.goalDirty || entry.goalAction.status === 'submitting'}
                 >
                   {entry.goalAction.status === 'submitting' ? labels.goal.saving : labels.goal.save}
                 </LumenButton>
@@ -317,7 +333,11 @@ export function HbarGoalPlanWorkspace({
             )}
             {entry.goal && (
               <LumenFrame as="footer">
-                <LumenButton tone="neutral" onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}>
+                <LumenButton
+                  tone="neutral"
+                  disabled={!connected || !canPrepare}
+                  onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
+                >
                   {labels.goal.edit}
                 </LumenButton>
               </LumenFrame>

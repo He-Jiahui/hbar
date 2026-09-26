@@ -7,6 +7,7 @@ import {
   type CommandRegistry,
 } from '@hbar/commands'
 import { directoryCommands, navigationCommands } from '@hbar/contracts/commands'
+import type { Session } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
 import type { DirectoryState } from './types'
 
@@ -44,6 +45,7 @@ export interface SessionArchiveState {
 export interface SessionArchiveOptions {
   readonly directory: StateReader<DirectoryState>
   readonly commands: CommandExecutor
+  readonly observeSession?: (sessionId: string) => Promise<Session | null>
   readonly onSubscriberError: (error: unknown) => void
   readonly isDisposed: () => boolean
 }
@@ -115,6 +117,10 @@ const definitiveRejections = new Set([
 
 /** One mutation intent and one cancellable inclusive page; neither duplicates confirmed session facts. */
 export function createSessionArchive(local: CommandRegistry, options: SessionArchiveOptions) {
+  const readTarget = (target: { readonly sessionId: string; readonly archived: boolean }) =>
+    !target.archived && options.observeSession
+      ? options.observeSession(target.sessionId)
+      : commands.execute('session.get', { sessionId: target.sessionId })
   const state = createState<SessionArchiveState>(
     {
       mutation: { target: null, revision: 0, status: 'idle', error: null, requestId: null },
@@ -178,7 +184,7 @@ export function createSessionArchive(local: CommandRegistry, options: SessionArc
     setMutation({ ...pending, status: 'submitting', error: null })
     let writeStarted = false
     try {
-      const session = await commands.execute('session.get', { sessionId: value.target.sessionId })
+      const session = await readTarget(value.target)
       if (!alive()) return mutationResult()
       if (!session || session.workspaceId !== value.target.workspaceId)
         throw new CommandError('STALE_TARGET', 'The original session is no longer available')
@@ -227,7 +233,7 @@ export function createSessionArchive(local: CommandRegistry, options: SessionArc
     if (value.status !== 'unknown') throw new CommandError('INVALID_INPUT', 'No archive action requires reconciliation')
     setMutation({ ...value, status: 'reconciling', error: null })
     try {
-      const session = await commands.execute('session.get', { sessionId: value.target.sessionId })
+      const session = await readTarget(value.target)
       const confirmed = session?.workspaceId === value.target.workspaceId && session.archived === value.target.archived
       setMutation({ ...value, status: confirmed ? 'succeeded' : 'unknown', error: confirmed ? null : 'RESULT_UNKNOWN' })
       return mutationResult()

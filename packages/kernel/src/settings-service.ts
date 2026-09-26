@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import {
   settingsDescriptionSchema,
+  settingsReceiptSchema,
   type SettingsDescription,
   type SettingsFieldDescription,
 } from '@hbar/contracts/commands/settings'
@@ -232,6 +233,32 @@ export class SettingsService {
     } catch (error) {
       translate(error)
     }
+  }
+
+  /** Reads only the original actor/key journal and exact scope; never creates a layer or applies a patch. */
+  async getReceipt(
+    scope: SettingsScope,
+    actorId: string,
+    idempotencyKey: string,
+  ): Promise<ApplySettingsReceipt | null> {
+    if (!actorId || !idempotencyKey) throw new HbarError('INVALID_INPUT', 'Actor and idempotency key are required')
+    const chain = await this.chain(scope)
+    const stored = await this.storage.call('settingsReceipt', actorId, idempotencyKey)
+    if (!stored) return null
+    const parsed = settingsReceiptSchema.safeParse(stored.receipt)
+    if (!parsed.success) throw new HbarError('INVALID_OUTPUT', 'Stored settings receipt is invalid')
+    const receipt = parsed.data
+    if (receipt.layerId !== chain.at(-1)?.id) return null
+    if (receipt.schemaVersion !== HBAR_SETTINGS_SCHEMA_VERSION)
+      throw new HbarError('VERSION_MISMATCH', 'Stored settings receipt requires migration')
+    const layers = receipt.resolution.layers
+    if (
+      layers.length !== chain.length ||
+      layers.some((layer, index) => layer.id !== chain[index]?.id || layer.kind !== chain[index]?.kind) ||
+      layers.at(-1)?.revision !== receipt.revision
+    )
+      throw new HbarError('INVALID_OUTPUT', 'Stored settings receipt does not match its scope chain')
+    return receipt
   }
 
   async apply(input: ApplySettingsInput): Promise<ApplySettingsReceipt> {

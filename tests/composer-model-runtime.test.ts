@@ -92,6 +92,21 @@ function fixture() {
         await barrier?.promise
         return result
       }
+      if (name === 'session.getModelReceipt') {
+        const input = modelCommands[name].input.parse(raw)
+        const receipt = receipts.get(input.idempotencyKey)
+        return receipt?.sessionId === input.sessionId
+          ? {
+              sessionId: receipt.sessionId,
+              idempotencyKey: input.idempotencyKey,
+              commitId: receipt.commitId,
+              revision: receipt.revision,
+              modelId: receipt.modelId,
+              thinkingLevel: receipt.thinkingLevel,
+              revisions: receipt.revisions,
+            }
+          : null
+      }
       if (name !== 'session.setModel' && name !== 'session.setThinkingLevel') throw new Error('Unexpected command')
       const input = modelCommands[name].input.parse(raw)
       const key = options.idempotencyKey
@@ -292,7 +307,7 @@ test('a catalog refresh cannot clear an unknown thinking write started while it 
   }
 })
 
-test('pending and unknown writes block new intents and reconcile with the exact original key and input', async () => {
+test('pending and unknown writes block new intents and reconcile by reading the exact original receipt without replay', async () => {
   const app = fixture()
   try {
     await app.select()
@@ -317,9 +332,11 @@ test('pending and unknown writes block new intents and reconcile with the exact 
     })
     await app.commands.execute('composerModel.reconcile', { sessionId: 'one' })
     const writes = app.calls.filter((call) => call.key)
-    expect(writes).toHaveLength(2)
-    expect(writes[1]?.key).toBe(writes[0]?.key)
-    expect(writes[1]?.input).toEqual(writes[0]?.input)
+    expect(writes).toHaveLength(1)
+    expect(app.calls.find((call) => call.name === 'session.getModelReceipt')?.input).toEqual({
+      sessionId: 'one',
+      idempotencyKey: writes[0]?.key,
+    })
     expect(app.model()?.modelId).toBe('provider/deep')
     expect(app.snapshot().action.status).toBe('idle')
   } finally {

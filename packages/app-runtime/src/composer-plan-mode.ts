@@ -4,6 +4,7 @@ import { idSchema } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { createState, type StateReader } from './state'
 import type { NavigationState } from './types'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 
 export type ComposerPlanMode = 'default' | 'plan'
 export interface ComposerPlanModeEntry {
@@ -64,6 +65,7 @@ export function createComposerPlanMode(
   local: CommandRegistry,
   options: {
     readonly configuration?: CommandExecutor
+    readonly preparation?: SessionExecutionPreparationPort | undefined
     readonly events?: {
       subscribe(listener: (sessionId: string) => void): () => void
       onConnection?(listener: (connected: boolean) => void): () => void
@@ -165,7 +167,7 @@ export function createComposerPlanMode(
   local.register(composerPlanModeCommands['composerPlanMode.reconcile'], ({ sessionId }) => read(sessionId, true))
   local.register(
     composerPlanModeCommands['composerPlanMode.setMode'],
-    async ({ sessionId, mode, expectedRevision }) => {
+    async ({ sessionId, mode, expectedRevision }, execution) => {
       const configuration = selected(sessionId)
       const before = current(sessionId)
       if (
@@ -178,14 +180,24 @@ export function createComposerPlanMode(
         throw new CommandError('BUSY', 'Read or reconcile the Host session mode before changing it')
       if (before.revision !== expectedRevision) throw new CommandError('VERSION_CONFLICT', 'Session mode changed')
       if (options.isSubmissionLocked(sessionId)) throw new CommandError('BUSY', 'Composer submission is in progress')
-      if (before.mode === mode) return { sessionId, mode }
       inFlight.add(sessionId)
       const generation = (generations.get(sessionId) ?? 0) + 1
       generations.set(sessionId, generation)
       const operation = { mode, key: crypto.randomUUID() }
       pending.set(sessionId, operation)
       publish({ sessionId, mode: null, status: 'pending', error: null, revision: before.revision })
+      let dispatched = false
       try {
+        const target = options.preparation ? await options.preparation.capture(sessionId, execution.signal) : undefined
+        selected(sessionId)
+        if (target) options.preparation?.assertCanPrepare(target)
+        if (execution.signal.aborted) throw new CommandError('CANCELLED', 'Session mode preparation was cancelled')
+        if (before.mode === mode) {
+          pending.delete(sessionId)
+          publish(before)
+          return { sessionId, mode }
+        }
+        dispatched = true
         const result = configurationCommands['mode.set'].output.parse(
           await configuration.execute('mode.set', { sessionId, mode }, { idempotencyKey: operation.key }),
         )
@@ -205,7 +217,7 @@ export function createComposerPlanMode(
         return { sessionId, mode: actual }
       } catch (error) {
         if (!disposed && generations.get(sessionId) === generation) {
-          const unknown = unknownCodes.has(code(error))
+          const unknown = dispatched && unknownCodes.has(code(error))
           if (!unknown) pending.delete(sessionId)
           publish({
             sessionId,

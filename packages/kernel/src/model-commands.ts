@@ -1,6 +1,6 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError, thinkingLevelSchema } from '@hbar/contracts'
-import { modelCommands, type ModelDescriptor } from '@hbar/contracts/commands/models'
+import { modelCommands, modelReceiptSchema, type ModelDescriptor } from '@hbar/contracts/commands/models'
 import { encodePath, type SchemaPath } from '@hbar/schema-core'
 import type { SettingReport } from '@hbar/settings-core'
 import type { Kernel } from './index'
@@ -87,6 +87,28 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
 
   registry.register(modelCommands['model.list'], async () => (await kernel.models()).map(toModelDescriptor))
   registry.register(modelCommands['session.getModel'], ({ sessionId }) => translate(() => configuration(sessionId)))
+  registry.register(modelCommands['session.getModelReceipt'], ({ sessionId, idempotencyKey }, context) =>
+    translate(async () => {
+      if (!context.actorId) throw new HbarError('INVALID_INPUT', 'Authenticated actor is required')
+      const receipt = await settings.getReceipt(
+        { kind: 'session', targetId: sessionId },
+        context.actorId,
+        idempotencyKey,
+      )
+      if (!receipt) return null
+      const parsed = modelReceiptSchema.safeParse({
+        sessionId,
+        idempotencyKey,
+        commitId: receipt.commitId,
+        revision: receipt.revision,
+        modelId: value(receipt.resolution.reports[MODEL_KEY]),
+        thinkingLevel: value(receipt.resolution.reports[THINKING_KEY]),
+        revisions: Object.fromEntries(receipt.resolution.layers.map((layer) => [layer.id, layer.revision])),
+      })
+      if (!parsed.success) throw new HbarError('INVALID_OUTPUT', 'Stored model receipt is invalid')
+      return parsed.data
+    }),
+  )
   registry.register(
     modelCommands['session.setModel'],
     (input, context) =>

@@ -1,6 +1,12 @@
 import { CommandError, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { draftCommands, type PromptAttachment } from '@hbar/contracts/commands/draft'
-import { runAcceptedSchema, type RunAccepted, type SubmitRunInput } from '@hbar/contracts/commands/run'
+import {
+  retryRunInputSchema,
+  runAcceptedSchema,
+  type RunAccepted,
+  type SubmitRunInput,
+} from '@hbar/contracts/commands/run'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 import { createState } from './state'
 import { registerDraftAttachments } from './draft-attachments'
 import { serializeMentions, validateMentions } from './composer-mentions'
@@ -72,11 +78,12 @@ export function createDrafts(
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
   attachmentQueries?: CommandExecutor,
+  preparation?: SessionExecutionPreparationPort,
 ) {
   const state = createState<DraftsState>({}, onSubscriberError)
   const actions = createState<RunActionsState>({}, onSubscriberError)
   const pending = new Map<string, PendingSubmission>()
-  const retryKeys = new Map<string, string>()
+  const retryKeys = new Map<string, { readonly key: string; readonly sessionId: string }>()
   const settledReceipts = new Map<string, RunAccepted>()
   const receiptKey = (sessionId: string, key: string) => JSON.stringify([sessionId, key])
 
@@ -166,6 +173,7 @@ export function createDrafts(
     uploads: attachmentCommands,
     queries: attachmentQueries,
     isDisposed,
+    preparation,
   })
 
   const settle = (sessionId: string, submission: PendingSubmission, accepted: RunAccepted): void => {
@@ -223,9 +231,15 @@ export function createDrafts(
       matchesDraft: !detached && matchesInput(current, submit),
       detached,
     }
-    pending.set(submit.sessionId, submission)
     replace(submit.sessionId, { ...current, status: 'submitting', error: null })
+    pending.set(submit.sessionId, submission)
+    let dispatched = false
     try {
+      const target = await preparation?.capture(submit.sessionId, options.signal)
+      if (target) preparation?.assertCanPrepare(target)
+      if (isDisposed()) throw new CommandError('DISPOSED', 'Run preparation was disposed')
+      options.signal?.throwIfAborted()
+      dispatched = true
       const parsed = runAcceptedSchema.safeParse(
         await run.execute('run.submit', submit, { ...options, idempotencyKey: submission.key }),
       )
@@ -238,7 +252,7 @@ export function createDrafts(
       settle(submit.sessionId, submission, accepted)
       return accepted
     } catch (error) {
-      const unknown = UNCERTAIN_SUBMIT_CODES.has(errorCode(error) ?? 'EXECUTION_FAILED')
+      const unknown = dispatched && UNCERTAIN_SUBMIT_CODES.has(errorCode(error) ?? 'EXECUTION_FAILED')
       if (pending.get(submit.sessionId) === submission) {
         const latest = entry(submit.sessionId)
         replace(submit.sessionId, {
@@ -283,7 +297,13 @@ export function createDrafts(
         const current = actions.reader.getSnapshot()[operationId]
         if (current && ['submitting', 'unknown'].includes(current.status))
           throw new CommandError('BUSY', 'Run cancellation is already pending')
-        const action: RunActionState = { operationId, status: 'submitting', error: null }
+        const action: RunActionState = {
+          operationId,
+          commandId: 'operation.cancel',
+          phase: 'request',
+          status: 'submitting',
+          error: null,
+        }
         replaceAction(operationId, action)
         try {
           const result = await run.execute(name, input, options)
@@ -300,21 +320,70 @@ export function createDrafts(
         }
       }
       if (name === 'run.retry') {
-        const sourceOperationId = (input as { operationId: string }).operationId
+        const retry = retryRunInputSchema.parse(input)
+        const sourceOperationId = retry.operationId
         const current = actions.reader.getSnapshot()[sourceOperationId]
         if (current?.status === 'submitting') throw new CommandError('BUSY', 'Run retry is already pending')
-        const key = retryKeys.get(sourceOperationId) ?? options.idempotencyKey ?? crypto.randomUUID()
-        retryKeys.set(sourceOperationId, key)
-        const action: RunActionState = { operationId: sourceOperationId, status: 'submitting', error: null }
+        const original = retryKeys.get(sourceOperationId)
+        if (original && original.sessionId !== retry.sessionId)
+          throw new CommandError('STALE_TARGET', 'Retry belongs to another captured Session')
+        if (original && current?.status === 'unknown') {
+          // An unknown retry is an existing request, not permission to enqueue again.
+          replaceAction(sourceOperationId, { ...current, phase: 'receipt', status: 'submitting', error: null })
+          try {
+            const receipt = await run.getReceipt(original.sessionId, original.key, 'run.retry')
+            const parsed = runAcceptedSchema.safeParse(receipt)
+            if (
+              !parsed.success ||
+              parsed.data.sessionId !== original.sessionId ||
+              parsed.data.idempotencyKey !== original.key
+            )
+              throw new CommandError('RESULT_UNKNOWN', 'The original retry has no confirmed receipt')
+            if (retryKeys.get(sourceOperationId) === original) {
+              retryKeys.delete(sourceOperationId)
+              replaceAction(sourceOperationId, { ...current, phase: 'receipt', status: 'succeeded', error: null })
+            }
+            return parsed.data
+          } catch (error) {
+            if (retryKeys.get(sourceOperationId) === original)
+              replaceAction(sourceOperationId, {
+                ...current,
+                status: 'unknown',
+                error: errorCode(error) ?? 'RESULT_UNKNOWN',
+              })
+            throw error
+          }
+        }
+        const key = options.idempotencyKey ?? crypto.randomUUID()
+        const action: RunActionState = {
+          operationId: sourceOperationId,
+          commandId: 'run.retry',
+          phase: 'request',
+          status: 'submitting',
+          error: null,
+        }
         replaceAction(sourceOperationId, action)
+        retryKeys.set(sourceOperationId, { key, sessionId: retry.sessionId })
+        let dispatched = false
         try {
-          const result = runAcceptedSchema.parse(await run.execute(name, input, { ...options, idempotencyKey: key }))
+          const target = await preparation?.capture(retry.sessionId, options.signal)
+          if (target) preparation?.assertCanPrepare(target)
+          if (isDisposed()) throw new CommandError('DISPOSED', 'Retry preparation was disposed')
+          options.signal?.throwIfAborted()
+          dispatched = true
+          const parsed = runAcceptedSchema.safeParse(
+            await run.execute(name, retry, { ...options, idempotencyKey: key }),
+          )
+          if (!parsed.success) throw new CommandError('RESULT_UNKNOWN', 'Retry acceptance could not be verified')
+          const result = parsed.data
+          if (result.sessionId !== retry.sessionId || result.idempotencyKey !== key)
+            throw new CommandError('RESULT_UNKNOWN', 'Retry receipt does not match the captured request')
           retryKeys.delete(sourceOperationId)
           replaceAction(sourceOperationId, { ...action, status: 'succeeded' })
           return result
         } catch (error) {
           const value = errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED')
-          const unknown = value === 'RESULT_UNKNOWN'
+          const unknown = dispatched && UNCERTAIN_SUBMIT_CODES.has(value)
           if (!unknown) retryKeys.delete(sourceOperationId)
           replaceAction(sourceOperationId, {
             ...action,

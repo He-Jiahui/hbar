@@ -69,3 +69,54 @@ test('pending cancellation remains disabled and independent plan progress is not
   expect(html).toContain(labels.planProgress(0, 1))
   expect(html).not.toContain('proposedPlan')
 })
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`retained read-only run history exposes only the exact unknown retry recovery: ${locale}`, () => {
+    const labels = getShellCopy(locale).session.runs
+    const html = renderToStaticMarkup(
+      <HbarSessionRunActivity
+        runs={[run('unknown-original', 'failed'), run('another-failure', 'failed')]}
+        labels={labels}
+        canRetryNewRun={false}
+        unknownRetryRunIds={['unknown-original']}
+        onRetryRun={() => {}}
+      />,
+    )
+    expect(html).toContain(labels.recheckLabel)
+    expect(html).not.toContain(labels.retryLabel)
+    expect((html.match(/<button/g) ?? []).length).toBe(2) // One exact recovery and the history disclosure.
+    expect(html).not.toContain('disabled=""')
+    const busy = renderToStaticMarkup(
+      <HbarSessionRunActivity
+        runs={[run('unknown-original', 'failed'), run('another-failure', 'failed')]}
+        labels={labels}
+        canRetryNewRun={false}
+        unknownRetryRunIds={['unknown-original']}
+        retryingRunIds={['unknown-original']}
+        onRetryRun={() => {}}
+      />,
+    )
+    expect(busy).toContain(labels.recheckingLabel)
+    expect(busy).toContain('disabled=""')
+    expect(busy).not.toContain(labels.retryingLabel)
+  })
+}
+
+test('normal sessions retain new Retry behavior and cannot gain read-only recovery from another Run id', () => {
+  const labels = getShellCopy('en-US').session.runs
+  const normal = renderToStaticMarkup(
+    <HbarSessionRunActivity runs={[run('original', 'failed')]} labels={labels} onRetryRun={() => {}} />,
+  )
+  expect(normal).toContain(labels.retryLabel)
+  const foreign = renderToStaticMarkup(
+    <HbarSessionRunActivity
+      runs={[run('original', 'failed')]}
+      labels={labels}
+      canRetryNewRun={false}
+      unknownRetryRunIds={['other-run']}
+      onRetryRun={() => {}}
+    />,
+  )
+  expect(foreign).not.toContain(labels.recheckLabel)
+  expect(foreign).not.toContain(labels.retryLabel)
+})

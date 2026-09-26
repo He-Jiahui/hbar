@@ -177,10 +177,12 @@ test('ordinary permission preparation reserves the session before Drafts dispatc
       input: { text: 'Ordinary send', images: [] },
       expectedPermissionRevision: 0,
     })
-    expect(f.runtime.view.state.composerPermission.getSnapshot().entries.one?.status).toBe('preparing')
     await expect(
       f.runtime.view.commands.execute('proposedPlan.submit', { ...f.target, action: 'implement' }),
     ).rejects.toMatchObject({ code: 'BUSY' })
+    // Access verification now precedes permission capture; the competing intent must
+    // remain BUSY across both phases, not depend on a synchronous permission read.
+    expect(f.runtime.view.state.composerPermission.getSnapshot().entries.one?.status).toBe('preparing')
     expect(f.runs).toHaveLength(0)
     release()
     await sending

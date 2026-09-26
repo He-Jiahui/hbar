@@ -10,6 +10,7 @@ import {
 } from '@hbar/app-runtime'
 import { createDrafts } from '../packages/app-runtime/src/drafts'
 import { createState } from '../packages/app-runtime/src/state'
+import type { SessionExecutionPreparationPort } from '../packages/app-runtime/src/session-execution-preparation'
 import {
   createPlanProposalActions,
   planProposalActionKey,
@@ -83,7 +84,7 @@ function controls(): SessionControlsState {
     errors: { model: null, usage: null, budget: null },
   }
 }
-function fixture() {
+function fixture(preparation?: SessionExecutionPreparationPort) {
   const local = new CommandRegistry()
   const feed = createState(timeline(), () => {})
   const configuration = createState(controls(), () => {})
@@ -128,9 +129,12 @@ function fixture() {
     undefined,
     () => {},
     () => false,
+    undefined,
+    preparation,
   )
   const draftClient = createCommandClient(draftCommands, local)
   const proposal = createPlanProposalActions(local, {
+    ...(preparation ? { preparation } : {}),
     timeline: feed.reader,
     controls: configuration.reader,
     executeDetachedRun: drafts.executeDetachedRun,
@@ -180,6 +184,75 @@ function fixture() {
     },
   }
 }
+
+test('detached proposal rechecks captured preparation after an await; read failure cannot invent an unknown Run', async () => {
+  for (const failure of ['ARCHIVED', 'RESULT_UNKNOWN']) {
+    const entered = Promise.withResolvers<void>(),
+      gate = Promise.withResolvers<void>()
+    const f = fixture({
+      async capture(sessionId) {
+        entered.resolve()
+        await gate.promise
+        if (failure === 'RESULT_UNKNOWN') throw new CommandError(failure, 'A preparation read failed')
+        return { sessionId, workspaceId: 'workspace' }
+      },
+      assertCanPrepare() {
+        throw new CommandError('ARCHIVED', 'Captured Session was archived while preparing')
+      },
+    })
+    try {
+      const target = await f.target()
+      await f.draftClient.execute('draft.setText', { sessionId: 'one', text: 'local retained draft' })
+      const pending = f.commands
+        .execute('proposedPlan.submit', { ...target, action: 'implement' })
+        .catch((error: unknown) => error)
+      await entered.promise
+      gate.resolve()
+      expect(await pending).toMatchObject({ code: failure })
+      expect(f.calls).toEqual([])
+      expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(target)]).toMatchObject({
+        status: 'failed',
+        error: failure,
+      })
+      expect(f.drafts.reader.getSnapshot().one?.text).toBe('local retained draft')
+      await expect(f.commands.execute('proposedPlan.reconcile', target)).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    } finally {
+      gate.resolve()
+      f.dispose()
+    }
+  }
+})
+
+test('already dispatched detached proposal retains unknown receipt recovery after preparation is revoked', async () => {
+  let archived = false
+  const preparation: SessionExecutionPreparationPort = {
+    capture: (sessionId) => Promise.resolve({ sessionId, workspaceId: 'workspace' }),
+    assertCanPrepare() {
+      if (archived) throw new CommandError('ARCHIVED', 'Archived')
+    },
+  }
+  const f = fixture(preparation),
+    gate = Promise.withResolvers<void>()
+  try {
+    const target = await f.target()
+    f.setMode('unknown')
+    f.setHold(gate.promise)
+    const pending = f.commands
+      .execute('proposedPlan.submit', { ...target, action: 'implement' })
+      .catch((error: unknown) => error)
+    for (let attempt = 0; f.calls.length === 0 && attempt < 100; attempt++) await Bun.sleep(1)
+    expect(f.calls).toHaveLength(1)
+    archived = true
+    gate.resolve()
+    expect(await pending).toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect((await f.commands.execute('proposedPlan.reconcile', target))?.sessionId).toBe('one')
+    expect(f.calls).toHaveLength(1)
+    expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(target)]?.status).toBe('accepted')
+  } finally {
+    gate.resolve()
+    f.dispose()
+  }
+})
 
 test('proposal parser accepts standalone complete Markdown, preserves context and ignores fenced examples', async () => {
   expect(parseProposedPlan(source)).toEqual({

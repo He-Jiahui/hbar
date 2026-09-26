@@ -53,6 +53,7 @@ export interface HbarComposerPermissionPickerProps {
   readonly hostDefault: ComposerPermissionState['hostDefault']
   readonly connected: boolean
   readonly disabled: boolean
+  readonly canPrepare?: boolean
   readonly labels: HbarComposerPermissionLabels
   readonly onRefresh: () => Promise<void>
   readonly onSelect: (input: ComposerPermissionSelection) => Promise<void>
@@ -102,6 +103,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const revision = entry?.revision ?? 0
   const locked = entry?.locked ?? false
   const unavailable = !connected || disabled || locked
+  const preparationUnavailable = unavailable || props.canPrepare === false
   const anchor = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
   const cancelConfirmation = useRef<HTMLButtonElement>(null)
@@ -128,7 +130,8 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const plan = props.plan
   const planEntry = plan?.entry?.sessionId === sessionId ? plan.entry : undefined
   const planSelected = planEntry?.status === 'ready' && planEntry.mode === 'plan'
-  const planBlocked = planEntry?.status !== 'ready' || unavailable || busy || Boolean(plan?.disabled && !planSelected)
+  const planBlocked =
+    planEntry?.status !== 'ready' || preparationUnavailable || busy || Boolean(plan?.disabled && !planSelected)
 
   useEffect(() => {
     owner.current = { sessionId, revision }
@@ -163,7 +166,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       })
   }
   const select = (target: ComposerPermissionSelection) => {
-    if (unavailable || inFlight.current) return
+    if (preparationUnavailable || inFlight.current) return
     inFlight.current = true
     setBusy(true)
     setLocalError(null)
@@ -393,7 +396,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     indicator="none"
                     role="menuitemradio"
                     aria-checked={value === choice && !planSelected}
-                    disabled={unavailable || busy || planSelected}
+                    disabled={preparationUnavailable || busy || planSelected}
                     className="hbar-composer-permission-option"
                     data-choice={value}
                     onClick={() => {
@@ -474,7 +477,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
             <LumenButton
               type="button"
               size="s"
-              disabled={unavailable || busy}
+              disabled={preparationUnavailable || busy}
               onClick={() =>
                 select({
                   sessionId: confirming.sessionId,

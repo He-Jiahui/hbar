@@ -263,6 +263,51 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-session-execution-notice,
+.hbar-session-execution-summary {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-session-execution-notice {
+  padding-block: 0.25rem;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+}
+
+.hbar-session-execution-summary {
+  flex: 1 1 18rem;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+.hbar-session-execution-copy {
+  min-inline-size: 0;
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-execution-summary > .lumen-icon {
+  flex: 0 0 auto;
+}
+
+.hbar-session-execution-notice > p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-execution-notice > button {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
 @media (max-width: 35rem) {
   .hbar-app-react-session-workspace .lumen-page-header-end {
     max-inline-size: 60%;

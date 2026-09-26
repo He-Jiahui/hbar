@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import { directoryCommands } from '@hbar/contracts/commands'
 import { addComposerAttachments } from '../packages/app-react/src/composer-attachment-input'
 
 const descriptor: AttachmentUploadInput = {
@@ -13,8 +14,21 @@ const descriptor: AttachmentUploadInput = {
 }
 const artifact = { id: descriptor.sha256, name: descriptor.name, mime: descriptor.mime, size: descriptor.size }
 const directory = {
-  async execute(name: string) {
+  async execute(name: string, input: unknown) {
     if (name === 'workspace.list' || name === 'session.list') return { items: [], nextCursor: null }
+    if (name === 'session.get') {
+      const { sessionId } = directoryCommands['session.get'].input.parse(input)
+      return {
+        id: sessionId,
+        workspaceId: 'workspace',
+        title: sessionId,
+        archived: false,
+        parentId: null,
+        createdAt: 1,
+        updatedAt: 1,
+        seq: 1,
+      }
+    }
     throw new Error(name)
   },
 }
