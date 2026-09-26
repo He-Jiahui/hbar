@@ -1,4 +1,14 @@
 import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
+import { createImageArtifactReader, type ImageArtifactReadOptions, type ImageArtifactBytes } from './image-artifacts'
+export {
+  MAX_IMAGE_ARTIFACT_BYTES,
+  IMAGE_ARTIFACT_TIMEOUT_MS,
+  IMAGE_ARTIFACT_CONCURRENCY,
+  IMAGE_ARTIFACT_QUEUE_LIMIT,
+  type ImageArtifactReadOptions,
+  type ImageArtifactBytes,
+  type ImageArtifactMime,
+} from './image-artifacts'
 export { createDirectoryQueryAdapter } from './directory'
 export { createCommandCatalogClient } from './command-catalog'
 export { createBudgetCommandClient } from './budget'
@@ -61,10 +71,19 @@ export class HbarClient implements ClientTransport {
   private currentStatus: ConnectionStatus = 'disconnected'
   private currentHost: HostInfo | null = null
   private follows = new Map<string, number>()
+  private imageHostId: string | null = null
+  private imageReadsRevoked = false
+  private readonly imageArtifacts: ReturnType<typeof createImageArtifactReader>
   constructor(
     readonly baseUrl: string,
     private token?: string,
-  ) {}
+  ) {
+    this.imageArtifacts = createImageArtifactReader({
+      baseUrl,
+      token: () => this.token,
+      enabled: () => !this.closed && !this.imageReadsRevoked,
+    })
+  }
   onEvent(listener: (event: WireNotification) => void) {
     this.events.add(listener)
     return () => {
@@ -89,7 +108,13 @@ export class HbarClient implements ClientTransport {
     this.pending.clear()
   }
   connect(): Promise<HostInfo> {
-    if (this.connectPromise) return this.connectPromise
+    if (this.connectPromise && !this.closed) return this.connectPromise
+    if (this.closed) {
+      this.connectPromise = undefined
+      const previous = this.socket
+      this.socket = undefined
+      previous?.close()
+    }
     this.closed = false
     this.status('connecting')
     const url = new URL('/rpc', this.baseUrl)
@@ -101,6 +126,11 @@ export class HbarClient implements ClientTransport {
         if (this.socket !== socket) return socket.close()
         try {
           const host = await this.call('system.hello', { protocol: PROTOCOL_VERSION, token: this.token })
+          if (this.socket !== socket || this.closed) throw new HbarError('DISCONNECTED', 'Connection changed')
+          // The first hello also invalidates reads begun before Host identity was known.
+          if (this.imageHostId !== host.instanceId) this.imageArtifacts.invalidate()
+          this.imageHostId = host.instanceId
+          this.imageReadsRevoked = false
           this.retry = 0
           this.currentHost = host
           this.status('connected')
@@ -109,6 +139,8 @@ export class HbarClient implements ClientTransport {
         } catch (error) {
           if (error instanceof HbarError && error.code === 'UNAUTHORIZED') {
             this.closed = true
+            this.imageReadsRevoked = true
+            this.imageArtifacts.invalidate()
             this.currentHost = null
             this.status('pairing')
           }
@@ -142,6 +174,8 @@ export class HbarClient implements ClientTransport {
               )
             if (notification.method === 'auth.revoked') {
               this.closed = true
+              this.imageReadsRevoked = true
+              this.imageArtifacts.invalidate()
               this.currentHost = null
               this.status('pairing')
             }
@@ -237,6 +271,7 @@ export class HbarClient implements ClientTransport {
     const result = (await response.json()) as { token?: string; error?: string }
     if (!response.ok) throw new Error(result.error ?? 'Pairing failed')
     signal?.throwIfAborted()
+    this.imageArtifacts.invalidate()
     this.token = result.token
     this.closed = false
     this.connectPromise = undefined
@@ -271,8 +306,12 @@ export class HbarClient implements ClientTransport {
   artifactUrl(id: string) {
     return new URL(`/api/artifacts/${id}`, this.baseUrl).href
   }
+  readImageArtifact(ref: ArtifactRef, options?: ImageArtifactReadOptions): Promise<ImageArtifactBytes> {
+    return this.imageArtifacts.read(ref, options)
+  }
   disconnect() {
     this.closed = true
+    this.imageArtifacts.invalidate()
     clearTimeout(this.retryTimer)
     const socket = this.socket
     this.socket = undefined
