@@ -38,7 +38,7 @@ describe('hbar-app-ui authentication surfaces', () => {
             'hbar-app-ui-auth-sign-up-surface',
             'hbar-app-ui-auth-enterprise-surface',
             'hbar-app-ui-auth-passkey-surface',
-            'hbar-app-ui-auth-account-surface',
+            'hbar-app-ui-auth-account-reference',
             'hbar-app-ui-auth-workspace-surface',
             'hbar-app-ui-auth-invitation-surface',
             'hbar-app-ui-auth-password-reset-surface',
@@ -61,6 +61,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(7, localized)).toContain('Konto erstellen')
         expect(renderAuthentication(8, localized)).toContain('Mit Ihrem Unternehmenskonto anmelden')
         expect(renderAuthentication(9, localized)).toContain('Mit einem Passkey anmelden')
+        expect(renderAuthentication(10, localized)).toContain('Konto auswählen')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -258,6 +259,26 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(empty).toContain('disabled=""')
         const legacy = renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...base, referenceFlow: undefined}})
         expect(legacy).toContain('hbar-app-ui-auth-device-list')
+    })
+
+    test('account reference projects host-selected resume and reauthentication paths', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.account
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected account fixture')
+        const initial = renderAuthentication(10)
+        expect(occurrences(initial, 'aria-pressed=')).toBe(3)
+        expect(initial).toContain('Continue to Northwind Operations')
+        const mina = renderAuthentication(10, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, account: {...base, referenceFlow: {...flow, selectedId: 'mina'}}})
+        expect(mina).toContain('Continue to Northwind Design')
+        expect(mina).toContain('Signing in as mina.park@northwind.com')
+        const contractor = renderAuthentication(10, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, account: {...base, referenceFlow: {...flow, selectedId: 'contractor'}}})
+        expect(contractor).toContain('Sign in again as D.')
+        expect(contractor).toContain('Sessions for contractor accounts end after 12 hours.')
+        const empty = renderAuthentication(10, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, account: {...base, accounts: [], referenceFlow: {...flow, selectedId: ''}}})
+        expect(empty).toContain(base.labels.emptyAccounts)
+        expect(empty).toContain('disabled=""')
+        const legacy = renderAuthentication(10, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, account: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-account-list')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

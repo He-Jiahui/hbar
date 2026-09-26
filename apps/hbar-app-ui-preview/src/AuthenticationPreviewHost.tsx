@@ -26,7 +26,8 @@ export function AuthenticationPreviewHost({
     [enterpriseEmail, setEnterpriseEmail] = useState(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? ''),
     [enterpriseBusy, setEnterpriseBusy] = useState(false),
     [passkeySelectedId, setPasskeySelectedId] = useState(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? ''),
-    [passkeyPhase, setPasskeyPhase] = useState<'choose' | 'request'>(content.passkey?.referenceFlow?.phase ?? 'choose')
+    [passkeyPhase, setPasskeyPhase] = useState<'choose' | 'request'>(content.passkey?.referenceFlow?.phase ?? 'choose'),
+    [accountSelectedId, setAccountSelectedId] = useState(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? '')
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
@@ -45,6 +46,7 @@ export function AuthenticationPreviewHost({
     setEnterpriseBusy(false)
     setPasskeySelectedId(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? '')
     setPasskeyPhase(content.passkey?.referenceFlow?.phase ?? 'choose')
+    setAccountSelectedId(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? '')
   }
   useEffect(() => {
     if (!seconds) return
@@ -168,6 +170,14 @@ export function AuthenticationPreviewHost({
               onAction?.({ variantId: spec.id, actionId: 'continue-passkey', value: id })
             },
             onCancel: () => setPasskeyPhase('choose'),
+          },
+        },
+        account: content.account && {
+          ...content.account,
+          referenceFlow: content.account.referenceFlow && {
+            ...content.account.referenceFlow,
+            selectedId: accountSelectedId,
+            onSelect: setAccountSelectedId,
           },
         },
       }}

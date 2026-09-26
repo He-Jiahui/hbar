@@ -296,6 +296,7 @@ export type InteractionCase = Readonly<{
     | 'auth-enterprise-mismatch'
     | 'auth-passkey-selected'
     | 'auth-passkey-request'
+    | 'auth-account-contractor'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1759,6 +1760,9 @@ async function prepareAuthenticationPasskeyScenario(root: Locator, scenario: (ty
       await root.getByRole('button', { name: "Continue with Dana's iPhone" }).click()
     await root.getByRole('button', { name: 'Cancel request' }).waitFor({ state: 'visible' })
   }
+}
+async function prepareAuthenticationAccountContractor(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: /D\. Whitfield \(contractor\)/ }).click()
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3359,6 +3363,8 @@ async function replayInteraction(
     await prepareAuthenticationEnterpriseMismatch(root)
   if (spec.id === 'hbar-app-ui-authentication-9' && authenticationPasskeyScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-10' && interaction.scenario === 'auth-account-contractor')
+    await prepareAuthenticationAccountContractor(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3660,6 +3666,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationEnterpriseMismatch(root)
   if (reference.id === 'hbar-app-ui-authentication-9' && authenticationPasskeyScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-10' && interaction.scenario === 'auth-account-contractor')
+    await prepareAuthenticationAccountContractor(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4293,6 +4301,10 @@ async function runInteractionsParallel(
                 await prepareAuthenticationPasskeyScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-10' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:auth-account-contractor:`)))) {
+              await prepareAuthenticationAccountContractor(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-account-contractor'))
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

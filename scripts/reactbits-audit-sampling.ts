@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-10')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-account-reference.css', 'authentication/AccountChooserAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Selecting the second account changes pressed state, workspace action and sign-in hint' },
+        { viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Expired contractor selection changes action to reauthentication and shows its session hint' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-account-contractor:4:click', change: 'Expired-account reauthentication action has no documentation navigation' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Use another account has no documentation navigation' },
+        { viewport: 'tablet', theme: 'dark', suffix: '4:click', change: 'Default account Continue has no documentation navigation' },
+        { viewport: 'mobile', theme: 'light', suffix: '5:click', change: 'Sign out of all accounts has no documentation navigation' },
+        { viewport: 'stress', theme: 'dark', suffix: '2:press-space', change: 'Keyboard selection of expired account preserves narrow truncation and wrapping' },
+      ],
+      inferences: [
+        { scope: 'Repeated account rows', basis: 'All remembered rows share one host-selected ID contract; normal and expired account choices cover their distinct action/hint outcomes without clicking each row at each width.', verification: 'inferred-not-replayed' },
+        { scope: 'Responsive flow', basis: 'Eight paired static captures cover light/dark across desktop, tablet, mobile and stress; narrow keyboard selection probes the clipping boundary once.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-9')
     return {
       revision: 1,
