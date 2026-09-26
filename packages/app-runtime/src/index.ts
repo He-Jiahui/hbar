@@ -124,6 +124,20 @@ export type {
   ImageResourcePort,
   ImageResourceErrorCode,
 } from './image-viewer'
+export {
+  projectSessionDraftImages,
+  projectSessionMessageImages,
+  isSessionImageRequestCurrent,
+} from './session-image-sources'
+export type {
+  SessionImageProjection,
+  SessionImageDraftInput,
+  SessionImageMessageInput,
+  SessionImageMembership,
+  SessionImageDraft,
+  SessionImageMessage,
+  SessionImageTimeline,
+} from './session-image-sources'
 export { projectSessionDecisions, sessionDecisionAction } from './interaction-presentations'
 export type { SessionDecision, SessionDecisionProjection, QuestionnaireFact } from './interaction-presentations'
 export { interactionRecoveryCommands } from './interaction-recovery'
