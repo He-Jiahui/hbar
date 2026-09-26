@@ -109,6 +109,8 @@ export interface ToolDefinition {
   description: string
   inputSchema: z.ZodType
   effect: 'read' | 'write' | 'process' | 'network'
+  /** A dedicated user decision is required even when the Run permits ordinary tool calls. */
+  humanApproval?: 'required'
   /** Explicit workspace access used by Workflow. Omission means no workspace path access. */
   workspaceAccess?: ToolWorkspaceAccess
   execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>
@@ -310,6 +312,9 @@ export interface WorkflowService {
 export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>
   set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
+  effectiveMode(run: Run): RunMode
+  /** Serialize the approved Run transition with ordinary session mode writes. */
+  commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
   get(sessionId: string): Promise<SessionBudget | null>
@@ -475,6 +480,7 @@ export interface HookEvents {
   /** Recomputed per request. Only omit Run tools; bounded instructions may describe access via an existing tool. */
   'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[]; instructions?: string }
   'run.start': { sessionId: string; runId: string; run: Run }
+  'run.modeChanged': { sessionId: string; runId: string; run: Run; mode: RunMode }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
   'run.cancelRequested': { sessionId: string; runId: string; run: Run }
   'session.idle': {

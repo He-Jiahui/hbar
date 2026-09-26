@@ -9,7 +9,7 @@ import {
   userInputQuestionSchema,
   userInputRequestSchema,
 } from '@hbar/contracts'
-import type { PlanState, PlanStep, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
+import type { PlanState, PlanStep, Run, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
@@ -28,7 +28,24 @@ export type PlanConfig = z.infer<typeof planConfigSchema>
 const restoredPlanSchema = planStateSchema.extend({ revision: z.number().int().positive().optional() })
 const planUpdatedEventSchema = z.object({ plan: restoredPlanSchema })
 const planClearedEventSchema = z.object({ sessionId: idSchema, revision: z.number().int().positive().optional() })
-const modeChangedEventSchema = z.object({ mode: runModeSchema })
+const modeChangedEventSchema = z.object({
+  mode: runModeSchema,
+  exitRunId: idSchema.optional(),
+  callId: idSchema.optional(),
+})
+const planExitResolvedEventSchema = z.object({
+  approval: z.object({
+    sessionId: idSchema,
+    runId: idSchema,
+    callId: idSchema,
+    tool: z.literal('exit_plan_mode'),
+    status: z.enum(['allowed', 'denied']),
+  }),
+  mode: z.literal('default').nullable(),
+  exitRunId: idSchema,
+  callId: idSchema,
+})
+const exitPlanModeSchema = z.strictObject({ plan: z.string().trim().min(1).max(20_000) })
 const updatePlanSchema = z.object({
   explanation: z.string().max(4_000).optional(),
   plan: z.array(planStepSchema).max(100),
@@ -55,6 +72,7 @@ class PlanRuntime implements PlanService {
   private sequences = new Map<string, number>()
   private revisions = new Map<string, number>()
   private modes = new Map<string, RunMode>()
+  private exitedRuns = new Map<string, string>()
   private locks = new Map<string, Promise<void>>()
   private hydrated = false
 
@@ -84,6 +102,24 @@ class PlanRuntime implements PlanService {
   }
 
   private applyEvent(sessionId: string, event: SessionEvent) {
+    if (event.type === 'plan_exit.resolved') {
+      const parsed = planExitResolvedEventSchema.safeParse(event.data)
+      if (
+        !parsed.success ||
+        event.sessionId !== sessionId ||
+        parsed.data.approval.sessionId !== sessionId ||
+        parsed.data.approval.runId !== event.runId ||
+        parsed.data.exitRunId !== event.runId ||
+        parsed.data.callId !== parsed.data.approval.callId ||
+        (parsed.data.approval.status === 'allowed') !== (parsed.data.mode === 'default')
+      )
+        throw new HbarError('PLAN_REPLAY', `Invalid plan_exit.resolved event in ${sessionId}`)
+      if (parsed.data.mode === 'default') {
+        this.exitedRuns.set(parsed.data.exitRunId, sessionId)
+        this.modes.set(sessionId, 'default')
+      }
+      return
+    }
     if (event.type === 'plan.updated') {
       this.sequences.set(sessionId, event.seq)
       const parsed = planUpdatedEventSchema.safeParse(event.data)
@@ -113,6 +149,11 @@ class PlanRuntime implements PlanService {
     if (event.type === 'mode.changed') {
       const parsed = modeChangedEventSchema.safeParse(event.data)
       if (!parsed.success) throw new HbarError('PLAN_REPLAY', `Invalid mode.changed event in ${sessionId}`)
+      if (parsed.data.exitRunId) {
+        if (parsed.data.mode !== 'default' || !parsed.data.callId || event.runId !== parsed.data.exitRunId)
+          throw new HbarError('PLAN_REPLAY', `Invalid Plan exit event in ${sessionId}`)
+        this.exitedRuns.set(parsed.data.exitRunId, sessionId)
+      }
       this.modes.set(sessionId, parsed.data.mode)
     }
   }
@@ -211,6 +252,27 @@ class PlanRuntime implements PlanService {
     return { mode: this.modes.get(sessionId) ?? 'default' }
   }
 
+  effectiveMode(run: Run): RunMode {
+    return this.exitedRuns.get(run.id) === run.sessionId ? 'default' : (run.input.mode ?? 'default')
+  }
+
+  async commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>) {
+    return this.serial(sessionId, async () => {
+      const result = await commit()
+      const event = result.modeEvent
+      if (!event || event.sessionId !== sessionId || event.type !== 'plan_exit.resolved')
+        throw new HbarError('PLAN_EXIT_INVALID', 'The Plan exit transition was not committed')
+      const parsed = planExitResolvedEventSchema.safeParse(event.data)
+      if (!parsed.success || parsed.data.mode !== 'default' || parsed.data.approval.status !== 'allowed')
+        throw new HbarError('PLAN_EXIT_INVALID', 'The Plan exit transition was not approved')
+      this.applyEvent(sessionId, event)
+      this.api.notify({ method: 'mode.changed', params: { sessionId, mode: 'default' } })
+      this.api.sessions.wake(sessionId)
+      this.api.changed('modes')
+      return result
+    })
+  }
+
   async setMode(sessionId: string, requested: RunMode) {
     return this.serial(sessionId, async () => {
       const mode = runModeSchema.parse(requested)
@@ -292,7 +354,13 @@ class PlanRuntime implements PlanService {
   }
 
   enforceReadOnly(name: string, context: ToolContext, tool: ToolDefinition) {
-    if (context.run.input.mode !== 'plan') return
+    const mode = this.effectiveMode(context.run)
+    if (name === 'exit_plan_mode') {
+      if (mode !== 'plan' || context.parentCallId)
+        throw new HbarError('PLAN_MODE', 'Exit Plan mode is available only as a direct call in a Plan run')
+      return
+    }
+    if (mode !== 'plan') return
     if (name !== 'update_plan' && tool.effect !== 'read')
       throw new HbarError(
         'PLAN_READ_ONLY',
@@ -303,6 +371,15 @@ class PlanRuntime implements PlanService {
 
 function planTools(runtime: PlanRuntime): ToolDefinition[] {
   return [
+    {
+      name: 'exit_plan_mode',
+      description:
+        'Present the complete Markdown plan for explicit user approval. Approval exits Plan mode and continues this same Run in Default mode; denial returns feedback and keeps planning.',
+      inputSchema: exitPlanModeSchema,
+      effect: 'process',
+      humanApproval: 'required',
+      execute: async () => ({ text: 'Plan approved. Continue this Run in Default mode.' }),
+    },
     {
       name: 'get_plan',
       description:
@@ -321,7 +398,7 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
       inputSchema: updatePlanSchema,
       effect: 'read',
       execute: async (args, context) => {
-        if (context.run.input.mode === 'plan')
+        if (runtime.effectiveMode(context.run) === 'plan')
           throw new HbarError('PLAN_MODE', 'update_plan is a TODO/checklist tool and is not allowed in Plan mode')
         const parsed = updatePlanSchema.parse(args)
         const plan = await runtime.update(context.session.id, parsed.plan, parsed.explanation ?? null, context.run.id)
@@ -334,7 +411,7 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
       inputSchema: requestUserInputSchema,
       effect: 'read',
       execute: async (args, context) => {
-        const mode = context.run.input.mode ?? 'default'
+        const mode = runtime.effectiveMode(context.run)
         if (!runtime.canRequestUserInput(mode))
           throw new HbarError(
             'PLAN_MODE',
@@ -377,6 +454,8 @@ export const planPlugin = definePlugin({
     provide<ModeService>(ctx, 'mode', {
       get: (sessionId) => runtime.getMode(sessionId),
       set: (sessionId, mode) => runtime.setMode(sessionId, mode),
+      effectiveMode: (run) => runtime.effectiveMode(run),
+      commitExit: (sessionId, commit) => runtime.commitExit(sessionId, commit),
     })
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))
     ctx.hbar.api.hooks.on('tool.before', ({ name, context, tool }) => runtime.enforceReadOnly(name, context, tool))

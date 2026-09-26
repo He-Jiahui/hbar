@@ -106,7 +106,7 @@ test('legacy plan events recover with monotonic revisions', async () => {
 
 test('plan mode exposes the Codex collaboration rules separately from update_plan', () => {
   expect(PLAN_MODE_INSTRUCTIONS).toContain('Plan Mode')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('developer message explicitly ends it.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('approves your `exit_plan_mode` request')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('update_plan')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('does not enter or exit Plan Mode')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('mutating')

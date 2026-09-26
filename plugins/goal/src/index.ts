@@ -437,6 +437,15 @@ class GoalRuntime implements GoalService {
     })
   }
 
+  async modeChanged(event: HookEvents['run.modeChanged']) {
+    if (event.mode !== 'default' || event.run.input.mode !== 'plan') return
+    await this.serial(event.sessionId, async () => {
+      const goal = this.goals.get(event.sessionId)
+      if (!goal || !statusAllowsAccounting(goal.status, 'active-only')) return
+      await this.registerRun(event.runId, goal, Date.now())
+    })
+  }
+
   async cancelRun(event: HookEvents['run.cancelRequested']) {
     await this.serial(event.sessionId, async () => {
       const goal = this.goals.get(event.sessionId)
@@ -1057,7 +1066,7 @@ class GoalRuntime implements GoalService {
 
   async accountRun(event: HookEvents['run.end']) {
     const { run } = event
-    if (run.input.mode === 'plan') return
+    if (run.input.mode === 'plan' && !this.activeRuns.has(event.runId)) return
     return this.serial(event.sessionId, async () => {
       let existing = this.goals.get(event.sessionId)
       if (!existing || existing.accountedRuns.includes(event.runId)) {
@@ -1283,6 +1292,7 @@ export const goalPlugin = definePlugin({
     await runtime.restore()
     provide<GoalService>(ctx, 'goal', runtime)
     api.hooks.on('run.start', (event) => runtime.startRun(event))
+    api.hooks.on('run.modeChanged', (event) => runtime.modeChanged(event))
     api.hooks.on('step.end', (event) => runtime.accountStep(event))
     api.hooks.on('budget.committed', (event) => runtime.refreshBudget(event.sessionId))
     api.hooks.on('run.end', (event) => runtime.accountRun(event))

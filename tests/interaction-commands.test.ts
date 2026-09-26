@@ -57,6 +57,8 @@ test('approval and questionnaire commands validate session targets and converge 
     'operation.get',
     'permission.get',
     'permission.set',
+    'planExit.get',
+    'planExit.resolve',
     'questionnaire.answer',
     'run.retry',
     'run.submit',

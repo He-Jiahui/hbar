@@ -37,7 +37,9 @@ test('schema-v4 run rows migrate additively and retain legacy error text', async
   await resource.store.call('setRun', run.id, 'failed', 'legacy failure text')
   await resource.store.close()
   const legacy = new Database(path)
-  legacy.exec('ALTER TABLE runs DROP COLUMN failure; PRAGMA user_version=4;')
+  legacy.exec(
+    'ALTER TABLE runs DROP COLUMN failure; ALTER TABLE approvals DROP COLUMN feedback; ALTER TABLE approvals DROP COLUMN decidedBy; PRAGMA user_version=4;',
+  )
   legacy.close()
   resource.store = new Storage(path)
   await resource.store.call('ready')

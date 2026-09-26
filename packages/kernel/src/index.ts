@@ -200,8 +200,9 @@ export interface KernelProfile {
 interface ActiveRun {
   run: Run
   controller: AbortController
-  context: { dispose(): Promise<void> }
+  context: RuntimeScope
 }
+type ApprovalResolution = { allowed: boolean; feedback?: string }
 
 export class Kernel {
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
@@ -219,7 +220,7 @@ export class Kernel {
   private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
   private wakeups = new Set<string>()
   private listeners = new Set<(event: WireNotification) => void>()
-  private approvals = new Map<string, (allowed: boolean) => void>()
+  private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
   private userInputs = new Map<
     string,
     { request: UserInputRequest; settle: (response?: UserInputResponse, error?: unknown) => Promise<boolean> }
@@ -881,7 +882,10 @@ export class Kernel {
           },
           stream: (id, text, thinking) => this.updateStream({ id, sessionId, runId: run.id, text, thinking }),
           execute: async (name, args, callId) => {
-            const context: ToolContext = { session, workspace, run, signal: controller.signal, callId }
+            const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
+            const effectiveRun =
+              effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
+            const context: ToolContext = { session, workspace, run: effectiveRun, signal: controller.signal, callId }
             const sequence = createToolSequenceExecutor(
               context,
               selectedTools.tools,
@@ -994,7 +998,7 @@ export class Kernel {
       context: {
         sessionId,
         ...(run ? { runId: run.id } : {}),
-        ...(run?.input.mode ? { mode: run.input.mode } : {}),
+        ...(run ? { mode: this.plugins.get<ModeService>('mode').effectiveMode(run) } : {}),
         ...(run?.input.source ? { source: run.input.source } : {}),
       },
     })
@@ -1067,10 +1071,18 @@ export class Kernel {
       executedArgs = args
       const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       const mode = context.run.input.approval ?? this.permissionModeValue
-      if (decision === 'deny' || (decision === 'ask' && mode === 'deny'))
+      if (decision === 'deny' || (decision === 'ask' && mode === 'deny' && tool.humanApproval !== 'required'))
         throw new HbarError('DENIED', 'Tool denied by policy')
-      if (decision === 'ask' && mode === 'ask' && !(await this.requestApproval(name, args, context)))
-        throw new HbarError('DENIED', 'User denied the tool call')
+      if (tool.humanApproval === 'required' || (decision === 'ask' && mode === 'ask')) {
+        const resolution = await this.requestApproval(name, args, context)
+        if (!resolution.allowed)
+          throw new HbarError(
+            'DENIED',
+            resolution.feedback
+              ? `User requested further planning: ${resolution.feedback}`
+              : 'User denied the tool call',
+          )
+      }
       context.signal.throwIfAborted()
       this.publishEvent(
         await this.storage.call('toolStart', context.session.id, context.run.id, context.callId, name, args),
@@ -1127,16 +1139,17 @@ export class Kernel {
       status: 'pending',
       createdAt: Date.now(),
     }
-    let resolve!: (value: boolean) => void
-    const outcome = new Promise<boolean>((done) => {
+    let resolve!: (value: ApprovalResolution) => void
+    const outcome = new Promise<ApprovalResolution>((done) => {
       resolve = done
     })
     this.approvals.set(approval.id, resolve)
     const onAbort = () => {
-      void this.resolveApproval(approval.id, 'cancelled').catch((error) => {
-        console.error(error)
-        resolve(false)
-      })
+      void this.resolveApproval(approval.id, 'cancelled')
+        .catch((error) => {
+          console.error(error)
+        })
+        .finally(() => resolve({ allowed: false }))
     }
     try {
       this.publishEvent(await this.storage.call('createApproval', approval))
@@ -1240,11 +1253,84 @@ export class Kernel {
     for (const entry of pending) await entry.settle(undefined, reason)
   }
   async resolveApproval(id: string, decision: Approval['status']) {
+    if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
+      throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
     const result = await this.storage.call('resolveApproval', id, decision)
     if (result) {
       this.publishEvent(result.event)
-      this.approvals.get(id)?.(decision === 'allowed')
+      this.approvals.get(id)?.({ allowed: decision === 'allowed' })
     }
+  }
+  async resolvePlanExit(input: {
+    sessionId: string
+    approvalId: string
+    runId: string
+    callId: string
+    decision: 'implement' | 'continue'
+    feedback?: string
+    actorId: string
+  }) {
+    const recorded = await this.storage.call('approval', input.approvalId)
+    if (
+      recorded.tool !== 'exit_plan_mode' ||
+      recorded.sessionId !== input.sessionId ||
+      recorded.runId !== input.runId ||
+      recorded.callId !== input.callId
+    )
+      throw new HbarError('PLAN_EXIT_TARGET', 'Plan decision does not match the original request')
+    if (recorded.status !== 'pending') {
+      const status = input.decision === 'implement' ? 'allowed' : 'denied'
+      if (
+        recorded.status === status &&
+        recorded.decidedBy === input.actorId &&
+        (recorded.feedback ?? '') === (input.feedback?.trim() ?? '')
+      )
+        return recorded
+      throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan request has already been resolved')
+    }
+    const active = this.active.get(input.sessionId)
+    if (!active || active.run.id !== input.runId || !this.approvals.has(input.approvalId))
+      throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan request is no longer active')
+    active.controller.signal.throwIfAborted()
+    const commit = () =>
+      this.storage.call(
+        'resolvePlanExit',
+        input.approvalId,
+        input.sessionId,
+        input.runId,
+        input.callId,
+        input.decision,
+        input.feedback,
+        input.actorId,
+      )
+    const resolved =
+      input.decision === 'implement'
+        ? await this.plugins.get<ModeService>('mode').commitExit(input.sessionId, async () => {
+            active.controller.signal.throwIfAborted()
+            return commit()
+          })
+        : await commit()
+    this.publishEvent(resolved.event)
+    if (resolved.modeEvent) {
+      if (resolved.modeEvent.eventId !== resolved.event.eventId) this.publishEvent(resolved.modeEvent)
+      try {
+        const run = await this.storage.call('run', input.runId)
+        await active.context.hooks.dispatch('run.modeChanged', {
+          sessionId: input.sessionId,
+          runId: input.runId,
+          run,
+          mode: 'default',
+        })
+      } catch (error) {
+        active.controller.abort(error)
+        throw error
+      }
+    }
+    this.approvals.get(input.approvalId)?.({
+      allowed: input.decision === 'implement',
+      ...(resolved.approval.feedback ? { feedback: resolved.approval.feedback } : {}),
+    })
+    return resolved.approval
   }
   async cancel(runId: string) {
     const { run, event } = await this.storage.call('requestCancel', runId)

@@ -5,7 +5,14 @@ import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { z } from 'zod'
 import { HbarError, providerSchema } from '@hbar/contracts'
-import type { GoalService, PlanService, ToolContext, ToolSequenceCall, WorkflowService } from '@hbar/plugin-sdk'
+import type {
+  GoalService,
+  ModeService,
+  PlanService,
+  ToolContext,
+  ToolSequenceCall,
+  WorkflowService,
+} from '@hbar/plugin-sdk'
 import { auditProgress } from '../plugins/goal/src/continuation'
 
 const resources: { root: string; kernel: Kernel }[] = []
@@ -834,6 +841,92 @@ test('Plan read-only mode cannot gain write authority through a sequence', async
       .some((block) => block.type === 'tool_result' && block.isError),
   ).toBe(true)
 })
+
+test.each(['active', 'blocked'] as const)(
+  'Plan exit is a control decision, not a mutation, inside an existing %s Workflow',
+  async (status) => {
+    const { kernel, session, root, workflows } = await fixture()
+    if (status === 'blocked')
+      await workflows.checkpoint(
+        session.id,
+        'proof',
+        'blocked',
+        'Wait for a revised execution plan',
+        null,
+        (await workflows.get(session.id)).workflow!.revision,
+      )
+    const before = (await workflows.get(session.id)).workflow
+    const mode = kernel.plugins.get<ModeService>('mode')
+    await mode.set(session.id, 'plan')
+    const run = await kernel.submit(
+      session.id,
+      `exit-from-${status}`,
+      {
+        text: '/tool exit_plan_mode {"plan":"# Continue the scoped change"}',
+        images: [],
+        mode: 'plan',
+        approval: 'allow',
+      },
+      'local-fixture',
+    )
+    let approval = (await kernel.snapshot(session.id)).approvals.find((item) => item.tool === 'exit_plan_mode')
+    for (let attempt = 0; !approval && attempt < 100; attempt++) {
+      await Bun.sleep(5)
+      approval = (await kernel.snapshot(session.id)).approvals.find((item) => item.tool === 'exit_plan_mode')
+    }
+    if (!approval) throw new Error('The Plan exit control request was rejected before human approval')
+    expect(approval.runId).toBe(run.id)
+    expect((await workflows.get(session.id)).workflow).toEqual(before)
+    await kernel.resolvePlanExit({
+      sessionId: session.id,
+      approvalId: approval.id,
+      runId: run.id,
+      callId: approval.callId,
+      decision: 'implement',
+      actorId: 'workflow-plan-exit-test',
+    })
+    await kernel.waitForIdle()
+    expect((await workflows.get(session.id)).workflow).toEqual(before)
+    expect((await mode.get(session.id)).mode).toBe('default')
+    if (status === 'blocked') {
+      const requests = (await kernel.storage.call('events', session.id, 0)).filter(
+        (event) => event.type === 'request.started' && event.runId === run.id,
+      )
+      expect(requests.length).toBeGreaterThan(0)
+      for (const request of requests) {
+        const advertised = z.object({ tools: z.array(z.object({ name: z.string() })) }).parse(request.data).tools
+        expect(advertised.some((tool) => tool.name === 'exit_plan_mode')).toBe(true)
+        expect(advertised.some((tool) => tool.name === 'write_file')).toBe(false)
+      }
+    }
+    expect(
+      (await kernel.storage.call('events', session.id, 0)).some(
+        (event) => event.type === 'workflow.updated' && JSON.stringify(event.data).includes('exit_plan_mode'),
+      ),
+    ).toBe(false)
+    await kernel.submit(
+      session.id,
+      `ordinary-write-after-${status}`,
+      { text: '/tool write_file {"path":"outside.txt","text":"must remain blocked"}', images: [], approval: 'allow' },
+      'local-fixture',
+    )
+    await kernel.waitForIdle()
+    expect(await Bun.file(join(root, 'outside.txt')).exists()).toBe(false)
+    const results = (await kernel.snapshot(session.id)).messages.flatMap((message) => message.content)
+    expect(
+      results.some((block) => block.type === 'tool_result' && block.name === 'exit_plan_mode' && !block.isError),
+    ).toBe(true)
+    expect(
+      results.some(
+        (block) =>
+          block.type === 'tool_result' &&
+          block.name === 'write_file' &&
+          block.isError &&
+          (status === 'blocked' || block.text.includes('outside the current workflow scope')),
+      ),
+    ).toBe(true)
+  },
+)
 
 test('image results stop the text sequence and request a separate visual inspection', async () => {
   const { kernel, session, root, workflows, run } = await fixture()

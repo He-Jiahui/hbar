@@ -202,7 +202,14 @@
         "user_input.resolve",
         "context.compact"
       ],
-      "additionalCommands": ["run.retry", "operation.watch", "interaction.reconcile", "session.activeOperations"],
+      "additionalCommands": [
+        "run.retry",
+        "operation.watch",
+        "interaction.reconcile",
+        "session.activeOperations",
+        "planExit.resolve",
+        "planExit.get"
+      ],
       "tests": [
         "tests/kernel.test.ts",
         "tests/crash.test.ts",

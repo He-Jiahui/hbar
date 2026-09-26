@@ -29,6 +29,14 @@ export function createInteractionCommandClient(client: ClientTransport) {
 /** Read missed facts without changing the reconnecting client's tracked timeline cursor. */
 export function createInteractionRecoveryClient(client: ClientTransport) {
   return {
+    getPlanExit(target: {
+      readonly sessionId: string
+      readonly approvalId: string
+      readonly runId: string
+      readonly callId: string
+    }) {
+      return createInteractionCommandClient(client).execute('planExit.get', target)
+    },
     follow(sessionId: string, cursor: number) {
       return client.call('session.follow', { sessionId, cursor })
     },

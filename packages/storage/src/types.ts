@@ -136,6 +136,15 @@ export interface StorageMethods {
   queuedSessions(): string[]
   createApproval(approval: Approval): SessionEvent
   resolveApproval(id: string, status: Approval['status']): { approval: Approval; event: SessionEvent } | null
+  resolvePlanExit(
+    id: string,
+    sessionId: string,
+    runId: string,
+    callId: string,
+    decision: 'implement' | 'continue',
+    feedback: string | undefined,
+    actorId: string,
+  ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null }
   approval(id: string): Approval
   toolStart(sessionId: string, runId: string, callId: string, name: string, args: unknown): SessionEvent
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null

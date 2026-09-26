@@ -28,7 +28,8 @@ const UNKNOWN_CODES = new Set([
 
 function key(name: string, input: unknown): string {
   const value = input as Record<string, unknown>
-  if (name === 'approval.resolve' && typeof value.approvalId === 'string') return `approval:${value.approvalId}`
+  if ((name === 'approval.resolve' || name === 'planExit.resolve') && typeof value.approvalId === 'string')
+    return `approval:${value.approvalId}`
   if (name === 'questionnaire.answer' && typeof value.requestId === 'string') return `questionnaire:${value.requestId}`
   throw new CommandError('INVALID_INPUT', 'Interaction target is missing')
 }
@@ -225,7 +226,8 @@ export function createInteractions(
     questionnaires: questionnaires.reader,
     async execute(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!port) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Interaction commands are unavailable')
-      if (name !== 'approval.resolve' && name !== 'questionnaire.answer')
+      if (name === 'planExit.get') return port.execute(name, interactionCommands[name].input.parse(input), options)
+      if (name !== 'approval.resolve' && name !== 'questionnaire.answer' && name !== 'planExit.resolve')
         throw new CommandError('INVALID_INPUT', 'Unsupported interaction command')
       const parsedInput = interactionCommands[name].input.parse(input)
       input = parsedInput
@@ -247,7 +249,7 @@ export function createInteractions(
           : undefined
       const action: InteractionActionState = {
         id,
-        kind: name === 'approval.resolve' ? 'approval' : 'questionnaire',
+        kind: name !== 'questionnaire.answer' ? 'approval' : 'questionnaire',
         sessionId: value.sessionId,
         targetId: 'approvalId' in value ? value.approvalId : value.requestId,
         status: 'submitting',
@@ -256,12 +258,21 @@ export function createInteractions(
         ...(approval ? { approval } : {}),
         ...(request ? { request } : {}),
         ...('answers' in value ? { submittedAnswers: value.answers } : {}),
+        ...('feedback' in value && value.feedback !== undefined ? { submittedFeedback: value.feedback } : {}),
       }
       replace(id, action)
       let dispatched = false
       try {
         if ('approvalId' in value && (!approval || approval.status !== 'pending'))
           throw new CommandError('INTERACTION_UNAVAILABLE', 'The approval is no longer pending')
+        if (name === 'approval.resolve' && approval?.tool === 'exit_plan_mode')
+          throw new CommandError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
+        if (
+          name === 'planExit.resolve' &&
+          'runId' in value &&
+          (approval?.tool !== 'exit_plan_mode' || approval.runId !== value.runId || approval.callId !== value.callId)
+        )
+          throw new CommandError('PLAN_EXIT_TARGET', 'Plan decision does not match the original request')
         if ('answers' in value) {
           const answers = value.answers
           if (
@@ -274,6 +285,25 @@ export function createInteractions(
         }
         dispatched = true
         const result = await port.execute(name, input, options)
+        if (name === 'planExit.resolve' && 'runId' in value) {
+          const response = interactionCommands[name].output.safeParse(result)
+          if (
+            !response.success ||
+            response.data.sessionId !== value.sessionId ||
+            response.data.approvalId !== value.approvalId ||
+            response.data.runId !== value.runId ||
+            response.data.callId !== value.callId ||
+            response.data.status !== (value.decision === 'implement' ? 'allowed' : 'denied')
+          )
+            throw new CommandError('RESULT_UNKNOWN', 'Plan decision confirmation could not be verified')
+          if (!state.reader.getSnapshot()[id]?.resolution)
+            replace(id, {
+              ...action,
+              status: 'succeeded',
+              resolution: { kind: 'approval', status: response.data.status },
+            })
+          return response.data
+        }
         if (name === 'approval.resolve') {
           const response = interactionCommands[name].output.safeParse(result)
           if (

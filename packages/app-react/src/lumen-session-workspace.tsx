@@ -478,6 +478,7 @@ export function HbarSessionWorkspace({
       labels={labels.decisions}
       connected={connected}
       onDecision={(input) => invoke('approval.resolve', input)}
+      onPlanExit={(input) => invoke('planExit.resolve', input)}
       onAnswer={(input) => invoke('questionnaire.setAnswer', input)}
       onSubmit={(input) => invoke('questionnaire.answer', input)}
       onReconcile={(target) => invoke('interaction.reconcile', target)}

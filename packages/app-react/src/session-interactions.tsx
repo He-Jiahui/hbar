@@ -14,8 +14,10 @@ import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText, LumenTextare
 import type { InteractionActionState, QuestionnaireDraftState, SessionDecision } from '@hbar/app-runtime'
 import { toolInputText } from './session-message-model'
 import './session-interactions.css'
+import { HbarPlanExitDecision, type HbarPlanExitDecisionLabels, type HbarPlanExitTarget } from './plan-exit-decision'
 
 export interface HbarSessionDecisionLabels {
+  readonly planExit: HbarPlanExitDecisionLabels
   readonly approval: string
   readonly questionnaire: string
   readonly pending: string
@@ -51,6 +53,7 @@ export interface HbarSessionDecisionProps {
   readonly answers?: QuestionnaireDraftState['answers'] | undefined
   readonly labels: HbarSessionDecisionLabels
   readonly connected: boolean
+  readonly onPlanExit: (target: HbarPlanExitTarget) => void
   readonly onDecision: (target: {
     readonly sessionId: string
     readonly approvalId: string
@@ -422,5 +425,18 @@ function DecisionContent({
 }
 
 export function HbarSessionDecision(props: HbarSessionDecisionProps) {
+  if (props.decision.kind === 'approval' && props.decision.tool === 'exit_plan_mode')
+    return (
+      <HbarPlanExitDecision
+        key={JSON.stringify([props.decision.sessionId, props.decision.id])}
+        decision={props.decision}
+        action={props.action}
+        connected={props.connected}
+        labels={props.labels.planExit}
+        statusLabels={props.labels}
+        onDecision={props.onPlanExit}
+        onReconcile={props.onReconcile}
+      />
+    )
   return <DecisionContent key={JSON.stringify([props.decision.sessionId, props.decision.id])} {...props} />
 }

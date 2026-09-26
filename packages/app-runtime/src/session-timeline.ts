@@ -44,6 +44,8 @@ const approvalSchema = z.object({
   args: z.record(z.string(), z.unknown()),
   status: z.enum(['pending', 'allowed', 'denied', 'cancelled']),
   createdAt: z.number().int().nonnegative(),
+  feedback: z.string().max(4_000).optional(),
+  decidedBy: z.string().optional(),
 })
 
 function emptyState(sessionId: string | null, status: SessionTimelineState['status']): SessionTimelineState {
@@ -84,6 +86,9 @@ function fromSnapshot(
   const snapshotFirst = snapshot.messages[0]?.seq
   const previousFirst = previous?.messages[0]?.seq
   const preservesOlder = previousFirst !== undefined && snapshotFirst !== undefined && previousFirst <= snapshotFirst
+  const historical = (previous?.approvals ?? []).filter(
+    (approval) => approval.tool === 'exit_plan_mode' && approval.status !== 'pending',
+  )
   return {
     sessionId: snapshot.session.id,
     status: 'ready',
@@ -91,7 +96,7 @@ function fromSnapshot(
     olderError: null,
     messages,
     runs: snapshot.runs.slice(0, MAX_RUNS),
-    approvals: snapshot.approvals.slice(0, MAX_APPROVALS),
+    approvals: mergeApprovals(historical, snapshot.approvals),
     userInputs: snapshot.userInputs.slice(0, MAX_USER_INPUTS),
     plan: plan === undefined ? (previous?.plan ?? null) : plan,
     usage: { ...snapshot.usage },
@@ -113,6 +118,17 @@ function upsert<T>(items: readonly T[], value: T, id: (item: T) => string, limit
   const next = items.filter((item) => id(item) !== id(value))
   next.push(value)
   return next.slice(-limit)
+}
+
+function mergeApprovals(previous: readonly Approval[], incoming: readonly Approval[]): readonly Approval[] {
+  const records = new Map(previous.map((approval) => [approval.id, approval]))
+  for (const approval of incoming) records.set(approval.id, approval)
+  return [...records.values()]
+    .sort(
+      (left, right) =>
+        Number(right.status === 'pending') - Number(left.status === 'pending') || right.createdAt - left.createdAt,
+    )
+    .slice(0, MAX_APPROVALS)
 }
 
 function projectEvent(current: SessionTimelineState, event: SessionEvent): SessionTimelineState {
@@ -153,8 +169,12 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
       if (event.type === 'run.settled')
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== parsed.data.id))
     }
-  } else if (event.type === 'approval.requested' || event.type === 'approval.resolved') {
-    const parsed = approvalSchema.safeParse(event.data)
+  } else if (
+    event.type === 'approval.requested' ||
+    event.type === 'approval.resolved' ||
+    event.type === 'plan_exit.resolved'
+  ) {
+    const parsed = approvalSchema.safeParse(event.type === 'plan_exit.resolved' ? data?.approval : event.data)
     if (parsed.success) approvals = upsert(approvals, parsed.data as Approval, (item) => item.id, MAX_APPROVALS)
   } else if (event.type === 'user_input.requested') {
     const parsed = userInputRequestSchema.safeParse(event.data)
@@ -346,6 +366,7 @@ export function createSessionTimeline(
         olderStatus: messages.length >= MAX_MESSAGES && snapshot.hasOlder ? 'limit' : 'idle',
         olderError: null,
         messages,
+        approvals: mergeApprovals(latest.approvals, snapshot.approvals),
         hasOlder: snapshot.hasOlder,
       }
       remember(next)

@@ -17,6 +17,48 @@ const commandMetadata = (id: string) => ({
 })
 
 export const interactionCommands = {
+  'planExit.get': defineCommand(
+    { ...commandMetadata('planExit.get'), kind: 'query', stateEffect: 'none' },
+    z.strictObject({ sessionId: idSchema, approvalId: idSchema, runId: idSchema, callId: idSchema }),
+    z.strictObject({
+      sessionId: idSchema,
+      approvalId: idSchema,
+      runId: idSchema,
+      callId: idSchema,
+      status: z.enum(['pending', 'allowed', 'denied', 'cancelled']),
+      feedback: z.string().max(4_000).optional(),
+    }),
+  ),
+  'planExit.resolve': defineCommand(
+    {
+      ...commandMetadata('planExit.resolve'),
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string' as const, flag: 'session' },
+          { field: 'approvalId', type: 'string' as const, position: 0 },
+          { field: 'runId', type: 'string' as const, flag: 'run' },
+          { field: 'callId', type: 'string' as const, flag: 'call' },
+          { field: 'decision', type: 'string' as const, position: 1 },
+          { field: 'feedback', type: 'string' as const, flag: 'feedback' },
+        ],
+      },
+    },
+    z.strictObject({
+      sessionId: idSchema,
+      approvalId: idSchema,
+      runId: idSchema,
+      callId: idSchema,
+      decision: z.enum(['implement', 'continue']),
+      feedback: z.string().trim().max(4_000).optional(),
+    }),
+    z.strictObject({
+      sessionId: idSchema,
+      approvalId: idSchema,
+      runId: idSchema,
+      callId: idSchema,
+      status: z.enum(['allowed', 'denied']),
+    }),
+  ),
   'approval.resolve': defineCommand(
     {
       ...commandMetadata('approval.resolve'),

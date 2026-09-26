@@ -999,6 +999,20 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       queueTitle: choose('在当前运行结束后处理此消息', 'Process this message after the current run'),
     },
     decisions: {
+      planExit: {
+        title: choose('准备开始编码？', 'Ready to start coding?'),
+        document: choose('计划文档', 'Plan document'),
+        feedback: choose('计划反馈（可选）', 'Plan feedback (optional)'),
+        feedbackPlaceholder: choose('告诉助手需要修改什么…', 'Tell the assistant what to change…'),
+        implement: choose('批准计划', 'Approve plan'),
+        continuePlanning: choose('继续规划', 'Keep planning'),
+        implemented: choose('已批准，转入实施', 'Approved; continuing with implementation'),
+        continued: choose('已返回规划', 'Returned to planning'),
+        invalidPlan: choose(
+          '计划正文不可用，无法决定此请求。',
+          'The plan document is unavailable. This request cannot be decided.',
+        ),
+      },
       approval: choose('工具操作需要确认', 'Review tool operation'),
       questionnaire: choose('需要你的回答', 'Your input is needed'),
       pending: choose('等待决定', 'Awaiting your decision'),

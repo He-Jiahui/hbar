@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands'
 import { contentBlockSchema, sessionEventSchema } from '@hbar/contracts'
+import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { questionnaireFact, type QuestionnaireFact } from './interaction-presentations'
 import type { InteractionActionState, InteractionRecoveryPort, SessionTimelineState } from './types'
 
@@ -52,6 +53,26 @@ export async function readInteractionResolution(
   readonly resolution: NonNullable<InteractionActionState['resolution']>
   readonly questionnaire?: QuestionnaireFact
 } | null> {
+  if (action.kind === 'approval' && action.approval?.tool === 'exit_plan_mode' && port.getPlanExit) {
+    const original = action.approval
+    const result = interactionCommands['planExit.get'].output.parse(
+      await port.getPlanExit({
+        sessionId: action.sessionId,
+        approvalId: action.targetId,
+        runId: original.runId,
+        callId: original.callId,
+      }),
+    )
+    if (
+      result.sessionId !== action.sessionId ||
+      result.approvalId !== action.targetId ||
+      result.runId !== original.runId ||
+      result.callId !== original.callId ||
+      result.status === 'pending'
+    )
+      return null
+    return { resolution: { kind: 'approval', status: result.status } }
+  }
   if (action.startCursor === undefined) return null
   const page = followSchema.parse(await port.follow(action.sessionId, action.startCursor))
   if (page.reset || page.cursor < action.startCursor) return null
@@ -64,8 +85,12 @@ export async function readInteractionResolution(
     const original = action.approval
     let status: 'allowed' | 'denied' | 'cancelled' | null = null
     for (const event of page.events) {
-      if (event.type !== 'approval.resolved' || event.runId !== original.runId) continue
-      const parsed = approvalResolutionSchema.safeParse(event.data)
+      if (!['approval.resolved', 'plan_exit.resolved'].includes(event.type) || event.runId !== original.runId) continue
+      const data =
+        event.type === 'plan_exit.resolved' && event.data && typeof event.data === 'object' && 'approval' in event.data
+          ? event.data.approval
+          : event.data
+      const parsed = approvalResolutionSchema.safeParse(data)
       if (!parsed.success) continue
       const value = parsed.data
       if (

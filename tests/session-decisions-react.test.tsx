@@ -16,7 +16,7 @@ const approval: SessionDecision = {
   tool: 'edit_file',
   approval: decisionApproval,
 }
-const callbacks = { onDecision() {}, onAnswer() {}, onSubmit() {}, onReconcile() {} }
+const callbacks = { onDecision() {}, onPlanExit() {}, onAnswer() {}, onSubmit() {}, onReconcile() {} }
 
 test('approval shows the actual requested fragments, never invents an existing-file diff, and keeps the confirmed decision', () => {
   const render = (decision: SessionDecision) =>

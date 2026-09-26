@@ -498,6 +498,9 @@ export interface Approval {
   args: Record<string, unknown>
   status: 'pending' | 'allowed' | 'denied' | 'cancelled'
   createdAt: number
+  /** Present only after a Plan-exit decision; never part of the model-supplied tool input. */
+  feedback?: string
+  decidedBy?: string
 }
 export interface LiveStream {
   id: string

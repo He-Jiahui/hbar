@@ -647,6 +647,12 @@ export type SessionAttachmentUpload = AttachmentUploadInput
 export type DraftsState = Readonly<Record<string, SessionDraftState>>
 
 export interface InteractionRecoveryPort {
+  getPlanExit?(target: {
+    readonly sessionId: string
+    readonly approvalId: string
+    readonly runId: string
+    readonly callId: string
+  }): Promise<unknown>
   follow(
     sessionId: string,
     cursor: number,
@@ -670,6 +676,7 @@ export interface InteractionActionState {
   readonly reconciling?: boolean
   readonly questionnaireFact?: import('./interaction-presentations').QuestionnaireFact
   readonly submittedAnswers?: import('@hbar/contracts').UserInputResponse['answers']
+  readonly submittedFeedback?: string
   readonly resolution?:
     | { readonly kind: 'approval'; readonly status: 'allowed' | 'denied' | 'cancelled' }
     | { readonly kind: 'questionnaire'; readonly status: 'answered' | 'cancelled' | 'failed' }

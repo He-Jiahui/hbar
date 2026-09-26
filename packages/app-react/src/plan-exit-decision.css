@@ -1,0 +1,109 @@
+.hbar-plan-exit {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-warning);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-contrast);
+  overflow: hidden;
+}
+.hbar-plan-exit[data-complete] {
+  border-color: var(--lumen-edge);
+}
+.hbar-plan-exit-heading,
+.hbar-plan-exit-actions,
+.hbar-plan-exit-document-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--lumen-reading);
+  font-size: 0.8125rem;
+}
+.hbar-plan-exit-status {
+  margin-inline-start: auto;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.hbar-plan-exit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  min-inline-size: 0;
+}
+.hbar-plan-exit-document {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  overflow: hidden;
+}
+.hbar-plan-exit-document-heading {
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+/* Reference plan document owns scrolling; feedback/actions remain outside it. */
+.hbar-plan-exit-markdown {
+  max-block-size: min(26rem, 50vh);
+  min-inline-size: 0;
+  overflow: auto;
+  padding: 12px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.hbar-plan-exit-markdown > :first-child {
+  margin-block-start: 0;
+}
+.hbar-plan-exit-markdown > :last-child {
+  margin-block-end: 0;
+}
+.hbar-plan-exit-markdown pre {
+  max-inline-size: 100%;
+  overflow: auto;
+}
+.hbar-plan-exit-markdown table {
+  display: block;
+  overflow: auto;
+  max-inline-size: 100%;
+}
+.hbar-plan-exit-feedback {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+.hbar-plan-exit-feedback textarea {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 10px 12px;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+.hbar-plan-exit-actions {
+  justify-content: space-between;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-plan-exit-actions button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hbar-plan-exit-error,
+.hbar-plan-exit-confirmed-feedback {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 26rem) {
+  .hbar-plan-exit-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .hbar-plan-exit-status {
+    margin-inline-start: 0;
+  }
+}

@@ -75,6 +75,7 @@ const CONTROL_TOOLS = new Set([
   'workflow_update',
   'save_workflow_plan',
   'request_user_input',
+  'exit_plan_mode',
 ])
 const REPAIR_TOOLS = new Set([
   ...FOCUS_TOOLS,
@@ -85,6 +86,7 @@ const REPAIR_TOOLS = new Set([
   'get_workflow',
   'workflow_focus',
   'workflow_update',
+  'exit_plan_mode',
 ])
 
 export const workflowConfigSchema = z.object({
@@ -2329,6 +2331,7 @@ export class WorkflowRuntime implements WorkflowService {
     context: ToolContext,
     tool: ToolDefinition,
   ) {
+    if (name === 'exit_plan_mode') return
     await this.serial(context.session.id, async () => {
       const current = this.workflows.get(context.session.id)
       if (!current) return

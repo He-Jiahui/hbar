@@ -46,7 +46,7 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 5) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 6) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -105,6 +105,12 @@ if (schemaVersion > 0 && schemaVersion <= 3)
 if (schemaVersion < 5)
   db.transaction(() => {
     db.exec('ALTER TABLE runs ADD COLUMN failure TEXT; PRAGMA user_version=5;')
+  })()
+if (schemaVersion < 6)
+  db.transaction(() => {
+    db.exec(
+      'ALTER TABLE approvals ADD COLUMN feedback TEXT; ALTER TABLE approvals ADD COLUMN decidedBy TEXT; PRAGMA user_version=6;',
+    )
   })()
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
@@ -306,10 +312,12 @@ function usageReadRow(row: Row): UsageReadRow {
   }
 }
 function approvalRow(row: Row | null): Approval {
-  const value = required(row, 'Approval')
+  const { feedback, decidedBy, ...value } = required(row, 'Approval')
   return {
     ...value,
     args: z.record(z.string(), z.unknown()).parse(parseJson(value.args as string)),
+    ...(typeof feedback === 'string' ? { feedback } : {}),
+    ...(typeof decidedBy === 'string' ? { decidedBy } : {}),
   } as unknown as Approval
 }
 function settingsLayerRow(row: Row): StoredSettingsLayer {
@@ -607,6 +615,32 @@ const methods: StorageMethods = {
     const rows = db
       .query('SELECT * FROM messages WHERE sessionId=? AND seq<? ORDER BY seq DESC LIMIT ?')
       .all(sessionId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as Row[]
+    const messages = rows.slice(0, limit).reverse().map(messageRow)
+    const approvals = (
+      db
+        .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
+        .all(sessionId) as Row[]
+    ).map(approvalRow)
+    if (messages.length && approvals.length < 80) {
+      const pageIds = messages.map((message) => message.id)
+      const completed = db
+        .query(
+          `
+          SELECT DISTINCT approvals.* FROM approvals
+          JOIN messages ON messages.sessionId=approvals.sessionId AND messages.runId=approvals.runId
+          JOIN json_each(messages.content) AS block
+            ON json_extract(block.value,'$.callId')=approvals.callId
+            AND json_extract(block.value,'$.name')=approvals.tool
+          WHERE approvals.sessionId=? AND approvals.tool='exit_plan_mode' AND approvals.status<>'pending'
+            AND ((messages.role='assistant' AND json_extract(block.value,'$.type')='tool_call')
+              OR (messages.role='tool' AND json_extract(block.value,'$.type')='tool_result'))
+            AND messages.id IN (${pageIds.map(() => '?').join(',')})
+          ORDER BY approvals.createdAt DESC,approvals.id LIMIT ?
+        `,
+        )
+        .all(sessionId, ...pageIds, 80 - approvals.length) as Row[]
+      approvals.push(...completed.map(approvalRow))
+    }
     const usage = emptyUsage()
     for (const row of db
       .query("SELECT data FROM events WHERE sessionId=? AND type='usage.recorded'")
@@ -616,14 +650,12 @@ const methods: StorageMethods = {
     }
     return {
       session,
-      messages: rows.slice(0, limit).reverse().map(messageRow),
+      messages,
       hasOlder: rows.length > limit,
       runs: (
         db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 40').all(sessionId) as Row[]
       ).map(runRow),
-      approvals: (
-        db.query("SELECT * FROM approvals WHERE sessionId=? AND status='pending'").all(sessionId) as Row[]
-      ).map(approvalRow),
+      approvals,
       userInputs: [],
       usage,
       cursor: session.seq,
@@ -881,7 +913,9 @@ const methods: StorageMethods = {
     ),
   createApproval: (approval) =>
     db.transaction(() => {
-      db.query('INSERT INTO approvals VALUES(?,?,?,?,?,?,?,?)').run(
+      db.query(
+        'INSERT INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt) VALUES(?,?,?,?,?,?,?,?)',
+      ).run(
         approval.id,
         approval.sessionId,
         approval.runId,
@@ -901,6 +935,41 @@ const methods: StorageMethods = {
       db.query('UPDATE approvals SET status=? WHERE id=?').run(status, id)
       approval.status = status
       return { approval, event: appendEvent(approval.sessionId, 'approval.resolved', approval, approval.runId) }
+    })(),
+  resolvePlanExit: (id, sessionId, runId, callId, decision, feedback, actorId) =>
+    db.transaction(() => {
+      const approval = methods.approval(id)
+      if (
+        approval.sessionId !== sessionId ||
+        approval.runId !== runId ||
+        approval.callId !== callId ||
+        approval.tool !== 'exit_plan_mode'
+      )
+        throw new HbarError('PLAN_EXIT_TARGET', 'Plan exit request does not match the selected call')
+      if (approval.status !== 'pending') throw new HbarError('PLAN_EXIT_SETTLED', 'Plan exit was already decided')
+      const run = methods.run(runId)
+      if (run.sessionId !== sessionId || run.input.mode !== 'plan' || run.status !== 'waiting_approval')
+        throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan run is no longer waiting for approval')
+      if (methods.cancelRequested(runId))
+        throw new HbarError('PLAN_EXIT_CANCELLED', 'The original Plan run is being cancelled')
+      const status = decision === 'implement' ? 'allowed' : 'denied'
+      db.query('UPDATE approvals SET status=?,feedback=?,decidedBy=? WHERE id=?').run(
+        status,
+        feedback ?? null,
+        actorId,
+        id,
+      )
+      const resolved = methods.approval(id)
+      // JSONL, not the SQLite projection, is the canonical journal. Both facts
+      // must occupy one durable record so recovery cannot observe half an exit.
+      const event = appendEvent(
+        sessionId,
+        'plan_exit.resolved',
+        { approval: resolved, mode: decision === 'implement' ? 'default' : null, exitRunId: runId, callId },
+        runId,
+      )
+      const modeEvent = decision === 'implement' ? event : null
+      return { approval: resolved, event, modeEvent }
     })(),
   toolStart: (sessionId, runId, callId, name, args) =>
     db.transaction(() => {
@@ -1250,7 +1319,9 @@ function restoreProjection(event: SessionEvent) {
     )
   } else if (event.type === 'approval.requested') {
     const approval = event.data as Approval
-    db.query('INSERT OR IGNORE INTO approvals VALUES(?,?,?,?,?,?,?,?)').run(
+    db.query(
+      'INSERT OR IGNORE INTO approvals(id,sessionId,runId,callId,tool,args,status,createdAt,feedback,decidedBy) VALUES(?,?,?,?,?,?,?,?,?,?)',
+    ).run(
       approval.id,
       approval.sessionId,
       approval.runId,
@@ -1259,10 +1330,59 @@ function restoreProjection(event: SessionEvent) {
       JSON.stringify(approval.args),
       approval.status,
       approval.createdAt,
+      approval.feedback ?? null,
+      approval.decidedBy ?? null,
+    )
+  } else if (event.type === 'plan_exit.resolved') {
+    const result = z
+      .object({
+        approval: z.object({
+          id: z.string().min(1),
+          sessionId: z.string().min(1),
+          runId: z.string().min(1),
+          callId: z.string().min(1),
+          tool: z.literal('exit_plan_mode'),
+          status: z.enum(['allowed', 'denied']),
+          feedback: z.string().max(4_000).nullable().optional(),
+          decidedBy: z.string().min(1),
+        }),
+        mode: z.literal('default').nullable(),
+        exitRunId: z.string().min(1),
+        callId: z.string().min(1),
+      })
+      .parse(event.data)
+    const approval = result.approval
+    if (
+      approval.sessionId !== event.sessionId ||
+      approval.runId !== event.runId ||
+      result.exitRunId !== approval.runId ||
+      result.callId !== approval.callId ||
+      (approval.status === 'allowed') !== (result.mode === 'default')
+    )
+      throw new Error(`SESSION_LOG_CORRUPTED invalid Plan exit identity or mode in ${event.eventId}`)
+    const pending = methods.approval(approval.id)
+    if (
+      pending.sessionId !== approval.sessionId ||
+      pending.runId !== approval.runId ||
+      pending.callId !== approval.callId ||
+      pending.tool !== approval.tool ||
+      pending.status !== 'pending'
+    )
+      throw new Error(`SESSION_LOG_CORRUPTED Plan exit has no matching pending approval in ${event.eventId}`)
+    db.query('UPDATE approvals SET status=?,feedback=?,decidedBy=? WHERE id=?').run(
+      approval.status,
+      approval.feedback ?? null,
+      approval.decidedBy,
+      approval.id,
     )
   } else if (event.type === 'approval.resolved') {
     const approval = event.data as Approval
-    db.query('UPDATE approvals SET status=? WHERE id=?').run(approval.status, approval.id)
+    db.query('UPDATE approvals SET status=?,feedback=?,decidedBy=? WHERE id=?').run(
+      approval.status,
+      approval.feedback ?? null,
+      approval.decidedBy ?? null,
+      approval.id,
+    )
   } else if (event.type === 'context.compacted') {
     db.query('INSERT OR IGNORE INTO compactions VALUES(?,?,?,?)').run(
       event.sessionId,

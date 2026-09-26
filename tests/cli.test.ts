@@ -1014,6 +1014,8 @@ test('classified command catalog and Run operations are usable without a GUI', a
     'operation.get',
     'permission.get',
     'permission.set',
+    'planExit.get',
+    'planExit.resolve',
     'questionnaire.answer',
     'run.retry',
     'run.submit',
