@@ -16,6 +16,8 @@ export {
   LAYA_MODEL_REVISION,
 } from './config'
 export type { LayaConfig, LayaInstallation } from './config'
+export { setupLaya } from './setup'
+export type { LayaSetupOptions } from './setup'
 
 // The Pi driver exports output JSON Schema. Keep defaults outside its input
 // schema so omitted configuration reaches the Host validator and gets defaulted.

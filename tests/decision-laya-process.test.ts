@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import type { DecisionService } from '@hbar/plugin-sdk'
 import { LayaDecisionRuntime, ManagedLayaBackend, layaConfigSchema } from '../plugins/decision-laya/src/index'
+import { packageLaya } from '../scripts/package-laya'
 
 const resources: { root: string; runtime?: LayaDecisionRuntime; kernel?: Kernel }[] = []
 afterEach(async () => {
@@ -137,7 +138,7 @@ test('incomplete installations fail before launch and can recover after the miss
   expect(children).toHaveLength(1)
 }, 20_000)
 
-test('the source plugin installs through the managed package path, records evaluations and releases its service and tool', async () => {
+test('the portable plugin installs through the managed package path, records evaluations and releases its service and tool', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-laya-plugin-'))
   const project = join(root, 'project')
   await mkdir(project)
@@ -148,7 +149,8 @@ test('the source plugin installs through the managed package path, records evalu
     secrets: new MemorySecrets(),
   })
   resources.push({ root, kernel })
-  await kernel.installPlugin(resolve('plugins/decision-laya'))
+  const packaged = await packageLaya(join(root, 'portable-plugin'))
+  await kernel.installPlugin(packaged)
   const workspace = (await kernel.storage.call('workspaces'))[0]
   if (!workspace) throw new Error('Workspace fixture missing')
   const session = await kernel.storage.call('createSession', workspace.id, 'Decision audit')
