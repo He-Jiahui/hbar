@@ -28,7 +28,7 @@ const request = {
 }
 const signal = () => new AbortController().signal
 
-async function fixture(requestTimeoutMs = 2_000) {
+async function fixture(requestTimeoutMs = 2_000, device = 'auto') {
   const root = await mkdtemp(join(tmpdir(), 'hbar-laya-process-'))
   const model = join(root, 'models', 'multilingual')
   await mkdir(model, { recursive: true })
@@ -46,17 +46,49 @@ async function fixture(requestTimeoutMs = 2_000) {
       },
     }),
   )
-  const config = layaConfigSchema.parse({ runtimeDirectory: root, startupTimeoutMs: 15_000, requestTimeoutMs })
+  const config = layaConfigSchema.parse({ runtimeDirectory: root, startupTimeoutMs: 15_000, requestTimeoutMs, device })
   const children: ChildProcessWithoutNullStreams[] = []
+  let descendantPid: number | undefined
   const backend = new ManagedLayaBackend(config, (_command, _args, options) => {
     const child = spawn(process.execPath, [resolve('tests/fixtures/laya-inference-process.ts')], options)
     children.push(child)
+    child.stdout.on('data', (data: Buffer) => {
+      const match = /"descendantPid":(\d+)/.exec(data.toString('utf8'))
+      if (match?.[1]) descendantPid = Number(match[1])
+    })
     return child
   })
   const runtime = new LayaDecisionRuntime(config, backend)
   resources.push({ root, runtime })
-  return { root, runtime, children }
+  return { root, runtime, children, descendant: () => descendantPid }
 }
+
+test('disposal terminates a managed descendant as well as its launcher', async () => {
+  const { runtime, descendant } = await fixture(2_000, 'cpu')
+  expect((await runtime.evaluate(request, signal())).status).toBe('evaluated')
+  const pid = descendant()
+  if (pid === undefined) throw new Error('Descendant fixture did not start')
+  try {
+    await runtime.dispose()
+    const deadline = performance.now() + 2_000
+    let alive = true
+    while (alive && performance.now() < deadline) {
+      try {
+        process.kill(pid, 0)
+      } catch {
+        alive = false
+      }
+      if (alive) await new Promise<void>((done) => setTimeout(done, 10))
+    }
+    expect(alive).toBe(false)
+  } finally {
+    try {
+      process.kill(pid, 'SIGKILL')
+    } catch {
+      /* Already ended. */
+    }
+  }
+}, 20_000)
 
 test('managed Laya reuses one authenticated local process and exposes truncation before disposing it', async () => {
   const { runtime, children } = await fixture()

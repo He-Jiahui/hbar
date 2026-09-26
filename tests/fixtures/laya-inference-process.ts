@@ -10,6 +10,7 @@ const config = z
     instanceId: z.string(),
     runtimeVersion: z.string(),
     models: z.record(z.string(), z.string()),
+    device: z.string().optional(),
   })
   .parse(JSON.parse(line))
 const requestSchema = z.object({
@@ -23,6 +24,16 @@ const requestSchema = z.object({
     }),
   ),
 })
+
+const descendant =
+  config.device === 'cpu'
+    ? Bun.spawn([process.execPath, '-e', 'setInterval(() => {}, 1000)'], {
+        windowsHide: true,
+        stdin: 'ignore',
+        stdout: 'ignore',
+        stderr: 'ignore',
+      })
+    : undefined
 
 const server = Bun.serve({
   hostname: '127.0.0.1',
@@ -74,8 +85,12 @@ const server = Bun.serve({
     })
   },
 })
-console.log('hbar-laya-ready ' + JSON.stringify({ port: server.port, instanceId: config.instanceId }))
+console.log(
+  'hbar-laya-ready ' +
+    JSON.stringify({ port: server.port, instanceId: config.instanceId, descendantPid: descendant?.pid }),
+)
 process.once('SIGTERM', () => {
+  descendant?.kill()
   server.stop(true).then(
     () => process.exit(0),
     () => process.exit(1),

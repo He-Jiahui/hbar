@@ -11,6 +11,7 @@ import { LAYA_RUNTIME_VERSION, layaInstallationSchema } from './config'
 import type { LayaConfig, LayaInstallation } from './config'
 import { wireQuestions } from './answers'
 import { LAYA_PYTHON_SOURCE } from './python-source'
+import { stopOwnedProcess } from './process'
 
 const readySchema = z.object({ port: z.number().int().min(1).max(65535), instanceId: z.string() })
 const healthSchema = z.object({
@@ -131,7 +132,7 @@ export class ManagedLayaBackend implements DecisionBackend {
     signal.throwIfAborted()
     const instanceId = randomUUID()
     this.token = randomUUID() + randomUUID()
-    const child = this.launch(python, ['-I', '-u', '-c', LAYA_PYTHON_SOURCE], {
+    const child = this.launch(python, ['-I', '-X', 'utf8', '-u', '-c', LAYA_PYTHON_SOURCE], {
       cwd: root,
       windowsHide: true,
       stdio: 'pipe',
@@ -282,13 +283,14 @@ export class ManagedLayaBackend implements DecisionBackend {
     this.endpoint = undefined
     this.token = ''
     if (!child || child.exitCode !== null) return
-    child.kill('SIGTERM')
-    const timer = setTimeout(() => child.kill('SIGKILL'), this.config.shutdownTimeoutMs)
     try {
-      await this.exited
-    } finally {
-      clearTimeout(timer)
+      await stopOwnedProcess(child, this.config.shutdownTimeoutMs)
+    } catch (error) {
+      this.disposed = true
+      this.child = child
+      throw error
     }
+    await this.exited
   }
 
   async dispose(): Promise<void> {
