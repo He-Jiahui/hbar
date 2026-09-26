@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Isolated composer permission recovery verification</title>
+    <style>
+      body {
+        margin: 0;
+      }
+      .permission-recovery-fixture {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-block-size: 100dvh;
+        padding: 16px;
+      }
+      .permission-recovery-composer {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-block-start: auto;
+        min-inline-size: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

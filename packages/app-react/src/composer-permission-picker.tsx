@@ -36,6 +36,9 @@ export interface HbarComposerPermissionLabels {
     readonly retry: string
     readonly recheck: string
     readonly approvalPaused: string
+    readonly goalPrepared: string
+    readonly cancelGoalPreparation: string
+    readonly cancellingGoalPreparation: string
   }
 }
 
@@ -60,6 +63,10 @@ export interface HbarComposerPermissionPickerProps {
   readonly plan?: {
     readonly entry: ComposerPlanModeEntry | undefined
     readonly disabled?: boolean
+    readonly goalPreparation?: {
+      readonly revision: number
+      readonly onCancel: (target: { readonly sessionId: string; readonly expectedRevision: number }) => Promise<void>
+    }
     readonly onSetMode: (mode: 'default' | 'plan', expectedRevision: number) => Promise<void>
     readonly onRefresh: () => Promise<void>
     readonly onReconcile: () => Promise<void>
@@ -111,7 +118,19 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const restoreFocus = useRef<string | null>(null)
   const inFlight = useRef(false)
   const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [actionBusy, setBusy] = useState(false)
+  const [goalCancelBusy, setGoalCancelBusy] = useState(false)
+  const [goalCancelError, setGoalCancelError] = useState<{
+    readonly sessionId: string
+    readonly revision: number
+    readonly code: string
+  } | null>(null)
+  const goalCancelGeneration = useRef(0)
+  const goalCancelPending = useRef(false)
+  const goalCancelFocus = useRef<number | null>(null)
+  const goalCancelReturn = useRef<number | null>(null)
+  const goalCancelButton = useRef<HTMLButtonElement>(null)
+  const busy = actionBusy || goalCancelBusy
   const [confirmation, setConfirmation] = useState<{
     sessionId: string
     revision: number
@@ -121,6 +140,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const popupId = useId()
   const headingId = useId()
   const bodyId = useId()
+  const goalPreparedId = useId()
   const confirming =
     confirmation?.sessionId === sessionId && confirmation.revision === revision && !unavailable ? confirmation : null
   const error =
@@ -129,9 +149,56 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       : (entry?.error ?? (choice === 'inherit' ? hostDefault.error : null))
   const plan = props.plan
   const planEntry = plan?.entry?.sessionId === sessionId ? plan.entry : undefined
+  const goalPreparation = plan?.goalPreparation
   const planSelected = planEntry?.status === 'ready' && planEntry.mode === 'plan'
   const planBlocked =
-    planEntry?.status !== 'ready' || preparationUnavailable || busy || Boolean(plan?.disabled && !planSelected)
+    planEntry?.status !== 'ready' ||
+    preparationUnavailable ||
+    busy ||
+    Boolean((plan?.disabled || goalPreparation) && !planSelected)
+
+  useEffect(() => {
+    const generation = goalCancelGeneration.current + 1
+    goalCancelGeneration.current = generation
+    goalCancelPending.current = false
+    goalCancelFocus.current = null
+    goalCancelReturn.current = null
+    setGoalCancelBusy(false)
+    setGoalCancelError(null)
+    return () => {
+      goalCancelGeneration.current = generation + 1
+      goalCancelPending.current = false
+      goalCancelFocus.current = null
+      goalCancelReturn.current = null
+    }
+  }, [sessionId])
+  useEffect(() => {
+    if (busy || goalPreparation || goalCancelFocus.current !== goalCancelGeneration.current) return
+    goalCancelFocus.current = null
+    if (
+      popup.current?.matches(':popover-open') &&
+      (document.activeElement === goalCancelButton.current || document.activeElement === document.body)
+    )
+      popup.current.querySelector<HTMLButtonElement>('[data-choice="plan"]:not(:disabled)')?.focus()
+  }, [busy, goalPreparation])
+  useEffect(() => {
+    if (busy || goalCancelReturn.current !== goalCancelGeneration.current) return
+    goalCancelReturn.current = null
+    const active = document.activeElement
+    // Closing while the trigger is disabled defers its focus return. A later
+    // deliberate focus move or another top-layer interaction wins over it.
+    if (
+      !unavailable &&
+      !document.querySelector('dialog[open], [popover]:popover-open') &&
+      (active === document.body || (active && popup.current?.contains(active)) || !active?.isConnected)
+    )
+      anchor.current?.focus()
+  }, [busy, unavailable])
+  const closePopover = () => {
+    if (goalCancelPending.current) goalCancelReturn.current = goalCancelGeneration.current
+    popup.current?.hidePopover()
+    anchor.current?.focus()
+  }
 
   useEffect(() => {
     owner.current = { sessionId, revision }
@@ -166,7 +233,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       })
   }
   const select = (target: ComposerPermissionSelection) => {
-    if (preparationUnavailable || inFlight.current) return
+    if (preparationUnavailable || busy || goalCancelPending.current || inFlight.current) return
     inFlight.current = true
     setBusy(true)
     setLocalError(null)
@@ -187,8 +254,34 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         setBusy(false)
       })
   }
+  const cancelGoalPreparation = () => {
+    if (!goalPreparation || unavailable || busy || inFlight.current || goalCancelPending.current) return
+    const generation = goalCancelGeneration.current
+    const target = { sessionId, expectedRevision: goalPreparation.revision }
+    goalCancelPending.current = true
+    setGoalCancelBusy(true)
+    setGoalCancelError(null)
+    void Promise.resolve()
+      .then(() => goalPreparation.onCancel(target))
+      .then(() => {
+        if (goalCancelGeneration.current === generation) goalCancelFocus.current = generation
+      })
+      .catch((reason: unknown) => {
+        if (goalCancelGeneration.current === generation)
+          setGoalCancelError({
+            sessionId: target.sessionId,
+            revision: target.expectedRevision,
+            code: errorCode(reason),
+          })
+      })
+      .finally(() => {
+        if (goalCancelGeneration.current !== generation) return
+        goalCancelPending.current = false
+        setGoalCancelBusy(false)
+      })
+  }
   const changePlan = (mode: 'default' | 'plan') => {
-    if (!plan || planBlocked || inFlight.current) return
+    if (!plan || planBlocked || goalCancelPending.current || inFlight.current) return
     const target = { sessionId, revision: planEntry?.revision ?? 0 }
     inFlight.current = true
     setBusy(true)
@@ -210,7 +303,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       })
   }
   const checkPlan = (reconcile: boolean) => {
-    if (!plan || !connected || busy || inFlight.current) return
+    if (!plan || !connected || busy || goalCancelPending.current || inFlight.current) return
     const target = { sessionId, revision }
     inFlight.current = true
     setBusy(true)
@@ -328,6 +421,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         }}
         onToggle={(event) => {
           const opening = event.newState === 'open'
+          // Native Escape can light-dismiss while a disabled action has left
+          // focus on BODY, so no key event reaches this popover's handler.
+          if (!opening && goalCancelPending.current) goalCancelReturn.current = goalCancelGeneration.current
           setOpen(opening)
           setConfirmation(null)
           if (opening) {
@@ -344,8 +440,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           if (event.key === 'Escape') {
             event.preventDefault()
             event.stopPropagation()
-            popup.current?.hidePopover()
-            anchor.current?.focus()
+            closePopover()
           }
         }}
       >
@@ -359,10 +454,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
             variant="text"
             indicator="none"
             aria-label={labels.close}
-            onClick={() => {
-              popup.current?.hidePopover()
-              anchor.current?.focus()
-            }}
+            onClick={closePopover}
           >
             <LumenIcon icon={X} tier="sm" />
           </LumenButton>
@@ -420,6 +512,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     indicator="none"
                     role="menuitemcheckbox"
                     aria-checked={planSelected}
+                    aria-describedby={goalPreparation && !planSelected ? goalPreparedId : undefined}
                     disabled={planBlocked}
                     className="hbar-composer-permission-option hbar-composer-plan-option"
                     data-choice="plan"
@@ -434,6 +527,29 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                   </LumenButton>
                 )}
               </LumenFrame>
+              {goalPreparation && !planSelected && (
+                <LumenFrame className="hbar-composer-permission-goal-recovery">
+                  <LumenText as="p" id={goalPreparedId}>
+                    {labels.plan.goalPrepared}
+                  </LumenText>
+                  <LumenButton
+                    ref={goalCancelButton}
+                    type="button"
+                    size="s"
+                    disabled={unavailable || busy}
+                    aria-describedby={goalPreparedId}
+                    onClick={cancelGoalPreparation}
+                  >
+                    {goalCancelBusy ? labels.plan.cancellingGoalPreparation : labels.plan.cancelGoalPreparation}
+                  </LumenButton>
+                  {goalCancelError?.sessionId === sessionId &&
+                    goalCancelError.revision === goalPreparation.revision && (
+                      <LumenText as="p" role="alert">
+                        {labels.error(goalCancelError.code)}
+                      </LumenText>
+                    )}
+                </LumenFrame>
+              )}
               {plan && (
                 <LumenText as="p" className="hbar-composer-permission-hint">
                   {labels.plan.scope}

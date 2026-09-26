@@ -19,6 +19,9 @@ const labels: HbarComposerPermissionLabels = {
     retry: '重试读取',
     recheck: '核对',
     approvalPaused: '先退出计划模式才能修改审批选择',
+    goalPrepared: '先取消目标准备，才能进入计划模式；保留文字与附件',
+    cancelGoalPreparation: '取消目标准备',
+    cancellingGoalPreparation: '正在取消目标准备',
   },
   trigger: (choice) => `工具审批：${choice}`,
   close: '关闭权限选择',
@@ -114,6 +117,36 @@ test('long host-supplied names and exact default labels remain semantic text wit
   expect(html).toContain(`最近读取：${longLabel}`)
   expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
   expect(html).toContain('data-choice="allow"')
+})
+
+test('prepared Goal explains its Plan conflict with a separate localized cancellation action', () => {
+  const input = props()
+  const plan = {
+    entry: { sessionId: 'a', mode: 'default' as const, status: 'ready' as const, error: null, revision: 3 },
+    goalPreparation: { revision: 7, onCancel: async () => {} },
+    onSetMode: async () => {},
+    onRefresh: async () => {},
+    onReconcile: async () => {},
+  }
+  const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} />)
+  expect(html).toContain(labels.plan.goalPrepared)
+  expect(html).toContain(labels.plan.cancelGoalPreparation)
+  expect(html).toContain('aria-describedby=')
+  expect(html.match(/<button[^>]*role="menuitemcheckbox"[^>]*disabled=""/g)).toHaveLength(1)
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
+  expect(html).not.toContain(labels.plan.cancellingGoalPreparation)
+  const busy = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} disabled />)
+  expect(busy).toContain(labels.plan.goalPrepared)
+  expect(busy.match(/<button[^>]*disabled=""/g)).toHaveLength(7)
+  const unprepared = renderToStaticMarkup(
+    <HbarComposerPermissionPicker
+      {...input}
+      plan={{ entry: plan.entry, onSetMode: plan.onSetMode, onRefresh: plan.onRefresh, onReconcile: plan.onReconcile }}
+    />,
+  )
+  expect(unprepared).not.toContain(labels.plan.goalPrepared)
+  expect(unprepared).not.toContain(labels.plan.cancelGoalPreparation)
+  expect(unprepared).toContain(labels.plan.description)
 })
 
 test('stale other-session entry never displays its permission as this session selection', () => {

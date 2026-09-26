@@ -26,6 +26,7 @@ import { generalSettingsCopy } from './general-settings-copy'
 import type { WebGeneralSettingsLabels } from './GeneralSettings'
 import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layout-copy'
 import { sidebarLayoutCopy, type SidebarLayoutLabels } from './sidebar-layout-copy'
+import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -1025,6 +1026,12 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           '计划模式中暂不可改工具审批；先退出计划模式。原本次发送选择保留，服务端仍拒绝写入工具。',
           'Exit Plan mode before changing tool approval. Your next-send choice is retained; the Host still denies write tools.',
         ),
+        goalPrepared: choose(
+          '先取消目标准备，才能进入计划模式。文字和附件会保留。',
+          'Cancel goal preparation before entering Plan mode. Your text and attachments will be kept.',
+        ),
+        cancelGoalPreparation: choose('取消目标准备', 'Cancel goal preparation'),
+        cancellingGoalPreparation: choose('正在取消目标准备…', 'Cancelling goal preparation…'),
       },
       trigger: (value) => choose(`执行选项：${value}`, `Execution options: ${value}`),
       close: choose('关闭执行选项', 'Close execution options'),
@@ -1264,6 +1271,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       error,
     },
     intent: {
+      blocked: composerIntentBlockedCopy(locale),
       goal: choose('目标', 'Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
       goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),

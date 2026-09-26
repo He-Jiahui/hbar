@@ -134,6 +134,20 @@
   display: none;
 }
 
+.hbar-composer-permission-goal-recovery {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.hbar-composer-permission-goal-recovery > button {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .hbar-composer-permission-actions {
   justify-content: flex-end;
   flex-wrap: wrap;

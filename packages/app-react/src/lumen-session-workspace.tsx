@@ -1107,6 +1107,19 @@ function SessionWorkspaceContent({
                         plan: {
                           entry: planModeEntry,
                           disabled: intent === 'goal',
+                          ...(intent === 'goal'
+                            ? {
+                                goalPreparation: {
+                                  revision: intentEntry?.revision ?? 0,
+                                  onCancel: async (target: { sessionId: string; expectedRevision: number }) => {
+                                    await runtime.commands.execute('composerIntent.setIntent', {
+                                      ...target,
+                                      intent: 'default',
+                                    })
+                                  },
+                                },
+                              }
+                            : {}),
                           onSetMode: async (mode: 'default' | 'plan', expectedRevision: number) => {
                             await runtime.commands.execute('composerPlanMode.setMode', {
                               sessionId,
@@ -1130,11 +1143,9 @@ function SessionWorkspaceContent({
                 sessionId={sessionId}
                 connected={connected}
                 disabled={
-                  !canPrepare ||
-                  draft?.status === 'submitting' ||
-                  draft?.status === 'unknown' ||
-                  Boolean(permissionEntry?.locked)
+                  draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
                 }
+                canPrepare={canPrepare}
                 labels={labels.intent}
               />
             </LumenFrame>

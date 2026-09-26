@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import { Expand, Pause, Play, Target, Trash2, X } from 'lucide-react'
+import { Expand, Pause, Play, Target, Trash2 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import type { HbarComposerIntentControlLabels } from './composer-intent-blocked'
 import './composer-intent-controls.css'
 
 type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['goal']>
 
-export interface HbarComposerIntentLabels {
-  readonly goal: string
+export interface HbarComposerIntentLabels extends HbarComposerIntentControlLabels {
   readonly currentGoal: string
-  readonly goalHint: string
-  readonly cancelGoal: string
   readonly goalPlaceholder: string
   readonly planPlaceholder: string
   readonly statuses: Readonly<Record<Goal['status'], string>>
@@ -32,67 +30,7 @@ export interface HbarComposerIntentLabels {
   readonly error: (code: string) => string
 }
 
-export function HbarComposerIntentControls({
-  sessionId,
-  connected,
-  disabled,
-  labels,
-}: {
-  readonly sessionId: string
-  readonly connected: boolean
-  readonly disabled: boolean
-  readonly labels: HbarComposerIntentLabels
-}) {
-  const runtime = useHbarRuntime()
-  const state = useHbarRuntimeState(runtime.state.composerIntent)
-  const planState = useHbarRuntimeState(runtime.state.composerPlanMode)
-  const plan = planState.entries[sessionId]
-  const entry = state.entries[sessionId]
-  const intent = entry?.intent ?? 'default'
-  const busy =
-    disabled || !connected || entry?.submission.status === 'submitting' || entry?.submission.status === 'unknown'
-  const existingGoal = state.facts.sessionId === sessionId ? state.facts.snapshot?.goal : null
-  const [error, setError] = useState<string | null>(null)
-  const toggle = () => {
-    setError(null)
-    void runtime.commands
-      .execute('composerIntent.setIntent', {
-        sessionId,
-        intent: intent === 'goal' ? 'default' : 'goal',
-        expectedRevision: entry?.revision ?? 0,
-      })
-      .catch((reason: unknown) => setError(commandCode(reason)))
-  }
-  return (
-    <LumenFrame className="hbar-composer-intents">
-      <LumenButton
-        type="button"
-        size="s"
-        variant="text"
-        indicator="none"
-        aria-pressed={intent === 'goal'}
-        aria-label={intent === 'goal' ? labels.cancelGoal : labels.goal}
-        title={labels.goalHint}
-        disabled={
-          busy ||
-          (intent !== 'goal' && planState.available && (plan?.status !== 'ready' || plan.mode === 'plan')) ||
-          (intent !== 'goal' &&
-            (state.facts.status !== 'ready' || Boolean(existingGoal && existingGoal.status !== 'complete')))
-        }
-        onClick={toggle}
-      >
-        <LumenIcon icon={Target} tier="sm" />
-        {labels.goal}
-        {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
-      </LumenButton>
-      {error && (
-        <LumenText as="span" role="alert">
-          {labels.error(error)}
-        </LumenText>
-      )}
-    </LumenFrame>
-  )
-}
+export { HbarComposerIntentControl as HbarComposerIntentControls } from './composer-intent-blocked'
 
 function commandCode(reason: unknown) {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'

@@ -277,6 +277,13 @@ function isOverlaySelector(path, selector) {
   )
     return true
   // cc-haha PermissionModeSelector: composer-trigger overlay / narrow bottom sheet.
+  // Goal/Plan mutual-exclusion recovery uses the same observed trigger-owned
+  // dialog relationship; its explanation and actions remain in normal flow.
+  if (
+    /packages\/app-react\/src\/composer-intent-blocked\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-composer-intent-blocked-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+  )
+    return true
   // Only this evidenced top-layer container; its option and confirmation content stays in flex flow.
   if (
     /packages\/app-react\/src\/composer-permission-picker\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -880,6 +887,17 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
       throw new Error('Composer mention overlay exception leaked to content or another file')
   }
   const permissionPath = 'packages/app-react/src/composer-permission-picker.css'
+  const intentBlockedPath = 'packages/app-react/src/composer-intent-blocked.css'
+  if (validateCss(intentBlockedPath, '.hbar-composer-intent-blocked-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected scoped Goal/Plan explanation overlay')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-composer-intent-blocked-popover'],
+    [intentBlockedPath, '.hbar-composer-intent-blocked-popover > button'],
+    [intentBlockedPath, '.hbar-composer-intent-blocked-body'],
+  ]) {
+    if (validateCss(path, `${selector} { position: fixed; }`).length !== 1)
+      throw new Error('Goal/Plan explanation overlay exception leaked')
+  }
   const usagePath = 'packages/app-react/src/session-usage-control.css'
   if (validateCss(usagePath, '.hbar-session-usage-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed session usage popover container')
