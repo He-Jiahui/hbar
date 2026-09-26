@@ -60,6 +60,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(6, localized)).toContain('Bestätigen Sie Ihre Identität')
         expect(renderAuthentication(7, localized)).toContain('Konto erstellen')
         expect(renderAuthentication(8, localized)).toContain('Mit Ihrem Unternehmenskonto anmelden')
+        expect(renderAuthentication(9, localized)).toContain('Mit einem Passkey anmelden')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -241,6 +242,24 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(legacy).toContain('hbar-app-ui-auth-organization-layout')
     })
 
+    test('passkey reference keeps selected device and request phase in the Host contract', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.passkey
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected passkey fixture')
+        const initial = renderAuthentication(9)
+        expect(initial).toContain('<fieldset')
+        expect(occurrences(initial, 'aria-pressed=')).toBe(3)
+        const request = renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...base, referenceFlow: {...flow, phase: 'request', selectedId: 'phone'}}})
+        expect(request).toContain("Confirm on Dana&#x27;s iPhone")
+        expect(request).toContain(flow.labels.waiting)
+        expect(request).not.toContain('hbar-app-ui-auth-passkey-options')
+        const empty = renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...base, passkeys: [], referenceFlow: {...flow, selectedId: ''}}})
+        expect(empty).toContain(base.labels.emptyPasskeys)
+        expect(empty).toContain('disabled=""')
+        const legacy = renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-device-list')
+    })
+
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {
         const passkey = HBAR_APP_UI_AUTHENTICATION_FIXTURES.passkey
         const account = HBAR_APP_UI_AUTHENTICATION_FIXTURES.account
@@ -268,13 +287,13 @@ describe('hbar-app-ui authentication surfaces', () => {
 
         const onePasskey = {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...passkey, passkeys: [passkey.passkeys[0]!], initialPasskeyId: passkey.passkeys[0]!.id}}
         const oneWorkspace = {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, workspace: {...workspace, workspaces: [workspace.workspaces[0]!], initialWorkspaceId: workspace.workspaces[0]!.id}}
-        expect(occurrences(renderAuthentication(9, onePasskey), 'hbar-app-ui-auth-device-row')).toBe(1)
+        expect(occurrences(renderAuthentication(9, onePasskey), 'hbar-app-ui-auth-passkey-option ')).toBe(1)
         expect(occurrences(renderAuthentication(11, oneWorkspace), 'hbar-app-ui-auth-workspace-row')).toBe(1)
 
         const boundaryPasskeys = Array.from({length: passkey.listStrategy.expectedMaximum}, (_, index) => ({...passkey.passkeys[0]!, id: `boundary-passkey-${index}`, name: `Boundary passkey ${index}`}))
         const overPasskeys = [...boundaryPasskeys, {...passkey.passkeys[0]!, id: 'over-passkey', name: 'Over-bound passkey'}]
-        expect(occurrences(renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...passkey, passkeys: boundaryPasskeys}}), 'hbar-app-ui-auth-device-row')).toBe(passkey.listStrategy.expectedMaximum)
-        expect(occurrences(renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...passkey, passkeys: overPasskeys}}), 'hbar-app-ui-auth-device-row')).toBe(passkey.listStrategy.expectedMaximum + 1)
+        expect(occurrences(renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...passkey, passkeys: boundaryPasskeys}}), 'hbar-app-ui-auth-passkey-option ')).toBe(passkey.listStrategy.expectedMaximum)
+        expect(occurrences(renderAuthentication(9, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, passkey: {...passkey, passkeys: overPasskeys}}), 'hbar-app-ui-auth-passkey-option ')).toBe(passkey.listStrategy.expectedMaximum + 1)
 
         const boundaryWorkspaces = Array.from({length: workspace.listStrategy.expectedMaximum}, (_, index) => ({...workspace.workspaces[0]!, id: `boundary-workspace-${index}`, name: `Boundary workspace ${index}`}))
         const overWorkspaces = [...boundaryWorkspaces, {...workspace.workspaces[0]!, id: 'over-workspace', name: 'Over-bound workspace'}]
@@ -302,7 +321,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(13, overflow)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
         expect(occurrences(renderAuthentication(10, overflow), 'hbar-app-ui-auth-account-row')).toBe(account.accounts.length + 1)
         expect(occurrences(renderAuthentication(11, overflow), 'hbar-app-ui-auth-workspace-row')).toBe(workspace.workspaces.length)
-        expect(occurrences(renderAuthentication(9, overflow), 'hbar-app-ui-auth-device-row')).toBe(passkey.passkeys.length)
+        expect(occurrences(renderAuthentication(9, overflow), 'hbar-app-ui-auth-passkey-option ')).toBe(passkey.passkeys.length)
         expect(occurrences(renderAuthentication(12, overflow), 'hbar-app-ui-auth-project-row')).toBe(invitation.projects.length)
         expect(occurrences(renderAuthentication(13, overflow), 'class="hbar-app-ui-auth-reset-device"')).toBe(passwordReset.devices.length)
         expect(occurrences(renderAuthentication(14, overflow), 'hbar-app-ui-auth-recent-row')).toBe(approval.recent.length)

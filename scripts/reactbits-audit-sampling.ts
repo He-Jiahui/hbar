@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-9')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-passkey-reference.css', 'authentication/PasskeyAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Choosing a second device moves pressed state, checkmark and Continue target' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-passkey-selected:3:click', change: 'Continue replaces choice card with device-confirmation request' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-passkey-request:0:click', change: 'Cancel request restores the selected device list' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Default device enters its own confirmation request' },
+        { viewport: 'desktop', theme: 'dark', suffix: '4:click', change: 'Password alternative has no documentation navigation' },
+        { viewport: 'tablet', theme: 'light', suffix: '5:click', change: 'Email-link alternative has no documentation navigation' },
+        { viewport: 'mobile', theme: 'dark', suffix: '2:click', change: 'Third hardware-key selection changes the compact target' },
+        { viewport: 'stress', theme: 'light', suffix: '1:press-space', change: 'Keyboard selection preserves the observed narrow intrinsic row overflow' },
+        { viewport: 'stress', theme: 'dark', suffix: '3:click', change: 'Narrow confirmation request keeps its footer in content flow' },
+      ],
+      inferences: [
+        { scope: 'Repeated device rows and gestures', basis: 'Three distinct device types share the same host-selected item contract; second and third row changes, keyboard selection, request and cancel represent their feedback without multiplying every viewport by every row.', verification: 'inferred-not-replayed' },
+        { scope: 'Narrow source clipping', basis: 'The stress reference has an intrinsic 251px device row in a 172px content column; eight static pairs and one narrow keyboard selection capture this source-visible behavior without treating it as a positioned overlay.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-8')
     return {
       revision: 2,

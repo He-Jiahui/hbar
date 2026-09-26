@@ -24,7 +24,9 @@ export function AuthenticationPreviewHost({
     [signUpVisible, setSignUpVisible] = useState(content.signUp?.referenceFlow?.visible ?? false),
     [signUpAgreed, setSignUpAgreed] = useState(content.signUp?.referenceFlow?.agreed ?? false),
     [enterpriseEmail, setEnterpriseEmail] = useState(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? ''),
-    [enterpriseBusy, setEnterpriseBusy] = useState(false)
+    [enterpriseBusy, setEnterpriseBusy] = useState(false),
+    [passkeySelectedId, setPasskeySelectedId] = useState(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? ''),
+    [passkeyPhase, setPasskeyPhase] = useState<'choose' | 'request'>(content.passkey?.referenceFlow?.phase ?? 'choose')
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
@@ -41,6 +43,8 @@ export function AuthenticationPreviewHost({
     setSignUpAgreed(content.signUp?.referenceFlow?.agreed ?? false)
     setEnterpriseEmail(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? '')
     setEnterpriseBusy(false)
+    setPasskeySelectedId(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? '')
+    setPasskeyPhase(content.passkey?.referenceFlow?.phase ?? 'choose')
   }
   useEffect(() => {
     if (!seconds) return
@@ -150,6 +154,20 @@ export function AuthenticationPreviewHost({
                 setEnterpriseBusy(false)
               }, 1800)
             },
+          },
+        },
+        passkey: content.passkey && {
+          ...content.passkey,
+          referenceFlow: content.passkey.referenceFlow && {
+            ...content.passkey.referenceFlow,
+            selectedId: passkeySelectedId,
+            phase: passkeyPhase,
+            onSelect: setPasskeySelectedId,
+            onContinue: (id) => {
+              setPasskeyPhase('request')
+              onAction?.({ variantId: spec.id, actionId: 'continue-passkey', value: id })
+            },
+            onCancel: () => setPasskeyPhase('choose'),
           },
         },
       }}

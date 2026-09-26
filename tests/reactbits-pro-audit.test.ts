@@ -301,6 +301,13 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('passkey audit samples selection, request, cancellation and fallbacks without per-device permutation', () => {
+    const id = 'hbar-app-ui-authentication-9'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(9)
+    expect(sampledInteractionIds(id, 'desktop', 'light')).toContain(`${id}:auth-passkey-request:0:click`)
+    expect(sampledInteractionIds(id, 'stress', 'light')).toContain(`${id}:1:press-space`)
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([`${id}:5:click`])
+  })
   test('enterprise audit samples domain transitions and pending redirect without probing passive organization data', () => {
     const id = 'hbar-app-ui-authentication-8'
     expect(auditSamplingPlan(id)?.samples).toHaveLength(9)

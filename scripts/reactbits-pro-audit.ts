@@ -294,6 +294,8 @@ export type InteractionCase = Readonly<{
     | 'auth-signup-ready'
     | 'auth-signup-invalid-email'
     | 'auth-enterprise-mismatch'
+    | 'auth-passkey-selected'
+    | 'auth-passkey-request'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1747,6 +1749,16 @@ async function prepareAuthenticationSignUpScenario(root: Locator, scenario: (typ
 }
 async function prepareAuthenticationEnterpriseMismatch(root: Locator): Promise<void> {
   await root.getByRole('textbox', { name: 'Work email' }).fill('dana@example.test')
+}
+const authenticationPasskeyScenarios = ['auth-passkey-selected', 'auth-passkey-request'] as const
+async function prepareAuthenticationPasskeyScenario(root: Locator, scenario: (typeof authenticationPasskeyScenarios)[number]): Promise<void> {
+  if (await root.getByRole('button', { name: /Dana's iPhone Face ID/ }).count())
+    await root.getByRole('button', { name: /Dana's iPhone Face ID/ }).click()
+  if (scenario === 'auth-passkey-request') {
+    if (await root.getByRole('button', { name: "Continue with Dana's iPhone" }).count())
+      await root.getByRole('button', { name: "Continue with Dana's iPhone" }).click()
+    await root.getByRole('button', { name: 'Cancel request' }).waitFor({ state: 'visible' })
+  }
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3345,6 +3357,8 @@ async function replayInteraction(
     await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-8' && interaction.scenario === 'auth-enterprise-mismatch')
     await prepareAuthenticationEnterpriseMismatch(root)
+  if (spec.id === 'hbar-app-ui-authentication-9' && authenticationPasskeyScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3644,6 +3658,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-8' && interaction.scenario === 'auth-enterprise-mismatch')
     await prepareAuthenticationEnterpriseMismatch(root)
+  if (reference.id === 'hbar-app-ui-authentication-9' && authenticationPasskeyScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4270,6 +4286,13 @@ async function runInteractionsParallel(
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-enterprise-mismatch').map((item) =>
                 item.id === `${spec.id}:auth-enterprise-mismatch:0:fill` ? { ...item, fillValue: 'dana@northwind.com' } : item,
               ))
+            }
+            if (spec.id === 'hbar-app-ui-authentication-9') {
+              for (const scenario of authenticationPasskeyScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationPasskeyScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
