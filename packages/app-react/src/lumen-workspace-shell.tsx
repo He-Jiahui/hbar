@@ -29,6 +29,8 @@ import {
   LumenSidebarAction,
   LumenText,
   type LumenIconTier,
+  type LumenAppShellProps,
+  type LumenToolPresentation,
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
 import { sortPinnedWorkspaces } from '@hbar/app-runtime'
@@ -45,6 +47,11 @@ import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels }
 import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } from './session-archive'
 import { useSessionRosterRefresh } from './session-roster-refresh'
 import { SessionRosterFeedback, type SessionRosterRefreshLabels } from './session-roster-feedback'
+import {
+  getWorkspaceToolFocusSnapshot,
+  shouldCollapseWorkspaceSidebar,
+  useWorkspaceToolFocus,
+} from './workspace-tool-focus'
 
 export interface HbarWorkspaceShellLabels {
   readonly main: string
@@ -111,6 +118,12 @@ export interface HbarWorkspaceShellProps {
   readonly labels: HbarWorkspaceShellLabels
   readonly sidebarWidthRem: number
   readonly toolWidthRem?: number
+  readonly toolLayout?: LumenAppShellProps['toolLayout']
+  readonly toolResize?: LumenAppShellProps['toolResize']
+  readonly mainRef?: LumenAppShellProps['mainRef']
+  readonly toolRef?: LumenAppShellProps['toolRef']
+  readonly resizeRef?: LumenAppShellProps['resizeRef']
+  readonly onToolPresentationChange?: LumenAppShellProps['onToolPresentationChange']
   readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
   readonly onReconnect: () => void
   readonly titlebar?: ReactNode
@@ -121,6 +134,19 @@ export interface HbarWorkspaceShellProps {
 }
 
 const PAGE_SIZE = 100
+
+function forwardShellRef(ref: LumenAppShellProps['mainRef'], node: HTMLElement | null): (() => void) | undefined {
+  if (typeof ref === 'function') {
+    const cleanup = ref(node)
+    if (typeof cleanup === 'function')
+      return () => {
+        cleanup()
+      }
+    return undefined
+  }
+  if (ref) ref.current = node
+  return undefined
+}
 
 const workspaceShellIcons = {
   activity: Activity,
@@ -199,6 +225,76 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const rosterRefresh = useHbarRuntimeState(runtime.state.sessionRosterRefresh)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const workspaceTabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const mainRef = useRef<HTMLElement | null>(null)
+  const toolRef = useRef<HTMLElement | null>(null)
+  const sidebarFocusRef = useRef<HTMLButtonElement | null>(null)
+  const resizeRef = useRef<HTMLElement | null>(null)
+  const [toolPresentation, setToolPresentation] = useState<LumenToolPresentation>('none')
+  const [toolFocusError, setToolFocusError] = useState<{ key: string; code: string } | null>(null)
+  const focusSnapshot = getWorkspaceToolFocusSnapshot(
+    navigation,
+    presentation,
+    surfaces,
+    workspaceTabs,
+    Boolean(props.tool && props.toolLayout),
+    toolPresentation,
+  )
+  useWorkspaceToolFocus(runtime, {
+    enabled: Boolean(props.tool && props.toolLayout),
+    mainRef,
+    toolRef,
+    sidebarRef: sidebarFocusRef,
+    resizeRef,
+    presentation: toolPresentation,
+    onError: (target, code) => setToolFocusError({ key: target.key, code }),
+  })
+  const attachMain = useCallback(
+    (node: HTMLElement | null) => {
+      mainRef.current = node
+      const cleanup = forwardShellRef(props.mainRef, node)
+      return () => {
+        mainRef.current = null
+        if (typeof cleanup === 'function') cleanup()
+        else forwardShellRef(props.mainRef, null)
+      }
+    },
+    [props.mainRef],
+  )
+  const attachTool = useCallback(
+    (node: HTMLElement | null) => {
+      toolRef.current = node
+      const cleanup = forwardShellRef(props.toolRef, node)
+      return () => {
+        toolRef.current = null
+        if (typeof cleanup === 'function') cleanup()
+        else forwardShellRef(props.toolRef, null)
+      }
+    },
+    [props.toolRef],
+  )
+  const attachResize = useCallback(
+    (node: HTMLElement | null) => {
+      resizeRef.current = node
+      const cleanup = forwardShellRef(props.resizeRef, node)
+      return () => {
+        resizeRef.current = null
+        if (typeof cleanup === 'function') cleanup()
+        else forwardShellRef(props.resizeRef, null)
+      }
+    },
+    [props.resizeRef],
+  )
+  const reportToolPresentation = props.onToolPresentationChange
+  const onToolPresentationChange = useCallback(
+    (mode: LumenToolPresentation) => {
+      setToolPresentation(mode)
+      reportToolPresentation?.(mode)
+    },
+    [reportToolPresentation],
+  )
+  useEffect(() => setToolFocusError(null), [focusSnapshot.target?.key])
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
   )
@@ -288,7 +384,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   useEffect(() => {
     const narrow = window.matchMedia('(max-width: 63.9375rem)')
     const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
-      if (event.matches && runtime.state.presentation.getSnapshot().sidebarOpen)
+      if (
+        shouldCollapseWorkspaceSidebar(
+          event.matches,
+          runtime.state.presentation.getSnapshot().sidebarOpen,
+          document.querySelector('dialog:modal') !== null,
+        )
+      )
         void execute('app.setSidebarVisible', { visible: false }).catch(recordError)
     }
     closeNarrowSidebar(narrow)
@@ -481,6 +583,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       titlebar={props.titlebar}
       sidebarWidthRem={props.sidebarWidthRem}
       {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
+      toolLayout={props.toolLayout}
+      toolResize={props.toolResize}
+      mainRef={attachMain}
+      toolRef={attachTool}
+      resizeRef={attachResize}
+      onToolPresentationChange={onToolPresentationChange}
       sidebarOpen={presentation.sidebarOpen}
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
@@ -492,7 +600,20 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           <LumenText as="strong">{props.labels.brand}</LumenText>
         </LumenFrame>
       }
-      tool={props.tool}
+      tool={
+        props.tool ? (
+          <LumenFrame className="hbar-app-react-tool-content">
+            {props.tool}
+            {toolFocusError && toolFocusError.key === focusSnapshot.target?.key && (
+              <LumenText as="p" role="alert" className="hbar-app-react-tool-focus-error">
+                {props.labels.error(toolFocusError.code)}
+              </LumenText>
+            )}
+          </LumenFrame>
+        ) : (
+          props.tool
+        )
+      }
       toolLabel={props.toolLabel}
       overlay={
         <>
@@ -596,7 +717,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           emptyLabel={loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
           status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
           brandAction={
-            <LumenIconButton label={props.labels.hideSidebar} onClick={() => setSidebarVisible(false)}>
+            <LumenIconButton
+              ref={sidebarFocusRef}
+              label={props.labels.hideSidebar}
+              onClick={() => setSidebarVisible(false)}
+            >
               <WorkspaceShellIcon name="panel-close" />
             </LumenIconButton>
           }

@@ -62,9 +62,26 @@ const shellLayoutV2Schema = z
     modules: z.array(moduleSchema).length(3),
   })
   .superRefine((value, context) => {
-    const ids = value.modules.map((module) => module.moduleId)
     for (const id of ['projects', 'workspace', 'session-tool'] as const)
-      if (ids.filter((candidate) => candidate === id).length !== 1)
+      if (value.modules.filter((module) => module.moduleId === id).length !== 1)
+        context.addIssue({ code: 'custom', path: ['modules'], message: `Expected one ${id} module` })
+  })
+
+const adaptiveToolModuleSchema = toolModuleSchema.extend({
+  config: z.strictObject({ constrainedPresentation: z.literal('page'), resizable: z.boolean() }),
+})
+const shellLayoutV3Schema = z
+  .strictObject({
+    schemaVersion: z.literal(3),
+    id: z.literal('app'),
+    type: z.literal('app-shell'),
+    modules: z
+      .array(z.discriminatedUnion('moduleId', [projectsModuleSchema, workspaceModuleSchema, adaptiveToolModuleSchema]))
+      .length(3),
+  })
+  .superRefine((value, context) => {
+    for (const id of ['projects', 'workspace', 'session-tool'] as const)
+      if (value.modules.filter((module) => module.moduleId === id).length !== 1)
         context.addIssue({ code: 'custom', path: ['modules'], message: `Expected one ${id} module` })
   })
 
@@ -80,12 +97,12 @@ const shellLayoutV1Schema = z.strictObject({
   }),
 })
 
-export type ShellLayoutDescription = z.output<typeof shellLayoutV2Schema>
+export type ShellLayoutDescription = z.output<typeof shellLayoutV3Schema>
 export type ShellLayoutModule = ShellLayoutDescription['modules'][number]
 export type ShellLayoutModuleId = ShellLayoutModule['moduleId']
 
 function migrateV1(value: z.output<typeof shellLayoutV1Schema>): ShellLayoutDescription {
-  const next = structuredClone(shellLayoutV2Schema.parse(description))
+  const next = structuredClone(shellLayoutV3Schema.parse(description))
   const projects = next.modules.find((module) => module.moduleId === 'projects')!
   projects.visible = value.sidebar.visible
   projects.size.preferredRem = value.sidebar.widthRem
@@ -94,7 +111,29 @@ function migrateV1(value: z.output<typeof shellLayoutV1Schema>): ShellLayoutDesc
 
 export function normalizeShellLayout(value: ClientJsonObject): ShellLayoutDescription {
   if (value.schemaVersion === 1) return migrateV1(shellLayoutV1Schema.parse(value))
-  return shellLayoutV2Schema.parse(value)
+  if (value.schemaVersion === 2) {
+    const old = shellLayoutV2Schema.parse(value)
+    return shellLayoutV3Schema.parse({
+      ...old,
+      schemaVersion: 3,
+      modules: old.modules.map((module) =>
+        module.moduleId === 'session-tool'
+          ? { ...module, config: { constrainedPresentation: 'page', resizable: true } }
+          : module,
+      ),
+    })
+  }
+  return shellLayoutV3Schema.parse(value)
+}
+
+/** Change only this device's preferred tool width, preserving every other module choice. */
+export function withToolPaneWidth(layout: ShellLayoutDescription, widthRem: number): ShellLayoutDescription {
+  return shellLayoutV3Schema.parse({
+    ...layout,
+    modules: layout.modules.map((module) =>
+      module.moduleId === 'session-tool' ? { ...module, size: { ...module.size, preferredRem: widthRem } } : module,
+    ),
+  })
 }
 
 export function shellLayoutModule<ModuleId extends ShellLayoutModuleId>(
@@ -106,4 +145,4 @@ export function shellLayoutModule<ModuleId extends ShellLayoutModuleId>(
   return module as Extract<ShellLayoutModule, { moduleId: ModuleId }>
 }
 
-export const shellLayout = shellLayoutV2Schema.parse(description)
+export const shellLayout = shellLayoutV3Schema.parse(description)

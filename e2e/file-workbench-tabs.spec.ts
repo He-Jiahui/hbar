@@ -29,12 +29,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const copy = getShellCopy(locale)
       const tabs = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
       await page.goto(base())
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
+      const session = page.getByRole('button', {
+        name: copy.shell.openSession(host.ready.sessionTitle),
         exact: true,
       })
-      if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await expect(session).toBeVisible()
+      await session.click()
       await page.getByRole('textbox', { name: copy.session.prompt.input }).fill('source conversation draft')
       await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
       const dock = page.locator('.hbar-app-react-file-workspace:not(.hbar-app-react-file-workbench)')

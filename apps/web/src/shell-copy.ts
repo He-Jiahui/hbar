@@ -24,6 +24,7 @@ import { goalExecutionCopy } from './goal-execution-copy'
 import { composerAttachmentCopy } from './composer-attachment-copy'
 import { generalSettingsCopy } from './general-settings-copy'
 import type { WebGeneralSettingsLabels } from './GeneralSettings'
+import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layout-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -45,6 +46,7 @@ function thinkingLevelLabel(locale: ShellLocale, value: unknown): string {
 }
 
 interface ShellCopy {
+  readonly toolLayout: ToolPaneLayoutLabels
   readonly shell: HbarWorkspaceShellLabels
   readonly windowControls: {
     readonly minimize: string
@@ -2363,6 +2365,7 @@ function createArchiveLabels(locale: ShellLocale): HbarWorkspaceShellLabels['arc
 
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
+    toolLayout: toolPaneLayoutCopy('zh-CN'),
     shell: {
       main: '工作台',
       brand: 'hbar',
@@ -2486,6 +2489,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     settingsUsage: settingsUsageCopy('zh-CN'),
   },
   'en-US': {
+    toolLayout: toolPaneLayoutCopy('en-US'),
     shell: {
       main: 'Workspace',
       brand: 'hbar',

@@ -4,6 +4,28 @@ dialog.hbar-app-react-workspace-modal {
   block-size: min(52rem, calc(100dvb - 2rem));
 }
 
+.hbar-web-tool-outlet {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+.hbar-web-tool-layout-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.hbar-web-tool-layout-feedback [role='alert'] {
+  color: var(--lumen-danger);
+}
+
 .hbar-web-agent-return {
   display: flex;
   min-inline-size: 0;

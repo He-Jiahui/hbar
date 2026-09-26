@@ -18,6 +18,7 @@
 - `75763f9`：工具输出就近 Copy 的下一入口审计已独立提交。重新挂载 cc 原 ToolCallBlock 与 hbar 当前消息组件，中英1440/320及真实剪贴板明确证明差距；仅建议下一实现，不声称按钮已补齐。[对照与验收要求](desktop-next-conversation-entry-audit.md)。
 - `2c68156`：工作台容器导航的独立后续审计，原组件／生产真实 Host 共16场景，复核14条跨版面入口。明确900／390／320抽屉背景仍能Tab、关闭／展开焦点丢失，同时保留已正确工作的Back与Settings往返；参考900也有自身裁切，不机械照搬尺寸。下一优先级是完整自适应容器与进出焦点，然后会话显隐归属与多文件预览标签。[实证与边界](desktop-workbench-navigation-followup-audit.md)。这是审计，不是布局修复。
 - 工具输出 Copy 已按原参考入口落地：输出标题旁独立复制完整已加载结果、局部成功／失败重试、1m UTF-16明确容量、按原目标及内容版本失效迟到回执；不扩展正文Copy、不执行工具，归档历史仍可用。最终生产真实Host2/2＋受控DOM2/2、原消息阅读回归1/1及新资源真实原生中英900/1440通过。根串行门禁1931/1931全绿。[交付及各层证据边界](desktop-tool-result-copy.md)。
+- 工作台容器 P1 已实现：Files／Monitoring／Agents／Goals 按扣除侧栏后的真实空间使用有界并排或完整工具页，分隔条键鼠调宽接入原布局 CAS；背景原 DOM inert 保稿，关闭、展开、来源 Back、native dialog 与 Ctrl+K 取消都有明确焦点返回。新真实 Host 中英6/6覆盖48工具宽度状态，64项定向回归全绿，最终新资源真实原生16工具案例＋2条Files完整链＋6条命令面板返回链通过。共享实现独立提交 `7c3ed8f962`；定稿门禁和旧回归明细见[本单元交付](desktop-workbench-navigation-presentation.md)。不复制参考900自身裁切，也不把 P2/P3 或通用 desktop smoke 算作完成。
 
 本次集成检查的时间点需另行区分：根lint/typecheck曾通过，随后并行Lumen通知修改引入缺失stylesheet，边界suite首次12 pass/1 fail/1加载错误；文件落地后重跑13 pass/0 fail/55断言。继续的 `bun run check` 在严格lint阶段因外部通知 `Header` 未使用与fixture未完成的 `system/handler` 引用退出1；日志 `artifacts/desktop-entry-matrix/final-stable-check.log`。未进入该次typecheck/全量test，不将此串行门禁描述为通过。这些外部文件保留给原任务处理。
 
@@ -31,6 +32,8 @@
 **归档执行准备单元最新串行门禁**：`bun run check` 的原生工具、根 strict lint/typecheck通过；完整Bun **1909 pass / 1 fail / 14208 assertions，344文件，242.98秒**，总exit1。唯一失败为并行未提交 `hbar-ui/packages/lumen-app-ui/src/notifications.tsx` 的原生按钮违反canonical控件边界，独立边界重跑仍2pass/1fail。未改或夹带该外部文件，不把本单元真实Host10/10及原生通过替代全仓全绿。日志 `artifacts/session-execution-access/final-check.log`。
 
 **工具输出Copy单元最新串行门禁**：`bun run check` **exit0**，原生工具构建、根 strict lint/typecheck通过，完整Bun **1931 pass / 0 fail / 14343 assertions，345文件，248.52秒**。日志 `artifacts/tool-result-copy/final-check.log`。外部通知功能已经有它自己的后续提交，本单元未改或夹带；不把前一时点失败写成本轮失败，也不将本轮全绿回填成旧单元当时已绿。
+
+**工具容器 P1 定稿串行门禁**：`bun run check` **exit0**，原生工具、根 strict lint/typecheck通过，完整Bun **1976 pass / 0 fail / 14587 assertions，348文件，249.92秒**。日志 `artifacts/workbench-navigation-presentation/final-frozen-check.log`，对应最终 `index-CnyYjy-U.js` 源码。最终真实 Host 新矩阵6/6、既有五suite22/22、原生16工具案例＋2条Files链＋6条palette链通过。旧工作台测试的启动Expand竞态经历史与重复红测核实，只修初始化定位，保留后续断言，首轮失败不回填成绿。共享子仓标准pnpm命令仍有工具版本阻断，直接TS/声明/build通过，分别记载，见[交付](desktop-workbench-navigation-presentation.md)。
 
 ## 已验证并提交的子集
 
@@ -69,4 +72,4 @@
 
 Browser、真实终端、定时任务、市场/MCP/模板、图片材料预览及历史 rewind 不是换入口即可迁移的功能：需要相应产品/安全/持久化契约。当前 `browser.*` 是自动化，不是原生内嵌 Browser；内部 wakeup 不是 schedule CRUD；Fork 不是回滚磁盘。不得用占位 UI 声称等价。
 
-完整 Goal 生命周期、设备语言、插件详情就近启停、确认归档退役、启动设置连续性及外部归档保留视图的执行准备边界已经分别闭环。工具结果就近复制进入本轮独立封口，详见[实现与验证](desktop-tool-result-copy.md)。后续优先落实工作台工具容器的自适应布局、背景可交互性与进出焦点闭环，再审按会话保留显隐与多文件预览标签，继续全桌面逐入口矩阵及通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。
+完整 Goal 生命周期、设备语言、插件详情就近启停、确认归档退役、启动设置连续性、归档视图的执行准备、[工具结果复制](desktop-tool-result-copy.md)和[工具容器 P1](desktop-workbench-navigation-presentation.md)已分别实现并按各自记录验收。后续优先落实按会话保留工具显隐（P2）与真正多文件预览标签（P3），继续全桌面逐入口矩阵及通用原生视觉门禁。每个单元继续按参考流式布局、宿主文案/数据、就近目标反馈和独立验证／提交交付；不能只验收这些局部改进而把总 Goal 标 complete。

@@ -18,11 +18,17 @@ export function SettingsPageFocusBoundary({
   pageKind,
   sidebarOpen,
   label,
+  workbench = false,
+  viewKey,
+  toolInstanceId,
   children,
 }: {
   readonly pageKind: PresentationState['page']['kind']
   readonly sidebarOpen: boolean
   readonly label: string
+  readonly workbench?: boolean
+  readonly viewKey?: string | undefined
+  readonly toolInstanceId?: string | null | undefined
   readonly children: ReactNode
 }) {
   const boundary = useRef<HTMLDivElement>(null)
@@ -30,6 +36,8 @@ export function SettingsPageFocusBoundary({
   const lastOutsideFocus = useRef<HTMLElement | null>(null)
   const returnTarget = useRef<HTMLElement | null>(null)
   const pendingFocus = useRef<'entry' | 'return' | null>(null)
+  const previousWorkbench = useRef({ workbench, viewKey })
+  const workbenchFocus = useRef<'entry' | 'return' | null>(null)
 
   useLayoutEffect(() => {
     const rememberFocus = (event: FocusEvent) => {
@@ -68,6 +76,52 @@ export function SettingsPageFocusBoundary({
       pendingFocus.current = null
     }
   }, [pageKind, sidebarOpen])
+
+  // Workbench focus follows committed view transitions, not a late navigation
+  // Promise callback that could steal focus from a subsequently selected tab.
+  useLayoutEffect(() => {
+    const previous = previousWorkbench.current
+    previousWorkbench.current = { workbench, viewKey }
+    if (workbench && (!previous.workbench || previous.viewKey !== viewKey)) workbenchFocus.current = 'entry'
+    else if (previous.workbench && !workbench && pageKind === 'session') workbenchFocus.current = 'return'
+    else if (pageKind !== 'session') workbenchFocus.current = null
+    const flush = () => {
+      const element = boundary.current
+      if (!workbenchFocus.current || !element || !canRestoreFocus(element) || document.querySelector('dialog:modal'))
+        return
+      const active = document.activeElement
+      if (workbenchFocus.current === 'entry') element.focus({ preventScroll: true })
+      else if (active === document.body || (active instanceof Node && element.contains(active))) {
+        const tab = document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+        if (tab && canRestoreFocus(tab)) tab.focus({ preventScroll: true })
+        else element.focus({ preventScroll: true })
+      }
+      workbenchFocus.current = null
+    }
+    flush()
+    // A native confirmation can outlive the transition that queued this focus.
+    const observer = new MutationObserver((records) => {
+      if (
+        records.some(
+          (record) =>
+            record.type === 'attributes' ||
+            [...record.addedNodes, ...record.removedNodes].some(
+              (node) => node instanceof Element && (node.matches('dialog') || node.querySelector('dialog') !== null),
+            ),
+        )
+      )
+        flush()
+    })
+    // React may remove a native dialog before its close cleanup runs; that
+    // detached attribute mutation alone is no longer observable here.
+    observer.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['open'],
+    })
+    return () => observer.disconnect()
+  }, [pageKind, sidebarOpen, toolInstanceId, viewKey, workbench])
 
   return (
     <LumenFrame ref={boundary} className="hbar-settings-page-focus" role="region" aria-label={label} tabIndex={-1}>

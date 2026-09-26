@@ -85,6 +85,8 @@ import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
+import { useToolPaneLayout } from './tool-pane-layout'
+import { ToolPaneLayoutFeedback } from './ToolPaneLayoutFeedback'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
@@ -284,7 +286,14 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
           ? copy.files.title
           : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ?? copy.empty.title)
   return (
-    <SettingsPageFocusBoundary pageKind={presentation.page.kind} sidebarOpen={presentation.sidebarOpen} label={label}>
+    <SettingsPageFocusBoundary
+      pageKind={presentation.page.kind}
+      sidebarOpen={presentation.sidebarOpen}
+      label={label}
+      workbench={presentation.page.kind === 'session' && activeTab?.kind === 'workbench'}
+      viewKey={JSON.stringify([activeTab?.id, activeTab?.instanceKey])}
+      toolInstanceId={presentation.toolInstanceId}
+    >
       <WorkspaceBodyContent {...props} />
     </SettingsPageFocusBoundary>
   )
@@ -315,6 +324,7 @@ function WorkspaceBodyContent({
   })
   const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
   useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
+  useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
@@ -381,23 +391,18 @@ function WorkspaceBodyContent({
     if (!panel || panel.panelId !== 'files')
       return <LumenWorkbenchNotice title={copy.files.title} description={tabCopy.error('PANEL_NOT_FOUND')} />
     const targetLabel = directory.workspaces[activeTab.workspaceId]?.name ?? activeTab.workspaceId
-    const focusReturnedView = () => {
-      requestAnimationFrame(() => {
-        const target =
-          document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ??
-          document.querySelector<HTMLElement>('.hbar-settings-page-focus')
-        target?.focus({ preventScroll: true })
-      })
+    const reportWorkbenchError = (reason: unknown) => {
+      const current = runtime.state.workspaceTabs.getSnapshot()
+      if (
+        current.activeId === activeTab.id &&
+        current.items.some((item) => item.id === activeTab.id && item.instanceKey === activeTab.instanceKey)
+      )
+        setWorkbenchError(errorCode(reason))
     }
     const close = () => {
       setWorkbenchError(null)
       const captured = appRuntime.workspaceTabs.capture([activeTab.id])
-      void appRuntime.workspaceTabs
-        .closeCaptured(captured, new AbortController().signal)
-        .then(focusReturnedView)
-        .catch((reason: unknown) => {
-          setWorkbenchError(errorCode(reason))
-        })
+      void appRuntime.workspaceTabs.closeCaptured(captured, new AbortController().signal).catch(reportWorkbenchError)
     }
     return (
       <HbarFileWorkspace
@@ -413,8 +418,7 @@ function WorkspaceBodyContent({
           setWorkbenchError(null)
           void runtime.commands
             .execute('workspaceTabs.returnToSource', { id: activeTab.id, instanceKey: activeTab.instanceKey })
-            .then(focusReturnedView)
-            .catch((reason: unknown) => setWorkbenchError(errorCode(reason)))
+            .catch(reportWorkbenchError)
         }}
         onCloseWorkbench={close}
       />
@@ -495,6 +499,7 @@ function WorkspaceTool({
   const expanding = useRef(false)
   const instanceId = presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
+  useEffect(() => setExpandError(null), [instanceId, panel?.workspaceId, panel?.sessionId, panel?.panelId])
   if (!instanceId || !panel) return null
   const targetLabel =
     panel.panelId === 'files' && panel.workspaceId
@@ -519,27 +524,60 @@ function WorkspaceTool({
                 expanding.current = true
                 setExpandError(null)
                 const originalBinding = panel.binding
+                const workspaceId = panel.workspaceId
+                const navigation = runtime.state.navigation.getSnapshot()
+                const tabs = runtime.state.workspaceTabs.getSnapshot()
+                const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
+                let ownedPanel = panel
+                const ownsExpansion = () => {
+                  const currentNavigation = runtime.state.navigation.getSnapshot()
+                  const currentTabs = runtime.state.workspaceTabs.getSnapshot()
+                  return (
+                    runtime.state.presentation.getSnapshot().page.kind === 'session' &&
+                    runtime.state.presentation.getSnapshot().toolInstanceId === instanceId &&
+                    runtime.state.surfaces.getSnapshot().panels[instanceId] === ownedPanel &&
+                    currentNavigation.workspaceId === navigation.workspaceId &&
+                    currentNavigation.sessionId === navigation.sessionId &&
+                    currentTabs.activeId === tabs.activeId &&
+                    currentTabs.items.find((item) => item.id === currentTabs.activeId)?.instanceKey ===
+                      activeTab?.instanceKey
+                  )
+                }
                 void (async () => {
                   try {
-                    if (originalBinding !== 'pinned')
-                      await runtime.commands.execute('app.openPanel', {
+                    if (originalBinding !== 'pinned') {
+                      const pin = runtime.commands.execute('app.openPanel', {
                         panelId: 'files',
                         instanceId,
-                        workspaceId: panel.workspaceId!,
+                        workspaceId,
                         ...(panel.sessionId ? { sessionId: panel.sessionId } : {}),
                         binding: 'pinned',
                       })
+                      // openPanel publishes synchronously; remember that exact instance
+                      // before yielding, so a later context cannot become this owner.
+                      ownedPanel = runtime.state.surfaces.getSnapshot().panels[instanceId] ?? panel
+                      await pin
+                    }
+                    if (!ownsExpansion()) return
                     await runtime.commands.execute('workspaceTabs.openWorkbench', {
                       panelInstanceId: instanceId,
                       sourceSessionId: panel.sessionId,
-                      workspaceId: panel.workspaceId!,
+                      workspaceId,
                     })
                   } catch (reason) {
-                    if (originalBinding === 'followActive')
-                      await runtime.commands
-                        .execute('app.openPanel', { panelId: 'files', instanceId, binding: 'followActive' })
-                        .catch(() => undefined)
-                    setExpandError(errorCode(reason))
+                    if (!ownsExpansion()) return
+                    if (originalBinding === 'followActive') {
+                      const restore = runtime.commands.execute('app.openPanel', {
+                        panelId: 'files',
+                        instanceId,
+                        workspaceId,
+                        ...(panel.sessionId ? { sessionId: panel.sessionId } : {}),
+                        binding: 'followActive',
+                      })
+                      ownedPanel = runtime.state.surfaces.getSnapshot().panels[instanceId] ?? ownedPanel
+                      await restore.catch(() => undefined)
+                    }
+                    if (ownsExpansion()) setExpandError(errorCode(reason))
                   } finally {
                     expanding.current = false
                   }
@@ -746,6 +784,7 @@ export default function App({
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
+  const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
   const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
   const preferencesAvailable = binding.hostId !== null && preferences.status === 'ready' && !preferences.restoreError
@@ -761,6 +800,13 @@ export default function App({
   const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
   const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
   const workspaceLayout = shellLayoutModule(resolvedLayout, 'workspace')
+  const toolPanel = presentation.toolInstanceId ? surfaces.panels[presentation.toolInstanceId] : undefined
+  const toolLayoutController = useToolPaneLayout(
+    runtime,
+    JSON.stringify([binding.hostId, presentation.toolInstanceId, toolPanel?.workspaceId, toolPanel?.sessionId]),
+    preferencesAvailable,
+    layout,
+  )
 
   useEffect(() => {
     if (layout.status === 'ready' && !sidebarLayout.visible)
@@ -860,19 +906,47 @@ export default function App({
           }
           sidebarWidthRem={sidebarLayout.size.preferredRem}
           toolWidthRem={toolLayout.size.preferredRem}
+          toolLayout={{
+            mainMinWidthRem: workspaceLayout.size.minRem,
+            minWidthRem: toolLayout.size.minRem,
+            maxWidthRem: toolLayout.size.maxRem,
+          }}
+          toolResize={
+            toolLayout.config.resizable
+              ? {
+                  label: copy.toolLayout.resize,
+                  valueText: copy.toolLayout.width,
+                  disabled: toolLayoutController.disabled,
+                  onCommit: toolLayoutController.commit,
+                }
+              : undefined
+          }
           connection={connection}
           onReconnect={reconnect}
-          toolLabel={copy.session.tools.label}
+          toolLabel={
+            toolPanel?.panelId === 'files'
+              ? copy.files.title
+              : toolPanel?.panelId === 'monitoring'
+                ? copy.monitoring.title
+                : toolPanel?.panelId === 'agents'
+                  ? copy.agents.title
+                  : toolPanel?.panelId === 'goals'
+                    ? copy.goals.title
+                    : copy.session.tools.label
+          }
           tool={
             presentation.toolInstanceId &&
             !tabs.items.some(
               (item) => item.kind === 'workbench' && item.panelInstanceId === presentation.toolInstanceId,
             ) ? (
-              <WorkspaceTool
-                locale={locale}
-                connected={connection === 'connected'}
-                canExpand={workspaceLayout.config.tabs.visible}
-              />
+              <LumenFrame className="hbar-web-tool-outlet">
+                <ToolPaneLayoutFeedback controller={toolLayoutController} labels={copy.toolLayout} />
+                <WorkspaceTool
+                  locale={locale}
+                  connected={connection === 'connected'}
+                  canExpand={workspaceLayout.config.tabs.visible}
+                />
+              </LumenFrame>
             ) : undefined
           }
           overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}

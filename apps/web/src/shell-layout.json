@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "app",
   "type": "app-shell",
   "modules": [
@@ -31,7 +31,7 @@
       "order": 2,
       "visible": true,
       "size": { "minRem": 20, "preferredRem": 24, "maxRem": 36 },
-      "config": { "mediumPresentation": "drawer", "narrowPresentation": "page" }
+      "config": { "constrainedPresentation": "page", "resizable": true }
     }
   ]
 }
