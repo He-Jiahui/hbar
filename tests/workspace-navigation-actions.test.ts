@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { CommandError, type ExecuteOptions } from '@hbar/commands'
+import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/commands'
+import { workspaceOrganizationApplyInputSchema } from '@hbar/contracts/commands/workspace-organization'
 import {
   createWorkspaceNavigationActions,
   defaultSessionWorkspace,
@@ -32,12 +33,16 @@ function session(workspaceId: string) {
   }
 }
 
-function fixture(write?: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>) {
+function fixture(
+  write?: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>,
+  organization?: CommandExecutor,
+) {
   const calls: { name: string; input: unknown; key: string | undefined }[] = []
   const states: WorkspaceNavigationActionState[] = []
   const runtime = createAppRuntime({
     instanceId: 'navigation-actions',
     hostId: 'host',
+    ...(organization ? { workspaceOrganization: { commands: organization } } : {}),
     directory: {
       execute(name, input) {
         if (name === 'workspace.get')
@@ -60,12 +65,31 @@ function fixture(write?: (name: string, input: unknown, options?: ExecuteOptions
       },
     },
   })
-  const actions = createWorkspaceNavigationActions(runtime.view, (state) => states.push(state))
+  let navigationSubscriptions = 0
+  const actionView = {
+    ...runtime.view,
+    state: {
+      ...runtime.view.state,
+      navigation: {
+        getSnapshot: runtime.view.state.navigation.getSnapshot,
+        subscribe(listener: () => void) {
+          navigationSubscriptions++
+          const off = runtime.view.state.navigation.subscribe(listener)
+          return () => {
+            navigationSubscriptions--
+            off()
+          }
+        },
+      },
+    },
+  }
+  const actions = createWorkspaceNavigationActions(actionView, (state) => states.push(state))
   return {
     runtime,
     actions,
     calls,
     states,
+    navigationSubscriptions: () => navigationSubscriptions,
     dispose() {
       actions.dispose()
       runtime.dispose()
@@ -253,7 +277,7 @@ test('failed opening never creates a session, and a confirmed failure permits a 
   }
 })
 
-test('selecting an existing project is read-only and a missing project can be corrected', async () => {
+test('selecting an existing project without organization capability makes no Host writes', async () => {
   const view = fixture()
   try {
     expect(await view.actions.run({ kind: 'select-workspace', workspaceId: 'missing' })).toBeNull()
@@ -263,6 +287,152 @@ test('selecting an existing project is read-only and a missing project can be co
       sessionId: null,
     })
     expect(view.calls).toHaveLength(0)
+  } finally {
+    view.dispose()
+  }
+})
+
+function organizationFixture() {
+  let revision = 0
+  let hidden = ['a', 'b', 'opened']
+  const calls: { name: string; input: unknown }[] = []
+  const commands: CommandExecutor = {
+    execute(name, input) {
+      calls.push({ name, input })
+      if (name === 'workspaceOrganization.get')
+        return Promise.resolve({ schemaVersion: 1, revision, hiddenWorkspaceIds: [...hidden] })
+      if (name !== 'workspaceOrganization.apply') return Promise.reject(new Error(`Unexpected command ${name}`))
+      const request = workspaceOrganizationApplyInputSchema.parse(input)
+      if (request.expectedRevision !== revision) return Promise.reject(new CommandError('COMMAND_CONFLICT', 'stale'))
+      if (request.change.kind !== 'setHidden') return Promise.reject(new Error('Unexpected bulk change'))
+      const change = request.change
+      if (hidden.includes(change.workspaceId) !== change.expectedHidden)
+        return Promise.reject(new CommandError('COMMAND_CONFLICT', 'changed item'))
+      hidden = change.hidden ? [...hidden, change.workspaceId] : hidden.filter((id) => id !== change.workspaceId)
+      revision++
+      return Promise.resolve({ commitId: `commit-${revision}`, revision, request, changed: true })
+    },
+  }
+  return { commands, calls }
+}
+
+async function drainReveal(): Promise<void> {
+  // These adapters use settled promises only; drain their finite command/reader chain.
+  for (let index = 0; index < 30; index++) await Promise.resolve()
+}
+
+for (const kind of ['select-workspace', 'create-session'] as const) {
+  test(`explicit ${kind} reveals only its successfully selected workspace`, async () => {
+    const organization = organizationFixture()
+    const view = fixture(undefined, organization.commands)
+    try {
+      await view.runtime.view.commands.execute('workspaceSidebar.refresh', {})
+      await view.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'a' })
+      expect(organization.calls.filter((call) => call.name === 'workspaceOrganization.apply')).toEqual([])
+      expect(await view.actions.run({ kind, workspaceId: 'b' })).toEqual({
+        workspaceId: 'b',
+        sessionId: kind === 'create-session' ? 'created-b' : null,
+      })
+      await drainReveal()
+      expect(organization.calls.filter((call) => call.name === 'workspaceOrganization.apply')).toEqual([
+        {
+          name: 'workspaceOrganization.apply',
+          input: {
+            expectedRevision: 0,
+            change: { kind: 'setHidden', workspaceId: 'b', expectedHidden: true, hidden: false },
+          },
+        },
+      ])
+      expect(view.actions.getSnapshot()).toEqual({ status: 'idle', action: null, error: null })
+      expect(view.navigationSubscriptions()).toBe(0)
+    } finally {
+      view.dispose()
+    }
+  })
+}
+
+test('reveal failure belongs to organization feedback, not the successful navigation action', async () => {
+  const organization = organizationFixture()
+  const view = fixture(undefined, {
+    execute(name, input, options) {
+      if (name === 'workspaceOrganization.apply')
+        return Promise.reject(new CommandError('COMMAND_CONFLICT', 'Another device changed the organization'))
+      return organization.commands.execute(name, input, options)
+    },
+  })
+  try {
+    await view.runtime.view.commands.execute('workspaceSidebar.refresh', {})
+    expect(await view.actions.run({ kind: 'create-session', workspaceId: 'b' })).toEqual({
+      workspaceId: 'b',
+      sessionId: 'created-b',
+    })
+    await drainReveal()
+    expect(view.actions.getSnapshot()).toEqual({ status: 'idle', action: null, error: null })
+    expect(view.runtime.view.state.navigation.getSnapshot()).toMatchObject({ workspaceId: 'b', status: 'idle' })
+    expect(view.runtime.view.state.workspaceOrganization.getSnapshot().action).toMatchObject({
+      status: 'failed',
+      error: 'COMMAND_CONFLICT',
+    })
+    expect(view.navigationSubscriptions()).toBe(0)
+  } finally {
+    view.dispose()
+  }
+})
+
+for (const outcome of ['dispose', 'navigation-ABA'] as const) {
+  test(`slow reveal does not delay navigation and ${outcome} prevents a late hidden-state write`, async () => {
+    const read = Promise.withResolvers<unknown>()
+    const calls: string[] = []
+    const view = fixture(undefined, {
+      execute(name) {
+        calls.push(name)
+        if (name === 'workspaceOrganization.get') return read.promise
+        return Promise.reject(new Error('A stale reveal must never dispatch a mutation'))
+      },
+    })
+    try {
+      expect(await view.actions.run({ kind: 'select-workspace', workspaceId: 'b' })).toEqual({
+        workspaceId: 'b',
+        sessionId: null,
+      })
+      expect(view.actions.getSnapshot()).toEqual({ status: 'idle', action: null, error: null })
+      expect(view.navigationSubscriptions()).toBe(0)
+      if (outcome === 'dispose') view.actions.dispose()
+      else {
+        await view.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'a' })
+        await view.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'b' })
+      }
+      read.resolve({ schemaVersion: 1, revision: 0, hiddenWorkspaceIds: ['b'] })
+      await drainReveal()
+      expect(calls).toEqual(['workspaceOrganization.get'])
+      expect(view.runtime.view.state.workspaceOrganization.getSnapshot().snapshot?.hiddenWorkspaceIds).toEqual(['b'])
+    } finally {
+      read.resolve({ schemaVersion: 1, revision: 0, hiddenWorkspaceIds: ['b'] })
+      view.dispose()
+    }
+  })
+}
+
+test('unknown creation does not reveal, and reconciliation reveals the original confirmed workspace only', async () => {
+  const organization = organizationFixture()
+  let attempt = 0
+  const view = fixture((_name, input) => {
+    if (++attempt === 1) return Promise.reject(new CommandError('RESULT_UNKNOWN', 'Creation receipt lost'))
+    return Promise.resolve(session(field(input, 'workspaceId')))
+  }, organization.commands)
+  try {
+    await view.runtime.view.commands.execute('workspaceSidebar.refresh', {})
+    expect(await view.actions.run({ kind: 'create-session', workspaceId: 'b' })).toBeNull()
+    expect(organization.calls.filter((call) => call.name === 'workspaceOrganization.apply')).toEqual([])
+    expect(view.navigationSubscriptions()).toBe(0)
+    await view.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'a' })
+    expect(await view.actions.reconcile()).toEqual({ workspaceId: 'b', sessionId: 'created-b' })
+    await drainReveal()
+    const writes = organization.calls.filter((call) => call.name === 'workspaceOrganization.apply')
+    expect(writes).toHaveLength(1)
+    expect(writes[0]?.input).toMatchObject({ change: { workspaceId: 'b', hidden: false } })
+    expect(view.calls[0]?.key).toBe(view.calls[1]?.key)
+    expect(view.navigationSubscriptions()).toBe(0)
   } finally {
     view.dispose()
   }

@@ -1,0 +1,39 @@
+.hbar-app-react-project-organization-actions,
+.hbar-app-react-project-organization-menu,
+.hbar-app-react-project-menu {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.hbar-app-react-project-organization-actions {
+  gap: 0.125rem;
+}
+
+.hbar-app-react-project-menu .lumen-action-menu-popup,
+.hbar-app-react-project-organization-menu .lumen-action-menu-popup {
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-react-project-menu [role='menuitem'],
+.hbar-app-react-project-organization-menu [role='menuitem'] {
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-app-react-organization-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+}
+
+.hbar-app-react-organization-feedback p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}

@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
-import { createAppRuntime } from '@hbar/app-runtime'
-import { CommandError, type CommandExecutor } from '@hbar/commands'
+import { createAppRuntime, type NavigationState } from '@hbar/app-runtime'
+import { CommandError, CommandRegistry, createCommandClient, type CommandExecutor } from '@hbar/commands'
+import { directoryCommands, navigationCommands } from '@hbar/contracts/commands'
+import { registerNavigationCommands } from '../packages/app-runtime/src/navigation'
+import { createState } from '../packages/app-runtime/src/state'
 
 const existing = { id: 'existing', name: 'existing', path: 'D:/existing', createdAt: 1 }
 const opened = { id: 'opened', name: 'project', path: 'D:/project', createdAt: 2 }
@@ -216,4 +219,163 @@ test('session row commands merge renamed facts and clear an archived active sele
   } finally {
     runtime.dispose()
   }
+})
+
+function explicitOpenFixture(
+  onOpened: (workspaceId: string, isCurrent: () => boolean) => Promise<void>,
+  open: () => Promise<typeof opened> = () => Promise.resolve(opened),
+) {
+  let disposed = false
+  const navigation = createState<NavigationState>(
+    { workspaceId: null, sessionId: null, status: 'idle', error: null },
+    () => {},
+  )
+  const registry = new CommandRegistry()
+  const queries = createCommandClient(directoryCommands, {
+    execute(name, input) {
+      if (name === 'workspace.get') {
+        const { workspaceId } = directoryCommands['workspace.get'].input.parse(input)
+        return Promise.resolve([existing, opened].find((workspace) => workspace.id === workspaceId) ?? null)
+      }
+      if (name === 'session.get') return Promise.resolve(created)
+      return Promise.reject(new Error(`Unexpected fixture query: ${name}`))
+    },
+  })
+  registerNavigationCommands(
+    registry,
+    queries,
+    () => Promise.resolve(created),
+    () => Promise.resolve(created),
+    () => Promise.resolve(created),
+    open,
+    navigation,
+    () => disposed,
+    undefined,
+    onOpened,
+  )
+  return {
+    navigation: navigation.reader,
+    commands: createCommandClient(navigationCommands, registry),
+    dispose() {
+      disposed = true
+      registry.dispose()
+      navigation.dispose()
+    },
+  }
+}
+
+test('explicit workspace.open reveals after confirmed navigation, never for ordinary workspace/session selection', async () => {
+  const reveals: { workspaceId: string; current: boolean; selected: string | null }[] = []
+  const runtime = explicitOpenFixture((workspaceId, isCurrent) => {
+    reveals.push({ workspaceId, current: isCurrent(), selected: runtime.navigation.getSnapshot().workspaceId })
+    return Promise.resolve()
+  })
+  try {
+    await runtime.commands.execute('app.setWorkspace', { workspaceId: existing.id })
+    await runtime.commands.execute('app.setSession', { sessionId: created.id })
+    await runtime.commands.execute('app.createSession', { workspaceId: existing.id })
+    expect(reveals).toEqual([])
+    expect(await runtime.commands.execute('workspace.open', { path: opened.path })).toEqual(opened)
+    expect(reveals).toEqual([{ workspaceId: opened.id, current: true, selected: opened.id }])
+    expect(runtime.navigation.getSnapshot()).toEqual({
+      workspaceId: opened.id,
+      sessionId: null,
+      status: 'idle',
+      error: null,
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
+
+for (const synchronous of [true, false]) {
+  test(`a ${synchronous ? 'synchronous' : 'rejected'} reveal callback cannot invalidate a successful open`, async () => {
+    const runtime = explicitOpenFixture(() => {
+      if (synchronous) throw new Error('Unexpected organization callback error')
+      return Promise.reject(new CommandError('RESULT_UNKNOWN', 'Organization owner retains recovery state'))
+    })
+    try {
+      expect(await runtime.commands.execute('workspace.open', { path: opened.path })).toEqual(opened)
+      expect(runtime.navigation.getSnapshot()).toMatchObject({ workspaceId: opened.id, status: 'idle', error: null })
+    } finally {
+      runtime.dispose()
+    }
+  })
+}
+
+test('slow reveal does not hold open pending and its guard stays false after navigation ABA', async () => {
+  const reveal = Promise.withResolvers<void>()
+  const guards: (() => boolean)[] = []
+  const runtime = explicitOpenFixture((_workspaceId, isCurrent) => {
+    guards.push(isCurrent)
+    return reveal.promise
+  })
+  try {
+    expect(await runtime.commands.execute('workspace.open', { path: opened.path })).toEqual(opened)
+    expect(runtime.navigation.getSnapshot().status).toBe('idle')
+    expect(guards[0]?.()).toBe(true)
+    await runtime.commands.execute('app.setWorkspace', { workspaceId: existing.id })
+    await runtime.commands.execute('app.setWorkspace', { workspaceId: opened.id })
+    expect(guards[0]?.()).toBe(false)
+    reveal.resolve()
+  } finally {
+    reveal.resolve()
+    runtime.dispose()
+  }
+})
+
+test('failed, superseded and disposed workspace opens never reveal a late returned workspace', async () => {
+  for (const outcome of ['failed', 'superseded', 'disposed'] as const) {
+    const opening = Promise.withResolvers<typeof opened>()
+    const reveals: string[] = []
+    const runtime = explicitOpenFixture(
+      (workspaceId) => {
+        reveals.push(workspaceId)
+        return Promise.resolve()
+      },
+      () => opening.promise,
+    )
+    try {
+      const pending = runtime.commands.execute('workspace.open', { path: opened.path })
+      const settled = pending.then(
+        (value) => ({ value, error: null }),
+        (error: unknown) => ({ value: null, error }),
+      )
+      if (outcome === 'failed') opening.reject(new CommandError('INVALID_WORKSPACE', 'Fixture path is invalid'))
+      else {
+        if (outcome === 'disposed') runtime.dispose()
+        else await runtime.commands.execute('app.setWorkspace', { workspaceId: existing.id })
+        opening.resolve(opened)
+      }
+      expect(await settled).toMatchObject({
+        value: null,
+        error: {
+          code:
+            outcome === 'failed'
+              ? 'INVALID_WORKSPACE'
+              : outcome === 'disposed'
+                ? 'RESULT_UNKNOWN'
+                : 'NAVIGATION_SUPERSEDED',
+        },
+      })
+      await Promise.resolve()
+      expect(reveals).toEqual([])
+      if (outcome === 'superseded')
+        expect(runtime.navigation.getSnapshot()).toMatchObject({ workspaceId: existing.id, status: 'idle' })
+    } finally {
+      runtime.dispose()
+    }
+  }
+})
+
+test('a reveal callback already started can detect runtime disposal before its own write', async () => {
+  const guards: (() => boolean)[] = []
+  const runtime = explicitOpenFixture((_workspaceId, isCurrent) => {
+    guards.push(isCurrent)
+    return Promise.resolve()
+  })
+  await runtime.commands.execute('workspace.open', { path: opened.path })
+  expect(guards[0]?.()).toBe(true)
+  runtime.dispose()
+  expect(guards[0]?.()).toBe(false)
 })

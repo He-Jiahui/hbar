@@ -137,6 +137,35 @@ function createRuntime(
     initialGlobalSettings,
     directory: createDirectoryQueryAdapter(client),
     workspaces: createWorkspaceSessionCommandClient(client),
+    ...(hostId === null
+      ? {}
+      : {
+          workspaceOrganization: {
+            commands: createWorkspaceSessionCommandClient(client),
+            events: {
+              subscribe(listener: () => void) {
+                const off = client.onEvent((event) => {
+                  if (
+                    event.method === 'host.changed' &&
+                    ['workspace-organization', 'resync'].includes(event.params.kind)
+                  )
+                    listener()
+                })
+                const onVisible = () => {
+                  if (document.visibilityState === 'visible') listener()
+                }
+                document.addEventListener('visibilitychange', onVisible)
+                return () => {
+                  off()
+                  document.removeEventListener('visibilitychange', onVisible)
+                }
+              },
+              onConnection(listener: (connected: boolean) => void) {
+                return client.onStatus((status) => listener(status === 'connected'))
+              },
+            },
+          },
+        }),
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
     attachments,

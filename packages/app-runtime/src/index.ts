@@ -100,6 +100,9 @@ export type { SessionGitContextState } from './session-git-context'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
 import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
+import { createWorkspaceOrganization, workspaceOrganizationClientCommands } from './workspace-organization'
+export { workspaceOrganizationClientCommands } from './workspace-organization'
+export type { WorkspaceOrganizationState, WorkspaceOrganizationAction } from './workspace-organization'
 export { MAX_PINNED_WORKSPACES, sortPinnedWorkspaces } from './workspace-pins'
 export type { WorkspacePinAction, WorkspacePinsState } from './workspace-pins'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
@@ -271,6 +274,7 @@ const runtimeCommands = {
   ...workspaceTabCommands,
   ...sessionToolCommands,
   ...workspacePinCommands,
+  ...workspaceOrganizationClientCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
   ...systemDiagnosticsCommands,
@@ -346,6 +350,21 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     isDisposed: () => disposed,
   })
+  const workspaceOrganization = createWorkspaceOrganization(local, {
+    ...(options.workspaceOrganization
+      ? {
+          host: options.workspaceOrganization.commands,
+          ...(options.workspaceOrganization.events ? { events: options.workspaceOrganization.events } : {}),
+        }
+      : {}),
+    beginRevealGuard: (workspaceId) => {
+      const source = navigation.reader.getSnapshot()
+      return () =>
+        source === navigation.reader.getSnapshot() && source.workspaceId === workspaceId && source.status === 'idle'
+    },
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   let tabNavigation: ReturnType<typeof registerNavigationCommands> | undefined
   const workspaceTabs = createWorkspaceTabs(local, {
     navigation: navigation.reader,
@@ -372,6 +391,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     navigation,
     () => disposed,
     workspaceTabs.hooks,
+    (workspaceId, isCurrent) => workspaceOrganization.reveal(workspaceId, isCurrent),
   )
   const messageFork = createSessionMessageForkNavigation(local, {
     workspaces: options.workspaces ?? {
@@ -665,6 +685,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(workspaceTabCommands, name) ||
         Object.hasOwn(sessionToolCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
+        Object.hasOwn(workspaceOrganizationClientCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -700,6 +721,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionExecutionAccess: sessionExecutionAccess.reader,
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
+      workspaceOrganization: workspaceOrganization.reader,
       messageFork: messageFork.reader,
       directory: directory.reader,
       forms: forms.reader,
@@ -761,6 +783,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       messageFork.dispose()
       workspaceTabs.dispose()
       workspacePins.dispose()
+      workspaceOrganization.dispose()
 
       local.dispose()
       platform.dispose()

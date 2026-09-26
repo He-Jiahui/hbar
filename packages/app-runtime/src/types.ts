@@ -93,6 +93,14 @@ export interface RuntimeOptions {
   readonly hostId: string
   readonly directory: CommandExecutor
   readonly workspaces?: CommandExecutor
+  /** Only supplied after Host identity is confirmed; independent of device-local preferences. */
+  readonly workspaceOrganization?: {
+    readonly commands: CommandExecutor
+    readonly events?: {
+      subscribe(listener: () => void): () => void
+      onConnection?(listener: (connected: boolean) => void): () => void
+    }
+  }
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
   readonly planProposal?: { readonly requestText: PlanProposalRequestText }

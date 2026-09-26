@@ -16,7 +16,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
-  LumenActionMenu,
   LumenAppShell,
   LumenAppSidebar,
   LumenButton,
@@ -43,6 +42,12 @@ import {
   type WorkspaceNavigationSelection,
 } from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
+import {
+  WorkspaceProjectMenu,
+  WorkspaceOrganizationFeedback,
+  type WorkspaceOrganizationLabels,
+} from './workspace-organization'
+import { useWorkspaceOrganizationFocus } from './workspace-organization-focus'
 import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } from './session-archive'
 import { useSessionRosterRefresh } from './session-roster-refresh'
@@ -58,6 +63,7 @@ export interface HbarWorkspaceShellLabels {
   readonly main: string
   readonly brand: string
   readonly projectsAndSessions: string
+  readonly organization: WorkspaceOrganizationLabels
   readonly noWorkspaces: string
   readonly noSessions: string
   readonly loading: string
@@ -138,6 +144,7 @@ export interface HbarWorkspaceShellProps {
 }
 
 const PAGE_SIZE = 100
+const EMPTY_HIDDEN_IDS: readonly string[] = Object.freeze([])
 
 function forwardShellRef(ref: LumenAppShellProps['mainRef'], node: HTMLElement | null): (() => void) | undefined {
   if (typeof ref === 'function') {
@@ -227,6 +234,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
+  const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
+  const organizationMenuRef = useRef<HTMLDivElement | null>(null)
+  const hiddenWorkspaceIds = organization.snapshot?.hiddenWorkspaceIds ?? EMPTY_HIDDEN_IDS
+  const captureHideFocus = useWorkspaceOrganizationFocus(
+    runtime,
+    hiddenWorkspaceIds,
+    organization.action.status === 'failed',
+    organizationMenuRef,
+  )
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const rosterRefresh = useHbarRuntimeState(runtime.state.sessionRosterRefresh)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
@@ -321,9 +337,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
   )
+  const visibleExpanded = useMemo(() => {
+    const hidden = new Set(hiddenWorkspaceIds)
+    return new Set([...expanded].filter((id) => !hidden.has(id)))
+  }, [expanded, hiddenWorkspaceIds])
   const refreshRoster = useSessionRosterRefresh(
     runtime,
-    expanded,
+    visibleExpanded,
     props.connection === 'connected',
     presentation.sidebarOpen,
   )
@@ -430,8 +450,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
 
   useEffect(() => {
     if (props.connection !== 'connected') return
-    for (const workspaceId of expanded) if (!Object.hasOwn(sessionCursors, workspaceId)) void loadSessions(workspaceId)
-  }, [expanded, loadSessions, props.connection, sessionCursors])
+    for (const workspaceId of visibleExpanded)
+      if (!Object.hasOwn(sessionCursors, workspaceId)) void loadSessions(workspaceId)
+  }, [visibleExpanded, loadSessions, props.connection, sessionCursors])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -451,6 +472,48 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [execute, recordError])
 
   const workspaces = useMemo(() => sortPinnedWorkspaces(directory, workspacePins), [directory, workspacePins])
+  const organizationInitializing = organization.status === 'loading' && organization.snapshot === null
+  const sidebarWorkspaces = useMemo(() => {
+    if (organizationInitializing) return []
+    const hidden = new Set(hiddenWorkspaceIds)
+    return workspaces.filter((workspace) => !hidden.has(workspace.id))
+  }, [hiddenWorkspaceIds, workspaces, organizationInitializing])
+  const organizationBusy =
+    organization.requestInFlight || ['submitting', 'unknown', 'reconciling'].includes(organization.action.status)
+  const organizationCanWrite = props.connection === 'connected' && organization.status === 'ready' && !organizationBusy
+  const organizationTarget = organization.action.request?.change
+  const organizationTargetName =
+    organizationTarget?.kind === 'setHidden'
+      ? (workspaces.find((workspace) => workspace.id === organizationTarget.workspaceId)?.name ?? null)
+      : null
+  const hideWorkspace = (workspaceId: string) => {
+    if (!organizationCanWrite || !organization.snapshot) return
+    captureHideFocus(workspaceId)
+    void execute('workspaceSidebar.setHidden', {
+      workspaceId,
+      expectedHidden: false,
+      hidden: true,
+      expectedRevision: organization.snapshot.revision,
+    }).catch(() => {
+      // The organization owner keeps the original request and its error beside the stable title.
+    })
+  }
+  const restoreHiddenWorkspaces = () => {
+    if (!organizationCanWrite || !organization.snapshot) return
+    void execute('workspaceSidebar.restoreHidden', { expectedRevision: organization.snapshot.revision }).catch(() => {
+      // An uncertain write remains locked until its original receipt can be read.
+    })
+  }
+  const refreshOrganization = () => {
+    void execute('workspaceSidebar.refresh', {}).catch(() => {
+      // Preserve the last confirmed snapshot and render this read failure locally.
+    })
+  }
+  const reconcileOrganization = () => {
+    void execute('workspaceSidebar.reconcile', {}).catch(() => {
+      // An unsuccessful receipt read cannot authorize a new mutation.
+    })
+  }
   const pinBusy = workspacePins.action.status === 'submitting' || workspacePins.action.status === 'unknown'
   const toggleWorkspacePin = (workspaceId: string) => {
     void execute('workspacePins.toggle', {
@@ -787,7 +850,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   className="hbar-app-react-roster-refresh"
                   label={props.labels.roster.refreshExpanded}
                   loading={rosterBusy}
-                  disabled={!connected || expanded.size === 0 || rosterBusy}
+                  disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
                   onClick={() => refreshRoster()}
                 >
                   <WorkspaceShellIcon name="refresh" />
@@ -796,13 +859,40 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             </LumenFrame>
           }
           treeAction={
-            <LumenIconButton
-              label={props.labels.openWorkspace}
-              disabled={!connected || navigationBlocked}
-              onClick={openWorkspace}
-            >
-              <WorkspaceShellIcon name="folder-open" />
-            </LumenIconButton>
+            <LumenFrame className="hbar-app-react-project-organization-actions">
+              <WorkspaceProjectMenu
+                header
+                menuRef={organizationMenuRef}
+                label={props.labels.organization.menu}
+                items={[
+                  ...(hiddenWorkspaceIds.length
+                    ? [
+                        {
+                          id: 'restore',
+                          label: props.labels.organization.restore(hiddenWorkspaceIds.length),
+                          disabled: !organizationCanWrite,
+                        },
+                      ]
+                    : []),
+                  {
+                    id: 'refresh',
+                    label: props.labels.organization.refresh,
+                    disabled: !connected || organization.status === 'unavailable' || organizationBusy,
+                  },
+                ]}
+                onAction={(id) => {
+                  if (id === 'restore') restoreHiddenWorkspaces()
+                  else refreshOrganization()
+                }}
+              />
+              <LumenIconButton
+                label={props.labels.openWorkspace}
+                disabled={!connected || navigationBlocked}
+                onClick={openWorkspace}
+              >
+                <WorkspaceShellIcon name="folder-open" />
+              </LumenIconButton>
+            </LumenFrame>
           }
           actions={
             <LumenFrame className="hbar-app-react-sidebar-actions">
@@ -826,6 +916,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           }
         >
           <LumenFrame as="nav" className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
+            <WorkspaceOrganizationFeedback
+              state={organization}
+              labels={props.labels.organization}
+              targetName={organizationTargetName}
+              connected={connected}
+              onRefresh={refreshOrganization}
+              onReconcile={reconcileOrganization}
+            />
             {workspacePins.status === 'error' && (
               <LumenFrame className="hbar-app-react-pin-feedback" role="alert">
                 <LumenText as="p">{props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}</LumenText>
@@ -834,12 +932,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 </LumenButton>
               </LumenFrame>
             )}
-            {workspaces.length === 0 && (
+            {!organizationInitializing && sidebarWorkspaces.length === 0 && (
               <LumenText as="p">
-                {loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
+                {loading.has('workspaces')
+                  ? props.labels.loading
+                  : hiddenWorkspaceIds.length
+                    ? props.labels.organization.allHidden
+                    : props.labels.noWorkspaces}
               </LumenText>
             )}
-            {workspaces.map((workspace) => {
+            {sidebarWorkspaces.map((workspace) => {
               const isExpanded = expanded.has(workspace.id)
               const isPinned = workspacePins.ids.includes(workspace.id)
               const sessions = sessionsByWorkspace.get(workspace.id) ?? []
@@ -881,7 +983,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         </LumenText>
                       )}
                     </LumenButton>
-                    <LumenActionMenu
+                    <WorkspaceProjectMenu
                       label={props.labels.workspaceActions(workspace.name)}
                       items={[
                         { id: 'files', label: props.labels.workspaceFiles },
@@ -897,11 +999,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           label: props.labels.roster.refreshWorkspace(workspace.name),
                           disabled: !connected || rosterRefresh.entries[workspace.id]?.status === 'loading',
                         },
+                        { id: 'hide', label: props.labels.organization.hide, disabled: !organizationCanWrite },
                       ]}
                       onAction={(action) => {
                         if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
                         else if (action === 'pin') toggleWorkspacePin(workspace.id)
                         else if (action === 'refresh') refreshRoster(workspace.id)
+                        else if (action === 'hide') hideWorkspace(workspace.id)
                         else if (action === 'archived')
                           void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
                       }}

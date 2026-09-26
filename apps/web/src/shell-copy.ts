@@ -28,6 +28,7 @@ import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layou
 import { sidebarLayoutCopy, type SidebarLayoutLabels } from './sidebar-layout-copy'
 import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
 import { sessionFindCopy } from './session-find-copy'
+import { workspaceOrganizationCopy } from './workspace-organization-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -2423,6 +2424,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       main: '工作台',
       brand: 'hbar',
       projectsAndSessions: '工程与会话',
+      organization: workspaceOrganizationCopy('zh-CN'),
       noWorkspaces: '尚无工程',
       noSessions: '尚无会话',
       loading: '正在加载',
@@ -2548,6 +2550,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       main: 'Workspace',
       brand: 'hbar',
       projectsAndSessions: 'Projects and sessions',
+      organization: workspaceOrganizationCopy('en-US'),
       noWorkspaces: 'No projects yet',
       noSessions: 'No sessions yet',
       loading: 'Loading',

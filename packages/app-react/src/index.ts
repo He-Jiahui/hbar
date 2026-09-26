@@ -1,4 +1,5 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
+export type { WorkspaceOrganizationLabels } from './workspace-organization'
 export type { HbarSessionImageLabels, HbarSessionImagesOptions } from './session-images'
 export {
   HbarSessionImagesModelProvider,

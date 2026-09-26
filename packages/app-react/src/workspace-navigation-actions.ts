@@ -54,6 +54,7 @@ export function createWorkspaceNavigationActions(
   let state: WorkspaceNavigationActionState = { status: 'idle', action: null, error: null }
   let disposed = false
   let controller: AbortController | null = null
+  let revealController: AbortController | null = null
 
   function update(next: WorkspaceNavigationActionState): void {
     state = next
@@ -61,9 +62,38 @@ export function createWorkspaceNavigationActions(
   }
 
   async function execute(action: WorkspaceNavigationAction): Promise<WorkspaceNavigationSelection | null> {
+    revealController?.abort()
+    revealController = null
     const request = new AbortController()
     controller = request
     let current = action
+    let stopObserving = () => {}
+    let canReveal = (_selection: WorkspaceNavigationSelection) => false
+    const observeSelection = (workspaceId: string, createsSession: boolean) => {
+      stopObserving()
+      let committed: ReturnType<HbarRuntimeView['state']['navigation']['getSnapshot']> | null = null
+      let superseded = false
+      stopObserving = runtime.state.navigation.subscribe(() => {
+        const active = runtime.state.navigation.getSnapshot()
+        if (committed) {
+          if (active !== committed) superseded = true
+        } else if (
+          active.status === 'idle' &&
+          active.workspaceId === workspaceId &&
+          (createsSession ? active.sessionId !== null : active.sessionId === null)
+        ) {
+          committed = active
+        }
+      })
+      canReveal = (selection) =>
+        !disposed &&
+        !request.signal.aborted &&
+        !superseded &&
+        committed !== null &&
+        runtime.state.navigation.getSnapshot() === committed &&
+        committed.workspaceId === selection.workspaceId &&
+        committed.sessionId === selection.sessionId
+    }
     update({ status: 'submitting', action: current, error: null })
     try {
       const options = { signal: request.signal }
@@ -76,12 +106,14 @@ export function createWorkspaceNavigationActions(
           // repeating registration or resolving a new global project selection.
           current = { kind: 'create-session', workspaceId: workspace.id }
           update({ status: 'submitting', action: current, error: null })
+          observeSelection(workspace.id, true)
           const session = await runtime.commands.execute('app.createSession', { workspaceId: workspace.id }, options)
           selection = { workspaceId: session.workspaceId, sessionId: session.id }
         } else {
           selection = { workspaceId: workspace.id, sessionId: null }
         }
       } else if (current.kind === 'create-session') {
+        observeSelection(current.workspaceId, true)
         const session = await runtime.commands.execute(
           'app.createSession',
           { workspaceId: current.workspaceId },
@@ -89,13 +121,31 @@ export function createWorkspaceNavigationActions(
         )
         selection = { workspaceId: session.workspaceId, sessionId: session.id }
       } else {
+        observeSelection(current.workspaceId, false)
         await runtime.commands.execute('app.setWorkspace', { workspaceId: current.workspaceId }, options)
         selection = { workspaceId: current.workspaceId, sessionId: null }
       }
       if (disposed) return null
       update({ status: 'idle', action: null, error: null })
       const active = runtime.state.navigation.getSnapshot()
-      return active.workspaceId === selection.workspaceId && active.sessionId === selection.sessionId ? selection : null
+      if (active.workspaceId !== selection.workspaceId || active.sessionId !== selection.sessionId) return null
+      if (current.kind !== 'open-workspace') {
+        if (!canReveal(selection)) return null
+        revealController = request
+        // The organization owner holds its own feedback and uncertain receipt.
+        // Do not make a successful selection wait for this separate operation.
+        try {
+          void runtime.commands
+            .execute('workspaceSidebar.reveal', { workspaceId: selection.workspaceId }, options)
+            .catch(() => {})
+            .finally(() => {
+              if (revealController === request) revealController = null
+            })
+        } catch {
+          if (revealController === request) revealController = null
+        }
+      }
+      return selection
     } catch (reason: unknown) {
       if (disposed) return null
       const code = errorCode(reason)
@@ -106,6 +156,7 @@ export function createWorkspaceNavigationActions(
       })
       return null
     } finally {
+      stopObserving()
       if (controller === request) controller = null
     }
   }
@@ -124,6 +175,8 @@ export function createWorkspaceNavigationActions(
     dispose(): void {
       disposed = true
       controller?.abort()
+      revealController?.abort()
+      revealController = null
     },
   }
 }

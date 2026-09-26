@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
+import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
 
 const workspace = { id: 'workspace-1', path: 'D:/workspace', name: '非常长的工程名称', createdAt: 1 }
 const session = {
@@ -20,6 +21,7 @@ const labels: HbarWorkspaceShellLabels = {
   main: '工作台主区域',
   brand: 'hbar 测试',
   projectsAndSessions: '工程与会话树',
+  organization: workspaceOrganizationCopy('zh-CN'),
   noWorkspaces: '没有工程',
   noSessions: '没有会话',
   loading: '正在加载数据',

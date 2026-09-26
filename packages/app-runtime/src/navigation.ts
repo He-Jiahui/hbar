@@ -48,6 +48,7 @@ export function registerNavigationCommands(
   navigation: ReturnType<typeof createState<NavigationState>>,
   isDisposed: () => boolean,
   tabs?: WorkspaceTabNavigationHooks,
+  onExplicitWorkspaceOpened?: (workspaceId: string, isCurrent: () => boolean) => Promise<void>,
 ) {
   let generation = 0
   const pendingSessionCreations = new Map<string, string>()
@@ -120,12 +121,35 @@ export function registerNavigationCommands(
   local.register(navigationCommands['app.archiveSession'], (input, context) =>
     archiveSession(input.sessionId, input.archived, context),
   )
-  local.register(navigationCommands['workspace.open'], (input, context) =>
-    navigate(async (execution) => {
+  local.register(navigationCommands['workspace.open'], async (input, context) => {
+    const opening = navigate(async (execution) => {
       const workspace = await openWorkspace(input.path, execution)
       return { workspaceId: workspace.id, sessionId: null, workspace }
-    }, context).then(({ workspace }) => workspace),
-  )
+    }, context)
+    const openingGeneration = generation
+    const { workspace } = await opening
+    const isCurrent = () => {
+      const active = navigation.reader.getSnapshot()
+      return (
+        !isDisposed() &&
+        !context.signal.aborted &&
+        generation === openingGeneration &&
+        active.status === 'idle' &&
+        active.workspaceId === workspace.id &&
+        active.sessionId === null
+      )
+    }
+    if (onExplicitWorkspaceOpened && isCurrent()) {
+      // Organization owns reveal feedback. A slow/failed reveal must never
+      // turn this already-confirmed navigation into a failed or unknown open.
+      try {
+        void onExplicitWorkspaceOpened(workspace.id, isCurrent).catch(() => {})
+      } catch {
+        // Also isolate an unexpected synchronous callback failure.
+      }
+    }
+    return workspace
+  })
   local.register(navigationCommands['app.setWorkspace'], (input, context) =>
     navigate(async (execution) => {
       const workspace = await queries.execute('workspace.get', input, execution)
