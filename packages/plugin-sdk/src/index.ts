@@ -1,4 +1,5 @@
 import { Context, Service } from 'cordis'
+export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
 import type { z } from 'zod'
 import type {
