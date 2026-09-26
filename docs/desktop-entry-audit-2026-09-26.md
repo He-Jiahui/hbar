@@ -2,6 +2,15 @@
 
 本页是 cc-haha 参考体验迁移的剩余工作记录，不是完成声明。审查由会话、导航和设置三个独立方向进行，主线核对代码、测试与截图。已有产物与本轮新验收分开，不以旧截图证明当前完整体验。
 
+页内早期“本轮”统计是对应提交时点的历史记录，不是后续并行任务仍在编辑的最新全仓结果。最新独立交付如下；全量最终工作树门禁另行记录。
+
+## 继续审查的新进展
+
+- `80861aa`：Settings → General 的真实设备语言入口，中英/环境三选项即时切换，不按 locale 重建 runtime；保留原会话、Files returnContext、未保存 Appearance，独立保存与失败恢复焦点。30项定向测试/325断言、3项真实Host生产E2E、26条原组件矩阵与原生900通过。[交付与边界](desktop-device-language.md)、[原参考与旧问题复现](desktop-language-entry-audit.md)。没有native广播或OS实时语言变化的虚假声明。
+- `1e0c910`：旧通用导航材质门禁已定位到观察对象错误：真实原生 canonical LumenIndicator 有选中状态、2px竖条与halo，而旧 dirty smoke 读取不存在的 `button::before`。独立断言和截图通过；保留他任务该hunk，仍不把整个通用smoke标绿。[诊断](desktop-navigation-marker-audit.md)。
+- 三agent逐入口审查继续：插件/Skills/MCP/市场原组件70张只读参考图，真Host现有详情2/2；明确详情就近启停是现有契约可闭环缺口，安装/卸载的可靠恢复、市场更新/MCP/技能正文需要对应事实合同。[逐入口矩阵](desktop-extensions-entry-audit.md)。不把没有Host能力的功能做成占位按钮。
+- 归档确认后残留失效标签已有独立真实Host复现，正按canonical事实退役、保留B草稿/Files、unknown不提前退役、迟到读/恢复竞争/32tab容量/重载不暗选邻居验证。此段尚不是该单元提交或完成声明。
+
 ## 已验证并提交的子集
 
 - `7d9f0f7`：原请求的 Plan 审批、同 Run 的模式切换、反馈和刷新回看。[边界与参考](desktop-plan-exit-reference.md)。没有把完成后的旧提案动作冒充同轮审批。
