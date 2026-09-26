@@ -22,6 +22,7 @@
         "@hbar/commands": "workspace:*",
         "@hbar/computer-use": "workspace:*",
         "@hbar/contracts": "workspace:*",
+        "@hbar/decision-laya": "workspace:*",
         "@hbar/git": "workspace:*",
         "@hbar/goal": "workspace:*",
         "@hbar/kernel": "workspace:*",
@@ -344,6 +345,15 @@
         "zod": "^4.5.4",
       },
     },
+    "plugins/decision-laya": {
+      "name": "@hbar/decision-laya",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "zod": "4.5.4",
+      },
+    },
     "plugins/git": {
       "name": "@hbar/git",
       "version": "0.1.0",
@@ -642,6 +652,8 @@
     "@hbar/computer-use": ["@hbar/computer-use@workspace:plugins/computer-use"],
 
     "@hbar/contracts": ["@hbar/contracts@workspace:packages/contracts"],
+
+    "@hbar/decision-laya": ["@hbar/decision-laya@workspace:plugins/decision-laya"],
 
     "@hbar/desktop": ["@hbar/desktop@workspace:apps/desktop"],
 

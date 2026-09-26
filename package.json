@@ -72,6 +72,7 @@
     "@hbar/app-react": "workspace:*",
     "@hbar/app-runtime": "workspace:*",
     "@hbar/contracts": "workspace:*",
+    "@hbar/decision-laya": "workspace:*",
     "@hbar/budget": "workspace:*",
     "@hbar/browser-use": "workspace:*",
     "@hbar/computer-use": "workspace:*",
