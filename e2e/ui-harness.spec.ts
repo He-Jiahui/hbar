@@ -27,15 +27,19 @@ test('records real shell interaction evidence and flow geometry', async ({ brows
         await page.getByRole('button', { name: 'Show projects and sessions sidebar' }).click()
         const sidebar = page.getByRole('complementary', { name: 'Projects and sessions' })
         await expect(sidebar).toBeVisible()
-        const [sidebarBox, frameAfter] = await Promise.all([
+        const [sidebarBox, separatorBox, frameAfter] = await Promise.all([
           page.locator('.hbar-app-ui-app-sidebar-drawer').boundingBox(),
+          page.locator('.lumen-app-sidebar-separator').boundingBox(),
           page.locator('.hbar-app-ui-app-frame').boundingBox(),
         ])
         const pushesContent =
           frameBefore !== null &&
           sidebarBox !== null &&
+          separatorBox !== null &&
           frameAfter !== null &&
-          Math.abs(sidebarBox.x + sidebarBox.width - frameAfter.x) <= 1 &&
+          separatorBox.width > 0 &&
+          Math.abs(sidebarBox.x + sidebarBox.width - separatorBox.x) <= 1 &&
+          Math.abs(separatorBox.x + separatorBox.width - frameAfter.x) <= 1 &&
           frameAfter.width < frameBefore.width
         return {
           ui: [

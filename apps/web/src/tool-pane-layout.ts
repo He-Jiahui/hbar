@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { CommandError } from '@hbar/commands'
 import type { ClientLayoutState, createAppRuntime } from '@hbar/app-runtime'
-import { normalizeShellLayout, withToolPaneWidth, type ShellLayoutDescription } from './shell-layout'
+import { normalizeShellLayout, withSidebarWidth, withToolPaneWidth, type ShellLayoutDescription } from './shell-layout'
 
 export interface ToolPaneLayoutPort {
   readonly read: () => ClientLayoutState
@@ -13,10 +13,22 @@ export interface ToolPaneLayoutPort {
 
 /** The existing layout owner serializes and CAS-checks writes; only the preferred width changes. */
 export async function saveToolPaneWidth(port: ToolPaneLayoutPort, widthRem: number): Promise<void> {
+  return savePaneWidth(port, widthRem, withToolPaneWidth)
+}
+
+export async function saveSidebarWidth(port: ToolPaneLayoutPort, widthRem: number): Promise<void> {
+  return savePaneWidth(port, widthRem, withSidebarWidth)
+}
+
+async function savePaneWidth(
+  port: ToolPaneLayoutPort,
+  widthRem: number,
+  update: (layout: ShellLayoutDescription, widthRem: number) => ShellLayoutDescription,
+): Promise<void> {
   const current = port.read()
   if (current.status !== 'ready' || current.restoreError)
     throw new CommandError('PERSISTENCE_RESTORE_FAILED', 'Read the saved layout before changing its width')
-  const description = withToolPaneWidth(normalizeShellLayout(current.description), widthRem)
+  const description = update(normalizeShellLayout(current.description), widthRem)
   const result = await port.commit(description, current.revision)
   if (!result.persisted)
     throw new CommandError(
@@ -37,7 +49,28 @@ export function useToolPaneLayout(
   persistenceReady: boolean,
   layout: ClientLayoutState,
 ) {
+  return usePaneLayout(runtime, target, persistenceReady, layout, saveToolPaneWidth)
+}
+
+export function useSidebarLayout(
+  runtime: ReturnType<typeof createAppRuntime>,
+  target: string,
+  persistenceReady: boolean,
+  layout: ClientLayoutState,
+) {
+  return usePaneLayout(runtime, target, persistenceReady, layout, saveSidebarWidth)
+}
+
+function usePaneLayout(
+  runtime: ReturnType<typeof createAppRuntime>,
+  target: string,
+  persistenceReady: boolean,
+  layout: ClientLayoutState,
+  save: (port: ToolPaneLayoutPort, widthRem: number) => Promise<void>,
+) {
   const [receipt, setReceipt] = useState<ResizeReceipt>({ status: 'idle' })
+  const owner = useRef({ runtime, target, save })
+  owner.current = { runtime, target, save }
   const generation = useRef(0)
   const pending = useRef(false)
   useLayoutEffect(() => {
@@ -49,13 +82,15 @@ export function useToolPaneLayout(
     }
   }, [runtime])
   const commit = async (widthRem: number): Promise<void> => {
+    if (owner.current.runtime !== runtime || owner.current.target !== target || owner.current.save !== save)
+      throw new CommandError('COMMAND_CONFLICT', 'The original pane is no longer the active resize owner')
     if (pending.current) throw new CommandError('BUSY', 'A width change is already being saved')
     if (!persistenceReady) throw new CommandError('PERSISTENCE_UNAVAILABLE', 'Device layout preferences are not ready')
     const version = ++generation.current
     pending.current = true
     setReceipt({ status: 'saving', target, widthRem })
     try {
-      await saveToolPaneWidth(
+      await save(
         {
           read: runtime.view.state.layout.getSnapshot,
           commit: (description, expectedRevision) =>

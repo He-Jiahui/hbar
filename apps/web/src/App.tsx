@@ -85,7 +85,7 @@ import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
-import { useToolPaneLayout } from './tool-pane-layout'
+import { useSidebarLayout, useToolPaneLayout } from './tool-pane-layout'
 import { ToolPaneLayoutFeedback } from './ToolPaneLayoutFeedback'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
@@ -801,6 +801,7 @@ export default function App({
   const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
   const workspaceLayout = shellLayoutModule(resolvedLayout, 'workspace')
   const toolPanel = presentation.toolInstanceId ? surfaces.panels[presentation.toolInstanceId] : undefined
+  const sidebarLayoutController = useSidebarLayout(runtime, binding.hostId ?? 'pending', preferencesAvailable, layout)
   const toolLayoutController = useToolPaneLayout(
     runtime,
     JSON.stringify([binding.hostId, presentation.toolInstanceId, toolPanel?.workspaceId, toolPanel?.sessionId]),
@@ -905,6 +906,28 @@ export default function App({
             ) : undefined
           }
           sidebarWidthRem={sidebarLayout.size.preferredRem}
+          sidebarLayout={{
+            minWidthRem: sidebarLayout.size.minRem,
+            maxWidthRem: sidebarLayout.size.maxRem,
+            mainMinWidthRem: workspaceLayout.size.minRem,
+            defaultWidthRem: shellLayoutModule(shellLayout, 'projects').size.preferredRem,
+          }}
+          sidebarResize={{
+            ownerKey: binding.hostId ?? 'pending',
+            label: copy.sidebarLayout.resize,
+            resetLabel: copy.sidebarLayout.reset,
+            valueText: copy.sidebarLayout.width,
+            status: sidebarLayoutController.receipt.status,
+            disabled: sidebarLayoutController.disabled,
+            onCommit: sidebarLayoutController.commit,
+          }}
+          sidebarFeedback={
+            <ToolPaneLayoutFeedback
+              surface="sidebar"
+              controller={sidebarLayoutController}
+              labels={copy.sidebarLayout}
+            />
+          }
           toolWidthRem={toolLayout.size.preferredRem}
           toolLayout={{
             mainMinWidthRem: workspaceLayout.size.minRem,
@@ -914,8 +937,15 @@ export default function App({
           toolResize={
             toolLayout.config.resizable
               ? {
+                  ownerKey: JSON.stringify([
+                    binding.hostId,
+                    presentation.toolInstanceId,
+                    toolPanel?.workspaceId,
+                    toolPanel?.sessionId,
+                  ]),
                   label: copy.toolLayout.resize,
                   valueText: copy.toolLayout.width,
+                  status: toolLayoutController.receipt.status,
                   disabled: toolLayoutController.disabled,
                   onCommit: toolLayoutController.commit,
                 }

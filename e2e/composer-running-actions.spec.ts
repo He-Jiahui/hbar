@@ -73,9 +73,25 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const [queueBox, stopBox] = await Promise.all([queue.boundingBox(), stop.boundingBox()])
         expect(queueBox).not.toBeNull()
         expect(stopBox).not.toBeNull()
-        expect(queueBox!.x + queueBox!.width).toBeLessThanOrEqual(stopBox!.x + 1)
+        // The running-actions flow permits wrapping; Stop follows Queue either
+        // to its right or on a later row, without sharing a hit rectangle.
+        expect(
+          queueBox!.x + queueBox!.width <= stopBox!.x + 1 || queueBox!.y + queueBox!.height <= stopBox!.y + 1,
+        ).toBe(true)
+        expect(queueBox!.x).toBeGreaterThanOrEqual(0)
+        expect(queueBox!.x + queueBox!.width).toBeLessThanOrEqual(width + 1)
         expect(stopBox!.x + stopBox!.width).toBeLessThanOrEqual(width + 1)
         expect(stopBox!.x).toBeGreaterThanOrEqual(0)
+        for (const control of [queue, stop]) {
+          expect(
+            await control.evaluate((element) => {
+              const box = element.getBoundingClientRect()
+              const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+              return hit === element || (hit !== null && element.contains(hit))
+            }),
+          ).toBe(true)
+          await control.click({ trial: true })
+        }
         expect(
           await composer
             .locator('.lumen-composer-running-actions')

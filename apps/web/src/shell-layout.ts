@@ -128,10 +128,23 @@ export function normalizeShellLayout(value: ClientJsonObject): ShellLayoutDescri
 
 /** Change only this device's preferred tool width, preserving every other module choice. */
 export function withToolPaneWidth(layout: ShellLayoutDescription, widthRem: number): ShellLayoutDescription {
+  return withPaneWidth(layout, 'session-tool', widthRem)
+}
+
+/** The project/session sidebar shares the same versioned descriptor, not another preference key. */
+export function withSidebarWidth(layout: ShellLayoutDescription, widthRem: number): ShellLayoutDescription {
+  return withPaneWidth(layout, 'projects', widthRem)
+}
+
+function withPaneWidth(
+  layout: ShellLayoutDescription,
+  moduleId: 'projects' | 'session-tool',
+  widthRem: number,
+): ShellLayoutDescription {
   return shellLayoutV3Schema.parse({
     ...layout,
     modules: layout.modules.map((module) =>
-      module.moduleId === 'session-tool' ? { ...module, size: { ...module.size, preferredRem: widthRem } } : module,
+      module.moduleId === moduleId ? { ...module, size: { ...module.size, preferredRem: widthRem } } : module,
     ),
   })
 }

@@ -26,6 +26,13 @@ dialog.hbar-app-react-workspace-modal {
   color: var(--lumen-danger);
 }
 
+.hbar-web-tool-layout-feedback button {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .hbar-web-agent-return {
   display: flex;
   min-inline-size: 0;

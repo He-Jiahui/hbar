@@ -122,14 +122,20 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             .click()
           await expect(page.getByRole('complementary', { name: navigationName })).toBeVisible()
           if (viewport.width >= 768) {
-            const [sidebar, frame] = await Promise.all([
+            const [sidebar, separator, frame] = await Promise.all([
               page.locator('.hbar-app-ui-app-sidebar-drawer').boundingBox(),
+              page
+                .getByRole('separator', { name: getShellCopy(locale).sidebarLayout.resize, exact: true })
+                .boundingBox(),
               page.locator('.hbar-app-ui-app-frame').boundingBox(),
             ])
             expect(frameBefore).not.toBeNull()
             expect(sidebar).not.toBeNull()
+            expect(separator).not.toBeNull()
             expect(frame).not.toBeNull()
-            expect(sidebar!.x + sidebar!.width).toBeCloseTo(frame!.x, 0)
+            expect(separator!.width).toBeGreaterThan(0)
+            expect(sidebar!.x + sidebar!.width).toBeCloseTo(separator!.x, 0)
+            expect(separator!.x + separator!.width).toBeCloseTo(frame!.x, 0)
             expect(frame!.width).toBeLessThan(frameBefore!.width)
             await expect(page.locator('.hbar-app-ui-app-sidebar-backdrop')).toBeHidden()
           } else {
@@ -146,7 +152,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             fullPage: true,
           })
         }
-        await expect(page.locator('footer')).toContainText(locale === 'zh-CN' ? '未连接' : 'Disconnected')
+        await expect(page.getByRole('complementary', { name: navigationName }).locator('footer')).toContainText(
+          locale === 'zh-CN' ? '未连接' : 'Disconnected',
+        )
         await expect(page.getByRole('button', { name: locale === 'zh-CN' ? '命令' : 'Commands' })).toBeVisible()
         await page.keyboard.press('Control+K')
         const commandDialog = page.getByRole('dialog', { name: locale === 'zh-CN' ? '命令目录' : 'Command catalog' })

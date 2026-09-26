@@ -48,6 +48,7 @@ import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } f
 import { useSessionRosterRefresh } from './session-roster-refresh'
 import { SessionRosterFeedback, type SessionRosterRefreshLabels } from './session-roster-feedback'
 import {
+  canFocusWorkspaceElement,
   getWorkspaceToolFocusSnapshot,
   shouldCollapseWorkspaceSidebar,
   useWorkspaceToolFocus,
@@ -117,6 +118,9 @@ export interface HbarWorkspaceShellLabels {
 export interface HbarWorkspaceShellProps {
   readonly labels: HbarWorkspaceShellLabels
   readonly sidebarWidthRem: number
+  readonly sidebarLayout?: LumenAppShellProps['sidebarLayout']
+  readonly sidebarResize?: LumenAppShellProps['sidebarResize']
+  readonly sidebarFeedback?: ReactNode
   readonly toolWidthRem?: number
   readonly toolLayout?: LumenAppShellProps['toolLayout']
   readonly toolResize?: LumenAppShellProps['toolResize']
@@ -230,6 +234,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const mainRef = useRef<HTMLElement | null>(null)
   const toolRef = useRef<HTMLElement | null>(null)
   const sidebarFocusRef = useRef<HTMLButtonElement | null>(null)
+  const sidebarShowFocusRef = useRef<HTMLButtonElement | null>(null)
+  const sidebarFocusOwner = useRef(runtime)
+  sidebarFocusOwner.current = runtime
+  const reportSidebarFocusUnavailable = props.sidebarResize?.onFocusUnavailable
+  const onSidebarFocusUnavailable = useCallback(() => {
+    reportSidebarFocusUnavailable?.()
+    // The shared control reports only its own lost focus. Wait for the sidebar
+    // visibility commit, then keep any newer deliberate focus or native modal.
+    queueMicrotask(() => {
+      if (sidebarFocusOwner.current !== runtime || document.querySelector('dialog:modal')) return
+      const active = document.activeElement
+      if (active instanceof HTMLElement && active !== document.body && canFocusWorkspaceElement(active)) return
+      for (const node of [sidebarFocusRef.current, sidebarShowFocusRef.current, toolRef.current, mainRef.current]) {
+        if (!node || !canFocusWorkspaceElement(node)) continue
+        node.focus({ preventScroll: true })
+        return
+      }
+    })
+  }, [runtime, reportSidebarFocusUnavailable])
   const resizeRef = useRef<HTMLElement | null>(null)
   const [toolPresentation, setToolPresentation] = useState<LumenToolPresentation>('none')
   const [toolFocusError, setToolFocusError] = useState<{ key: string; code: string } | null>(null)
@@ -582,6 +605,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       label={props.labels.main}
       titlebar={props.titlebar}
       sidebarWidthRem={props.sidebarWidthRem}
+      sidebarLayout={props.sidebarLayout}
+      sidebarResize={
+        props.sidebarResize ? { ...props.sidebarResize, onFocusUnavailable: onSidebarFocusUnavailable } : undefined
+      }
       {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
       toolLayout={props.toolLayout}
       toolResize={props.toolResize}
@@ -594,7 +621,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       onCloseSidebar={() => setSidebarVisible(false)}
       header={
         <LumenFrame className="hbar-app-react-shell-header">
-          <LumenIconButton label={props.labels.showSidebar} onClick={() => setSidebarVisible(true)}>
+          <LumenIconButton
+            ref={sidebarShowFocusRef}
+            label={props.labels.showSidebar}
+            onClick={() => setSidebarVisible(true)}
+          >
             <WorkspaceShellIcon name="menu" />
           </LumenIconButton>
           <LumenText as="strong">{props.labels.brand}</LumenText>
@@ -775,6 +806,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           }
           actions={
             <LumenFrame className="hbar-app-react-sidebar-actions">
+              {props.sidebarFeedback}
               {props.connection !== 'connected' && (
                 <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
               )}
