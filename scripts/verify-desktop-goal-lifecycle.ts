@@ -8,6 +8,7 @@ import { HbarClient, createGoalPlanCommandClient, createWorkspaceSessionCommandC
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from '../e2e/support/composer-text'
 import { cleanupNativeSessionFixture } from './native-fixture-cleanup'
+import { verifyNativeSessionArchive } from './verify-native-session-archive'
 
 // No build, installation or user-process attachment. The caller refreshes debug Host/Web resources first.
 if (process.platform !== 'win32') throw new Error('This isolated native Goal check requires Windows WebView2')
@@ -490,6 +491,12 @@ try {
       2,
     ),
   )
+  await verifyNativeSessionArchive(page, api, {
+    workspaceId: workspace.id,
+    workspaceName: workspace.name,
+    sessionId: session.id,
+    title: session.title,
+  })
   const snapshot = await api.call('session.snapshot', { sessionId: session.id })
   expect(snapshot.runs).toEqual([])
   expect(snapshot.messages).toEqual([])
@@ -520,7 +527,7 @@ try {
     ),
   )
   console.log(
-    'PASS: isolated native Goal history preserves the old objective through complete/clear/new paused Goal and reload; summary stays below header, keyboard disclosures/aria work, drafts stay unchanged before reload, and 1440/900×600 do not horizontally overflow. Device language switches in place at 900, preserves the unsaved Appearance draft and conversation, and reloads in saved Chinese. No provider Run was created.',
+    'PASS: isolated native Goal history preserves the old objective through complete/clear/new paused Goal and reload; summary stays below header, keyboard disclosures/aria work, drafts stay unchanged before reload, and 1440/900×600 do not horizontally overflow. Device language switches in place at 900, preserves the unsaved Appearance draft and conversation, and reloads in saved Chinese. Confirmed archive retires only the original A tab, keeps B active with its draft, restores A without navigating, and reloads the original empty workspace without selecting B. No provider Run was created.',
   )
 } finally {
   api?.disconnect()

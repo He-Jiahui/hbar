@@ -359,7 +359,9 @@ test('closing the selected tab skips archived and deleted neighbours instead of 
     else f.sessions.delete('c')
     await runtime.workspaceTabs.closeCaptured(runtime.workspaceTabs.capture(['b']), new AbortController().signal)
     expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe('d')
-    expect(runtime.view.state.workspaceTabs.getSnapshot().items.map((item) => item.id)).toEqual(['a', 'c', 'd'])
+    expect(runtime.view.state.workspaceTabs.getSnapshot().items.map((item) => item.id)).toEqual(
+      unavailable === 'archived' ? ['a', 'd'] : ['a', 'c', 'd'],
+    )
     runtime.dispose()
   }
 })

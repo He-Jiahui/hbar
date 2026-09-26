@@ -135,6 +135,7 @@ export function registerNavigationCommands(
   )
   local.register(navigationCommands['app.setSession'], (input, context) => {
     const workspaceId = input.workspaceId ?? navigation.reader.getSnapshot().workspaceId
+    const selectionGuard = tabs?.beginSelection(input.sessionId ?? null)
     return navigate(async (execution) => {
       let session =
         input.sessionName !== undefined
@@ -165,12 +166,15 @@ export function registerNavigationCommands(
         throw new SessionSelectionError('SESSION_WORKSPACE_MISMATCH')
       const workspace = await queries.execute('workspace.get', { workspaceId: session.workspaceId }, execution)
       if (!workspace) throw new SessionSelectionError('WORKSPACE_NOT_FOUND')
+      selectionGuard?.assertCurrent(session)
       tabs?.beforeSelect(session)
       return { workspaceId: workspace.id, sessionId: session.id, session }
-    }, context).then(({ workspaceId: resolvedWorkspaceId, sessionId }) => ({
-      workspaceId: resolvedWorkspaceId,
-      sessionId,
-    }))
+    }, context)
+      .then(({ workspaceId: resolvedWorkspaceId, sessionId }) => ({
+        workspaceId: resolvedWorkspaceId,
+        sessionId,
+      }))
+      .finally(() => selectionGuard?.dispose())
   })
   return {
     commitLocalSelection(closedId: string | null, next: { workspaceId: string; sessionId: string | null }) {

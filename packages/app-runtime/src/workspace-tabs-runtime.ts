@@ -1,6 +1,6 @@
 import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
 import { z } from 'zod'
-import type { Session } from '@hbar/contracts/directory'
+import { sessionSchema, type Session } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
 import type { ClientPreferencesState, DirectoryState, NavigationState, SurfaceState } from './types'
 import type { WorkspaceTabCloseTarget } from './workspace-tab-close'
@@ -99,13 +99,19 @@ export interface WorkspaceTabNavigationHooks {
   reserveCreation(key: string, workspaceId: string): void
   commitCreation(key: string, session: Readonly<Session>): void
   settleCreation(key: string, uncertain: boolean): void
+  beginSelection(sessionId: string | null): WorkspaceTabSelectionGuard
   beforeSelect(session: Readonly<Session>): void
   commitSelected(session: Readonly<Session>): void
   commitWorkspaceSelection(): void
 }
+export interface WorkspaceTabSelectionGuard {
+  assertCurrent(session: Readonly<Pick<Session, 'id' | 'workspaceId' | 'seq' | 'updatedAt'>>): void
+  dispose(): void
+}
 export interface WorkspaceTabsOptions {
   readonly navigation: StateReader<NavigationState>
   readonly directory: StateReader<DirectoryState>
+  readonly subscribeConfirmedSessions: (listener: (items: readonly Session[]) => void) => () => void
   readonly surfaces: StateReader<SurfaceState>
   readonly queries: CommandExecutor
   readonly preferences: StateReader<ClientPreferencesState>
@@ -200,7 +206,46 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   let writeScheduled = false
   let retrySelection: { readonly tab: SessionTabRef; readonly navigation: NavigationState } | null = null
   let focusedWorkbenchId: string | null = null
+  let retirementSerial = 0
+  // Only in-flight intent fences, not a second Session cache. Released after each selection/restore.
+  const selectionFences = new Map<symbol, { sessionId: string | null; archived: Set<string>; overflow: boolean }>()
+  const identity = (session: Pick<Session, 'id' | 'workspaceId'>) => JSON.stringify([session.id, session.workspaceId])
+  function beginSelection(sessionId: string | null): WorkspaceTabSelectionGuard {
+    if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
+    if (selectionFences.size >= MAX_WORKSPACE_TABS)
+      throw new CommandError('BUSY', 'Too many pending Session validations')
+    const key = Symbol()
+    // Keep a read-only reference to this intent's canonical snapshot, not a long-lived Session mirror.
+    // Cache eviction during the query cannot erase an archive that was already known when it began.
+    const initialSessions = options.directory.getSnapshot().sessions
+    const fence = { sessionId, archived: new Set<string>(), overflow: false }
+    selectionFences.set(key, fence)
+    return {
+      assertCurrent(session) {
+        if (disposed || !selectionFences.has(key))
+          throw new CommandError('NAVIGATION_SUPERSEDED', 'Session validation no longer belongs to this intent')
+        if (fence.overflow)
+          throw new CommandError(
+            'NAVIGATION_SUPERSEDED',
+            'Too many archive facts arrived during this validation; retry',
+          )
+        if (fence.archived.has(identity(session)))
+          throw new CommandError('SESSION_ARCHIVED', 'Session was confirmed archived during this validation')
+        const initial = initialSessions[session.id]
+        if (
+          initial?.archived &&
+          initial.workspaceId === session.workspaceId &&
+          (initial.seq > session.seq || (initial.seq === session.seq && initial.updatedAt >= session.updatedAt))
+        )
+          throw new CommandError('SESSION_ARCHIVED', 'Session was already confirmed archived before this validation')
+      },
+      dispose() {
+        selectionFences.delete(key)
+      },
+    }
+  }
   let restoredWorkspaceId: string | null = null
+  let archiveEmptyWorkspace: { sessionId: string; workspaceId: string } | null = null
   const navigationAtConstruction = options.navigation.getSnapshot()
   const current = () => state.reader.getSnapshot()
   const selected = (items: readonly WorkspaceTabRef[] = current().items) => {
@@ -215,6 +260,18 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   const navigationUnsubscribe = options.navigation.subscribe(() => {
     if (disposed) return
     const nav = options.navigation.getSnapshot()
+    if (archiveEmptyWorkspace) {
+      if (nav.sessionId === null && nav.workspaceId === archiveEmptyWorkspace.workspaceId) {
+        restoredWorkspaceId = archiveEmptyWorkspace.workspaceId
+        archiveEmptyWorkspace = null
+      } else if (
+        nav.sessionId !== archiveEmptyWorkspace.sessionId ||
+        nav.workspaceId !== archiveEmptyWorkspace.workspaceId ||
+        current().items.some((item) => item.kind === 'session' && item.id === archiveEmptyWorkspace?.sessionId)
+      ) {
+        archiveEmptyWorkspace = null
+      }
+    }
     if (restoredWorkspaceId && (nav.workspaceId !== restoredWorkspaceId || nav.sessionId !== null))
       restoredWorkspaceId = null
     const activeId = selected()
@@ -240,15 +297,77 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     publish({ items, revision: current().revision + 1 })
     persist()
   })
+  /** Retire only confirmed archived Session instances; Files surfaces, navigation, drafts and Runs are not ours to close. */
+  function retireConfirmedArchivedSessions(facts: readonly Session[]): void {
+    if (disposed) return
+    for (const fence of selectionFences.values()) {
+      for (const fact of facts) {
+        if (!fact.archived || (fence.sessionId !== null && fence.sessionId !== fact.id)) continue
+        const key = identity(fact)
+        if (fence.archived.has(key)) continue
+        if (fence.archived.size >= MAX_WORKSPACE_TABS) fence.overflow = true
+        else fence.archived.add(key)
+      }
+    }
+    const before = current()
+    const closing = new Map(
+      before.items
+        .filter(
+          (item): item is SessionTabRef =>
+            item.kind === 'session' &&
+            facts.some((fact) => fact.archived && fact.id === item.sessionId && fact.workspaceId === item.workspaceId),
+        )
+        .map((item) => [item.sessionId, item.instanceKey]),
+    )
+    if (closing.size === 0) return
+    const nav = options.navigation.getSnapshot()
+    if (nav.sessionId !== null && closing.has(nav.sessionId) && nav.workspaceId !== null)
+      archiveEmptyWorkspace = { sessionId: nav.sessionId, workspaceId: nav.workspaceId }
+    const items = before.items
+      .filter((item) => item.kind !== 'session' || closing.get(item.sessionId) !== item.instanceKey)
+      .map((item) => {
+        if (
+          item.kind !== 'session' ||
+          !item.agentSource ||
+          closing.get(item.agentSource.parentSessionId) !== item.agentSource.sourceTabInstanceKey
+        )
+          return item
+        const { agentSource: _discarded, ...withoutSource } = item
+        return withoutSource
+      })
+    if (retrySelection && closing.get(retrySelection.tab.sessionId) === retrySelection.tab.instanceKey)
+      retrySelection = null
+    retirementSerial++
+    publish({ items, revision: before.revision + 1 })
+    // Persistence errors are local tab-preference feedback, never a failure of the confirmed Host archive.
+    persist()
+  }
+  const sessionsUnsubscribe = options.subscribeConfirmedSessions(retireConfirmedArchivedSessions)
   const saved = () => {
     const active = current().items.find((item) => item.id === selected())
     const id = active?.kind === 'workbench' ? active.sourceSessionId : active?.id
+    const archivedWorkspace =
+      archiveEmptyWorkspace &&
+      options.navigation.getSnapshot().sessionId === archiveEmptyWorkspace.sessionId &&
+      options.navigation.getSnapshot().workspaceId === archiveEmptyWorkspace.workspaceId &&
+      !current().items.some((item) => item.kind === 'session' && item.id === archiveEmptyWorkspace?.sessionId) &&
+      (!active || (active.kind === 'workbench' && active.sourceSessionId === archiveEmptyWorkspace.sessionId))
+        ? archiveEmptyWorkspace.workspaceId
+        : null
     const workspaceFallback =
       active?.kind === 'workbench' && active.sourceSessionId === null
         ? active.workspaceId
-        : selected() === null && options.navigation.getSnapshot().workspaceId === restoredWorkspaceId
-          ? restoredWorkspaceId
-          : null
+        : archivedWorkspace !== null
+          ? archivedWorkspace
+          : options.navigation.getSnapshot().sessionId === null &&
+              options.navigation.getSnapshot().workspaceId === restoredWorkspaceId &&
+              (selected() === null ||
+                (active?.kind === 'workbench' &&
+                  !current().items.some(
+                    (item) => item.kind === 'session' && item.sessionId === active.sourceSessionId,
+                  )))
+            ? restoredWorkspaceId
+            : null
     return {
       version: 1,
       activeId: workspaceFallback
@@ -287,7 +406,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   }
   function insert(session: Readonly<Session>) {
     if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
-    if (session.archived) throw new CommandError('SESSION_ARCHIVED', 'Archived Session cannot open as a tab')
+    assertSelectable(session)
     const original = current()
     if (original.items.some((item) => item.id === session.id)) return
     if (original.items.length + reservations.size >= MAX_WORKSPACE_TABS)
@@ -301,6 +420,15 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     }
     publish({ items: [...original.items, item], revision: original.revision + 1 })
     persist()
+  }
+  function assertSelectable(session: Readonly<Session>): void {
+    const confirmed = options.directory.getSnapshot().sessions[session.id]
+    const newerArchive =
+      confirmed?.workspaceId === session.workspaceId &&
+      confirmed.archived &&
+      (confirmed.seq > session.seq || (confirmed.seq === session.seq && confirmed.updatedAt >= session.updatedAt))
+    if (session.archived || newerArchive)
+      throw new CommandError('SESSION_ARCHIVED', 'Archived Session cannot open as a tab')
   }
   function reserveCreation(key: string, workspaceId: string) {
     if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
@@ -326,6 +454,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   }
   const hooks: WorkspaceTabNavigationHooks = {
     reserveCreation,
+    beginSelection,
     commitCreation(key, session) {
       const workspaceId = reservations.get(key)
       const confirmed = confirmedCreations.get(key)
@@ -351,6 +480,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
       if (!uncertain) reservations.delete(key)
     },
     beforeSelect(session) {
+      assertSelectable(session)
       if (
         !current().items.some((item) => item.id === session.id) &&
         current().items.length + reservations.size >= MAX_WORKSPACE_TABS
@@ -478,6 +608,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
     signal.throwIfAborted()
     const before = current()
+    const retirementAtStart = retirementSerial
     const closing = new Set(
       targets
         .filter((target) =>
@@ -497,18 +628,20 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         .filter((item): item is SessionTabRef => item.kind === 'session' && closing.has(item.id))
         .map((item) => [item.id, item.instanceKey]),
     )
-    const items = before.items
-      .filter((item) => !closing.has(item.id))
-      .map((item) => {
-        if (
-          item.kind !== 'session' ||
-          !item.agentSource ||
-          closedSources.get(item.agentSource.parentSessionId) !== item.agentSource.sourceTabInstanceKey
-        )
-          return item
-        const { agentSource: _discarded, ...withoutSource } = item
-        return withoutSource
-      })
+    const survivors = (source: readonly WorkspaceTabRef[]) =>
+      source
+        .filter((item) => !closing.has(item.id))
+        .map((item) => {
+          if (
+            item.kind !== 'session' ||
+            !item.agentSource ||
+            closedSources.get(item.agentSource.parentSessionId) !== item.agentSource.sourceTabInstanceKey
+          )
+            return item
+          const { agentSource: _discarded, ...withoutSource } = item
+          return withoutSource
+        })
+    let items = survivors(before.items)
     const nav = options.navigation.getSnapshot()
     const activeId = selected()
     const closedActive = activeId !== null && closing.has(activeId)
@@ -560,12 +693,21 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         }
       }
       signal.throwIfAborted()
+      const retirements = retirementSerial - retirementAtStart
       if (
-        current().revision !== before.revision ||
-        current().items !== before.items ||
+        current().revision !== before.revision + retirements ||
+        (retirements === 0 && current().items !== before.items) ||
         options.navigation.getSnapshot() !== nav
       )
         throw new CommandError('BUSY', 'Tab or navigation changed while checking the close target')
+      // Our own Host-confirmed retirements may remove a checked neighbour. Never reinsert those dead refs.
+      if (retirements > 0) items = survivors(current().items)
+      const checkedNearest = nearest
+      if (
+        checkedNearest &&
+        !items.some((item) => item.id === checkedNearest.id && item.instanceKey === checkedNearest.instanceKey)
+      )
+        nearest = null
       if (closedActive) focusedWorkbenchId = nearest?.kind === 'workbench' ? nearest.id : null
       if (nearest?.kind === 'session') {
         options.commitLocalSelection(nav.sessionId, {
@@ -579,7 +721,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         })
       }
     }
-    publish({ items, revision: before.revision + 1 })
+    publish({ items, revision: current().revision + 1 })
     persist()
   }
   async function restore(retry = false) {
@@ -608,6 +750,8 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
       publish({ restoreStatus: 'ready' })
       return
     }
+    const restorationFences = new Map<string, WorkspaceTabSelectionGuard>()
+    const restorationStamps = new Map<string, Readonly<Pick<Session, 'id' | 'workspaceId' | 'seq' | 'updatedAt'>>>()
     try {
       const description = parseSaved(value)
       const descriptions = description.items
@@ -616,19 +760,16 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         const page = descriptions.slice(offset, offset + 4)
         const outcomes = await Promise.all(
           page.map(async (item) => {
+            const fence = beginSelection(item.sessionId)
+            restorationFences.set(item.sessionId, fence)
             const response = await options.queries.execute('session.get', { sessionId: item.sessionId })
             if (response === null) return null
-            if (
-              !response ||
-              typeof response !== 'object' ||
-              !('id' in response) ||
-              !('workspaceId' in response) ||
-              !('archived' in response) ||
-              response.id !== item.id ||
-              response.workspaceId !== item.workspaceId
-            )
+            const parsed = sessionSchema.safeParse(response)
+            if (!parsed.success || parsed.data.id !== item.id || parsed.data.workspaceId !== item.workspaceId)
               throw new CommandError('INVALID_OUTPUT', 'Restored Session target mismatch')
-            if (response.archived) return null
+            if (parsed.data.archived) return null
+            const { id, workspaceId, seq, updatedAt } = parsed.data
+            restorationStamps.set(item.sessionId, { id, workspaceId, seq, updatedAt })
             const workspace = await options.queries.execute('workspace.get', { workspaceId: item.workspaceId })
             if (workspace === null) return null
             if (
@@ -652,12 +793,32 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         publish({ restoreStatus: 'ready' })
         return
       }
-      publish({ items: restored, revision: current().revision + 1, restoreError: null })
-      let needsPersist = restored.length !== descriptions.length
+      // A later accepted archive may have arrived while another restoration lookup was pending.
+      const available = restored.filter((item) => {
+        try {
+          // A confirmed archive during any preceding lookup invalidates this original restoration,
+          // even after its canonical row was evicted from the bounded directory cache.
+          const stamp = restorationStamps.get(item.sessionId)
+          if (!stamp) throw new CommandError('INVALID_OUTPUT', 'Restored Session version is missing')
+          restorationFences.get(item.sessionId)?.assertCurrent(stamp)
+        } catch (reason) {
+          if (code(reason) === 'SESSION_ARCHIVED') return false
+          throw reason
+        }
+        const fact = options.directory.getSnapshot().sessions[item.sessionId]
+        return !(fact?.archived && fact.workspaceId === item.workspaceId)
+      })
+      // Final verification is complete. The following active selection owns a new guard;
+      // do not consume all 32 slots with finished restore lookups during that new query.
+      for (const fence of restorationFences.values()) fence.dispose()
+      restorationFences.clear()
+      restorationStamps.clear()
+      publish({ items: available, revision: current().revision + 1, restoreError: null })
+      let needsPersist = available.length !== descriptions.length
       const selectedTab =
         description.activeId === null
           ? null
-          : (restored.find((item) => item.id === description.activeId) ?? restored[0] ?? null)
+          : (available.find((item) => item.id === description.activeId) ?? available[0] ?? null)
       if (selectedTab && (!retry || navigationAtStart === navigationAtConstruction)) {
         try {
           await options.selectSession(selectedTab.sessionId, selectedTab.workspaceId)
@@ -719,6 +880,9 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
       publish({ restoreStatus: 'ready' })
     } catch (reason) {
       if (!disposed && current().revision === initial) publish({ restoreStatus: 'error', restoreError: code(reason) })
+    } finally {
+      for (const fence of restorationFences.values()) fence.dispose()
+      restorationStamps.clear()
     }
   }
   const ready = restore()
@@ -834,8 +998,11 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
       disposed = true
       navigationUnsubscribe()
       surfaceUnsubscribe()
+      sessionsUnsubscribe()
       reservations.clear()
       confirmedCreations.clear()
+      selectionFences.clear()
+      archiveEmptyWorkspace = null
       state.dispose()
     },
   }

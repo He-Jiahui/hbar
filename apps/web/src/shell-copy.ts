@@ -2294,21 +2294,25 @@ function createArchiveLabels(locale: ShellLocale): HbarWorkspaceShellLabels['arc
     checking: zh ? '正在核对…' : 'Checking…',
     dismiss: zh ? '知道了' : 'Dismiss',
     error: (code) =>
-      code === 'BUSY'
+      code === 'CAPACITY_EXCEEDED'
         ? zh
-          ? '此会话仍有活动运行。停止运行后再归档。'
-          : 'This session still has an active run. Stop it before archiving.'
-        : code === 'STALE_TARGET'
+          ? '当前客户端有太多会话查询或操作。等待它们结束后重试。'
+          : 'Too many session checks or operations are pending in this client. Wait for them to finish, then retry.'
+        : code === 'BUSY'
           ? zh
-            ? '原会话已不可用。请取消并刷新项目列表。'
-            : 'The original session is unavailable. Cancel and refresh the project list.'
-          : code === 'PAGE_STALE'
+            ? '此会话仍有活动运行。停止运行后再归档。'
+            : 'This session still has an active run. Stop it before archiving.'
+          : code === 'STALE_TARGET'
             ? zh
-              ? '本页数据已过期，请刷新归档列表。'
-              : 'This page is no longer current. Refresh the archived list.'
-            : zh
-              ? `操作失败：${code}`
-              : `Could not complete the action: ${code}`,
+              ? '原会话已不可用。请取消并刷新项目列表。'
+              : 'The original session is unavailable. Cancel and refresh the project list.'
+            : code === 'PAGE_STALE'
+              ? zh
+                ? '本页数据已过期，请刷新归档列表。'
+                : 'This page is no longer current. Refresh the archived list.'
+              : zh
+                ? `操作失败：${code}`
+                : `Could not complete the action: ${code}`,
   }
 }
 

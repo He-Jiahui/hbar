@@ -4,6 +4,7 @@ import { sessionPageSchema, sessionSchema, type Session } from '@hbar/contracts/
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
 import type { DirectoryState } from './types'
+import { createSessionProjectionFence, type ConfirmedSessionSubscriber } from './session-projection-fence'
 
 export const SESSION_ROSTER_PAGE_SIZE = 100
 export const SESSION_ROSTER_AUTO_CHECK_LIMIT = 100
@@ -33,6 +34,7 @@ export interface SessionRosterRefreshState {
 export interface SessionRosterRefreshOptions {
   readonly directory: StateReader<DirectoryState>
   readonly host: CommandExecutor
+  readonly subscribeConfirmedSessions: ConfirmedSessionSubscriber
   readonly reconcile: (
     items: readonly Session[],
     absent: readonly RosterMissingSession[],
@@ -160,6 +162,11 @@ export function createSessionRosterRefresh(local: CommandRegistry, options: Sess
       skipped: 0,
     })
     const promise = (async () => {
+      const projection = createSessionProjectionFence(
+        input.workspaceId,
+        Object.values(options.directory.getSnapshot().sessions),
+        options.subscribeConfirmedSessions,
+      )
       try {
         const prior = Object.values(options.directory.getSnapshot().sessions)
           .filter((item) => item.workspaceId === input.workspaceId && !item.archived)
@@ -241,7 +248,10 @@ export function createSessionRosterRefresh(local: CommandRegistry, options: Sess
           failure ??= cancelledCode
         }
         // Absence from the first page never removes a previously loaded later-page member.
-        const { skipped } = options.reconcile([...items.values()], absent)
+        const authoritative = projection.filter([...items.values()])
+        const authoritativeAbsent = projection.filter(absent)
+        if (projection.overflow) failure ??= 'QUERY_SUPERSEDED'
+        const { skipped } = options.reconcile(authoritative, authoritativeAbsent)
         const lastChecked = checks.at(-1)
         if (lastChecked && !controller.signal.aborted) rotation.set(input.workspaceId, lastChecked.id)
         write({
@@ -273,6 +283,7 @@ export function createSessionRosterRefresh(local: CommandRegistry, options: Sess
         }
         throw error
       } finally {
+        projection.dispose()
         clearTimeout(timer)
         execution.signal.removeEventListener('abort', abort)
         if (pending.get(input.workspaceId)?.controller === controller) pending.delete(input.workspaceId)

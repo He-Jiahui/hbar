@@ -44,6 +44,7 @@ function fixture(host: CommandExecutor, timeoutMs?: number) {
   const registry = new CommandRegistry({ execution: 'client' })
   const refresh = createSessionRosterRefresh(registry, {
     host,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
     directory: directory.reader,
     reconcile: directory.reconcileRosterSessions,
     onSubscriberError: (error) => {

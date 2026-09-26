@@ -275,6 +275,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const sessionRosterRefresh = createSessionRosterRefresh(local, {
     directory: directory.reader,
     host: options.directory,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
     reconcile: directory.reconcileRosterSessions,
     onSubscriberError,
     isDisposed: () => disposed,
@@ -301,6 +302,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const workspaceTabs = createWorkspaceTabs(local, {
     navigation: navigation.reader,
     directory: directory.reader,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
     surfaces: surfaces.reader,
     queries: directory.queries,
     preferences: clientPersistence.preferences,

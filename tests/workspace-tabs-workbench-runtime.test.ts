@@ -321,7 +321,7 @@ test('Back skips an archived or closed source, but a connection failure retains 
       instanceKey: target!.instanceKey,
     }),
   ).toEqual({ activeId: 'a' })
-  expect(runtime.view.state.workspaceTabs.getSnapshot().items.map((entry) => entry.id)).toEqual(['a', 'b'])
+  expect(runtime.view.state.workspaceTabs.getSnapshot().items.map((entry) => entry.id)).toEqual(['a'])
   runtime.dispose()
 
   let disconnected = false

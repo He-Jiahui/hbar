@@ -108,6 +108,7 @@ const definitiveRejections = new Set([
   'SESSION_NOT_FOUND',
   'CAPABILITY_UNAVAILABLE',
   'COMMAND_NOT_FOUND',
+  'CAPACITY_EXCEEDED',
   'BUSY',
   'VERSION_CONFLICT',
 ])
