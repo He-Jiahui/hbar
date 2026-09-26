@@ -301,6 +301,14 @@ function snapshot(controls: readonly ControlSnapshot[]): SemanticSnapshot {
 }
 
 describe('React Bits Pro visual audit contract', () => {
+  test('sign-up samples strength, consent, reveal, valid and invalid gates without replaying every form combination', () => {
+    const id = 'hbar-app-ui-authentication-7'
+    expect(auditSamplingPlan(id)?.samples).toHaveLength(11)
+    expect(sampledInteractionIds(id, 'desktop', 'light')).toContain(`${id}:auth-signup-complete:4:toggle`)
+    expect(sampledInteractionIds(id, 'desktop', 'dark')).toContain(`${id}:auth-signup-password:3:click`)
+    expect(sampledInteractionIds(id, 'tablet', 'light')).toContain(`${id}:auth-signup-invalid-email:1:fill`)
+    expect(sampledInteractionIds(id, 'mobile', 'light')).toEqual([`${id}:0:fill`])
+  })
   test('magic-link audit ignores independent countdown clocks but preserves visible state changes', () => {
     const sourceBefore = { ...snapshot([control(0, { name: 'Resend link in 0:39', disabled: true })]), axSnapshot: '- button "Resend link in 0:39" [disabled]', bodyTextLength: 400 }
     const localBefore = { ...snapshot([control(0, { name: 'Resend link in 0:45', disabled: true })]), axSnapshot: '- button "Resend link in 0:45" [disabled]', bodyTextLength: 320 }

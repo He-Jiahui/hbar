@@ -17,7 +17,12 @@ export function AuthenticationPreviewHost({
     [recoveryCode, setRecoveryCode] = useState(content.code?.referenceFlow?.recoveryCode ?? ''),
     [phase, setPhase] = useState<'text' | 'recovery' | 'verified'>(content.code?.referenceFlow?.phase ?? 'text'),
     [busy, setBusy] = useState(false),
-    [seconds, setSeconds] = useState(content.code?.resend?.seconds ?? 0)
+    [seconds, setSeconds] = useState(content.code?.resend?.seconds ?? 0),
+    [signUpName, setSignUpName] = useState(content.signUp?.referenceFlow?.name ?? content.signUp?.initialName ?? ''),
+    [signUpEmail, setSignUpEmail] = useState(content.signUp?.referenceFlow?.email ?? content.signUp?.initialEmail ?? ''),
+    [signUpPassword, setSignUpPassword] = useState(content.signUp?.referenceFlow?.password ?? ''),
+    [signUpVisible, setSignUpVisible] = useState(content.signUp?.referenceFlow?.visible ?? false),
+    [signUpAgreed, setSignUpAgreed] = useState(content.signUp?.referenceFlow?.agreed ?? false)
   const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   if (source !== content) {
     setSource(content)
@@ -26,6 +31,11 @@ export function AuthenticationPreviewHost({
     setPhase(content.code?.referenceFlow?.phase ?? 'text')
     setBusy(false)
     setSeconds(content.code?.resend?.seconds ?? 0)
+    setSignUpName(content.signUp?.referenceFlow?.name ?? content.signUp?.initialName ?? '')
+    setSignUpEmail(content.signUp?.referenceFlow?.email ?? content.signUp?.initialEmail ?? '')
+    setSignUpPassword(content.signUp?.referenceFlow?.password ?? '')
+    setSignUpVisible(content.signUp?.referenceFlow?.visible ?? false)
+    setSignUpAgreed(content.signUp?.referenceFlow?.agreed ?? false)
   }
   useEffect(() => {
     if (!seconds) return
@@ -40,6 +50,7 @@ export function AuthenticationPreviewHost({
     verificationTimer.current = null
   }, [content])
   const verify = content.code
+  const requirementsMet = [signUpPassword.length >= 10, /[A-Z]/.test(signUpPassword), /\d/.test(signUpPassword), /[^A-Za-z0-9]/.test(signUpPassword)]
   const submit = (value: string) => {
     if (busy || verificationTimer.current) return
     setBusy(true)
@@ -90,6 +101,24 @@ export function AuthenticationPreviewHost({
             onRecoveryCodeChange: (value) => setRecoveryCode(value.toUpperCase().slice(0, 11)),
             onModeChange: changeMode,
             onContinue: () => onAction?.({ variantId: spec.id, actionId: 'continue' }),
+          },
+        },
+        signUp: content.signUp && {
+          ...content.signUp,
+          referenceFlow: content.signUp.referenceFlow && {
+            ...content.signUp.referenceFlow,
+            name: signUpName,
+            email: signUpEmail,
+            password: signUpPassword,
+            visible: signUpVisible,
+            agreed: signUpAgreed,
+            requirementsMet,
+            canSubmit: signUpName.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signUpEmail) && requirementsMet.every(Boolean) && signUpAgreed,
+            onNameChange: setSignUpName,
+            onEmailChange: setSignUpEmail,
+            onPasswordChange: setSignUpPassword,
+            onVisibleChange: setSignUpVisible,
+            onAgreedChange: setSignUpAgreed,
           },
         },
       }}

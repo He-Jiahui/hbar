@@ -289,6 +289,10 @@ export type InteractionCase = Readonly<{
     | 'auth-code-recovery-valid'
     | 'auth-code-five'
     | 'auth-code-verified'
+    | 'auth-signup-password'
+    | 'auth-signup-complete'
+    | 'auth-signup-ready'
+    | 'auth-signup-invalid-email'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1729,6 +1733,16 @@ async function prepareAuthenticationCodeScenario(root: Locator, scenario: (typeo
   for (let index = 0; index < (scenario === 'auth-code-five' ? 5 : 6); index += 1)
     await digits.nth(index).fill(String(index + 1))
   if (scenario === 'auth-code-verified') await root.getByRole('heading', { name: 'Device verified' }).waitFor({ state: 'visible', timeout: 5_000 })
+}
+const authenticationSignUpScenarios = ['auth-signup-password', 'auth-signup-complete', 'auth-signup-ready', 'auth-signup-invalid-email'] as const
+async function prepareAuthenticationSignUpScenario(root: Locator, scenario: (typeof authenticationSignUpScenarios)[number]): Promise<void> {
+  await root.getByRole('textbox', { name: 'Password' }).fill('StrongPassword1!')
+  if (scenario === 'auth-signup-password') return
+  await root.getByRole('textbox', { name: 'Full name' }).fill('Dana Whitfield')
+  await root.getByRole('textbox', { name: 'Work email' }).fill(scenario === 'auth-signup-invalid-email' ? '' : 'dana@example.test')
+  const agreement = root.getByRole('checkbox', { name: 'I agree to the terms of service and the privacy policy.' })
+  if (scenario === 'auth-signup-ready' || scenario === 'auth-signup-invalid-email') await agreement.check()
+  else await agreement.uncheck()
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3323,6 +3337,8 @@ async function replayInteraction(
     await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
   if (spec.id === 'hbar-app-ui-authentication-6' && authenticationCodeScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
+  if (spec.id === 'hbar-app-ui-authentication-7' && authenticationSignUpScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3618,6 +3634,8 @@ async function replayReferenceInteraction(
     await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
   if (reference.id === 'hbar-app-ui-authentication-6' && authenticationCodeScenarios.some((value) => value === interaction.scenario))
     await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
+  if (reference.id === 'hbar-app-ui-authentication-7' && authenticationSignUpScenarios.some((value) => value === interaction.scenario))
+    await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4143,6 +4161,11 @@ async function runInteractionsParallel(
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-authentication-6')
               discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: '1' } : item)
+            if (spec.id === 'hbar-app-ui-authentication-7')
+              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: 'Dana Whitfield' }
+                : item.id === `${spec.id}:1:fill` ? { ...item, fillValue: 'dana@example.test' }
+                  : item.id === `${spec.id}:2:fill` ? { ...item, fillValue: theme === 'light' ? 'abcdefghij' : 'Abcdefghij1!' }
+                    : item)
             if (spec.id === 'hbar-app-ui-notifications-2') {
               for (const scenario of notificationToastScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
@@ -4217,6 +4240,17 @@ async function runInteractionsParallel(
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
                   scenario === 'auth-code-five' && item.id === `${spec.id}:${scenario}:5:fill`
                     ? { ...item, fillValue: '6' }
+                    : item,
+                ))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-authentication-7') {
+              for (const scenario of authenticationSignUpScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareAuthenticationSignUpScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                  scenario === 'auth-signup-invalid-email' && item.id === `${spec.id}:${scenario}:1:fill`
+                    ? { ...item, fillValue: 'bad@' }
                     : item,
                 ))
               }

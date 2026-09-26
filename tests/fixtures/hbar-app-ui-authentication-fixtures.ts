@@ -47,6 +47,11 @@ export const HBAR_APP_UI_AUTHENTICATION_FIXTURES: HbarAppUiAuthContent = {
     signUp: {
         labels: {brand: 'Northwind', title: 'Create your account', description: 'Free for 14 days. No card, no seat minimum.', nameLabel: 'Full name', namePlaceholder: 'Dana Whitfield', emailLabel: 'Work email', emailPlaceholder: 'you@company.com', emailHelper: 'We use this to match you to an existing workspace.', passwordLabel: 'Password', passwordPlaceholder: 'Choose a password', requirements: ['At least 10 characters', 'One uppercase letter', 'One number', 'One symbol'], agreementPrefix: 'I agree to the', terms: 'terms of service', agreementJoin: 'and the', privacy: 'privacy policy', createAccount: 'Create account', existingAccount: 'Already have an account?', signIn: 'Sign in', showPassword: 'Show password', hidePassword: 'Hide password'},
         initialName: '', initialEmail: '',
+        referenceFlow: {
+            labels: {strength: ['Weak', 'Fair', 'Good', 'Strong'], agreementEnd: '.'},
+            name: '', email: '', password: '', visible: false, agreed: false, requirementsMet: [false, false, false, false], canSubmit: false,
+            onNameChange() {}, onEmailChange() {}, onPasswordChange() {}, onVisibleChange() {}, onAgreedChange() {},
+        },
     },
     enterprise: {
         labels: {brand: 'Northwind', title: 'Sign in with your company account', description: 'Enter your work email and we route you to the identity provider your organization uses.', emailLabel: 'Work email', emailPlaceholder: 'you@company.com', providerHint: 'northwind.com signs in through Okta.', continueProvider: (provider) => `Continue with ${provider}`, passwordInstead: 'Use a password instead', auditNote: 'Sign-in is logged with the time, device and location, and your admin can review it at any time.', matchedOrganization: 'Matched organization', directory: 'Directory', provider: 'Provider', sessionLength: 'Session length', members: (count) => `${count} members`, securityChecks: ['Two-factor enforced by your admin', 'Directory sync adds and removes access', 'Device posture checked at sign-in'], lockedOut: 'Locked out? Your workspace admin is at it-help@northwind.com.'},
@@ -128,5 +133,6 @@ export function createHbarAppUiAuthenticationLocalizedFixtures(): HbarAppUiAuthC
         workspace: base.workspace && {...base.workspace, labels: {...base.workspace.labels, title: 'Arbeitsbereich auswählen', open: (name) => `${name} öffnen`}},
         invitation: base.invitation && {...base.invitation, labels: {...base.invitation.labels, title: 'Northwind Operations beitreten', accept: 'Einladung annehmen'}},
         passwordReset: base.passwordReset && {...base.passwordReset, labels: {...base.passwordReset.labels, title: 'Neues Passwort festlegen'}},
+        signUp: base.signUp && {...base.signUp, labels: {...base.signUp.labels, title: 'Konto erstellen', description: 'Vierzehn Tage kostenlos. Keine Karte, keine Mindestanzahl an Sitzen.'}, referenceFlow: base.signUp.referenceFlow && {...base.signUp.referenceFlow, labels: {...base.signUp.referenceFlow.labels, strength: ['Schwach', 'Mittel', 'Gut', 'Stark']}}},
     }
 }

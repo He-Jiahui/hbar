@@ -58,6 +58,7 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(renderAuthentication(4, localized)).toContain('Beim Northwind-Arbeitsbereich anmelden')
         expect(renderAuthentication(5, localized)).toContain('Prüfen Sie Ihren Posteingang')
         expect(renderAuthentication(6, localized)).toContain('Bestätigen Sie Ihre Identität')
+        expect(renderAuthentication(7, localized)).toContain('Konto erstellen')
         expect(renderAuthentication(11, localized)).toContain('Arbeitsbereich auswählen')
         expect(renderAuthentication(12, localized)).toContain('Einladung annehmen')
         expect(renderAuthentication(13, localized)).toContain('Neues Passwort festlegen')
@@ -191,6 +192,24 @@ describe('hbar-app-ui authentication surfaces', () => {
         expect(verified).not.toContain('<fieldset')
         const legacy = renderAuthentication(6, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, code: {...base, referenceFlow: undefined}})
         expect(legacy).toContain('hbar-app-ui-code-verification')
+    })
+
+    test('sign-up reference form renders host-owned strength, valid requirements and native labels', () => {
+        const base = HBAR_APP_UI_AUTHENTICATION_FIXTURES.signUp
+        const flow = base?.referenceFlow
+        if (!base || !flow) throw new Error('Expected reference sign-up fixture')
+        const initial = renderAuthentication(7)
+        expect(initial).toContain('<form')
+        expect(initial).toContain('type="email"')
+        expect(initial).toContain('type="password"')
+        expect(occurrences(initial, '<li')).toBe(4)
+        expect(initial).not.toContain('Weak')
+        const strong = renderAuthentication(7, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, signUp: {...base, referenceFlow: {...flow, password: 'StrongPassword1!', requirementsMet: [true, true, true, true], canSubmit: true, agreed: true}}})
+        expect(strong).toContain('Strong')
+        expect(occurrences(strong, 'class="is-active"')).toBe(4)
+        expect(strong).not.toContain('disabled=""')
+        const legacy = renderAuthentication(7, {...HBAR_APP_UI_AUTHENTICATION_FIXTURES, signUp: {...base, referenceFlow: undefined}})
+        expect(legacy).toContain('hbar-app-ui-auth-progress')
     })
 
     test('handles empty, one, boundary, over-bound, duplicate, and stale list states', () => {

@@ -561,6 +561,28 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-authentication-7')
+    return {
+      revision: 1,
+      lumenEntries: ['authentication.tsx', 'authentication-sign-up-reference.css', 'authentication/SignUpAuthentication.tsx', 'authentication/primitives.tsx', 'authentication/content.tsx', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '2:fill', change: 'One password criterion reveals Weak strength and one active meter segment' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-signup-complete:4:toggle', change: 'Agreement activates submit only after name, full email and all four password requirements' },
+        { viewport: 'desktop', theme: 'light', suffix: 'auth-signup-ready:5:click', change: 'Documentation form submit has no destination or success feedback' },
+        { viewport: 'desktop', theme: 'dark', suffix: '2:fill', change: 'All four criteria update the list and Strong strength label' },
+        { viewport: 'desktop', theme: 'dark', suffix: 'auth-signup-password:3:click', change: 'Password reveal changes native type and accessible toggle label' },
+        { viewport: 'tablet', theme: 'light', suffix: 'auth-signup-invalid-email:1:fill', change: 'Incomplete email keeps submit disabled even with all other requirements met' },
+        { viewport: 'tablet', theme: 'dark', suffix: '6:click', change: 'Sign-in navigation is a source demo no-op' },
+        { viewport: 'mobile', theme: 'light', suffix: '0:fill', change: 'Name edit preserves associated field and narrow flow' },
+        { viewport: 'mobile', theme: 'dark', suffix: '1:fill', change: 'Email field accepts a full address in dark compact layout' },
+        { viewport: 'stress', theme: 'light', suffix: '4:toggle', change: 'Native agreement toggles in clipped narrow card without horizontal overflow' },
+        { viewport: 'stress', theme: 'dark', suffix: '3:focus', change: 'Reveal affordance retains keyboard focus at narrow boundary' },
+      ],
+      inferences: [
+        { scope: 'Password permutations and equivalent gestures', basis: 'Four criteria share one host-derived strength projection. Weak and Strong, reveal, consent and a complete form cover distinct feedback; intermediate Fair/Good states are host/browser-tested.', verification: 'inferred-not-replayed' },
+        { scope: 'Responsive layout and theme', basis: 'Eight static source/local pairs cover all viewport/theme combinations, with one narrow checkbox and focus probe rather than multiplying every form edit by each layout.', verification: 'inferred-not-replayed' },
+      ],
+    }
   if (variantId === 'hbar-app-ui-authentication-6')
     return {
       revision: 1,
