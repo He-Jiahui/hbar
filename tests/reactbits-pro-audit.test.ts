@@ -184,6 +184,7 @@ import {
   queueApprovalDynamicCaseIds,
   queueApprovalScenarioCases,
   queueApprovalScenarioPlans,
+  referenceAccessBlockReason,
   permissionApprovalScenarioCases,
   planReviewScenarioCases,
   passiveTableRowHoverCase,
@@ -216,6 +217,14 @@ import {
   type ControlSnapshot,
   type SemanticSnapshot,
 } from '../scripts/reactbits-pro-audit'
+
+test('live reference checkpoints and access denials are blocked instead of treated as mounted previews', () => {
+  expect(referenceAccessBlockReason(200, 'Vercel Security Checkpoint')).toBe('vercel-security-checkpoint')
+  expect(referenceAccessBlockReason(403, 'Access denied')).toBe('http-403')
+  expect(referenceAccessBlockReason(429, '')).toBe('http-429-rate-limited')
+  expect(referenceAccessBlockReason(200, 'Notifications 6 | React Bits Pro')).toBeNull()
+  expect(referenceAccessBlockReason(404, 'Not found')).toBeNull()
+})
 
 test('local-only recapture binds inventory to the source screenshots it copies', () => {
   const options = { sourceInventoryPath: undefined, sourceCaptureRoot: 'artifacts/source-a', localOnly: true }

@@ -25,6 +25,24 @@ export const REACTBITS_PRO_VIEWPORTS = [
 
 export const REACTBITS_PRO_THEMES = ['dark', 'light'] as const
 
+export function referenceAccessBlockReason(status: number, title: string): string | null {
+  if (/Vercel Security Checkpoint/i.test(title)) return 'vercel-security-checkpoint'
+  if (status === 401 || status === 403) return `http-${status}`
+  if (status === 429) return 'http-429-rate-limited'
+  return null
+}
+
+class ReferenceAccessBlockedError extends Error {
+  constructor(
+    readonly url: string,
+    readonly sourceStatus: number,
+    readonly pageTitle: string,
+    readonly reason: string,
+  ) {
+    super(`React Bits reference blocked (${reason}, HTTP ${sourceStatus}) at ${url}`)
+  }
+}
+
 type AuditTheme = (typeof REACTBITS_PRO_THEMES)[number]
 type AuditViewport = (typeof REACTBITS_PRO_VIEWPORTS)[number]
 
@@ -705,6 +723,7 @@ async function discoverReferenceInventory(browser: Browser, options: AuditOption
       timeout: 60_000,
     })
     const rootStatus = rootResponse?.status() ?? 0
+    await assertReferenceAccess(page, REACTBITS_PRO_APPLICATION_UI_URL, rootStatus)
     if (rootStatus < 200 || rootStatus >= 400) throw new Error(`React Bits directory returned HTTP ${rootStatus}`)
     const categoryLinks = await page.locator('a[href*="/docs/app-ui/"]').evaluateAll((elements) =>
       [
@@ -724,6 +743,7 @@ async function discoverReferenceInventory(browser: Browser, options: AuditOption
         timeout: 60_000,
       })
       const categoryStatus = categoryResponse?.status() ?? 0
+      await assertReferenceAccess(page, categoryUrl, categoryStatus)
       if (categoryStatus < 200 || categoryStatus >= 400)
         throw new Error(`React Bits category ${categoryPath} returned HTTP ${categoryStatus}`)
       const category = categoryPath.split('/').at(-1) ?? ''
@@ -1060,7 +1080,8 @@ async function loadReferencePreview(page: Page, url: string, theme: AuditTheme):
   let lastError: unknown
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await gotoStable(page, url)
+      const status = await gotoStable(page, url)
+      await assertReferenceAccess(page, url, status)
       await enforceReferenceTheme(page, theme)
       const handle = await page.locator('iframe[title="Preview"]').elementHandle()
       const frame = await handle?.contentFrame()
@@ -1070,6 +1091,7 @@ async function loadReferencePreview(page: Page, url: string, theme: AuditTheme):
       await assertReferenceFrameTheme(isolated, theme)
       return isolated
     } catch (error) {
+      if (error instanceof ReferenceAccessBlockedError) throw error
       lastError = error
     }
   }
@@ -1145,7 +1167,8 @@ async function loadRunningLogPreview(page: Page, url: string, theme: AuditTheme,
     { targetRows },
   )
   await page.clock.install()
-  await gotoStable(page, url)
+  const status = await gotoStable(page, url)
+  await assertReferenceAccess(page, url, status)
   await enforceReferenceTheme(page, theme)
   const iframe = page.locator('iframe[title="Preview"]')
   await iframe.waitFor({ state: 'visible', timeout: 30_000 })
@@ -1199,13 +1222,19 @@ async function loadRunningLogPreview(page: Page, url: string, theme: AuditTheme,
   return frame
 }
 
-async function gotoStable(page: Page, url: string): Promise<void> {
+async function assertReferenceAccess(page: Page, url: string, status: number): Promise<void> {
+  const title = await page.title()
+  const reason = referenceAccessBlockReason(status, title)
+  if (reason) throw new ReferenceAccessBlockedError(url, status, title, reason)
+}
+
+async function gotoStable(page: Page, url: string): Promise<number> {
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      await page.goto(url, { waitUntil: 'commit', timeout: 30_000 })
+      const response = await page.goto(url, { waitUntil: 'commit', timeout: 30_000 })
       await page.waitForLoadState('domcontentloaded', { timeout: 30_000 }).catch(() => undefined)
-      return
+      return response?.status() ?? 0
     } catch (error) {
       lastError = error
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 250 * (attempt + 1)))
@@ -5014,6 +5043,9 @@ async function main(): Promise<void> {
         ? await loadOrDiscoverInventory(browser, options)
         : await discoverReferenceInventory(browser, options)
       await writeLocalInventory(options.outputRoot)
+      if (!options.offline) await writeJson(join(options.outputRoot, 'reference-access.json'), {
+        status: 'available', url: inventory.sourceUrl, checkedAt: new Date().toISOString(),
+      })
       console.log(
         JSON.stringify({
           command: 'discover',
@@ -5031,6 +5063,21 @@ async function main(): Promise<void> {
     if (options.command === 'interactions' || options.command === 'audit')
       await runInteractionsParallel(options, browser, inventory)
     if (options.command === 'audit') await runCompare(options)
+    if (!options.offline && !options.localOnly) await writeJson(join(options.outputRoot, 'reference-access.json'), {
+      status: 'available', url: inventory.sourceUrl, checkedAt: new Date().toISOString(),
+    })
+  } catch (error) {
+    if (error instanceof ReferenceAccessBlockedError) {
+      await writeJson(join(options.outputRoot, 'reference-access.json'), {
+        status: 'blocked',
+        url: error.url,
+        sourceStatus: error.sourceStatus,
+        pageTitle: error.pageTitle,
+        reason: error.reason,
+        checkedAt: new Date().toISOString(),
+      })
+    }
+    throw error
   } finally {
     await browser.close()
   }

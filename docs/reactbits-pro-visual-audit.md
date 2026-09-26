@@ -155,6 +155,9 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 若自动测试 Chrome 的文档传输持续停在空白 loading，而同页的普通浏览器/HTTP 请求正常，
 可在独立诊断确认后显式设置 `HBAR_APP_UI_CHROME_HTTP1=1`，关闭测试浏览器的 HTTP/2 与 QUIC。
 它只切换传输协议，不替代真实 iframe、不开启离线模拟，也不跳过主题、内容或交互就绪检查。
+若页面返回 Vercel Security Checkpoint 或 401/403/429，live 命令立即失败，并在输出目录的
+`reference-access.json` 记录访问 URL、HTTP 状态、页面标题、阻断原因和时间；HTTP 200 的检查页也不能当成成功加载。
+阻断时不生成假的 iframe 或交互结果，不绕过安全检查。正常完成 live 命令时此文件更新为 `available`。
 单变体调试可用 `--source-inventory <已捕获清单路径>` 避免每次重新访问 38 个类别页；
 此模式仍实时捕获变体 iframe，完整 `audit` 不复用旧清单。`--local-only` 的缓存还必须包含
 iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议版本；旧的内部 pane 裁剪缓存会被拒绝，不能据此宣称几何或交互验收通过。
@@ -194,6 +197,7 @@ Agent Approval 1 的具体检查发现了 640px 内部 padding 断点、可聚�
 ### 证据文件
 
 - `source-inventory.json`：真实页面清单和本地注册表的映射证据。
+- `reference-access.json`：live 访问完成或被安全检查/拒绝时的即时状态；`blocked` 不是变体通过证据。
 - `capture-manifest.json`：每个 `source`/`local` 截图和快照的 1:1 记录。
 - `structure-report.json`：根节点尺寸差、树节点/标签序列、控件数量、文本容量和溢出结果。
 - `visual-report.json`：静态配对、交互配对、差异图片路径，以及每种交互源/本地反馈幅度。
