@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from 're
 import { useStore } from 'zustand'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
+import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
 import type { ShellLocale } from './shell-copy'
 import './GeneralSettings.css'
 
@@ -20,14 +21,133 @@ export interface WebGeneralSettingsLabels {
   readonly saveError: string
   readonly retryRead: string
   readonly retrySave: string
+  readonly sending: {
+    readonly title: string
+    readonly description: string
+    readonly hostScope: string
+    readonly options: Readonly<Record<WebSendBehavior, { readonly label: string; readonly description: string }>>
+    readonly loading: string
+    readonly saved: string
+    readonly readError: (code: string) => string
+    readonly saveError: (code: string) => string
+    readonly unknown: string
+    readonly unsupported: string
+    readonly retryRead: string
+    readonly recheck: string
+    readonly retryOriginal: string
+  }
+}
+
+function WebGeneralSendBehavior({
+  labels,
+  controller,
+  connected,
+}: {
+  readonly labels: WebGeneralSettingsLabels['sending']
+  readonly controller: WebSendBehaviorController
+  readonly connected: boolean
+}) {
+  const state = useStore(controller.store)
+  const choices = useRef<HTMLDivElement>(null)
+  const restoreFocus = useRef(false)
+  useLayoutEffect(() => {
+    if (!restoreFocus.current || (state.status !== 'ready' && state.status !== 'saved')) return
+    restoreFocus.current = false
+    choices.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus()
+  }, [state.status])
+  const recover = (event: MouseEvent<HTMLButtonElement>, action: () => Promise<void>) => {
+    restoreFocus.current = document.activeElement === event.currentTarget
+    void action()
+  }
+  const choiceDisabled =
+    !connected ||
+    state.revision === null ||
+    state.status === 'loading' ||
+    state.status === 'read-error' ||
+    state.status === 'unsupported' ||
+    state.status === 'saving' ||
+    state.status === 'unknown'
+  return (
+    <LumenFrame as="fieldset" className="hbar-web-general-sending">
+      <LumenText as="legend" id="hbar-general-sending-label" variant="label">
+        {labels.title}
+      </LumenText>
+      <LumenText as="p" id="hbar-general-sending-help" tone="muted" variant="supporting">
+        {labels.description}
+      </LumenText>
+      <LumenText as="p" tone="subtle" variant="supporting">
+        {labels.hostScope}
+      </LumenText>
+      <LumenFrame
+        ref={choices}
+        role="group"
+        aria-labelledby="hbar-general-sending-label"
+        aria-describedby="hbar-general-sending-help"
+        className="hbar-web-general-send-choices"
+      >
+        {WEB_SEND_BEHAVIORS.map((behavior) => (
+          <LumenButton
+            key={behavior}
+            variant="outlined"
+            indicator="none"
+            className="hbar-web-general-send-choice"
+            aria-pressed={state.behavior === behavior}
+            disabled={choiceDisabled}
+            onClick={() => controller.select(behavior)}
+          >
+            <LumenText as="span" className="hbar-web-general-send-title">
+              {labels.options[behavior].label}
+            </LumenText>
+            <LumenText as="span" tone="muted" variant="supporting">
+              {labels.options[behavior].description}
+            </LumenText>
+          </LumenButton>
+        ))}
+      </LumenFrame>
+      {state.status === 'loading' && <LumenText role="status">{labels.loading}</LumenText>}
+      {state.status === 'saved' && <LumenText role="status">{labels.saved}</LumenText>}
+      {state.status === 'unsupported' && <LumenText role="alert">{labels.unsupported}</LumenText>}
+      {state.status === 'read-error' && (
+        <LumenFrame className="hbar-web-general-feedback">
+          <LumenText role="alert">{labels.readError(state.error ?? 'EXECUTION_FAILED')}</LumenText>
+          <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.refresh)}>
+            {labels.retryRead}
+          </LumenButton>
+        </LumenFrame>
+      )}
+      {state.status === 'save-error' && (
+        <LumenFrame className="hbar-web-general-feedback">
+          <LumenText role="alert">{labels.saveError(state.error ?? 'EXECUTION_FAILED')}</LumenText>
+          <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.refresh)}>
+            {labels.retryRead}
+          </LumenButton>
+        </LumenFrame>
+      )}
+      {state.status === 'unknown' && (
+        <LumenFrame className="hbar-web-general-feedback">
+          <LumenText role="alert">{labels.unknown}</LumenText>
+          <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.reconcile)}>
+            {labels.recheck}
+          </LumenButton>
+          <LumenButton disabled={!connected} onClick={(event) => recover(event, controller.retry)}>
+            {labels.retryOriginal}
+          </LumenButton>
+        </LumenFrame>
+      )}
+    </LumenFrame>
+  )
 }
 
 export function WebGeneralSettings({
   labels,
   language,
+  sendBehavior,
+  connected = true,
 }: {
   readonly labels: WebGeneralSettingsLabels
   readonly language: WebLanguageController
+  readonly sendBehavior?: WebSendBehaviorController | undefined
+  readonly connected?: boolean | undefined
 }) {
   const state = useStore(language.store)
   const choices = useRef<HTMLDivElement>(null)
@@ -139,6 +259,9 @@ export function WebGeneralSettings({
           )}
         </LumenFrame>
       </LumenFrame>
+      {sendBehavior && (
+        <WebGeneralSendBehavior labels={labels.sending} controller={sendBehavior} connected={connected} />
+      )}
     </LumenFrame>
   )
 }

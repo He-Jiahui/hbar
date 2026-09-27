@@ -8,13 +8,25 @@ import {
   WEB_LANGUAGE_STORAGE_KEY,
   type WebLanguageController,
 } from '../apps/web/src/language'
+import {
+  createWebSendBehaviorController,
+  type WebSendBehaviorController,
+  type WebSendBehaviorPort,
+} from '../apps/web/src/send-behavior'
 
-function html(language: WebLanguageController, labels = generalSettingsCopy(language.store.getState().locale)) {
+function html(
+  language: WebLanguageController,
+  labels = generalSettingsCopy(language.store.getState().locale),
+  sendBehavior?: WebSendBehaviorController,
+) {
   // Zustand SSR uses getInitialState, not the post-action client snapshot. Seed
   // this render-only store from the actual owner's action result, never invented
   // business state; browser verification separately drives the real live store.
   const rendered = { ...language, store: createStore(() => language.store.getState()) }
-  return renderToStaticMarkup(<WebGeneralSettings labels={labels} language={rendered} />)
+  const renderedSend = sendBehavior
+    ? { ...sendBehavior, store: createStore(() => sendBehavior.store.getState()) }
+    : undefined
+  return renderToStaticMarkup(<WebGeneralSettings labels={labels} language={rendered} sendBehavior={renderedSend} />)
 }
 function storage(initial: string | null = null) {
   let saved = initial
@@ -156,3 +168,31 @@ test('General preserves deliberately long host labels and escapes content rather
   expect(rendered.match(/role="radio"/g)).toHaveLength(3)
   expect(rendered.match(/tabindex="0"/g)).toHaveLength(1)
 })
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`General exposes the two Host-global send choices as bounded, named pressed buttons: ${locale}`, async () => {
+    const port: WebSendBehaviorPort = {
+      read: async () => ({ behavior: 'modifierEnter', revision: 4 }),
+      write: async () => ({ behavior: 'enter', revision: 5 }),
+      receipt: async () => null,
+    }
+    const send = createWebSendBehaviorController(port)
+    send.bind('host-a', true)
+    await send.refresh()
+    const labels = generalSettingsCopy(locale)
+    const rendered = html(createWebLanguageController(locale, storage().port), labels, send)
+    expect(rendered).toContain(labels.sending.title)
+    expect(rendered).toContain(labels.sending.description)
+    expect(rendered).toContain(labels.sending.hostScope)
+    expect(rendered).toContain('role="group" aria-labelledby="hbar-general-sending-label"')
+    expect(rendered).toContain('aria-describedby="hbar-general-sending-help"')
+    expect(rendered.match(/hbar-web-general-send-choice"/g)).toHaveLength(2)
+    expect(rendered.match(/aria-pressed="true"/g)).toHaveLength(1)
+    expect(rendered).toMatch(/aria-pressed="true"[^>]*>.*?<span[^>]*>.*?<\/span>/)
+    for (const option of Object.values(labels.sending.options)) {
+      expect(rendered).toContain(option.label)
+      expect(rendered).toContain(option.description)
+    }
+    expect(rendered).not.toContain('type="submit"')
+  })
+}

@@ -205,6 +205,26 @@ const applyInput = z.strictObject({
   changes: z.array(settingsChangeSchema).min(1).max(1000),
   baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
 })
+const setInput = z.strictObject({
+  schemaVersion: z.number().int().positive(),
+  scope: settingsScopeSchema,
+  path: schemaPathSchema,
+  value: z.unknown(),
+  baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
+})
+const unsetInput = setInput.omit({ value: true })
+export const settingsReceiptInputSchema = z
+  .strictObject({
+    idempotencyKey: z.string().min(1).max(128),
+    commandId: z.enum(['settings.apply', 'settings.set', 'settings.unset']),
+    input: z.union([applyInput, setInput, unsetInput]),
+  })
+  .superRefine((value, context) => {
+    const matching =
+      value.commandId === 'settings.apply' ? applyInput : value.commandId === 'settings.set' ? setInput : unsetInput
+    if (!matching.safeParse(value.input).success)
+      context.addIssue({ code: 'custom', message: 'Receipt request must match its original command' })
+  })
 
 export const settingsCommands = {
   'settings.describe': defineCommand(queryMetadata('settings.describe'), z.strictObject({}), settingsDescriptionSchema),
@@ -213,32 +233,19 @@ export const settingsCommands = {
     z.strictObject({ scope: settingsScopeSchema, path: schemaPathSchema.optional() }),
     settingsSnapshotSchema,
   ),
+  'settings.receipt': defineCommand(
+    { ...queryMetadata('settings.receipt'), surfaces: ['api'] as ('cli' | 'tui' | 'api' | 'palette')[] },
+    settingsReceiptInputSchema,
+    settingsReceiptSchema.nullable(),
+  ),
   'settings.apply': defineCommand(commandMetadata('settings.apply'), applyInput, settingsReceiptSchema),
-  'settings.set': defineCommand(
-    commandMetadata('settings.set'),
-    z.strictObject({
-      schemaVersion: z.number().int().positive(),
-      scope: settingsScopeSchema,
-      path: schemaPathSchema,
-      value: z.unknown(),
-      baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
-    }),
-    settingsReceiptSchema,
-  ),
-  'settings.unset': defineCommand(
-    commandMetadata('settings.unset'),
-    z.strictObject({
-      schemaVersion: z.number().int().positive(),
-      scope: settingsScopeSchema,
-      path: schemaPathSchema,
-      baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
-    }),
-    settingsReceiptSchema,
-  ),
+  'settings.set': defineCommand(commandMetadata('settings.set'), setInput, settingsReceiptSchema),
+  'settings.unset': defineCommand(commandMetadata('settings.unset'), unsetInput, settingsReceiptSchema),
 }
 
 export type SettingsGetInput = z.input<(typeof settingsCommands)['settings.get']['input']>
 export type SettingsApplyInput = z.input<(typeof settingsCommands)['settings.apply']['input']>
+export type SettingsReceiptInput = z.input<typeof settingsReceiptInputSchema>
 export type SettingsDescription = z.output<typeof settingsDescriptionSchema>
 export type SettingsFieldDescription = z.output<typeof settingsFieldSchema>
 export type SettingsSnapshot = z.output<typeof settingsSnapshotSchema>

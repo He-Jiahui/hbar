@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Database } from 'bun:sqlite'
+import { encodePath } from '@hbar/schema-core'
 
 let root = ''
 let dataRoot = ''
@@ -662,6 +663,7 @@ test('exec workspace and session commands create, retry, rename, list, and expor
 })
 
 test('exec settings reads, writes, unsets and atomically applies through the Host catalog', async () => {
+  const modelField = encodePath([{ kind: 'field', name: 'provider.model' }])
   const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
   const created = await run([...common, 'session', 'new'])
   expect(created.code).toBe(0)
@@ -673,7 +675,7 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
     revisions: Record<string, number>
     resolution: { reports: Record<string, { effectiveValue: unknown; localPresence: boolean }> }
   }
-  expect(Object.values(before.resolution.reports)[0]).toMatchObject({ effectiveValue: null, localPresence: false })
+  expect(before.resolution.reports[modelField]).toMatchObject({ effectiveValue: null, localPresence: false })
   const baseline = JSON.stringify(before.revisions)
   const setArgs = [
     ...common,
@@ -697,7 +699,7 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
   expect(JSON.parse(retried.stdout)).toEqual(receipt)
   const readSet = await run([...common, 'exec', 'settings.get', 'provider.model', ...scope])
   expect(readSet.code).toBe(0)
-  expect(Object.values((JSON.parse(readSet.stdout) as typeof before).resolution.reports)[0]).toMatchObject({
+  expect((JSON.parse(readSet.stdout) as typeof before).resolution.reports[modelField]).toMatchObject({
     effectiveValue: 'local-fixture',
     localPresence: true,
   })
@@ -716,7 +718,7 @@ test('exec settings reads, writes, unsets and atomically applies through the Hos
   ])
   expect(unset.code).toBe(0)
   expect(
-    Object.values((JSON.parse(unset.stdout) as { resolution: typeof before.resolution }).resolution.reports)[0],
+    (JSON.parse(unset.stdout) as { resolution: typeof before.resolution }).resolution.reports[modelField],
   ).toMatchObject({
     effectiveValue: null,
     localPresence: false,

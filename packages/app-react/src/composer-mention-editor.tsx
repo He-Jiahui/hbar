@@ -63,6 +63,8 @@ export interface HbarComposerMentionEditorProps {
   readonly files: { execute(name: string, input: unknown): Promise<unknown> }
   readonly onContent: (text: string, mentions: readonly PromptMention[], revision: number) => Promise<unknown>
   readonly onSubmit: () => void
+  /** Null keeps editing available while the Host-owned shortcut is unresolved, but never submits from a key. */
+  readonly sendBehavior?: 'enter' | 'modifierEnter' | null | undefined
 }
 
 function errorCode(value: unknown): string {
@@ -275,6 +277,24 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   useEffect(() => {
     if (!host.current) return
     const current = propsRef.current
+    const handleEnter = (editor: EditorView, send: boolean): boolean => {
+      if (editor.composing) return false
+      const slash = slashTriggerRef.current
+      const slashChoices = slash ? slashMatches(slash.term, availableSlash()) : []
+      const slashChoice = slashChoices[Math.min(slashSelectedRef.current, slashChoices.length - 1)]
+      if (slash && slashChoice) {
+        chooseSlashRef.current(slashChoice)
+        return true
+      }
+      const menu = searchRef.current
+      const candidate = menu?.choices[selectedRef.current]
+      if (triggerRef.current && menu?.status === 'ready' && candidate) chooseRef.current(candidate, false)
+      else if (triggerRef.current) setTrigger(null)
+      else if (send) propsRef.current.onSubmit()
+      else return insertNewline(editor)
+      return true
+    }
+    const behavior = () => (propsRef.current.sendBehavior === undefined ? 'enter' : propsRef.current.sendBehavior)
     const view = new EditorView({
       parent: host.current,
       state: EditorState.create({
@@ -291,26 +311,22 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
           editable.current.of(EditorView.editable.of(!current.disabled)),
           Prec.high(
             keymap.of([
-              { key: 'Shift-Enter', run: insertNewline },
+              { key: 'Shift-Enter', run: (editor) => handleEnter(editor, false) },
               {
                 key: 'Enter',
-                run: (editor) => {
-                  if (editor.composing) return false
-                  const slash = slashTriggerRef.current
-                  const slashChoices = slash ? slashMatches(slash.term, availableSlash()) : []
-                  const slashChoice = slashChoices[Math.min(slashSelectedRef.current, slashChoices.length - 1)]
-                  if (slash && slashChoice) {
-                    chooseSlashRef.current(slashChoice)
-                    return true
-                  }
-                  const menu = searchRef.current
-                  const candidate = menu?.choices[selectedRef.current]
-                  if (triggerRef.current && menu?.status === 'ready' && candidate) chooseRef.current(candidate, false)
-                  else if (triggerRef.current) setTrigger(null)
-                  else propsRef.current.onSubmit()
-                  return true
-                },
+                run: (editor) => handleEnter(editor, behavior() === 'enter'),
               },
+              { key: 'Alt-Enter', run: (editor) => handleEnter(editor, behavior() === 'enter') },
+              ...(['Ctrl-Enter', 'Meta-Enter'] as const).map((key) => ({
+                key,
+                run: (editor: EditorView) => handleEnter(editor, behavior() === 'modifierEnter'),
+              })),
+              ...(['Ctrl-Alt-Enter', 'Meta-Alt-Enter'] as const).map((key) => ({
+                key,
+                run: (editor: EditorView) => handleEnter(editor, behavior() === 'modifierEnter'),
+              })),
+              { key: 'Ctrl-Shift-Enter', run: (editor) => handleEnter(editor, false) },
+              { key: 'Meta-Shift-Enter', run: (editor) => handleEnter(editor, false) },
               {
                 key: 'ArrowDown',
                 run: (editor) => {

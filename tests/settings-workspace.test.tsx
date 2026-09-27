@@ -88,6 +88,7 @@ const labels: HbarSettingsWorkspaceLabels = {
   scopes: '设置作用域',
   hostScope: 'Host 全局设置',
   clientScope: '当前客户端设置',
+  mixedScope: '设备与 Host 偏好',
   global: '全局',
   workspace: '工作区',
   session: '会话',
@@ -447,7 +448,7 @@ test('explicit device groups remain reachable without a Host form, but Host grou
       )
     const local = render()
     expect(local).toContain('语言仍可使用')
-    expect(local).toContain('当前客户端设置')
+    expect(local).toContain(labels.mixedScope)
     expect(local).toContain('aria-label="设置分组"')
     expect(local).not.toContain('错误 EXECUTION_FAILED')
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'diagnostics' })
@@ -591,6 +592,7 @@ test.each(['zh-CN', 'en-US'] as const)(
       expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
       expect(navigation.groups.map((group) => group.text)).toEqual([
         copy.settings.resolve('i18n:settings.groups.providers'),
+        copy.settings.resolve('i18n:settings.groups.general'),
         copy.appearance.group,
         copy.settings.resolve('i18n:settings.groups.model'),
         copy.settings.resolve('i18n:settings.groups.session'),
@@ -600,6 +602,7 @@ test.each(['zh-CN', 'en-US'] as const)(
       ])
       for (const [index, glyph] of [
         'server',
+        'settings',
         'palette',
         'cpu',
         'message-square',
@@ -655,7 +658,7 @@ test('settings group metadata preserves long labels and ignores unknown or dupli
     expect(appearance.fixedScope).toBe(labels.clientScope)
     expect(appearance.groups.filter((group) => group.current).map((group) => group.text)).toEqual([longLabel])
     expect(appearance.groups.find((group) => group.current)?.icon).toContain('lucide-palette')
-    expect(appearance.groups).toHaveLength(6)
+    expect(appearance.groups).toHaveLength(7)
     expect(appearance.groups.map((group) => group.text)).not.toContain('重复项不得覆盖首项')
     expect(appearance.groups.map((group) => group.text)).not.toContain('客户端不得覆盖 Host 分组')
     expect(render()).not.toContain('not-registered')
@@ -800,7 +803,8 @@ test('pending navigation preserves supplied categories and selection without inv
     const after = await readSettingsNavigation(render())
     expect(after.groups.filter((group) => group.current).map((group) => group.text)).toEqual(['供应商'])
     expect(after.groups.some((group) => group.text === '描述尚未确认的类别')).toBe(false)
-    expect(after.groups.some((group) => group.text === '设备常规设置')).toBe(true)
+    expect(after.groups.some((group) => group.text === '通用')).toBe(true)
+    expect(after.groups.some((group) => group.text === '设备常规设置')).toBe(false)
     expect(runtime.view.state.navigation.getSnapshot().sessionId).toBeNull()
   } finally {
     description.resolve(HBAR_SETTINGS_DESCRIPTION)

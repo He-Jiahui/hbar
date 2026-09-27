@@ -150,6 +150,8 @@ export interface HbarSessionWorkspaceProps {
   readonly sessionWorkspaceId: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool']
+  /** Undefined preserves the default Enter shortcut; null disables keyboard sending until resolved. */
+  readonly sendBehavior?: 'enter' | 'modifierEnter' | null
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
@@ -195,6 +197,7 @@ function SessionWorkspaceContent({
   sessionWorkspaceId,
   labels,
   describeTool,
+  sendBehavior,
   connected,
   prepareAttachment,
   files,
@@ -1039,6 +1042,7 @@ function SessionWorkspaceContent({
                     placeholder={placeholder}
                     labels={labels.mentions}
                     slashLabels={labels.slash}
+                    sendBehavior={sendBehavior}
                     files={files}
                     onContent={(text, mentions, expectedRevision) =>
                       saveComposerContent(sessionId, text, mentions, expectedRevision)

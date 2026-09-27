@@ -33,12 +33,28 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
     id: 'hbar.settings',
     schemaVersion: HBAR_SETTINGS_SCHEMA_VERSION,
     groups: [
+      { id: 'general', labelKey: 'i18n:settings.groups.general', order: 15 },
       { id: 'model', labelKey: 'i18n:settings.groups.model', order: 10 },
       { id: 'session', labelKey: 'i18n:settings.groups.session', order: 20 },
       { id: 'providers', labelKey: 'i18n:settings.groups.providers', order: 30 },
       { id: 'extensions', labelKey: 'i18n:settings.groups.extensions', order: 40 },
     ],
     fields: [
+      {
+        path: path('client.chatSendBehavior'),
+        type: 'string',
+        nullable: false,
+        defaultValue: 'enter',
+        choices: ['enter', 'modifierEnter'],
+        allowedScopes: ['global'],
+        applyMode: 'immediate',
+        labelKey: 'i18n:settings.client.chatSendBehavior.label',
+        helpKey: 'i18n:settings.client.chatSendBehavior.help',
+        group: 'general',
+        order: 10,
+        component: 'ComboBox',
+        multiple: false,
+      },
       {
         path: path('provider.model'),
         type: 'string',
@@ -240,6 +256,7 @@ export class SettingsService {
     scope: SettingsScope,
     actorId: string,
     idempotencyKey: string,
+    originalRequest?: Omit<ApplySettingsInput, 'actorId' | 'idempotencyKey'>,
   ): Promise<ApplySettingsReceipt | null> {
     if (!actorId || !idempotencyKey) throw new HbarError('INVALID_INPUT', 'Actor and idempotency key are required')
     const chain = await this.chain(scope)
@@ -249,6 +266,15 @@ export class SettingsService {
     if (!parsed.success) throw new HbarError('INVALID_OUTPUT', 'Stored settings receipt is invalid')
     const receipt = parsed.data
     if (receipt.layerId !== chain.at(-1)?.id) return null
+    if (
+      originalRequest &&
+      (stable(originalRequest.scope) !== stable(scope) ||
+        stored.payloadHash !==
+          createHash('sha256')
+            .update(stable({ ...originalRequest, actorId, idempotencyKey }))
+            .digest('hex'))
+    )
+      throw new HbarError('IDEMPOTENCY_CONFLICT', 'Settings receipt does not match the original request')
     if (receipt.schemaVersion !== HBAR_SETTINGS_SCHEMA_VERSION)
       throw new HbarError('VERSION_MISMATCH', 'Stored settings receipt requires migration')
     const layers = receipt.resolution.layers

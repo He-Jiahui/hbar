@@ -486,6 +486,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
   const messages: Readonly<Record<string, string>> = zh
     ? {
         'i18n:settings.groups.model': '模型',
+        'i18n:settings.groups.general': '通用',
         'i18n:settings.groups.session': '会话默认值',
         'i18n:settings.groups.providers': '供应商',
         'i18n:settings.groups.extensions': '插件',
@@ -499,6 +500,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
       }
     : {
         'i18n:settings.groups.model': 'Model',
+        'i18n:settings.groups.general': 'General',
         'i18n:settings.groups.session': 'Session defaults',
         'i18n:settings.groups.providers': 'Providers',
         'i18n:settings.groups.extensions': 'Plugins',
@@ -532,6 +534,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     scopes: choose('设置作用域', 'Settings scope'),
     hostScope: choose('Host 全局设置', 'Host-wide settings'),
     clientScope: choose('当前客户端设置', 'Current client settings'),
+    mixedScope: choose('设备与 Host 偏好', 'Device and Host preferences'),
     global: choose('全局', 'Global'),
     workspace: choose('工作区', 'Workspace'),
     session: choose('会话', 'Session'),

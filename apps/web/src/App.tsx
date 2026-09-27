@@ -66,6 +66,8 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import type { WebLanguageController } from './language'
+import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
+import { createHostSendBehaviorPort } from './send-behavior-settings'
 import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
 import { createBrowserImageResources } from './browser-image-resources'
 import { sessionImageCopy } from './session-image-copy'
@@ -287,6 +289,7 @@ type WorkspaceBodyProps = {
   readonly appearanceEditor: AppearanceEditor
   readonly locale: ShellLocale
   readonly language?: WebLanguageController | undefined
+  readonly sendBehavior: WebSendBehaviorController
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
   readonly images: HbarSessionImagesOptions
@@ -384,6 +387,7 @@ function WorkspaceBodyContent({
   appearanceEditor,
   locale,
   language,
+  sendBehavior,
   connected,
   prepareAttachment,
   images,
@@ -391,6 +395,7 @@ function WorkspaceBodyContent({
   systemPrefersDark,
 }: WorkspaceBodyProps) {
   const copy = getShellCopy(locale)
+  const selectedSendBehavior = useStore(sendBehavior.store, (state) => state.behavior)
   const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -431,7 +436,15 @@ function WorkspaceBodyContent({
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
         renderGroup={(groupId) => {
-          if (groupId === 'general' && language) return <WebGeneralSettings labels={copy.general} language={language} />
+          if (groupId === 'general' && language)
+            return (
+              <WebGeneralSettings
+                labels={copy.general}
+                language={language}
+                sendBehavior={sendBehavior}
+                connected={connected}
+              />
+            )
           if (groupId === 'appearance')
             return (
               <WebAppearanceSettings
@@ -520,6 +533,7 @@ function WorkspaceBodyContent({
         projectContextLabels={sessionContextCopy(locale)}
         labels={copy.session}
         describeTool={createSessionToolPresenter(locale)}
+        sendBehavior={selectedSendBehavior}
         connected={connected}
         prepareAttachment={prepareAttachment}
         images={images}
@@ -823,6 +837,10 @@ export default function App({
   const clientUrl = nativeConnection?.url ?? window.location.origin
   const clientToken = nativeConnection?.token
   const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
+  const sendBehavior = useMemo(
+    () => createWebSendBehaviorController(createHostSendBehaviorPort(createSettingsCommandClient(client))),
+    [client],
+  )
   const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
   const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
   const composerFiles = useMemo(() => createFileCommandClient(client), [client])
@@ -873,6 +891,20 @@ export default function App({
     [attachmentController, client, clientUrl, runtimeCopy, resourcePicker],
   )
   const { runtime, appearanceEditor, binding, connection } = useStore(startup.store)
+  useEffect(() => {
+    sendBehavior.bind(binding.hostId, connection === 'connected')
+  }, [binding.hostId, connection, sendBehavior])
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void sendBehavior.refresh()
+    }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [sendBehavior])
   // Allocation performs no I/O. Each runtime/Host generation owns a distinct resource adapter.
   const imageResources = useMemo(
     () => ({ port: createBrowserImageResources(client), references: 0, hostIdentity: runtime.view.hostId }),
@@ -1109,6 +1141,7 @@ export default function App({
                 appearanceEditor={appearanceEditor}
                 locale={locale}
                 language={language}
+                sendBehavior={sendBehavior}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
                 images={images}
@@ -1122,6 +1155,7 @@ export default function App({
               appearanceEditor={appearanceEditor}
               locale={locale}
               language={language}
+              sendBehavior={sendBehavior}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
               images={images}

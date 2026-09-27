@@ -53,6 +53,7 @@ export interface HbarSettingsWorkspaceLabels {
   readonly scopes: string
   readonly hostScope: string
   readonly clientScope: string
+  readonly mixedScope: string
   readonly global: string
   readonly workspace: string
   readonly session: string
@@ -102,7 +103,7 @@ export type HbarSettingsGroupIcon =
 export interface HbarSettingsGroupPresentation {
   readonly id: string
   readonly icon: HbarSettingsGroupIcon
-  readonly scope: 'layered' | 'host' | 'client'
+  readonly scope: 'layered' | 'host' | 'client' | 'mixed'
   /** Navigation order only; the Host description still owns form field order. */
   readonly order?: number
 }
@@ -223,7 +224,13 @@ export function HbarSettingsWorkspace({
   }, [groupPresentation, groups])
   const scopePresentation = (activeGroupId ? presentationByGroup.get(activeGroupId)?.scope : undefined) ?? 'layered'
   const fixedScopeLabel =
-    scopePresentation === 'host' ? labels.hostScope : scopePresentation === 'client' ? labels.clientScope : null
+    scopePresentation === 'host'
+      ? labels.hostScope
+      : scopePresentation === 'client'
+        ? labels.clientScope
+        : scopePresentation === 'mixed'
+          ? labels.mixedScope
+          : null
   const definitions = useMemo(
     () => new Map(entry?.description?.fields.map((field) => [encodePath(field.path), field] as const) ?? []),
     [entry?.description],
@@ -308,7 +315,9 @@ export function HbarSettingsWorkspace({
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
   const customGroup = activeGroupId ? renderGroup?.(activeGroupId) : null
   // Device-local groups must remain reachable when an unrelated Host form cannot load.
-  const localCustomGroup = scopePresentation === 'client' && activeClientGroup && customGroup
+  // A mixed General group can be Host-described yet must retain its device-local
+  // language controls while the Host form is unavailable.
+  const localCustomGroup = (scopePresentation === 'client' || scopePresentation === 'mixed') && customGroup
   const selectedGroup = hostGroups.find((group) => group.id === activeGroupId)
 
   const fieldContext = (field: CompiledField) => {

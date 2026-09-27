@@ -26,6 +26,23 @@ export function createSettingsCommands(service: SettingsService) {
       resolution: { ...snapshot.resolution, reports: { [encoded]: report } },
     })
   })
+  registry.register(settingsCommands['settings.receipt'], (input, context) => {
+    if (!context.actorId) throw new CommandError('INVALID_INPUT', 'Authenticated actor is required')
+    const request = (() => {
+      if (input.commandId === 'settings.apply') return settingsCommands['settings.apply'].input.parse(input.input)
+      if (input.commandId === 'settings.set') {
+        const original = settingsCommands['settings.set'].input.parse(input.input)
+        return { ...original, changes: [{ op: 'set' as const, path: original.path, value: original.value }] }
+      }
+      const original = settingsCommands['settings.unset'].input.parse(input.input)
+      return { ...original, changes: [{ op: 'unset' as const, path: original.path }] }
+    })()
+    return translate(async () =>
+      settingsCommands['settings.receipt'].output.parse(
+        await service.getReceipt(request.scope, context.actorId!, input.idempotencyKey, request),
+      ),
+    )
+  })
   const execute = (
     input: {
       schemaVersion: number
