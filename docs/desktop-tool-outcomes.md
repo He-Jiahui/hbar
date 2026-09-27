@@ -105,8 +105,113 @@ are logged by the three fault tests; no approval receipt is fabricated.
 The review is clear after the signal correction. Detailed logs and the red
 tests remain under `artifacts/tool-outcome/`.
 
-The data prerequisite is ready for its independent commit. The visible outcome
-labels, consistent default disclosure, group counts and final production/native
-UI acceptance are **not yet delivered** at this checkpoint. They remain required
-work on top of this contract, not optional polish. The V1 full-run result above
-is not represented as a final-source all-green suite.
+The data prerequisite is independently committed as `b86ed9a`. The V1 full-run
+result above is not represented as a final-source all-green suite.
+
+## Compact tool UI
+
+The following UI unit uses only the canonical result joined by the existing
+session/Run/call ID/tool-name projection. Six precise result kinds have required
+Host-owned English and Chinese labels. A legacy error with no outcome shows
+Incomplete, not an invented cancellation, denial or confirmed execution failure.
+A legacy non-error keeps the existing completed-result presentation. An absent
+result says No result yet; neither streaming nor a Run's terminal state is used
+to fabricate a tool outcome. Activity summaries count these states separately;
+only canonical failed results increment the failure count or use danger styling.
+
+Every tool disclosure starts closed, including failures and reloaded history.
+New results do not force it open or move focus. The existing per-call identity
+preserves a reader's current expansion; changing session/message/call identity
+starts a new disclosure. The aggregate activity still follows live state until
+the reader pins its choice. Approval/Plan decision controls remain siblings,
+so folding tool input/output does not hide a required decision.
+
+Only actual errors and incomplete legacy errors show a short diagnostic preview.
+It reads at most 8192 UTF-16 units, removes terminal control sequences and shows
+at most 72 graphemes plus an ellipsis from the first nonempty line. The raw output
+is untouched. Extracted SessionToolDetails retains safe input serialization,
+the 12000-character display window, explicit full-content expansion and the
+separate million-code-unit Copy limit. Copy remains beside the original output,
+never copies the diagnostic preview, and never triggers a retry/execution.
+The existing pane owns scrolling; this unit adds no list cap, positioning or
+alternate history store.
+
+Focused rendering/model/copy/Stop regression: 51 pass, 490 assertions across
+five files, plus 5 localized outcome/count rendering tests, 132 assertions.
+The historical SSR tests now render the extracted detail unit to verify its
+capacity and safe content; they no longer require failed tools to start open.
+Actual browser tests verify that those details remain reachable by disclosure.
+
+Frozen production Web asset `index-Dxd--v8b.js`, SHA-256
+`80942BE9996A9AFB227ED8ED92CAAA2A93B08131F9E6D99CED3DCCAF1B8A02D7`,
+uses the unchanged `index-DHHK91sr.css`. The real Host matrix is 16/16:
+English/Chinese × 1440/320 × cancelled/denied/failed/succeeded. Each submits one
+local-fixture Run; only cancelled/denied cases request write approval and neither
+is allowed. Failure/success cases only read an absent/preseeded file. Exact
+result outcome, initial/reloaded closed state, Enter/Space focus and 32 actual
+clipboard readbacks pass. No additional Run, retry or file write is introduced
+by disclosure/reload/Copy. All 16 owned Hosts exit 0 through stdin and their
+fresh roots are removed. There are 72 screenshots, zero page/console errors and
+no document overflow. Evidence: `artifacts/tool-outcome/browser-final/`.
+
+The local-fixture model may author a separate "Tool failed" assistant reply
+after an isError result. That is original message content, not the tool-row
+label, and is not rewritten or hidden by this UI. A completed enclosing Run
+does not imply every tool succeeded; this distinction is explicitly tested.
+
+Controlled production React lifecycle verification passes 12/12 across both
+locales and widths, with 60 screenshots: same-node pending-to-error without
+focus theft, reader-pinned expansion, identity changes, Escape preservation,
+six canonical states and legacy absence, exact full Copy, and 0/1/100/101 rows
+with long copy. These are component props and an injected clipboard, not Host
+or fault-execution evidence. First-run 8/12 was a test assertion error about
+72 graphemes plus ellipsis; the corrected exact expected string passes.
+
+The final-source full Bun run is 2905 pass / 3 fail across 405 files (30239
+assertions). Failures are the concurrent Wizard empty-list strategy/plan-list
+selectors and Lumen authentication control boundary. After the parallel Wizard 6
+commit `bac63dc`, those three files were rechecked: 31 pass / 2 fail; the
+empty-list strategy passes, while the registry plan-list selector and Lumen
+authentication boundary still fail. Root typecheck passes;
+full lint still reports the same missing authentication rule. Scoped strict
+lint, formatting and content/flow/icon guards pass. No full-repository green
+claim is made. Independent UI review found no blocking issue. The older
+tool-result-copy E2E selectors were maintained for the new root attributes and
+reviewed/typechecked, but that older suite was not rerun in this unit.
+
+## Native acceptance
+
+The existing debug desktop launcher, without a launcher rebuild, passes
+16/16 cases on newly built Host resources and the same frozen Web SHA above:
+English/Chinese × native 900×600/1440×960 × four outcomes. Sixteen actual
+local-fixture Runs, four UI cancellations, four UI denials, zero Allow decisions
+and zero proposed file writes. Default collapse, exact canonical outcome,
+Enter/Space focus, original draft before reload, reload identity and 32 actual
+WebView2 clipboard readbacks pass. The main agent inspected native Chinese
+900 cancellation and English 1440 expanded failure. There are no page errors,
+console warnings/errors or document overflow.
+
+The first fresh native fixture verified its cancellation status but failed
+programmatic screenshot alignment at 900×600. Original evidence and its two
+isolated temporary directories are retained. Source and history (`0916211a99`
+in hbar-ui) show that measured conversation positioning is interrupted by user
+wheel/pointer/scroll-key input, not a programmatic scrollIntoView. The runner
+now expresses real wheel reading intent and verifies movement before normal
+alignment. It retains full pane/viewport containment, center hit testing and
+four stable frames; product code and visibility assertions were not weakened.
+The exact first-run race was not instrumented and is not claimed as proven.
+
+The second run uses fresh roots, records wheel-before/after positions and
+completes all sixteen cases. Its exact owned desktop/supervisor/Host process
+chain was closed after PID, executable, full argv, creation-time and parent
+checks; both successful temporary roots were removed. The first run's owned
+processes also closed, but its failed roots were not reused or removed. Native
+cleanup uses verified owned process handles, whereas browser fixtures use stdin.
+Protected PIDs and all previously retained roots were untouched. Evidence:
+`artifacts/tool-outcome/native/hbar-native-session-tool-outcome-R2guEo/`.
+
+This unit does not claim real native shutdown/crash fault injection for the
+interrupted/unknown kinds; their persistence is tested through storage recovery,
+and rendering through pure, SSR and controlled React tests. It also does not
+complete the larger desktop navigation migration. Tool-family/path summaries
+and other remaining entry points require their own reference audit and unit.

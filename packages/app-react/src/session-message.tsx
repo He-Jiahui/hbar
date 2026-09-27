@@ -27,7 +27,6 @@ import {
 import {
   buildMessageRows,
   thinkingPreview,
-  toolInputText,
   type SessionMessageBlock,
   type SessionMessageRow,
   type SessionToolCall,
@@ -35,7 +34,13 @@ import {
   type SessionToolRow,
 } from './session-message-model'
 import './session-message.css'
-import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-result-copy-action'
+import {
+  SessionToolDetails,
+  type HbarMessageToolPresentation,
+  type HbarToolDetailsLabels,
+} from './session-tool-details'
+import { sessionToolOutcome, toolErrorPreview, toolOutcomeCounts } from './session-tool-outcome-model'
+export type { HbarMessageToolPresentation } from './session-tool-details'
 import {
   HbarMessageImageContent,
   type HbarMessageImageOccurrence,
@@ -46,31 +51,25 @@ export interface HbarMessageActivitySummary {
   readonly thinkingCount: number
   readonly toolCounts: readonly { readonly name: string; readonly count: number }[]
   readonly failedCount: number
+  readonly outcomeCounts: ReturnType<typeof toolOutcomeCounts>
 }
 
-export interface HbarMessageBlocksLabels {
+export interface HbarMessageBlocksLabels extends HbarToolDetailsLabels {
   readonly thinking: string
   readonly thought: string
   readonly activity: (summary: HbarMessageActivitySummary) => string
   readonly tool: (name: string) => string
   readonly failed: string
+  readonly denied: string
+  readonly cancelled: string
+  readonly interrupted: string
+  readonly unknown: string
+  /** Legacy error results do not retain enough evidence to identify their cause. */
+  readonly incomplete: string
   readonly resultAvailable: string
   readonly awaitingResult: string
-  readonly input: string
-  readonly output: string
-  readonly toolResultCopy: HbarToolResultCopyLabels
   readonly codeBlock: HbarCodeBlockLabels
-  readonly emptyOutput: string
-  readonly unavailableInput: string
-  readonly showFullContent: string
-  readonly showLessContent: string
   readonly attachment: (kind: 'image' | 'file', name: string) => string
-}
-
-export interface HbarMessageToolPresentation {
-  readonly icon: 'file' | 'terminal' | 'search' | 'tool'
-  readonly summary?: string
-  readonly input?: { readonly format: 'command' | 'text'; readonly text: string }
 }
 
 export interface HbarMessageBlocksProps {
@@ -146,25 +145,32 @@ function Disclosure({
   status,
   icon,
   children,
-  defaultOpen = false,
   className,
   failed = false,
+  tool,
 }: {
   readonly label: string
   readonly preview?: string | undefined
   readonly status?: string | undefined
   readonly icon: typeof Brain
   readonly children: ReactNode
-  readonly defaultOpen?: boolean
   readonly className?: string | undefined
   readonly failed?: boolean
+  readonly tool?: {
+    readonly callId: string | undefined
+    readonly name: string
+    readonly outcome: ReturnType<typeof sessionToolOutcome>
+  }
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(false)
   const id = useId()
   return (
     <LumenFrame
       className={['hbar-session-disclosure', className].filter(Boolean).join(' ')}
       data-failed={failed || undefined}
+      data-tool-call-id={tool?.callId}
+      data-tool-name={tool?.name}
+      data-outcome={tool?.outcome}
     >
       <LumenButton
         variant="text"
@@ -198,33 +204,6 @@ function Disclosure({
   )
 }
 
-const DETAIL_PREVIEW_CHARACTERS = 12_000
-
-function DetailText({
-  text,
-  labels,
-  command = false,
-}: {
-  readonly text: string
-  readonly labels: HbarMessageBlocksLabels
-  readonly command?: boolean
-}) {
-  const [full, setFull] = useState(false)
-  const long = text.length > DETAIL_PREVIEW_CHARACTERS
-  return (
-    <LumenFrame className="hbar-session-detail-text" data-format={command ? 'command' : undefined}>
-      <LumenText as="pre" tabIndex={0}>
-        {long && !full ? `${text.slice(0, DETAIL_PREVIEW_CHARACTERS)}…` : text}
-      </LumenText>
-      {long ? (
-        <LumenButton variant="text" indicator="none" size="s" onClick={() => setFull(!full)} aria-expanded={full}>
-          {full ? labels.showLessContent : labels.showFullContent}
-        </LumenButton>
-      ) : null}
-    </LumenFrame>
-  )
-}
-
 function ToolRow({
   row,
   labels,
@@ -249,56 +228,33 @@ function ToolRow({
         : presentation?.icon === 'search'
           ? Search
           : Wrench
-  const status = row.result ? (row.result.isError ? labels.failed : labels.resultAvailable) : labels.awaitingResult
+  const outcome = sessionToolOutcome(row.result)
+  const status =
+    outcome === 'pending'
+      ? labels.awaitingResult
+      : outcome === 'succeeded' || outcome === 'legacy-result'
+        ? labels.resultAvailable
+        : outcome === 'legacy-error'
+          ? labels.incomplete
+          : labels[outcome]
   return (
     <Disclosure
       label={labels.tool(row.name)}
-      preview={presentation?.summary}
+      preview={toolErrorPreview(row.result) || presentation?.summary}
       status={status}
       icon={icon}
       className="hbar-session-tool"
-      defaultOpen={Boolean(row.result?.isError)}
-      failed={Boolean(row.result?.isError)}
+      failed={outcome === 'failed'}
+      tool={{ callId: row.call?.callId ?? row.result?.callId, name: row.name, outcome }}
     >
-      {row.call ? (
-        <LumenFrame className="hbar-session-tool-section">
-          <LumenText as="span" className="hbar-session-tool-heading">
-            {labels.input}
-          </LumenText>
-          <DetailText
-            text={presentation?.input?.text ?? toolInputText(row.call.args, labels.unavailableInput)}
-            labels={labels}
-            command={presentation?.input?.format === 'command'}
-          />
-        </LumenFrame>
-      ) : null}
-      {row.result ? (
-        <LumenFrame
-          className="hbar-session-tool-section"
-          data-tool-call-id={row.result.callId}
-          data-tool-name={row.result.name}
-        >
-          <LumenFrame className="hbar-session-tool-result-heading">
-            <LumenText as="span" className="hbar-session-tool-heading">
-              {labels.output}
-            </LumenText>
-            <ToolResultCopyAction
-              sessionId={sessionId}
-              messageId={messageId}
-              callId={row.result.callId}
-              toolName={row.result.name}
-              text={row.result.text}
-              labels={labels.toolResultCopy}
-              clipboard={clipboard}
-            />
-          </LumenFrame>
-          <DetailText
-            text={row.result.text || labels.emptyOutput}
-            labels={labels}
-            command={presentation?.input?.format === 'command'}
-          />
-        </LumenFrame>
-      ) : null}
+      <SessionToolDetails
+        row={row}
+        presentation={presentation}
+        sessionId={sessionId}
+        messageId={messageId}
+        labels={labels}
+        clipboard={clipboard}
+      />
     </Disclosure>
   )
 }
@@ -327,10 +283,12 @@ function Activity({
   const open = pinnedOpen ?? streaming
   const toolCounts = new Map<string, number>()
   for (const row of rows) if (row.kind === 'tool') toolCounts.set(row.name, (toolCounts.get(row.name) ?? 0) + 1)
+  const outcomeCounts = toolOutcomeCounts(rows.filter((row): row is SessionToolRow => row.kind === 'tool'))
   const summary = labels.activity({
     thinkingCount: rows.filter((row) => row.kind === 'thinking').length,
     toolCounts: [...toolCounts].map(([name, count]) => ({ name, count })),
-    failedCount: rows.filter((row) => row.kind === 'tool' && row.result?.isError).length,
+    failedCount: outcomeCounts.failed,
+    outcomeCounts,
   })
   const children = rows.map((row) =>
     row.kind === 'thinking' ? (

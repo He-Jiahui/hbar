@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LumenMessage } from '@lumen/app-ui'
 import { HbarMessageActionBar, HbarMessageBlocks } from '../packages/app-react/src/session-message'
+import { SessionToolDetails } from '../packages/app-react/src/session-tool-details'
 import {
   buildMessageRows,
   projectSessionMessages,
@@ -12,18 +13,24 @@ import {
 import { describeFixtureTool, messageBlocks, messageLabels, sessionMessage } from './session-message.fixtures'
 import { MAX_TOOL_RESULT_COPY_CHARACTERS } from '../packages/app-react/src/tool-result-copy'
 
+function toolRow(blocks: readonly SessionMessageBlock[]) {
+  const row = buildMessageRows(blocks)[0]
+  if (row?.kind !== 'tool') throw new Error('Expected original tool row')
+  return row
+}
+
 test('output copy belongs beside its result, not input, thinking, reply text, or a missing output', () => {
   for (const locale of ['en-US', 'zh-CN'] as const) {
     const labels = messageLabels(locale).blocks
     for (const text of ['', ' \r\n\t', 'one', '错误详情\nretry safely']) {
       const html = renderToStaticMarkup(
-        <HbarMessageBlocks
+        <SessionToolDetails
           sessionId="original-session"
           messageId="original-message"
-          blocks={[
+          row={toolRow([
             { type: 'tool_call', callId: 'original-call', name: 'Read', args: { content: 'not the copy source' } },
             { type: 'tool_result', callId: 'original-call', name: 'Read', text, isError: true },
-          ]}
+          ])}
           labels={labels}
         />,
       )
@@ -34,10 +41,10 @@ test('output copy belongs beside its result, not input, thinking, reply text, or
       expect(html.split('hbar-session-tool-result-copy-action').length - 1).toBe(text.trim() ? 1 : 0)
     }
     const missing = renderToStaticMarkup(
-      <HbarMessageBlocks
+      <SessionToolDetails
         sessionId="s"
         messageId="m"
-        blocks={[{ type: 'tool_call', callId: 'pending', name: 'Read', args: {} }]}
+        row={toolRow([{ type: 'tool_call', callId: 'pending', name: 'Read', args: {} }])}
         labels={labels}
       />,
     )
@@ -49,10 +56,12 @@ test('copy capacity is separate from the 12k preview and never silently copies a
   const labels = messageLabels('zh-CN').blocks
   for (const length of [1, 12_000, 12_001, MAX_TOOL_RESULT_COPY_CHARACTERS, MAX_TOOL_RESULT_COPY_CHARACTERS + 1]) {
     const html = renderToStaticMarkup(
-      <HbarMessageBlocks
+      <SessionToolDetails
         sessionId="s"
         messageId="m"
-        blocks={[{ type: 'tool_result', callId: 'orphan', name: 'Read', text: 'x'.repeat(length), isError: true }]}
+        row={toolRow([
+          { type: 'tool_result', callId: 'orphan', name: 'Read', text: 'x'.repeat(length), isError: true },
+        ])}
         labels={labels}
       />,
     )
@@ -66,7 +75,7 @@ test('copy capacity is separate from the 12k preview and never silently copies a
   }
 })
 
-test('a tool-decision sibling retains the same independently target-bound output copy action', () => {
+test('a tool-decision sibling remains visible beside collapsed details with a target-bound output action', () => {
   const result = {
     type: 'tool_result' as const,
     callId: 'decision-call',
@@ -88,8 +97,14 @@ test('a tool-decision sibling retains the same independently target-bound output
   )
   expect(html).toContain('hbar-session-tool-decision')
   expect(html).toContain('data-tool-call-id="decision-call"')
-  expect(html).toContain('Copy output')
+  expect(html).toContain('aria-expanded="false"')
+  expect(html).not.toContain('Copy output')
   expect(html).toContain('Test-owned decision')
+  const details = renderToStaticMarkup(
+    <SessionToolDetails sessionId="s" messageId="m" row={toolRow([result])} labels={messageLabels('en-US').blocks} />,
+  )
+  expect(details).toContain('data-tool-call-id="decision-call"')
+  expect(details).toContain('Copy output')
 })
 
 test('tool rows join call and result once, retain mismatched and orphan results, and ignore duplicate IDs', () => {
@@ -192,7 +207,7 @@ test('finished activity is a light collapsed summary while active activity expos
   expect(active).not.toContain('3 tests passed')
 })
 
-test('single failed unknown tools have safe fallback details and no duplicate result disclosure', () => {
+test('single legacy error tools start collapsed with safe preview and separately available fallback details', () => {
   const blocks: SessionMessageBlock[] = [
     { type: 'tool_call', callId: 'unknown', name: 'plugin.arbitrary', args: { '<script>': '<unsafe>' } },
     { type: 'tool_result', callId: 'unknown', name: 'plugin.arbitrary', text: 'safe failure', isError: true },
@@ -206,10 +221,23 @@ test('single failed unknown tools have safe fallback details and no duplicate re
     />,
   )
   expect(html).toContain('safe failure')
-  expect(html).toContain('输入参数')
-  expect(html).toContain('&lt;script&gt;')
+  expect(html).toContain('未完成')
+  expect(html).toContain('data-outcome="legacy-error"')
+  expect(html).toContain('aria-expanded="false"')
+  expect(html).not.toContain('输入参数')
   expect(html).not.toContain('<script>')
   expect(html.match(/aria-expanded=/g)).toHaveLength(1)
+  const details = renderToStaticMarkup(
+    <SessionToolDetails
+      sessionId="session"
+      messageId="message"
+      row={toolRow(blocks)}
+      labels={messageLabels('zh-CN').blocks}
+    />,
+  )
+  expect(details).toContain('输入参数')
+  expect(details).toContain('&lt;script&gt;')
+  expect(details).not.toContain('<script>')
   const cyclic: { self?: unknown } = {}
   cyclic.self = cyclic
   expect(toolInputText(cyclic, '不可显示')).toBe('不可显示')

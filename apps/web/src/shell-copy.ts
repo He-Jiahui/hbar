@@ -958,18 +958,36 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       codeBlock: codeBlockCopyLabels(locale),
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),
-      activity: ({ thinkingCount, toolCounts, failedCount }) =>
+      activity: ({ thinkingCount, toolCounts, failedCount, outcomeCounts }) =>
         [
           ...(thinkingCount
             ? [choose(`${thinkingCount} 段思考`, `${thinkingCount} ${thinkingCount === 1 ? 'thought' : 'thoughts'}`)]
             : []),
           ...toolCounts.map(({ name, count }) => choose(`${name} × ${count}`, `${name} × ${count}`)),
           ...(failedCount ? [choose(`${failedCount} 项失败`, `${failedCount} failed`)] : []),
+          ...(outcomeCounts.denied ? [choose(`${outcomeCounts.denied} 项拒绝`, `${outcomeCounts.denied} denied`)] : []),
+          ...(outcomeCounts.cancelled
+            ? [choose(`${outcomeCounts.cancelled} 项取消`, `${outcomeCounts.cancelled} cancelled`)]
+            : []),
+          ...(outcomeCounts.interrupted
+            ? [choose(`${outcomeCounts.interrupted} 项中断`, `${outcomeCounts.interrupted} interrupted`)]
+            : []),
+          ...(outcomeCounts.unknown
+            ? [choose(`${outcomeCounts.unknown} 项结果未知`, `${outcomeCounts.unknown} unknown`)]
+            : []),
+          ...(outcomeCounts['legacy-error']
+            ? [choose(`${outcomeCounts['legacy-error']} 项未完成`, `${outcomeCounts['legacy-error']} incomplete`)]
+            : []),
         ].join(' · '),
       tool: (name) => name,
       failed: choose('失败', 'Failed'),
+      denied: choose('已拒绝', 'Denied'),
+      cancelled: choose('已取消', 'Cancelled'),
+      interrupted: choose('已中断', 'Interrupted'),
+      unknown: choose('结果未知', 'Outcome unknown'),
+      incomplete: choose('未完成', 'Incomplete'),
       resultAvailable: choose('已完成', 'Completed'),
-      awaitingResult: choose('等待结果', 'Awaiting result'),
+      awaitingResult: choose('尚无结果', 'No result yet'),
       input: choose('输入', 'Input'),
       output: choose('输出', 'Output'),
       toolResultCopy: {

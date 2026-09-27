@@ -173,13 +173,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize({ width, height: 960 })
         await hideSidebar(page, locale)
         for (const call of calls) {
-          const toolRow = message.locator('.hbar-session-tool').filter({
-            has: page.getByRole('button', {
-              name: `${call.name} ${call.isError ? copy.session.messageBlocks.failed : copy.session.messageBlocks.resultAvailable}`,
-              exact: true,
-            }),
-          })
-          const section = toolRow.locator(`[data-tool-call-id="${call.callId}"][data-tool-name="${call.name}"]`)
+          const toolRow = message.locator(
+            `.hbar-session-tool[data-tool-call-id="${call.callId}"][data-tool-name="${call.name}"]`,
+          )
+          const section = toolRow.locator(
+            `.hbar-session-tool-section[data-tool-call-id="${call.callId}"][data-tool-name="${call.name}"]`,
+          )
           const disclosure = toolRow.locator('.hbar-session-disclosure-trigger')
           if (!(await section.isVisible())) {
             await disclosure.focus()
@@ -219,7 +218,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await bodyCopy.click()
         await expect.poll(() => clipboardText(page)).toBe(authored)
         const otherRun = page.locator('[data-message-id="copy-fixture-message-other-run"]')
-        const otherRunOutput = otherRun.locator('[data-tool-call-id="shared-call-id"][data-tool-name="read_file"]')
+        const otherRunOutput = otherRun.locator(
+          '.hbar-session-tool-section[data-tool-call-id="shared-call-id"][data-tool-name="read_file"]',
+        )
         if (!(await otherRunOutput.isVisible())) await otherRun.locator('.hbar-session-disclosure-trigger').click()
         await copyOutput(page, otherRunOutput, otherRunText, locale)
       }
@@ -232,7 +233,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await b.locator('.hbar-session-disclosure-trigger').click()
       await copyOutput(
         page,
-        b.locator('[data-tool-call-id="shared-call-id"][data-tool-name="read_file"]'),
+        b.locator('.hbar-session-tool-section[data-tool-call-id="shared-call-id"][data-tool-name="read_file"]'),
         otherSessionText,
         locale,
       )
