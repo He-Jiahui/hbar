@@ -3,6 +3,7 @@ import type {
     HbarAppUiEditorFormattingAction,
     HbarAppUiMarkdownMode,
     HbarAppUiRichEditorReferenceContent,
+    HbarAppUiMarkdownReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const formattingLabels: Readonly<Record<HbarAppUiEditorFormattingAction, string>> = {
@@ -44,12 +45,22 @@ const richEditorReference: HbarAppUiRichEditorReferenceContent = {
     status: 'Saved',
 }
 
+const markdownReference: HbarAppUiMarkdownReferenceContent = {
+    labels: {view: 'Editor view', mode: (mode) => markdownModeLabels[mode], summary: (count) => `${count} words · Markdown`, source: 'Source', preview: 'Preview', sourceInput: 'Markdown source'},
+    document: {
+        id: 'streaming-meter', fileName: 'streaming-meter.md',
+        source: '# Migrating to the streaming meter\n\nThe nightly aggregation job is being replaced by a streaming counter. This note covers what changes for existing workspaces and what to do if a number looks wrong.\n\n## What changes\n\n- Usage updates within about **ten seconds** instead of once per night.\n- Historical rows are *unchanged*; only new events take the new path.\n- The `v1/usage` endpoint keeps its shape and stays supported until March.\n\n## Rollout\n\n1. Enable the flag for internal workspaces.\n2. Backfill the previous 30 days and compare against the old totals.\n3. Move Scale customers, then everyone else.\n\n> A drift of under 0.5% between the two systems is expected during the overlap window.\n\nReach out to Wei Chen if a workspace shows a larger gap.',
+    },
+    mode: 'split', paneStrategy: {kind: 'pane-scroll', expectedMaximumWords: 5000},
+}
+
 /**
  * Preview and behavior-test data only. The reusable package intentionally has
  * no implicit English records or locale fallback.
  */
 export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
     referenceRichText: richEditorReference,
+    referenceMarkdown: markdownReference,
     richText: {
         labels: {
             blockMenuLabel: 'Paragraph',
@@ -238,6 +249,7 @@ const baseReader = requiredFixture(HBAR_APP_UI_EDITOR_FIXTURES.reader)
 export function createHbarAppUiEditorOverflowFixtures(): HbarAppUiEditorContent {
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
+        referenceMarkdown: {...markdownReference, document: {...markdownReference.document, source: `${markdownReference.document.source}\n\n`.repeat(60) + 'Final editable paragraph'}},
         referenceRichText: {...richEditorReference,
             document: {...richEditorReference.document, body: `${richEditorReference.document.body}\n\n`.repeat(60) + 'Last editable paragraph'},
             blocks: [...richEditorReference.blocks, ...Array.from({length: 34}, (_, index) => ({id: `extra-${index}`, label: `Additional block style ${index + 1}`}))],
@@ -281,6 +293,10 @@ export function createHbarAppUiEditorLocalizedFixtures(): HbarAppUiEditorContent
     }
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
+        referenceMarkdown: {...markdownReference,
+            labels: {view: 'Bearbeitungsmodus mit absichtlich langer lokalisierter Bezeichnung', mode: (mode) => modeLabels[mode], summary: (count) => `${count} Woerter · Markdown`, source: 'Quelltext', preview: 'Vorschau', sourceInput: 'Markdown-Quelltext'},
+            document: {...markdownReference.document, fileName: 'arbeitsbereichsweite-streaming-zaehler-migration.md'},
+        },
         referenceRichText: {...richEditorReference,
             labels: {...richEditorReference.labels,
                 emptyBlocks: 'Keine Absatzformate', formatAction: (action) => ({bold: 'Fett', italic: 'Kursiv', strikethrough: 'Durchgestrichen', 'inline-code': 'Inline-Code', link: 'Verknuepfung'})[action], saving: 'Wird gespeichert…',

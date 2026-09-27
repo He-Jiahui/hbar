@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-editor-2')
+    return {
+      revision: 1,
+      lumenEntries: ['editor.tsx', 'editor-markdown-reference.tsx', 'editor-markdown-model.ts', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Write removes the preview and expands the controlled source editor'},
+        {viewport: 'desktop', theme: 'dark', suffix: '2:click', change: 'Preview removes the source and expands the semantic rendered document'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:fill', change: 'Source edit updates raw word statistics and rendered paragraph in the split view'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'markdown-preview:1:click', change: 'Returning from Preview restores the source with the same document value'},
+        {viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Selecting the already active Split tab is a source no-op'},
+        {viewport: 'stress', theme: 'light', suffix: '2:press-space', change: 'Narrow keyboard Preview replaces the only source pane with rendered content'},
+        {viewport: 'stress', theme: 'dark', suffix: '3:fill', change: 'Narrow source edit updates the summary while Split keeps its preview hidden'},
+      ],
+      inferences: [
+        {scope: 'Other source text, tab gestures and same-shape focus/hover states', basis: 'One document-ID-bound Host source/mode transition drives both panes and raw-word formatter. Empty/body/inline/list/quote/unsupported markup and stale document callbacks have pure tests; representative wide and narrow edits plus keyboard mode selection are replayed. Source ArrowRight does not implement roving selection.', verification: 'inferred-not-replayed'},
+        {scope: 'Remaining theme/width mode combinations and long document scroll positions', basis: 'Eight static pairs cover the 768px split-pane boundary and intrinsic header wrapping. Focused production checks verify source/preview scrolling, short heights, localized labels and mode preservation across resize, without a tab × layout gesture product.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-editor-1')
     return {
       revision: 1,

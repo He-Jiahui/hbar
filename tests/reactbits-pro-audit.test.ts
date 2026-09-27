@@ -4,6 +4,14 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('Markdown sampling separates wide tab projection, live source rendering and narrow keyboard behavior', () => {
+  const id = 'hbar-app-ui-editor-2'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(7)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:2:press-space`])
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('rich editor sampling separates menu selection, pressed state, live drafts and post-edit source history no-op', () => {
   const id = 'hbar-app-ui-editor-1'
   const plan = auditSamplingPlan(id)!

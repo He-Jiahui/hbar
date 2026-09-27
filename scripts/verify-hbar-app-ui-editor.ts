@@ -5,6 +5,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 
 type EditorFixture = 'overflow' | 'localized'
 const richOnly = process.argv.includes('--rich-only')
+const markdownOnly = process.argv.includes('--markdown-only')
 
 function previewUrl(variant: number, options: { readonly fixture?: EditorFixture } = {}): string {
   const parameters = new URLSearchParams({ variant: `hbar-app-ui-editor-${variant}`, mode: 'isolated' })
@@ -51,6 +52,115 @@ async function run(): Promise<void> {
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
   try {
+    if (markdownOnly) {
+      await page.goto(previewUrl(2), { waitUntil: 'networkidle' })
+      const source = page.getByRole('textbox', { name: 'Markdown source', exact: true })
+      const changed = '# Revised heading\n\n**Alpha** and *beta*.\n\n> Quote note'
+      await source.fill(changed)
+      assert(
+        (await page.getByRole('heading', { name: 'Revised heading', level: 3 }).count()) === 1,
+        'Markdown source did not update its semantic preview',
+      )
+      assert(
+        (await page.locator('.lumen-markdown-reference-toolbar p').innerText()) === '9 words · Markdown',
+        'Raw source counter did not include Markdown syntax',
+      )
+      assert(
+        (await page.locator('.lumen-markdown-reference-prose strong').innerText()) === 'Alpha',
+        'Strong token did not render inline',
+      )
+      assert(
+        (await page.locator('.lumen-markdown-reference-quote').innerText()) === 'Quote note',
+        'Reference quote did not preserve paragraph semantics',
+      )
+      await page.getByRole('tab', { name: 'Preview', exact: true }).click()
+      assert((await source.count()) === 0, 'Preview retained its source editor')
+      await page.getByRole('tab', { name: 'Write', exact: true }).click()
+      assert((await source.inputValue()) === changed, 'Mode switching lost the host source')
+      assert((await page.locator('.lumen-markdown-reference-preview').count()) === 0, 'Write retained a preview pane')
+      await page.getByRole('tab', { name: 'Split', exact: true }).click()
+      await page.getByRole('tab', { name: 'Split', exact: true }).press('ArrowRight')
+      assert(
+        (await page.getByRole('tab', { name: 'Split', exact: true }).getAttribute('aria-selected')) === 'true',
+        'Source no-op ArrowRight unexpectedly selected another mode',
+      )
+      for (const width of [768, 767]) {
+        await page.setViewportSize({ width, height: 680 })
+        const previewVisible = await page.locator('.lumen-markdown-reference-preview').isVisible()
+        assert(previewVisible === width >= 768, `Split pane visibility did not follow its 768px boundary at ${width}`)
+        assert((await source.inputValue()) === changed, 'Resize changed the host document')
+      }
+      for (const width of [430, 429, 356, 286]) {
+        await page.setViewportSize({ width, height: 680 })
+        assert(
+          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+          `Markdown overflowed at ${width}`,
+        )
+      }
+      await page.getByRole('tab', { name: 'Preview', exact: true }).press('Space')
+      assert(
+        (await source.count()) === 0 && (await page.locator('.lumen-markdown-reference-preview').isVisible()),
+        'Narrow keyboard Preview did not replace the source pane',
+      )
+      await page.setViewportSize({ width: 286, height: 360 })
+      await page.goto(previewUrl(2, { fixture: 'overflow' }), { waitUntil: 'networkidle' })
+      const overflowSource = page.getByRole('textbox', { name: 'Markdown source', exact: true })
+      await overflowSource.press('Control+End')
+      const sourceScroll = await overflowSource.evaluate((element) => ({
+        overflow: element.scrollHeight > element.clientHeight,
+        moved: element.scrollTop > 0,
+      }))
+      assert(sourceScroll.overflow && sourceScroll.moved, 'Native long source did not expose its final paragraph')
+      await page.getByRole('tab', { name: 'Preview', exact: true }).click()
+      const preview = page.locator('.lumen-markdown-reference-scroll')
+      await preview.hover()
+      await page.mouse.wheel(0, 50000)
+      await page.waitForTimeout(150)
+      const previewScroll = await preview.evaluate((element) => ({
+        overflow: element.scrollHeight > element.clientHeight,
+        moved: element.scrollTop > 0,
+      }))
+      assert(previewScroll.overflow && previewScroll.moved, 'Rendered document did not use its own scroll region')
+      await page.locator('.lumen-markdown-reference-prose p').last().scrollIntoViewIfNeeded()
+      assert(
+        (await page.locator('.lumen-markdown-reference-prose p').last().innerText()) === 'Final editable paragraph',
+        'Rendered overflow document lost its final content',
+      )
+      await page.goto(previewUrl(2, { fixture: 'localized' }), { waitUntil: 'networkidle' })
+      const localizedSource = page.getByRole('textbox', { name: 'Markdown-Quelltext', exact: true })
+      await localizedSource.fill('# Lokalisierte Notiz\n\nBearbeiteter Inhalt')
+      await page.getByRole('tab', { name: 'Vollstaendige Vorschauansicht', exact: true }).press('Space')
+      assert(
+        (await page.getByRole('heading', { name: 'Lokalisierte Notiz', exact: true }).count()) === 1,
+        'Localized controlled source did not render',
+      )
+      const tabScroll = await page
+        .getByRole('tablist')
+        .evaluate((element) => ({ overflow: element.scrollWidth > element.clientWidth, moved: element.scrollLeft > 0 }))
+      assert(
+        tabScroll.overflow && tabScroll.moved,
+        'Long localized mode labels did not support native keyboard scrolling',
+      )
+      assert(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+        'Long localized Markdown content overflowed horizontally',
+      )
+      assert(pageErrors.length === 0, `Editor preview reported page errors: ${pageErrors.join(' | ')}`)
+      console.log(
+        JSON.stringify({
+          markdownHostDraft: true,
+          semanticPreview: true,
+          sourceModes: true,
+          sourceArrowNoop: true,
+          splitBoundary: true,
+          sourceScroll,
+          previewScroll,
+          tabScroll,
+          pageErrors: pageErrors.length,
+        }),
+      )
+      return
+    }
     await page.goto(previewUrl(1), { waitUntil: 'networkidle' })
     await page.getByLabel('Document title', { exact: true }).fill('Edited title')
     await page.getByText('Saving…', { exact: true }).waitFor()
