@@ -3,7 +3,7 @@ import {chromium, type Page} from '@playwright/test'
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5192'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
-function url(variant: 1 | 2, fixture?: 'localized' | 'overflow') {
+function url(variant: 1 | 2 | 3, fixture?: 'localized' | 'overflow') {
   const query = new URLSearchParams({mode: 'isolated', variant: `hbar-app-ui-scheduling-${variant}`, theme: 'light'})
   if (fixture) query.set('schedulingFixture', fixture)
   return `${baseUrl}/?${query.toString()}`
@@ -107,14 +107,77 @@ async function verifyRange(page: Page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Extended range caused page overflow')
 }
 
+async function verifyForm(page: Page) {
+  await page.setViewportSize({width: 1086, height: 720})
+  await page.goto(url(3), {waitUntil: 'networkidle'})
+  const card = page.locator('.lumen-scheduling-form-card')
+  const pane = card.locator('[data-hbar-app-ui-region="form-scroll"]')
+  const footer = card.locator('footer')
+  const name = card.getByRole('textbox', {name: 'Name', exact: true})
+  const query = card.getByRole('textbox', {name: 'Add attendee', exact: true})
+  const notes = card.getByRole('textbox', {name: 'Notes', exact: true})
+  assert(await card.locator('input[type="text"]').count() === 4 && await card.getByRole('combobox').count() === 2, 'Form lost native source control types')
+  assert(!await card.getByRole('button', {name: 'Create schedule', exact: true}).isDisabled(), 'Source empty draft invented a submit gate')
+  await card.getByRole('button', {name: 'Create schedule', exact: true}).click()
+  assert(await card.locator('[aria-invalid="true"]').count() === 0 && await name.inputValue() === '', 'Empty source submit invented validation')
+  await name.fill('Team sync')
+  await query.fill('Nora')
+  await query.press('Enter')
+  assert(await card.locator('[data-hbar-app-ui-action="remove-attendee"]').count() === 2 && await query.inputValue() === 'Nora', 'Attendee Enter invented an admission workflow')
+  await card.getByRole('button', {name: 'Remove Marta Rey', exact: true}).press('Space')
+  assert(await card.locator('[data-hbar-app-ui-target="marta"]').count() === 0 && await card.locator('[data-hbar-app-ui-target="idris"]').count() === 1, 'Removal was not bound to the original attendee ID')
+  await card.getByRole('textbox', {name: 'Date', exact: true}).fill('14 July 2026')
+  await card.getByRole('combobox', {name: 'Starts', exact: true}).selectOption('11:00')
+  await card.getByRole('combobox', {name: 'Ends', exact: true}).selectOption('08:30')
+  await card.getByRole('textbox', {name: 'Meeting link', exact: true}).fill('https://example.com/room')
+  const footerBefore = await footer.boundingBox()
+  await notes.fill('Read the brief before joining')
+  assert(await pane.evaluate((element) => element.scrollTop > 0), 'Notes input did not use its own body scroll owner')
+  const footerAfter = await footer.boundingBox()
+  assert(footerBefore && footerAfter && Math.abs(footerBefore.y - footerAfter.y) < 1, 'Body scrolling moved the footer action region')
+  for (const label of ['Attach', 'Cancel', 'Create schedule']) await card.getByRole('button', {name: label, exact: true}).click()
+  assert(await name.inputValue() === 'Team sync' && await query.inputValue() === 'Nora' && await notes.inputValue() === 'Read the brief before joining', 'No-op actions reset or submitted the controlled draft')
+  assert(await card.locator('input[type="file"], [role="alert"], [aria-invalid="true"]').count() === 0 && await page.getByRole('dialog').count() === 0, 'Source no-op action invented picker, error or dialog')
+  for (const width of [670, 640, 639, 356, 286]) {
+    await page.setViewportSize({width, height: 720})
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `Form escaped viewport at ${width}`)
+    assert(await card.locator('.lumen-scheduling-form-times').evaluate((element) => getComputedStyle(element).display === 'flex'), 'Time row reverted to coordinate or grid layout')
+  }
+  await card.getByRole('button', {name: 'Remove Idris Kane', exact: true}).press('Enter')
+  assert(await card.locator('[data-hbar-app-ui-action="remove-attendee"]').count() === 0 && await query.inputValue() === 'Nora', 'Last removal lost the empty attendee input or query')
+  await page.setViewportSize({width: 286, height: 240})
+  await notes.fill('Short Host note')
+  await card.getByRole('button', {name: 'Create schedule', exact: true}).press('Space')
+  assert(await pane.evaluate((element) => element.scrollHeight > element.clientHeight), 'Short Host lost its field scroll owner')
+  const shortFooter = await footer.boundingBox()
+  assert(shortFooter && shortFooter.y >= 0, 'Short Host hid the footer')
+  await page.setViewportSize({width: 286, height: 720})
+  await page.goto(url(3, 'localized'), {waitUntil: 'networkidle'})
+  assert((await card.locator('header').innerText()).includes('跨区域产品与运营同事'), 'Host long translated header was lost')
+  await card.getByRole('button', {name: '移除Marta Rey', exact: true}).press('Space')
+  assert(await card.locator('[data-hbar-app-ui-target="marta"]').count() === 0 && await card.locator('[data-hbar-app-ui-target="idris"]').count() === 1, 'Reordered localized removal lost the original target ID')
+  await card.getByRole('textbox', {name: '备注', exact: true}).fill('阅读跨区域团队共享的背景材料')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Long translated form caused page overflow')
+  await page.goto(url(3, 'overflow'), {waitUntil: 'networkidle'})
+  assert(await card.locator('[data-hbar-app-ui-action="remove-attendee"]').count() === 7 && await card.locator('select option').count() === 14, 'Over-bound Host data was silently truncated')
+  const people = card.locator('[data-hbar-app-ui-region="form-attendees"] > div')
+  assert(await people.evaluate((element) => {element.scrollTop = element.scrollHeight;return element.scrollTop > 0}), 'Over-bound attendee pane does not actually scroll')
+  await card.getByRole('button', {name: 'Remove Regional platform teammate 7', exact: true}).press('Space')
+  assert(await card.locator('[data-hbar-app-ui-target="attendee-6"]').count() === 0 && await card.locator('[data-hbar-app-ui-target="attendee-0"]').count() === 1, 'Over-bound removal acted on the wrong original ID')
+  await card.getByRole('combobox', {name: 'Starts', exact: true}).selectOption({label: 'Start 1'})
+  assert(await card.getByRole('combobox', {name: 'Starts', exact: true}).inputValue() === 'start-0', 'Reordered time choices lost the original ID')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound form escaped its pane')
+}
+
 const browser = await chromium.launch({headless: true, executablePath})
 try {
   const page = await browser.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-  if (!process.argv.includes('--range-only')) await verifyMonth(page)
-  if (!process.argv.includes('--month-only')) await verifyRange(page)
+  if (!process.argv.includes('--range-only') && !process.argv.includes('--form-only')) await verifyMonth(page)
+  if (!process.argv.includes('--month-only') && !process.argv.includes('--form-only')) await verifyRange(page)
+  if (!process.argv.includes('--month-only') && !process.argv.includes('--range-only')) await verifyForm(page)
   assert(errors.length === 0, `Browser errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
+  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
 } finally {await browser.close()}

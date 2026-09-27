@@ -5,6 +5,21 @@ const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceForm: {
+    labels: {
+      title: 'New schedule', description: 'Everyone invited gets a hold on their calendar right away.',
+      name: 'Name', namePlaceholder: 'Weekly platform sync', attendees: 'Attendees', addAttendee: 'Add attendee', attendeePlaceholder: 'Add someone',
+      removeAttendee: (name) => `Remove ${name}`, date: 'Date',
+      starts: 'Starts', ends: 'Ends', attachmentTitle: 'Attachments', attachmentHint: 'Agenda or brief, up to three files',
+      attach: 'Attach', meetingLink: 'Meeting link', meetingLinkPlaceholder: 'Paste a room link',
+      notes: 'Notes', notesPlaceholder: 'What should people read before joining?', cancel: 'Cancel', create: 'Create schedule',
+    },
+    name: '', attendeeQuery: '', attendees: [{id: 'marta', name: 'Marta Rey', initials: 'MR'}, {id: 'idris', name: 'Idris Kane', initials: 'IK'}],
+    attendeeStrategy: {kind: 'content-grown', expectedMaximum: 2}, date: '10 June 2026',
+    starts: ['08:30', '09:00', '09:30', '10:00', '10:30', '11:00'].map((label) => ({id: label, label})),
+    ends: ['08:30', '09:00', '09:30', '10:00', '10:30', '11:00'].map((label) => ({id: label, label})),
+    startId: '09:00', endId: '10:00', meetingLink: '', notes: '',
+  },
   referenceRange: {
     person: {initials: 'AN', name: 'Anna Neary', role: 'Head of Operations'},
     labels: {more: 'More options', start: 'Start', end: 'End', duration: 'Duration', cancel: 'Cancel', apply: 'Apply',
@@ -273,6 +288,19 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceForm: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!,
+      labels: {
+        title: '创建新日程', description: '邀请的跨区域产品与运营同事会立即在共享日历中看到一个等待确认的时间段。',
+        name: '日程名称', namePlaceholder: '每周平台研发团队与区域运营负责人同步会议',
+        attendees: '参会人员', addAttendee: '添加参会者', attendeePlaceholder: '添加同事', removeAttendee: (name) => `移除${name}`,
+        date: '日期', starts: '开始时间', ends: '结束时间',
+        attachmentTitle: '相关附件', attachmentHint: '议程或会议背景资料，最多三个文件', attach: '添加附件',
+        meetingLink: '会议链接', meetingLinkPlaceholder: '粘贴远程会议链接', notes: '备注',
+        notesPlaceholder: '参会者在加入会议前应该阅读什么？', cancel: '取消', create: '创建日程',
+      },
+      attendees: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!.attendees].reverse(),
+    },
     referenceRange: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceRange!,
       person: {initials: '安', name: '安娜·尼尔与跨区域运营协作团队', role: '跨区域运营、产品和共享日程负责人'},
@@ -313,7 +341,14 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
 
 export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
   const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
-  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceRange: {
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceForm: {
+    ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!,
+    attendees: Array.from({length: 7}, (_, index) => ({id: `attendee-${index}`, name: `Regional platform teammate ${index + 1}`, initials: `T${index + 1}`})),
+    attendeeStrategy: {kind: 'pane-scroll', expectedMaximum: 2},
+    starts: Array.from({length: 7}, (_, index) => ({id: `start-${index}`, label: `Start ${index + 1}`})).reverse(),
+    ends: Array.from({length: 7}, (_, index) => ({id: `end-${index}`, label: `End ${index + 1}`})),
+    notes: 'Extended context about the distributed meeting '.repeat(12),
+  }, referenceRange: {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceRange!,
     durations: Array.from({length: 11}, (_, index) => ({id: `duration-${index}`, label: `Extended regional duration ${index + 1}`})),
     starts: Array.from({length: 6}, (_, index) => ({id: `start-${index}`, label: `Start ${index + 1}`})).reverse(),

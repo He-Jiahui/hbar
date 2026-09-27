@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('schedule form sampling covers independent drafts, ID removal and enabled source no-op actions', () => {
+  const id = 'hbar-app-ui-scheduling-3'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(12)
+  expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([`${id}:2:press-space`])
+  expect(plan.inferences.some((entry) => entry.basis.includes('attendee Enter adds no person'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('range sampling separates duration summary, independent times and source no-op actions', () => {
   const id = 'hbar-app-ui-scheduling-2'
   const plan = auditSamplingPlan(id)!

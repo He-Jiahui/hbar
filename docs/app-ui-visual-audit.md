@@ -205,6 +205,20 @@ Custom 不出现编辑器；More、Cancel、Apply 在公开源预览无业务状
 覆盖旧契约、空态、重复/失效 ID、10/11 项容量、长中文、超容量 pane-scroll 和短宿主键盘可达性。
 Scheduling 3–7 仍未完成对齐，不因前两个通过而登记整类通过。
 
+Scheduling 3 在 2026-09-27 的当前源／本地证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-3-final-v4/`：8 组静态截图对、12 个机制交互，
+9 个 `matched`、3 个 `source-no-op`，缺失 0；结构与状态硬门禁、当前截图人工复核及严格比较通过。
+平均归一化像素 MAE 为 0.001483，仅供定位。表单卡的标题和页脚始终在独立滚动字段区之外；
+人物标签自然换行，名称、添加人员、日期、链接和 Notes 是受控文本输入，起止时间为原生选择框。
+添加人员按 Enter 不增加记录；移除按钮只作用原始人员 ID。日期不是原生日期选择器，Attach 没有文件选择结果；
+空名称时 Create 仍可点击，空态及编辑后 Create、Cancel 均无业务反馈，不制造保存成功、重置或验证错误。
+内容、可访问名称、人员记录及草稿值由宿主 `referenceForm` 契约提供；原 `form` 契约保留。
+复核包括滚动上下边缘淡化、短宿主页脚、长中文、0/1/2/3 人和显式 7 人 pane-scroll、失效及重复 ID。
+其余同类输入值、手势、人员和视口组合标为 `inferred-not-replayed`，不将这 12 例冒充整个 Scheduling 类别验收。
+Notes 审计发现原始控件 `value` 与 React 受控 `textarea.textContent` 的表示差异；审计器提交 `568fdc0`
+将值与静态文案分开归一化，保留原生值、AX、标签与可见正文比较，并升级源／交互协议。
+Scheduling 4–7 仍待对齐。
+
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
 控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/
 popover overlay 才能使用定位。内容、文案、集合和容量继续由宿主 contract 提供，不能在可复用

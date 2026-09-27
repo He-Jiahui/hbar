@@ -24,6 +24,71 @@ function render(variant: number, content: HbarAppUiSchedulingContent = HBAR_APP_
 }
 
 describe('hbar-app-ui scheduling surfaces', () => {
+  test('reference form preserves field order, native control types and enabled source no-op footer', () => {
+    const value = render(3)
+    expect(value).toContain('New schedule')
+    expect(value.match(/type="text"/g)?.length).toBe(4)
+    expect(value.match(/<select/g)?.length).toBe(2)
+    expect(value.match(/data-hbar-app-ui-action="remove-attendee"/g)?.length).toBe(2)
+    expect(value).toContain('aria-label="Add attendee"')
+    expect(value).toContain('placeholder="Add someone"')
+    expect(value).toContain('value="10 June 2026"')
+    expect(value).toContain('rows="3"')
+    expect(value).not.toContain('type="date"')
+    expect(value).not.toContain('type="time"')
+    expect(value).not.toContain('type="file"')
+    expect(value).not.toContain('disabled=""')
+    expect(value.indexOf('placeholder="Weekly platform sync"')).toBeLessThan(value.indexOf('data-hbar-app-ui-region="form-attendees"'))
+    expect(value.indexOf('form-attachments')).toBeLessThan(value.indexOf('placeholder="Paste a room link"'))
+  })
+
+  test('controlled form drafts and mutated records retain host values, labels and original IDs', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!
+    const value = render(3, {referenceForm: {...content, name: 'Host draft', attendeeQuery: 'Nora', date: '14 July 2026',
+      startId: '11:00', endId: '08:30', meetingLink: 'https://example.com/room', notes: 'Read the brief', attendees: [...content.attendees].reverse()}})
+    expect(value).toContain('value="Host draft"')
+    expect(value).toContain('value="Nora"')
+    expect(value).toContain('value="14 July 2026"')
+    expect(value).toContain('value="11:00" selected=""')
+    expect(value).toContain('value="08:30" selected=""')
+    expect(value).toContain('Read the brief')
+    expect(value).toContain('data-hbar-app-ui-target="marta"')
+    expect(value).not.toContain('aria-invalid')
+    const localized = render(3, createHbarAppUiSchedulingLocalizedFixtures())
+    expect(localized).toContain('邀请的跨区域产品与运营同事')
+    expect(localized).toContain('placeholder="每周平台研发团队与区域运营负责人同步会议"')
+    expect(localized).toContain('aria-label="移除Marta Rey"')
+    expect(localized).not.toContain('New schedule')
+  })
+
+  test('form capacity and native option boundaries preserve empty, normal, duplicate and over-bound inputs', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!
+    for (const count of [0, 1, 2, 3]) {
+      const attendees = Array.from({length: count}, (_, index) => ({id: `p-${index}`, name: `Person ${index}`, initials: 'P'}))
+      const value = render(3, {referenceForm: {...content, attendees}})
+      expect((value.match(/data-hbar-app-ui-action="remove-attendee"/g) ?? []).length).toBe(count)
+      expect(value).toContain('aria-label="Add attendee"')
+    }
+    const duplicate = render(3, {referenceForm: {...content, attendees: [content.attendees[0]!, content.attendees[0]!]}})
+    expect(duplicate.match(/data-hbar-app-ui-target="marta"/g)?.length).toBe(1)
+    for (const count of [0, 1, 6, 7]) {
+      const starts = Array.from({length: count}, (_, index) => ({id: `time-${index}`, label: String(index)}))
+      const value = render(3, {referenceForm: {...content, starts, ends: starts, startId: 'stale', endId: 'stale'}})
+      if (count) expect(value).toContain('value="time-0" selected=""')
+      else expect(value.match(/disabled=""/g)?.length).toBe(2)
+    }
+    const overflow = render(3, createHbarAppUiSchedulingOverflowFixtures())
+    expect(overflow.match(/data-hbar-app-ui-action="remove-attendee"/g)?.length).toBe(7)
+    expect(overflow).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+  })
+
+  test('legacy scheduling form remains independently available without referenceForm', () => {
+    const value = render(3, {form: HBAR_APP_UI_SCHEDULING_FIXTURES.form!})
+    expect(value).toContain('Schedule a run')
+    expect(value).toContain('type="date"')
+    expect(value).not.toContain('lumen-scheduling-form-card')
+  })
+
   test('renders seven distinct Lumen workflows from host content', () => {
     const values = Array.from({ length: 7 }, (_, index) => render(index + 1))
     expect(new Set(values).size).toBe(7)
@@ -181,6 +246,7 @@ describe('hbar-app-ui scheduling surfaces', () => {
   test('enforces attendee capacity and renders empty slot boundaries', () => {
     const constrained: HbarAppUiSchedulingContent = {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+      referenceForm: undefined,
       form: {
         ...HBAR_APP_UI_SCHEDULING_FIXTURES.form!,
         initialAttendeeIds: ['avery', 'mina'],

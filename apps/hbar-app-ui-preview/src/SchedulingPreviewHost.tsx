@@ -9,6 +9,14 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   const [startId, setStartId] = useState(content.referenceRange?.startId ?? '')
   const [endId, setEndId] = useState(content.referenceRange?.endId ?? '')
   const [durationId, setDurationId] = useState(content.referenceRange?.durationId ?? '')
+  const [formName, setFormName] = useState(content.referenceForm?.name ?? '')
+  const [formQuery, setFormQuery] = useState(content.referenceForm?.attendeeQuery ?? '')
+  const [formAttendees, setFormAttendees] = useState(content.referenceForm?.attendees ?? [])
+  const [formDate, setFormDate] = useState(content.referenceForm?.date ?? '')
+  const [formStartId, setFormStartId] = useState(content.referenceForm?.startId ?? '')
+  const [formEndId, setFormEndId] = useState(content.referenceForm?.endId ?? '')
+  const [formLink, setFormLink] = useState(content.referenceForm?.meetingLink ?? '')
+  const [formNotes, setFormNotes] = useState(content.referenceForm?.notes ?? '')
   useEffect(() => {
     setDayId(content.referenceMonth?.activeDayId ?? '')
     setMonthId(content.referenceMonth?.monthId ?? '')
@@ -17,6 +25,14 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
     setStartId(content.referenceRange?.startId ?? '')
     setEndId(content.referenceRange?.endId ?? '')
     setDurationId(content.referenceRange?.durationId ?? '')
+    setFormName(content.referenceForm?.name ?? '')
+    setFormQuery(content.referenceForm?.attendeeQuery ?? '')
+    setFormAttendees(content.referenceForm?.attendees ?? [])
+    setFormDate(content.referenceForm?.date ?? '')
+    setFormStartId(content.referenceForm?.startId ?? '')
+    setFormEndId(content.referenceForm?.endId ?? '')
+    setFormLink(content.referenceForm?.meetingLink ?? '')
+    setFormNotes(content.referenceForm?.notes ?? '')
   }, [content])
   return <HbarAppUiSchedulingProvider content={{...content, referenceMonth: content.referenceMonth && {
     ...content.referenceMonth, activeDayId: dayId, monthId, yearId, filterId,
@@ -24,5 +40,12 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   }, referenceRange: content.referenceRange && {
     ...content.referenceRange, startId, endId, durationId,
     onStartChange: setStartId, onEndChange: setEndId, onDurationChange: setDurationId,
+  }, referenceForm: content.referenceForm && {
+    ...content.referenceForm, name: formName, attendeeQuery: formQuery, attendees: formAttendees, date: formDate,
+    startId: formStartId, endId: formEndId, meetingLink: formLink, notes: formNotes,
+    onNameChange: setFormName, onAttendeeQueryChange: setFormQuery,
+    onRemoveAttendee: (id: string) => setFormAttendees((current) => current.filter((person) => person.id !== id)),
+    onDateChange: setFormDate, onStartChange: setFormStartId, onEndChange: setFormEndId,
+    onMeetingLinkChange: setFormLink, onNotesChange: setFormNotes,
   }}}>{children}</HbarAppUiSchedulingProvider>
 }

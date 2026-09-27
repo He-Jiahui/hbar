@@ -561,6 +561,29 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-3')
+    return {
+      revision: 1,
+      lumenEntries: ['scheduling.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:fill', change: 'Schedule name is an editable text value, not a required submit gate'},
+        {viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Remove the original first attendee without altering remaining draft fields'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:fill', change: 'Attendee query changes only its text, without inventing suggestions or admission'},
+        {viewport: 'desktop', theme: 'dark', suffix: '4:fill', change: 'Date is a plain editable textbox, not a native date picker'},
+        {viewport: 'desktop', theme: 'light', suffix: '5:select', change: 'Starts selects a native source time option'},
+        {viewport: 'desktop', theme: 'dark', suffix: '6:select', change: 'Ends changes independently without interval validation'},
+        {viewport: 'desktop', theme: 'light', suffix: '7:click', change: 'Attach is a source no-op without an invented file chooser'},
+        {viewport: 'desktop', theme: 'dark', suffix: '8:fill', change: 'Meeting link preserves a typed plain value'},
+        {viewport: 'desktop', theme: 'light', suffix: '9:fill', change: 'Notes becomes reachable through the body scroll owner, with header/footer preserved'},
+        {viewport: 'desktop', theme: 'dark', suffix: '10:click', change: 'Cancel does not reset or close the source card'},
+        {viewport: 'desktop', theme: 'light', suffix: '11:click', change: 'Create is enabled for an empty draft and has no fabricated success result'},
+        {viewport: 'stress', theme: 'dark', suffix: '2:press-space', change: 'Narrow native keyboard removal targets the original second attendee'},
+      ],
+      inferences: [
+        {scope: 'Other input values, attendees, gestures and edited submit state', basis: 'Live source probing verified that attendee Enter adds no person, an end before start adds no validation, Attach opens no chooser and Cancel/Create preserve filled name/query/date/link/notes and removed people. Input mechanisms are independent; one keyboard removal proves native ID-bound activation. Local tests cover reordered/duplicate IDs, empty and over-bound data.', verification: 'inferred-not-replayed'},
+        {scope: 'Other layouts/themes, passive copy and scroll edges', basis: 'Eight static pairs cover the bounded form card, associated labels, equal time fields, attendee wrap and fixed-outside-body footer. Body scrolling and fade edges are observed locally at desktop/narrow/short Host; remaining repeated values and gestures are not multiplied by width or theme.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-2')
     return {
       revision: 1,
