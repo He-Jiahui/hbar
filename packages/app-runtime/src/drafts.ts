@@ -12,6 +12,7 @@ import { registerDraftAttachments } from './draft-attachments'
 import { serializeMentions, validateMentions } from './composer-mentions'
 import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, SessionDraftState } from './types'
 import type { CommandExecutor } from '@hbar/commands'
+import { createRunCancellation } from './run-cancellation'
 
 const MAX_DRAFTS = 100
 // Public Run ports are not required to be the SDK adapter. Once dispatched, these
@@ -92,7 +93,9 @@ export function createDrafts(
     const current = actions.reader.getSnapshot()
     const next: Record<string, RunActionState> = { ...current }
     if (!next[operationId] && Object.keys(next).length >= 100) {
-      const settled = Object.entries(next).find(([, item]) => ['failed', 'succeeded'].includes(item.status))
+      const settled = Object.entries(next).find(
+        ([, item]) => !item.requestInFlight && ['failed', 'succeeded'].includes(item.status),
+      )
       if (!settled) throw new CommandError('BUSY', 'Too many run actions are pending')
       delete next[settled[0]]
     }
@@ -101,6 +104,13 @@ export function createDrafts(
   }
 
   const entry = (sessionId: string): SessionDraftState => state.reader.getSnapshot()[sessionId] ?? initial(sessionId)
+  const cancellation = createRunCancellation({
+    local,
+    run,
+    actions: actions.reader,
+    replace: replaceAction,
+    isDisposed,
+  })
   const replace = (sessionId: string, value: SessionDraftState): void => {
     if (isDisposed()) return
     const current = state.reader.getSnapshot()
@@ -293,36 +303,14 @@ export function createDrafts(
     async executeRun(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable in this runtime')
       if (name === 'operation.cancel') {
-        const operationId = (input as { operationId: string }).operationId
-        const current = actions.reader.getSnapshot()[operationId]
-        if (current && ['submitting', 'unknown'].includes(current.status))
-          throw new CommandError('BUSY', 'Run cancellation is already pending')
-        const action: RunActionState = {
-          operationId,
-          commandId: 'operation.cancel',
-          phase: 'request',
-          status: 'submitting',
-          error: null,
-        }
-        replaceAction(operationId, action)
-        try {
-          const result = await run.execute(name, input, options)
-          replaceAction(operationId, { ...action, status: 'succeeded' })
-          return result
-        } catch (error) {
-          const value = errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED')
-          replaceAction(operationId, {
-            ...action,
-            status: value === 'RESULT_UNKNOWN' ? 'unknown' : 'failed',
-            error: value,
-          })
-          throw error
-        }
+        return cancellation.cancel(input, options)
       }
       if (name === 'run.retry') {
         const retry = retryRunInputSchema.parse(input)
         const sourceOperationId = retry.operationId
         const current = actions.reader.getSnapshot()[sourceOperationId]
+        if (current?.commandId === 'operation.cancel' && (current.requestInFlight || current.status === 'unknown'))
+          throw new CommandError('BUSY', 'The original cancellation must be reconciled before retrying')
         if (current?.status === 'submitting') throw new CommandError('BUSY', 'Run retry is already pending')
         const original = retryKeys.get(sourceOperationId)
         if (original && original.sessionId !== retry.sessionId)
@@ -397,6 +385,7 @@ export function createDrafts(
       return submitRun(input as SubmitRunInput, options, false)
     },
     dispose() {
+      cancellation.dispose()
       pending.clear()
       retryKeys.clear()
       settledReceipts.clear()

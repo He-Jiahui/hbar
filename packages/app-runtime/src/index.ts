@@ -10,6 +10,9 @@ import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
 import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
+import { runActionCommands } from '@hbar/contracts/commands/run-action'
+export { runActionCommands } from '@hbar/contracts/commands/run-action'
+export type { CancellationReconciliation, ObservedOperationStatus } from '@hbar/contracts/commands/run-action'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { usageCommands } from '@hbar/contracts/commands/usage'
@@ -686,6 +689,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
+        Object.hasOwn(runActionCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(interactionRecoveryCommands, name) ||
         Object.hasOwn(settingsEditorCommands, name) ||

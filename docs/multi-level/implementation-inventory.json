@@ -530,6 +530,7 @@
     "providerEditor.setProviderField",
     "questionnaire.resetAnswers",
     "questionnaire.setAnswer",
+    "runAction.reconcileCancellation",
     "settingsForm.pickResource",
     "settingsForm.reconcile",
     "settingsForm.refresh",

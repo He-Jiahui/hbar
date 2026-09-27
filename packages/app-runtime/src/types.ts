@@ -764,7 +764,12 @@ export interface RunActionState {
   /** Runtime-owned records distinguish retries from cancellation; optional for older external projections. */
   readonly commandId?: 'run.retry' | 'operation.cancel'
   /** A receipt read must not be presented as a new Retry, or a new Retry as a read. */
-  readonly phase?: 'request' | 'receipt'
+  readonly phase?: 'request' | 'receipt' | 'state'
+  /** Bound only by a validated operation snapshot; legacy cancel input is operation-only. */
+  readonly sessionId?: string
+  readonly observedStatus?: import('@hbar/contracts/commands/run-action').ObservedOperationStatus
+  /** Actual local port promise occupancy, not a claim that Host execution has stopped. */
+  readonly requestInFlight?: boolean
   readonly operationId: string
   readonly status: 'submitting' | 'unknown' | 'failed' | 'succeeded'
   readonly error: string | null

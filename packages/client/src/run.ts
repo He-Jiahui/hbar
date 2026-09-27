@@ -1,5 +1,10 @@
 import { createCommandClient, COMMAND_PROTOCOL_VERSION, CommandError } from '@hbar/commands'
-import { runCommands, runAcceptedSchema, operationWatchResultSchema } from '@hbar/contracts/commands/run'
+import {
+  runCommands,
+  runAcceptedSchema,
+  operationWatchResultSchema,
+  operationCancelResultSchema,
+} from '@hbar/contracts/commands/run'
 import type { OperationWatchResult, RunAccepted } from '@hbar/contracts/commands/run'
 import { HbarError } from '@hbar/contracts'
 import type { SessionEvent, WireNotification } from '@hbar/contracts'
@@ -9,10 +14,12 @@ import type { ClientTransport } from './transport'
 export function createRunCommandClient(client: ClientTransport) {
   const commands = createCommandClient(runCommands, {
     async execute(id, input, options) {
+      if (id === 'operation.cancel' && options?.signal?.aborted)
+        throw new CommandError('CANCELLED', 'Cancellation was not dispatched')
       if ((id === 'run.submit' || id === 'run.retry') && !options?.idempotencyKey)
         throw new CommandError('INVALID_INPUT', `An idempotency key is required for ${id}`)
       try {
-        return await client.call('command.execute', {
+        const output = await client.call('command.execute', {
           protocol: COMMAND_PROTOCOL_VERSION,
           requestId: options?.requestId ?? crypto.randomUUID(),
           commandId: id,
@@ -20,7 +27,35 @@ export function createRunCommandClient(client: ClientTransport) {
           ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
           input,
         })
+        if (id === 'operation.cancel') {
+          const result = operationCancelResultSchema.safeParse(output)
+          const requested = runCommands['operation.cancel'].input.parse(input)
+          if (!result.success || result.data.operationId !== requested.operationId)
+            throw new CommandError('RESULT_UNKNOWN', 'Cancellation response could not be verified')
+        }
+        return output
       } catch (error) {
+        if (
+          id === 'operation.cancel' &&
+          !(
+            error instanceof HbarError &&
+            [
+              'NOT_FOUND',
+              'FORBIDDEN',
+              'UNAUTHORIZED',
+              'INVALID_INPUT',
+              'INPUT_TOO_LARGE',
+              'BUSY',
+              'CAPABILITY_UNAVAILABLE',
+              'COMMAND_NOT_FOUND',
+              'VERSION_MISMATCH',
+            ].includes(error.code)
+          )
+        )
+          throw new CommandError(
+            'RESULT_UNKNOWN',
+            'Cancellation response was not confirmed; read the original operation state',
+          )
         if (
           ['run.submit', 'run.retry', 'context.compact'].includes(id) &&
           error instanceof HbarError &&

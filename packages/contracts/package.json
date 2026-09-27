@@ -32,6 +32,7 @@
     "./commands/models": "./src/commands/models.ts",
     "./commands/provider-editor": "./src/commands/provider-editor.ts",
     "./commands/run": "./src/commands/run.ts",
+    "./commands/run-action": "./src/commands/run-action.ts",
     "./commands/settings": "./src/commands/settings.ts",
     "./commands/status-workspace": "./src/commands/status-workspace.ts",
     "./commands/client-persistence": "./src/commands/client-persistence.ts",

@@ -3,6 +3,9 @@ import { budgetEditorCommands } from './budget-editor'
 import { surfaceCommands } from './surfaces'
 import { draftCommands } from './draft'
 import { runCommands } from './run'
+import { runActionCommands } from './run-action'
+export { runActionCommands } from './run-action'
+export type { CancellationReconciliation, ObservedOperationStatus } from './run-action'
 import { interactionCommands } from './interaction'
 import { modelCommands } from './models'
 import { usageCommands } from './usage'
@@ -253,6 +256,7 @@ export const applicationCommands = {
   ...surfaceCommands,
   ...draftCommands,
   ...runCommands,
+  ...runActionCommands,
   ...interactionCommands,
   ...modelCommands,
   ...usageCommands,
