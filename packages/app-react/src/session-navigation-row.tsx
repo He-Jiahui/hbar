@@ -28,7 +28,8 @@ export interface SessionRenameLabels {
 
 export interface SessionNavigationRowLabels {
   readonly openSession: (name: string) => string
-  readonly sessionUpdatedAt: (timestamp: number) => string
+  readonly sessionUpdatedAt: (timestamp: number, now?: number) => string
+  readonly sessionUpdatedAtFull: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
   readonly renameSession: string
   readonly archiveSession: string
@@ -92,12 +93,14 @@ export function SessionNavigationRow({
   selected,
   connected,
   labels,
+  now,
   onOpen,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
   readonly connected: boolean
   readonly labels: SessionNavigationRowLabels
+  readonly now: number
   readonly onOpen: () => void
 }) {
   const runtime = useHbarRuntime()
@@ -241,14 +244,28 @@ export function SessionNavigationRow({
           >
             <LumenIcon icon={MessageSquare} tier="sm" />
             <LumenText as="span" className="hbar-app-react-session-label">
-              <LumenText size="s" variant="label">
+              <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
                 {session.title}
               </LumenText>
-              <LumenText as="small" size="s" tone="subtle" variant="supporting">
-                {own && rename.status === 'succeeded' && session.title === rename.draft.trim()
-                  ? copy.saved
-                  : labels.sessionUpdatedAt(session.updatedAt)}
-              </LumenText>
+              {own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
+                <LumenText as="span" role="status" size="s" tone="subtle" className="hbar-app-react-session-time">
+                  {copy.saved}
+                </LumenText>
+              ) : (
+                <time
+                  className="hbar-app-react-session-time"
+                  dateTime={
+                    Number.isSafeInteger(session.updatedAt) &&
+                    session.updatedAt >= 0 &&
+                    session.updatedAt <= 8_640_000_000_000_000
+                      ? new Date(session.updatedAt).toISOString()
+                      : undefined
+                  }
+                  title={labels.sessionUpdatedAtFull(session.updatedAt)}
+                >
+                  {labels.sessionUpdatedAt(session.updatedAt, now)}
+                </time>
+              )}
             </LumenText>
           </LumenNavigationButton>
           <LumenActionMenu

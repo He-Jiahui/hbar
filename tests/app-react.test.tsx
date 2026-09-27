@@ -88,6 +88,7 @@ const labels: HbarWorkspaceShellLabels = {
   pinRetryRestore: '重试读取',
   openSession: (name) => `选择 ${name}`,
   sessionUpdatedAt: (timestamp) => `更新于 ${timestamp}`,
+  sessionUpdatedAtFull: (timestamp) => `完整更新时间 ${timestamp}`,
   sessionActions: (name) => `${name} 的操作`,
   renameSession: '重命名会话',
   renameEditor: {
@@ -172,6 +173,10 @@ test('app-react renders host-owned workspace and session content from read-only 
     )
     expect(html).toContain('非常长的工程名称')
     expect(html).toContain('需要键盘导航的会话')
+    expect(html).toMatch(
+      /hbar-app-react-session-title[^>]*>需要键盘导航的会话<\/span><time[^>]*hbar-app-react-session-time/,
+    )
+    expect(html).toContain('title="完整更新时间 3"')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('打开命令目录')
     expect(html).toContain(labels.searchChats)

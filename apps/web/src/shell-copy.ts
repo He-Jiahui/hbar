@@ -36,6 +36,7 @@ import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
 import { getSessionStopCopy, sessionStopButtonLabel } from './session-stop-copy'
+import { sessionTimeCopy } from './session-time-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -2680,8 +2681,8 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       pinRestoreFailure: (code) => `无法读取工程置顶：${code}`,
       pinRetryRestore: '重试读取',
       openSession: (name) => `打开会话 ${name}`,
-      sessionUpdatedAt: (timestamp) =>
-        `更新于 ${new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(timestamp)}`,
+      sessionUpdatedAt: sessionTimeCopy('zh-CN').compact,
+      sessionUpdatedAtFull: sessionTimeCopy('zh-CN').full,
       sessionActions: (name) => `会话“${name}”的操作`,
       renameSession: '重命名',
       renameEditor: {
@@ -2810,8 +2811,8 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       pinRestoreFailure: (code) => `Could not read project pins: ${code}`,
       pinRetryRestore: 'Retry reading',
       openSession: (name) => `Open session ${name}`,
-      sessionUpdatedAt: (timestamp) =>
-        `Updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(timestamp)}`,
+      sessionUpdatedAt: sessionTimeCopy('en-US').compact,
+      sessionUpdatedAtFull: sessionTimeCopy('en-US').full,
       sessionActions: (name) => `Actions for ${name}`,
       renameSession: 'Rename',
       renameEditor: {

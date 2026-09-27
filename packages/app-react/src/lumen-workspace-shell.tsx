@@ -124,7 +124,8 @@ export interface HbarWorkspaceShellLabels {
   readonly pinRestoreFailure: (code: string) => string
   readonly pinRetryRestore: string
   readonly openSession: (name: string) => string
-  readonly sessionUpdatedAt: (timestamp: number) => string
+  readonly sessionUpdatedAt: (timestamp: number, now?: number) => string
+  readonly sessionUpdatedAtFull: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
   readonly renameSession: string
   readonly renameEditor: SessionRenameLabels
@@ -405,9 +406,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [actionWorkspaceId, setActionWorkspaceId] = useState<string | null>(null)
   const [projectPicker, setProjectPicker] = useState<'create-session' | 'open-workspace' | null>(null)
   const [workspacePath, setWorkspacePath] = useState('')
+  const [sessionTimeNow, setSessionTimeNow] = useState(Date.now)
   const projectPickerTrigger = useRef<HTMLElement | null>(null)
   const restoreProjectPickerFocus = useRef(false)
   const navigationActions = useRef<ReturnType<typeof createWorkspaceNavigationActions> | null>(null)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSessionTimeNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (projectPicker !== null || !restoreProjectPickerFocus.current) return
@@ -1197,6 +1204,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             session={session}
                             connected={props.connection === 'connected'}
                             labels={props.labels}
+                            now={sessionTimeNow}
                             selected={
                               presentation.page.kind === 'session' &&
                               navigation.workspaceId === session.workspaceId &&
