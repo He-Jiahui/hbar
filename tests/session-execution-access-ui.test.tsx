@@ -382,6 +382,7 @@ test('read-only permission menu disables all bounded new choices and Plan writes
       sessionLabel={firstSession.title}
       entry={undefined}
       hostDefault={{ status: 'ready', mode: 'ask', error: null }}
+      defaultAvailable
       connected
       disabled={false}
       canPrepare={false}

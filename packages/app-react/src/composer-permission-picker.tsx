@@ -33,6 +33,7 @@ export interface HbarComposerPermissionLabels {
   }
   readonly title: string
   readonly trigger: (choiceLabel: string) => string
+  readonly inheritedTrigger: (currentModeLabel: string) => string
   readonly close: string
   readonly loading: string
   readonly retry: string
@@ -75,6 +76,7 @@ export interface HbarComposerPermissionPickerProps {
   readonly sessionLabel: string
   readonly entry: ComposerPermissionEntry | undefined
   readonly hostDefault: ComposerPermissionState['hostDefault']
+  readonly defaultAvailable: boolean
   readonly connected: boolean
   readonly disabled: boolean
   readonly canPrepare?: boolean
@@ -136,6 +138,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const unavailable = !connected || disabled || locked
   const preparationUnavailable = unavailable || props.canPrepare === false
   const anchor = useRef<HTMLButtonElement>(null)
+  const wasConnected = useRef(connected)
   const popup = useRef<HTMLDivElement>(null)
   const cancelConfirmation = useRef<HTMLButtonElement>(null)
   const owner = useRef({ sessionId, revision })
@@ -192,17 +195,27 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
     confirmation?.sessionId === sessionId && confirmation.revision === revision && !unavailable && canSelectOrdinary
       ? confirmation
       : null
+  const inheritedMode = choice === 'inherit' && hostDefault.status === 'ready' ? hostDefault.mode : null
   const triggerLabel = executionUnresolved
     ? labels.execution[executionStatus]
     : planSelected
       ? labels.plan.label
-      : labels.options[choice].label
+      : inheritedMode
+        ? labels.inheritedTrigger(labels.options[inheritedMode].label)
+        : labels.options[choice].label
   const triggerDisabled = !executionUnresolved && (unavailable || busy)
   const planBlocked =
     executionStatus !== 'ready' ||
     preparationUnavailable ||
     busy ||
     Boolean((plan?.disabled || goalPreparation) && !planSelected)
+
+  useEffect(() => {
+    const reconnected = connected && !wasConnected.current
+    wasConnected.current = connected
+    if (connected && props.defaultAvailable && (hostDefault.status === 'idle' || reconnected))
+      void onRefresh().catch(() => undefined)
+  }, [connected, props.defaultAvailable, hostDefault.status, onRefresh])
 
   useLayoutEffect(() => {
     actionGeneration.current += 1
@@ -527,7 +540,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                 : LoaderCircle
               : planSelected
                 ? Lightbulb
-                : icons[choice]
+                : icons[inheritedMode ?? choice]
           }
           tier="sm"
         />

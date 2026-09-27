@@ -1080,6 +1080,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         cancellingGoalPreparation: choose('正在取消目标准备…', 'Cancelling goal preparation…'),
       },
       trigger: (value) => choose(`执行选项：${value}`, `Execution options: ${value}`),
+      inheritedTrigger: (mode) => choose(`${mode} · 服务端默认`, `${mode} · Host default`),
       close: choose('关闭执行选项', 'Close execution options'),
       loading: choose('正在读取服务端默认策略…', 'Loading the Host default policy…'),
       retry: choose('重新读取默认策略', 'Reload the default policy'),

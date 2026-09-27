@@ -1167,6 +1167,7 @@ function SessionWorkspaceContent({
                   sessionLabel={sessionTitle}
                   entry={permissionEntry}
                   hostDefault={composerPermission.hostDefault}
+                  defaultAvailable={composerPermission.available}
                   connected={connected}
                   disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
                   canPrepare={canPrepare}

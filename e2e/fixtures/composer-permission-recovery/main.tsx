@@ -140,6 +140,7 @@ function Fixture() {
               error: null,
             }}
             hostDefault={{ status: 'ready', mode: 'ask', error: null }}
+            defaultAvailable
             connected
             disabled={false}
             canPrepare

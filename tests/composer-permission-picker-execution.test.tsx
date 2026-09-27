@@ -16,6 +16,7 @@ function props(locale: ShellLocale, entry: ComposerPlanModeEntry | undefined): H
     labels: getShellCopy(locale).session.permissionPicker,
     entry: { sessionId: 'a', choice: 'allow', revision: 7, locked: false, status: 'idle', error: null },
     hostDefault: { status: 'ready', mode: 'ask', error: null },
+    defaultAvailable: true,
     onRefresh: async () => {},
     onSelect: async () => {},
     plan: {

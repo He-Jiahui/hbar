@@ -77,7 +77,9 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
     await prompt.fill('This draft remains when mode confirmation is lost.')
     await picker
       .getByRole('button', {
-        name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.options.inherit.label),
+        name: copy.session.permissionPicker.trigger(
+          copy.session.permissionPicker.inheritedTrigger(copy.session.permissionPicker.options.ask.label),
+        ),
       })
       .click()
     await picker.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
@@ -96,7 +98,9 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
     await page.getByRole('button', { name: copy.shell.openSession('Session 002'), exact: true }).click()
     await expect(
       picker.getByRole('button', {
-        name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.options.inherit.label),
+        name: copy.session.permissionPicker.trigger(
+          copy.session.permissionPicker.inheritedTrigger(copy.session.permissionPicker.options.ask.label),
+        ),
       }),
     ).toBeVisible()
     await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
@@ -110,7 +114,9 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
     await host.client.call('mode.set', { sessionId: original, mode: 'default' })
     await expect(
       picker.getByRole('button', {
-        name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.options.inherit.label),
+        name: copy.session.permissionPicker.trigger(
+          copy.session.permissionPicker.inheritedTrigger(copy.session.permissionPicker.options.ask.label),
+        ),
       }),
     ).toBeVisible()
     await expectComposerText(prompt, 'This draft remains when mode confirmation is lost.')

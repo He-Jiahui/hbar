@@ -37,7 +37,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const openModes = () =>
         permission
           .getByRole('button', {
-            name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.options.inherit.label),
+            name: copy.session.permissionPicker.trigger(
+              copy.session.permissionPicker.inheritedTrigger(copy.session.permissionPicker.options.ask.label),
+            ),
           })
           .click()
       const objective = 'Verify the composer goal controls — 检查目标操作与当前会话绑定'

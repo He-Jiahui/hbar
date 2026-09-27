@@ -6,6 +6,7 @@ import {
   type HbarComposerPermissionPickerProps,
 } from '../packages/app-react/src/composer-permission-picker'
 import { composerExecutionCopy } from '../apps/web/src/composer-execution-copy'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const labels: HbarComposerPermissionLabels = {
   execution: composerExecutionCopy('zh-CN'),
@@ -26,6 +27,7 @@ const labels: HbarComposerPermissionLabels = {
     cancellingGoalPreparation: '正在取消目标准备',
   },
   trigger: (choice) => `工具审批：${choice}`,
+  inheritedTrigger: (choice) => `${choice} · 默认`,
   close: '关闭权限选择',
   loading: '正在读取服务端默认值',
   retry: '重新读取默认值',
@@ -55,6 +57,7 @@ function props(): HbarComposerPermissionPickerProps {
     sessionLabel: '工程 A 的当前会话',
     entry: undefined,
     hostDefault: { status: 'idle', mode: null, error: null },
+    defaultAvailable: true,
     connected: true,
     disabled: false,
     labels,
@@ -73,6 +76,32 @@ test('permission picker shows four real options with localized names and next-se
   expect(html).not.toContain('Plan')
   expect(html).not.toContain('bypassPermissions')
   expect(html).not.toContain(labels.confirmTitle)
+})
+
+test('an inherited trigger names the confirmed effective default, but never guesses through read failure', () => {
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const copy = getShellCopy(locale).session.permissionPicker
+    const input = props()
+    const ready = renderToStaticMarkup(
+      <HbarComposerPermissionPicker
+        {...input}
+        labels={copy}
+        hostDefault={{ status: 'ready', mode: 'ask', error: null }}
+      />,
+    )
+    const visible = copy.inheritedTrigger(copy.options.ask.label)
+    expect(ready).toContain(`aria-label="${copy.trigger(visible)}"`)
+    expect(ready).toContain(`>${visible}</span>`)
+    const failed = renderToStaticMarkup(
+      <HbarComposerPermissionPicker
+        {...input}
+        labels={copy}
+        hostDefault={{ status: 'error', mode: null, error: 'DISCONNECTED' }}
+      />,
+    )
+    expect(failed).toContain(`aria-label="${copy.trigger(copy.options.inherit.label)}"`)
+    expect(failed).not.toContain(visible)
+  }
 })
 
 test('session Plan is a distinct fifth entry, while four approval choices retain their one-send semantics', () => {
