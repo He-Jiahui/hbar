@@ -33,6 +33,8 @@ export interface HbarComposerIntentBlockedLabels {
 export interface HbarComposerIntentControlLabels {
   readonly goal: string
   readonly goalHint: string
+  readonly goalPrepared: string
+  readonly goalPreparedHint: string
   readonly cancelGoal: string
   readonly blocked: HbarComposerIntentBlockedLabels
 }
@@ -254,7 +256,11 @@ export function HbarComposerIntentControl({
     })()
   }
   const blocked = availability.kind === 'blocked'
-  const reason = blocked ? labels.blocked.reasons[availability.reason] : labels.goalHint
+  const reason = blocked
+    ? labels.blocked.reasons[availability.reason]
+    : intent === 'goal'
+      ? labels.goalPreparedHint
+      : labels.goalHint
   const recovery = blocked ? availability.recovery : null
   const feedback = error?.intent === state && error.plan === planState ? labels.blocked.error(error.code) : null
   const confirmedExit =
@@ -292,7 +298,7 @@ export function HbarComposerIntentControl({
         }}
       >
         <LumenIcon icon={Target} tier="sm" />
-        {labels.goal}
+        {intent === 'goal' ? labels.goalPrepared : labels.goal}
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
       {feedback && !open && !goalUnknown && (

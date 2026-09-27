@@ -1436,8 +1436,13 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       recovery: composerGoalRecoveryCopy(locale),
       goal: choose('目标', 'Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
-      goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),
-      cancelGoal: choose('取消目标模式', 'Cancel goal mode'),
+      goalHint: choose(
+        '将下一条消息设为持续目标，发送后才会保存。',
+        'Make the next message an ongoing goal; it is saved when sent.',
+      ),
+      goalPrepared: choose('下条：目标', 'Next: goal'),
+      goalPreparedHint: choose('发送下一条消息时创建持续目标。', 'Send the next message to create the ongoing goal.'),
+      cancelGoal: choose('取消下条目标准备', 'Cancel next-send goal'),
       goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),
       planPlaceholder: choose('描述希望先规划的任务…', 'Describe the task to plan first…'),
       statuses: {

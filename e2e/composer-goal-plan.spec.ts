@@ -47,7 +47,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await modes.getByRole('button', { name: labels.goal, exact: true }).click()
       await expect(prompt).toHaveAttribute('placeholder', labels.goalPlaceholder)
       await expect(modes.getByRole('button', { name: labels.cancelGoal })).toHaveAttribute('aria-pressed', 'true')
+      await expect(modes.getByRole('button', { name: labels.cancelGoal })).toContainText(labels.goalPrepared)
+      await expect(modes.getByRole('button', { name: labels.cancelGoal })).toHaveAttribute(
+        'title',
+        labels.goalPreparedHint,
+      )
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-goal-chip-${locale}.png` })
+      await page.setViewportSize({ width: 320, height: 720 })
+      await expect(modes.getByRole('button', { name: labels.cancelGoal })).toBeInViewport()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-goal-chip-${locale}-320.png` })
+      await page.setViewportSize({ width: 1440, height: 960 })
       await modes.getByRole('button', { name: labels.cancelGoal }).click()
       expect((await goals.execute('goal.get', { sessionId })).goal).toBeNull()
       await expectComposerText(prompt, objective)

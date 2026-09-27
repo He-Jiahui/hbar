@@ -277,6 +277,8 @@ function render(value: ComposerGoalAvailabilityInput, locale: 'en-US' | 'zh-CN',
           labels={{
             goal: locale === 'zh-CN' ? '目标' : 'Goal',
             goalHint: 'Prepare this prompt',
+            goalPrepared: 'Next: goal',
+            goalPreparedHint: 'Send to create an ongoing goal',
             cancelGoal: 'Cancel prepared Goal',
             blocked: long
               ? {
