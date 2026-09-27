@@ -125,7 +125,10 @@ export function filterComposerModels(
   const matches = [...unique.values()].filter((model) =>
     `${model.providerName} ${model.modelName} ${model.modelId}`.toLocaleLowerCase().includes(needle),
   )
-  const selected = selectedModelId ? matches.find((model) => model.id === selectedModelId) : undefined
+  // Keep Host catalog order stable while the selected item is already on this page.
+  // Only an off-page selection needs a temporary leading slot for discoverability.
+  const selectedIndex = selectedModelId ? matches.findIndex((model) => model.id === selectedModelId) : -1
+  const selected = selectedIndex >= limit && limit > 0 ? matches[selectedIndex] : undefined
   const visible =
     selected && limit > 0
       ? [selected, ...matches.filter((model) => model !== selected).slice(0, limit - 1)]

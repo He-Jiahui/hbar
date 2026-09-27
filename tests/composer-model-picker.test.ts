@@ -67,13 +67,25 @@ test('a selected model beyond the first page is visible once, without expanding 
   const complete = filterComposerModels(models, '', COMPOSER_MODEL_PAGE_SIZE * 2, selected.id)
   const completeVisible = complete.groups.flatMap(([, group]) => group.models)
   expect(completeVisible).toHaveLength(65)
-  expect(completeVisible[0]?.id).toBe(selected.id)
+  expect(completeVisible).toEqual(models)
   expect(completeVisible.filter((model) => model.id === selected.id)).toHaveLength(1)
   expect(complete.remaining).toBe(0)
   expect(filterComposerModels(models, 'missing', 60, selected.id).groups).toEqual([])
   expect(filterComposerModels(models, '', 60, 'removed/model').groups.flatMap(([, group]) => group.models)).toEqual(
     models.slice(0, 60),
   )
+})
+
+test('an on-page selected model never reshuffles Host provider or search order', () => {
+  const models = [fixture(0), fixture(2), { ...fixture(1), providerId: 'another', providerName: 'Another' }]
+  const selected = models[1]!
+  const visible = filterComposerModels(models, '', 3, selected.id)
+  expect(visible.groups.map(([id]) => id)).toEqual(['provider', 'another'])
+  expect(visible.groups.flatMap(([, group]) => group.models)).toEqual(models)
+  expect(filterComposerModels(models, 'model', 3, selected.id).groups.flatMap(([, group]) => group.models)).toEqual(
+    models,
+  )
+  expect(filterComposerModels(models, '', 0, selected.id).groups).toEqual([])
 })
 
 test('catalog groups use stable provider IDs; duplicate records cannot render duplicate actions', () => {

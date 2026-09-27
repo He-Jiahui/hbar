@@ -110,6 +110,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await searchSurface.evaluate((element) => parseFloat(getComputedStyle(element).outlineWidth)),
       ).toBeGreaterThanOrEqual(1)
       await expect(popup.getByRole('option')).toHaveCount(60)
+      const firstCatalogOption = await popup
+        .getByRole('option')
+        .first()
+        .locator('.hbar-composer-model-description > span')
+        .first()
+        .textContent()
+      expect(firstCatalogOption).not.toContain(longModelName)
       await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveCount(0)
       expect(
         await popup
@@ -133,6 +140,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(model).toContainText(longModelName)
       await expectComposerText(prompt, draft)
       await expect(model).toBeFocused()
+      await model.click()
+      await expect(
+        popup.getByRole('option').first().locator('.hbar-composer-model-description > span').first(),
+      ).toHaveText(firstCatalogOption ?? '')
+      await popup.getByRole('button', { name: labels.close, exact: true }).click()
 
       const thinking = page.locator('.hbar-composer-thinking-trigger')
       await thinking.click()
@@ -358,7 +370,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(popup.getByRole('option').first()).toBeInViewport()
       await popup.locator('.hbar-composer-model-list > button').click()
       await expect(lateModel).toHaveCount(1)
-      await expect(popup.getByRole('option').first()).toContainText('Catalog fixture 63')
+      await expect(
+        popup.getByRole('option').first().locator('.hbar-composer-model-description > span').first(),
+      ).toHaveText(firstCatalogOption ?? '')
+      await expect(lateModel).toHaveAttribute('aria-selected', 'true')
       await popup.getByRole('button', { name: labels.close, exact: true }).click()
       await page.setViewportSize({ width: 320, height: 720 })
       await model.click()
