@@ -12,6 +12,7 @@ export function KanbanPreviewHost({
   const initialSwimlanes = content.referenceSwimlanes
   const initialRegroup = content.referenceRegroup
   const initialDetail = content.referenceDetail
+  const initialSprint = content.referenceSprint
   const [columns, setColumns] = useState(initial?.columns ?? content.columns)
   const [cards, setCards] = useState(initial?.cards ?? [])
   const [composerColumnId, setComposerColumnId] = useState<string | null>(initial?.composerColumnId ?? null)
@@ -33,6 +34,9 @@ export function KanbanPreviewHost({
   const [detailSelectedCardId, setDetailSelectedCardId] = useState<string | null>(initialDetail?.selectedCardId ?? null)
   const [detailGrabbedCardId, setDetailGrabbedCardId] = useState<string | null>(initialDetail?.grabbedCardId ?? null)
   const [detailAnnouncement, setDetailAnnouncement] = useState(initialDetail?.announcement ?? '')
+  const [sprintCards, setSprintCards] = useState(initialSprint?.cards ?? [])
+  const [sprintGrabbedCardId, setSprintGrabbedCardId] = useState<string | null>(initialSprint?.grabbedCardId ?? null)
+  const [sprintAnnouncement, setSprintAnnouncement] = useState(initialSprint?.announcement ?? '')
 
   useEffect(() => {
     setColumns(content.referenceBoard?.columns ?? content.columns)
@@ -54,12 +58,16 @@ export function KanbanPreviewHost({
     setDetailSelectedCardId(content.referenceDetail?.selectedCardId ?? null)
     setDetailGrabbedCardId(content.referenceDetail?.grabbedCardId ?? null)
     setDetailAnnouncement(content.referenceDetail?.announcement ?? '')
+    setSprintCards(content.referenceSprint?.cards ?? [])
+    setSprintGrabbedCardId(content.referenceSprint?.grabbedCardId ?? null)
+    setSprintAnnouncement(content.referenceSprint?.announcement ?? '')
   }, [content])
 
   const flow = content.referenceBoard
   const swimlanes = content.referenceSwimlanes
   const regroup = content.referenceRegroup
   const detail = content.referenceDetail
+  const sprint = content.referenceSprint
   return (
     <HbarAppUiKanbanProvider
       content={{
@@ -236,6 +244,23 @@ export function KanbanPreviewHost({
             setDetailAnnouncement(detail.labels.moved(cardId, label))
           },
           onCancelGrab: () => setDetailGrabbedCardId(null),
+        },
+        referenceSprint: sprint && {
+          ...sprint,
+          cards: sprintCards,
+          grabbedCardId: sprintGrabbedCardId,
+          announcement: sprintAnnouncement,
+          onGrab: (cardId) => { setSprintGrabbedCardId(cardId); setSprintAnnouncement(sprint.labels.grabbed(cardId)) },
+          onMove: (cardId, stageId) => setSprintCards((current) => {
+            const card = current.find((item) => item.id === cardId)
+            return card ? [...current.filter((item) => item.id !== cardId), {...card, stageId}] : current
+          }),
+          onDrop: (cardId, stageId) => {
+            setSprintGrabbedCardId(null)
+            const label = sprint.stages.find((stage) => stage.id === stageId)?.label ?? stageId
+            setSprintAnnouncement(sprint.labels.dropped(cardId, label))
+          },
+          onCancelGrab: () => { setSprintGrabbedCardId(null); setSprintAnnouncement('') },
         },
       }}
     >

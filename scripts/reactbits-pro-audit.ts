@@ -317,6 +317,8 @@ export type InteractionCase = Readonly<{
     | 'regroup-grabbed'
     | 'regroup-target'
     | 'detail-closed'
+    | 'sprint-grabbed'
+    | 'sprint-target'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1852,6 +1854,13 @@ async function prepareKanbanRegroupScenario(root: Locator, scenario: (typeof kan
 async function prepareKanbanDetailClosed(root: Locator): Promise<void> {
   await root.getByRole('button', {name: 'Close details'}).last().click()
   await root.page().waitForTimeout(450)
+}
+const kanbanSprintScenarios = ['sprint-grabbed', 'sprint-target'] as const
+async function prepareKanbanSprintScenario(root: Locator, scenario: (typeof kanbanSprintScenarios)[number]): Promise<void> {
+  const card = root.getByRole('button', {name: /^MER-52:/})
+  await card.focus()
+  await card.press('Space')
+  if (scenario === 'sprint-target') await card.press('ArrowRight')
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3487,6 +3496,8 @@ async function replayInteraction(
     await prepareKanbanRegroupScenario(root, interaction.scenario as (typeof kanbanRegroupScenarios)[number])
   if (spec.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
     await prepareKanbanDetailClosed(root)
+  if (spec.id === 'hbar-app-ui-kanban-5' && kanbanSprintScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3813,6 +3824,8 @@ async function replayReferenceInteraction(
     await prepareKanbanRegroupScenario(root, interaction.scenario as (typeof kanbanRegroupScenarios)[number])
   if (reference.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
     await prepareKanbanDetailClosed(root)
+  if (reference.id === 'hbar-app-ui-kanban-5' && kanbanSprintScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4557,6 +4570,18 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-kanban-4' && sampleIds?.some((id) => id.startsWith(`${spec.id}:detail-closed:`))) {
               await prepareKanbanDetailClosed(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'detail-closed'))
+            }
+            if (spec.id === 'hbar-app-ui-kanban-5') {
+              for (const scenario of kanbanSprintScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareKanbanSprintScenario(sourceRoot, scenario)
+                const scenarioSnapshot = await snapshotRoot(frame, sourceSelector)
+                discovered.push(...interactionCases(scenarioSnapshot, spec.id, scenario))
+                const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('MER-52:'))
+                if (!card) throw new Error('Grabbed MER-52 missing from reference sprint board')
+                const action = scenario === 'sprint-grabbed' ? 'move-right' : 'drop'
+                discovered.push({id: `${spec.id}:${scenario}:${action}`, action: 'press', key: scenario === 'sprint-grabbed' ? 'ArrowRight' : 'Space', control: card, scenario, focusBefore: true})
+              }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

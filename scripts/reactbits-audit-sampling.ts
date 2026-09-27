@@ -561,6 +561,22 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-kanban-5')
+    return {
+      revision: 1,
+      lumenEntries: ['kanban.tsx', 'kanban.css', 'kanban-sprint-reference.css', 'kanban/SprintReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Ordinary card click has no detail transition'},
+        {viewport: 'tablet', theme: 'dark', suffix: '4:click', change: 'Blocked card remains a passive card on the compact layout'},
+        {viewport: 'mobile', theme: 'light', suffix: '0:press-space', change: 'Space grabs a card and announces keyboard movement'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'sprint-grabbed:move-right', change: 'ArrowRight changes the stage and capacity totals immediately'},
+        {viewport: 'mobile', theme: 'dark', suffix: 'sprint-target:drop', change: 'Space drops the moved card and announces its destination'},
+      ],
+      inferences: [
+        {scope: 'Other ten cards and repeated themes/layouts', basis: 'All sprint cards share the same Host move contract; blocked and ordinary click, keyboard lift/move/drop are distinct branches. Static pairs cover all eight responsive/theme combinations.', verification: 'inferred-not-replayed'},
+        {scope: 'Pointer drag', basis: 'Pointer and keyboard movement update the same Host stage field; local browser verifies one pointer drop and recomputed point/capacity values.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-kanban-4')
     return {
       revision: 1,

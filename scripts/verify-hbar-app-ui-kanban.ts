@@ -260,6 +260,43 @@ try {
   const mobilePane = await page.getByRole('complementary').boundingBox()
   assert(Boolean(mobilePane && mobilePane.x < 2 && mobilePane.width >= 355), 'Mobile detail view did not cover the board')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Mobile detail pane overflowed document')
+
+  await page.setViewportSize({width: 1086, height: 680})
+  await page.goto(url(undefined, 5), {waitUntil: 'networkidle'})
+  const sprintScroll = page.locator('.hbar-app-ui-kanban-sprint-scroll')
+  assert(await page.getByRole('region').count() === 4, 'Sprint did not render four stage regions')
+  assert(await page.getByRole('button', {name: /^MER-/}).count() === 10, 'Sprint did not render ten Host cards')
+  assert((await page.getByRole('progressbar').count()) === 3, 'Sprint capacity bars did not follow the three bounded stages')
+  assert((await page.getByRole('progressbar', {name: 'Committed capacity'}).getAttribute('aria-valuenow')) === '18', 'Initial committed points are wrong')
+  await page.getByRole('button', {name: /^MER-45:/}).click()
+  assert(await page.getByRole('button', {name: /^MER-45:/}).count() === 1, 'Blocked card click invented a detail transition')
+  const sprintCard = page.getByRole('button', {name: /^MER-52:/})
+  await sprintCard.focus()
+  await sprintCard.press('Space')
+  assert(await page.getByText('MER-52 grabbed. Arrow keys move it.').count() === 1, 'Sprint grab did not announce')
+  await sprintCard.press('ArrowRight')
+  assert(await page.getByRole('region', {name: 'Building'}).getByRole('button', {name: /^MER-52:/}).count() === 1, 'Sprint ArrowRight did not move the card')
+  assert((await page.getByRole('progressbar', {name: 'Committed capacity'}).getAttribute('aria-valuenow')) === '10', 'Committed capacity did not recompute')
+  assert((await page.getByRole('progressbar', {name: 'Building capacity'}).getAttribute('aria-valuenow')) === '18', 'Building capacity did not recompute over limit')
+  await sprintCard.press('Space')
+  assert(await page.getByText('MER-52 dropped in Building.').count() === 1, 'Sprint keyboard drop did not announce')
+  await page.goto(url(undefined, 5), {waitUntil: 'networkidle'})
+  await page.getByRole('button', {name: /^MER-43:/}).dragTo(page.getByRole('region', {name: 'Accepted'}))
+  assert(await page.getByRole('region', {name: 'Accepted'}).getByRole('button', {name: /^MER-43:/}).count() === 1, 'Sprint pointer drop did not update stage')
+  assert(await page.locator('.hbar-app-ui-kanban-sprint-summary').getByText('41%').count() === 1, 'Burned summary did not recompute after acceptance')
+  await page.goto(url('overflow', 5), {waitUntil: 'networkidle'})
+  const sprintOverflow = await sprintScroll.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return {scrollable, moved: element.scrollTop > 0}
+  })
+  assert(sprintOverflow.scrollable && sprintOverflow.moved, 'Over-bound sprint did not scroll in its pane')
+  await page.setViewportSize({width: 320, height: 720})
+  await page.goto(url('localized', 5), {waitUntil: 'networkidle'})
+  assert(await page.getByRole('heading', {name: '迭代 34 · 子午线'}).count() === 1, 'Localized sprint title missing')
+  assert(await page.getByRole('button', {name: /核对发票/}).count() === 1, 'Localized sprint card missing')
+  assert(await sprintScroll.evaluate((element) => element.scrollWidth > element.clientWidth), 'Narrow sprint lost horizontal scroll owner')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow sprint overflowed document')
   assert(errors.length === 0, `Board preview raised page errors: ${errors.join('; ')}`)
   console.log(
     JSON.stringify({
@@ -267,6 +304,7 @@ try {
       swimlaneCards: 11,
       regroupCards: 9,
       detailCards: 7,
+      sprintCards: 10,
       keyboardMove: true,
       pointerMove: true,
       inlineComposer: true,
@@ -274,6 +312,7 @@ try {
       swimlaneScroll: swimlaneOverflow,
       regroupScroll: regroupOverflow,
       detailScroll: detailOverflow,
+      sprintScroll: sprintOverflow,
       localizedNarrow: true,
       pageErrors: errors.length,
     }),

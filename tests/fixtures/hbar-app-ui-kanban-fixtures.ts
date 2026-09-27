@@ -430,6 +430,33 @@ export const HBAR_APP_UI_KANBAN_FIXTURES: HbarAppUiKanbanContent = {
     selectedCardId: 'CDR-118', grabbedCardId: null, announcement: '',
     onSelect() {}, onClose() {}, onGrab() {}, onMove() {}, onCancelGrab() {},
   },
+  referenceSprint: {
+    labels: {
+      title: 'Sprint 34 · Meridian',
+      detail: '4 June to 18 June. Six days left. Columns show points against capacity.',
+      committed: 'Committed', accepted: 'Accepted', burned: 'Burned',
+      points: (count) => `${count} pts`, capacity: (stage) => `${stage} capacity`,
+      capacityPoints: (points, capacity) => `${points} / ${capacity} pts`, burnedValue: (percent) => `${percent}%`,
+      blocked: 'Blocked',
+      card: (card) => `${card.id}: ${card.label}, ${card.points} points${card.blocked ? ', blocked' : ''}.`,
+      grabbed: (id) => `${id} grabbed. Arrow keys move it.`,
+      dropped: (id, stage) => `${id} dropped in ${stage}.`,
+    },
+    stages: [{id: 'committed', label: 'Committed', capacity: 21}, {id: 'building', label: 'Building', capacity: 13}, {id: 'verifying', label: 'Verifying', capacity: 8}, {id: 'accepted', label: 'Accepted'}],
+    cards: [
+      {id: 'MER-52', label: 'Split the ingest queue by tenant', points: 8, assignee: 'MS', blocked: false, stageId: 'committed'},
+      {id: 'MER-49', label: 'Retry policy for failed exports', points: 5, assignee: 'AR', blocked: false, stageId: 'building'},
+      {id: 'MER-47', label: 'Surface sync errors in the header', points: 3, assignee: 'PN', blocked: false, stageId: 'verifying'},
+      {id: 'MER-45', label: 'Warm the report cache nightly', points: 5, assignee: 'WC', blocked: true, stageId: 'building'},
+      {id: 'MER-43', label: 'Per-workspace rate limits', points: 8, assignee: 'MS', blocked: false, stageId: 'committed'},
+      {id: 'MER-40', label: 'Trim the onboarding checklist', points: 2, assignee: 'AR', blocked: false, stageId: 'accepted'},
+      {id: 'MER-38', label: 'Signed URLs for shared exports', points: 3, assignee: 'PN', blocked: false, stageId: 'verifying'},
+      {id: 'MER-35', label: 'Collapse duplicate alert emails', points: 5, assignee: 'WC', blocked: false, stageId: 'accepted'},
+      {id: 'MER-31', label: 'Timezone picker on scheduled reports', points: 2, assignee: 'AR', blocked: false, stageId: 'committed'},
+      {id: 'MER-28', label: 'Backfill missing usage rows', points: 3, assignee: 'MS', blocked: false, stageId: 'accepted'},
+    ],
+    grabbedCardId: null, announcement: '', onGrab() {}, onMove() {}, onDrop() {}, onCancelGrab() {},
+  },
   listStrategy: { kind: 'pane-scroll', expectedMaximum: 96 },
 }
 
@@ -530,6 +557,19 @@ export function createHbarAppUiKanbanLocalizedFixtures(): HbarAppUiKanbanContent
       cards: [{id: 'local-card', label: '核对发票', statusId: 'todo', tone: 'soft', points: 2, assignee: '陈', assigneeName: '陈同事', priority: '普通', description: '核对本月发票与付款记录。', activity: []}],
       selectedCardId: 'local-card',
     },
+    referenceSprint: HBAR_APP_UI_KANBAN_FIXTURES.referenceSprint && {
+      ...HBAR_APP_UI_KANBAN_FIXTURES.referenceSprint,
+      labels: {
+        title: '迭代 34 · 子午线', detail: '6 月 4 日至 18 日。列展示点数与容量。',
+        committed: '已提交', accepted: '已验收', burned: '完成率',
+        points: (count) => `${count} 点`, capacity: (stage) => `${stage}容量`,
+        capacityPoints: (points, capacity) => `${points} / ${capacity} 点`, burnedValue: (percent) => `${percent}%`,
+        blocked: '受阻', card: (card) => `${card.id}：${card.label}，${card.points} 点${card.blocked ? '，受阻' : ''}。`,
+        grabbed: (id) => `${id} 已抓取，方向键移动。`, dropped: (id, stage) => `${id} 已放到${stage}。`,
+      },
+      stages: [{id: 'committed', label: '已提交', capacity: 5}, {id: 'accepted', label: '已验收'}],
+      cards: [{id: 'local-card', label: '核对发票', points: 2, assignee: '陈', blocked: false, stageId: 'committed'}],
+    },
   }
 }
 
@@ -538,6 +578,7 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
   const swimlanes = HBAR_APP_UI_KANBAN_FIXTURES.referenceSwimlanes!
   const regroup = HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup!
   const detail = HBAR_APP_UI_KANBAN_FIXTURES.referenceDetail!
+  const sprint = HBAR_APP_UI_KANBAN_FIXTURES.referenceSprint!
   const extra = Array.from({ length: 30 }, (_, index) => ({
     id: `HAL-${300 + index}`,
     label: `Review the extended platform incident history for workspace ${index + 1}`,
@@ -576,6 +617,10 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
     referenceDetail: {
       ...detail,
       cards: [...detail.cards, ...extra.map((card) => ({id: card.id, label: card.label, statusId: 'todo', tone: 'soft' as const, points: 2, assignee: 'WC', assigneeName: 'Wei Chen', priority: 'Normal', description: card.label, activity: []}))],
+    },
+    referenceSprint: {
+      ...sprint,
+      cards: [...sprint.cards, ...extra.map((card) => ({id: card.id, label: card.label, points: 2, assignee: 'WC', blocked: false, stageId: 'committed'}))],
     },
   }
 }
