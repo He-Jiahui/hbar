@@ -221,18 +221,59 @@ try {
   assert(await page.getByRole('button', {name: /核对发票/}).count() === 1, 'Localized regroup card was not supplied by Host')
   assert(await regroupScroll.evaluate((element) => element.scrollWidth > element.clientWidth), 'Narrow regroup board lost horizontal owner')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow regroup columns overflowed outside pane')
+
+  await page.setViewportSize({width: 1086, height: 680})
+  await page.goto(url(undefined, 4), {waitUntil: 'networkidle'})
+  const detailBoard = page.locator('.hbar-app-ui-kanban-detail-board')
+  assert(await page.getByRole('region').count() === 4, 'Detail board did not render four columns')
+  assert(await page.getByRole('button', {name: /^CDR-/}).count() === 7, 'Detail board did not render seven Host cards')
+  assert(await page.getByRole('complementary', {name: 'CDR-118 details'}).count() === 1, 'Default card details missing')
+  await page.getByRole('complementary').getByRole('button', {name: 'In progress'}).click()
+  assert(await page.getByText('CDR-118 moved to In progress.').count() === 1, 'Current status action did not announce')
+  await page.getByRole('button', {name: /^CDR-98:/}).click()
+  assert(await page.getByRole('complementary', {name: 'CDR-98 details'}).getByText('No comments yet').count() === 1, 'Selecting an empty-activity card did not update details')
+  await page.getByRole('button', {name: 'Close details'}).click()
+  assert(await page.getByRole('complementary').count() === 0, 'Close details retained pane')
+  await page.getByRole('button', {name: /^CDR-118:/}).click()
+  await page.getByRole('complementary').getByRole('button', {name: 'In review'}).click()
+  assert(await page.getByRole('region', {name: 'In review'}).getByRole('button', {name: /^CDR-118:/}).count() === 1, 'Move to In review did not update board column')
+  assert(await page.getByRole('complementary', {name: 'CDR-118 details'}).getByText('In review', {exact: true}).count() > 0, 'Move did not update detail status')
+
+  await page.goto(url(undefined, 4), {waitUntil: 'networkidle'})
+  await page.getByRole('button', {name: /^CDR-109:/}).dragTo(page.getByRole('region', {name: 'In progress'}))
+  assert(await page.getByRole('region', {name: 'In progress'}).getByRole('button', {name: /^CDR-109:/}).count() === 1, 'Pointer drop did not update detail-board status')
+  await page.goto(url('overflow', 4), {waitUntil: 'networkidle'})
+  const detailOverflow = await detailBoard.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return {scrollable, moved: element.scrollTop > 0}
+  })
+  assert(detailOverflow.scrollable && detailOverflow.moved, 'Over-bound detail board did not scroll in its pane')
+  await page.setViewportSize({width: 670, height: 680})
+  await page.goto(url(undefined, 4), {waitUntil: 'networkidle'})
+  const overlay = await page.getByRole('complementary').boundingBox()
+  assert(Boolean(overlay && overlay.x > 250 && overlay.width >= 350), 'Tablet detail pane did not overlay the board')
+  await page.setViewportSize({width: 356, height: 680})
+  await page.goto(url('localized', 4), {waitUntil: 'networkidle'})
+  assert(await page.getByRole('heading', {name: '交付看板'}).count() === 1, 'Localized detail-board title missing')
+  assert(await page.getByRole('complementary', {name: 'local-card 详情'}).getByText('核对发票').count() === 1, 'Localized detail pane missing')
+  const mobilePane = await page.getByRole('complementary').boundingBox()
+  assert(Boolean(mobilePane && mobilePane.x < 2 && mobilePane.width >= 355), 'Mobile detail view did not cover the board')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Mobile detail pane overflowed document')
   assert(errors.length === 0, `Board preview raised page errors: ${errors.join('; ')}`)
   console.log(
     JSON.stringify({
       boardCards: 10,
       swimlaneCards: 11,
       regroupCards: 9,
+      detailCards: 7,
       keyboardMove: true,
       pointerMove: true,
       inlineComposer: true,
       columnScroll: scroll,
       swimlaneScroll: swimlaneOverflow,
       regroupScroll: regroupOverflow,
+      detailScroll: detailOverflow,
       localizedNarrow: true,
       pageErrors: errors.length,
     }),

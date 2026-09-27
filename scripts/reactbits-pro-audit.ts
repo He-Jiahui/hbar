@@ -316,6 +316,7 @@ export type InteractionCase = Readonly<{
     | 'swimlane-lane-moved'
     | 'regroup-grabbed'
     | 'regroup-target'
+    | 'detail-closed'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1847,6 +1848,10 @@ async function prepareKanbanRegroupScenario(root: Locator, scenario: (typeof kan
   await card.focus()
   await card.press('Space')
   if (scenario === 'regroup-target') await card.press('ArrowRight')
+}
+async function prepareKanbanDetailClosed(root: Locator): Promise<void> {
+  await root.getByRole('button', {name: 'Close details'}).last().click()
+  await root.page().waitForTimeout(450)
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3480,6 +3485,8 @@ async function replayInteraction(
     await prepareKanbanSwimlaneScenario(root, interaction.scenario as (typeof kanbanSwimlaneScenarios)[number])
   if (spec.id === 'hbar-app-ui-kanban-3' && kanbanRegroupScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanRegroupScenario(root, interaction.scenario as (typeof kanbanRegroupScenarios)[number])
+  if (spec.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
+    await prepareKanbanDetailClosed(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3629,6 +3636,10 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
+    await page.waitForTimeout(450)
+  if (spec.id === 'hbar-app-ui-kanban-4' && interaction.action === 'click' && interaction.control.index === 8)
+    await page.waitForTimeout(450)
   if (spec.id === 'hbar-app-ui-kanban-2' && interaction.action === 'click' && interaction.control.index <= 1)
     await page.waitForTimeout(400)
   if (spec.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
@@ -3800,6 +3811,8 @@ async function replayReferenceInteraction(
     await prepareKanbanSwimlaneScenario(root, interaction.scenario as (typeof kanbanSwimlaneScenarios)[number])
   if (reference.id === 'hbar-app-ui-kanban-3' && kanbanRegroupScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanRegroupScenario(root, interaction.scenario as (typeof kanbanRegroupScenarios)[number])
+  if (reference.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
+    await prepareKanbanDetailClosed(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3900,6 +3913,10 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
+  if (reference.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
+    await page.waitForTimeout(450)
+  if (reference.id === 'hbar-app-ui-kanban-4' && interaction.action === 'click' && interaction.control.index === 8)
+    await page.waitForTimeout(450)
   if (reference.id === 'hbar-app-ui-kanban-2' && interaction.action === 'click' && interaction.control.index <= 1)
     await page.waitForTimeout(400)
   if (reference.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
@@ -4536,6 +4553,10 @@ async function runInteractionsParallel(
                 const action = scenario === 'regroup-grabbed' ? 'move-right' : 'drop'
                 discovered.push({id: `${spec.id}:${scenario}:${action}`, action: 'press', key: scenario === 'regroup-grabbed' ? 'ArrowRight' : 'Space', control: card, scenario, focusBefore: true})
               }
+            }
+            if (spec.id === 'hbar-app-ui-kanban-4' && sampleIds?.some((id) => id.startsWith(`${spec.id}:detail-closed:`))) {
+              await prepareKanbanDetailClosed(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'detail-closed'))
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

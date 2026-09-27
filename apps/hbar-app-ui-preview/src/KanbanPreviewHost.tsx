@@ -11,6 +11,7 @@ export function KanbanPreviewHost({
   const initial = content.referenceBoard
   const initialSwimlanes = content.referenceSwimlanes
   const initialRegroup = content.referenceRegroup
+  const initialDetail = content.referenceDetail
   const [columns, setColumns] = useState(initial?.columns ?? content.columns)
   const [cards, setCards] = useState(initial?.cards ?? [])
   const [composerColumnId, setComposerColumnId] = useState<string | null>(initial?.composerColumnId ?? null)
@@ -28,6 +29,10 @@ export function KanbanPreviewHost({
   const [regroupGroupId, setRegroupGroupId] = useState(initialRegroup?.groupId ?? '')
   const [regroupGrabbedCardId, setRegroupGrabbedCardId] = useState<string | null>(initialRegroup?.grabbedCardId ?? null)
   const [regroupAnnouncement, setRegroupAnnouncement] = useState(initialRegroup?.announcement ?? '')
+  const [detailCards, setDetailCards] = useState(initialDetail?.cards ?? [])
+  const [detailSelectedCardId, setDetailSelectedCardId] = useState<string | null>(initialDetail?.selectedCardId ?? null)
+  const [detailGrabbedCardId, setDetailGrabbedCardId] = useState<string | null>(initialDetail?.grabbedCardId ?? null)
+  const [detailAnnouncement, setDetailAnnouncement] = useState(initialDetail?.announcement ?? '')
 
   useEffect(() => {
     setColumns(content.referenceBoard?.columns ?? content.columns)
@@ -45,11 +50,16 @@ export function KanbanPreviewHost({
     setRegroupGroupId(content.referenceRegroup?.groupId ?? '')
     setRegroupGrabbedCardId(content.referenceRegroup?.grabbedCardId ?? null)
     setRegroupAnnouncement(content.referenceRegroup?.announcement ?? '')
+    setDetailCards(content.referenceDetail?.cards ?? [])
+    setDetailSelectedCardId(content.referenceDetail?.selectedCardId ?? null)
+    setDetailGrabbedCardId(content.referenceDetail?.grabbedCardId ?? null)
+    setDetailAnnouncement(content.referenceDetail?.announcement ?? '')
   }, [content])
 
   const flow = content.referenceBoard
   const swimlanes = content.referenceSwimlanes
   const regroup = content.referenceRegroup
+  const detail = content.referenceDetail
   return (
     <HbarAppUiKanbanProvider
       content={{
@@ -206,6 +216,26 @@ export function KanbanPreviewHost({
             setRegroupGrabbedCardId(null)
             setRegroupAnnouncement('')
           },
+        },
+        referenceDetail: detail && {
+          ...detail,
+          cards: detailCards,
+          selectedCardId: detailSelectedCardId,
+          grabbedCardId: detailGrabbedCardId,
+          announcement: detailAnnouncement,
+          onSelect: (cardId) => { setDetailSelectedCardId(cardId); setDetailAnnouncement('') },
+          onClose: () => { setDetailSelectedCardId(null); setDetailAnnouncement('') },
+          onGrab: setDetailGrabbedCardId,
+          onMove: (cardId, columnId) => {
+            setDetailCards((current) => {
+              const card = current.find((item) => item.id === cardId)
+              return card ? [...current.filter((item) => item.id !== cardId), {...card, statusId: columnId}] : current
+            })
+            setDetailGrabbedCardId(null)
+            const label = detail.columns.find((column) => column.id === columnId)?.label ?? columnId
+            setDetailAnnouncement(detail.labels.moved(cardId, label))
+          },
+          onCancelGrab: () => setDetailGrabbedCardId(null),
         },
       }}
     >

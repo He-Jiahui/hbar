@@ -403,6 +403,33 @@ export const HBAR_APP_UI_KANBAN_FIXTURES: HbarAppUiKanbanContent = {
     groupId: 'status', grabbedCardId: null, announcement: '',
     onGroupChange() {}, onGrab() {}, onMove() {}, onDrop() {}, onCancelGrab() {},
   },
+  referenceDetail: {
+    labels: {
+      title: 'Cedar Labs delivery',
+      detail: (count) => `${count} items. Click a card to open it, or drag it to another column.`,
+      card: (card) => `${card.id}: ${card.label}`,
+      details: (id) => `${id} details`,
+      close: 'Close details', assignee: 'Assignee', priority: 'Priority', estimate: 'Estimate',
+      points: (count) => `${count} ${count === 1 ? 'point' : 'points'}`, moveTo: 'Move to', activity: 'Activity', noActivity: 'No comments yet',
+      shortPoints: (count) => `${count} pts`,
+      moved: (id, column) => `${id} moved to ${column}.`,
+    },
+    columns: [{id: 'todo', label: 'To do'}, {id: 'progress', label: 'In progress'}, {id: 'review', label: 'In review'}, {id: 'done', label: 'Done'}],
+    cards: [
+      {id: 'CDR-118', label: 'Recover partial uploads after a dropped connection', statusId: 'progress', tone: 'strong', points: 8, assignee: 'AR', assigneeName: 'Ana Reyes', priority: 'Urgent', description: 'Large uploads restart from zero when the socket drops. Store the chunk offset so the client can resume where it left off.', activity: [
+        {id: 'repro', avatar: 'MS', name: 'Marco Silva', time: '2 days ago', text: 'Reproduced on a 400 MB file over a throttled connection.'},
+        {id: 'offset', avatar: 'AR', name: 'Ana Reyes', time: 'yesterday', text: 'Chunk offsets are already stored. The client just never reads them back.'},
+      ]},
+      {id: 'CDR-114', label: 'Trash keeps deleted folders for 30 days', statusId: 'progress', tone: 'medium', points: 5, assignee: 'PN', assigneeName: 'Priya Nandakumar', priority: 'High', description: 'Restoring a folder should bring its children back with the original hierarchy intact.', activity: [{id: 'retention', avatar: 'PN', name: 'Priya Nandakumar', time: '3 days ago', text: 'Retention job is written. Restore path still flattens nested folders.'}]},
+      {id: 'CDR-109', label: 'Bulk share links expire on a schedule', statusId: 'todo', tone: 'soft', points: 3, assignee: 'WC', assigneeName: 'Wei Chen', priority: 'Normal', description: 'Owners want an expiry they can set once and apply to every link in a folder.', activity: []},
+      {id: 'CDR-104', label: 'Preview HEIC images without downloading', statusId: 'review', tone: 'soft', points: 5, assignee: 'MS', assigneeName: 'Marco Silva', priority: 'Normal', description: 'Convert on the fly at request time and cache the result for a week.', activity: [{id: 'preview', avatar: 'WC', name: 'Wei Chen', time: 'last week', text: 'Conversion adds about 180 ms on a cold cache. Acceptable.'}]},
+      {id: 'CDR-98', label: 'Audit trail for permission changes', statusId: 'todo', tone: 'medium', points: 8, assignee: 'AR', assigneeName: 'Ana Reyes', priority: 'High', description: 'Every grant and revoke needs an immutable entry with the actor and the reason.', activity: []},
+      {id: 'CDR-91', label: 'Drag files straight onto a folder row', statusId: 'done', tone: 'soft', points: 2, assignee: 'PN', assigneeName: 'Priya Nandakumar', priority: 'Normal', description: 'The row should accept a drop and show a clear target state while hovering.', activity: [{id: 'drop', avatar: 'AR', name: 'Ana Reyes', time: '4 days ago', text: 'Shipped behind a flag. Waiting on copy for the empty folder case.'}]},
+      {id: 'CDR-87', label: 'Storage meter in the sidebar footer', statusId: 'done', tone: 'soft', points: 2, assignee: 'WC', assigneeName: 'Wei Chen', priority: 'Normal', description: 'Show used against plan, and link to the upgrade page past 80%.', activity: []},
+    ],
+    selectedCardId: 'CDR-118', grabbedCardId: null, announcement: '',
+    onSelect() {}, onClose() {}, onGrab() {}, onMove() {}, onCancelGrab() {},
+  },
   listStrategy: { kind: 'pane-scroll', expectedMaximum: 96 },
 }
 
@@ -491,6 +518,18 @@ export function createHbarAppUiKanbanLocalizedFixtures(): HbarAppUiKanbanContent
       },
       cards: [{id: 'local-card', label: '核对发票', tag: '财务', statusId: 'triage', assigneeId: 'ana', priorityId: 'normal', priorityTone: 'soft'}],
     },
+    referenceDetail: HBAR_APP_UI_KANBAN_FIXTURES.referenceDetail && {
+      ...HBAR_APP_UI_KANBAN_FIXTURES.referenceDetail,
+      labels: {
+        title: '交付看板', detail: (count) => `${count} 个事项。点击卡片查看详情。`, card: (card) => `${card.id}：${card.label}`,
+        details: (id) => `${id} 详情`, close: '关闭详情', assignee: '负责人', priority: '优先级', estimate: '工作量',
+        points: (count) => `${count} 点`, moveTo: '移动到', activity: '动态', noActivity: '暂无评论', moved: (id, column) => `${id} 已移动到${column}。`,
+        shortPoints: (count) => `${count} 点`,
+      },
+      columns: [{id: 'todo', label: '待办'}, {id: 'done', label: '完成'}],
+      cards: [{id: 'local-card', label: '核对发票', statusId: 'todo', tone: 'soft', points: 2, assignee: '陈', assigneeName: '陈同事', priority: '普通', description: '核对本月发票与付款记录。', activity: []}],
+      selectedCardId: 'local-card',
+    },
   }
 }
 
@@ -498,6 +537,7 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
   const reference = HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard!
   const swimlanes = HBAR_APP_UI_KANBAN_FIXTURES.referenceSwimlanes!
   const regroup = HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup!
+  const detail = HBAR_APP_UI_KANBAN_FIXTURES.referenceDetail!
   const extra = Array.from({ length: 30 }, (_, index) => ({
     id: `HAL-${300 + index}`,
     label: `Review the extended platform incident history for workspace ${index + 1}`,
@@ -532,6 +572,10 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
     referenceRegroup: {
       ...regroup,
       cards: [...regroup.cards, ...extra.map((card) => ({id: card.id, label: card.label, tag: card.tag, statusId: 'triage', assigneeId: 'ana', priorityId: 'normal', priorityTone: 'soft' as const}))],
+    },
+    referenceDetail: {
+      ...detail,
+      cards: [...detail.cards, ...extra.map((card) => ({id: card.id, label: card.label, statusId: 'todo', tone: 'soft' as const, points: 2, assignee: 'WC', assigneeName: 'Wei Chen', priority: 'Normal', description: card.label, activity: []}))],
     },
   }
 }

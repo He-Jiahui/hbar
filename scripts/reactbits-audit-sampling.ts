@@ -561,6 +561,22 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-kanban-4')
+    return {
+      revision: 1,
+      lumenEntries: ['kanban.tsx', 'kanban.css', 'kanban-detail-reference.css', 'kanban/DetailReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Selecting a different card changes the detail pane and pressed card'},
+        {viewport: 'tablet', theme: 'dark', suffix: '8:click', change: 'Close details reveals the full board under the narrow overlay'},
+        {viewport: 'desktop', theme: 'dark', suffix: '11:click', change: 'Move to In review updates both column and detail status'},
+        {viewport: 'mobile', theme: 'light', suffix: '10:click', change: 'Selecting the current status still announces the move'},
+        {viewport: 'mobile', theme: 'dark', suffix: 'detail-closed:2:click', change: 'Reopening a card from the closed narrow board restores its details'},
+      ],
+      inferences: [
+        {scope: 'Other cards, status buttons and themes', basis: 'All seven cards and four status controls use the same Host selection/move contract; selecting an empty-activity card and moving the default card cover distinct detail states while eight static captures cover layouts.', verification: 'inferred-not-replayed'},
+        {scope: 'Pointer drag', basis: 'Pointer drop and status buttons update the same Host column field; representative pointer movement is checked locally without replaying every card/column pair.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-kanban-3')
     return {
       revision: 1,
