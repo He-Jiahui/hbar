@@ -59,6 +59,9 @@ import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
+import { createQueuedUserRuns, queuedUserRunsCommands } from './queued-user-runs'
+export { queuedUserRunsCommands, QUEUED_USER_RUNS_PAGE_SIZE } from './queued-user-runs'
+export type { QueuedUserRunsState } from './queued-user-runs'
 export { createConversationFind, CONVERSATION_FIND_LIMITS } from './conversation-find'
 export type { ConversationFindSource, ConversationFindMatch, ConversationFindState } from './conversation-find'
 import { createGoalHistory, goalHistoryCommands } from './goal-history'
@@ -281,6 +284,7 @@ const runtimeCommands = {
   ...sessionRosterRefreshCommands,
   ...settingsUsageCommands,
   ...goalHistoryCommands,
+  ...queuedUserRunsCommands,
   ...composerIntentCommands,
   ...composerPermissionCommands,
   ...composerPlanModeCommands,
@@ -465,6 +469,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const queuedUserRuns = createQueuedUserRuns(
+    local,
+    options.run,
+    navigation.reader,
+    timeline.reader,
+    onSubscriberError,
+    () => disposed,
+  )
   const goalHistory = createGoalHistory(
     local,
     options.goalHistory,
@@ -711,6 +723,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionRosterRefreshCommands, name) ||
         Object.hasOwn(settingsUsageCommands, name) ||
         Object.hasOwn(goalHistoryCommands, name) ||
+        Object.hasOwn(queuedUserRunsCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(composerPlanModeCommands, name) ||
@@ -767,6 +780,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       presentation: presentation.reader,
       timeline: timeline.reader,
       goalHistory: goalHistory.reader,
+      queuedUserRuns: queuedUserRuns.reader,
       drafts: drafts.reader,
       runActions: drafts.actions,
       interactions: interactions.reader,
@@ -830,6 +844,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionExecutionAccess.dispose()
       forms.dispose()
       goalHistory.dispose()
+      queuedUserRuns.dispose()
       timeline.dispose()
       drafts.dispose()
       interactions.dispose()

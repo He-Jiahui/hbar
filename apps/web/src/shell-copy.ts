@@ -1098,10 +1098,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
               `当前默认：${mode}；发送时固定用于本次运行。`,
               `Current default: ${mode}; captured for this run on send.`,
             )
-          : choose(
-              '发送时读取默认值；读取失败则不发送。',
-              'Read default on send; a failed read blocks sending.',
-            ),
+          : choose('发送时读取默认值；读取失败则不发送。', 'Read default on send; a failed read blocks sending.'),
       options: {
         ask: {
           label: choose('逐次询问', 'Ask'),
@@ -1142,6 +1139,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     runningActions: {
       queueLabel: choose('加入队列', 'Add to queue'),
       queueTitle: choose('在当前运行结束后处理此消息', 'Process this message after the current run'),
+    },
+    queuedUserRuns: {
+      queued: choose('已排队', 'Queued'),
+      loading: choose('正在读取排队消息…', 'Loading queued messages…'),
+      disconnected: choose('离线，暂时无法确认排队消息', 'Offline; queued messages cannot be verified'),
+      error: (code) => choose(`无法读取排队消息：${code}`, `Could not load queued messages: ${code}`),
+      retry: choose('重试', 'Retry'),
+      previous: choose('上一页', 'Previous'),
+      next: choose('下一页', 'Next'),
+      page: (current, total) => choose(`第 ${current} / ${total} 页`, `Page ${current} of ${total}`),
+      attachments: (count) => choose(`${count} 个附件`, `${count} attachments`),
+      ellipsis: '…',
     },
     decisions: {
       planExit: {

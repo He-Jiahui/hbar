@@ -126,6 +126,20 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               .length,
         )
         .toBe(2)
+      const queuedCards = composer.locator('.hbar-queued-user-run')
+      await expect(queuedCards).toHaveCount(2)
+      await expect(queuedCards.nth(0)).toContainText(firstText)
+      await expect(queuedCards.nth(1)).toContainText(secondText)
+      for (const width of [1440, 320]) {
+        await page.setViewportSize({ width, height: 960 })
+        await expect(queuedCards.nth(0)).toBeVisible()
+        await expect(queuedCards.nth(1)).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
+        expect(await queuedCards.nth(0).evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
+          true,
+        )
+        await page.screenshot({ path: testInfo.outputPath(`queued-cards-${locale}-${width}.png`) })
+      }
       const beforeStop = await host.client.call('session.snapshot', { sessionId })
       expect(beforeStop.runs).toHaveLength(3)
       expect(beforeStop.runs.find((run) => run.id === original.operationId)?.status).toBe('waiting_approval')
@@ -143,6 +157,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )
         .toBe(2)
       await expect(stop).toHaveCount(0)
+      await expect(queuedCards).toHaveCount(0)
       await expect(queue).toHaveCount(0)
       await expect(send).toBeVisible()
       await expect(send).toBeDisabled()

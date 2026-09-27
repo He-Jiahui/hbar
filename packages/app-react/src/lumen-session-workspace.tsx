@@ -44,6 +44,7 @@ import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsag
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
@@ -120,6 +121,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly error: (code: string) => string
   }
   readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
+  readonly queuedUserRuns: HbarQueuedUserRunsLabels
   readonly decisions: HbarSessionDecisionLabels
   readonly goalContinuation: HbarGoalContinuationLabels
   readonly goalLifecycle: HbarGoalLifecycleLabels
@@ -212,6 +214,7 @@ function SessionWorkspaceContent({
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const executionAccess = useHbarRuntimeState(runtime.state.sessionExecutionAccess)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
+  const queuedUserRuns = useHbarRuntimeState(runtime.state.queuedUserRuns)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const messageFork = useHbarRuntimeState(runtime.state.messageFork)
   const drafts = useHbarRuntimeState(runtime.state.drafts)
@@ -488,7 +491,8 @@ function SessionWorkspaceContent({
     draft?.status !== 'unknown' &&
     !intentPending &&
     !attachmentTransfers.some((item) => item.status === 'unknown' || item.status === 'reconciling')
-  const canAddAttachments = attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
+  const canAddAttachments =
+    attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
   const canOpenSlash =
     Boolean(files && sessionId && navigation.workspaceId && connected) &&
     timeline.status !== 'loading' &&
@@ -1223,33 +1227,44 @@ function SessionWorkspaceContent({
             </LumenFrame>
           }
           context={
-            <HbarComposerAttachmentTransfers
-              transfers={attachmentTransfers}
-              labels={labels.attachments}
-              connected={connected}
-              onRemove={(item) =>
-                invoke('draft.removeAttachmentTransfer', {
-                  sessionId,
-                  reservationId: item.id,
-                  ownerRevision: item.ownerRevision,
-                })
-              }
-              onReconcile={(item) =>
-                invoke('draft.reconcileAttachment', {
-                  sessionId,
-                  reservationId: item.id,
-                  ownerRevision: item.ownerRevision,
-                })
-              }
-              onAccept={(item) =>
-                invoke('draft.acceptReadyAttachment', {
-                  sessionId,
-                  reservationId: item.id,
-                  ownerRevision: item.ownerRevision,
-                  expectedRevision: draft?.revision ?? 0,
-                })
-              }
-            />
+            <>
+              <HbarQueuedUserRuns
+                state={queuedUserRuns}
+                sessionId={sessionId}
+                connected={connected}
+                labels={labels.queuedUserRuns}
+                onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
+                onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
+                onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
+              />
+              <HbarComposerAttachmentTransfers
+                transfers={attachmentTransfers}
+                labels={labels.attachments}
+                connected={connected}
+                onRemove={(item) =>
+                  invoke('draft.removeAttachmentTransfer', {
+                    sessionId,
+                    reservationId: item.id,
+                    ownerRevision: item.ownerRevision,
+                  })
+                }
+                onReconcile={(item) =>
+                  invoke('draft.reconcileAttachment', {
+                    sessionId,
+                    reservationId: item.id,
+                    ownerRevision: item.ownerRevision,
+                  })
+                }
+                onAccept={(item) =>
+                  invoke('draft.acceptReadyAttachment', {
+                    sessionId,
+                    reservationId: item.id,
+                    ownerRevision: item.ownerRevision,
+                    expectedRevision: draft?.revision ?? 0,
+                  })
+                }
+              />
+            </>
           }
           modelPicker={
             <LumenFrame className="hbar-session-composer-options">
