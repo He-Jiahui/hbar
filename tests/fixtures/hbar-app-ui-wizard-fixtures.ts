@@ -4,6 +4,23 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceMigration: {
+    labels: {
+      title: 'Migrating workspace', detail: 'Step 3 of 4. You can leave this running and come back.', remaining: '~6 min left',
+      progress: (value) => `${value}%`, progressBar: 'Migration progress',
+      safety: 'The source workspace stays read-only until cutover. Nothing is deleted, so a failed step can be retried without starting over.',
+      cancel: 'Cancel migration', background: 'Run in background', empty: 'No migration tasks',
+    },
+    tasks: [
+      {id: 'snapshot', label: 'Snapshot source database', detail: '4.2 GB · 38s', status: 'complete'},
+      {id: 'schema', label: 'Rebuild schema and indexes', detail: '126 tables · 1m 04s', status: 'complete'},
+      {id: 'rows', label: 'Copy rows', detail: '8.4M of 12.1M rows', status: 'running'},
+      {id: 'attachments', label: 'Transfer attachments', detail: 'Queued · 61,208 files', status: 'queued'},
+      {id: 'search', label: 'Rebuild search index', detail: 'Two entries need review', status: 'warning', action: 'Review'},
+      {id: 'traffic', label: 'Switch traffic to the new cluster', detail: 'Waiting for approval', status: 'queued'},
+    ],
+    progress: 64, progressStep: 2, progressIntervalMs: 1500, progressCeiling: 98, listStrategy: grown,
+  },
   referenceReview: {
     labels: {
       title: 'Review before sending', detail: 'Nothing sends until you confirm. Each section can still be changed.',
@@ -298,6 +315,16 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceMigration: HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration,
+      labels: {
+        title: '迁移工作区', detail: '第 3 步，共 4 步。迁移可在后台继续。', remaining: '约剩 6 分钟',
+        progress: (value) => `已完成 ${value}%`, progressBar: '迁移进度',
+        safety: '切换完成之前，源工作区保持只读。数据不会删除，失败的步骤可以重试。',
+        cancel: '取消迁移', background: '转入后台运行', empty: '暂无迁移任务',
+      },
+      tasks: [{id: 'snapshot', label: '备份源数据库', detail: '4.2 GB · 38 秒', status: 'complete'}],
+    },
     referenceReview: HBAR_APP_UI_WIZARD_FIXTURES.referenceReview && {
       ...HBAR_APP_UI_WIZARD_FIXTURES.referenceReview,
       labels: {
@@ -379,8 +406,13 @@ export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent 
   const upgrade = HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade!
   const environment = HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment!
   const review = HBAR_APP_UI_WIZARD_FIXTURES.referenceReview!
+  const migration = HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration!
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceMigration: {
+      ...migration,
+      tasks: [...migration.tasks, ...Array.from({length: 35}, (_, index) => ({id: `extended-${index}`, label: `Regional migration task ${index + 1} for a large workspace`, detail: `Queue item ${index + 1} with long source metadata`, status: 'queued' as const}))],
+    },
     referenceReview: {
       ...review,
       sections: [...review.sections, ...Array.from({length: 25}, (_, index) => ({id: `extended-${index}`, title: `Additional review section ${index + 1}`, rows: [{id: 'long', label: `Regional compliance and delivery policy ${index + 1}`, value: `Private delivery target ${index + 1} with long account name` }]}))],

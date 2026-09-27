@@ -33,6 +33,7 @@ describe('hbar-app-ui wizard surfaces', () => {
       if (index === 1 || index === 2) expect(value).toContain('lucide-arrow-right')
       else if (index === 3) expect(value).toContain('lucide-database')
       else if (index === 4) expect(value).toContain('lucide-pencil')
+      else if (index === 5) expect(value).toContain('lucide-triangle-alert')
       else expect(value).not.toContain('lucide')
       expect(value).not.toContain('hbar-app-ui-button')
     })
@@ -59,13 +60,14 @@ describe('hbar-app-ui wizard surfaces', () => {
     const content: HbarAppUiWizardContent = {
       ...HBAR_APP_UI_WIZARD_FIXTURES,
       referenceEnvironment: undefined,
+      referenceMigration: undefined,
       environment: { ...HBAR_APP_UI_WIZARD_FIXTURES.environment!, services: [] },
       migration: { ...HBAR_APP_UI_WIZARD_FIXTURES.migration!, items: [] },
     }
     expect(render(4, content)).toContain('No services available')
     expect(render(6, content)).toContain('No migration tasks')
     expect(render(3)).toContain('data-hbar-app-ui-list-strategy="content-grown"')
-    expect(render(6)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    expect(render(6, {...content, migration: HBAR_APP_UI_WIZARD_FIXTURES.migration})).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
   })
   test('information wizard reproduces source fields, native choices and progress rail', () => {
     const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation!
@@ -223,5 +225,34 @@ describe('hbar-app-ui wizard surfaces', () => {
     expect((repeatedRow.match(/<dt>/g) ?? []).length).toBe(1)
     expect(repeatedRow).not.toContain('duplicate')
     expect((render(5, createHbarAppUiWizardOverflowFixtures()).match(/class="hbar-app-ui-wizard-review-section"/g) ?? []).length).toBe(28)
+  })
+  test('migration renders six source states and a bounded Host progress contract', () => {
+    const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration!
+    const markup = render(6)
+    expect((markup.match(/<li>/g) ?? []).length).toBe(6)
+    expect((markup.match(/class="hbar-app-ui-wizard-migration-task-copy"/g) ?? []).length).toBe(6)
+    expect((markup.match(/is-complete/g) ?? []).length).toBe(2)
+    expect((markup.match(/is-queued/g) ?? []).length).toBe(2)
+    expect(markup).toContain('role="progressbar" aria-label="Migration progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="64"')
+    expect(markup).toContain('data-hbar-app-ui-list-strategy="content-grown"')
+    expect(markup).toContain(flow.labels.safety)
+    expect(markup).toContain('Review')
+    const bounded = render(6, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceMigration: {...flow, progress: 120}})
+    expect(bounded).toContain('aria-valuenow="100"')
+    const invalid = render(6, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceMigration: {...flow, progress: Number.NaN}})
+    expect(invalid).toContain('aria-valuenow="0"')
+  })
+  test('migration localizes and preserves empty, duplicate and over-bound tasks', () => {
+    const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration!
+    const localized = render(6, createHbarAppUiWizardLocalizedFixtures())
+    expect(localized).toContain('迁移工作区')
+    expect(localized).toContain('备份源数据库')
+    expect(localized).not.toContain('Migrating workspace')
+    const empty = render(6, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceMigration: {...flow, tasks: []}})
+    expect(empty).toContain(flow.labels.empty)
+    const duplicate = render(6, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceMigration: {...flow, tasks: [flow.tasks[0]!, {...flow.tasks[0]!, label: 'duplicate'}]}})
+    expect((duplicate.match(/<li>/g) ?? []).length).toBe(1)
+    expect(duplicate).not.toContain('duplicate')
+    expect((render(6, createHbarAppUiWizardOverflowFixtures()).match(/<li>/g) ?? []).length).toBe(41)
   })
 })

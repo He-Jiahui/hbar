@@ -10,6 +10,7 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
   const [upgradePlanId, setUpgradePlanId] = useState(content.referenceUpgrade?.selectedPlanId ?? '')
   const [environmentSelectedIds, setEnvironmentSelectedIds] = useState(content.referenceEnvironment?.selectedServiceIds ?? [])
   const [reviewConfirmed, setReviewConfirmed] = useState(content.referenceReview?.confirmed ?? false)
+  const [migrationProgress, setMigrationProgress] = useState(content.referenceMigration?.progress ?? 0)
   useEffect(() => {
     setFields(content.referenceInformation?.fields ?? [])
     setStepId(content.referenceInformation?.stepId ?? '')
@@ -19,14 +20,23 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
     setUpgradePlanId(content.referenceUpgrade?.selectedPlanId ?? '')
     setEnvironmentSelectedIds(content.referenceEnvironment?.selectedServiceIds ?? [])
     setReviewConfirmed(content.referenceReview?.confirmed ?? false)
+    setMigrationProgress(content.referenceMigration?.progress ?? 0)
   }, [content])
+  useEffect(() => {
+    const migration = content.referenceMigration
+    if (!migration || !Number.isFinite(migration.progressIntervalMs) || migration.progressIntervalMs <= 0) return
+    const timer = window.setInterval(() => setMigrationProgress((value) => Math.min(migration.progressCeiling, value + migration.progressStep)), migration.progressIntervalMs)
+    return () => window.clearInterval(timer)
+  }, [content.referenceMigration])
   const flow = content.referenceInformation
   const invoice = content.referenceInvoice
   const upgrade = content.referenceUpgrade
   const environment = content.referenceEnvironment
   const review = content.referenceReview
+  const migration = content.referenceMigration
   return <HbarAppUiWizardProvider content={{
     ...content,
+    referenceMigration: migration && {...migration, progress: migrationProgress},
     referenceReview: review && {...review, confirmed: reviewConfirmed, onConfirmationChange: setReviewConfirmed},
     referenceEnvironment: environment && {
       ...environment, selectedServiceIds: environmentSelectedIds,

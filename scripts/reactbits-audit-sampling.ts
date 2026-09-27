@@ -561,6 +561,21 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-6')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-migration-reference.css', 'wizard/MigrationReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Warning Review has no visible result in the source preview'},
+        {viewport: 'mobile', theme: 'dark', suffix: '1:click', change: 'Cancel migration is passive after natural narrow scrolling'},
+        {viewport: 'tablet', theme: 'dark', suffix: '2:press-space', change: 'Keyboard background action has no visible navigation in the preview'},
+        {viewport: 'stress', theme: 'light', suffix: '0:hover', change: 'Narrow warning action pointer feedback without task reordering'},
+      ],
+      inferences: [
+        {scope: 'Timer digit equality across independent source/local page loads', basis: 'The source starts at 64% and advances two points about every 1.5 seconds; independent browsers are not frame-synchronized. Host timer cadence, finite clamping, and an over-bound task list have local tests. Static captures cover 8 independently timed responsive-theme states rather than asserting identical transient digits.', verification: 'inferred-not-replayed'},
+        {scope: 'Repeated button gestures and passive task rows at other widths/themes', basis: 'Three distinct preview controls are sampled, with pointer and keyboard activation. Six task rows have status-specific icons but no row click; 8 static pairs and localized/overflow fixtures cover wraps, clipping and capacity.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-5')
     return {
       revision: 1,

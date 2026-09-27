@@ -209,8 +209,35 @@ try {
   assert(await review.getByRole('button', {name: '安排发送'}).count() === 0, 'Over-bound fixture unexpectedly switched locale')
   assert(await review.getByRole('button', {name: 'Schedule send'}).count() === 1, 'Over-bound review lost footer action')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound review overflowed horizontally')
+  await page.setViewportSize({width: 1086, height: 640})
+  await page.goto(url(undefined, 6), {waitUntil: 'networkidle'})
+  const migration = page.locator('.hbar-app-ui-wizard-migration-reference')
+  const progress = migration.getByRole('progressbar', {name: 'Migration progress'})
+  assert(await migration.getByRole('listitem').count() === 6, 'Migration tasks missing')
+  assert(Number(await progress.getAttribute('aria-valuenow')) >= 64, 'Migration initial progress missing')
+  await page.waitForFunction(() => Number(document.querySelector('[aria-label="Migration progress"]')?.getAttribute('aria-valuenow')) >= 66, undefined, {timeout: 5000})
+  await migration.getByRole('button', {name: 'Review'}).click()
+  await migration.getByRole('button', {name: 'Cancel migration'}).click()
+  await migration.getByRole('button', {name: 'Run in background'}).click()
+  assert(await migration.getByRole('heading', {name: 'Migrating workspace'}).count() === 1, 'Passive migration controls invented a new page')
+  await page.setViewportSize({width: 356, height: 640})
+  await page.goto(url('localized', 6), {waitUntil: 'networkidle'})
+  assert(await migration.getByRole('heading', {name: '迁移工作区'}).count() === 1, 'Migration localized title missing')
+  assert(await migration.getByText('备份源数据库').count() === 1, 'Migration localized task missing')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Localized migration overflowed horizontally')
+  await page.setViewportSize({width: 320, height: 640})
+  await page.goto(url('overflow', 6), {waitUntil: 'networkidle'})
+  assert(await migration.getByRole('listitem').count() === 41, 'Over-bound migration tasks were truncated')
+  const migrationOverflow = await migration.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return {scrollable, moved: element.scrollTop > 0}
+  })
+  assert(migrationOverflow.scrollable && migrationOverflow.moved, 'Over-bound migration cannot reach final task/footer')
+  assert(await migration.getByRole('button', {name: 'Run in background'}).count() === 1, 'Over-bound migration lost footer')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound migration overflowed horizontally')
   assert(errors.length === 0, `Wizard raised page errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({informationFields: 8, invoiceFields: 10, invoiceOptions: 3, upgradePlans: 3, environmentServices: 8, reviewSections: 3, informationOverflow: scroll, invoiceOverflow, upgradeOverflow, environmentOverflow, reviewOverflow, localizedNarrow: true, pageErrors: errors.length}))
+  console.log(JSON.stringify({informationFields: 8, invoiceFields: 10, invoiceOptions: 3, upgradePlans: 3, environmentServices: 8, reviewSections: 3, migrationTasks: 6, informationOverflow: scroll, invoiceOverflow, upgradeOverflow, environmentOverflow, reviewOverflow, migrationOverflow, localizedNarrow: true, pageErrors: errors.length}))
 } finally {
   await browser.close()
 }
