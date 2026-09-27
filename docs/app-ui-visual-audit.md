@@ -152,6 +152,15 @@ AI Usage 1 的选样示例已固化在 `scripts/reactbits-audit-sampling.ts`：3
 本地 `bun scripts/verify-hbar-app-ui-usage.ts --overview-only` 额外检查断点、德语长文案、
 空态、32 点溢出与短宿主可达性。原版短预览的顶部裁切须单列人工差异，不能伪装成主题差异。
 
+Comments 类别在 2026-09-27 对实现提交 `f20ee42` 重新绑定证据，报告位于
+`artifacts/reactbits-pro-visual-audit/comments-category-final-v1/`。六个变体共有 48 组静态截图对、
+46 个源/本地交互样例（各变体依次 8、8、6、8、9、7）：27 个 `matched`、19 个 `source-no-op`，
+缺失 0；语义、状态及浏览器错误机器门禁无失败。当前截图与状态机制复核后，Comments 1–5 为 `passed`，
+Comments 6 仍为 `needs-review`；类别严格门禁只报告第 6 个的 `manual-review-required`，
+因此不能将 Comments 整类登记为全部验收。其余重复手势、记录、主题和宽度保留 `inferred-not-replayed`，
+不以机制选样代替其它变体的独立结构分析。此处是提交绑定的证据快照；修改共享实现后应重新绑定，
+正式 Host/桌面业务与整个 300 变体目标仍须单独验收。
+
 Comments 6 按选中标记、定位、解决、输入、Send 无业务反馈和两种窄屏原生 Space 操作选取七例，
 不对每个标记重放所有主题/视口。三个标记是真实覆盖在画布上的对象，位置是宿主提供的画布百分比；
 定位例外仅允许该 marker 容器，线框装饰与评论正文保持 flex 流。解决后保留评论和标记，
