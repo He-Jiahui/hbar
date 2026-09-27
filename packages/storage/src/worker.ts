@@ -1080,6 +1080,7 @@ const methods: StorageMethods = {
               name: intent.name,
               text: 'Host interrupted during execution. The effect may already have happened. Inspect state before retrying.',
               isError: true,
+              outcome: { kind: 'unknown', executionStarted: true },
             },
           ]
           const parentCallId = sequenceCalls.get(intent.callId)
@@ -1100,6 +1101,7 @@ const methods: StorageMethods = {
                   name: block.name,
                   text: 'Host interrupted before execution was recorded. This call was not retried.',
                   isError: true,
+                  outcome: { kind: 'interrupted', executionStarted: false },
                 },
               ])
               settledCalls.add(block.callId)

@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { toolOutcomeSchema } from './tool-outcome'
+export { toolOutcomeSchema, type ToolOutcome } from './tool-outcome'
 
 export { LEGACY_WRITE_RPC_METHODS, type LegacyWriteRpcMethod } from './legacy-rpc'
 import { invocationSchema } from '@hbar/commands/protocol'
@@ -39,14 +41,19 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
     name: z.string(),
     args: z.record(z.string(), z.unknown()),
   }),
-  z.object({
-    type: z.literal('tool_result'),
-    callId: idSchema,
-    name: z.string(),
-    text: z.string(),
-    isError: z.boolean(),
-    details: z.unknown().optional(),
-  }),
+  z
+    .object({
+      type: z.literal('tool_result'),
+      callId: idSchema,
+      name: z.string(),
+      text: z.string(),
+      isError: z.boolean(),
+      details: z.unknown().optional(),
+      outcome: toolOutcomeSchema.optional(),
+    })
+    .refine((result) => !result.outcome || (result.outcome.kind === 'succeeded') === !result.isError, {
+      message: 'Tool outcome must agree with the result error flag',
+    }),
 ])
 export type ContentBlock = z.infer<typeof contentBlockSchema>
 export const thinkingLevelSchema = z.enum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])

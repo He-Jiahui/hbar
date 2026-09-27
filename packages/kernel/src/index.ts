@@ -18,6 +18,7 @@ import type {
   ArtifactRef,
   Bootstrap,
   ContentBlock,
+  ToolOutcome,
   HostInfo,
   LiveStream,
   ModelInfo,
@@ -87,6 +88,7 @@ import { createDirectoryQueries } from './directory-queries'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
+import { hostAbortToolOutcome } from './tool-outcome'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
 
@@ -202,7 +204,9 @@ interface ActiveRun {
   controller: AbortController
   context: RuntimeScope
 }
-type ApprovalResolution = { allowed: boolean; feedback?: string }
+type ApprovalResolution =
+  | { source: 'approval'; status: 'allowed' | 'denied' | 'cancelled'; feedback?: string }
+  | { source: 'abort'; reason: unknown }
 
 export class Kernel {
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
@@ -1052,14 +1056,23 @@ export class Kernel {
     context: ToolContext,
     scope: RuntimeScope,
   ): Promise<ToolResult> {
+    // Plugin hooks receive a mutable ToolContext. Classification and approval
+    // cancellation must retain the original Host-owned signal independently.
+    const hostSignal = context.signal
     const tool = scope.tools.get(name)
     if (!tool) throw new HbarError('TOOL_NOT_FOUND', name)
     let result: ToolResult,
       started = false,
       executedArgs: Record<string, unknown> | undefined
     let hostFailure: ToolResult['hostFailure']
+    let outcome: ToolOutcome | undefined
+    const assertNotAborted = () => {
+      if (!hostSignal.aborted) return
+      outcome = hostAbortToolOutcome(hostSignal.reason, started)
+      hostSignal.throwIfAborted()
+    }
     try {
-      context.signal.throwIfAborted()
+      assertNotAborted()
       const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
       const transformed = await scope.hooks.dispatch('tool.before', {
         name,
@@ -1071,30 +1084,50 @@ export class Kernel {
       executedArgs = args
       const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       const mode = context.run.input.approval ?? this.permissionModeValue
-      if (decision === 'deny' || (decision === 'ask' && mode === 'deny' && tool.humanApproval !== 'required'))
+      if (decision === 'deny' || (decision === 'ask' && mode === 'deny' && tool.humanApproval !== 'required')) {
+        outcome = { kind: 'denied', executionStarted: false }
         throw new HbarError('DENIED', 'Tool denied by policy')
+      }
       if (tool.humanApproval === 'required' || (decision === 'ask' && mode === 'ask')) {
-        const resolution = await this.requestApproval(name, args, context)
-        if (!resolution.allowed)
+        const resolution = await this.requestApproval(name, args, context, hostSignal)
+        if (resolution.source === 'abort') {
+          outcome = hostAbortToolOutcome(resolution.reason, false)
+          throw resolution.reason
+        }
+        if (resolution.status === 'cancelled') {
+          assertNotAborted()
+          outcome = { kind: 'cancelled', executionStarted: false }
+          throw new HbarError('APPROVAL_CANCELLED', 'Tool approval was cancelled')
+        }
+        if (resolution.status === 'denied') {
+          outcome = { kind: 'denied', executionStarted: false }
           throw new HbarError(
             'DENIED',
             resolution.feedback
               ? `User requested further planning: ${resolution.feedback}`
               : 'User denied the tool call',
           )
+        }
       }
-      context.signal.throwIfAborted()
+      assertNotAborted()
       this.publishEvent(
         await this.storage.call('toolStart', context.session.id, context.run.id, context.callId, name, args),
       )
       started = true
       await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
-      context.signal.throwIfAborted()
+      assertNotAborted()
       result = await tool.execute(args, context)
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
+      outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
       result = { text: error instanceof Error ? error.message : String(error), isError: true }
       hostFailure = { code: error instanceof HbarError ? error.code : 'TOOL_FAILED', executionStarted: started }
+      // A plugin may throw a same-named error or fail after an unrelated abort. Only
+      // the exact Host signal reason establishes cancellation outside explicit gates.
+      outcome ??=
+        hostSignal.aborted && error === hostSignal.reason
+          ? hostAbortToolOutcome(hostSignal.reason, started)
+          : { kind: 'failed', executionStarted: started }
     }
     result = { ...result, hostFailure }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
@@ -1106,6 +1139,7 @@ export class Kernel {
         text: result.text,
         isError: Boolean(result.isError),
         details: result.details,
+        outcome,
       },
     ]
     const event = context.parentCallId
@@ -1128,7 +1162,12 @@ export class Kernel {
         .catch((error) => console.error('Tool settlement observer failed:', error))
     return result
   }
-  private async requestApproval(tool: string, args: Record<string, unknown>, context: ToolContext) {
+  private async requestApproval(
+    tool: string,
+    args: Record<string, unknown>,
+    context: ToolContext,
+    hostSignal: AbortSignal,
+  ) {
     const approval: Approval = {
       id: crypto.randomUUID(),
       sessionId: context.session.id,
@@ -1146,19 +1185,34 @@ export class Kernel {
     this.approvals.set(approval.id, resolve)
     const onAbort = () => {
       void this.resolveApproval(approval.id, 'cancelled')
-        .catch((error) => {
+        .catch(async (error: unknown) => {
           console.error(error)
+          // An ambiguous storage failure must not hide an already-winning decision.
+          // This is one read, not a replay of cancellation or a fabricated resolution.
+          try {
+            const recorded = await this.storage.call('approval', approval.id)
+            if (recorded.status !== 'pending')
+              resolve({
+                source: 'approval',
+                status: recorded.status,
+                ...(recorded.feedback ? { feedback: recorded.feedback } : {}),
+              })
+          } catch (readError) {
+            console.error('Approval outcome could not be read after cancellation:', readError)
+          }
         })
-        .finally(() => resolve({ allowed: false }))
+        // Persistence failure still ends the aborted wait, but it is not a
+        // fabricated persisted approval. An earlier winning resolution remains first.
+        .finally(() => resolve({ source: 'abort', reason: hostSignal.reason }))
     }
     try {
       this.publishEvent(await this.storage.call('createApproval', approval))
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
-      context.signal.addEventListener('abort', onAbort, { once: true })
-      if (context.signal.aborted) onAbort()
+      hostSignal.addEventListener('abort', onAbort, { once: true })
+      if (hostSignal.aborted) onAbort()
       return await outcome
     } finally {
-      context.signal.removeEventListener('abort', onAbort)
+      hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
     }
@@ -1256,10 +1310,15 @@ export class Kernel {
     if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
       throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
     const result = await this.storage.call('resolveApproval', id, decision)
-    if (result) {
-      this.publishEvent(result.event)
-      this.approvals.get(id)?.({ allowed: decision === 'allowed' })
-    }
+    if (result) this.publishEvent(result.event)
+    // A concurrent decision may have won. Resolve from storage, never the losing argument.
+    const approval = result?.approval ?? (await this.storage.call('approval', id))
+    if (approval.status !== 'pending')
+      this.approvals.get(id)?.({
+        source: 'approval',
+        status: approval.status,
+        ...(approval.feedback ? { feedback: approval.feedback } : {}),
+      })
   }
   async resolvePlanExit(input: {
     sessionId: string
@@ -1326,8 +1385,11 @@ export class Kernel {
         throw error
       }
     }
+    if (resolved.approval.status === 'pending')
+      throw new HbarError('INVALID_OUTPUT', 'Plan exit resolution is still pending')
     this.approvals.get(input.approvalId)?.({
-      allowed: input.decision === 'implement',
+      source: 'approval',
+      status: resolved.approval.status,
       ...(resolved.approval.feedback ? { feedback: resolved.approval.feedback } : {}),
     })
     return resolved.approval
