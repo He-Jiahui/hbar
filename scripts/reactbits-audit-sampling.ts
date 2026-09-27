@@ -561,6 +561,28 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-4')
+    return {
+      revision: 4,
+      lumenEntries: ['scheduling.tsx', 'scheduling-deadline-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Tomorrow changes only the highlighted preset, retaining selected calendar date and deadline summary'},
+        {viewport: 'desktop', theme: 'dark', suffix: '4:click', change: 'No date is a pressed preset but does not clear the source date or time'},
+        {viewport: 'desktop', theme: 'light', suffix: '6:select', change: 'Native month select changes its value without rebuilding calendar or deadline summary'},
+        {viewport: 'desktop', theme: 'dark', suffix: '22:click', change: 'Calendar day changes the pressed cell, time pane title and deadline summary'},
+        {viewport: 'desktop', theme: 'light', suffix: '41:click', change: 'Radio selection changes the checked time and deadline summary, independently of date and preset'},
+        {viewport: 'desktop', theme: 'dark', suffix: '5:click', change: 'Previous month is a source no-op independent of native select value'},
+        {viewport: 'desktop', theme: 'light', suffix: '58:click', change: 'Cancel does not reset the source deadline panel'},
+        {viewport: 'desktop', theme: 'dark', suffix: '59:click', change: 'Apply does not close the source deadline panel or show success'},
+        {viewport: 'tablet', theme: 'dark', suffix: '9:hover', change: 'Shared date hover feedback in the wide calendar flow'},
+        {viewport: 'stress', theme: 'light', suffix: '23:press-space', change: 'Narrow native Space selects a different date with a corresponding summary'},
+      ],
+      inferences: [
+        {scope: 'Other preset/date/time IDs and equivalent gestures', basis: 'Five presets, thirty date buttons and twenty time radios use three independent Host-owned ID transitions. Live source probing confirms Tomorrow and No date only highlight; date updates title/summary; time updates summary. Space is sampled for a narrow date; time radios share native button activation and local Enter/Space coverage. Local boundary tests cover stale, duplicate, empty and over-bound IDs.', verification: 'inferred-not-replayed'},
+        {scope: 'Next month and other month option values', basis: 'Live source probing confirms both arrow buttons are no-ops; one represents the shared mechanism. Native select changes only itself, not the displayed day or summary. Other options reuse native behavior.', verification: 'inferred-not-replayed'},
+        {scope: 'Other themes, widths, repeated focus and scroll positions', basis: 'Eight static pairs cover two themes and four viewport flows; dynamic samples cover desktop preset/date/time and narrow date keyboard behavior. The scrolling time pane, short-host reachability and time-radio Enter/Space are tested locally. A separately preserved narrow time Enter probe had matching DOM state but source clipping and hover changed a different preset in the before/after pixels; it is not counted as a matched replay. Source narrow initial centering clips top content, retained as explicit non-theme geometry review.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-3')
     return {
       revision: 1,

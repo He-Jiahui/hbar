@@ -217,7 +217,19 @@ Scheduling 3 在 2026-09-27 的当前源／本地证据位于
 其余同类输入值、手势、人员和视口组合标为 `inferred-not-replayed`，不将这 12 例冒充整个 Scheduling 类别验收。
 Notes 审计发现原始控件 `value` 与 React 受控 `textarea.textContent` 的表示差异；审计器提交 `568fdc0`
 将值与静态文案分开归一化，保留原生值、AX、标签与可见正文比较，并升级源／交互协议。
-Scheduling 4–7 仍待对齐。
+Scheduling 4 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-4-final-v5/`：8 组静态截图对、10 个机制交互，
+6 个 `matched`、4 个 `source-no-op`，缺失 0；结构与状态门禁通过，但仍为 `needs-review`，未签署视觉验收。
+新增宿主 `referenceDeadline` 契约提供时区、五个独立预设、原生月份选择、七列日期与二十个滚动时段；
+日期改变时间栏标题和摘要，时间仅改变单选与摘要。预设只改变高亮，No date 不清空日期；
+月份仅改变选择值，前后月、Cancel、Apply 无业务状态结果，也不重置草稿。
+保持原有 `deadline` API；空态、重复/失效 ID、边界与边界加一、长中文、超容量 pane-scroll 和短宿主键盘可达性有定向测试。
+桌面/平板面板自然高度、日历和时段对齐；窄屏堆叠后源预览仍强制居中，顶部时区及首个预设被裁到 iframe 外，
+本地保留安全滚动。该非主题几何冲突不能用颜色白名单或低像素误差掩盖，严格比较仍会因未人工签署而失败。
+另存 `scheduling-4-final-v2/` 的极窄时段 Enter 诊断：DOM 状态一致，但裁切位置与另一预设 hover 带来的像素变化
+不满足视觉反馈门禁；不计入匹配样本，不通过删除截图或放宽阈值将其当作通过。
+保留这份诊断，最终选样采用桌面时段选择与极窄日期 Space；时段 Enter/Space 和全部时段滚动可达性在本地验证，
+其余同类手势/布局标为 `inferred-not-replayed`。Scheduling 5–7 仍待对齐，整类未验收。
 
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
 控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/

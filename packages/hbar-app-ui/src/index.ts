@@ -295,6 +295,9 @@ export {
 export type {
   HbarAppUiSchedulingAction,
   HbarAppUiSchedulingRangeReferenceContent,
+  HbarAppUiSchedulingDeadlineReferenceContent,
+  HbarAppUiSchedulingDeadlineReferenceDay,
+  HbarAppUiSchedulingDeadlineReferencePreset,
   HbarAppUiSchedulingFormReferenceContent,
   HbarAppUiSchedulingMonthReferenceContent,
   HbarAppUiSchedulingMonthReferenceDay,

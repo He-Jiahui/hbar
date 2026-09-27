@@ -3,7 +3,7 @@ import {chromium, type Page} from '@playwright/test'
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5192'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
-function url(variant: 1 | 2 | 3, fixture?: 'localized' | 'overflow') {
+function url(variant: 1 | 2 | 3 | 4, fixture?: 'localized' | 'overflow') {
   const query = new URLSearchParams({mode: 'isolated', variant: `hbar-app-ui-scheduling-${variant}`, theme: 'light'})
   if (fixture) query.set('schedulingFixture', fixture)
   return `${baseUrl}/?${query.toString()}`
@@ -169,15 +169,71 @@ async function verifyForm(page: Page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound form escaped its pane')
 }
 
+async function verifyDeadline(page: Page) {
+  await page.setViewportSize({width: 1086, height: 720})
+  await page.goto(url(4), {waitUntil: 'networkidle'})
+  const card = page.locator('.lumen-scheduling-deadline-card')
+  const presets = card.locator('[data-hbar-app-ui-action="select-preset"]')
+  const dates = card.locator('[data-hbar-app-ui-action="select-day"]')
+  const times = card.getByRole('radio')
+  const summary = card.locator('footer > p')
+  assert(await presets.count() === 5 && await dates.count() === 30 && await times.count() === 20, 'Deadline lost source preset/date/time inventories')
+  assert(await summary.innerText() === 'Due June 30, 10:00', 'Initial Host deadline summary differs from the source')
+  await card.getByRole('button', {name: 'Tomorrow Wednesday'}).click()
+  assert(await card.locator('[data-hbar-app-ui-action="select-preset"][aria-pressed="true"]').getAttribute('data-hbar-app-ui-target') === 'tomorrow' && await summary.innerText() === 'Due June 30, 10:00', 'Preset changed a separate date or time')
+  await card.getByRole('button', {name: 'No date Clear deadline'}).press('Space')
+  assert(await card.locator('[data-hbar-app-ui-action="select-preset"][aria-pressed="true"]').getAttribute('data-hbar-app-ui-target') === 'none' && await card.locator('[data-hbar-app-ui-action="select-day"][aria-pressed="true"]').innerText() === '30', 'No date invented deadline clearing')
+  await card.getByRole('combobox', {name: 'Month'}).selectOption('May 2026')
+  assert(await summary.innerText() === 'Due June 30, 10:00' && await dates.count() === 30, 'Native month choice invented calendar regeneration')
+  await card.getByRole('button', {name: '15', exact: true}).press('Enter')
+  assert(await card.locator('[data-hbar-app-ui-action="select-day"][aria-pressed="true"]').getAttribute('data-hbar-app-ui-target') === '15' && await summary.innerText() === 'Due June 15, 10:00', 'ID-bound date did not change pane and summary')
+  assert(await card.locator('.lumen-scheduling-deadline-times > p').innerText() === 'Tuesday, 15', 'Time pane title did not follow date')
+  await card.getByRole('radio', {name: '09:30'}).press('Space')
+  assert(await card.locator('[data-hbar-app-ui-action="select-time"][aria-checked="true"]').getAttribute('data-hbar-app-ui-target') === '09:30' && await summary.innerText() === 'Due June 15, 09:30', 'ID-bound time did not update summary')
+  for (const name of ['Previous month', 'Next month', 'Cancel', 'Apply']) await card.getByRole('button', {name, exact: true}).click()
+  assert(await card.getByRole('combobox', {name: 'Month'}).inputValue() === 'May 2026' && await summary.innerText() === 'Due June 15, 09:30', 'Source no-op reset independent states')
+  assert(await page.getByRole('dialog').count() === 0, 'Source no-op created an overlay')
+  const scroll = card.getByRole('radiogroup', {name: 'Available times'})
+  assert(await scroll.evaluate((element) => {element.scrollTop = element.scrollHeight; return element.scrollTop > 0}), 'Twenty time slots lost pane scroll ownership')
+  await card.getByRole('radio', {name: '17:30'}).press('Space')
+  assert(await summary.innerText() === 'Due June 15, 17:30', 'Last time slot is unreachable')
+  await card.getByRole('radio', {name: '09:30'}).press('Enter')
+  assert(await summary.innerText() === 'Due June 15, 09:30', 'Native time Enter lost its original Host ID')
+  for (const width of [670, 356, 286]) {
+    await page.setViewportSize({width, height: 720})
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `Deadline escaped viewport at ${width}`)
+    assert(await card.locator('.lumen-scheduling-deadline-columns').evaluate((element) => getComputedStyle(element).flexDirection === (window.innerWidth < 640 ? 'column' : 'row')), `Deadline calendar/time flow changed at ${width}`)
+  }
+  await page.setViewportSize({width: 286, height: 240})
+  await card.getByRole('button', {name: 'Today Tuesday'}).press('Space')
+  assert(await card.locator('[data-hbar-app-ui-action="select-preset"][aria-pressed="true"]').getAttribute('data-hbar-app-ui-target') === 'today', 'Narrow keyboard target lost preset ID')
+  assert(await card.getByRole('button', {name: 'Apply'}).isVisible(), 'Short Host cannot reach its footer')
+  await page.setViewportSize({width: 286, height: 720})
+  await page.goto(url(4, 'localized'), {waitUntil: 'networkidle'})
+  assert((await card.locator('header').innerText()).includes('欧洲／布加勒斯特'), 'Localized zone disappeared')
+  await card.locator('[data-hbar-app-ui-target="none"]').press('Space')
+  assert(await card.locator('[data-hbar-app-ui-action="select-preset"][aria-pressed="true"]').getAttribute('data-hbar-app-ui-target') === 'none' && (await summary.innerText()).includes('六月30日'), 'Localized label changed stable preset target or summary')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Localized deadline caused horizontal overflow')
+  await page.goto(url(4, 'overflow'), {waitUntil: 'networkidle'})
+  assert(await presets.count() === 6 && await dates.count() === 43 && await times.count() === 21, 'Over-bound Host records were truncated')
+  assert(await card.locator('.lumen-scheduling-deadline-presets').evaluate((element) => {element.scrollTop = element.scrollHeight; return element.scrollTop > 0}), 'Over-bound preset pane does not scroll')
+  assert(await card.locator('.lumen-scheduling-deadline-dates').evaluate((element) => {element.scrollTop = element.scrollHeight; return element.scrollTop > 0}), 'Over-bound day pane does not scroll')
+  await card.locator('[data-hbar-app-ui-target="date-42"]').press('Space')
+  await card.locator('[data-hbar-app-ui-target="slot-20"]').press('Space')
+  assert((await summary.innerText()).includes('June 43, Regional time 21'), 'Final over-bound choices lost their Host IDs')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound deadline caused horizontal overflow')
+}
+
 const browser = await chromium.launch({headless: true, executablePath})
 try {
   const page = await browser.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-  if (!process.argv.includes('--range-only') && !process.argv.includes('--form-only')) await verifyMonth(page)
-  if (!process.argv.includes('--month-only') && !process.argv.includes('--form-only')) await verifyRange(page)
-  if (!process.argv.includes('--month-only') && !process.argv.includes('--range-only')) await verifyForm(page)
+  if (!process.argv.some((arg) => ['--range-only','--form-only','--deadline-only'].includes(arg))) await verifyMonth(page)
+  if (!process.argv.some((arg) => ['--month-only','--form-only','--deadline-only'].includes(arg))) await verifyRange(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--deadline-only'].includes(arg))) await verifyForm(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only'].includes(arg))) await verifyDeadline(page)
   assert(errors.length === 0, `Browser errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
+  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--deadline-only') ? ['scheduling-4'] : process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3', 'scheduling-4'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
 } finally {await browser.close()}

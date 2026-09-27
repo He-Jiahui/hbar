@@ -5,6 +5,31 @@ const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceDeadline: {
+    labels: {
+      timezone: (zone) => createElement(Fragment, null, 'Times shown in ', zone),
+      previous: 'Previous month', next: 'Next month', month: 'Month', times: 'Available times',
+      timeTitle: (day) => `Tuesday, ${day}`,
+      summary: (day, time) => createElement(Fragment, null, 'Due ', createElement('span', null, `June ${day}, ${time}`)),
+      cancel: 'Cancel', apply: 'Apply', emptyPresets: 'No presets', emptyMonths: 'No months', emptyDays: 'No dates', emptyTimes: 'No times',
+    },
+    timezone: 'Europe/Bucharest',
+    presets: [
+      {id: 'today', label: 'Today', detail: 'Tuesday', icon: 'today'},
+      {id: 'tomorrow', label: 'Tomorrow', detail: 'Wednesday', icon: 'tomorrow'},
+      {id: 'later', label: 'Later this week', detail: 'Thursday', icon: 'calendar'},
+      {id: 'next', label: 'Next week', detail: 'Mon, Jul 6', icon: 'next'},
+      {id: 'none', label: 'No date', detail: 'Clear deadline', icon: 'clear'},
+    ],
+    months: ['May 2026', 'June 2026', 'July 2026'].map((label) => ({id: label, label})),
+    weekdays: ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, index) => ({id: String(index), label})),
+    days: [{id: 'previous-31', label: '31', selectable: false}, ...Array.from({length: 30}, (_, index) => ({id: String(index + 1), label: String(index + 1), selectable: true})),
+      ...Array.from({length: 4}, (_, index) => ({id: `next-${index + 1}`, label: String(index + 1), selectable: false}))],
+    times: Array.from({length: 20}, (_, index) => {const minutes = 8 * 60 + index * 30; const label = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`; return {id: label, label}}),
+    presetId: 'today', monthId: 'June 2026', dayId: '30', timeId: '10:00',
+    presetStrategy: {kind: 'content-grown', expectedMaximum: 5}, dayStrategy: {kind: 'content-grown', expectedMaximum: 35},
+    timeStrategy: {kind: 'pane-scroll', expectedMaximum: 20},
+  },
   referenceForm: {
     labels: {
       title: 'New schedule', description: 'Everyone invited gets a hold on their calendar right away.',
@@ -288,6 +313,18 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceDeadline: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!, timezone: '欧洲／布加勒斯特',
+      labels: {...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!.labels,
+        timezone: (zone) => createElement(Fragment, null, '显示时区：', zone),
+        previous: '上个月', next: '下个月', month: '月份', times: '可选时间',
+        timeTitle: (day) => `星期二，${day}日`,
+        summary: (day, time) => createElement(Fragment, null, '截止日期 ', createElement('span', null, `六月${day}日 ${time}`)),
+        cancel: '取消', apply: '应用', emptyPresets: '没有预设', emptyMonths: '没有月份', emptyDays: '没有日期', emptyTimes: '没有时间',
+      },
+      presets: HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!.presets.map((item, index) => ({...item, label: ['今天的跨区域协作截止日期', '明天', '本周稍晚', '下周', '不设置日期'][index] ?? item.label, detail: ['星期二', '星期三', '星期四', '七月六日', '清除截止日期'][index] ?? item.detail})),
+      months: [{id: 'May 2026', label: '2026 年五月'}, {id: 'June 2026', label: '2026 年六月'}, {id: 'July 2026', label: '2026 年七月'}],
+    },
     referenceForm: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!,
       labels: {
@@ -341,7 +378,14 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
 
 export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
   const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
-  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceForm: {
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceDeadline: {
+    ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!,
+    presets: Array.from({length: 6}, (_, index) => ({id: `preset-${index}`, label: `Regional deadline preset ${index + 1}`, detail: `Long region ${index + 1}`, icon: 'calendar' as const})),
+    months: Array.from({length: 5}, (_, index) => ({id: `month-${index}`, label: `Extended month ${index + 1}`})),
+    days: Array.from({length: 43}, (_, index) => ({id: `date-${index}`, label: String(index + 1), selectable: true})),
+    times: Array.from({length: 21}, (_, index) => ({id: `slot-${index}`, label: `Regional time ${index + 1}`})),
+    presetStrategy: {kind: 'pane-scroll', expectedMaximum: 5}, dayStrategy: {kind: 'pane-scroll', expectedMaximum: 35},
+  }, referenceForm: {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceForm!,
     attendees: Array.from({length: 7}, (_, index) => ({id: `attendee-${index}`, name: `Regional platform teammate ${index + 1}`, initials: `T${index + 1}`})),
     attendeeStrategy: {kind: 'pane-scroll', expectedMaximum: 2},

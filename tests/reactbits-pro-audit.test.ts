@@ -310,6 +310,7 @@ import {
   checkableStates,
   cachedInventorySourcePath,
   interactionCases,
+  schedulingDeadlineInteractionCases,
   commentsComposerInteractionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
@@ -363,6 +364,15 @@ test('mention keyboard replay is discovered from the visible textarea and never 
   expect(cases.find((item) => item.id === 'composer:comments-composer-next:0:press-enter')).toMatchObject({key: 'Enter', focusBefore: true})
   expect(commentsComposerInteractionCases(snapshot([input]), 'composer', 'comments-composer-filtered').some((item) => item.action === 'press')).toBe(false)
   expect(() => commentsComposerInteractionCases(snapshot([]), 'composer', 'comments-composer-next')).toThrow('observe the live source')
+})
+
+test('deadline keyboard evidence separates native focus scrolling from the actual selection', () => {
+  const plan = auditSamplingPlan('hbar-app-ui-scheduling-4')!
+  expect(plan.samples).toHaveLength(10)
+  expect(sampledInteractionIds('hbar-app-ui-scheduling-4', 'stress', 'light')).toEqual(['hbar-app-ui-scheduling-4:23:press-space'])
+  const cases = schedulingDeadlineInteractionCases(snapshot([control(38, {role: 'radio'})]), 'hbar-app-ui-scheduling-4')
+  expect(cases.find((item) => item.id === 'hbar-app-ui-scheduling-4:38:press-enter')).toMatchObject({key: 'Enter', focusBefore: true})
+  expect(cases.find((item) => item.id === 'hbar-app-ui-scheduling-4:38:click')?.focusBefore).toBeUndefined()
 })
 
 function control(index: number, overrides: Partial<ControlSnapshot> = {}): ControlSnapshot {

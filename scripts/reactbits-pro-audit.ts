@@ -1704,6 +1704,11 @@ export function interactionCases(
   return cases
 }
 
+/** Preserve the native focus/scroll evidence separately from keyboard selection. */
+export function schedulingDeadlineInteractionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
+  return interactionCases(snapshot, variantId).map((item) => item.action === 'press' ? {...item, focusBefore: true} : item)
+}
+
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
 const inboxScenarios = ['inbox-empty', 'inbox-unread', 'inbox-menu', 'inbox-reading', 'inbox-mailboxes'] as const
 const documentsScenarios = ['documents-closed', 'documents-menu', 'documents-format-menu'] as const
@@ -4507,6 +4512,8 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-scheduling-4')
+              discovered = [...schedulingDeadlineInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-authentication-6')
               discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: '1' } : item)
             if (spec.id === 'hbar-app-ui-authentication-7')

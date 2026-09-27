@@ -24,6 +24,84 @@ function render(variant: number, content: HbarAppUiSchedulingContent = HBAR_APP_
 }
 
 describe('hbar-app-ui scheduling surfaces', () => {
+  test('deadline reference preserves independent preset, month, calendar, radio and footer states', () => {
+    const value = render(4)
+    expect(value).toContain('Times shown in <span>Europe/Bucharest</span>')
+    expect(value.match(/data-hbar-app-ui-action="select-preset"/g)?.length).toBe(5)
+    expect(value.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(30)
+    expect(value.match(/role="radio"/g)?.length).toBe(20)
+    expect(value).toContain('role="radiogroup" aria-label="Available times"')
+    expect(value).toContain('Due <span>June 30, 10:00</span>')
+    expect(value).toContain('value="June 2026" selected=""')
+    expect(value).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    expect(value).not.toContain('role="dialog"')
+  })
+
+  test('controlled deadline choices preserve separate Host IDs and summary data', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!
+    const value = render(4, {referenceDeadline: {...content, presetId: 'none', monthId: 'May 2026', dayId: '15', timeId: '09:30', presets: [...content.presets].reverse()}})
+    expect(value).toContain('data-hbar-app-ui-target="none"')
+    expect(value).toContain('value="May 2026" selected=""')
+    expect(value).toContain('data-hbar-app-ui-target="15"')
+    expect(value).toContain('aria-checked="true" data-hbar-app-ui-action="select-time" data-hbar-app-ui-target="09:30"')
+    expect(value).toContain('Tuesday, 15')
+    expect(value).toContain('Due <span>June 15, 09:30</span>')
+    expect(value).not.toContain('Due <span>May 15')
+    const localized = render(4, createHbarAppUiSchedulingLocalizedFixtures())
+    expect(localized).toContain('显示时区：<span>欧洲／布加勒斯特</span>')
+    expect(localized).toContain('今天的跨区域协作截止日期')
+    expect(localized).toContain('aria-label="月份"')
+    expect(localized).toContain('截止日期 <span>六月30日 10:00</span>')
+  })
+
+  test('deadline capacity, duplicate and stale IDs are bounded without losing reachable records', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!
+    for (const count of [0, 1, 5, 6]) {
+      const presets = Array.from({length: count}, (_, index) => ({id: `p-${index}`, label: `Preset ${index}`, detail: 'Value', icon: 'today' as const}))
+      const value = render(4, {referenceDeadline: {...content, presets, presetId: 'stale'}})
+      expect((value.match(/data-hbar-app-ui-action="select-preset"/g) ?? []).length).toBe(count)
+      if (count) expect(value).toContain('data-hbar-app-ui-target="p-0"')
+      else expect(value).toContain('No presets')
+    }
+    for (const count of [0, 1, 35, 36]) {
+      const days = Array.from({length: count}, (_, index) => ({id: `day-${index}`, label: String(index + 1), selectable: true}))
+      const value = render(4, {referenceDeadline: {...content, days, dayId: 'stale'}})
+      expect((value.match(/data-hbar-app-ui-action="select-day"/g) ?? []).length).toBe(count)
+      if (count) expect(value).toContain('Due <span>June 1, 10:00</span>')
+      else expect(value).toContain('No dates')
+    }
+    for (const count of [0, 1, 20, 21]) {
+      const times = Array.from({length: count}, (_, index) => ({id: `t-${index}`, label: `Time ${index}`}))
+      const value = render(4, {referenceDeadline: {...content, times, timeId: 'stale'}})
+      expect((value.match(/role="radio"/g) ?? []).length).toBe(count)
+      if (count) expect(value).toContain('Due <span>June 30, Time 0</span>')
+      else expect(value).toContain('No times')
+    }
+    for (const count of [0, 1, 3, 4]) {
+      const months = Array.from({length: count}, (_, index) => ({id: `m-${index}`, label: `Month ${index}`}))
+      const value = render(4, {referenceDeadline: {...content, months, monthId: 'stale'}})
+      if (count) expect(value).toContain('value="m-0" selected=""')
+      else { expect(value).toContain('No months'); expect(value).toContain('disabled=""') }
+    }
+    const duplicate = render(4, {referenceDeadline: {...content, presets: [content.presets[0]!, content.presets[0]!], days: [content.days[1]!, content.days[1]!], times: [content.times[0]!, content.times[0]!], months: [content.months[0]!, content.months[0]!], monthId: 'stale'}})
+    expect(duplicate.match(/data-hbar-app-ui-action="select-preset"/g)?.length).toBe(1)
+    expect(duplicate.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(1)
+    expect(duplicate.match(/role="radio"/g)?.length).toBe(1)
+    expect(duplicate).toContain('value="May 2026" selected=""')
+    const overflow = render(4, createHbarAppUiSchedulingOverflowFixtures())
+    expect(overflow.match(/data-hbar-app-ui-action="select-preset"/g)?.length).toBe(6)
+    expect(overflow.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(43)
+    expect(overflow.match(/role="radio"/g)?.length).toBe(21)
+    expect(overflow).toContain('data-hbar-app-ui-target="slot-20"')
+  })
+
+  test('legacy deadline remains independently available without opt-in', () => {
+    const value = render(4, {deadline: HBAR_APP_UI_SCHEDULING_FIXTURES.deadline!})
+    expect(value).toContain('Deadline picker')
+    expect(value).toContain('September 2026')
+    expect(value).not.toContain('lumen-scheduling-deadline-card')
+  })
+
   test('reference form preserves field order, native control types and enabled source no-op footer', () => {
     const value = render(3)
     expect(value).toContain('New schedule')
@@ -256,6 +334,7 @@ describe('hbar-app-ui scheduling surfaces', () => {
         ...HBAR_APP_UI_SCHEDULING_FIXTURES.deadline!,
         slots: [],
       },
+      referenceDeadline: undefined,
     }
     const form = render(3, constrained)
     expect(form).toContain('Avery Chen')

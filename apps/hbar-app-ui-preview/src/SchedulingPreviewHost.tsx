@@ -17,6 +17,10 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   const [formEndId, setFormEndId] = useState(content.referenceForm?.endId ?? '')
   const [formLink, setFormLink] = useState(content.referenceForm?.meetingLink ?? '')
   const [formNotes, setFormNotes] = useState(content.referenceForm?.notes ?? '')
+  const [deadlinePresetId, setDeadlinePresetId] = useState(content.referenceDeadline?.presetId ?? '')
+  const [deadlineMonthId, setDeadlineMonthId] = useState(content.referenceDeadline?.monthId ?? '')
+  const [deadlineDayId, setDeadlineDayId] = useState(content.referenceDeadline?.dayId ?? '')
+  const [deadlineTimeId, setDeadlineTimeId] = useState(content.referenceDeadline?.timeId ?? '')
   useEffect(() => {
     setDayId(content.referenceMonth?.activeDayId ?? '')
     setMonthId(content.referenceMonth?.monthId ?? '')
@@ -33,6 +37,10 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
     setFormEndId(content.referenceForm?.endId ?? '')
     setFormLink(content.referenceForm?.meetingLink ?? '')
     setFormNotes(content.referenceForm?.notes ?? '')
+    setDeadlinePresetId(content.referenceDeadline?.presetId ?? '')
+    setDeadlineMonthId(content.referenceDeadline?.monthId ?? '')
+    setDeadlineDayId(content.referenceDeadline?.dayId ?? '')
+    setDeadlineTimeId(content.referenceDeadline?.timeId ?? '')
   }, [content])
   return <HbarAppUiSchedulingProvider content={{...content, referenceMonth: content.referenceMonth && {
     ...content.referenceMonth, activeDayId: dayId, monthId, yearId, filterId,
@@ -40,6 +48,9 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   }, referenceRange: content.referenceRange && {
     ...content.referenceRange, startId, endId, durationId,
     onStartChange: setStartId, onEndChange: setEndId, onDurationChange: setDurationId,
+  }, referenceDeadline: content.referenceDeadline && {
+    ...content.referenceDeadline, presetId: deadlinePresetId, monthId: deadlineMonthId, dayId: deadlineDayId, timeId: deadlineTimeId,
+    onPresetChange: setDeadlinePresetId, onMonthChange: setDeadlineMonthId, onDayChange: setDeadlineDayId, onTimeChange: setDeadlineTimeId,
   }, referenceForm: content.referenceForm && {
     ...content.referenceForm, name: formName, attendeeQuery: formQuery, attendees: formAttendees, date: formDate,
     startId: formStartId, endId: formEndId, meetingLink: formLink, notes: formNotes,
