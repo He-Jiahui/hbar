@@ -391,6 +391,7 @@ test('read-only permission menu disables all bounded new choices and Plan writes
       plan={{
         entry: { sessionId: firstSession.id, mode: null, status: 'unknown', revision: 2, error: 'RESULT_UNKNOWN' },
         onSetMode: () => Promise.reject(new Error('No Plan writes in the read-only UI fixture')),
+        onSelectOrdinary: () => Promise.reject(new Error('No Plan choice writes in the read-only UI fixture')),
         onRefresh: () => Promise.resolve(),
         onReconcile: () => Promise.resolve(),
       }}

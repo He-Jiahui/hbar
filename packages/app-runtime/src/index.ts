@@ -82,6 +82,7 @@ import { composerModelCommands, createComposerModel } from './composer-model'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { composerPermissionCommands, createComposerPermission } from './composer-permission'
 import { composerPlanModeCommands, createComposerPlanMode } from './composer-plan-mode'
+import { composerPlanChoiceCommands, registerComposerPlanChoice } from './composer-plan-choice'
 import { sessionRenameCommands, createSessionRename } from './session-rename'
 import { sessionArchiveCommands, createSessionArchive } from './session-archive'
 import { createSettingsForms } from './settings-forms'
@@ -260,6 +261,7 @@ export type {
   ComposerGoalReconciliation,
 } from './composer-intent'
 export { composerPlanModeCommands } from './composer-plan-mode'
+export { composerPlanChoiceCommands } from './composer-plan-choice'
 export type { ComposerPlanModeState, ComposerPlanModeEntry, ComposerPlanMode } from './composer-plan-mode'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 export type {
@@ -288,6 +290,7 @@ const runtimeCommands = {
   ...composerIntentCommands,
   ...composerPermissionCommands,
   ...composerPlanModeCommands,
+  ...composerPlanChoiceCommands,
   ...sessionRenameCommands,
   ...sessionArchiveCommands,
   ...planProposalCommands,
@@ -520,6 +523,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       ['submitting', 'unknown'].includes(drafts.reader.getSnapshot()[sessionId]?.status ?? ''),
     onSubscriberError,
   })
+  registerComposerPlanChoice(local, navigation.reader, composerPlanMode.reader, composerPermission.reader)
   const composerIntent = createComposerIntent(local, {
     preparation: executionPreparation,
     goals: options.goals,
@@ -727,6 +731,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(composerIntentCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(composerPlanModeCommands, name) ||
+        Object.hasOwn(composerPlanChoiceCommands, name) ||
         Object.hasOwn(sessionRenameCommands, name) ||
         Object.hasOwn(sessionArchiveCommands, name) ||
         Object.hasOwn(planProposalCommands, name) ||

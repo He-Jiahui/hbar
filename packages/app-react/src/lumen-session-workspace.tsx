@@ -1202,6 +1202,15 @@ function SessionWorkspaceContent({
                               expectedRevision,
                             })
                           },
+                          onSelectOrdinary: async (input, expectedModeRevision) => {
+                            await runtime.commands.execute('composerPlanChoice.selectOrdinary', {
+                              sessionId: input.sessionId,
+                              choice: input.choice,
+                              expectedPermissionRevision: input.expectedRevision,
+                              expectedModeRevision,
+                              ...(input.confirmAllow ? { confirmAllow: true } : {}),
+                            })
+                          },
                           onRefresh: async () => {
                             await runtime.commands.execute('composerPlanMode.refresh', { sessionId })
                           },

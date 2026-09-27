@@ -1069,8 +1069,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         retry: choose('重新读取会话模式', 'Reload session mode'),
         recheck: choose('核对计划模式', 'Recheck Plan mode'),
         approvalPaused: choose(
-          '退出计划模式后才能更改工具审批；原选择已保留。',
-          'Exit Plan mode to change tool approval; your previous choice is retained.',
+          '选择其他工具审批将先退出计划模式；服务端确认后应用选择。',
+          'Choosing another approval exits Plan mode first; the choice applies after Host confirmation.',
         ),
         goalPrepared: choose(
           '先取消目标准备，才能进入计划模式。文字和附件会保留。',

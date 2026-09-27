@@ -157,6 +157,10 @@ function Fixture() {
               onSetMode: async () => {
                 modeWrites++
               },
+              onSelectOrdinary: async () => {
+                modeWrites++
+                selectionWrites++
+              },
               onRefresh: async () => {
                 refreshReads++
               },

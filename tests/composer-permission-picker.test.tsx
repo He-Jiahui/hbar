@@ -20,7 +20,7 @@ const labels: HbarComposerPermissionLabels = {
     exit: '退出计划模式',
     retry: '重试读取',
     recheck: '核对',
-    approvalPaused: '先退出计划模式才能修改审批选择',
+    approvalPaused: '选择其他审批会先退出计划模式',
     goalPrepared: '先取消目标准备，才能进入计划模式；保留文字与附件',
     cancelGoalPreparation: '取消目标准备',
     cancellingGoalPreparation: '正在取消目标准备',
@@ -80,6 +80,7 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   const plan = {
     entry: { sessionId: 'a', mode: 'plan' as const, status: 'ready' as const, error: null, revision: 3 },
     onSetMode: async () => {},
+    onSelectOrdinary: async () => {},
     onRefresh: async () => {},
     onReconcile: async () => {},
   }
@@ -88,7 +89,7 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   expect(html).toContain('退出计划模式')
   expect(html).toContain('此会话持续生效，不修改审批策略')
   expect(html).toContain(labels.plan.approvalPaused)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
   expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
   expect(html.match(/role="menuitemcheckbox"/g)).toHaveLength(1)
   expect(html).toContain('role="menuitemcheckbox" aria-checked="true"')
@@ -130,6 +131,7 @@ test('prepared Goal explains its Plan conflict with a separate localized cancell
     entry: { sessionId: 'a', mode: 'default' as const, status: 'ready' as const, error: null, revision: 3 },
     goalPreparation: { revision: 7, onCancel: async () => {} },
     onSetMode: async () => {},
+    onSelectOrdinary: async () => {},
     onRefresh: async () => {},
     onReconcile: async () => {},
   }
@@ -146,7 +148,13 @@ test('prepared Goal explains its Plan conflict with a separate localized cancell
   const unprepared = renderToStaticMarkup(
     <HbarComposerPermissionPicker
       {...input}
-      plan={{ entry: plan.entry, onSetMode: plan.onSetMode, onRefresh: plan.onRefresh, onReconcile: plan.onReconcile }}
+      plan={{
+        entry: plan.entry,
+        onSetMode: plan.onSetMode,
+        onSelectOrdinary: plan.onSelectOrdinary,
+        onRefresh: plan.onRefresh,
+        onReconcile: plan.onReconcile,
+      }}
     />,
   )
   expect(unprepared).not.toContain(labels.plan.goalPrepared)

@@ -89,6 +89,7 @@ export interface HbarComposerPermissionPickerProps {
       readonly onCancel: (target: { readonly sessionId: string; readonly expectedRevision: number }) => Promise<void>
     }
     readonly onSetMode: (mode: 'default' | 'plan', expectedRevision: number) => Promise<void>
+    readonly onSelectOrdinary: (input: ComposerPermissionSelection, expectedModeRevision: number) => Promise<void>
     readonly onRefresh: () => Promise<void>
     readonly onReconcile: () => Promise<void>
   }
@@ -142,7 +143,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const inFlight = useRef(false)
   const actionGeneration = useRef(0)
   const openedGeneration = useRef<number | null>(null)
-  const ordinaryCurrent = useRef(false)
+  const selectableCurrent = useRef(false)
   const [open, setOpen] = useState(false)
   const [actionBusy, setBusy] = useState(false)
   const [planAction, setPlanAction] = useState<'write' | 'read' | null>(null)
@@ -186,8 +187,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const executionUnresolved = executionStatus !== null && executionStatus !== 'ready'
   const planSelected = executionStatus === 'ready' && planEntry?.mode === 'plan'
   const ordinaryConfirmed = !plan || (executionStatus === 'ready' && planEntry?.mode === 'default')
+  const canSelectOrdinary = ordinaryConfirmed || planSelected
   const confirming =
-    confirmation?.sessionId === sessionId && confirmation.revision === revision && !unavailable && ordinaryConfirmed
+    confirmation?.sessionId === sessionId && confirmation.revision === revision && !unavailable && canSelectOrdinary
       ? confirmation
       : null
   const triggerLabel = executionUnresolved
@@ -217,8 +219,8 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
     }
   }, [sessionId])
   useLayoutEffect(() => {
-    ordinaryCurrent.current = ordinaryConfirmed
-  }, [ordinaryConfirmed])
+    selectableCurrent.current = canSelectOrdinary
+  }, [canSelectOrdinary])
 
   useEffect(() => {
     const generation = goalCancelGeneration.current + 1
@@ -304,15 +306,18 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       })
   }
   const select = (target: ComposerPermissionSelection) => {
-    if (!ordinaryConfirmed || preparationUnavailable || busy || goalCancelPending.current || inFlight.current) return
+    if (!canSelectOrdinary || preparationUnavailable || busy || goalCancelPending.current || inFlight.current) return
+    const fromPlan = planSelected
+    const modeRevision = planEntry?.revision ?? 0
     const generation = actionGeneration.current
     inFlight.current = true
     setBusy(true)
     setLocalError(null)
     void Promise.resolve()
       .then(async () => {
-        if (actionGeneration.current !== generation || !ordinaryCurrent.current) return false
-        await onSelect(target)
+        if (actionGeneration.current !== generation || !selectableCurrent.current) return false
+        if (fromPlan && plan) await plan.onSelectOrdinary(target, modeRevision)
+        else await onSelect(target)
         return true
       })
       .then((applied) => {
@@ -660,12 +665,12 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     indicator="none"
                     role="menuitemradio"
                     aria-checked={value === choice && ordinaryConfirmed}
-                    disabled={preparationUnavailable || busy || !ordinaryConfirmed}
+                    disabled={preparationUnavailable || busy || !canSelectOrdinary}
                     className="hbar-composer-permission-option"
                     data-choice={value}
                     onClick={() => {
-                      if (!ordinaryConfirmed) return
-                      if (value === 'allow' && choice !== 'allow')
+                      if (!canSelectOrdinary) return
+                      if (value === 'allow' && (choice !== 'allow' || planSelected))
                         setConfirmation({ sessionId, revision, sessionLabel })
                       else select({ sessionId, choice: value, expectedRevision: revision })
                     }}
@@ -675,7 +680,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                       <LumenText as="span">{labels.options[value].label}</LumenText>
                       <LumenText as="span">
                         {value === 'inherit'
-                          ? labels.inheritedSnapshotHint(hostDefault.mode ? labels.options[hostDefault.mode].label : null)
+                          ? labels.inheritedSnapshotHint(
+                              hostDefault.mode ? labels.options[hostDefault.mode].label : null,
+                            )
                           : labels.options[value].description}
                       </LumenText>
                     </LumenFrame>

@@ -21,6 +21,7 @@ function props(locale: ShellLocale, entry: ComposerPlanModeEntry | undefined): H
     plan: {
       entry,
       onSetMode: async () => {},
+      onSelectOrdinary: async () => {},
       onRefresh: async () => {},
       onReconcile: async () => {},
     },
