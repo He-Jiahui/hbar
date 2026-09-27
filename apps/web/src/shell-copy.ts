@@ -30,6 +30,7 @@ import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
 import { composerGoalRecoveryCopy } from './composer-goal-recovery-copy'
 import { composerExecutionCopy } from './composer-execution-copy'
 import { extensionCollectionCopy } from './extension-collection-copy'
+import { extensionNavigationCopy } from './extension-navigation-copy'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
@@ -485,7 +486,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.model': '模型',
         'i18n:settings.groups.session': '会话默认值',
         'i18n:settings.groups.providers': '供应商',
-        'i18n:settings.groups.extensions': '扩展与技能',
+        'i18n:settings.groups.extensions': '插件',
+        'i18n:settings.groups.skills': '技能',
         'i18n:settings.provider.model.label': '模型',
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
         'i18n:settings.provider.thinkingLevel.label': '思考等级',
@@ -497,7 +499,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.model': 'Model',
         'i18n:settings.groups.session': 'Session defaults',
         'i18n:settings.groups.providers': 'Providers',
-        'i18n:settings.groups.extensions': 'Extensions and skills',
+        'i18n:settings.groups.extensions': 'Plugins',
+        'i18n:settings.groups.skills': 'Skills',
         'i18n:settings.provider.model.label': 'Model',
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
         'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
@@ -2090,6 +2093,7 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   return {
     ...extensionDetailCopy(locale),
     collections: extensionCollectionCopy(locale),
+    navigation: extensionNavigationCopy(locale),
     title: choose('扩展与技能', 'Extensions and skills'),
     description: choose(
       '查看插件详情、管理可选插件，浏览 Host 已发现的技能。',

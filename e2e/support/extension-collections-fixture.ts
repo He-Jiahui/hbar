@@ -290,13 +290,23 @@ export async function openSession(f: ExtensionCollectionsFixture, session = f.re
   await expect(composer(f)).toBeVisible()
 }
 export async function openExtensions(f: ExtensionCollectionsFixture): Promise<void> {
+  await openSettingsGroup(f, 'extensions')
+}
+export async function openSettingsGroup(f: ExtensionCollectionsFixture, group: 'extensions' | 'skills'): Promise<void> {
   await f.page.getByRole('button', { name: f.copy.session.tools.settings, exact: true }).click()
+  await selectExtensionCollection(f, group === 'extensions' ? 'plugins' : 'skills')
+}
+export async function selectExtensionCollection(
+  f: ExtensionCollectionsFixture,
+  collection: 'plugins' | 'skills',
+): Promise<void> {
+  const group = collection === 'plugins' ? 'extensions' : 'skills'
   const select = f.page.getByRole('combobox', { name: f.copy.settings.groups, exact: true })
-  if (await select.isVisible()) await select.selectOption('extensions')
+  if (await select.isVisible()) await select.selectOption(group)
   else
     await f.page
       .getByRole('navigation', { name: f.copy.settings.groups, exact: true })
-      .getByRole('button', { name: f.copy.settings.resolve('i18n:settings.groups.extensions'), exact: true })
+      .getByRole('button', { name: f.copy.settings.resolve(`i18n:settings.groups.${group}`), exact: true })
       .click()
   await expect(f.page.locator('.hbar-app-react-extension-workspace')).toBeVisible()
 }

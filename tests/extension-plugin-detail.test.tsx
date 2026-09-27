@@ -99,7 +99,7 @@ test('detail uses inspect, preserves filtered page and pinned target, and return
     expect(value.entry().detail).toMatchObject({ pluginId: 'plugin-25', status: 'ready', plugin: { id: 'plugin-25' } })
     await value.runtime.view.commands.execute('extensionWorkspace.back', { instanceId })
     expect(value.entry()).toMatchObject({
-      query: 'Review plugin',
+      queries: { plugins: 'Review plugin', skills: 'Review plugin' },
       pluginPage: 1,
       selectedPluginId: 'plugin-25',
       detail: null,

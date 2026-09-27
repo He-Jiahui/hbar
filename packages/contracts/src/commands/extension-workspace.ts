@@ -38,7 +38,7 @@ export const extensionWorkspaceCommands = {
   ),
   'extensionWorkspace.setQuery': defineCommand(
     metadata('extensionWorkspace.setQuery'),
-    z.strictObject({ instanceId, query: z.string().max(200) }),
+    z.strictObject({ instanceId, query: z.string().max(200), collection: z.enum(['plugins', 'skills']).optional() }),
     summary,
   ),
   'extensionWorkspace.setPage': defineCommand(

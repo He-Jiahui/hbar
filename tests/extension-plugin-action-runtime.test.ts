@@ -111,7 +111,7 @@ test('confirmed reply synchronizes list and current detail without changing sele
     reply.resolve([plugin('a', 'disabled'), plugin('b')])
     await write
     expect(value.entry()).toMatchObject({
-      query: 'a',
+      queries: { plugins: 'a', skills: 'a' },
       selectedPluginId: 'b',
       detail: { pluginId: 'b', plugin: { id: 'b' } },
       actions: { a: { status: 'succeeded' } },

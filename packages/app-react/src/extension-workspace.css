@@ -240,13 +240,16 @@
 
 .hbar-app-react-extension-workspace h2,
 .hbar-app-react-extension-workspace h3,
+.hbar-app-react-extension-title,
 .hbar-app-react-extension-collection-heading {
   font-weight: 650;
   line-height: 1.3;
 }
 
-.hbar-app-react-extension-workspace h2 {
+.hbar-app-react-extension-workspace h2,
+.hbar-app-react-extension-title {
   font-size: 0.875rem;
+  overflow-wrap: anywhere;
 }
 
 .hbar-app-react-extension-workspace h3,

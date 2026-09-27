@@ -17,6 +17,7 @@ export function ExtensionCollectionFeedback({
   onRetry,
   owner,
   instanceId,
+  collection,
   heading,
 }: {
   readonly state: ExtensionWorkspaceEntryState['collections']['plugins'] | undefined
@@ -25,6 +26,7 @@ export function ExtensionCollectionFeedback({
   readonly onRetry: () => Promise<void>
   readonly owner: object
   readonly instanceId: string
+  readonly collection: 'plugins' | 'skills'
   readonly heading: RefObject<HTMLElement | null>
 }) {
   const button = useRef<HTMLButtonElement>(null)
@@ -50,7 +52,7 @@ export function ExtensionCollectionFeedback({
       lease.current?.release()
       lease.current = null
     }
-  }, [owner, instanceId])
+  }, [owner, instanceId, collection])
   useLayoutEffect(() => {
     latestState.current = state
     const captured = lease.current

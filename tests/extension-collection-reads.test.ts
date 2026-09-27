@@ -195,7 +195,7 @@ for (const failed of ['plugins', 'skills'] as const)
         failed === 'plugins' ? 'plugin.list' : 'skill.list',
       ])
       expect(f.entry()).toMatchObject({
-        query: 'plugin',
+        queries: { plugins: 'plugin', skills: 'plugin' },
         pluginPage: 1,
         selectedPluginId: 'plugin-25',
         detail: { pluginId: 'plugin-25', status: 'ready' },

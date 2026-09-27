@@ -31,7 +31,7 @@ function entry(overrides: Partial<ExtensionWorkspaceEntryState> = {}): Extension
     collections: { plugins: collection('ready', true), skills: collection('ready', true) },
     actions: {},
     error: null,
-    query: '',
+    queries: { plugins: '', skills: '' },
     pluginPage: 0,
     skillPage: 0,
     selectedPluginId: null,
@@ -242,7 +242,7 @@ for (const count of [1, 20, 21]) {
 }
 
 test('filters distinguish confirmed no-match from a stale empty projection and long localized copy is preserved', () => {
-  const value = entry({ query: 'no-result' })
+  const value = entry({ queries: { plugins: 'no-result', skills: 'no-result' } })
   const ready = render(value, 'zh-CN')
   expect(ready.html).toContain(ready.labels.noMatches)
   const long =

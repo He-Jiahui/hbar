@@ -296,7 +296,7 @@ export function createExtensionWorkspace(
         actions: {},
         error: null,
         collections: { plugins: idleCollection(), skills: idleCollection() },
-        query: '',
+        queries: { plugins: '', skills: '' },
         pluginPage: 0,
         skillPage: 0,
         selectedPluginId: null,
@@ -467,8 +467,17 @@ export function createExtensionWorkspace(
     replace(next)
     return summary(next)
   })
-  local.register(extensionWorkspaceCommands['extensionWorkspace.setQuery'], ({ instanceId, query }) => {
-    const next = { ...entryFor(instanceId), query, pluginPage: 0, skillPage: 0 }
+  local.register(extensionWorkspaceCommands['extensionWorkspace.setQuery'], ({ instanceId, query, collection }) => {
+    const entry = entryFor(instanceId)
+    const next = {
+      ...entry,
+      queries: collection ? { ...entry.queries, [collection]: query } : { plugins: query, skills: query },
+      ...(collection === 'plugins'
+        ? { pluginPage: 0 }
+        : collection === 'skills'
+          ? { skillPage: 0 }
+          : { pluginPage: 0, skillPage: 0 }),
+    }
     replace(next)
     return summary(next)
   })

@@ -359,7 +359,7 @@ export interface ExtensionWorkspaceEntryState {
   }>
   readonly actions: Readonly<Record<string, Readonly<ExtensionWorkspaceActionState>>>
   readonly error: string | null
-  readonly query: string
+  readonly queries: Readonly<{ plugins: string; skills: string }>
   readonly pluginPage: number
   readonly skillPage: number
   readonly selectedPluginId: string | null

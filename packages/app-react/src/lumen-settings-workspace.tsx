@@ -8,6 +8,7 @@ import {
   Puzzle,
   Server,
   Settings,
+  Sparkles,
   Stethoscope,
   type LucideIcon,
 } from 'lucide-react'
@@ -96,7 +97,7 @@ export interface HbarSettingsAdditionalGroup {
 }
 
 export type HbarSettingsGroupIcon =
-  'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'diagnostics' | 'usage' | 'settings'
+  'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'skills' | 'diagnostics' | 'usage' | 'settings'
 
 export interface HbarSettingsGroupPresentation {
   readonly id: string
@@ -112,6 +113,7 @@ const groupIcons = {
   session: MessageSquare,
   providers: Server,
   extensions: Puzzle,
+  skills: Sparkles,
   diagnostics: Stethoscope,
   usage: ChartNoAxesCombined,
   settings: Settings,

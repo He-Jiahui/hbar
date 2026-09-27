@@ -7,6 +7,7 @@ export const WEB_SETTINGS_GROUP_PRESENTATION = [
   { id: 'appearance', icon: 'appearance', scope: 'client', order: 10 },
   { id: 'model', icon: 'model', scope: 'layered', order: 20 },
   { id: 'session', icon: 'session', scope: 'layered', order: 30 },
+  { id: 'skills', icon: 'skills', scope: 'host', order: 39 },
   { id: 'extensions', icon: 'extensions', scope: 'host', order: 40 },
   { id: 'usage', icon: 'usage', scope: 'host', order: 45 },
   { id: 'diagnostics', icon: 'diagnostics', scope: 'host', order: 50 },

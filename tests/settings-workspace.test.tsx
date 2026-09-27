@@ -538,11 +538,12 @@ test.each(['zh-CN', 'en-US'] as const)(
             connected
             additionalGroups={[
               { id: 'appearance', label: copy.appearance.group, order: 0 },
+              { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
               { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
             ]}
             groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
             renderGroup={(groupId) =>
-              ['appearance', 'providers', 'extensions', 'diagnostics'].includes(groupId) ? (
+              ['appearance', 'providers', 'extensions', 'skills', 'diagnostics'].includes(groupId) ? (
                 <div data-test-group={groupId}>{copy.settings.pageTitle}</div>
               ) : null
             }
@@ -558,7 +559,7 @@ test.each(['zh-CN', 'en-US'] as const)(
         field: model,
         value: 'unsaved-session-model',
       })
-      for (const section of ['providers', 'extensions', 'diagnostics', 'appearance']) {
+      for (const section of ['providers', 'extensions', 'skills', 'diagnostics', 'appearance']) {
         await runtime.view.commands.execute('app.openSettings', { scope: 'session', targetId: session.id, section })
         const entry = await waitForReady(runtime)
         const html = render()
@@ -593,10 +594,19 @@ test.each(['zh-CN', 'en-US'] as const)(
         copy.appearance.group,
         copy.settings.resolve('i18n:settings.groups.model'),
         copy.settings.resolve('i18n:settings.groups.session'),
+        copy.settings.resolve('i18n:settings.groups.skills'),
         copy.settings.resolve('i18n:settings.groups.extensions'),
         copy.diagnostics.title,
       ])
-      for (const [index, glyph] of ['server', 'palette', 'cpu', 'message-square', 'puzzle', 'stethoscope'].entries()) {
+      for (const [index, glyph] of [
+        'server',
+        'palette',
+        'cpu',
+        'message-square',
+        'sparkles',
+        'puzzle',
+        'stethoscope',
+      ].entries()) {
         expect(navigation.groups[index]?.icon).toContain(`lucide-${glyph}`)
         expect(navigation.groups[index]?.tier).toBe('md')
         expect(navigation.groups[index]?.iconHidden).toBe(true)

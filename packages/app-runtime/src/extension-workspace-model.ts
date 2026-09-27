@@ -4,11 +4,12 @@ import type { ExtensionWorkspaceEntryState } from './types'
 export const EXTENSION_PAGE_SIZE = 20
 
 export function extensionWorkspacePage(entry: Readonly<ExtensionWorkspaceEntryState>) {
-  const query = entry.query.trim().toLowerCase()
+  const pluginQuery = entry.queries.plugins.trim().toLowerCase()
+  const skillQuery = entry.queries.skills.trim().toLowerCase()
   const plugins = entry.plugins.filter((plugin) =>
-    `${plugin.name} ${plugin.id} ${plugin.description}`.toLowerCase().includes(query),
+    `${plugin.name} ${plugin.id} ${plugin.description}`.toLowerCase().includes(pluginQuery),
   )
-  const skills = entry.skills.filter((skill) => `${skill.id} ${skill.path}`.toLowerCase().includes(query))
+  const skills = entry.skills.filter((skill) => `${skill.id} ${skill.path}`.toLowerCase().includes(skillQuery))
   const pluginPage = Math.min(entry.pluginPage, Math.max(0, Math.ceil(plugins.length / EXTENSION_PAGE_SIZE) - 1))
   const skillPage = Math.min(entry.skillPage, Math.max(0, Math.ceil(skills.length / EXTENSION_PAGE_SIZE) - 1))
   return {

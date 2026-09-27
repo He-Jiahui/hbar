@@ -144,15 +144,15 @@ with their exact temporary roots removed; its 50 captures all use the final V3
 module and have no Settings-pane overflow. Evidence files remain recoverable
 in the artifact directories; only isolated generated test data was removed.
 
-## Remaining navigation boundary
+## Subsequent navigation unit
 
-This unit does not yet separate the Settings rail into Plugins and Skills.
-The reference has two direct categories, while hbar still places Skills after
-the plugin list. The next independently verified unit should expose Skills
-directly, retain compatible `section: extensions` entry behavior, preserve
-independent search/page state, and prevent old plugin detail/retry focus from
-crossing collection navigation. It should reuse this runtime owner and the
-existing Host discovery contract, without inventing install/edit/run actions.
+At this P1 verification checkpoint the Settings rail still combined Plugins and
+Skills, leaving Skills after the plugin list. The subsequent
+[direct category navigation unit](desktop-extension-navigation.md) separates
+those entries while reusing this read owner and existing Host discovery contract.
+Its own report records independent query/page state, compatible `extensions`
+entry behavior, plugin detail/retry focus isolation and newer browser/native
+evidence. This historical P1 report does not claim install/edit/run capabilities.
 
 ## Repository gates and reproduction
 
