@@ -319,6 +319,9 @@ export type InteractionCase = Readonly<{
     | 'detail-closed'
     | 'sprint-grabbed'
     | 'sprint-target'
+    | 'wizard-information-step-two'
+    | 'wizard-information-step-three'
+    | 'wizard-information-empty-name'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1861,6 +1864,15 @@ async function prepareKanbanSprintScenario(root: Locator, scenario: (typeof kanb
   await card.focus()
   await card.press('Space')
   if (scenario === 'sprint-target') await card.press('ArrowRight')
+}
+const wizardInformationScenarios = ['wizard-information-step-two', 'wizard-information-step-three', 'wizard-information-empty-name'] as const
+async function prepareWizardInformationScenario(root: Locator, scenario: (typeof wizardInformationScenarios)[number]): Promise<void> {
+  if (scenario === 'wizard-information-empty-name') {
+    await root.getByRole('textbox', {name: 'First name'}).fill('')
+    return
+  }
+  await root.getByRole('button', {name: 'Next step'}).click()
+  if (scenario === 'wizard-information-step-three') await root.locator('ol button').nth(2).click()
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3498,6 +3510,8 @@ async function replayInteraction(
     await prepareKanbanDetailClosed(root)
   if (spec.id === 'hbar-app-ui-kanban-5' && kanbanSprintScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
+  if (spec.id === 'hbar-app-ui-wizard-1' && wizardInformationScenarios.some((value) => value === interaction.scenario))
+    await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3826,6 +3840,8 @@ async function replayReferenceInteraction(
     await prepareKanbanDetailClosed(root)
   if (reference.id === 'hbar-app-ui-kanban-5' && kanbanSprintScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
+  if (reference.id === 'hbar-app-ui-wizard-1' && wizardInformationScenarios.some((value) => value === interaction.scenario))
+    await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4581,6 +4597,13 @@ async function runInteractionsParallel(
                 if (!card) throw new Error('Grabbed MER-52 missing from reference sprint board')
                 const action = scenario === 'sprint-grabbed' ? 'move-right' : 'drop'
                 discovered.push({id: `${spec.id}:${scenario}:${action}`, action: 'press', key: scenario === 'sprint-grabbed' ? 'ArrowRight' : 'Space', control: card, scenario, focusBefore: true})
+              }
+            }
+            if (spec.id === 'hbar-app-ui-wizard-1') {
+              for (const scenario of wizardInformationScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareWizardInformationScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')

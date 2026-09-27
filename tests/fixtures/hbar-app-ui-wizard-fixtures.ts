@@ -4,6 +4,25 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceInformation: {
+    labels: {
+      title: 'Your information', detail: 'Billing owner details. These appear on every receipt.',
+      emailHint: 'Receipts and payment failures go to this address.', back: 'Back', next: 'Next step',
+      steps: 'Account setup steps', required: '*', empty: 'No information fields',
+    },
+    steps: [{id: 'information', label: 'Information'}, {id: 'payment', label: 'Payment'}, {id: 'completed', label: 'Completed'}],
+    fields: [
+      {id: 'first-name', label: 'First name', value: 'Mara', kind: 'text', required: true},
+      {id: 'last-name', label: 'Last name', value: 'Chen', kind: 'text', required: true},
+      {id: 'company', label: 'Company', value: 'Kepler Works', kind: 'text', required: true},
+      {id: 'handle', label: 'Public handle', value: 'kepler-works', kind: 'text', prefix: '@'},
+      {id: 'role', label: 'Role', value: 'Procurement owner', kind: 'select', options: [{id: 'Procurement owner', label: 'Procurement owner'}, {id: 'Finance', label: 'Finance'}, {id: 'Engineering', label: 'Engineering'}, {id: 'Founder', label: 'Founder'}]},
+      {id: 'country', label: 'Country', value: 'United States', kind: 'select', options: [{id: 'United States', label: 'United States'}, {id: 'Portugal', label: 'Portugal'}, {id: 'Germany', label: 'Germany'}, {id: 'Japan', label: 'Japan'}]},
+      {id: 'email', label: 'Email address', value: 'mara@kepler.works', kind: 'email', required: true},
+      {id: 'mobile', label: 'Mobile', value: '+1 415 5151', kind: 'tel', prefix: 'US'},
+    ],
+    stepId: 'information', onStepChange() {}, onFieldChange() {},
+  },
   information: {
     labels: {
       title: 'Your information',
@@ -183,6 +202,15 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceInformation: HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation,
+      labels: {
+        title: '你的信息', detail: '账单负责人资料，将显示在每张收据上。', emailHint: '收据和支付失败信息发送到这个地址。',
+        back: '上一步', next: '下一步', steps: '账户设置步骤', required: '*', empty: '没有信息字段',
+      },
+      steps: [{id: 'information', label: '资料'}, {id: 'payment', label: '付款'}, {id: 'completed', label: '完成'}],
+      fields: [{id: 'first-name', label: '名字', value: '陈玛拉', kind: 'text', required: true}],
+    },
     information: {
       ...HBAR_APP_UI_WIZARD_FIXTURES.information!,
       labels: {
@@ -197,6 +225,17 @@ export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent
       },
       steps: [{ id: 'information', label: '基本信息' }],
       fields: [{ id: 'name', label: '姓名', value: '陈玛拉', required: true }],
+    },
+  }
+}
+
+export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent {
+  const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation!
+  return {
+    ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceInformation: {
+      ...flow,
+      fields: [...flow.fields, ...Array.from({length: 40}, (_, index) => ({id: `extended-${index}`, label: `Long review field ${index + 1} for the billing owner`, value: `Value ${index + 1}`, kind: 'text' as const}))],
     },
   }
 }

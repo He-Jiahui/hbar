@@ -1,0 +1,3 @@
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-wizard-1']) {
+  background: light-dark(#fff, #0a0a0a);
+}

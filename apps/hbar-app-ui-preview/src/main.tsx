@@ -12,6 +12,7 @@ import {
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import { KanbanPreviewHost } from './KanbanPreviewHost'
+import { WizardPreviewHost } from './WizardPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
@@ -45,7 +46,6 @@ import {
   HbarAppUiNotificationsProvider,
   HbarAppUiMobileProvider,
   HbarAppUiSupportProvider,
-  HbarAppUiWizardProvider,
   HbarAppUiOnboardingProvider,
   HbarAppUiListProvider,
   HbarAppUiFilteringProvider,
@@ -65,6 +65,7 @@ import type {
 } from 'hbar-app-ui/catalog'
 import 'hbar-app-ui/theme.css'
 import './preview.css'
+import './wizard-preview.css'
 import { VariantHarness } from './VariantHarness'
 import { ShellPreviewHost } from './ShellPreviewHost'
 import { ConversationPreviewHost } from './ConversationPreviewHost'
@@ -150,7 +151,7 @@ import { appDialogFixture } from '../../../tests/fixtures/hbar-app-ui-app-dialog
 import { createHbarAppUiNotificationActivityFixture, createHbarAppUiNotificationBellFixture, createHbarAppUiNotificationPreferencesFixture, createHbarAppUiNotificationSystemFixture } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
 import { HBAR_APP_UI_MOBILE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-mobile-fixtures'
 import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-support-fixtures'
-import { HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
+import { createHbarAppUiWizardLocalizedFixtures, createHbarAppUiWizardOverflowFixtures, HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-shell-fixtures'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
 import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
@@ -388,7 +389,12 @@ function PreviewApp() {
   )
   const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])
   const supportContent = useMemo(() => HBAR_APP_UI_SUPPORT_FIXTURES, [])
-  const wizardContent = useMemo(() => HBAR_APP_UI_WIZARD_FIXTURES, [])
+  const wizardContent = useMemo(() => {
+    const fixture = new URLSearchParams(window.location.search).get('wizardFixture')
+    return fixture === 'localized' ? createHbarAppUiWizardLocalizedFixtures()
+      : fixture === 'overflow' ? createHbarAppUiWizardOverflowFixtures()
+        : HBAR_APP_UI_WIZARD_FIXTURES
+  }, [])
   const appShellContent = useMemo(() => HBAR_APP_UI_APP_SHELL_FIXTURES, [])
   const appSidebarContent = useMemo(
     () => ({
@@ -528,7 +534,7 @@ function PreviewApp() {
                                                   <HbarAppUiNotificationsProvider content={notificationsContent}>
                                                     <HbarAppUiMobileProvider content={mobileContent}>
                                                       <HbarAppUiSupportProvider content={supportContent}>
-                                                        <HbarAppUiWizardProvider content={wizardContent}>
+                                                        <WizardPreviewHost content={wizardContent}>
                                                           <HbarAppUiOnboardingProvider content={onboardingContent}>
                                                             <HbarAppUiListProvider content={listContent}>
                                                               <HbarAppUiFilteringProvider content={filteringContent}>
@@ -587,7 +593,7 @@ function PreviewApp() {
                                                               </HbarAppUiFilteringProvider>
                                                             </HbarAppUiListProvider>
                                                           </HbarAppUiOnboardingProvider>
-                                                        </HbarAppUiWizardProvider>
+                                                        </WizardPreviewHost>
                                                       </HbarAppUiSupportProvider>
                                                     </HbarAppUiMobileProvider>
                                                   </HbarAppUiNotificationsProvider>
@@ -770,7 +776,7 @@ function PreviewApp() {
                                                             >
                                                               <HbarAppUiMobileProvider content={mobileContent}>
                                                                 <HbarAppUiSupportProvider content={supportContent}>
-                                                                  <HbarAppUiWizardProvider content={wizardContent}>
+                                                                  <WizardPreviewHost content={wizardContent}>
                                                                     <HbarAppUiOnboardingProvider
                                                                       content={onboardingContent}
                                                                     >
@@ -841,7 +847,7 @@ function PreviewApp() {
                                                                         </HbarAppUiFilteringProvider>
                                                                       </HbarAppUiListProvider>
                                                                     </HbarAppUiOnboardingProvider>
-                                                                  </HbarAppUiWizardProvider>
+                                                                  </WizardPreviewHost>
                                                                 </HbarAppUiSupportProvider>
                                                               </HbarAppUiMobileProvider>
                                                             </HbarAppUiNotificationsProvider>

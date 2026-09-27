@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-1')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-information-reference.css', 'wizard/InformationReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '12:click', change: 'Next advances the progress rail while retaining the information form'},
+        {viewport: 'tablet', theme: 'dark', suffix: '2:click', change: 'Completed jump marks preceding steps complete without inventing another page'},
+        {viewport: 'mobile', theme: 'light', suffix: '3:fill', change: 'Narrow required first-name field updates in normal document flow'},
+        {viewport: 'desktop', theme: 'dark', suffix: '7:select', change: 'Native Role choice changes independently of step state'},
+        {viewport: 'mobile', theme: 'dark', suffix: '1:click', change: 'Narrow numbered step button selects Payment'},
+        {viewport: 'desktop', theme: 'light', suffix: 'wizard-information-step-two:11:click', change: 'Back returns to Information and re-disables itself'},
+        {viewport: 'stress', theme: 'dark', suffix: 'wizard-information-step-three:12:click', change: 'Next at final progress marker remains a no-op'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'wizard-information-empty-name:12:click', change: 'Empty starred field still advances progress, matching the source non-validating form'},
+      ],
+      inferences: [
+        {scope: 'Other fields, options, steps and viewport/theme combinations', basis: 'All eight fields use one Host value contract, two native selects share one option mechanism, and three rail steps share one index transition. The starred field is observed to be non-validating. Eight distinct states and eight static pairs cover input, selection, forward/back/jump/boundary and narrow flow; repeated controls are verified through focused tests.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-kanban-6')
     return {
       revision: 1,
