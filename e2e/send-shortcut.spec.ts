@@ -13,6 +13,7 @@ import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { encodePath } from '@hbar/schema-core'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { WEB_ZOOM_STORAGE_KEY } from '../apps/web/src/app-zoom'
 
 const prefix = 'hbar-send-shortcut-'
 const evidence = resolve(process.env.HBAR_SEND_SHORTCUT_EVIDENCE ?? 'artifacts/send-shortcut/browser')
@@ -348,6 +349,66 @@ async function rejectOneSendPreferenceWrite(page: Page) {
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   for (const width of [1440, 320]) {
+    test(`device zoom has a General entry, shortcuts, reset and same-origin persistence: ${locale} ${width}`, async ({
+      browser,
+    }) => {
+      test.setTimeout(90_000)
+      const f = await start(browser, locale, width)
+      try {
+        const editor = prompt(f)
+        const draft = `Zoom keeps the original draft — ${locale}`
+        await editor.fill(draft)
+        await openGeneral(f)
+        const zoom = f.page.locator('.hbar-web-general-zoom')
+        const range = zoom.getByRole('slider', { name: f.copy.general.zoom.title, exact: true })
+        await expect(zoom).toBeVisible()
+        await expect(range).toHaveValue('1')
+        await expect(zoom.getByText(f.copy.general.zoom.shortcut, { exact: true })).toBeVisible()
+        await f.page.keyboard.press('Control+=')
+        await expect(range).toHaveValue('1.1')
+        await f.page.keyboard.press('Control+=')
+        await expect(range).toHaveValue('1.2')
+        await expect.poll(() => f.page.evaluate((key) => localStorage.getItem(key), WEB_ZOOM_STORAGE_KEY)).toBe('1.2')
+        await expect(zoom.getByText(f.copy.general.zoom.saved, { exact: true })).toBeVisible()
+        await zoom.scrollIntoViewIfNeeded()
+        await capture(f, 'zoom-applied')
+        await f.page.getByRole('button', { name: f.copy.settings.back, exact: true }).click()
+        await expectComposerText(editor, draft)
+        await f.page.reload()
+        const reloaded = await openGeneral(f)
+        await expect(f.page.locator('.hbar-web-general-zoom').getByRole('slider')).toHaveValue('1.2')
+        await expect(reloaded).toBeVisible()
+        await f.page.keyboard.press('Control+0')
+        const reloadedRange = f.page.locator('.hbar-web-general-zoom').getByRole('slider')
+        await expect(reloadedRange).toHaveValue('1')
+        await expect.poll(() => f.page.evaluate((key) => localStorage.getItem(key), WEB_ZOOM_STORAGE_KEY)).toBe('1')
+        await reloadedRange.focus()
+        await reloadedRange.press('ArrowRight')
+        await expect(reloadedRange).toHaveValue('1.01')
+        await expect.poll(() => f.page.evaluate((key) => localStorage.getItem(key), WEB_ZOOM_STORAGE_KEY)).toBe('1.01')
+        await f.page.getByRole('button', { name: f.copy.general.zoom.reset, exact: true }).click()
+        await expect(reloadedRange).toHaveValue('1')
+        await reloadedRange.focus()
+        await reloadedRange.press('End')
+        await expect(reloadedRange).toHaveValue('2')
+        await expect.poll(() => f.page.evaluate((key) => localStorage.getItem(key), WEB_ZOOM_STORAGE_KEY)).toBe('2')
+        expect(await f.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
+        await reloadedRange.press('Home')
+        await expect(reloadedRange).toHaveValue('0.5')
+        await expect.poll(() => f.page.evaluate((key) => localStorage.getItem(key), WEB_ZOOM_STORAGE_KEY)).toBe('0.5')
+        expect(await f.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
+        await f.page.getByRole('button', { name: f.copy.general.zoom.reset, exact: true }).click()
+        await expect(reloadedRange).toHaveValue('1')
+        await reloadedRange.scrollIntoViewIfNeeded()
+        await capture(f, 'zoom-reset')
+        expect(await userRuns(f)).toHaveLength(0)
+        expect(f.commands.filter((command) => command === 'run.submit')).toHaveLength(0)
+        expect(f.errors).toEqual([])
+      } finally {
+        await stop(f)
+      }
+    })
+
     test(`Host-global send preference controls the existing composer without changing target: ${locale} ${width}`, async ({
       browser,
     }) => {

@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useStore } from 'zustand'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
 import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
+import { DEFAULT_WEB_ZOOM, MAX_WEB_ZOOM, MIN_WEB_ZOOM, type WebZoomController } from './app-zoom'
 import type { ShellLocale } from './shell-copy'
 import './GeneralSettings.css'
 
@@ -36,6 +37,127 @@ export interface WebGeneralSettingsLabels {
     readonly recheck: string
     readonly retryOriginal: string
   }
+  readonly zoom: {
+    readonly title: string
+    readonly description: string
+    readonly shortcut: string
+    readonly level: (percent: number) => string
+    readonly reset: string
+    readonly loading: string
+    readonly saved: string
+    readonly readError: string
+    readonly saveError: string
+    readonly applyError: string
+    readonly nativeFallback: string
+    readonly retryRead: string
+    readonly retrySave: string
+  }
+}
+
+function WebGeneralZoom({
+  labels,
+  controller,
+  native,
+}: {
+  readonly labels: WebGeneralSettingsLabels['zoom']
+  readonly controller: WebZoomController
+  readonly native: boolean
+}) {
+  const state = useStore(controller.store)
+  const [draft, setDraft] = useState(state.level)
+  const draftRef = useRef(draft)
+  const dragging = useRef(false)
+  useLayoutEffect(() => {
+    if (dragging.current) return
+    draftRef.current = state.level
+    setDraft(state.level)
+  }, [state.level])
+  const edit = (level: number) => {
+    draftRef.current = level
+    setDraft(level)
+  }
+  const commit = () => {
+    dragging.current = false
+    if (draftRef.current !== controller.store.getState().level) void controller.select(draftRef.current)
+  }
+  const disabled = state.status === 'loading' || state.status === 'applying'
+  return (
+    <LumenFrame as="fieldset" className="hbar-web-general-zoom">
+      <LumenText as="legend" id="hbar-general-zoom-label" variant="label">
+        {labels.title}
+      </LumenText>
+      <LumenText as="p" tone="muted" variant="supporting">
+        {labels.description}
+      </LumenText>
+      <LumenText as="p" tone="subtle" variant="supporting">
+        {labels.shortcut}
+      </LumenText>
+      <LumenFrame className="hbar-web-general-zoom-control">
+        <LumenText as="strong" role="status">
+          {labels.level(Math.round(draft * 100))}
+        </LumenText>
+        <LumenButton
+          variant="text"
+          size="s"
+          disabled={disabled || (state.level === DEFAULT_WEB_ZOOM && draft === DEFAULT_WEB_ZOOM)}
+          onClick={() => void controller.select(DEFAULT_WEB_ZOOM)}
+        >
+          {labels.reset}
+        </LumenButton>
+      </LumenFrame>
+      <LumenFrame className="hbar-web-general-zoom-range">
+        <LumenText as="small">{labels.level(MIN_WEB_ZOOM * 100)}</LumenText>
+        <LumenRange
+          aria-labelledby="hbar-general-zoom-label"
+          aria-valuetext={labels.level(Math.round(draft * 100))}
+          min={MIN_WEB_ZOOM}
+          max={MAX_WEB_ZOOM}
+          step={0.01}
+          value={draft}
+          disabled={disabled}
+          onPointerDown={() => {
+            dragging.current = true
+          }}
+          onPointerUp={commit}
+          onPointerCancel={() => {
+            dragging.current = false
+            edit(state.level)
+          }}
+          onChange={(event) => edit(Number(event.currentTarget.value))}
+          onKeyUp={(event) => {
+            if (
+              ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(
+                event.key,
+              )
+            )
+              commit()
+          }}
+          onBlur={commit}
+        />
+        <LumenText as="small">{labels.level(MAX_WEB_ZOOM * 100)}</LumenText>
+      </LumenFrame>
+      {state.status === 'loading' && <LumenText role="status">{labels.loading}</LumenText>}
+      {state.status === 'saved' && <LumenText role="status">{labels.saved}</LumenText>}
+      {state.status === 'read-error' && (
+        <LumenFrame className="hbar-web-general-feedback">
+          <LumenText role="alert">{labels.readError}</LumenText>
+          <LumenButton variant="text" onClick={() => void controller.refresh()}>
+            {labels.retryRead}
+          </LumenButton>
+        </LumenFrame>
+      )}
+      {state.status === 'save-error' && (
+        <LumenFrame className="hbar-web-general-feedback">
+          <LumenText role="alert">{labels.saveError}</LumenText>
+          <LumenButton variant="text" onClick={() => void controller.persist()}>
+            {labels.retrySave}
+          </LumenButton>
+        </LumenFrame>
+      )}
+      {state.status === 'apply-error' && <LumenText role="alert">{labels.applyError}</LumenText>}
+      {native && state.mode === 'css' && <LumenText role="status">{labels.nativeFallback}</LumenText>}
+    </LumenFrame>
+  )
 }
 
 function WebGeneralSendBehavior({
@@ -142,11 +264,15 @@ export function WebGeneralSettings({
   labels,
   language,
   sendBehavior,
+  zoom,
+  nativeZoom = false,
   connected = true,
 }: {
   readonly labels: WebGeneralSettingsLabels
   readonly language: WebLanguageController
   readonly sendBehavior?: WebSendBehaviorController | undefined
+  readonly zoom?: WebZoomController | undefined
+  readonly nativeZoom?: boolean | undefined
   readonly connected?: boolean | undefined
 }) {
   const state = useStore(language.store)
@@ -262,6 +388,7 @@ export function WebGeneralSettings({
       {sendBehavior && (
         <WebGeneralSendBehavior labels={labels.sending} controller={sendBehavior} connected={connected} />
       )}
+      {zoom && <WebGeneralZoom labels={labels.zoom} controller={zoom} native={nativeZoom} />}
     </LumenFrame>
   )
 }

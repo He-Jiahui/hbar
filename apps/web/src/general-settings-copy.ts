@@ -7,7 +7,10 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
   return {
     group: choose('通用', 'General'),
     title: choose('通用', 'General'),
-    description: choose('界面语言与消息发送方式。', 'Display language and message sending behavior.'),
+    description: choose(
+      '界面语言、消息发送方式与界面缩放。',
+      'Display language, message sending behavior, and interface zoom.',
+    ),
     deviceScope: choose('设备与 Host', 'Device and Host'),
     language: choose('显示语言', 'Display language'),
     languageDescription: choose(
@@ -81,6 +84,36 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
       retryRead: choose('重新读取 Host 设置', 'Reload Host setting'),
       recheck: choose('核对原回执', 'Check original receipt'),
       retryOriginal: choose('重试同一请求', 'Retry same request'),
+    },
+    zoom: {
+      title: choose('界面缩放', 'Interface zoom'),
+      description: choose('调整整个桌面界面的显示大小。', 'Adjust the size of the whole desktop interface.'),
+      shortcut: choose(
+        '快捷键：Ctrl/Cmd + 加号或减号调整；Ctrl/Cmd + 0 重置。',
+        'Shortcuts: Ctrl/Cmd + plus or minus to adjust; Ctrl/Cmd + 0 to reset.',
+      ),
+      level: (percent) => `${percent}%`,
+      reset: choose('重置为 100%', 'Reset to 100%'),
+      loading: choose('正在读取界面缩放…', 'Loading interface zoom…'),
+      saved: choose('界面缩放已保存到此设备。', 'Interface zoom saved on this device.'),
+      readError: choose(
+        '无法读取保存的缩放比例，暂时使用 100%；可重试读取或直接选择新比例。',
+        'Could not read the saved zoom. Using 100% for now; retry reading or choose a new level.',
+      ),
+      saveError: choose(
+        '缩放已在此窗口应用，但未能保存。重载后可能恢复原比例。',
+        'Zoom is applied in this window but could not be saved. Reloading may restore the previous level.',
+      ),
+      applyError: choose(
+        '无法应用缩放；已保留上次应用的比例。',
+        'Could not apply zoom; the last applied level remains.',
+      ),
+      nativeFallback: choose(
+        '当前原生缩放不可用，已使用页面缩放；布局可能与系统缩放略有不同。',
+        'Native zoom is unavailable, so page zoom is in use; layout may differ slightly from system zoom.',
+      ),
+      retryRead: choose('重试读取', 'Retry reading'),
+      retrySave: choose('重试保存', 'Retry saving'),
     },
   }
 }

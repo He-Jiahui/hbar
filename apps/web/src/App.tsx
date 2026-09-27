@@ -68,6 +68,7 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import type { WebLanguageController } from './language'
+import type { WebZoomController } from './app-zoom'
 import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
 import { createHostSendBehaviorPort } from './send-behavior-settings'
 import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
@@ -295,6 +296,8 @@ type WorkspaceBodyProps = {
   readonly locale: ShellLocale
   readonly language?: WebLanguageController | undefined
   readonly sendBehavior: WebSendBehaviorController
+  readonly zoom: WebZoomController
+  readonly nativeZoom: boolean
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
   readonly images: HbarSessionImagesOptions
@@ -393,6 +396,8 @@ function WorkspaceBodyContent({
   locale,
   language,
   sendBehavior,
+  zoom,
+  nativeZoom,
   connected,
   prepareAttachment,
   images,
@@ -522,6 +527,8 @@ function WorkspaceBodyContent({
                 labels={copy.general}
                 language={language}
                 sendBehavior={sendBehavior}
+                zoom={zoom}
+                nativeZoom={nativeZoom}
                 connected={connected}
               />
             )
@@ -977,11 +984,13 @@ function NativeWindowTitlebar({
 export default function App({
   locale,
   language,
+  zoom,
   nativeConnection,
   nativeWindow,
 }: {
   readonly locale: ShellLocale
   readonly language?: WebLanguageController | undefined
+  readonly zoom: WebZoomController
   readonly nativeConnection?: HbarNativeConnection | undefined
   readonly nativeWindow?: HbarNativeWindowContext | undefined
 }) {
@@ -1308,6 +1317,8 @@ export default function App({
                 locale={locale}
                 language={language}
                 sendBehavior={sendBehavior}
+                zoom={zoom}
+                nativeZoom={Boolean(nativeWindow)}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
                 images={images}
@@ -1322,6 +1333,8 @@ export default function App({
               locale={locale}
               language={language}
               sendBehavior={sendBehavior}
+              zoom={zoom}
+              nativeZoom={Boolean(nativeWindow)}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
               images={images}

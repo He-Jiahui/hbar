@@ -7,6 +7,8 @@ import { createWebLanguageController } from './language'
 import { createWebLumenAppearance, readAppearanceBootstrap } from './appearance'
 import { loadNativeConnection } from './native-connection'
 import { applyNativeWindowContext, readNativeWindowContext } from './native-window'
+import { createWebZoomController } from './app-zoom'
+import { createBrowserZoomPort, createNativeZoomPort } from './app-zoom-port'
 import { resolveShellLocale } from './shell-copy'
 import { applyWebTheme, readThemeBootstrap, resolveWebTheme } from './theme'
 import './document.css'
@@ -38,10 +40,24 @@ const nativeConnection = await loadNativeConnection(window, window.location.orig
 })
 const nativeWindow = nativeConnection ? readNativeWindowContext(new URL(window.location.href)) : null
 applyNativeWindowContext(document.documentElement, nativeWindow)
+const nativeBridge = (
+  window as Window & {
+    readonly __TAURI_INTERNALS__?: {
+      invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>
+    }
+  }
+).__TAURI_INTERNALS__
+const zoom = createWebZoomController(
+  nativeWindow && nativeConnection && nativeBridge
+    ? createNativeZoomPort(nativeBridge)
+    : createBrowserZoomPort(window.localStorage),
+)
+await zoom.initialize()
 createRoot(root).render(
   <StrictMode>
     <LanguageApp
       language={language}
+      zoom={zoom}
       nativeConnection={nativeConnection ?? undefined}
       nativeWindow={nativeWindow ?? undefined}
     />

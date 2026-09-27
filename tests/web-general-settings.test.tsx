@@ -13,11 +13,13 @@ import {
   type WebSendBehaviorController,
   type WebSendBehaviorPort,
 } from '../apps/web/src/send-behavior'
+import { createWebZoomController, type WebZoomController } from '../apps/web/src/app-zoom'
 
 function html(
   language: WebLanguageController,
   labels = generalSettingsCopy(language.store.getState().locale),
   sendBehavior?: WebSendBehaviorController,
+  zoom?: WebZoomController,
 ) {
   // Zustand SSR uses getInitialState, not the post-action client snapshot. Seed
   // this render-only store from the actual owner's action result, never invented
@@ -26,7 +28,35 @@ function html(
   const renderedSend = sendBehavior
     ? { ...sendBehavior, store: createStore(() => sendBehavior.store.getState()) }
     : undefined
-  return renderToStaticMarkup(<WebGeneralSettings labels={labels} language={rendered} sendBehavior={renderedSend} />)
+  const renderedZoom = zoom ? { ...zoom, store: createStore(() => zoom.store.getState()) } : undefined
+  return renderToStaticMarkup(
+    <WebGeneralSettings labels={labels} language={rendered} sendBehavior={renderedSend} zoom={renderedZoom} />,
+  )
+}
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`General places device zoom after sending with a labeled bounded range and reset: ${locale}`, async () => {
+    const controller = createWebZoomController({
+      read: async () => 1.25,
+      write: async () => {},
+      apply: async () => 'native',
+    })
+    await controller.initialize()
+    const labels = generalSettingsCopy(locale)
+    const rendered = html(createWebLanguageController(locale, storage().port), labels, undefined, controller)
+    expect(rendered.indexOf('class="hbar-web-general-language"')).toBeLessThan(
+      rendered.indexOf('class="hbar-web-general-zoom"'),
+    )
+    expect(rendered).toContain(labels.zoom.description)
+    expect(rendered).toContain(labels.zoom.shortcut)
+    expect(rendered).toContain('type="range"')
+    expect(rendered).toContain('aria-labelledby="hbar-general-zoom-label"')
+    expect(rendered).toContain('aria-valuetext="125%"')
+    expect(rendered).toContain('min="0.5"')
+    expect(rendered).toContain('max="2"')
+    expect(rendered).toContain(labels.zoom.reset)
+    expect(rendered).not.toContain(labels.zoom.nativeFallback)
+  })
 }
 function storage(initial: string | null = null) {
   let saved = initial
