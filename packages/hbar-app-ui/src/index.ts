@@ -324,6 +324,8 @@ export type {
   HbarAppUiSchedulingTimelineReferenceContent,
   HbarAppUiSchedulingTimelineReferenceDay,
   HbarAppUiSchedulingTimelineReferenceEvent,
+  HbarAppUiSchedulingBookingReferenceContent,
+  HbarAppUiSchedulingBookingReferenceDay,
   HbarAppUiSchedulingTimeRangeContent,
 } from './components/Scheduling'
 export { HbarAppUiChatProvider, selectHbarAppUiChatItem, uniqueHbarAppUiChatItems } from './components/Chat'

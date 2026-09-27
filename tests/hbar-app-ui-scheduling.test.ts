@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {groupLumenTimelineIntervals, snapLumenTimelineMinutes} from '@lumen/app-ui'
+import {createSchedulingBookingPreviewStore} from '../apps/hbar-app-ui-preview/src/schedulingBookingPreviewStore'
 import {createSchedulingTimelinePreviewStore, timelinePreviewProjection} from '../apps/hbar-app-ui-preview/src/schedulingTimelinePreviewStore'
 import {
   getHbarAppUiVariant,
@@ -26,6 +27,73 @@ function render(variant: number, content: HbarAppUiSchedulingContent = HBAR_APP_
 }
 
 describe('hbar-app-ui scheduling surfaces', () => {
+  test('booking reference preserves a passive person summary, eight day radios, nine independent time radios and inline confirmation', () => {
+    const value = render(7)
+    expect(value).toContain('Jonas Vieira')
+    expect(value).toContain('Intro call')
+    expect(value.match(/role="radio"/g)?.length).toBe(17)
+    expect(value.match(/<dt/g)?.length).toBe(3)
+    expect(value).toContain('role="radiogroup" aria-label="Available days"')
+    expect(value).toContain('role="radiogroup" aria-label="Available times"')
+    expect(value).toContain('Times on June 10')
+    expect(value).toContain('June 10 at <span>10:00</span>')
+    expect(value).toContain('>Confirm</button>')
+    expect(value).not.toContain('role="dialog"')
+    const legacy = render(7, {booking: HBAR_APP_UI_SCHEDULING_FIXTURES.booking!})
+    expect(legacy).toContain('Available')
+    expect(legacy).not.toContain('lumen-scheduling-booking-card')
+  })
+
+  test('booking day/time remain separate controlled choices, including a disabled-day fallback and reordered localization', () => {
+    const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!
+    const chosen = render(7, {referenceBooking: {...reference, dayId: '2026-06-08', timeId: '09:30'}})
+    expect(chosen).toContain('Times on June 8')
+    expect(chosen).toContain('June 8 at <span>09:30</span>')
+    expect(chosen).toContain('data-hbar-app-ui-action="select-time" data-hbar-app-ui-target="14:00"')
+    const stale = render(7, {referenceBooking: {...reference, dayId: '2026-06-11', timeId: 'missing'}})
+    expect(stale).toContain('Times on June 8')
+    expect(stale).toContain('June 8 at <span>09:00</span>')
+    expect(stale).toContain('data-hbar-app-ui-target="2026-06-11"')
+    const localized = render(7, createHbarAppUiSchedulingLocalizedFixtures())
+    expect(localized).toContain('初次介绍与跨区域团队协作会议')
+    expect(localized).toContain('6 月 10 日可选时间')
+    expect(localized).toContain('aria-label="可选日期"')
+    expect(localized).not.toContain('Pick a day')
+  })
+
+  test('booking capacities keep empty, one, bound and over-bound Host records without truncating stable IDs', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!
+    for (const count of [0, 1, 8, 9]) {
+      const days = Array.from({length: count}, (_, index) => ({id: `date-${index}`, weekday: `D${index}`, date: String(index + 1), availability: 'Free'}))
+      const value = render(7, {referenceBooking: {...content, days, dayId: 'missing'}})
+      expect((value.match(/data-hbar-app-ui-action="select-day"/g) ?? []).length).toBe(count)
+      if (!count) expect(value).toContain('No available days')
+    }
+    for (const count of [0, 1, 9, 10]) {
+      const times = Array.from({length: count}, (_, index) => ({id: `slot-${index}`, label: `Slot ${index + 1}`}))
+      const value = render(7, {referenceBooking: {...content, times, timeId: 'missing'}})
+      expect((value.match(/data-hbar-app-ui-action="select-time"/g) ?? []).length).toBe(count)
+      if (!count) expect(value).toContain('No times available')
+    }
+    const duplicate = render(7, {referenceBooking: {...content, days: [content.days[0]!, content.days[0]!], times: [content.times[0]!, content.times[0]!]}})
+    expect(duplicate.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(1)
+    expect(duplicate.match(/data-hbar-app-ui-action="select-time"/g)?.length).toBe(1)
+    const overflow = render(7, createHbarAppUiSchedulingOverflowFixtures())
+    expect(overflow.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(9)
+    expect(overflow.match(/data-hbar-app-ui-action="select-time"/g)?.length).toBe(10)
+  })
+
+  test('booking preview store changes only the selected ID and resets to Host data', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!
+    const store = createSchedulingBookingPreviewStore(content)
+    store.getState().setDay('2026-06-08')
+    expect(store.getState().dayId).toBe('2026-06-08')
+    expect(store.getState().timeId).toBe('10:00')
+    store.getState().setTime('09:30')
+    expect(store.getState().dayId).toBe('2026-06-08')
+    store.getState().reset(content)
+    expect([store.getState().dayId, store.getState().timeId]).toEqual(['2026-06-10', '10:00'])
+  })
   test('timeline reference exposes native week/day buttons, temporal events and source-shaped passive footer', () => {
     const value = render(6)
     expect(value).toContain('<h1>8 – 12 June 2026</h1>')

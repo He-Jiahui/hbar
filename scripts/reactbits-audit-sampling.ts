@@ -561,6 +561,23 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-7')
+    return {
+      revision: 1,
+      lumenEntries: ['scheduling.tsx', 'scheduling-booking-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Monday updates the checked date, times heading and inline summary but retains all nine times'},
+        {viewport: 'desktop', theme: 'dark', suffix: '9:click', change: 'Independent time radio changes the summary without changing the selected day'},
+        {viewport: 'desktop', theme: 'light', suffix: '17:click', change: 'Confirm has no visible source navigation, success or submission feedback'},
+        {viewport: 'desktop', theme: 'dark', suffix: '6:click', change: 'A date beyond the clipped strip retains all source slots and changes the title/summary'},
+        {viewport: 'tablet', theme: 'light', suffix: '10:hover', change: 'Shared time radio hover feedback in the stacked intermediate layout'},
+        {viewport: 'stress', theme: 'light', suffix: '7:press-space', change: 'Narrow keyboard selection of an offscreen date scrolls the date strip and updates summary'},
+      ],
+      inferences: [
+        {scope: 'Other date IDs, hour choices and disabled full days', basis: 'One stable-ID day selection and one independent time selection use the same Host transitions for all records; disabled source radios are explicitly modeled and unit/browser tests cover empty, stale, duplicate, localized and capacity boundaries.', verification: 'inferred-not-replayed'},
+        {scope: 'Repeated gestures across other theme and viewport combinations', basis: 'Eight static light/dark desktop/tablet/mobile/stress pairs cover two-column-to-stacked flow and day-strip clipping. Representative click, keyboard, hover and no-op Confirm cover distinct mechanisms without an exhaustive button × layout replay.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-6')
     return {
       revision: 1,

@@ -3,7 +3,7 @@ import {chromium, type Page} from '@playwright/test'
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5192'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
-function url(variant: 1 | 2 | 3 | 4 | 5 | 6, fixture?: 'localized' | 'overflow') {
+function url(variant: 1 | 2 | 3 | 4 | 5 | 6 | 7, fixture?: 'localized' | 'overflow') {
   const query = new URLSearchParams({mode: 'isolated', variant: `hbar-app-ui-scheduling-${variant}`, theme: 'light'})
   if (fixture) query.set('schedulingFixture', fixture)
   return `${baseUrl}/?${query.toString()}`
@@ -366,18 +366,67 @@ async function verifyTimeline(page: Page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Over-bound timeline escapes viewport')
 }
 
+async function verifyBooking(page: Page) {
+  await page.setViewportSize({width: 1086, height: 640})
+  await page.goto(url(7), {waitUntil: 'networkidle'})
+  const card = page.locator('.lumen-scheduling-booking-card')
+  const days = card.getByRole('radiogroup', {name: 'Available days'})
+  const times = card.getByRole('radiogroup', {name: 'Available times'})
+  assert(await days.getByRole('radio').count() === 8 && await times.getByRole('radio').count() === 9 && await card.locator('dt').count() === 3, 'Booking lost its complete choices or passive detail semantics')
+  await days.getByRole('radio', {name: 'Mon 8 6 free'}).press('Space')
+  assert(await card.getByRole('heading', {name: 'Times on June 8'}).count() === 1 && await card.locator('footer p').innerText() === 'June 8 at 10:00', 'Day selection did not update title/summary independently')
+  await times.getByRole('radio', {name: '09:30', exact: true}).click()
+  assert(await card.locator('footer p').innerText() === 'June 8 at 09:30', 'Time selection changed its date or lost the inline value')
+  assert(await times.getByRole('radio').count() === 9, 'Display availability fabricated filtered slots')
+  const full = days.getByRole('radio', {name: 'Thu 11 Full'})
+  assert(await full.isDisabled(), 'A full day is actionable')
+  await full.press('Space')
+  assert(await days.locator('[aria-checked="true"]').getAttribute('data-hbar-app-ui-target') === '2026-06-08', 'Disabled date keyboard gesture changed Host selection')
+  await card.getByRole('button', {name: 'Confirm'}).click()
+  assert(await card.locator('footer p').innerText() === 'June 8 at 09:30' && await page.getByRole('dialog').count() === 0 && await page.getByRole('status').count() === 0, 'Confirm no-op fabricated a booking response')
+  await page.setViewportSize({width: 286, height: 640})
+  await days.getByRole('radio', {name: 'Tue 16 5 free'}).press('Space')
+  assert(await card.getByRole('heading', {name: 'Times on June 16'}).count() === 1 && await days.evaluate((element) => element.scrollLeft > 0), 'Offscreen date keyboard selection did not scroll the strip or preserve its original ID')
+  assert(await card.locator('.lumen-scheduling-booking-day-window').getAttribute('data-scroll-after') === 'false' && await card.locator('.lumen-scheduling-booking-day-window').getAttribute('data-scroll-before') === 'true', 'End-of-strip fade obscures the selected final date rather than the remaining offscreen prefix')
+  for (const width of [769, 768, 401, 400, 356, 286]) {
+    await page.setViewportSize({width, height: 640})
+    assert(await card.evaluate((element) => getComputedStyle(element).flexDirection === (innerWidth > 768 ? 'row' : 'column')), `Booking parent flow differs at ${width}`)
+    const columns = width > 400 ? 3 : 2
+    assert(await times.getByRole('radio').nth(columns).evaluate((element) => element.getBoundingClientRect().y) > await times.getByRole('radio').first().evaluate((element) => element.getBoundingClientRect().y), `Time rows failed to wrap at ${width}`)
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Booking escapes viewport at ${width}`)
+  }
+  await card.locator('footer').scrollIntoViewIfNeeded()
+  assert(await card.getByRole('button', {name: 'Confirm'}).isVisible(), 'Narrow footer is unreachable')
+  await page.setViewportSize({width: 286, height: 360})
+  await card.locator('footer').scrollIntoViewIfNeeded()
+  assert(await page.locator('.lumen-scheduling-booking-reference').evaluate((element) => element.scrollTop > 0), 'Short booking page lost its vertical scroll owner')
+  await page.goto(url(7, 'localized'), {waitUntil: 'networkidle'})
+  assert((await card.getByRole('heading', {level: 2}).innerText()).includes('跨区域团队'), 'Host translated meeting title disappeared')
+  await card.getByRole('radiogroup', {name: '可选日期'}).locator('[data-hbar-app-ui-target="2026-06-08"]').press('Space')
+  await card.getByRole('radiogroup', {name: '可选时间'}).locator('[data-hbar-app-ui-target="13:30"]').press('Enter')
+  assert(await card.locator('footer p').innerText() === '6 月 8 日 13:30', 'Reordered translated day/time targeted list indices rather than IDs')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Localized booking text escapes viewport')
+  await page.goto(url(7, 'overflow'), {waitUntil: 'networkidle'})
+  assert(await days.getByRole('radio').count() === 9 && await times.getByRole('radio').count() === 10, 'Over-bound booking records were truncated')
+  await days.locator('[data-hbar-app-ui-target="2026-06-17"]').press('Space')
+  await times.locator('[data-hbar-app-ui-target="15:00"]').press('Enter')
+  assert(await card.locator('footer p').innerText() === 'June 17 at 15:00', 'Final over-bound date/time is unreachable')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Over-bound booking escapes viewport')
+}
+
 const browser = await chromium.launch({headless: true, executablePath})
 try {
   const page = await browser.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-  if (!process.argv.some((arg) => ['--range-only','--form-only','--deadline-only','--availability-only','--timeline-only'].includes(arg))) await verifyMonth(page)
-  if (!process.argv.some((arg) => ['--month-only','--form-only','--deadline-only','--availability-only','--timeline-only'].includes(arg))) await verifyRange(page)
-  if (!process.argv.some((arg) => ['--month-only','--range-only','--deadline-only','--availability-only','--timeline-only'].includes(arg))) await verifyForm(page)
-  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--availability-only','--timeline-only'].includes(arg))) await verifyDeadline(page)
-  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--deadline-only','--timeline-only'].includes(arg))) await verifyAvailability(page)
-  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--deadline-only','--availability-only'].includes(arg))) await verifyTimeline(page)
+  if (!process.argv.some((arg) => ['--range-only','--form-only','--deadline-only','--availability-only','--timeline-only','--booking-only'].includes(arg))) await verifyMonth(page)
+  if (!process.argv.some((arg) => ['--month-only','--form-only','--deadline-only','--availability-only','--timeline-only','--booking-only'].includes(arg))) await verifyRange(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--deadline-only','--availability-only','--timeline-only','--booking-only'].includes(arg))) await verifyForm(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--availability-only','--timeline-only','--booking-only'].includes(arg))) await verifyDeadline(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--deadline-only','--timeline-only','--booking-only'].includes(arg))) await verifyAvailability(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--deadline-only','--availability-only','--booking-only'].includes(arg))) await verifyTimeline(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--deadline-only','--availability-only','--timeline-only'].includes(arg))) await verifyBooking(page)
   assert(errors.length === 0, `Browser errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--timeline-only') ? ['scheduling-6'] : process.argv.includes('--availability-only') ? ['scheduling-5'] : process.argv.includes('--deadline-only') ? ['scheduling-4'] : process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3', 'scheduling-4', 'scheduling-5', 'scheduling-6'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
+  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--booking-only') ? ['scheduling-7'] : process.argv.includes('--timeline-only') ? ['scheduling-6'] : process.argv.includes('--availability-only') ? ['scheduling-5'] : process.argv.includes('--deadline-only') ? ['scheduling-4'] : process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3', 'scheduling-4', 'scheduling-5', 'scheduling-6', 'scheduling-7'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
 } finally {await browser.close()}

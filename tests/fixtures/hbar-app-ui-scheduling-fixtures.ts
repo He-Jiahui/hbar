@@ -5,6 +5,28 @@ const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceBooking: {
+    summary: {initials: 'JV', person: 'Jonas Vieira', title: 'Intro call',
+      description: 'A short call to work out whether we are a fit. Bring anything you already have.',
+      duration: '30 minutes', medium: 'Video call, link on confirm', timezone: 'Europe/Lisbon · WEST',
+      policy: 'Rescheduling stays open until an hour before the call.'},
+    labels: {detail: 'Detail', pickDay: 'Pick a day', month: 'June 2026', availableDays: 'Available days', availableTimes: 'Available times',
+      timesOn: (day) => `Times on June ${day.date}`, selection: (day, time) => createElement(Fragment, null, `June ${day.date} at `, createElement('span', null, time.label)),
+      confirm: 'Confirm', emptyDays: 'No available days', emptyTimes: 'No times available', noSelection: 'No selection'},
+    days: [
+      {id: '2026-06-08', weekday: 'Mon', date: '8', availability: '6 free'},
+      {id: '2026-06-09', weekday: 'Tue', date: '9', availability: '2 free'},
+      {id: '2026-06-10', weekday: 'Wed', date: '10', availability: '9 free'},
+      {id: '2026-06-11', weekday: 'Thu', date: '11', availability: 'Full', disabled: true},
+      {id: '2026-06-12', weekday: 'Fri', date: '12', availability: '4 free'},
+      {id: '2026-06-13', weekday: 'Sat', date: '13', availability: 'Full', disabled: true},
+      {id: '2026-06-15', weekday: 'Mon', date: '15', availability: '7 free'},
+      {id: '2026-06-16', weekday: 'Tue', date: '16', availability: '5 free'},
+    ],
+    times: ['09:00','09:30','10:00','10:30','11:00','11:30','13:00','13:30','14:00'].map((label) => ({id: label, label})),
+    dayId: '2026-06-10', timeId: '10:00',
+    dayStrategy: {kind: 'pane-scroll', expectedMaximum: 8}, timeStrategy: {kind: 'content-grown', expectedMaximum: 9},
+  },
   referenceTimeline: {
     labels: {
       previous: 'Previous week', next: 'Next week', today: 'Today', view: 'Calendar view', day: 'Day', week: 'Week', create: 'New',
@@ -374,6 +396,20 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceBooking: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!,
+      summary: {initials: '安', person: '安娜·维埃拉与跨区域团队', title: '初次介绍与跨区域团队协作会议',
+        description: '简短沟通产品、研发与区域运营的合作方式。请准备任何你希望讨论的背景材料与问题。',
+        duration: '30 分钟', medium: '视频会议，确认后提供链接', timezone: '欧洲／里斯本 · 夏令时',
+        policy: '如需改期，请至少在通话开始前一小时完成变更。'},
+      labels: {detail: '详情', pickDay: '选择日期', month: '2026 年 6 月', availableDays: '可选日期', availableTimes: '可选时间',
+        timesOn: (day) => `6 月 ${day.date} 日可选时间`, selection: (day, time) => createElement(Fragment, null, `6 月 ${day.date} 日 `, createElement('span', null, time.label)),
+        confirm: '确认', emptyDays: '暂无可选日期', emptyTimes: '暂无可选时间', noSelection: '尚未选择'},
+      days: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!.days].reverse().map((day) => ({...day,
+        weekday: ({Mon: '周一',Tue: '周二',Wed: '周三',Thu: '周四',Fri: '周五',Sat: '周六'} as Record<string,string>)[day.weekday] ?? day.weekday,
+        availability: day.disabled ? '已约满' : `${day.availability.split(' ')[0]} 个空位`})),
+      times: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!.times].reverse(),
+    },
     referenceTimeline: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!,
       labels: {...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.labels,
@@ -468,7 +504,11 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
 
 export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
   const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
-  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceTimeline: {
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceBooking: {
+    ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!,
+    days: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!.days, {id: '2026-06-17', weekday: 'Wed', date: '17', availability: '12 free'}],
+    times: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceBooking!.times, {id: '15:00', label: '15:00'}],
+  }, referenceTimeline: {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!,
     days: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.days, {id: '2026-06-13', label: 'Sat', date: '13'}],
     events: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.events, {id: 'extra-event', dayId: '2026-06-13', title: 'Additional regional weekend event', startMinutes: 1020, durationMinutes: 60}],

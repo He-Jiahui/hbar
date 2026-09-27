@@ -2,10 +2,13 @@ import {useEffect, useState, type ReactNode} from 'react'
 import {HbarAppUiSchedulingProvider, type HbarAppUiSchedulingContent} from 'hbar-app-ui/catalog'
 import {useStore} from 'zustand'
 import {createSchedulingTimelinePreviewStore, timelinePreviewProjection} from './schedulingTimelinePreviewStore'
+import {createSchedulingBookingPreviewStore} from './schedulingBookingPreviewStore'
 
 export function SchedulingPreviewHost({content, children}: {readonly content: HbarAppUiSchedulingContent; readonly children: ReactNode}) {
   const [timelineStore] = useState(() => createSchedulingTimelinePreviewStore(content.referenceTimeline))
   const timeline = useStore(timelineStore)
+  const [bookingStore] = useState(() => createSchedulingBookingPreviewStore(content.referenceBooking))
+  const booking = useStore(bookingStore)
   const [dayId, setDayId] = useState(content.referenceMonth?.activeDayId ?? '')
   const [monthId, setMonthId] = useState(content.referenceMonth?.monthId ?? '')
   const [yearId, setYearId] = useState(content.referenceMonth?.yearId ?? '')
@@ -30,6 +33,7 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   const [availabilityNextInterval, setAvailabilityNextInterval] = useState(0)
   useEffect(() => {
     timelineStore.getState().reset(content.referenceTimeline)
+    bookingStore.getState().reset(content.referenceBooking)
     setDayId(content.referenceMonth?.activeDayId ?? '')
     setMonthId(content.referenceMonth?.monthId ?? '')
     setYearId(content.referenceMonth?.yearId ?? '')
@@ -52,8 +56,10 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
     setAvailabilityZoneId(content.referenceAvailability?.timezoneId ?? '')
     setAvailabilityDays(content.referenceAvailability?.days ?? [])
     setAvailabilityNextInterval(0)
-  }, [content, timelineStore])
-  return <HbarAppUiSchedulingProvider content={{...content, referenceTimeline: content.referenceTimeline && timelinePreviewProjection(content.referenceTimeline, timeline), referenceMonth: content.referenceMonth && {
+  }, [content, timelineStore, bookingStore])
+  return <HbarAppUiSchedulingProvider content={{...content, referenceBooking: content.referenceBooking && {
+    ...content.referenceBooking, dayId: booking.dayId, timeId: booking.timeId, onDayChange: booking.setDay, onTimeChange: booking.setTime,
+  }, referenceTimeline: content.referenceTimeline && timelinePreviewProjection(content.referenceTimeline, timeline), referenceMonth: content.referenceMonth && {
     ...content.referenceMonth, activeDayId: dayId, monthId, yearId, filterId,
     onDayChange: setDayId, onMonthChange: setMonthId, onYearChange: setYearId, onFilterChange: setFilterId,
   }, referenceRange: content.referenceRange && {

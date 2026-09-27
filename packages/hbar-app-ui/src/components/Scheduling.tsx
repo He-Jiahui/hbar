@@ -47,6 +47,8 @@ export type {
   LumenSchedulingTimelineReferenceContent as HbarAppUiSchedulingTimelineReferenceContent,
   LumenSchedulingTimelineReferenceDay as HbarAppUiSchedulingTimelineReferenceDay,
   LumenSchedulingTimelineReferenceEvent as HbarAppUiSchedulingTimelineReferenceEvent,
+  LumenSchedulingBookingReferenceContent as HbarAppUiSchedulingBookingReferenceContent,
+  LumenSchedulingBookingReferenceDay as HbarAppUiSchedulingBookingReferenceDay,
   LumenSchedulingTimeRangeContent as HbarAppUiSchedulingTimeRangeContent,
 } from '@lumen/app-ui'
 
