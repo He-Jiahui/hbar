@@ -130,7 +130,7 @@ test('same-origin language switching retains model, one-send approval, durable P
 
         // This opens the real palette at narrow widths too; no hidden-sidebar
         // click or synthetic command injection substitutes for the UI entry.
-        await page.keyboard.press('Control+k')
+        await page.keyboard.press('Control+Shift+p')
         const palette = page.getByRole('dialog', { name: copy.commandPalette.title, exact: true })
         const query = palette.getByRole('searchbox', { name: copy.commandPalette.search, exact: true })
         await expect(query).toBeFocused()
@@ -169,7 +169,7 @@ test('same-origin language switching retains model, one-send approval, durable P
     // query and original command identity stay intact; subsequent localized
     // search must use the stable runtime copy port's latest language.
     await page.setViewportSize({ width: 1440, height: 960 })
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+p')
     const palette = page.getByRole('dialog', { name: en.commandPalette.title, exact: true })
     const query = palette.getByRole('searchbox', { name: en.commandPalette.search, exact: true })
     const enTitle = en.commandPalette.resolve('commands.session.getBudget.title')
@@ -250,7 +250,7 @@ test('an open command palette recomputes a localized query after a real cross-wi
     const zh = getShellCopy('zh-CN')
     await page.goto(base)
     await page.getByRole('button', { name: zh.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+p')
     const chinesePalette = page.getByRole('dialog', { name: zh.commandPalette.title, exact: true })
     const query = chinesePalette.getByRole('searchbox', { name: zh.commandPalette.search, exact: true })
     await query.fill('工程')
