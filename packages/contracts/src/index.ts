@@ -1,6 +1,14 @@
 import { z } from 'zod'
 import { toolOutcomeSchema } from './tool-outcome'
 export { toolOutcomeSchema, type ToolOutcome } from './tool-outcome'
+import { toolCallPresentationSchema } from './tool-presentation'
+export {
+  toolPresentationFieldSchema,
+  toolPresentationDeclarationSchema,
+  toolCallPresentationSchema,
+  type ToolPresentationDeclaration,
+  type ToolCallPresentation,
+} from './tool-presentation'
 
 export { LEGACY_WRITE_RPC_METHODS, type LegacyWriteRpcMethod } from './legacy-rpc'
 import { invocationSchema } from '@hbar/commands/protocol'
@@ -40,6 +48,7 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
     callId: idSchema,
     name: z.string(),
     args: z.record(z.string(), z.unknown()),
+    presentation: toolCallPresentationSchema.optional(),
   }),
   z
     .object({

@@ -2,6 +2,8 @@ import { Context, Service } from 'cordis'
 export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
 import type { z } from 'zod'
+import type { ToolPresentationDeclaration } from '@hbar/contracts'
+export type { ToolPresentationDeclaration } from '@hbar/contracts'
 import type {
   Approval,
   ContentBlock,
@@ -110,6 +112,8 @@ export interface ToolDefinition {
   description: string
   inputSchema: z.ZodType
   effect: 'read' | 'write' | 'process' | 'network'
+  /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
+  presentation?: ToolPresentationDeclaration
   /** A dedicated user decision is required even when the Run permits ordinary tool calls. */
   humanApproval?: 'required'
   /** Explicit workspace access used by Workflow. Omission means no workspace path access. */
@@ -187,6 +191,7 @@ export interface DriverInput {
     text: string | null
     truncated: boolean
   }>
+  /** Ordinary driver events only; canonical message.committed is reserved for commit(). */
   emit(type: string, data: unknown, stepId?: string): Promise<SessionEvent>
   commit(role: Message['role'], content: ContentBlock[], messageId?: string, providerData?: unknown): Promise<Message>
   stream(id: string, text: string, thinking: string): void

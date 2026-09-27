@@ -291,6 +291,7 @@ export default definePlugin({
     const register = ctx.hbar.api.tools.register
     register({
       name: 'read_file',
+      presentation: { kind: 'file-read', pathField: 'path' },
       description: execution.workspaceQuery
         ? 'Read a UTF-8 text file or supported image inside the workspace. Use startLine and lineCount together for a bounded text range.'
         : 'Read a UTF-8 text file or supported image (PNG, JPEG, WebP, or GIF) inside the workspace.',
@@ -339,6 +340,7 @@ export default definePlugin({
       const query = execution.workspaceQuery
       register({
         name: 'search_text',
+        presentation: { kind: 'text-search', patternField: 'pattern', pathField: 'path' },
         description:
           'Search workspace UTF-8 files in process. Prefer this over shell rg/grep for bounded code and text searches.',
         inputSchema: workspaceSearchToolInputSchema,
@@ -360,6 +362,7 @@ export default definePlugin({
       })
       register({
         name: 'find_files',
+        presentation: { kind: 'file-search', queryField: 'nameQuery', includeField: 'include', pathField: 'path' },
         description:
           'Find workspace files by include and exclude globs in process. Prefer this over shell rg --files or find.',
         inputSchema: workspaceFindToolInputSchema,
@@ -380,6 +383,7 @@ export default definePlugin({
       })
       register({
         name: 'list_directory',
+        presentation: { kind: 'directory-list', pathField: 'path' },
         description: 'List one workspace directory with stable, bounded pagination without starting a shell process.',
         inputSchema: workspaceListToolInputSchema,
         effect: 'read',
@@ -406,6 +410,7 @@ export default definePlugin({
     }
     register({
       name: 'write_file',
+      presentation: { kind: 'file-write', pathField: 'path' },
       description: 'Write a UTF-8 file inside the workspace. Requires user approval.',
       inputSchema: z.object({ path: z.string().min(1), text: z.string() }),
       effect: 'write',
@@ -418,6 +423,7 @@ export default definePlugin({
     })
     register({
       name: 'edit_file',
+      presentation: { kind: 'file-edit', pathField: 'path' },
       description: 'Replace one exact occurrence of text in a workspace file. Requires approval.',
       inputSchema: z.object({ path: z.string().min(1), oldText: z.string().min(1), newText: z.string() }),
       effect: 'write',
@@ -438,6 +444,7 @@ export default definePlugin({
     })
     register({
       name: 'shell',
+      presentation: { kind: 'command', commandField: 'command' },
       description: 'Execute a shell command in the workspace. Requires user approval.',
       inputSchema: z.object({ command: z.string().min(1).max(16000) }),
       effect: 'process',

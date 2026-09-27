@@ -89,6 +89,7 @@ import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
 import { hostAbortToolOutcome } from './tool-outcome'
+import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
 
@@ -838,6 +839,8 @@ export class Kernel {
           runId: run.id,
           tools: scope.tools.list(),
         })
+        const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
+        const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
         const input: DriverInput = {
           session,
           workspace,
@@ -877,9 +880,16 @@ export class Kernel {
               truncated,
             }
           },
-          emit: (type, data, stepId) => this.append(sessionId, type, data, run.id, stepId),
+          emit: (type, data, stepId) => {
+            if (type === 'message.committed')
+              return Promise.reject(
+                new HbarError('RESERVED_EVENT', 'Drivers must commit canonical messages through commit'),
+              )
+            return this.append(sessionId, type, data, run.id, stepId)
+          },
           commit: async (role, blocks, messageId, providerData) => {
-            const result = await this.storage.call('commit', sessionId, run.id, role, blocks, messageId, providerData)
+            const content = enrichToolCallPresentations(role, blocks, toolPresentations)
+            const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
             if (messageId) this.clearStream(messageId)
             this.publishEvent(result.event)
             return result.message
