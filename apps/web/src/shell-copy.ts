@@ -1056,8 +1056,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           'Read-only across sends; the Host blocks write tools.',
         ),
         scope: choose(
-          '计划模式保持到手动退出；批准计划不会自动退出。工具审批仍只用于本次发送。',
-          'Plan mode stays on until you exit it; approving a proposal does not exit. Tool approval remains per-send.',
+          '批准计划不会自动退出 Plan；其他审批选择仅对下一次发送生效。',
+          'Approving a proposal does not exit Plan. Other approval choices apply only to the next send.',
         ),
         pending: choose('正在保存会话计划模式…', 'Saving this session’s Plan mode…'),
         unknown: choose(
@@ -1071,10 +1071,6 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         ),
         retry: choose('重新读取会话模式', 'Reload session mode'),
         recheck: choose('核对计划模式', 'Recheck Plan mode'),
-        approvalPaused: choose(
-          '选择其他工具审批将先退出计划模式；服务端确认后应用选择。',
-          'Choosing another approval exits Plan mode first; the choice applies after Host confirmation.',
-        ),
         goalPrepared: choose(
           '先取消目标准备，才能进入计划模式。文字和附件会保留。',
           'Cancel goal preparation before entering Plan mode. Your text and attachments will be kept.',

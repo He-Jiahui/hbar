@@ -21,7 +21,6 @@ const labels: HbarComposerPermissionLabels = {
     selected: '当前会话正在规划；选择其他审批档位以退出',
     retry: '重试读取',
     recheck: '核对',
-    approvalPaused: '选择其他审批会先退出计划模式',
     goalPrepared: '先取消目标准备，才能进入计划模式；保留文字与附件',
     cancelGoalPreparation: '取消目标准备',
     cancellingGoalPreparation: '正在取消目标准备',
@@ -117,7 +116,8 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   expect(html).toContain('aria-label="工具审批：计划模式"')
   expect(html).toContain(labels.plan.selected)
   expect(html).toContain('此会话持续生效，不修改审批策略')
-  expect(html).toContain(labels.plan.approvalPaused)
+  expect(html).toContain(labels.plan.scope)
+  expect(html).not.toContain(labels.scopeHint)
   expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
   expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
   expect(html).toContain('role="menuitemradio" aria-checked="true"')

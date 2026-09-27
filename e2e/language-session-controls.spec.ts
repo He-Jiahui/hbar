@@ -124,7 +124,8 @@ test('same-origin language switching retains model, one-send approval, durable P
         await expect(permissionPopup.locator('[data-choice="plan"]')).toHaveAttribute('aria-checked', 'true')
         await expect(permissionPopup.getByRole('menuitemradio')).toHaveCount(5)
         for (const choice of await permissionPopup.getByRole('menuitemradio').all()) await expect(choice).toBeEnabled()
-        await expect(permissionPopup).toContainText(copy.session.permissionPicker.plan.approvalPaused)
+        await expect(permissionPopup).toContainText(copy.session.permissionPicker.plan.scope)
+        await expect(permissionPopup).not.toContainText(copy.session.permissionPicker.scopeHint)
         await page.screenshot({ path: `${evidence}/execution-${locale}-${width}.png` })
         await page.keyboard.press('Escape')
 

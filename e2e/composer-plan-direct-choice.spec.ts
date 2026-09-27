@@ -38,11 +38,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
 
       for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 960 })
+        await page.setViewportSize({ width, height: width === 320 ? 720 : 960 })
         await open(labels.plan.label)
         const deny = picker.getByRole('menuitemradio', { name: labels.options.deny.label, exact: false })
         await expect(deny).toBeEnabled()
         await expect(plan).toHaveAttribute('aria-checked', 'true')
+        await expect(plan).toBeInViewport()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
         await page.screenshot({ path: testInfo.outputPath(`plan-direct-${locale}-${width}.png`) })
         if (width === 1440) {

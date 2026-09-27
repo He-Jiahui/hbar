@@ -57,7 +57,6 @@ export interface HbarComposerPermissionLabels {
     readonly selected: string
     readonly retry: string
     readonly recheck: string
-    readonly approvalPaused: string
     readonly goalPrepared: string
     readonly cancelGoalPreparation: string
     readonly cancellingGoalPreparation: string
@@ -654,12 +653,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                   )}
                 </LumenFrame>
               )}
-              <LumenText as="p" id={bodyId} className="hbar-composer-permission-hint">
-                {labels.scopeHint}
-              </LumenText>
-              {planSelected && (
-                <LumenText as="p" className="hbar-composer-permission-hint">
-                  {labels.plan.approvalPaused}
+              {!planSelected && (
+                <LumenText as="p" id={bodyId} className="hbar-composer-permission-hint">
+                  {labels.scopeHint}
                 </LumenText>
               )}
               <LumenFrame
@@ -749,7 +745,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                 </LumenFrame>
               )}
               {plan && (planSelected || executionUnresolved) && (
-                <LumenText as="p" className="hbar-composer-permission-hint">
+                <LumenText as="p" id={planSelected ? bodyId : undefined} className="hbar-composer-permission-hint">
                   {labels.plan.scope}
                 </LumenText>
               )}
