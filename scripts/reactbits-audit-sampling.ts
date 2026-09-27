@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-3')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-upgrade-reference.css', 'wizard/UpgradeReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Team selection moves the checked radio while invoice preview remains passive'},
+        {viewport: 'tablet', theme: 'dark', suffix: '6:click', change: 'Enterprise selection confirms the other radio boundary and static summary'},
+        {viewport: 'mobile', theme: 'light', suffix: '1:click', change: 'Narrow numbered step selects Seats without replacing plan content'},
+        {viewport: 'desktop', theme: 'dark', suffix: '7:click', change: 'Next advances only the progress rail'},
+        {viewport: 'mobile', theme: 'dark', suffix: '3:click', change: 'Review jump marks preceding steps complete in the stacked layout'},
+        {viewport: 'desktop', theme: 'light', suffix: 'wizard-upgrade-step-two:0:click', change: 'Returning to Plan restores first-step progress'},
+        {viewport: 'stress', theme: 'light', suffix: '5:click', change: 'Selecting the already checked Business option is a source no-op'},
+      ],
+      inferences: [
+        {scope: 'Other step/radio clicks and keyboard gestures', basis: 'Four steps share one Host index and three plans share one selected ID. Representative first/last selection, forward/jump/back and selected no-op cover distinct state changes; the passive invoice snapshot remains unchanged by plan clicks in live probes. Local browser tests keyboard and boundary updates.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme combinations and read-only invoice rows', basis: 'Eight static pairs cover desktop split and narrow stack; rows are read-only Host data. Overflow and localized long copy are tested locally without inventing actions on line items.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-2')
     return {
       revision: 1,

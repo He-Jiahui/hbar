@@ -323,6 +323,7 @@ export type InteractionCase = Readonly<{
     | 'wizard-information-step-three'
     | 'wizard-information-empty-name'
     | 'wizard-invoice-scroll'
+    | 'wizard-upgrade-step-two'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1874,6 +1875,9 @@ async function prepareWizardInformationScenario(root: Locator, scenario: (typeof
   }
   await root.getByRole('button', {name: 'Next step'}).click()
   if (scenario === 'wizard-information-step-three') await root.locator('ol button').nth(2).click()
+}
+async function prepareWizardUpgradeStepTwo(root: Locator): Promise<void> {
+  await root.locator('ol button').nth(1).click()
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3537,6 +3541,8 @@ async function replayInteraction(
     await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
   if (spec.id === 'hbar-app-ui-wizard-1' && wizardInformationScenarios.some((value) => value === interaction.scenario))
     await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
+  if (spec.id === 'hbar-app-ui-wizard-3' && interaction.scenario === 'wizard-upgrade-step-two')
+    await prepareWizardUpgradeStepTwo(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3867,6 +3873,8 @@ async function replayReferenceInteraction(
     await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
   if (reference.id === 'hbar-app-ui-wizard-1' && wizardInformationScenarios.some((value) => value === interaction.scenario))
     await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
+  if (reference.id === 'hbar-app-ui-wizard-3' && interaction.scenario === 'wizard-upgrade-step-two')
+    await prepareWizardUpgradeStepTwo(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4633,6 +4641,10 @@ async function runInteractionsParallel(
             }
             if (spec.id === 'hbar-app-ui-wizard-2' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:invoice-body:scroll:`))))
               discovered.push(await observeWizardInvoiceScroll(sourceRoot, spec.id))
+            if (spec.id === 'hbar-app-ui-wizard-3' && sampleIds?.some((id) => id.startsWith(`${spec.id}:wizard-upgrade-step-two:`))) {
+              await prepareWizardUpgradeStepTwo(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-upgrade-step-two'))
+            }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-ai-usage-6')

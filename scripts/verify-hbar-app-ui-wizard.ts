@@ -91,8 +91,52 @@ try {
   assert(await invoice.getByRole('textbox').count() === 47, 'Over-bound invoice fields were truncated')
   assert(await invoiceScroll.evaluate((element) => element.scrollHeight > element.clientHeight), 'Over-bound invoice lost scroll owner')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound invoice overflowed horizontally')
+
+  await page.setViewportSize({width: 1086, height: 720})
+  await page.goto(url(undefined, 3), {waitUntil: 'networkidle'})
+  const upgrade = page.locator('.hbar-app-ui-wizard-upgrade-reference')
+  assert(await upgrade.getByRole('radio').count() === 3, 'Upgrade did not render three Host plans')
+  assert(await upgrade.getByRole('radio', {name: /Business Recommended/}).getAttribute('aria-checked') === 'true', 'Default Business choice missing')
+  await upgrade.getByRole('radio', {name: /^Team /}).click()
+  assert(await upgrade.getByRole('radio', {name: /^Team /}).getAttribute('aria-checked') === 'true', 'Team selection did not update Host')
+  assert(await upgrade.getByText('$31,235').count() === 1, 'Plan choice incorrectly recalculated passive invoice')
+  assert(await upgrade.getByText('Business · 42 seats · billed once').count() === 1, 'Plan choice rewrote passive summary')
+  await upgrade.getByRole('button', {name: 'Next'}).click()
+  assert(await upgrade.locator('.hbar-app-ui-wizard-upgrade-step-number.is-complete').count() === 1, 'Next did not advance progress')
+  assert(await upgrade.getByRole('radiogroup', {name: 'Plan'}).count() === 1, 'Step progress invented a new page')
+  await upgrade.locator('ol button').last().click()
+  assert(await upgrade.locator('.hbar-app-ui-wizard-upgrade-step-number.is-complete').count() === 3, 'Review jump did not mark preceding steps')
+  await upgrade.locator('ol button').first().click()
+  assert(await upgrade.locator('.hbar-app-ui-wizard-upgrade-step-number.is-complete').count() === 0, 'Plan jump did not restore first step')
+  await upgrade.getByRole('radio', {name: /Business Recommended/}).focus()
+  await upgrade.getByRole('radio', {name: /Business Recommended/}).press('Space')
+  assert(await upgrade.getByRole('radio', {name: /Business Recommended/}).getAttribute('aria-checked') === 'true', 'Keyboard radio did not update Host')
+  await page.setViewportSize({width: 670, height: 720})
+  await page.goto(url(undefined, 3), {waitUntil: 'networkidle'})
+  const tabletFlow = await upgrade.evaluate((element) => {
+    const body = element.querySelector('.hbar-app-ui-wizard-upgrade-body')
+    const label = element.querySelector('.hbar-app-ui-wizard-upgrade-step-label')
+    return {direction: body ? getComputedStyle(body).flexDirection : '', labelVisible: label ? getComputedStyle(label).display !== 'none' : false}
+  })
+  assert(tabletFlow.direction === 'column' && tabletFlow.labelVisible, 'Tablet stack and labeled steps do not follow distinct source breakpoints')
+  await page.setViewportSize({width: 356, height: 720})
+  await page.goto(url('localized', 3), {waitUntil: 'networkidle'})
+  assert(await upgrade.getByRole('heading', {name: '账单升级'}).count() === 1, 'Localized upgrade title missing')
+  assert(await upgrade.getByRole('radio', {name: /团队版/}).count() === 1, 'Localized plan missing')
+  assert(await upgrade.locator('.hbar-app-ui-wizard-upgrade-step-label').first().isHidden(), 'Narrow step labels did not collapse')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow upgrade overflowed horizontally')
+  await page.setViewportSize({width: 320, height: 720})
+  await page.goto(url('overflow', 3), {waitUntil: 'networkidle'})
+  assert(await upgrade.getByRole('radio').count() === 33, 'Over-bound plans were truncated')
+  const upgradeOverflow = await upgrade.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return {scrollable, moved: element.scrollTop > 0}
+  })
+  assert(upgradeOverflow.scrollable && upgradeOverflow.moved, 'Over-bound upgrade did not scroll in its pane')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound upgrade overflowed horizontally')
   assert(errors.length === 0, `Wizard raised page errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({informationFields: 8, invoiceFields: 10, invoiceOptions: 3, steps: 3, informationOverflow: scroll, invoiceOverflow, localizedNarrow: true, pageErrors: errors.length}))
+  console.log(JSON.stringify({informationFields: 8, invoiceFields: 10, invoiceOptions: 3, upgradePlans: 3, informationOverflow: scroll, invoiceOverflow, upgradeOverflow, localizedNarrow: true, pageErrors: errors.length}))
 } finally {
   await browser.close()
 }

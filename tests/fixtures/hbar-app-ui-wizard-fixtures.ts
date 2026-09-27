@@ -4,6 +4,27 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceUpgrade: {
+    labels: {
+      title: 'Billing upgrade', detail: 'Change plan, seats, and payment terms before renewal.', draft: 'Draft',
+      plan: 'Plan', seatNote: 'Seat count carries over from the current term. You can adjust it on the next step before anything is charged.',
+      invoice: 'Invoice preview', annual: 'Annual', due: 'Due today', totalDetail: 'Business · 42 seats · billed once',
+      footer: 'Nothing is charged until the review step.', next: 'Next',
+    },
+    steps: [{id: 'plan', label: 'Plan'}, {id: 'seats', label: 'Seats'}, {id: 'payment', label: 'Payment'}, {id: 'review', label: 'Review'}],
+    plans: [
+      {id: 'team', label: 'Team', detail: 'Workspace controls for growing product teams.', price: '$49/seat/mo'},
+      {id: 'business', label: 'Business', detail: 'SAML, audit exports, and priority support.', price: '$72/seat/mo', badge: 'Recommended'},
+      {id: 'enterprise', label: 'Enterprise', detail: 'Procurement review and account governance.', price: '$96/seat/mo'},
+    ],
+    summaryRows: [
+      {id: 'seats', label: 'Seats', detail: '42 seats, annual', value: '$36,288'},
+      {id: 'credit', label: 'Term credit', detail: '15% on annual', value: '−$5,443'},
+      {id: 'support', label: 'Support', detail: 'Priority response', value: '$390'},
+    ],
+    metadataRows: [{id: 'renewal', label: 'Renewal', value: 'May 31, 2026'}, {id: 'po', label: 'Purchase order', value: 'PO-2026-184'}],
+    total: '$31,235', listStrategy: grown, stepId: 'plan', selectedPlanId: 'business', onStepChange() {}, onPlanChange() {},
+  },
   referenceInvoice: {
     labels: {
       title: 'Send invoice', progress: (step, total) => `${step} / ${total}`, progressBar: 'Invoice progress', close: 'Close',
@@ -227,6 +248,18 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceUpgrade: HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade,
+      labels: {
+        title: '账单升级', detail: '续费前调整套餐与席位。', draft: '草稿', plan: '套餐', seatNote: '席位沿用当前期限，下一步可调整。',
+        invoice: '发票预览', annual: '年付', due: '今日应付', totalDetail: '商业版 · 42 席 · 一次付清', footer: '审核前不会扣款。', next: '下一步',
+      },
+      steps: [{id: 'plan', label: '套餐'}, {id: 'seats', label: '席位'}],
+      plans: [{id: 'team', label: '团队版', detail: '适合成长团队。', price: '¥49/席/月'}, {id: 'business', label: '商业版', detail: '审计与支持。', price: '¥72/席/月'}],
+      summaryRows: [{id: 'seats', label: '席位', detail: '42 席，年付', value: '¥36,288'}],
+      metadataRows: [{id: 'renewal', label: '续费', value: '2026 年 5 月 31 日'}],
+      total: '¥31,235',
+    },
     referenceInvoice: HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice && {
       ...HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice,
       labels: {
@@ -269,8 +302,13 @@ export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent
 export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent {
   const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation!
   const invoice = HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice!
+  const upgrade = HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade!
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceUpgrade: {
+      ...upgrade,
+      plans: [...upgrade.plans, ...Array.from({length: 30}, (_, index) => ({id: `extended-${index}`, label: `Extended plan ${index + 1}`, detail: `Enterprise agreement for region ${index + 1}`, price: '$99/seat/mo'}))],
+    },
     referenceInvoice: {
       ...invoice,
       termsFields: [...invoice.termsFields, ...Array.from({length: 40}, (_, index) => ({id: `extended-${index}`, label: `Additional billing term ${index + 1}`, value: `Value ${index + 1}`, kind: 'text' as const}))],
