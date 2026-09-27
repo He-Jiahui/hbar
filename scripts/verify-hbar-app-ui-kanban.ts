@@ -297,6 +297,48 @@ try {
   assert(await page.getByRole('button', {name: /核对发票/}).count() === 1, 'Localized sprint card missing')
   assert(await sprintScroll.evaluate((element) => element.scrollWidth > element.clientWidth), 'Narrow sprint lost horizontal scroll owner')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow sprint overflowed document')
+
+  await page.setViewportSize({width: 1086, height: 680})
+  await page.goto(url(undefined, 6), {waitUntil: 'networkidle'})
+  const compactBoard = page.locator('.hbar-app-ui-kanban-compact-board')
+  assert(await page.getByRole('region').count() === 4, 'Compact board did not render four Host columns')
+  assert(await page.locator('.hbar-app-ui-kanban-compact-card').count() === 10, 'Compact board did not render ten Host cards')
+  const passive = page.getByRole('button', {name: /^Prune stale invite tokens\./})
+  await passive.click()
+  assert(await passive.count() === 1, 'Compact card click invented a detail transition')
+  await passive.focus()
+  await passive.press('Space')
+  assert(await passive.count() === 1, 'Compact card Space activation invented a transition')
+  assert(await page.getByRole('button', {name: 'Move Prune stale invite tokens to previous column'}).isDisabled(), 'First-column reverse arrow was enabled')
+  assert(await page.getByRole('button', {name: 'Move Ship the changelog RSS feed to next column'}).isDisabled(), 'Last-column forward arrow was enabled')
+  await page.getByRole('button', {name: 'Move Prune stale invite tokens to Today'}).click()
+  assert(await page.getByRole('region', {name: 'Today'}).getByRole('button', {name: /^Prune stale invite tokens\./}).count() === 1, 'Forward move did not update Host column')
+  assert(await page.getByText('Prune stale invite tokens moved to Today.').count() === 1, 'Move did not announce destination')
+  await page.getByRole('button', {name: 'Move Prune stale invite tokens to Inbox'}).click()
+  assert(await page.getByRole('region', {name: 'Inbox'}).getByRole('button', {name: /^Prune stale invite tokens\./}).count() === 1, 'Reverse move did not return card')
+  await page.goto(url(undefined, 6), {waitUntil: 'networkidle'})
+  await page.getByRole('button', {name: /^Document the export limits\./}).dragTo(page.getByRole('region', {name: 'Doing'}))
+  assert(await page.getByRole('region', {name: 'Doing'}).getByRole('button', {name: /^Document the export limits\./}).count() === 1, 'Wide pointer drag did not update Host column')
+  await page.goto(url('overflow', 6), {waitUntil: 'networkidle'})
+  const compactOverflow = await compactBoard.evaluate((element) => {
+    const column = element.querySelector('.hbar-app-ui-kanban-compact-card-list')
+    if (!column) return {scrollable: false, moved: false}
+    const scrollable = column.scrollHeight > column.clientHeight
+    column.scrollTop = column.scrollHeight
+    return {scrollable, moved: column.scrollTop > 0}
+  })
+  assert(compactOverflow.scrollable && compactOverflow.moved, 'Over-bound compact cards did not scroll inside column')
+  await page.setViewportSize({width: 320, height: 720})
+  await page.goto(url('localized', 6), {waitUntil: 'networkidle'})
+  assert(await page.getByRole('heading', {name: '海港任务'}).count() === 1, 'Localized compact title missing')
+  assert(await page.locator('.hbar-app-ui-kanban-compact-card-main[aria-label*="核对发票"]').count() === 1, 'Localized compact card missing')
+  await page.getByRole('tab', {name: '今日 0'}).click()
+  assert(await page.getByRole('tab', {name: '今日 0'}).getAttribute('aria-selected') === 'true', 'Compact tab did not select the empty column')
+  await page.getByRole('tab', {name: '收件箱 1'}).click()
+  await page.getByRole('button', {name: '将核对发票移至今日'}).click()
+  assert(await page.getByRole('tab', {name: '今日 1'}).count() === 1, 'Narrow move did not recompute tab count')
+  assert(await page.getByRole('tab', {name: '收件箱 0'}).getAttribute('aria-selected') === 'true', 'Narrow move unexpectedly selected destination')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow compact board overflowed document')
   assert(errors.length === 0, `Board preview raised page errors: ${errors.join('; ')}`)
   console.log(
     JSON.stringify({
@@ -305,6 +347,7 @@ try {
       regroupCards: 9,
       detailCards: 7,
       sprintCards: 10,
+      compactCards: 10,
       keyboardMove: true,
       pointerMove: true,
       inlineComposer: true,
@@ -313,6 +356,7 @@ try {
       regroupScroll: regroupOverflow,
       detailScroll: detailOverflow,
       sprintScroll: sprintOverflow,
+      compactScroll: compactOverflow,
       localizedNarrow: true,
       pageErrors: errors.length,
     }),

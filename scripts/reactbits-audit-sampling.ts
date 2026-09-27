@@ -561,6 +561,22 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-kanban-6')
+    return {
+      revision: 1,
+      lumenEntries: ['kanban.tsx', 'kanban.css', 'kanban-compact-reference.css', 'kanban/CompactReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Passive card click does not open a detail view'},
+        {viewport: 'desktop', theme: 'dark', suffix: '6:click', change: 'Forward arrow appends the first task to Today and updates counts'},
+        {viewport: 'mobile', theme: 'light', suffix: '1:click', change: 'Narrow tab selects Today without changing task data'},
+        {viewport: 'mobile', theme: 'dark', suffix: '4:press-space', change: 'Keyboard activation of card body remains passive'},
+        {viewport: 'mobile', theme: 'light', suffix: '6:click', change: 'Forward move retains Inbox selection and removes moved card'},
+      ],
+      inferences: [
+        {scope: 'Other cards, reverse arrows, column tabs and viewport/theme combinations', basis: 'The ten cards share the same Host movement and selected-column contracts. One passive pointer and keyboard activation, forward moves in wide/narrow layouts, and one narrow tab cover distinct state mechanisms; eight static pairs cover visual modes. Edge disabled arrows and reverse movement have focused Host/browser tests.', verification: 'inferred-not-replayed'},
+        {scope: 'Wide-screen pointer drag', basis: 'Drag and arrow movements update the same Host column field and append order; the local browser verifies one native drag between column regions.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-kanban-5')
     return {
       revision: 1,

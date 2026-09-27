@@ -10,6 +10,7 @@ import {
 } from '../packages/hbar-app-ui/src/index'
 import {
   createHbarAppUiKanbanLocalizedFixtures,
+  createHbarAppUiKanbanOverflowFixtures,
   HBAR_APP_UI_KANBAN_FIXTURES,
 } from './fixtures/hbar-app-ui-kanban-fixtures'
 function render(variant: number, content: HbarAppUiKanbanContent = HBAR_APP_UI_KANBAN_FIXTURES) {
@@ -29,7 +30,7 @@ describe('hbar-app-ui kanban surfaces', () => {
       expect(value).toContain(`data-lumen-variant="${index + 1}"`)
       if (index === 0) expect(value).toContain('lucide-plus')
       else if (index === 1) expect(value).toContain('lucide-chevron-down')
-      else if (index === 2 || index === 3 || index === 4) expect(value).toContain('lucide-grip')
+      else if (index === 2 || index === 3 || index === 4 || index === 5) expect(value).toContain('lucide-grip')
       else expect(value).not.toContain('lucide')
       expect(value).not.toContain('hbar-app-ui-button')
     })
@@ -210,5 +211,39 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(empty).not.toContain('hbar-app-ui-kanban-sprint-card ')
     const one = render(5, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceSprint: {...flow, cards: [flow.cards[0]!]}})
     expect((one.match(/class="hbar-app-ui-kanban-sprint-card /g) ?? []).length).toBe(1)
+  })
+  test('compact board renders four Host columns, ten cards, live counts and bounded arrows', () => {
+    const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceCompact!
+    const markup = render(6)
+    expect(markup).toContain(flow.labels.detail(10))
+    expect((markup.match(/class="hbar-app-ui-kanban-compact-card"/g) ?? []).length).toBe(10)
+    expect((markup.match(/<section class="hbar-app-ui-kanban-compact-column"/g) ?? []).length).toBe(4)
+    expect(markup).toContain('aria-label="Column"')
+    expect(markup).toContain(flow.labels.card(flow.cards[0]!))
+    expect(markup).toContain('aria-label="Move Prune stale invite tokens to previous column" disabled=""')
+    expect(markup).toContain('aria-label="Move Ship the changelog RSS feed to next column" disabled=""')
+    expect(markup).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    const moved = render(6, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: {
+      ...flow, cards: flow.cards.map((card) => card.id === 'invite' ? {...card, columnId: 'today'} : card),
+      announcement: flow.labels.moved('Prune stale invite tokens', 'Today'),
+    }})
+    expect(moved).toContain('Prune stale invite tokens moved to Today.')
+    expect(moved).toContain('aria-label="Move Prune stale invite tokens to Inbox"')
+  })
+  test('compact board localizes and bounds empty, one-card, duplicate and overflowing content', () => {
+    const localized = render(6, createHbarAppUiKanbanLocalizedFixtures())
+    expect(localized).toContain('海港任务')
+    expect(localized).toContain('核对发票')
+    expect(localized).toContain('aria-label="将核对发票移至今日"')
+    expect(localized).not.toContain('Harbor tasks')
+    const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceCompact!
+    const empty = render(6, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: {...flow, columns: [], cards: []}})
+    expect(empty).toContain(flow.labels.detail(0))
+    expect(empty).not.toContain('hbar-app-ui-kanban-compact-card"')
+    const one = render(6, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: {...flow, cards: [flow.cards[0]!, {...flow.cards[0]!, label: 'duplicate'}]}})
+    expect((one.match(/class="hbar-app-ui-kanban-compact-card"/g) ?? []).length).toBe(1)
+    expect(one).not.toContain('duplicate')
+    const overflow = render(6, createHbarAppUiKanbanOverflowFixtures())
+    expect((overflow.match(/class="hbar-app-ui-kanban-compact-card"/g) ?? []).length).toBe(40)
   })
 })

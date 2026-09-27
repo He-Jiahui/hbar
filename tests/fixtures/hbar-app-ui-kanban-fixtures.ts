@@ -457,6 +457,33 @@ export const HBAR_APP_UI_KANBAN_FIXTURES: HbarAppUiKanbanContent = {
     ],
     grabbedCardId: null, announcement: '', onGrab() {}, onMove() {}, onDrop() {}, onCancelGrab() {},
   },
+  referenceCompact: {
+    labels: {
+      title: 'Harbor tasks',
+      detail: (count) => `${count} tasks. Drag on a wide screen, or use the arrows on a card to move it one column at a time.`,
+      column: 'Column',
+      progress: (completed, total) => `${completed} of ${total} subtasks done`,
+      shortProgress: (completed, total) => `${completed}/${total}`,
+      card: (card) => `${card.label}. ${card.completed} of ${card.total} subtasks done.`,
+      movePrevious: (card, column) => `Move ${card} to ${column || 'previous column'}`,
+      moveNext: (card, column) => `Move ${card} to ${column || 'next column'}`,
+      moved: (card, column) => `${card} moved to ${column}.`,
+    },
+    columns: [{id: 'inbox', label: 'Inbox'}, {id: 'today', label: 'Today'}, {id: 'doing', label: 'Doing'}, {id: 'done', label: 'Done'}],
+    cards: [
+      {id: 'invite', label: 'Prune stale invite tokens', tag: 'Platform', assignee: 'WC', completed: 0, total: 3, columnId: 'inbox'},
+      {id: 'refund', label: 'Reconcile refund webhooks', tag: 'Billing', assignee: 'MS', completed: 1, total: 5, columnId: 'today'},
+      {id: 'welcome', label: 'Rewrite the welcome email', tag: 'Lifecycle', assignee: 'AR', completed: 3, total: 4, columnId: 'doing'},
+      {id: 'rss', label: 'Ship the changelog RSS feed', tag: 'Growth', assignee: 'PN', completed: 2, total: 2, columnId: 'done'},
+      {id: 'export', label: 'Document the export limits', tag: 'Docs', assignee: 'PN', completed: 0, total: 4, columnId: 'inbox'},
+      {id: 'widget', label: 'Retire the old status widget', tag: 'Craft', assignee: 'AR', completed: 2, total: 3, columnId: 'today'},
+      {id: 'digest', label: 'Weekly digest opt-out', tag: 'Lifecycle', assignee: 'WC', completed: 1, total: 2, columnId: 'doing'},
+      {id: 'search', label: 'Add a keyboard hint to search', tag: 'Craft', assignee: 'AR', completed: 1, total: 1, columnId: 'done'},
+      {id: 'trial', label: 'Cut the trial banner on paid plans', tag: 'Billing', assignee: 'WC', completed: 0, total: 2, columnId: 'inbox'},
+      {id: 'cdn', label: 'Move avatars to the CDN', tag: 'Platform', assignee: 'MS', completed: 4, total: 4, columnId: 'done'},
+    ],
+    selectedColumnId: 'inbox', announcement: '', onSelectColumn() {}, onMove() {},
+  },
   listStrategy: { kind: 'pane-scroll', expectedMaximum: 96 },
 }
 
@@ -570,6 +597,20 @@ export function createHbarAppUiKanbanLocalizedFixtures(): HbarAppUiKanbanContent
       stages: [{id: 'committed', label: '已提交', capacity: 5}, {id: 'accepted', label: '已验收'}],
       cards: [{id: 'local-card', label: '核对发票', points: 2, assignee: '陈', blocked: false, stageId: 'committed'}],
     },
+    referenceCompact: HBAR_APP_UI_KANBAN_FIXTURES.referenceCompact && {
+      ...HBAR_APP_UI_KANBAN_FIXTURES.referenceCompact,
+      labels: {
+        title: '海港任务', detail: (count) => `${count} 项任务。使用箭头逐列移动。`, column: '列',
+        progress: (completed, total) => `${total} 项中已完成 ${completed} 项`,
+        shortProgress: (completed, total) => `${completed}/${total}`,
+        card: (card) => `${card.label}。${card.total} 项中已完成 ${card.completed} 项。`,
+        movePrevious: (card, column) => `将${card}移至${column || '前一列'}`,
+        moveNext: (card, column) => `将${card}移至${column || '后一列'}`,
+        moved: (card, column) => `${card}已移至${column}。`,
+      },
+      columns: [{id: 'inbox', label: '收件箱'}, {id: 'today', label: '今日'}],
+      cards: [{id: 'local-card', label: '核对发票', tag: '财务', assignee: '陈', completed: 1, total: 3, columnId: 'inbox'}],
+    },
   }
 }
 
@@ -579,6 +620,7 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
   const regroup = HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup!
   const detail = HBAR_APP_UI_KANBAN_FIXTURES.referenceDetail!
   const sprint = HBAR_APP_UI_KANBAN_FIXTURES.referenceSprint!
+  const compact = HBAR_APP_UI_KANBAN_FIXTURES.referenceCompact!
   const extra = Array.from({ length: 30 }, (_, index) => ({
     id: `HAL-${300 + index}`,
     label: `Review the extended platform incident history for workspace ${index + 1}`,
@@ -621,6 +663,10 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
     referenceSprint: {
       ...sprint,
       cards: [...sprint.cards, ...extra.map((card) => ({id: card.id, label: card.label, points: 2, assignee: 'WC', blocked: false, stageId: 'committed'}))],
+    },
+    referenceCompact: {
+      ...compact,
+      cards: [...compact.cards, ...extra.map((card) => ({id: card.id, label: card.label, tag: card.tag, assignee: 'WC', completed: 0, total: 3, columnId: 'inbox'}))],
     },
   }
 }

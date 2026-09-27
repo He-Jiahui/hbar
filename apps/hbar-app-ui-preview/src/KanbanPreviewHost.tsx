@@ -13,6 +13,7 @@ export function KanbanPreviewHost({
   const initialRegroup = content.referenceRegroup
   const initialDetail = content.referenceDetail
   const initialSprint = content.referenceSprint
+  const initialCompact = content.referenceCompact
   const [columns, setColumns] = useState(initial?.columns ?? content.columns)
   const [cards, setCards] = useState(initial?.cards ?? [])
   const [composerColumnId, setComposerColumnId] = useState<string | null>(initial?.composerColumnId ?? null)
@@ -37,6 +38,9 @@ export function KanbanPreviewHost({
   const [sprintCards, setSprintCards] = useState(initialSprint?.cards ?? [])
   const [sprintGrabbedCardId, setSprintGrabbedCardId] = useState<string | null>(initialSprint?.grabbedCardId ?? null)
   const [sprintAnnouncement, setSprintAnnouncement] = useState(initialSprint?.announcement ?? '')
+  const [compactCards, setCompactCards] = useState(initialCompact?.cards ?? [])
+  const [compactColumnId, setCompactColumnId] = useState(initialCompact?.selectedColumnId ?? '')
+  const [compactAnnouncement, setCompactAnnouncement] = useState(initialCompact?.announcement ?? '')
 
   useEffect(() => {
     setColumns(content.referenceBoard?.columns ?? content.columns)
@@ -61,6 +65,9 @@ export function KanbanPreviewHost({
     setSprintCards(content.referenceSprint?.cards ?? [])
     setSprintGrabbedCardId(content.referenceSprint?.grabbedCardId ?? null)
     setSprintAnnouncement(content.referenceSprint?.announcement ?? '')
+    setCompactCards(content.referenceCompact?.cards ?? [])
+    setCompactColumnId(content.referenceCompact?.selectedColumnId ?? '')
+    setCompactAnnouncement(content.referenceCompact?.announcement ?? '')
   }, [content])
 
   const flow = content.referenceBoard
@@ -68,6 +75,7 @@ export function KanbanPreviewHost({
   const regroup = content.referenceRegroup
   const detail = content.referenceDetail
   const sprint = content.referenceSprint
+  const compact = content.referenceCompact
   return (
     <HbarAppUiKanbanProvider
       content={{
@@ -261,6 +269,20 @@ export function KanbanPreviewHost({
             setSprintAnnouncement(sprint.labels.dropped(cardId, label))
           },
           onCancelGrab: () => { setSprintGrabbedCardId(null); setSprintAnnouncement('') },
+        },
+        referenceCompact: compact && {
+          ...compact,
+          cards: compactCards,
+          selectedColumnId: compactColumnId,
+          announcement: compactAnnouncement,
+          onSelectColumn: setCompactColumnId,
+          onMove: (cardId, columnId) => {
+            const card = compactCards.find((item) => item.id === cardId)
+            const column = compact.columns.find((item) => item.id === columnId)
+            if (!card || !column || card.columnId === columnId) return
+            setCompactCards((current) => [...current.filter((item) => item.id !== cardId), {...card, columnId}])
+            setCompactAnnouncement(compact.labels.moved(card.label, column.label))
+          },
         },
       }}
     >
