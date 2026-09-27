@@ -13,6 +13,7 @@ export interface HbarComposerSlashLabels {
   readonly select: (name: string) => string
   readonly hint: string
   readonly attachmentsBlocked: string
+  readonly modelBusy: string
   readonly error: (code: string) => string
 }
 

@@ -600,6 +600,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
     executionPreparation,
+    (sessionId) => {
+      const current = timeline.reader.getSnapshot()
+      return (
+        current.sessionId === sessionId &&
+        current.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+      )
+    },
   )
   const offModelEvents = options.modelEvents?.subscribe(composerModel.invalidateModels)
   const offModelConnection = options.modelEvents?.onConnection?.(composerModel.setConnected)

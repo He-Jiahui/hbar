@@ -226,6 +226,7 @@ export function HbarComposerModelPicker({
   sessionId,
   connected,
   disabled,
+  runActive = false,
   canSelect = true,
   labels,
   openRequest = 0,
@@ -235,6 +236,7 @@ export function HbarComposerModelPicker({
   readonly sessionId: string
   readonly connected: boolean
   readonly disabled: boolean
+  readonly runActive?: boolean
   readonly canSelect?: boolean
   readonly labels: HbarComposerModelLabels
   readonly openRequest?: number
@@ -265,6 +267,11 @@ export function HbarComposerModelPicker({
   const modelId = useId()
   const thinkingId = useId()
   const [open, setOpen] = useState<'model' | 'thinking' | null>(null)
+  useEffect(() => {
+    if (!runActive) return
+    modelRef.current?.hidePopover()
+    thinkingRef.current?.hidePopover()
+  }, [runActive])
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(COMPOSER_MODEL_PAGE_SIZE)
   const [sliderDraft, setSliderDraft] = useState<ThinkingPreview | null>(null)

@@ -74,6 +74,7 @@ type ReceiptMode = 'normal' | 'missing' | 'foreign' | 'key' | 'field' | 'revisio
 function fixture() {
   const local = new CommandRegistry()
   let disposed = false
+  let runActive = false
   const navigation = createState<NavigationState>(
     { workspaceId: 'w', sessionId: null, status: 'idle', error: null },
     () => {},
@@ -354,6 +355,7 @@ function fixture() {
     () => {},
     () => disposed,
     preparation,
+    (sessionId) => sessionId === 'a' && runActive,
   )
   const modeValues = new Map<string, 'default' | 'plan'>([
     ['a', 'default'],
@@ -407,6 +409,9 @@ function fixture() {
     modeValues,
     permissions: () => permissions,
     projected: () => projection.reader.getSnapshot().model,
+    setRunActive: (value: boolean) => {
+      runActive = value
+    },
     select,
     archive: (id = 'a') => observe(id, true),
     restore: (id = 'a') => observe(id, false),
@@ -671,6 +676,63 @@ for (const owner of ['model', 'plan'] as const)
       f.dispose()
     }
   })
+
+test('active Run blocks model and thinking changes without blocking catalog reads or later selection', async () => {
+  const f = fixture()
+  try {
+    await f.ready()
+    f.setRunActive(true)
+    await expect(
+      f.local.execute('composerModel.selectModel', { sessionId: 'a', modelId: 'fixture/two' }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(
+      f.local.execute('composerModel.selectThinking', { sessionId: 'a', thinkingLevel: 'high' }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await f.local.execute('composerModel.refresh', { sessionId: 'a' })
+    expect(f.writes).toEqual([])
+    f.setRunActive(false)
+    await f.local.execute('composerModel.selectThinking', { sessionId: 'a', thinkingLevel: 'high' })
+    expect(f.writes).toHaveLength(1)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('a Run starting during model preparation prevents dispatching the configuration write', async () => {
+  const f = fixture()
+  try {
+    await f.ready()
+    const gate = f.block('capture')
+    const attempt = f.local.execute('composerModel.selectThinking', { sessionId: 'a', thinkingLevel: 'high' })
+    const rejected = attempt.catch((error: unknown) => error)
+    await gate.entered.promise
+    f.setRunActive(true)
+    gate.release.resolve()
+    expect(await rejected).toMatchObject({ code: 'BUSY' })
+    expect(f.writes).toEqual([])
+    expect(f.model.reader.getSnapshot().action).toMatchObject({ status: 'failed', error: 'BUSY' })
+  } finally {
+    f.dispose()
+  }
+})
+
+test('an unknown model receipt remains read-only recoverable during an active Run', async () => {
+  const f = fixture()
+  try {
+    await f.ready()
+    f.flags.modelError = 'RESULT_UNKNOWN'
+    await expect(
+      f.local.execute('composerModel.selectThinking', { sessionId: 'a', thinkingLevel: 'high' }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    f.setRunActive(true)
+    await f.local.execute('composerModel.reconcile', { sessionId: 'a' })
+    expect(f.writes).toHaveLength(1)
+    expect(f.modelReads.at(-1)?.name).toBe('session.getModel')
+    expect(f.model.reader.getSnapshot().action.status).toBe('idle')
+  } finally {
+    f.dispose()
+  }
+})
 
 test('model preparation is single-flight; archive or a changed selection cannot start an old configuration write', async () => {
   const f = fixture()

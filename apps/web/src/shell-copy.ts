@@ -1347,6 +1347,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '此本地命令不能连同附件发送；移除附件后再确认。草稿和附件均已保留。',
         'This local command cannot be sent with attachments. Remove them before confirming; the draft is preserved.',
       ),
+      modelBusy: choose(
+        '当前任务结束后才能更改模型；草稿已保留。',
+        'Change models after the current run finishes; your draft is preserved.',
+      ),
       error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
     },
     addMenu: {

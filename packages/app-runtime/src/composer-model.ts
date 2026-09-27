@@ -92,6 +92,7 @@ export function createComposerModel(
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
   preparation?: SessionExecutionPreparationPort,
+  isRunActive?: (sessionId: string) => boolean,
 ) {
   const state = createState<ComposerModelState>(initial(navigation.getSnapshot().sessionId), onSubscriberError)
   const catalogReads = createModelReadQueue()
@@ -298,6 +299,7 @@ export function createComposerModel(
     signal: AbortSignal,
   ) => {
     requireIdle(sessionId)
+    if (isRunActive?.(sessionId)) throw new CommandError('BUSY', 'Wait for the active Run before changing models')
     const intent = generation
     try {
       const current = state.reader.getSnapshot()
@@ -315,6 +317,7 @@ export function createComposerModel(
       if (generation !== intent) throw new CommandError('STALE_TARGET', 'Model preparation belongs to an old selection')
       assertSelected(sessionId)
       if (target) preparation?.assertCanPrepare(target)
+      if (isRunActive?.(sessionId)) throw new CommandError('BUSY', 'Wait for the active Run before changing models')
       const baselineRevisions = { ...configuration.revisions }
       let operation: PendingWrite
       if ('modelId' in change) {

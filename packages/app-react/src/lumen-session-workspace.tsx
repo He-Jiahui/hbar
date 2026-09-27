@@ -404,6 +404,10 @@ function SessionWorkspaceContent({
         return
       }
       if (slash === 'model' && modelPending) return
+      if (slash === 'model' && activeRun) {
+        setSlashFailure({ sessionId: targetSessionId, code: 'RUN_ACTIVE' })
+        return
+      }
       if (slash === 'model' && !canPrepareTarget(targetSessionId, targetWorkspaceId)) return
       const target = { sessionId: targetSessionId, workspaceId: targetWorkspaceId, revision: latest.revision }
       localSlashInFlight.current = true
@@ -1147,7 +1151,9 @@ function SessionWorkspaceContent({
                       (slashFailure.code !== 'ATTACHMENTS' || draft?.attachments.length || attachmentTransfers.length)
                     ? slashFailure.code === 'ATTACHMENTS'
                       ? labels.slash.attachmentsBlocked
-                      : labels.slash.error(slashFailure.code)
+                      : slashFailure.code === 'RUN_ACTIVE'
+                        ? labels.slash.modelBusy
+                        : labels.slash.error(slashFailure.code)
                     : undefined
           }
           controls={
@@ -1303,8 +1309,11 @@ function SessionWorkspaceContent({
                 key={sessionId}
                 sessionId={sessionId}
                 connected={connected}
-                disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
-                canSelect={canPrepare}
+                runActive={Boolean(activeRun)}
+                disabled={
+                  draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending || Boolean(activeRun)
+                }
+                canSelect={canPrepare && !activeRun}
                 labels={labels.modelPicker}
                 openRequest={modelOpenRequest}
                 onOpened={() => {

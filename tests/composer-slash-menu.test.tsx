@@ -11,6 +11,7 @@ const labels: HbarComposerSlashLabels = {
   select: (name) => `补全 ${name}`,
   hint: '↑↓ 选择 · Enter/Tab 补全 · Esc 关闭',
   attachmentsBlocked: '先移除附件',
+  modelBusy: '当前任务结束后才能更改模型',
   error: (code) => code,
 }
 
