@@ -5,6 +5,9 @@ import type { SessionEvent } from '../index'
 import { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
 export { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
 export type { ActiveOperationsInput, ActiveOperationsPage } from './active-operations'
+import { queuedUserRunsInputSchema, queuedUserRunsPageSchema } from './queued-user-runs'
+export { queuedUserRunsInputSchema, queuedUserRunsPageSchema } from './queued-user-runs'
+export type { QueuedUserRunsInput, QueuedUserRunsPage } from './queued-user-runs'
 
 export const submitRunInputSchema = z.strictObject({
   sessionId: idSchema,
@@ -70,6 +73,30 @@ export interface OperationWatchResult {
 }
 
 export const runCommands = {
+  'session.queuedUserRuns': defineCommand(
+    {
+      id: 'session.queuedUserRuns',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'query',
+      execution: 'host',
+      stateEffect: 'none',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.session.queuedUserRuns.title',
+      descriptionKey: 'commands.session.queuedUserRuns.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'cursor', type: 'json', flag: 'cursor' },
+          { field: 'limit', type: 'number', flag: 'limit' },
+        ],
+      },
+    },
+    queuedUserRunsInputSchema,
+    queuedUserRunsPageSchema,
+  ),
   'session.activeOperations': defineCommand(
     {
       id: 'session.activeOperations',

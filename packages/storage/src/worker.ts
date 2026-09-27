@@ -38,6 +38,7 @@ import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } f
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
+import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
@@ -720,6 +721,7 @@ const methods: StorageMethods = {
     }
   },
   activeOperations: (input) => readActiveOperations(db, input),
+  queuedUserRuns: (input) => readQueuedUserRuns(db, input),
   context(sessionId) {
     const compacted = db
       .query('SELECT * FROM compactions WHERE sessionId=? ORDER BY eventSeq DESC LIMIT 1')

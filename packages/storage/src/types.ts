@@ -19,6 +19,7 @@ import type {
   SessionPage,
 } from '@hbar/contracts'
 import type { ActiveOperationsInput, ActiveOperationsPage, RunCommandRecord } from '@hbar/contracts/commands/run'
+import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type {
@@ -154,6 +155,7 @@ export interface StorageMethods {
   ): { message: Message; event: SessionEvent }
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
   activeOperations(input: ActiveOperationsInput): ActiveOperationsPage
+  queuedUserRuns(input: QueuedUserRunsInput): QueuedUserRunsPage
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
   compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
   fork(sessionId: string, atSeq?: number): Session
