@@ -561,6 +561,23 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-comments-3')
+    return {
+      revision: 1,
+      lumenEntries: ['comments.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'Thread resolution updates the pressed state and label'},
+        {viewport: 'desktop', theme: 'light', suffix: '1:fill', change: 'Reply draft enables the only submit control'},
+        {viewport: 'desktop', theme: 'light', suffix: 'comments-review-filled:2:click', change: 'Enabled Reply preserves the source draft and existing discussion'},
+        {viewport: 'desktop', theme: 'dark', suffix: '0:hover', change: 'Thread resolution pointer feedback'},
+        {viewport: 'desktop', theme: 'light', suffix: '1:focus', change: 'Reply field keyboard focus'},
+        {viewport: 'stress', theme: 'light', suffix: '0:press-space', change: 'Narrow keyboard thread resolution without disturbing scroll owners'},
+      ],
+      inferences: [
+        {scope: 'Reverse resolution and equivalent input values', basis: 'Source probing confirms the same toggle reopens and leaves the input enabled. Local browser tests verify both directions, whitespace gating and draft preservation. No layout-by-button product is replayed.', verification: 'inferred-not-replayed'},
+        {scope: 'Passive code lines, suggestions and comments at other widths/themes', basis: 'The source has three controls only; diff rows and suggested code are read-only. Eight static pairs plus local code-horizontal/message-vertical scroll, capacity and long localized tests cover their flow.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-comments-2')
     return {
       revision: 1,

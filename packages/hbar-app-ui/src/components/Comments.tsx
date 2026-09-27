@@ -35,6 +35,9 @@ export type {
   LumenCommentsMessage as HbarAppUiCommentsMessage,
   LumenCommentsProviderProps as HbarAppUiCommentsProviderProps,
   LumenCommentsReviewContent as HbarAppUiCommentsReviewContent,
+  LumenCommentsCodeReviewReferenceContent as HbarAppUiCommentsCodeReviewReferenceContent,
+  LumenCommentsReviewLine as HbarAppUiCommentsReviewLine,
+  LumenCommentsReviewMessage as HbarAppUiCommentsReviewMessage,
 } from '@lumen/app-ui'
 export function Comments({ spec, onAction, commentsContent, className }: HbarAppUiCommentsProps) {
   return (

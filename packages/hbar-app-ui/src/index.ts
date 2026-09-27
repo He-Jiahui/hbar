@@ -270,6 +270,9 @@ export type {
   HbarAppUiCommentsMessage,
   HbarAppUiCommentsProviderProps,
   HbarAppUiCommentsReviewContent,
+  HbarAppUiCommentsCodeReviewReferenceContent,
+  HbarAppUiCommentsReviewLine,
+  HbarAppUiCommentsReviewMessage,
 } from './components/Comments'
 export {
   HbarAppUiSchedulingProvider,

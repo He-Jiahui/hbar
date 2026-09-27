@@ -7,15 +7,23 @@ export function CommentsPreviewHost({content, children}: {readonly content: Hbar
   const [messages, setMessages] = useState(content.referenceDiscussion?.messages ?? [])
   const [activeAnnotationId, setActiveAnnotationId] = useState(content.referenceAnnotation?.activeId ?? '')
   const [annotations, setAnnotations] = useState(content.referenceAnnotation?.annotations ?? [])
+  const [reviewResolved, setReviewResolved] = useState(content.referenceReview?.resolved ?? false)
+  const [reviewDraft, setReviewDraft] = useState(content.referenceReview?.draft ?? '')
   useEffect(() => {
     setSortId(content.referenceDiscussion?.sortId ?? '')
     setDraft(content.referenceDiscussion?.draft ?? '')
     setMessages(content.referenceDiscussion?.messages ?? [])
     setActiveAnnotationId(content.referenceAnnotation?.activeId ?? '')
     setAnnotations(content.referenceAnnotation?.annotations ?? [])
+    setReviewResolved(content.referenceReview?.resolved ?? false)
+    setReviewDraft(content.referenceReview?.draft ?? '')
   }, [content])
   return <HbarAppUiCommentsProvider content={{
     ...content,
+    referenceReview: content.referenceReview && {
+      ...content.referenceReview, resolved: reviewResolved, draft: reviewDraft,
+      onResolvedChange: setReviewResolved, onDraftChange: setReviewDraft,
+    },
     referenceAnnotation: content.referenceAnnotation && {
       ...content.referenceAnnotation, activeId: activeAnnotationId, annotations,
       onSelectionChange: setActiveAnnotationId,

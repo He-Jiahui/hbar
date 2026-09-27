@@ -2,6 +2,32 @@ import type { HbarAppUiCommentsContent } from '../../packages/hbar-app-ui/src/in
 const grown = { kind: 'content-grown', expectedMaximum: 8 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
+  referenceReview: {
+    labels: {
+      title: 'Cap backfill concurrency', detail: 'packages/data/src/query.ts · 2 comments',
+      resolve: 'Resolve thread', resolved: 'Resolved', replyPlaceholder: 'Reply to this thread', reply: 'Reply',
+      suggestedChange: 'Suggested change', emptyCode: 'No code changes', emptyComments: 'No review comments',
+    },
+    lines: [
+      {id: '82', number: '82', marker: '', value: '  const pool = await getPool(region);', tone: 'neutral'},
+      {id: '83', number: '83', marker: '', value: ' ', tone: 'neutral'},
+      {id: '84', number: '84', marker: '-', value: '  const rows = await pool.query(sql);', tone: 'removed'},
+      {id: '85', number: '85', marker: '+', value: '  const rows = await pool.query(sql, {', tone: 'added'},
+      {id: '86', number: '86', marker: '+', value: '    timeout: 30_000,', tone: 'added'},
+      {id: '87', number: '87', marker: '+', value: '    maxWorkers: 8,', tone: 'added'},
+      {id: '88', number: '88', marker: '+', value: '  });', tone: 'added'},
+      {id: '89', number: '89', marker: '', value: ' ', tone: 'neutral'},
+      {id: '90', number: '90', marker: '', value: '  return rows.map(toRecord);', tone: 'neutral'},
+    ],
+    messages: [
+      {id: 'wei', initials: 'WC', author: 'Wei Chen', meta: '4h ago', body: 'Hard-coding eight workers here will bite us when the pool size changes. Read it from the pool config so the two never drift apart.', suggestion: 'maxWorkers: pool.size / 2,'},
+      {id: 'priya', initials: 'PN', author: 'Priya Nandakumar', meta: '2h ago', body: 'Good catch. I also want the timeout to come from the same place, otherwise a slow region silently inherits the default.'},
+    ],
+    codeStrategy: {kind: 'content-grown', expectedMaximum: 9},
+    messageStrategy: {kind: 'content-grown', expectedMaximum: 2},
+    resolved: false,
+    draft: '',
+  },
   referenceAnnotation: {
     labels: {
       title: 'Service commitment draft',
@@ -201,6 +227,14 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
 export function createHbarAppUiCommentsLocalizedFixtures(): HbarAppUiCommentsContent {
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceReview: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceReview!,
+      labels: {
+        title: '限制回填任务并发并统一读取连接池配置', detail: '数据访问模块 · 两条审查评论',
+        resolve: '解决线程', resolved: '已解决', replyPlaceholder: '回复这条审查线程', reply: '回复',
+        suggestedChange: '建议的更改', emptyCode: '没有代码更改', emptyComments: '没有审查评论',
+      },
+    },
     referenceAnnotation: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceAnnotation!,
       labels: {
@@ -231,6 +265,13 @@ export function createHbarAppUiCommentsOverflowFixtures(): HbarAppUiCommentsCont
   const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceReview: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceReview!,
+      lines: Array.from({length: 10}, (_, index) => ({id: `extra-${index}`, number: String(index + 1), marker: '+', value: `  await queueRegionalBackfillWithCapacity(${index});`, tone: 'added' as const})),
+      messages: Array.from({length: 3}, (_, index) => ({id: `extra-${index}`, initials: String(index + 1), author: `Additional reviewer ${index + 1}`, meta: 'just now', body: 'The capacity and timeout must be independently reviewable for this regional change. '.repeat(4), suggestion: 'const capacity = regionalPool.capacity;'})),
+      codeStrategy: {kind: 'pane-scroll', expectedMaximum: 9},
+      messageStrategy: {kind: 'pane-scroll', expectedMaximum: 2},
+    },
     referenceAnnotation: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceAnnotation!,
       annotations: Array.from({length: 4}, (_, index) => ({

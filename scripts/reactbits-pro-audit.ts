@@ -328,6 +328,7 @@ export type InteractionCase = Readonly<{
     | 'wizard-environment-scroll'
     | 'wizard-review-confirmed'
     | 'comments-discussion-filled'
+    | 'comments-review-filled'
     | 'wizard-shipping-third-selected'
     | 'wizard-shipping-final-selected'
     | 'tree-shipping-open'
@@ -2046,6 +2047,9 @@ async function prepareWizardReviewConfirmed(root: Locator): Promise<void> {
 async function prepareCommentsDiscussionFilled(root: Locator): Promise<void> {
   await root.locator('textarea').fill('Thanks, we can stage this.')
 }
+async function prepareCommentsReviewFilled(root: Locator): Promise<void> {
+  await root.getByRole('textbox').fill('I will move both values into config.')
+}
 async function prepareWizardShippingScenario(root: Locator, scenario: 'wizard-shipping-third-selected' | 'wizard-shipping-final-selected'): Promise<void> {
   const final = scenario === 'wizard-shipping-final-selected'
   await root.getByRole('button', {name: final ? 'Go to question 5' : 'Go to question 3'}).click()
@@ -3586,6 +3590,8 @@ async function replayInteraction(
     await prepareWizardReviewConfirmed(root)
   if (spec.id === 'hbar-app-ui-comments-1' && interaction.scenario === 'comments-discussion-filled')
     await prepareCommentsDiscussionFilled(root)
+  if (spec.id === 'hbar-app-ui-comments-3' && interaction.scenario === 'comments-review-filled')
+    await prepareCommentsReviewFilled(root)
   if (spec.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
@@ -3926,6 +3932,8 @@ async function replayReferenceInteraction(
     await prepareWizardReviewConfirmed(root)
   if (reference.id === 'hbar-app-ui-comments-1' && interaction.scenario === 'comments-discussion-filled')
     await prepareCommentsDiscussionFilled(root)
+  if (reference.id === 'hbar-app-ui-comments-3' && interaction.scenario === 'comments-review-filled')
+    await prepareCommentsReviewFilled(root)
   if (reference.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
@@ -4714,6 +4722,11 @@ async function runInteractionsParallel(
               await prepareCommentsDiscussionFilled(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-discussion-filled'))
               await sourceRoot.locator('textarea').fill('')
+            }
+            if (spec.id === 'hbar-app-ui-comments-3' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:comments-review-filled:`)))) {
+              await prepareCommentsReviewFilled(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-review-filled'))
+              await sourceRoot.getByRole('textbox').fill('')
             }
             if (spec.id === 'hbar-app-ui-wizard-7') {
               for (const scenario of ['wizard-shipping-third-selected', 'wizard-shipping-final-selected'] as const) {

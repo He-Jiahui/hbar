@@ -123,6 +123,46 @@ describe('hbar-app-ui comment surfaces', () => {
     expect(localized).toContain('2 条未解决批注，共 3 条')
     expect(render(2, createHbarAppUiCommentsOverflowFixtures())).toContain('Regional reviewer 4')
   })
+  test('code review renders passive diff and suggestions without inventing accept or dismiss actions', () => {
+    const value = render(3)
+    expect(value).toContain('Cap backfill concurrency')
+    expect(value).toContain('packages/data/src/query.ts · 2 comments')
+    expect(value.match(/lumen-comments-code-review-line"/g)?.length).toBe(9)
+    expect(value.match(/<article/g)?.length).toBe(2)
+    expect(value).toContain('maxWorkers: pool.size / 2,')
+    expect(value.match(/<button/g)?.length).toBe(2)
+    expect(value).toContain('disabled=""')
+    expect(value).not.toContain('>Accept<')
+    expect(value).not.toContain('>Dismiss<')
+  })
+  test('code review consumes Host resolution and draft without coupling the two states', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceReview!
+    const value = render(3, {referenceReview: {...content, resolved: true, draft: 'Capacity confirmed'}})
+    expect(value).toContain('aria-pressed="true"')
+    expect(value).toContain('Resolved')
+    expect(value).toContain('Capacity confirmed')
+    expect(value).not.toContain('disabled=""')
+    expect(value.match(/<article/g)?.length).toBe(2)
+    expect(render(3, {referenceReview: {...content, draft: '   '}})).toContain('disabled=""')
+  })
+  test('review empty, one, normal, boundary-plus-one and duplicate collections are preserved', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceReview!
+    expect(render(3, {referenceReview: {...content, lines: [], messages: []}})).toContain('No code changes')
+    expect(render(3, {referenceReview: {...content, lines: [], messages: []}})).toContain('No review comments')
+    for (const count of [1, 2, 3]) {
+      const messages = Array.from({length: count}, (_, index) => ({...content.messages[0]!, id: String(index)}))
+      expect(render(3, {referenceReview: {...content, messages}}).match(/<article/g)?.length).toBe(count)
+    }
+    const duplicate = render(3, {referenceReview: {...content, messages: [content.messages[0]!, content.messages[0]!], lines: [content.lines[0]!, content.lines[0]!]}})
+    expect(duplicate.match(/<article/g)?.length).toBe(1)
+    expect(duplicate.match(/lumen-comments-code-review-line"/g)?.length).toBe(1)
+    const overflow = render(3, createHbarAppUiCommentsOverflowFixtures())
+    expect(overflow.match(/lumen-comments-code-review-line"/g)?.length).toBe(10)
+    expect(overflow.match(/<article/g)?.length).toBe(3)
+    const localized = render(3, createHbarAppUiCommentsLocalizedFixtures())
+    expect(localized).toContain('限制回填任务并发并统一读取连接池配置')
+    expect(localized).toContain('回复这条审查线程')
+  })
   test('stale sort, empty, duplicate and 45-message collections remain deterministic and untruncated', () => {
     const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
     const duplicate = render(1, {...HBAR_APP_UI_COMMENTS_FIXTURES, referenceDiscussion: {...discussion, sortId: 'missing', messages: [discussion.messages[0]!, discussion.messages[0]!]}})

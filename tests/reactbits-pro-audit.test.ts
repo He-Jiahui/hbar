@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('review sampling checks state mechanisms and treats code and suggested edits as passive content', () => {
+  const id = 'hbar-app-ui-comments-3'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(6)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toContain(`${id}:comments-review-filled:2:click`)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:0:press-space`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('annotation sampling covers independent resolve, select, passive review and narrow keyboard mechanisms', () => {
   const id = 'hbar-app-ui-comments-2'
   const plan = auditSamplingPlan(id)!
