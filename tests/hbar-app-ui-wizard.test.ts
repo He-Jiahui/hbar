@@ -31,6 +31,7 @@ describe('hbar-app-ui wizard surfaces', () => {
       expect(value).toContain('data-lumen-component="wizard"')
       expect(value).toContain(`data-lumen-variant="${index + 1}"`)
       if (index === 1 || index === 2) expect(value).toContain('lucide-arrow-right')
+      else if (index === 3) expect(value).toContain('lucide-database')
       else expect(value).not.toContain('lucide')
       expect(value).not.toContain('hbar-app-ui-button')
     })
@@ -56,6 +57,7 @@ describe('hbar-app-ui wizard surfaces', () => {
   test('honors empty wizard records and explicit capacity strategies', () => {
     const content: HbarAppUiWizardContent = {
       ...HBAR_APP_UI_WIZARD_FIXTURES,
+      referenceEnvironment: undefined,
       environment: { ...HBAR_APP_UI_WIZARD_FIXTURES.environment!, services: [] },
       migration: { ...HBAR_APP_UI_WIZARD_FIXTURES.migration!, items: [] },
     }
@@ -151,5 +153,42 @@ describe('hbar-app-ui wizard surfaces', () => {
     expect(duplicate).not.toContain('duplicate')
     const overflow = render(3, createHbarAppUiWizardOverflowFixtures())
     expect((overflow.match(/role="radio"/g) ?? []).length).toBe(33)
+  })
+  test('environment uses eight controlled services and all weighted summary subsets', () => {
+    const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment!
+    const markup = render(4)
+    expect((markup.match(/role="checkbox"/g) ?? []).length).toBe(8)
+    expect(markup).toContain('3 of 8 selected')
+    expect(markup).toContain('Adds about 24s to each deploy')
+    expect(markup).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    expect((markup.match(/<li>/g) ?? []).length).toBe(4)
+    expect((markup.match(/<button /g) ?? []).length).toBe(11)
+    for (let bits = 0; bits < 256; bits++) {
+      const selected = flow.services.filter((_, index) => (bits & (1 << index)) !== 0)
+      const value = render(4, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceEnvironment: {...flow, selectedServiceIds: [...selected.map((service) => service.id), 'stale']}})
+      expect(value).toContain(flow.labels.selection(selected.length, 8))
+      expect(value).toContain(flow.labels.estimate(selected.reduce((total, service) => total + service.deploySeconds, 0)))
+      expect((value.match(/aria-checked="true"/g) ?? []).length).toBe(selected.length)
+      expect(value).not.toContain('disabled=""')
+    }
+  })
+  test('environment localizes and preserves empty, duplicate and over-bound services', () => {
+    const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment!
+    const localized = render(4, createHbarAppUiWizardLocalizedFixtures())
+    expect(localized).toContain('新环境')
+    expect(localized).toContain('托管数据库')
+    expect(localized).not.toContain('New environment')
+    const empty = render(4, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceEnvironment: {...flow, services: []}})
+    expect(empty).toContain(flow.labels.empty)
+    expect(empty).toContain('0 of 0 selected')
+    expect(empty).toContain('Adds about 0s to each deploy')
+    const duplicate = render(4, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceEnvironment: {...flow, services: [flow.services[0]!, {...flow.services[0]!, label: 'duplicate', deploySeconds: 99}]}})
+    expect((duplicate.match(/role="checkbox"/g) ?? []).length).toBe(1)
+    expect(duplicate).toContain('Adds about 12s to each deploy')
+    expect(duplicate).not.toContain('duplicate')
+    const invalid = render(4, {...HBAR_APP_UI_WIZARD_FIXTURES, referenceEnvironment: {...flow, steps: [flow.steps[0]!, flow.steps[0]!], services: [{...flow.services[0]!, deploySeconds: Number.NaN}]}})
+    expect((invalid.match(/<li>/g) ?? []).length).toBe(1)
+    expect(invalid).toContain('Adds about 0s to each deploy')
+    expect((render(4, createHbarAppUiWizardOverflowFixtures()).match(/role="checkbox"/g) ?? []).length).toBe(48)
   })
 })

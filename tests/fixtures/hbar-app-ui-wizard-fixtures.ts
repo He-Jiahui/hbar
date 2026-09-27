@@ -4,6 +4,28 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceEnvironment: {
+    labels: {
+      title: 'New environment', detail: 'staging · eu-west', back: 'Back to region', save: 'Save and exit',
+      heading: 'Pick the services this environment runs', subtitle: 'Anything left out can be attached later without a rebuild.',
+      group: 'Available services', safety: 'Every selected service is provisioned inside the same private network. Nothing is exposed publicly until you add a route.',
+      selection: (count, total) => `${count} of ${total} selected`, estimate: (seconds) => `Adds about ${seconds}s to each deploy`,
+      next: 'Set limits', empty: 'No services available',
+    },
+    steps: [{id: 'region', label: 'Region'}, {id: 'services', label: 'Services'}, {id: 'limits', label: 'Limits'}, {id: 'review', label: 'Review'}],
+    currentStepId: 'services', completedStepIds: ['region'],
+    services: [
+      {id: 'postgres', label: 'Managed Postgres', detail: 'Primary store with nightly snapshots.', icon: 'database', deploySeconds: 12},
+      {id: 'cache', label: 'In-memory cache', detail: 'Shared key store for sessions.', icon: 'cache', deploySeconds: 4},
+      {id: 'storage', label: 'Object storage', detail: 'Buckets for uploads and exports.', icon: 'storage', deploySeconds: 6},
+      {id: 'queue', label: 'Background queue', detail: 'Retries and dead-letter handling.', icon: 'queue', deploySeconds: 8},
+      {id: 'jobs', label: 'Scheduled jobs', detail: 'Cron runners with a shared log.', icon: 'clock', deploySeconds: 5},
+      {id: 'search', label: 'Search index', detail: 'Rebuilt from Postgres on write.', icon: 'search', deploySeconds: 14},
+      {id: 'metrics', label: 'Metrics pipeline', detail: 'Request, queue, and job counters.', icon: 'activity', deploySeconds: 7},
+      {id: 'logs', label: 'Log retention', detail: 'Thirty days of searchable output.', icon: 'log', deploySeconds: 3},
+    ],
+    selectedServiceIds: ['postgres', 'cache', 'queue'], listStrategy: scroll, onServiceToggle() {},
+  },
   referenceUpgrade: {
     labels: {
       title: 'Billing upgrade', detail: 'Change plan, seats, and payment terms before renewal.', draft: 'Draft',
@@ -248,6 +270,19 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceEnvironment: HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment,
+      labels: {
+        title: '新环境', detail: '预发布 · 欧洲西区', back: '返回区域', save: '保存并退出',
+        heading: '选择此环境运行的服务', subtitle: '未选择的服务可以稍后添加，无需重建环境。',
+        group: '可用服务', safety: '所有选中的服务都在同一私有网络内运行。添加路由之前，服务不会向公众开放。',
+        selection: (count, total) => `已选择 ${count} / ${total} 项`, estimate: (seconds) => `每次部署增加约 ${seconds} 秒`,
+        next: '设置限制', empty: '暂无可用服务',
+      },
+      steps: [{id: 'region', label: '区域'}, {id: 'services', label: '服务'}, {id: 'limits', label: '限制'}, {id: 'review', label: '审核'}],
+      services: [{id: 'postgres', label: '托管数据库', detail: '每日夜间快照与私有备份。', icon: 'database', deploySeconds: 12}],
+      selectedServiceIds: ['postgres'],
+    },
     referenceUpgrade: HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade && {
       ...HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade,
       labels: {
@@ -303,8 +338,13 @@ export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent 
   const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation!
   const invoice = HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice!
   const upgrade = HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade!
+  const environment = HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment!
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceEnvironment: {
+      ...environment,
+      services: [...environment.services, ...Array.from({length: 40}, (_, index) => ({id: `extended-${index}`, label: `Additional service ${index + 1} for a large environment`, detail: `Private provisioning details for regional workspace ${index + 1}.`, icon: 'database' as const, deploySeconds: 2}))],
+    },
     referenceUpgrade: {
       ...upgrade,
       plans: [...upgrade.plans, ...Array.from({length: 30}, (_, index) => ({id: `extended-${index}`, label: `Extended plan ${index + 1}`, detail: `Enterprise agreement for region ${index + 1}`, price: '$99/seat/mo'}))],

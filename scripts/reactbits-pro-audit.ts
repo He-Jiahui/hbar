@@ -324,6 +324,8 @@ export type InteractionCase = Readonly<{
     | 'wizard-information-empty-name'
     | 'wizard-invoice-scroll'
     | 'wizard-upgrade-step-two'
+    | 'wizard-environment-empty'
+    | 'wizard-environment-scroll'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -2025,6 +2027,21 @@ async function observeWizardInvoiceScroll(root: Locator, variantId: string): Pro
     },
   }
 }
+async function prepareWizardEnvironmentEmpty(root: Locator): Promise<void> {
+  const selected = root.getByRole('checkbox', {checked: true});
+  while (await selected.count()) await selected.first().click();
+}
+async function observeWizardEnvironmentScroll(root: Locator, variantId: string): Promise<InteractionCase> {
+  const pane = await wizardInvoiceScrollOwner(root)
+  const rect = await pane.boundingBox()
+  if (!rect) throw new Error('Environment service pane has no visible bounds')
+  return {
+    id: `${variantId}:environment-body:scroll:end`, action: 'scroll', scenario: 'wizard-environment-scroll', wheelDeltaY: 2000,
+    control: {index: 0, tag: 'div', role: null, type: null, name: '', disabled: false, visible: true, rect,
+      expanded: null, pressed: null, selected: null, state: null, stablePath: 'environment > service-body',
+      labelFor: null, describedBy: null, capabilities: ['scroll'], options: []},
+  }
+}
 async function prepareDialogAlertScenario(root: Locator, scenario: (typeof dialogAlertScenarios)[number]): Promise<void> {
   if (scenario === 'dialog-alert-closed') {
     await root.getByRole('button', { name: 'Cancel', exact: true }).click()
@@ -2999,7 +3016,7 @@ export function selectInteractionCases(
 
 async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
   if (scenario === 'dialog-evidence-scroll') return dialogEvidenceScrollOwner(root)
-  if (scenario === 'wizard-invoice-scroll') return wizardInvoiceScrollOwner(root)
+  if (scenario === 'wizard-invoice-scroll' || scenario === 'wizard-environment-scroll') return wizardInvoiceScrollOwner(root)
   if (scenario === 'usage-model-row') {
     passiveModelRowHoverCase('probe', control)
     return root.getByText('Atlas Pro', { exact: true }).locator('../../..')
@@ -3047,7 +3064,7 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
   if (interaction.action === 'scroll') {
     if (
-      !['board-column-scroll', 'board-stack-scroll', 'dialog-evidence-scroll', 'wizard-invoice-scroll'].includes(interaction.scenario ?? '') ||
+      !['board-column-scroll', 'board-stack-scroll', 'dialog-evidence-scroll', 'wizard-invoice-scroll', 'wizard-environment-scroll'].includes(interaction.scenario ?? '') ||
       !Number.isFinite(interaction.wheelDeltaY) ||
       !interaction.wheelDeltaY
     )
@@ -3543,6 +3560,8 @@ async function replayInteraction(
     await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
   if (spec.id === 'hbar-app-ui-wizard-3' && interaction.scenario === 'wizard-upgrade-step-two')
     await prepareWizardUpgradeStepTwo(root)
+  if (spec.id === 'hbar-app-ui-wizard-4' && interaction.scenario === 'wizard-environment-empty')
+    await prepareWizardEnvironmentEmpty(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3875,6 +3894,8 @@ async function replayReferenceInteraction(
     await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
   if (reference.id === 'hbar-app-ui-wizard-3' && interaction.scenario === 'wizard-upgrade-step-two')
     await prepareWizardUpgradeStepTwo(root)
+  if (reference.id === 'hbar-app-ui-wizard-4' && interaction.scenario === 'wizard-environment-empty')
+    await prepareWizardEnvironmentEmpty(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4644,6 +4665,14 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-wizard-3' && sampleIds?.some((id) => id.startsWith(`${spec.id}:wizard-upgrade-step-two:`))) {
               await prepareWizardUpgradeStepTwo(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-upgrade-step-two'))
+            }
+            if (spec.id === 'hbar-app-ui-wizard-4') {
+              if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:environment-body:scroll:`)))
+                discovered.push(await observeWizardEnvironmentScroll(sourceRoot, spec.id))
+              if (sampleIds?.some((id) => id.startsWith(`${spec.id}:wizard-environment-empty:`))) {
+                await prepareWizardEnvironmentEmpty(sourceRoot)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-environment-empty'))
+              }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

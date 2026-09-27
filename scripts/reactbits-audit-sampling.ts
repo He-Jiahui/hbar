@@ -561,6 +561,23 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-4')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-environment-reference.css', 'wizard/EnvironmentReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Deselecting Postgres updates count and weighted deploy estimate'},
+        {viewport: 'tablet', theme: 'dark', suffix: '4:press-space', change: 'Keyboard selection of storage updates checked tile in the two-column layout'},
+        {viewport: 'mobile', theme: 'light', suffix: '1:click', change: 'Save and exit remains a source no-op in narrow chrome'},
+        {viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'Back is passive in the source preview, not a fabricated page transition'},
+        {viewport: 'stress', theme: 'light', suffix: 'wizard-environment-empty:10:click', change: 'Zero selected still permits Set limits as a source no-op with zero estimate'},
+        {viewport: 'mobile', theme: 'dark', suffix: 'environment-body:scroll:end', change: 'Service pane wheel reaches final tiles and safety copy while footer stays visible'},
+      ],
+      inferences: [
+        {scope: 'Other service combinations and repeated gestures', basis: 'Eight tiles share one ID-keyed Host toggle. Source probes establish each service deploy weight; local tests cover all 256 subsets, stale IDs, duplicate records and zero state. Pointer removal, keyboard addition and empty state cover distinct transitions without a button-by-layout cross product.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme combinations and passive progress labels', basis: 'Eight static pairs cover three, two and one-column wrapping. Four steps are read-only progress labels, not buttons. The three passive actions and independent scrolling are sampled; localization and over-bound service lists have local browser coverage.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-3')
     return {
       revision: 1,
