@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   getHbarAppUiVariant,
+  projectHbarAppUiCommentsInbox,
   filterHbarAppUiCommentsComposerMentions,
   insertHbarAppUiCommentsComposerMention,
   HbarAppUiCommentsProvider,
@@ -23,6 +24,56 @@ function render(variant: number, content: HbarAppUiCommentsContent = HBAR_APP_UI
   )
 }
 describe('hbar-app-ui comment surfaces', () => {
+  test('inbox keeps five passive comments with native filter tabs and reversible row actions', () => {
+    const value = render(5)
+    expect(value).toContain('Comment inbox')
+    expect(value).toContain('4 unresolved across 5 documents')
+    expect(value.match(/role="tab"/g)?.length).toBe(3)
+    expect(value.match(/<article/g)?.length).toBe(5)
+    expect(value).toContain('Reopen comment from Tomás Guerrero')
+    expect(value.match(/aria-pressed="true"/g)?.length).toBe(1)
+    expect(value).not.toContain('disabled=""')
+    expect(value).not.toContain('href=')
+  })
+  test('inbox filtering and resolution derive from Host data without changing global document counts', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceInbox!
+    const updated = content.items.map((item) => item.id === 'priya' ? {...item, resolved: true} : item)
+    const mentions = projectHbarAppUiCommentsInbox(updated, 'mentions')
+    expect(mentions.items.map((item) => item.id)).toEqual(['priya', 'sofia'])
+    expect(mentions.unresolved).toBe(3)
+    expect(mentions.documents).toBe(5)
+    expect(projectHbarAppUiCommentsInbox(updated, 'unresolved').items.map((item) => item.id)).toEqual(['marcus', 'sofia', 'wei'])
+    const value = render(5, {referenceInbox: {...content, items: updated, filterId: 'mentions'}})
+    expect(value.match(/<article/g)?.length).toBe(2)
+    expect(value).toContain('Reopen comment from Priya Nandakumar')
+    expect(value.match(/class="lumen-comments-inbox-mention"/g)?.length).toBe(1)
+    const empty = render(5, {referenceInbox: {...content, items: updated.map((item) => ({...item, resolved: true})), filterId: 'open'}})
+    expect(empty).toContain('0 unresolved across 5 documents')
+    expect(empty).toContain('Nothing left here')
+    expect(empty).toContain('Every comment in this view has been resolved.')
+    expect(empty).not.toContain('<article')
+  })
+  test('inbox capacity, duplicate IDs, stale filter and repeated document IDs preserve explicit boundaries', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceInbox!
+    for (const count of [0, 1, 5, 6]) {
+      const items = Array.from({length: count}, (_, index) => ({...content.items[0]!, id: String(index)}))
+      const value = render(5, {referenceInbox: {...content, items, filterId: 'missing'}})
+      expect((value.match(/<article/g) ?? []).length).toBe(count)
+      expect(value).toContain('aria-selected="true"')
+      expect(projectHbarAppUiCommentsInbox(items, 'all').documents).toBe(count ? 1 : 0)
+      if (count === 1) expect(value).toContain('1 unresolved across 1 document')
+      if (!count) expect(value).toContain('Nothing left here')
+    }
+    const value = render(5, {referenceInbox: {...content, items: [content.items[0]!, content.items[0]!], filters: [content.filters[0]!, content.filters[0]!]}})
+    expect(value.match(/<article/g)?.length).toBe(1)
+    expect(value.match(/role="tab"/g)?.length).toBe(1)
+    expect(render(5, {referenceInbox: {...content, filters: []}}).match(/<article/g)?.length).toBe(5)
+    expect(render(5, createHbarAppUiCommentsLocalizedFixtures())).toContain('跨文档评论收件箱与区域设计审查待办')
+    const overflow = render(5, createHbarAppUiCommentsOverflowFixtures())
+    expect(overflow.match(/<article/g)?.length).toBe(6)
+    expect(overflow).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    expect(overflow).toContain('Additional regional reviewer 6')
+  })
   test('composer reference renders controlled draft, attachments, suggestions and passive history', () => {
     const value = render(4)
     expect(value).toContain('Leave a comment')
@@ -93,7 +144,7 @@ describe('hbar-app-ui comment surfaces', () => {
     expect(value).not.toContain('Threaded discussion')
   })
   test('preserves empty and duplicate boundaries', () => {
-    const content = { ...HBAR_APP_UI_COMMENTS_FIXTURES, inbox: { ...HBAR_APP_UI_COMMENTS_FIXTURES.inbox!, items: [] } }
+    const content = { inbox: { ...HBAR_APP_UI_COMMENTS_FIXTURES.inbox!, items: [] } }
     expect(render(5, content)).toContain('No comments')
     expect(
       uniqueHbarAppUiCommentsItems([

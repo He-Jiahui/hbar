@@ -246,6 +246,7 @@ export type {
 } from './components/Integrations'
 export {
   HbarAppUiCommentsProvider,
+  projectHbarAppUiCommentsInbox,
   filterHbarAppUiCommentsComposerMentions,
   insertHbarAppUiCommentsComposerMention,
   selectHbarAppUiCommentsItem,
@@ -253,6 +254,9 @@ export {
 } from './components/Comments'
 export type {
   HbarAppUiCommentsAnnotation,
+  HbarAppUiCommentsInboxReferenceContent,
+  HbarAppUiCommentsInboxReferenceItem,
+  HbarAppUiCommentsInboxFilter,
   HbarAppUiCommentsComposerReferenceContent,
   HbarAppUiCommentsComposerAttachment,
   HbarAppUiCommentsComposerMention,

@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('inbox sampling distinguishes filtered removal, last-item empty state and recovery from repeated row actions', () => {
+  const id = 'hbar-app-ui-comments-5'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(9)
+  expect(sampledInteractionIds(id, 'tablet', 'dark')).toEqual([`${id}:comments-inbox-last-open:3:click`, `${id}:comments-inbox-empty:0:click`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:3:press-space`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('composer sampling separates draft, attachment, mention selection and static toolbar mechanisms', () => {
   const id = 'hbar-app-ui-comments-4'
   const plan = auditSamplingPlan(id)!

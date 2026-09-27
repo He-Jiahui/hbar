@@ -331,6 +331,9 @@ export type InteractionCase = Readonly<{
     | 'comments-review-filled'
     | 'comments-composer-filtered'
     | 'comments-composer-next'
+    | 'comments-inbox-unresolved'
+    | 'comments-inbox-last-open'
+    | 'comments-inbox-empty'
     | 'wizard-shipping-third-selected'
     | 'wizard-shipping-final-selected'
     | 'tree-shipping-open'
@@ -2053,6 +2056,16 @@ async function prepareCommentsReviewFilled(root: Locator): Promise<void> {
   await root.getByRole('textbox').fill('I will move both values into config.')
 }
 const commentsComposerScenarios = ['comments-composer-filtered', 'comments-composer-next'] as const
+const commentsInboxScenarios = ['comments-inbox-unresolved', 'comments-inbox-last-open', 'comments-inbox-empty'] as const
+async function prepareCommentsInboxScenario(root: Locator, scenario: (typeof commentsInboxScenarios)[number]): Promise<void> {
+  await root.getByRole('tab', {name: 'Unresolved', exact: true}).click()
+  if (scenario === 'comments-inbox-unresolved') return
+  const actions = root.getByRole('button', {name: /^Resolve comment from /})
+  const keep = scenario === 'comments-inbox-last-open' ? 1 : 0
+  const count = await actions.count()
+  for (let index = keep; index < count; index += 1) await actions.first().click()
+  if (await actions.count() !== keep) throw new Error('Comments inbox resolution changed; re-observe the source before sampling')
+}
 async function prepareCommentsComposerScenario(root: Locator, scenario: (typeof commentsComposerScenarios)[number]): Promise<void> {
   const input = root.getByRole('textbox')
   if (scenario === 'comments-composer-filtered') await input.fill('Please ask @so')
@@ -3612,6 +3625,8 @@ async function replayInteraction(
     await prepareCommentsReviewFilled(root)
   if (spec.id === 'hbar-app-ui-comments-4' && commentsComposerScenarios.some((value) => value === interaction.scenario))
     await prepareCommentsComposerScenario(root, interaction.scenario as (typeof commentsComposerScenarios)[number])
+  if (spec.id === 'hbar-app-ui-comments-5' && commentsInboxScenarios.some((value) => value === interaction.scenario))
+    await prepareCommentsInboxScenario(root, interaction.scenario as (typeof commentsInboxScenarios)[number])
   if (spec.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
@@ -3956,6 +3971,8 @@ async function replayReferenceInteraction(
     await prepareCommentsReviewFilled(root)
   if (reference.id === 'hbar-app-ui-comments-4' && commentsComposerScenarios.some((value) => value === interaction.scenario))
     await prepareCommentsComposerScenario(root, interaction.scenario as (typeof commentsComposerScenarios)[number])
+  if (reference.id === 'hbar-app-ui-comments-5' && commentsInboxScenarios.some((value) => value === interaction.scenario))
+    await prepareCommentsInboxScenario(root, interaction.scenario as (typeof commentsInboxScenarios)[number])
   if (reference.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
@@ -4755,6 +4772,13 @@ async function runInteractionsParallel(
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareCommentsComposerScenario(sourceRoot, scenario)
                 discovered.push(...commentsComposerInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
+            if (spec.id === 'hbar-app-ui-comments-5') {
+              for (const scenario of commentsInboxScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareCommentsInboxScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
             if (spec.id === 'hbar-app-ui-wizard-7') {

@@ -11,6 +11,8 @@ export function CommentsPreviewHost({content, children}: {readonly content: Hbar
   const [reviewDraft, setReviewDraft] = useState(content.referenceReview?.draft ?? '')
   const [composerDraft, setComposerDraft] = useState(content.referenceComposer?.draft ?? '')
   const [attachments, setAttachments] = useState(content.referenceComposer?.attachments ?? [])
+  const [inboxFilterId, setInboxFilterId] = useState(content.referenceInbox?.filterId ?? '')
+  const [inboxItems, setInboxItems] = useState(content.referenceInbox?.items ?? [])
   useEffect(() => {
     setSortId(content.referenceDiscussion?.sortId ?? '')
     setDraft(content.referenceDiscussion?.draft ?? '')
@@ -21,9 +23,16 @@ export function CommentsPreviewHost({content, children}: {readonly content: Hbar
     setReviewDraft(content.referenceReview?.draft ?? '')
     setComposerDraft(content.referenceComposer?.draft ?? '')
     setAttachments(content.referenceComposer?.attachments ?? [])
+    setInboxFilterId(content.referenceInbox?.filterId ?? '')
+    setInboxItems(content.referenceInbox?.items ?? [])
   }, [content])
   return <HbarAppUiCommentsProvider content={{
     ...content,
+    referenceInbox: content.referenceInbox && {
+      ...content.referenceInbox, filterId: inboxFilterId, items: inboxItems,
+      onFilterChange: setInboxFilterId,
+      onResolvedChange: (id, resolved) => setInboxItems((current) => current.map((item) => item.id === id ? {...item, resolved} : item)),
+    },
     referenceComposer: content.referenceComposer && {
       ...content.referenceComposer, draft: composerDraft, attachments,
       suggestions: filterHbarAppUiCommentsComposerMentions(composerDraft, content.referenceComposer.suggestions),

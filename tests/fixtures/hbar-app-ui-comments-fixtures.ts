@@ -2,6 +2,23 @@ import type { HbarAppUiCommentsContent } from '../../packages/hbar-app-ui/src/in
 const grown = { kind: 'content-grown', expectedMaximum: 8 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
+  referenceInbox: {
+    labels: {
+      title: 'Comment inbox', summary: (unresolved, documents) => `${unresolved} unresolved across ${documents} document${documents === 1 ? '' : 's'}`,
+      filterLabel: 'Filter comments', mention: 'Mention', resolve: (author) => `Resolve comment from ${author}`, reopen: (author) => `Reopen comment from ${author}`,
+      emptyTitle: 'Nothing left here', emptyDetail: 'Every comment in this view has been resolved.',
+    },
+    filters: [{id: 'all', label: 'All', kind: 'all'}, {id: 'open', label: 'Unresolved', kind: 'unresolved'}, {id: 'mentions', label: 'Mentions', kind: 'mentions'}],
+    filterId: 'all',
+    items: [
+      {id: 'priya', documentId: 'pricing', initials: 'PN', author: 'Priya Nandakumar', time: '12m', context: 'Q3 pricing model · Cell D14', body: '@amelia the enterprise tier still assumes the old seat minimum. Can you confirm before this goes to finance?', mentioned: true, resolved: false},
+      {id: 'marcus', documentId: 'backfill', initials: 'MB', author: 'Marcus Bell', time: '1h', context: 'Backfill runbook · Step 4', body: 'Rewrote the rollback section so it no longer depends on the operator being on call.', mentioned: false, resolved: false},
+      {id: 'sofia', documentId: 'onboarding', initials: 'SA', author: 'Sofia Alvarez', time: '3h', context: 'Onboarding redesign · Frame 12', body: '@amelia the empty state copy reads a little cold here. Suggested two alternates in the thread.', mentioned: true, resolved: false},
+      {id: 'wei', documentId: 'query', initials: 'WC', author: 'Wei Chen', time: '5h', context: 'query.ts · Line 86', body: 'Left a suggestion on the worker cap. Not blocking, but nice to land here.', mentioned: false, resolved: false},
+      {id: 'tomas', documentId: 'incident', initials: 'TG', author: 'Tomás Guerrero', time: 'Yesterday', context: 'Incident 4471 · Timeline', body: 'Added the paging gap between 02:10 and 02:40. That is the part we should fix first.', mentioned: false, resolved: true},
+    ],
+    listStrategy: {kind: 'content-grown', expectedMaximum: 5},
+  },
   referenceComposer: {
     labels: {
       title: 'Leave a comment', detail: 'Type @ to mention a teammate. They are notified once you post.',
@@ -252,6 +269,15 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
 export function createHbarAppUiCommentsLocalizedFixtures(): HbarAppUiCommentsContent {
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceInbox: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceInbox!,
+      labels: {
+        title: '跨文档评论收件箱与区域设计审查待办', summary: (unresolved, documents) => `${documents} 份文档中有 ${unresolved} 条未解决评论`,
+        filterLabel: '筛选评论', mention: '提及', resolve: (author) => `解决${author}的评论`, reopen: (author) => `重新打开${author}的评论`,
+        emptyTitle: '当前没有待处理评论', emptyDetail: '此视图中的所有评论均已解决。',
+      },
+      filters: [{id: 'all', label: '全部评论', kind: 'all'}, {id: 'open', label: '未解决', kind: 'unresolved'}, {id: 'mentions', label: '提及我的', kind: 'mentions'}],
+    },
     referenceComposer: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!,
       labels: {
@@ -298,6 +324,16 @@ export function createHbarAppUiCommentsOverflowFixtures(): HbarAppUiCommentsCont
   const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceInbox: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceInbox!,
+      items: Array.from({length: 6}, (_, index) => ({
+        id: `extra-${index}`, documentId: `document-${index}`, initials: String(index + 1), author: `Additional regional reviewer ${index + 1}`,
+        time: 'just now', context: `Regional rollout configuration and migration checklist · Section ${index + 1}`,
+        body: 'Keep the comment, its document context and original action target intact across filtering and status changes. '.repeat(3),
+        mentioned: index % 2 === 0, resolved: false,
+      })),
+      listStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
+    },
     referenceComposer: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!,
       attachments: Array.from({length: 3}, (_, index) => ({id: `extra-${index}`, name: `regional-saturation-report-with-extended-filename-${index + 1}.png`})),

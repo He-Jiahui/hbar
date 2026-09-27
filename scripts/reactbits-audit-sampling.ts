@@ -561,6 +561,27 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-comments-5')
+    return {
+      revision: 1,
+      lumenEntries: ['comments.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Unresolved filters out the initially resolved record without changing global counts'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Mentions projects the two mentioned records'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:click', change: 'Resolve updates count, pressed label, strike-through and mention badge'},
+        {viewport: 'desktop', theme: 'dark', suffix: '7:click', change: 'Reopen reverses the initially resolved record'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:hover', change: 'Shared per-comment action pointer feedback'},
+        {viewport: 'desktop', theme: 'light', suffix: 'comments-inbox-unresolved:3:click', change: 'Resolve inside Unresolved removes only that original row'},
+        {viewport: 'tablet', theme: 'dark', suffix: 'comments-inbox-last-open:3:click', change: 'Resolving the last visible record reaches the real two-paragraph empty state'},
+        {viewport: 'tablet', theme: 'dark', suffix: 'comments-inbox-empty:0:click', change: 'All restores the resolved records from an empty filtered view'},
+        {viewport: 'stress', theme: 'light', suffix: '3:press-space', change: 'Narrow native keyboard resolution keeps history owned by its scroll pane'},
+      ],
+      inferences: [
+        {scope: 'Other record actions and resolved mentions', basis: 'All five rows use stable-ID resolution. Source probing confirms that resolved mentions remain in Mentions but lose their badge. One resolve, one reopen, filtered removal and last-item empty state cover the distinct branches; local tests cover mutation and original targets.', verification: 'inferred-not-replayed'},
+        {scope: 'Equivalent tab gestures, focus and passive document contexts', basis: 'Source tabs are native buttons; ArrowRight does not change the selected tab. Local browser checks cover native focus/Space without inventing roving navigation. Author/context/body regions are passive, not links or selectable cards.', verification: 'inferred-not-replayed'},
+        {scope: 'Remaining viewport/theme interactions and excess records', basis: 'Eight static pairs cover header wrapping, hidden narrow mention badges, text ellipsis and the 400px history scroll owner. Local long-locale, duplicate/stale-ID and boundary-plus-one checks cover those dimensions without multiplying every action by every viewport.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-comments-4')
     return {
       revision: 1,
