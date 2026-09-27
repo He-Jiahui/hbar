@@ -29,6 +29,7 @@ import { sidebarLayoutCopy, type SidebarLayoutLabels } from './sidebar-layout-co
 import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
 import { composerGoalRecoveryCopy } from './composer-goal-recovery-copy'
 import { composerExecutionCopy } from './composer-execution-copy'
+import { extensionCollectionCopy } from './extension-collection-copy'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
@@ -2088,6 +2089,7 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   const number = new Intl.NumberFormat(locale)
   return {
     ...extensionDetailCopy(locale),
+    collections: extensionCollectionCopy(locale),
     title: choose('扩展与技能', 'Extensions and skills'),
     description: choose(
       '查看插件详情、管理可选插件，浏览 Host 已发现的技能。',
