@@ -1236,6 +1236,13 @@ function SessionWorkspaceContent({
                 onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
                 onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
                 onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
+                onStartEdit={(operationId) => void invoke('queuedUserRuns.startEdit', { sessionId, operationId })}
+                onEditText={(operationId, text) =>
+                  void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })
+                }
+                onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
+                onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
+                onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
                 onRemove={(operationId, expectedRevision) =>
                   void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
                 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { CommandError, CommandRegistry, type CommandExecutor } from '@hbar/commands'
-import type { QueuedRunRemoveReceipt } from '@hbar/contracts/commands/run'
+import type { QueuedRunEditTextReceipt, QueuedRunRemoveReceipt } from '@hbar/contracts/commands/run'
 import { createQueuedUserRuns } from '../packages/app-runtime/src/queued-user-runs'
 import { createState } from '../packages/app-runtime/src/state'
 import type { NavigationState, SessionTimelineState } from '@hbar/app-runtime'
@@ -8,6 +8,7 @@ import type { NavigationState, SessionTimelineState } from '@hbar/app-runtime'
 function fixture(
   read: CommandExecutor['execute'],
   getQueuedRemoveReceipt?: (sessionId: string, idempotencyKey: string) => Promise<QueuedRunRemoveReceipt | null>,
+  getQueuedEditTextReceipt?: (sessionId: string, idempotencyKey: string) => Promise<QueuedRunEditTextReceipt | null>,
 ) {
   const local = new CommandRegistry({ execution: 'client' })
   const errors: unknown[] = []
@@ -37,7 +38,12 @@ function fixture(
   )
   const owner = createQueuedUserRuns(
     local,
-    { execute: read, getReceipt: async () => null, ...(getQueuedRemoveReceipt ? { getQueuedRemoveReceipt } : {}) },
+    {
+      execute: read,
+      getReceipt: async () => null,
+      ...(getQueuedRemoveReceipt ? { getQueuedRemoveReceipt } : {}),
+      ...(getQueuedEditTextReceipt ? { getQueuedEditTextReceipt } : {}),
+    },
     nav.reader,
     timeline.reader,
     (error) => errors.push(error),
@@ -340,6 +346,111 @@ test('a queued edit event in a batch refreshes even when an unrelated event is l
     for (let attempt = 0; attempt < 20 && reads === before; attempt++)
       await new Promise((resolve) => setTimeout(resolve, 0))
     expect(reads).toBe(before + 1)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('inline edit reads the full Host text and reconciles a lost acknowledgement by original key', async () => {
+  let written = false
+  let writes = 0
+  const preview = 'x'.repeat(240)
+  const full = `${preview}完整尾部`
+  const f = fixture(
+    async (name, value, options) => {
+      if (name === 'session.queuedUserRuns')
+        return {
+          sessionId: 'one',
+          sessionSeq: written ? 3 : 2,
+          totalQueued: 1,
+          items: [
+            {
+              operationId: 'queued',
+              revision: written ? 3 : 2,
+              createdAt: 1,
+              textPreview: written ? 'new text' : preview,
+              truncated: !written,
+              attachmentCount: 0,
+            },
+          ],
+          nextCursor: null,
+        }
+      if (name === 'queuedRun.getEditable')
+        return { sessionId: 'one', operationId: 'queued', revision: 2, text: full, attachmentCount: 0 }
+      expect(name).toBe('queuedRun.editText')
+      expect(value).toEqual({ sessionId: 'one', operationId: 'queued', expectedRevision: 2, text: 'new text' })
+      expect(options?.idempotencyKey).toBeTruthy()
+      writes++
+      written = true
+      throw new CommandError('RESULT_UNKNOWN', 'Acknowledgement lost')
+    },
+    undefined,
+    async (sessionId, idempotencyKey) => ({
+      commandId: 'queuedRun.editText',
+      commandVersion: 1,
+      sessionId,
+      operationId: 'queued',
+      idempotencyKey,
+      revision: 3,
+      eventId: 'edit',
+      editedAt: 3,
+    }),
+  )
+  try {
+    await f.select('one')
+    await f.local.execute('queuedUserRuns.startEdit', { sessionId: 'one', operationId: 'queued' })
+    expect(f.owner.reader.getSnapshot().editing?.text).toBe(full)
+    await f.local.execute('queuedUserRuns.setEditText', {
+      sessionId: 'one',
+      operationId: 'queued',
+      text: '  new text  ',
+    })
+    const receipt = await f.local.execute('queuedUserRuns.saveEdit', { sessionId: 'one', operationId: 'queued' })
+    expect(receipt).toMatchObject({ operationId: 'queued', revision: 3 })
+    expect(writes).toBe(1)
+    expect(f.owner.reader.getSnapshot().editing).toBeNull()
+    expect(f.errors).toEqual([])
+  } finally {
+    f.dispose()
+  }
+})
+
+test('late full-text read cannot enter the next session edit state', async () => {
+  let release!: (value: unknown) => void
+  const fullRead = new Promise<unknown>((resolve) => {
+    release = resolve
+  })
+  const f = fixture(async (name, value) => {
+    const sessionId = (value as { sessionId: string }).sessionId
+    if (name === 'queuedRun.getEditable') return fullRead
+    return {
+      sessionId,
+      sessionSeq: 2,
+      totalQueued: sessionId === 'one' ? 1 : 0,
+      items:
+        sessionId === 'one'
+          ? [
+              {
+                operationId: 'queued',
+                revision: 2,
+                createdAt: 1,
+                textPreview: 'preview',
+                truncated: true,
+                attachmentCount: 0,
+              },
+            ]
+          : [],
+      nextCursor: null,
+    }
+  })
+  try {
+    await f.select('one')
+    const pending = f.local.execute('queuedUserRuns.startEdit', { sessionId: 'one', operationId: 'queued' })
+    await f.select('two')
+    release({ sessionId: 'one', operationId: 'queued', revision: 2, text: 'private full text', attachmentCount: 0 })
+    await expect(pending).rejects.toMatchObject({ code: 'QUERY_SUPERSEDED' })
+    expect(f.owner.reader.getSnapshot()).toMatchObject({ sessionId: 'two', editing: null })
+    expect(f.errors).toEqual([])
   } finally {
     f.dispose()
   }

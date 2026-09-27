@@ -10,7 +10,7 @@ import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
-import type { QueuedRunRemoveReceipt, RunAccepted } from '@hbar/contracts/commands/run'
+import type { QueuedRunEditTextReceipt, QueuedRunRemoveReceipt, RunAccepted } from '@hbar/contracts/commands/run'
 import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import type { ModelConfiguration, ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
@@ -683,6 +683,7 @@ export interface RunCommandPort extends CommandExecutor {
     commandId?: 'run.submit' | 'run.retry',
   ): Promise<RunAccepted | null>
   getQueuedRemoveReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunRemoveReceipt | null>
+  getQueuedEditTextReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunEditTextReceipt | null>
 }
 
 export interface SessionAttachmentTransfer {

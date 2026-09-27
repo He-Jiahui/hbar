@@ -14,6 +14,15 @@ const labels: HbarQueuedUserRunsLabels = {
   page: (current, total) => `${current}/${total}`,
   attachments: (count) => `${count} 个附件`,
   ellipsis: '…',
+  edit: (position) => `编辑第 ${position} 条`,
+  editInput: (position) => `第 ${position} 条内容`,
+  editLoading: '正在读取全文',
+  editSaving: '正在保存',
+  saveEdit: '保存',
+  cancelEdit: '取消',
+  editUnknown: '编辑结果未知',
+  editFailed: (code) => `编辑失败：${code}`,
+  retryEdit: '重试编辑',
   remove: (position) => `删除第 ${position} 条`,
   removing: '正在移除',
   removeUnknown: '结果未知',
@@ -32,6 +41,7 @@ const base: QueuedUserRunsState = {
   previousCursors: [],
   error: null,
   removal: null,
+  editing: null,
 }
 function render(state: QueuedUserRunsState, sessionId = 'one', connected = true) {
   return renderToStaticMarkup(
@@ -43,6 +53,11 @@ function render(state: QueuedUserRunsState, sessionId = 'one', connected = true)
       onRefresh={() => undefined}
       onPrevious={() => undefined}
       onNext={() => undefined}
+      onStartEdit={() => undefined}
+      onEditText={() => undefined}
+      onSaveEdit={() => undefined}
+      onRetryEdit={() => undefined}
+      onCancelEdit={() => undefined}
       onRemove={() => undefined}
       onRetryRemoval={() => undefined}
       onDismissRemoval={() => undefined}
@@ -70,10 +85,35 @@ test('only Host-confirmed items for the selected session appear in the composer'
   expect(html).toContain('这是很长的待发内容…')
   expect(html).toContain('2 个附件')
   expect(html).toContain('删除第 1 条')
+  expect(html).toContain('编辑第 1 条')
   expect(html).toContain('data-lumen-indicator="none"')
   expect(html).not.toContain('引导')
   expect(render(state, 'other')).toBe('')
   expect(render(base)).toBe('')
+})
+
+test('editing stays in the queued card and disables blank save while preserving feedback', () => {
+  const state: QueuedUserRunsState = {
+    ...base,
+    totalQueued: 1,
+    items: [
+      { operationId: 'first', revision: 1, createdAt: 1, textPreview: '预览', truncated: false, attachmentCount: 0 },
+    ],
+    editing: { operationId: 'first', status: 'ready', text: '全文', revision: 1, error: null },
+  }
+  const html = render(state)
+  expect(html).toContain('value="全文"')
+  expect(html).toContain('保存')
+  expect(html).toContain('取消')
+  expect(html).not.toContain('编辑第 1 条')
+  expect(html).not.toContain('删除第 1 条')
+  expect(render({ ...state, editing: { ...state.editing!, text: '  ' } })).toContain('disabled')
+  const unknown = render({ ...state, editing: { ...state.editing!, status: 'unknown', error: 'RESULT_UNKNOWN' } })
+  expect(unknown).toContain('编辑结果未知')
+  expect(unknown).toContain('重试编辑')
+  const missing = render({ ...base, editing: { ...state.editing!, status: 'failed', error: 'COMMAND_CONFLICT' } })
+  expect(missing).toContain('编辑失败：COMMAND_CONFLICT')
+  expect(missing).toContain('取消')
 })
 
 test('page controls, error recovery and offline states remain explicit', () => {

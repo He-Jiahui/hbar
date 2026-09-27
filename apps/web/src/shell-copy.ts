@@ -1151,6 +1151,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       page: (current, total) => choose(`第 ${current} / ${total} 页`, `Page ${current} of ${total}`),
       attachments: (count) => choose(`${count} 个附件`, `${count} attachments`),
       ellipsis: '…',
+      edit: (position) => choose(`编辑第 ${position} 条排队消息`, `Edit queued message ${position}`),
+      editInput: (position) => choose(`第 ${position} 条排队消息内容`, `Queued message ${position} text`),
+      editLoading: choose('正在读取完整内容…', 'Loading full message…'),
+      editSaving: choose('正在保存…', 'Saving…'),
+      saveEdit: choose('保存', 'Save'),
+      cancelEdit: choose('取消', 'Cancel'),
+      editUnknown: choose(
+        '编辑结果尚未确认；可使用同一次请求安全重试。',
+        'Edit is not confirmed; retry the same request safely.',
+      ),
+      editFailed: (code) => choose(`无法编辑排队消息：${code}`, `Could not edit queued message: ${code}`),
+      retryEdit: choose('重试确认', 'Retry confirmation'),
       remove: (position) => choose(`删除第 ${position} 条排队消息`, `Remove queued message ${position}`),
       removing: choose('正在移除', 'Removing'),
       removeUnknown: choose(
