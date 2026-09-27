@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Target, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
+import { HbarComposerGoalRecovery, type HbarComposerGoalRecoveryLabels } from './composer-goal-recovery'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   composerGoalAvailability,
@@ -13,6 +14,7 @@ import {
 import './composer-intent-blocked.css'
 
 export interface HbarComposerIntentBlockedLabels {
+  readonly goalRecovery: HbarComposerGoalRecoveryLabels
   readonly title: string
   readonly close: string
   readonly reasons: Readonly<Record<ComposerGoalBlockedReason, string>>
@@ -21,6 +23,8 @@ export interface HbarComposerIntentBlockedLabels {
   readonly refreshPlan: string
   readonly reconcilePlan: string
   readonly reconcileComposer: string
+  readonly checkingPlan: string
+  readonly planCheckFailed: string
   readonly pending: string
   readonly exited: string
   readonly error: (code: string) => string
@@ -60,12 +64,14 @@ export function HbarComposerIntentControl({
   disabled,
   canPrepare = true,
   labels,
+  triggerRef,
 }: {
   readonly sessionId: string
   readonly connected: boolean
   readonly disabled: boolean
   readonly canPrepare?: boolean
   readonly labels: HbarComposerIntentControlLabels
+  readonly triggerRef?: RefObject<HTMLButtonElement | null>
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
@@ -86,6 +92,13 @@ export function HbarComposerIntentControl({
   const headingId = useId()
   const descriptionId = useId()
   const anchor = useRef<HTMLButtonElement>(null)
+  const setAnchor = useCallback(
+    (element: HTMLButtonElement | null) => {
+      anchor.current = element
+      if (triggerRef) triggerRef.current = element
+    },
+    [triggerRef],
+  )
   const popup = useRef<HTMLDivElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   const lifetime = useRef(0)
@@ -175,6 +188,17 @@ export function HbarComposerIntentControl({
       plan: runtime.state.composerPlanMode.getSnapshot(),
     })
     if (recovery ? actual.kind !== 'blocked' || actual.recovery !== recovery : actual.kind === 'blocked') return
+    const originalGoal = runtime.state.composerIntent.getSnapshot().entries[sessionId]?.goalAction
+    if (
+      recovery === 'reconcileComposer' &&
+      (originalGoal?.reconciliation?.requestInFlight || originalGoal?.reconciliation?.status === 'checking')
+    )
+      return
+    if (
+      (recovery === 'reconcilePlan' || recovery === 'refreshPlan') &&
+      runtime.state.composerPlanMode.getSnapshot().entries[sessionId]?.reading
+    )
+      return
     const operation = {}
     inFlight.current = operation
     setBusy(true)
@@ -239,10 +263,16 @@ export function HbarComposerIntentControl({
     plan?.sessionId === sessionId &&
     plan.status === 'ready' &&
     plan.mode === 'default'
+  const goalUnknown = entry?.goalAction.status === 'unknown'
+  const goalChecking =
+    entry?.goalAction.reconciliation?.requestInFlight === true ||
+    entry?.goalAction.reconciliation?.status === 'checking'
+  const sharedPlanReading = plan?.sessionId === sessionId && plan.reading === true
+  const recoveryBusy = busy || goalChecking || sharedPlanReading
   return (
     <LumenFrame className="hbar-composer-intents">
       <LumenButton
-        ref={anchor}
+        ref={setAnchor}
         type="button"
         size="s"
         variant="text"
@@ -255,7 +285,7 @@ export function HbarComposerIntentControl({
         aria-controls={blocked || open ? popupId : undefined}
         aria-describedby={blocked || open ? descriptionId : undefined}
         popoverTarget={blocked || open ? popupId : undefined}
-        aria-busy={busy || undefined}
+        aria-busy={recoveryBusy || undefined}
         disabled={busy && !blocked && !open}
         onClick={() => {
           if (!blocked && !open) perform()
@@ -265,7 +295,7 @@ export function HbarComposerIntentControl({
         {labels.goal}
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
-      {feedback && !open && (
+      {feedback && !open && !goalUnknown && (
         <LumenText as="span" role="alert">
           {feedback}
         </LumenText>
@@ -314,21 +344,41 @@ export function HbarComposerIntentControl({
           </LumenButton>
         </LumenFrame>
         <LumenFrame className="hbar-composer-intent-blocked-body">
-          <LumenText as="p" id={descriptionId} role={confirmedExit ? 'status' : undefined}>
-            {confirmedExit ? labels.blocked.exited : reason}
-          </LumenText>
-          {busy && (
-            <LumenText as="p" role="status">
-              {labels.blocked.pending}
+          {goalUnknown ? (
+            <HbarComposerGoalRecovery
+              action={entry?.goalAction}
+              connected={connected}
+              busy={busy}
+              labels={labels.blocked.goalRecovery}
+              descriptionId={descriptionId}
+              onReconcile={() => perform('reconcileComposer')}
+            />
+          ) : (
+            <LumenText as="p" id={descriptionId} role={confirmedExit ? 'status' : undefined}>
+              {confirmedExit ? labels.blocked.exited : reason}
             </LumenText>
           )}
-          {feedback && (
+          {recoveryBusy && !goalUnknown && (
+            <LumenText as="p" role="status">
+              {sharedPlanReading ? labels.blocked.checkingPlan : labels.blocked.pending}
+            </LumenText>
+          )}
+          {!goalUnknown &&
+            !sharedPlanReading &&
+            plan?.status === 'unknown' &&
+            plan.error &&
+            plan.error !== 'RESULT_UNKNOWN' && (
+              <LumenText as="p" role="alert">
+                {labels.blocked.planCheckFailed}
+              </LumenText>
+            )}
+          {feedback && !goalUnknown && plan?.status !== 'unknown' && (
             <LumenText as="p" role="alert">
               {feedback}
             </LumenText>
           )}
-          {recovery && (
-            <LumenButton type="button" size="s" disabled={busy} onClick={() => perform(recovery)}>
+          {recovery && !goalUnknown && (
+            <LumenButton type="button" size="s" disabled={recoveryBusy} onClick={() => perform(recovery)}>
               {labels.blocked[recovery]}
             </LumenButton>
           )}

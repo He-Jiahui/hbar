@@ -280,6 +280,7 @@ function SessionWorkspaceContent({
   const canPrepareTarget = (targetSessionId: string, targetWorkspaceId: string) =>
     runtime.getSessionExecutionAccess({ sessionId: targetSessionId, workspaceId: targetWorkspaceId }).kind === 'ready'
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
+  const composerGoalTrigger = useRef<HTMLButtonElement>(null)
   const composerWriteError = useRef<{ sessionId: string; error: unknown } | null>(null)
   const localSlashInFlight = useRef(false)
   const pendingModelSlash = useRef<{ sessionId: string; workspaceId: string; revision: number } | null>(null)
@@ -1147,6 +1148,7 @@ function SessionWorkspaceContent({
               )}
               <HbarComposerIntentControls
                 key={sessionId}
+                triggerRef={composerGoalTrigger}
                 sessionId={sessionId}
                 connected={connected}
                 disabled={
@@ -1335,6 +1337,7 @@ function SessionWorkspaceContent({
             connected={connected}
             labels={labels.intent}
             surface="summary"
+            goalTriggerRef={composerGoalTrigger}
             canPrepare={canPrepare}
           />
         </LumenFrame>

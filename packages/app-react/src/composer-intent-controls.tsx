@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Expand, Pause, Play, Target, Trash2 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import type { HbarComposerIntentControlLabels } from './composer-intent-blocked'
+import { HbarComposerGoalRecovery, type HbarComposerGoalRecoveryLabels } from './composer-goal-recovery'
+import { canReturnGoalClearFocus, sameGoalClearFocusScope, type GoalClearFocusScope } from './composer-goal-clear-focus'
 import './composer-intent-controls.css'
 
 type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['goal']>
 
 export interface HbarComposerIntentLabels extends HbarComposerIntentControlLabels {
+  readonly recovery: HbarComposerGoalRecoveryLabels
   readonly currentGoal: string
   readonly goalPlaceholder: string
   readonly planPlaceholder: string
@@ -45,6 +48,7 @@ export function HbarComposerGoal({
   labels,
   surface = 'all',
   canPrepare = true,
+  goalTriggerRef,
 }: {
   readonly sessionId: string
   readonly workspaceId: string | null
@@ -52,6 +56,7 @@ export function HbarComposerGoal({
   readonly labels: HbarComposerIntentLabels
   readonly surface?: 'all' | 'summary' | 'submission'
   readonly canPrepare?: boolean
+  readonly goalTriggerRef?: RefObject<HTMLButtonElement | null>
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
@@ -61,6 +66,25 @@ export function HbarComposerGoal({
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const lifetime = useRef(0)
+  const clearButton = useRef<HTMLButtonElement>(null)
+  const clearReturn = useRef<{
+    readonly scope: GoalClearFocusScope & { readonly goalId: string }
+    readonly source: HTMLButtonElement
+    confirmed: boolean
+    release: () => void
+  } | null>(null)
+  useLayoutEffect(() => {
+    lifetime.current += 1
+    clearReturn.current?.release()
+    setClearTarget(null)
+    setLocalError(null)
+    setOpening(false)
+    return () => {
+      lifetime.current += 1
+      clearReturn.current?.release()
+    }
+  }, [runtime, sessionId])
   const actionPending = entry?.goalAction.status === 'submitting'
   const actionUnknown = entry?.goalAction.status === 'unknown'
   const submitting = entry?.submission.status === 'submitting'
@@ -71,15 +95,142 @@ export function HbarComposerGoal({
   const error =
     localError ?? (showSummary ? entry?.goalAction.error : null) ?? (showSubmission ? entry?.submission.error : null)
   const unknown = (showSummary && actionUnknown) || (showSubmission && submissionUnknown)
-  const control = (action: 'pause' | 'resume' | 'clear', expectedGoalId: string) => {
+  const focusAvailable = (target: HTMLButtonElement | null | undefined) => {
+    if (
+      !target?.isConnected ||
+      target.disabled ||
+      target.closest('[inert], [hidden]') ||
+      !target.getClientRects().length
+    )
+      return
+    if (target.ownerDocument.defaultView?.getComputedStyle(target).visibility === 'hidden') return
+    target.focus()
+  }
+  const captureClearReturn = (source: HTMLButtonElement, goalId: string) => {
+    clearReturn.current?.release()
+    const document = source.ownerDocument
+    const latestFacts = runtime.state.composerIntent.getSnapshot().facts
+    if (
+      !goalTriggerRef ||
+      document.activeElement !== source ||
+      latestFacts.sessionId !== sessionId ||
+      latestFacts.snapshot?.goal?.goalId !== goalId
+    )
+      return null
+    const lease = {
+      scope: { runtime, sessionId, goalId, lifetime: lifetime.current },
+      source,
+      confirmed: false,
+      release: () => {},
+    }
+    const cancelOnPointer = (event: PointerEvent) => {
+      if (event.target !== source && !(event.target instanceof Node && source.contains(event.target))) lease.release()
+    }
+    const cancelOnKey = (event: KeyboardEvent) => {
+      if (event.target === source && ['Enter', ' '].includes(event.key)) return
+      if (
+        event.repeat &&
+        ['Enter', ' '].includes(event.key) &&
+        source.disabled &&
+        document.activeElement === document.body
+      )
+        return
+      lease.release()
+    }
+    const cancelOnFocus = (event: FocusEvent) => {
+      if (event.target !== source && event.target !== document.body) lease.release()
+    }
+    // The lease ends at success/failure/scope change/user intent, with a hard upper bound if transport stalls.
+    const deadline = setTimeout(() => lease.release(), 30_000)
+    lease.release = () => {
+      clearTimeout(deadline)
+      document.removeEventListener('pointerdown', cancelOnPointer, true)
+      document.removeEventListener('keydown', cancelOnKey, true)
+      document.removeEventListener('focusin', cancelOnFocus, true)
+      if (clearReturn.current === lease) clearReturn.current = null
+    }
+    clearReturn.current = lease
+    document.addEventListener('pointerdown', cancelOnPointer, true)
+    document.addEventListener('keydown', cancelOnKey, true)
+    document.addEventListener('focusin', cancelOnFocus, true)
+    return lease
+  }
+  useLayoutEffect(() => {
+    const lease = clearReturn.current
+    if (!lease) return
+    const current = { runtime, sessionId, lifetime: lifetime.current }
+    const latestFacts = runtime.state.composerIntent.getSnapshot().facts
+    const latestGoalId = latestFacts.sessionId === sessionId ? latestFacts.snapshot?.goal?.goalId : undefined
+    if (!sameGoalClearFocusScope(lease.scope, current) || (latestGoalId && latestGoalId !== lease.scope.goalId)) {
+      lease.release()
+      return
+    }
+    // A goal.cleared event may arrive before its ACK. Do not turn it into confirmation of this request.
+    if (
+      !lease.confirmed ||
+      latestFacts.sessionId !== sessionId ||
+      !latestFacts.snapshot ||
+      latestFacts.snapshot.goal !== null
+    )
+      return
+    const document = lease.source.ownerDocument
+    const active = document.activeElement
+    const navigation = runtime.state.navigation.getSnapshot()
+    const allowed = canReturnGoalClearFocus({
+      captured: lease.scope,
+      current,
+      kind: 'confirmed',
+      currentGoalId: null,
+      confirmed: true,
+      selectedSessionId: navigation.sessionId,
+      navigationIdle: navigation.status === 'idle',
+      conversationVisible: runtime.state.presentation.getSnapshot().page.kind === 'session',
+      focusOwned: active === lease.source || active === document.body || !active?.isConnected,
+      otherTopLayer: Boolean(document.querySelector('dialog:modal, [popover]:popover-open')),
+    })
+    lease.release()
+    if (allowed) focusAvailable(goalTriggerRef?.current)
+  })
+  const cancelClear = (source: HTMLButtonElement) => {
+    const navigation = runtime.state.navigation.getSnapshot()
+    const scope = { runtime, sessionId, lifetime: lifetime.current }
+    const document = source.ownerDocument
+    const latestFacts = runtime.state.composerIntent.getSnapshot().facts
+    const allowed =
+      clearTarget &&
+      canReturnGoalClearFocus({
+        captured: { ...scope, goalId: clearTarget },
+        current: scope,
+        kind: 'cancel',
+        currentGoalId: latestFacts.sessionId === sessionId ? latestFacts.snapshot?.goal?.goalId : undefined,
+        confirmed: false,
+        selectedSessionId: navigation.sessionId,
+        navigationIdle: navigation.status === 'idle',
+        conversationVisible: runtime.state.presentation.getSnapshot().page.kind === 'session',
+        focusOwned: document.activeElement === source,
+        otherTopLayer: Boolean(document.querySelector('dialog:modal, [popover]:popover-open')),
+      })
+    setClearTarget(null)
+    if (allowed) focusAvailable(clearButton.current)
+  }
+  const control = (action: 'pause' | 'resume' | 'clear', expectedGoalId: string, source?: HTMLButtonElement) => {
+    const generation = lifetime.current
+    const lease = action === 'clear' && source ? captureClearReturn(source, expectedGoalId) : null
     setLocalError(null)
     void runtime.commands
       .execute('composerIntent.controlGoal', { sessionId, expectedGoalId, action })
-      .then(() => setClearTarget(null))
-      .catch((reason: unknown) => setLocalError(commandCode(reason)))
+      .then(() => {
+        if (lease && clearReturn.current === lease && generation === lifetime.current) lease.confirmed = true
+        if (generation === lifetime.current) setClearTarget((current) => (current === expectedGoalId ? null : current))
+      })
+      .catch((reason: unknown) => {
+        lease?.release()
+        if (generation === lifetime.current) setLocalError(commandCode(reason))
+      })
   }
   const expand = () => {
     if (opening || !workspaceId) return
+    const generation = lifetime.current
     setOpening(true)
     setLocalError(null)
     void (async () => {
@@ -103,8 +254,19 @@ export function HbarComposerGoal({
       if (canPrepare && workspaceId && runtime.getSessionExecutionAccess({ sessionId, workspaceId }).kind === 'ready')
         await runtime.commands.execute('goalPlanWorkspace.showGoalEditor', { instanceId: target.instanceId })
     })()
-      .catch((reason: unknown) => setLocalError(commandCode(reason)))
-      .finally(() => setOpening(false))
+      .catch((reason: unknown) => {
+        if (generation === lifetime.current) setLocalError(commandCode(reason))
+      })
+      .finally(() => {
+        if (generation === lifetime.current) setOpening(false)
+      })
+  }
+  const reconcile = () => {
+    const generation = lifetime.current
+    setLocalError(null)
+    void runtime.commands.execute('composerIntent.reconcile', { sessionId }).catch((reason: unknown) => {
+      if (generation === lifetime.current) setLocalError(commandCode(reason))
+    })
   }
   const visibleGoal = goal && goal.status !== 'complete'
   return (
@@ -167,6 +329,7 @@ export function HbarComposerGoal({
                 )
               )}
               <LumenButton
+                ref={clearButton}
                 type="button"
                 size="s"
                 variant="text"
@@ -203,7 +366,7 @@ export function HbarComposerGoal({
             variant="text"
             indicator="none"
             disabled={actionPending}
-            onClick={() => setClearTarget(null)}
+            onClick={(event) => cancelClear(event.currentTarget)}
           >
             {labels.cancel}
           </LumenButton>
@@ -212,7 +375,7 @@ export function HbarComposerGoal({
             size="s"
             tone="danger"
             disabled={busy}
-            onClick={() => control('clear', clearTarget)}
+            onClick={(event) => control('clear', clearTarget, event.currentTarget)}
           >
             {labels.clear}
           </LumenButton>
@@ -228,20 +391,17 @@ export function HbarComposerGoal({
           {labels.partial}
         </LumenText>
       )}
-      {unknown ? (
+      {showSummary && actionUnknown ? (
+        <HbarComposerGoalRecovery
+          action={entry?.goalAction}
+          connected={connected}
+          labels={labels.recovery}
+          onReconcile={reconcile}
+        />
+      ) : unknown ? (
         <LumenFrame className="hbar-composer-intent-feedback" role="alert">
           <LumenText as="span">{labels.unknown}</LumenText>
-          <LumenButton
-            type="button"
-            size="s"
-            disabled={!connected}
-            onClick={() => {
-              setLocalError(null)
-              void runtime.commands
-                .execute('composerIntent.reconcile', { sessionId })
-                .catch((reason: unknown) => setLocalError(commandCode(reason)))
-            }}
-          >
+          <LumenButton type="button" size="s" disabled={!connected} onClick={reconcile}>
             {labels.reconcile}
           </LumenButton>
         </LumenFrame>
@@ -252,7 +412,7 @@ export function HbarComposerGoal({
           </LumenText>
         )
       )}
-      {showSummary && facts?.status === 'error' && facts.error !== 'CAPABILITY_UNAVAILABLE' && (
+      {showSummary && !unknown && facts?.status === 'error' && facts.error !== 'CAPABILITY_UNAVAILABLE' && (
         <LumenFrame className="hbar-composer-intent-feedback" role="alert">
           <LumenText as="span">{labels.error(facts.error ?? 'EXECUTION_FAILED')}</LumenText>
           <LumenButton
@@ -260,9 +420,11 @@ export function HbarComposerGoal({
             size="s"
             disabled={!connected}
             onClick={() => {
-              void runtime.commands
-                .execute('composerIntent.refresh', { sessionId })
-                .catch((reason: unknown) => setLocalError(commandCode(reason)))
+              const generation = lifetime.current
+              setLocalError(null)
+              void runtime.commands.execute('composerIntent.refresh', { sessionId }).catch((reason: unknown) => {
+                if (generation === lifetime.current) setLocalError(commandCode(reason))
+              })
             }}
           >
             {labels.refresh}

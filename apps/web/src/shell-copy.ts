@@ -27,6 +27,8 @@ import type { WebGeneralSettingsLabels } from './GeneralSettings'
 import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layout-copy'
 import { sidebarLayoutCopy, type SidebarLayoutLabels } from './sidebar-layout-copy'
 import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
+import { composerGoalRecoveryCopy } from './composer-goal-recovery-copy'
+import { composerExecutionCopy } from './composer-execution-copy'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
@@ -1009,6 +1011,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       error: (code) => choose(`无法从此消息建立分支：${code}`, `Could not Fork this message: ${code}`),
     },
     permissionPicker: {
+      execution: composerExecutionCopy(locale),
       title: choose('执行模式与工具审批', 'Execution mode and tool approval'),
       plan: {
         label: choose('计划模式', 'Plan mode'),
@@ -1344,6 +1347,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     intent: {
       blocked: composerIntentBlockedCopy(locale),
+      recovery: composerGoalRecoveryCopy(locale),
       goal: choose('目标', 'Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
       goalHint: choose('将本次输入设为持续推进的目标。', 'Use this prompt as an ongoing goal.'),
@@ -1403,7 +1407,17 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           )
         if (code === 'GOAL_INVALID')
           return choose('目标需要 1–4,000 字的文字说明。', 'A goal needs a text objective of 1–4,000 characters.')
-        return error(code)
+        if (code === 'GOAL_CONFLICT' || code === 'VERSION_CONFLICT' || code === 'STALE_TARGET')
+          return choose(
+            '当前目标或会话已变化，请检查最新状态后再操作。',
+            'The Goal or session changed. Review the latest state before continuing.',
+          )
+        if (code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED')
+          return choose('连接已中断，请重连后核对原操作。', 'Disconnected. Reconnect and check the original action.')
+        return choose(
+          '未能完成此操作，请查看当前状态后重试或核对原结果。',
+          'The action could not finish. Review the current state, then retry or check the original result.',
+        )
       },
     },
     tools: {

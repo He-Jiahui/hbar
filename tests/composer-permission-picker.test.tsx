@@ -5,8 +5,10 @@ import {
   type HbarComposerPermissionLabels,
   type HbarComposerPermissionPickerProps,
 } from '../packages/app-react/src/composer-permission-picker'
+import { composerExecutionCopy } from '../apps/web/src/composer-execution-copy'
 
 const labels: HbarComposerPermissionLabels = {
+  execution: composerExecutionCopy('zh-CN'),
   title: '下一次发送的工具审批',
   plan: {
     label: '计划模式',
@@ -100,6 +102,9 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   expect(uncertain).toContain(labels.plan.unknown)
   expect(uncertain).toContain(labels.plan.recheck)
   expect(uncertain).not.toContain('aria-label="工具审批：计划模式"')
+  expect(uncertain).toContain(`aria-label="工具审批：${labels.execution.unknown}"`)
+  expect(uncertain).not.toContain('aria-checked="true"')
+  expect(uncertain.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
 })
 
 test('long host-supplied names and exact default labels remain semantic text without duplicated options', () => {

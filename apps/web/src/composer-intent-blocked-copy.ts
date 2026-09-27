@@ -1,10 +1,13 @@
 import type { HbarSessionWorkspaceLabels } from '@hbar/app-react'
 import type { ShellLocale } from './shell-copy'
+import { composerGoalRecoveryCopy } from './composer-goal-recovery-copy'
+import { composerExecutionCopy } from './composer-execution-copy'
 
 /** Explain preparation blockers without conflating durable Plan, Goal facts and in-flight receipts. */
 export function composerIntentBlockedCopy(locale: ShellLocale): HbarSessionWorkspaceLabels['intent']['blocked'] {
   const zh = locale === 'zh-CN'
   return {
+    goalRecovery: composerGoalRecoveryCopy(locale),
     title: zh ? '准备目标' : 'Prepare a Goal',
     close: zh ? '关闭目标准备说明' : 'Close Goal preparation help',
     reasons: {
@@ -42,6 +45,8 @@ export function composerIntentBlockedCopy(locale: ShellLocale): HbarSessionWorks
     refreshPlan: zh ? '重新读取会话模式' : 'Reload session mode',
     reconcilePlan: zh ? '核对模式更改' : 'Check mode change',
     reconcileComposer: zh ? '核对原操作' : 'Check original operation',
+    checkingPlan: composerExecutionCopy(locale).checking,
+    planCheckFailed: composerExecutionCopy(locale).checkFailed,
     pending: zh ? '正在处理此操作…' : 'Working on this action…',
     exited: zh
       ? '已退出计划模式。关闭此说明后，再点击“目标”准备输入。'
