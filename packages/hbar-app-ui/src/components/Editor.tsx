@@ -11,7 +11,10 @@ export type HbarAppUiEditorProps = HbarAppUiVariantProps & {
 export { HbarAppUiEditorProvider }
 export {uniqueLumenRichEditorBlocks as uniqueHbarAppUiRichEditorBlocks} from '@lumen/app-ui'
 export {countLumenMarkdownWords as countHbarAppUiMarkdownWords, parseLumenReferenceMarkdown as parseHbarAppUiReferenceMarkdown} from '@lumen/app-ui'
+export {tokenizeLumenCodeLine as tokenizeHbarAppUiCodeLine, uniqueLumenCodeFiles as uniqueHbarAppUiCodeFiles} from '@lumen/app-ui'
 export type {
+  LumenCodeReferenceContent as HbarAppUiCodeReferenceContent,
+  LumenCodeToken as HbarAppUiCodeToken,
   LumenMarkdownReferenceContent as HbarAppUiMarkdownReferenceContent,
   LumenMarkdownBlock as HbarAppUiMarkdownBlock,
   LumenMarkdownInline as HbarAppUiMarkdownInline,

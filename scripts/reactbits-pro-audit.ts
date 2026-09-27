@@ -1559,6 +1559,17 @@ async function captureSource(
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (reference.id === 'hbar-app-ui-editor-3') {
+    // Isolating the iframe can put the documentation theme-toggle pointer over
+    // a code line on narrow canvases. Restore the preview's real initial cursor
+    // using its blank line, rather than interpreting that pointer state as a breakpoint.
+    await root.locator('[role="presentation"]').nth(11).click({position: {x: 4, y: 10}})
+    await root.locator('[role="presentation"]').nth(11).evaluate((line) => {
+      let pane = line.parentElement
+      while (pane && !['auto', 'scroll'].includes(getComputedStyle(pane).overflowX)) pane = pane.parentElement
+      if (pane) pane.scrollLeft = 0
+    })
+  }
   if (reference.id === 'hbar-app-ui-agent-activity-5') {
     await root.locator('ol li').nth(25).waitFor({ state: 'attached', timeout: 15_000 })
     await root.locator('button').filter({ hasText: 'Stop' }).waitFor({ state: 'hidden', timeout: 15_000 })

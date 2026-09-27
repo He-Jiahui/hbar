@@ -3,6 +3,7 @@ import { useStore } from 'zustand'
 import { HbarAppUiEditorProvider, type HbarAppUiEditorContent } from 'hbar-app-ui/catalog'
 import { createRichEditorPreviewStore } from './richEditorPreviewStore'
 import { createMarkdownEditorPreviewStore } from './markdownEditorPreviewStore'
+import { createCodeEditorPreviewStore } from './codeEditorPreviewStore'
 
 export function EditorPreviewHost({
   content,
@@ -15,6 +16,9 @@ export function EditorPreviewHost({
   const state = useStore(store)
   const [markdownStore] = useState(() => createMarkdownEditorPreviewStore(content.referenceMarkdown))
   const markdown = useStore(markdownStore)
+  const [codeStore] = useState(() => createCodeEditorPreviewStore(content.referenceCode))
+  const code = useStore(codeStore)
+  useEffect(() => codeStore.getState().reset(content.referenceCode), [codeStore, content.referenceCode])
   useEffect(() => markdownStore.getState().reset(content.referenceMarkdown), [markdownStore, content.referenceMarkdown])
   useEffect(() => store.getState().reset(content.referenceRichText), [store, content.referenceRichText])
   const documentId = state.document?.id
@@ -33,6 +37,17 @@ export function EditorPreviewHost({
     <HbarAppUiEditorProvider
       content={{
         ...content,
+        referenceCode: content.referenceCode && {
+          ...content.referenceCode,
+          files: code.files,
+          activeFileId: code.activeFileId,
+          activeLine: code.cursor.line,
+          cursor: code.cursor,
+          onSelectFile: code.selectFile,
+          onCloseFile: code.closeFile,
+          onCursorChange: code.selectLine,
+          onRun: () => undefined,
+        },
         referenceMarkdown: content.referenceMarkdown &&
           markdown.document && {
             ...content.referenceMarkdown,

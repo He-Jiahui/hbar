@@ -65,6 +65,7 @@ describe('hbar-app-ui editor workflows', () => {
         const code = requiredCode(HBAR_APP_UI_EDITOR_FIXTURES)
         const localized: HbarAppUiEditorContent = {
             ...HBAR_APP_UI_EDITOR_FIXTURES,
+            referenceCode: undefined,
             code: {
                 ...code,
                 labels: {
@@ -87,6 +88,7 @@ describe('hbar-app-ui editor workflows', () => {
         const suggestions = requiredSuggestions(HBAR_APP_UI_EDITOR_FIXTURES)
         const staleAndDuplicateCode: HbarAppUiEditorContent = {
             ...HBAR_APP_UI_EDITOR_FIXTURES,
+            referenceCode: undefined,
             code: {
                 ...code,
                 activeFileId: 'missing-file',

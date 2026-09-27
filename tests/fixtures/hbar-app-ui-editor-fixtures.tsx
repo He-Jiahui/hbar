@@ -4,6 +4,7 @@ import type {
     HbarAppUiMarkdownMode,
     HbarAppUiRichEditorReferenceContent,
     HbarAppUiMarkdownReferenceContent,
+    HbarAppUiCodeReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const formattingLabels: Readonly<Record<HbarAppUiEditorFormattingAction, string>> = {
@@ -54,6 +55,23 @@ const markdownReference: HbarAppUiMarkdownReferenceContent = {
     mode: 'split', paneStrategy: {kind: 'pane-scroll', expectedMaximumWords: 5000},
 }
 
+const codeReference: HbarAppUiCodeReferenceContent = {
+    labels: {
+        openFiles: 'Open files', closeFile: (name) => `Close ${name}`, unsavedChanges: 'Unsaved changes',
+        run: 'Run', emptyFiles: 'No open files', codeOverview: 'Code overview', warning: (count) => `${count} warning`,
+        cursor: (line, column) => `Ln ${line}, Col ${column}`,
+    },
+    files: [
+        {id: 'meter', name: 'meter.ts', dirty: true, source: 'import { ledger } from "./ledger";\nimport type { Event, Window } from "./types";\n\nconst WINDOW_MS = 10_000;\n\nexport function meter(events: Event[], window: Window) {\n  const buckets = new Map<string, number>();\n\n  for (const event of events) {\n    if (event.ts < window.from) continue;\n    if (event.ts >= window.to) break;\n\n    const key = event.workspace;\n    buckets.set(key, (buckets.get(key) ?? 0) + event.units);\n  }\n\n  return [...buckets].map(([workspace, units]) => ({\n    workspace,\n    units,\n    window: WINDOW_MS,\n  }));\n}\n\nexport async function flush(window: Window) {\n  const rows = meter(await ledger.since(window.from), window);\n  await ledger.commit(rows);\n  return rows.length;\n}'},
+        {id: 'ledger', name: 'ledger.ts', source: 'import { db } from "./db";\n\nexport const ledger = {\n  async since(ts: number) {\n    return db.events.where("ts").aboveOrEqual(ts).toArray();\n  },\n\n  async commit(rows: unknown[]) {\n    return db.rollups.bulkPut(rows);\n  },\n};'},
+        {id: 'types', name: 'types.ts', source: 'export type Event = {\n  ts: number;\n  workspace: string;\n  units: number;\n};\n\nexport type Window = {\n  from: number;\n  to: number;\n};'},
+    ],
+    activeFileId: 'meter',
+    cursor: {line: 12, column: 0},
+    footer: {cursor: 'Ln 12, Col 0', language: 'TypeScript', encoding: 'UTF-8', indentation: 'Spaces: 2', warningCount: 1},
+    paneStrategy: {kind: 'pane-scroll', expectedMaximumLines: 5000},
+}
+
 /**
  * Preview and behavior-test data only. The reusable package intentionally has
  * no implicit English records or locale fallback.
@@ -61,6 +79,7 @@ const markdownReference: HbarAppUiMarkdownReferenceContent = {
 export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
     referenceRichText: richEditorReference,
     referenceMarkdown: markdownReference,
+    referenceCode: codeReference,
     richText: {
         labels: {
             blockMenuLabel: 'Paragraph',
@@ -250,6 +269,7 @@ export function createHbarAppUiEditorOverflowFixtures(): HbarAppUiEditorContent 
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
         referenceMarkdown: {...markdownReference, document: {...markdownReference.document, source: `${markdownReference.document.source}\n\n`.repeat(60) + 'Final editable paragraph'}},
+        referenceCode: {...codeReference, files: [...codeReference.files, {id: 'long', name: 'long.ts', source: `${codeReference.files[0]!.source}\n`.repeat(70) + 'export const finalLine = true;'}], activeFileId: 'long'},
         referenceRichText: {...richEditorReference,
             document: {...richEditorReference.document, body: `${richEditorReference.document.body}\n\n`.repeat(60) + 'Last editable paragraph'},
             blocks: [...richEditorReference.blocks, ...Array.from({length: 34}, (_, index) => ({id: `extra-${index}`, label: `Additional block style ${index + 1}`}))],
@@ -296,6 +316,10 @@ export function createHbarAppUiEditorLocalizedFixtures(): HbarAppUiEditorContent
         referenceMarkdown: {...markdownReference,
             labels: {view: 'Bearbeitungsmodus mit absichtlich langer lokalisierter Bezeichnung', mode: (mode) => modeLabels[mode], summary: (count) => `${count} Woerter · Markdown`, source: 'Quelltext', preview: 'Vorschau', sourceInput: 'Markdown-Quelltext'},
             document: {...markdownReference.document, fileName: 'arbeitsbereichsweite-streaming-zaehler-migration.md'},
+        },
+        referenceCode: {...codeReference,
+            labels: {...codeReference.labels, openFiles: 'Geoeffnete Dateien', closeFile: (name) => `Datei ${name} schliessen`, unsavedChanges: 'Ungespeicherte Aenderungen', run: 'Ausfuehren', emptyFiles: 'Keine geoeffneten Dateien', codeOverview: 'Codeuebersicht', warning: (count) => `${count} Warnung`, cursor: (line, column) => `Zeile ${line}, Spalte ${column}`},
+            files: codeReference.files.map(file => ({...file, name: `arbeitsbereichsweite-streaming-zaehler-${file.name}`})),
         },
         referenceRichText: {...richEditorReference,
             labels: {...richEditorReference.labels,

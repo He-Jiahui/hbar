@@ -561,6 +561,22 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-editor-3')
+    return {
+      revision: 1,
+      lumenEntries: ['editor.tsx', 'editor-code-reference.tsx', 'editor-code-model.ts', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Selecting a file replaces the highlighted TypeScript preview without changing footer metadata'},
+        {viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Closing the active file removes it and selects the first remaining file'},
+        {viewport: 'desktop', theme: 'light', suffix: '6:click', change: 'Run is a visible source no-op rather than an invented executor'},
+        {viewport: 'tablet', theme: 'light', suffix: '3:click', change: 'Closing an inactive file removes just that original ID and retains the selected file'},
+        {viewport: 'stress', theme: 'dark', suffix: '4:click', change: 'A horizontally overflowing tab strip still reaches the later file'},
+      ],
+      inferences: [
+        {scope: 'Other file IDs, close order, active line and final-tab behavior', basis: 'One document-ID-bound host transition handles selection and removal. Focused tests cover stale/duplicate IDs, last-tab no-op, line cursor projection and empty/one/bound/overflow content; production browser verifies representative active and inactive removal and click-to-line feedback.', verification: 'inferred-not-replayed'},
+        {scope: 'Other themes, widths, Run gestures and long-source scroll positions', basis: 'Eight static pairs cover normal-flow code pane, hidden narrow overview, horizontally scrollable tabs/source and flex-wrapped footer; browser checks representative vertical/horizontal scroll, long localized names and narrow footer reachability without multiplying each control by every layout.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-editor-2')
     return {
       revision: 1,
