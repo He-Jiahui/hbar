@@ -480,8 +480,8 @@ export function manualReviewGate(
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
-const captureProtocolVersion = 14
-const interactionProtocolVersion = 33
+const captureProtocolVersion = 15
+const interactionProtocolVersion = 34
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1336,7 +1336,7 @@ export async function waitForLocalStyles(page: Page, timeout = 15_000): Promise<
 
 type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot'>
 
-async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
+export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
   return locator.evaluate(
     (element, { shouldCheckBody, controlSelector }) => {
       const rectOf = (value: Element) => {
@@ -1432,9 +1432,11 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
         tag: control.tagName.toLowerCase(),
         role: control.getAttribute('role'),
         type: control.getAttribute('type'),
-        name:
-          control.getAttribute('aria-label') ??
-          (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160),
+        // React-controlled textarea content is a draft value, not its accessible name.
+        // Keep the value in its own field so a source's property-only update and a
+        // local React text-node update produce the same semantic feedback.
+        name: control.getAttribute('aria-label') ??
+          (control.tagName.toLowerCase() === 'textarea' ? '' : (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160)),
         disabled: control.matches(':disabled') || control.getAttribute('aria-disabled') === 'true',
         visible: (() => {
           const rect = control.getBoundingClientRect()
@@ -1483,7 +1485,8 @@ async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise
       return {
         rootTag: element.tagName.toLowerCase(),
         rootRect: { width: Math.round(rootRect.width), height: Math.round(rootRect.height) },
-        bodyTextLength: (element.textContent ?? '').trim().length,
+        bodyTextLength: Math.max(0, (element.textContent ?? '').trim().length -
+          [...element.querySelectorAll('textarea')].reduce((length, textarea) => length + (textarea.textContent ?? '').length, 0)),
         textLineCount,
         truncatedTextCount,
         horizontalOverflow: shouldCheckBody
@@ -3093,7 +3096,7 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
       index,
       tag: element.tagName.toLowerCase(),
       type: element.getAttribute('type'),
-      name: (element.getAttribute('aria-label') ?? element.textContent ?? '').trim().replaceAll(/\s+/g, ' '),
+      name: (element.getAttribute('aria-label') ?? (element.tagName === 'TEXTAREA' ? '' : element.textContent) ?? '').trim().replaceAll(/\s+/g, ' '),
       visible: (() => {
         const rect = element.getBoundingClientRect()
         const style = getComputedStyle(element)
