@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-comments-2')
+    return {
+      revision: 1,
+      lumenEntries: ['comments.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Resolve synchronizes open count, range styling, note strike-through and pressed state'},
+        {viewport: 'desktop', theme: 'dark', suffix: '2:click', change: 'Inline range selects its associated comment without changing document content'},
+        {viewport: 'desktop', theme: 'light', suffix: '7:click', change: 'An initially resolved annotation reopens'},
+        {viewport: 'desktop', theme: 'light', suffix: '6:click', change: 'Show in text selects the matching range and rail card'},
+        {viewport: 'desktop', theme: 'light', suffix: '1:hover', change: 'Inline range pointer feedback'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:focus', change: 'Resolve button keyboard focus'},
+        {viewport: 'tablet', theme: 'dark', suffix: '9:click', change: 'Compact Review is a verified source no-op, not a fabricated drawer'},
+        {viewport: 'stress', theme: 'light', suffix: '0:press-space', change: 'Native keyboard activation of a resolved range in the scroll-owned narrow document'},
+      ],
+      inferences: [
+        {scope: 'Other annotation targets and repeated gestures', basis: 'All three records use stable-ID selection and resolution toggles. Resolve/reopen, range selection and Show in text represent independent mechanisms; local tests cover target preservation after reorder and stale IDs.', verification: 'inferred-not-replayed'},
+        {scope: 'Document, rail capacity and narrow intrinsic width', basis: 'Eight static pairs cover responsive rail replacement. The source compact summary has intrinsic width that can exceed a 286px canvas; the component-owned scroll region preserves access rather than clipping a hidden action. Local tests exercise the document vertical scroll and narrow horizontal reachability once.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-comments-1')
     return {
       revision: 1,

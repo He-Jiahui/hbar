@@ -2,6 +2,36 @@ import type { HbarAppUiCommentsContent } from '../../packages/hbar-app-ui/src/in
 const grown = { kind: 'content-grown', expectedMaximum: 8 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
+  referenceAnnotation: {
+    labels: {
+      title: 'Service commitment draft',
+      summary: (open, total) => `${open} open comment${open === 1 ? '' : 's'} · ${total} total`,
+      comments: 'Comments',
+      resolve: 'Resolve',
+      resolved: 'Resolved',
+      showInText: 'Show in text',
+      showComment: (text) => `Show comment on "${text}"`,
+      review: 'Review',
+      reviewSummary: (open) => `${open} open comment${open === 1 ? '' : 's'} on this draft`,
+      empty: 'No comments',
+    },
+    segments: [
+      {id: 'intro', text: 'Northwind commits to keeping the platform available and responsive for every customer on a paid plan. This document sets out what we measure, how we report it, and what happens when we fall short.'},
+      {id: 'uptime-range', commentId: 'uptime', text: 'We target 99.9 percent uptime'},
+      {id: 'maintenance', text: ' measured monthly across the API, the dashboard, and the webhook delivery pipeline. Scheduled maintenance is announced at least five business days in advance and does not count against the target.'},
+      {id: 'support-range', commentId: 'support', text: 'Support requests raised through the console are acknowledged within one hour and resolved within four hours'},
+      {id: 'hours', text: ' during business hours. Outside those hours an on-call engineer is paged for anything that blocks production traffic.'},
+      {id: 'regions-range', commentId: 'regions', text: 'The guarantee applies in every supported region'},
+      {id: 'remainder', text: ", and credits are issued automatically against the following invoice when a monthly target is missed. Credits are capped at thirty percent of the monthly fee and are applied without the customer having to ask for them. A customer who believes a target was missed can open a claim for up to sixty days after the affected month closes. We publish a monthly report on the status page with the measured figures, a short note on any incident that consumed error budget, and the remediation work that followed it. Support is staffed between 08:00 and 20:00 in the customer's primary region, Monday through Friday, excluding public holidays observed at the registered billing address. Enterprise plans add weekend coverage for anything classified as severity one. Either party may propose changes to this document. Changes take effect at the start of the following billing period, and customers are notified at least thirty days before an existing commitment is reduced."},
+    ],
+    annotations: [
+      {id: 'support', initials: 'SA', author: 'Sofia Alvarez', meta: '3h ago', quote: 'resolved within four hours', body: 'This promise is stronger than what the contract actually covers. Legal asked us to say response time, not resolution time.', resolved: false},
+      {id: 'regions', initials: 'MB', author: 'Marcus Bell', meta: '2h ago', quote: 'every supported region', body: 'Can we name the regions here? Customers on the Frankfurt cluster keep asking whether the guarantee applies to them.', resolved: false},
+      {id: 'uptime', initials: 'PN', author: 'Priya Nandakumar', meta: '1h ago', quote: '99.9 percent uptime', body: 'Fixed the figure and linked the status page in the footer.', resolved: true},
+    ],
+    activeId: 'support',
+    listStrategy: {kind: 'content-grown', expectedMaximum: 3},
+  },
   referenceDiscussion: {
     labels: {
       title: 'Migration plan feedback',
@@ -171,6 +201,16 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
 export function createHbarAppUiCommentsLocalizedFixtures(): HbarAppUiCommentsContent {
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceAnnotation: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceAnnotation!,
+      labels: {
+        title: '服务承诺草稿与区域覆盖范围审查',
+        summary: (open, total) => `${open} 条未解决批注，共 ${total} 条`,
+        comments: '文档批注', resolve: '解决', resolved: '已解决', showInText: '在文档中显示',
+        showComment: (text) => `显示“${text}”的批注`,
+        review: '审查', reviewSummary: (open) => `这份草稿有 ${open} 条未解决批注`, empty: '没有批注',
+      },
+    },
     referenceDiscussion: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!,
       labels: {
@@ -191,6 +231,17 @@ export function createHbarAppUiCommentsOverflowFixtures(): HbarAppUiCommentsCont
   const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceAnnotation: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceAnnotation!,
+      annotations: Array.from({length: 4}, (_, index) => ({
+        id: `extra-${index}`, initials: `${index + 1}`, author: `Regional reviewer ${index + 1}`, meta: 'just now',
+        quote: 'A longer clause that needs to retain its complete accessible description',
+        body: 'This longer review must remain reachable without overlapping neighboring content. '.repeat(3),
+        resolved: false,
+      })),
+      activeId: 'missing',
+      listStrategy: {kind: 'pane-scroll', expectedMaximum: 3},
+    },
     referenceDiscussion: {
       ...discussion,
       messages: Array.from({length: 45}, (_, index) => ({

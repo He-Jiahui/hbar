@@ -252,6 +252,9 @@ export {
 export type {
   HbarAppUiCommentsAnnotation,
   HbarAppUiCommentsAnnotationContent,
+  HbarAppUiCommentsAnnotationReferenceContent,
+  HbarAppUiCommentsDocumentAnnotation,
+  HbarAppUiCommentsDocumentSegment,
   HbarAppUiCommentsCanvasContent,
   HbarAppUiCommentsCanvasPin,
   HbarAppUiCommentsChoice,

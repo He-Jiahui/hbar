@@ -83,6 +83,46 @@ describe('hbar-app-ui comment surfaces', () => {
     expect(value).toContain('Legacy message')
     expect(value).toContain('>Resolve<')
   })
+  test('annotation reference preserves continuous prose, linked ranges and resolve states', () => {
+    const value = render(2)
+    expect(value).toContain('Service commitment draft')
+    expect(value).toContain('2 open comments · 3 total')
+    expect(value.match(/data-hbar-app-ui-action="select-annotation"/g)?.length).toBe(3)
+    expect(value.match(/data-hbar-app-ui-action="toggle-resolved"/g)?.length).toBe(3)
+    expect(value).toContain('data-hbar-app-ui-target="regions"')
+    expect(value).toContain('lumen-comments-document-note is-resolved')
+    expect(value).toContain('aria-pressed="true"')
+    expect(value).not.toContain('Document annotation')
+  })
+  test('annotation Host updates project counts and selection independent of record order', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceAnnotation!
+    const value = render(2, {referenceAnnotation: {
+      ...content, activeId: 'regions',
+      annotations: [...content.annotations].reverse().map((item) => item.id === 'regions' ? {...item, resolved: true} : item),
+    }})
+    expect(value).toContain('1 open comment · 3 total')
+    expect(value.indexOf('Priya Nandakumar')).toBeLessThan(value.indexOf('Sofia Alvarez'))
+    expect(value).toContain('lumen-comments-document-highlight is-active is-resolved')
+    expect(value.match(/aria-pressed="true"/g)?.length).toBe(2)
+    expect(value).not.toContain('lumen-comments-document-card is-active')
+  })
+  test('annotation capacity, stale IDs, duplicate IDs, empty data and missing links stay explicit', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceAnnotation!
+    for (const count of [0, 1, 3, 4]) {
+      const annotations = Array.from({length: count}, (_, index) => ({...content.annotations[0]!, id: `record-${index}`}))
+      const value = render(2, {referenceAnnotation: {...content, activeId: 'missing', annotations}})
+      expect((value.match(/data-hbar-app-ui-action="toggle-resolved"/g) ?? []).length).toBe(count)
+      expect(value).not.toContain('data-hbar-app-ui-action="select-annotation"')
+      expect(value).toContain('Northwind commits')
+      if (count === 0) expect(value).toContain('No comments')
+    }
+    const duplicate = render(2, {referenceAnnotation: {...content, annotations: [content.annotations[0]!, content.annotations[0]!]}})
+    expect(duplicate.match(/data-hbar-app-ui-action="toggle-resolved"/g)?.length).toBe(1)
+    const localized = render(2, createHbarAppUiCommentsLocalizedFixtures())
+    expect(localized).toContain('服务承诺草稿与区域覆盖范围审查')
+    expect(localized).toContain('2 条未解决批注，共 3 条')
+    expect(render(2, createHbarAppUiCommentsOverflowFixtures())).toContain('Regional reviewer 4')
+  })
   test('stale sort, empty, duplicate and 45-message collections remain deterministic and untruncated', () => {
     const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
     const duplicate = render(1, {...HBAR_APP_UI_COMMENTS_FIXTURES, referenceDiscussion: {...discussion, sortId: 'missing', messages: [discussion.messages[0]!, discussion.messages[0]!]}})
