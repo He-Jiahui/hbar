@@ -643,8 +643,9 @@ export function HbarComposerModelPicker({
         onOpen={() => {
           setOpen('model')
           // The same popup can be opened from the model trigger or a local /model
-          // command while the editor still owns focus. Its search is the first task.
-          searchRef.current?.focus()
+          // command while the editor still owns focus. On a narrow touch device,
+          // leave the list unobscured until the user deliberately chooses search.
+          if (!window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches) searchRef.current?.focus()
           modelListRef.current?.scrollTo({ top: 0 })
           if (!unresolved && !busy) refresh(true)
           onOpened?.()
