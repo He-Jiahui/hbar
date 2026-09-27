@@ -7,6 +7,9 @@
   "permissions": [
     "core:default",
     "allow-connection-info",
+    "allow-read-ui-zoom",
+    "allow-write-ui-zoom",
+    "core:webview:allow-set-webview-zoom",
     "core:window:allow-close",
     "core:window:allow-is-visible",
     "core:window:allow-minimize",

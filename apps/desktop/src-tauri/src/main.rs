@@ -2,11 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::atomic::{AtomicU64, Ordering},
     thread,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::{
     image::Image,
@@ -32,18 +34,140 @@ struct PathPointer {
     cache_root: PathBuf,
 }
 
+struct UiZoomPath(PathBuf);
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct UiZoomPreference {
+    version: u8,
+    zoom: f64,
+}
+
+const MAX_UI_ZOOM_FILE_BYTES: u64 = 4_096;
+static UI_ZOOM_WRITE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+fn valid_ui_zoom(zoom: f64) -> Result<f64, String> {
+    if zoom.is_finite() && (0.5..=2.0).contains(&zoom) {
+        Ok(zoom)
+    } else {
+        Err("UI zoom must be a finite number between 0.5 and 2.0".into())
+    }
+}
+
+fn read_ui_zoom_file(path: &Path) -> Result<Option<f64>, String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Unable to inspect UI zoom preference: {error}")),
+    };
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err("UI zoom preference is not a regular file".into());
+    }
+    let mut bytes = Vec::new();
+    File::open(path)
+        .map_err(|error| format!("Unable to open UI zoom preference: {error}"))?
+        .take(MAX_UI_ZOOM_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Unable to read UI zoom preference: {error}"))?;
+    if bytes.len() as u64 > MAX_UI_ZOOM_FILE_BYTES {
+        return Err("UI zoom preference exceeds the 4 KiB limit".into());
+    }
+    let preference: UiZoomPreference = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("UI zoom preference is invalid JSON: {error}"))?;
+    if preference.version != 1 {
+        return Err("UI zoom preference has an unsupported version".into());
+    }
+    valid_ui_zoom(preference.zoom).map(Some)
+}
+
+fn write_ui_zoom_file(path: &Path, zoom: f64) -> Result<f64, String> {
+    let zoom = valid_ui_zoom(zoom)?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| "UI zoom preference has no parent directory".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Unable to create UI zoom settings directory: {error}"))?;
+    let preference = serde_json::to_vec(&UiZoomPreference { version: 1, zoom })
+        .map_err(|error| format!("Unable to encode UI zoom preference: {error}"))?;
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("Unable to timestamp UI zoom preference: {error}"))?
+        .as_nanos();
+    let sequence = UI_ZOOM_WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let temporary = parent.join(format!(
+        ".desktop-ui-zoom.{}.{timestamp}.{sequence}.tmp",
+        std::process::id()
+    ));
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(|error| format!("Unable to stage UI zoom preference: {error}"))?;
+        file.write_all(&preference)
+            .map_err(|error| format!("Unable to write UI zoom preference: {error}"))?;
+        file.sync_all()
+            .map_err(|error| format!("Unable to flush UI zoom preference: {error}"))?;
+        drop(file);
+        fs::rename(&temporary, path)
+            .map_err(|error| format!("Unable to replace UI zoom preference: {error}"))?;
+        Ok(zoom)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn is_main_workbench(label: &str, current: &tauri::Url, expected: &tauri::Url) -> bool {
+    label == "main"
+        && expected.scheme() == "http"
+        && expected.host_str() == Some("127.0.0.1")
+        && current.origin() == expected.origin()
+}
+
+fn require_main_workbench(
+    window: &tauri::WebviewWindow,
+    connection: &Connection,
+) -> Result<(), String> {
+    let expected = tauri::Url::parse(&connection.url).map_err(|error| error.to_string())?;
+    let current = window.url().map_err(|error| error.to_string())?;
+    if is_main_workbench(window.label(), &current, &expected) {
+        Ok(())
+    } else {
+        Err("Desktop preferences are restricted to the local workbench".into())
+    }
+}
+
 #[tauri::command]
 fn connection_info(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Connection>,
 ) -> Result<Connection, String> {
-    let expected = tauri::Url::parse(&state.url).map_err(|e| e.to_string())?;
-    if window.label() != "main"
-        || window.url().map_err(|e| e.to_string())?.origin() != expected.origin()
-    {
-        return Err("Connection credentials are restricted to the local workbench".into());
-    }
+    require_main_workbench(&window, &state)
+        .map_err(|_| "Connection credentials are restricted to the local workbench".to_string())?;
     Ok(state.inner().clone())
+}
+
+#[tauri::command]
+fn read_ui_zoom(
+    window: tauri::WebviewWindow,
+    connection: tauri::State<'_, Connection>,
+    preference: tauri::State<'_, UiZoomPath>,
+) -> Result<Option<f64>, String> {
+    require_main_workbench(&window, &connection)?;
+    read_ui_zoom_file(&preference.0)
+}
+
+#[tauri::command]
+fn write_ui_zoom(
+    window: tauri::WebviewWindow,
+    connection: tauri::State<'_, Connection>,
+    preference: tauri::State<'_, UiZoomPath>,
+    zoom: f64,
+) -> Result<f64, String> {
+    require_main_workbench(&window, &connection)?;
+    write_ui_zoom_file(&preference.0, zoom)
 }
 
 fn existing(data_root: &Path) -> Option<Connection> {
@@ -100,12 +224,12 @@ fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf), Box<dyn std:
     ))
 }
 
-fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Error>> {
+fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::error::Error>> {
     let (data_root, cache_root) = path_roots(app)?;
     fs::create_dir_all(data_root.join("settings"))?;
     fs::create_dir_all(&cache_root)?;
     if let Some(connection) = existing(&data_root) {
-        return Ok(connection);
+        return Ok((connection, data_root));
     }
     let resources = if cfg!(debug_assertions) {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../dist/desktop-resources")
@@ -148,7 +272,7 @@ fn launch(app: &tauri::AppHandle) -> Result<Connection, Box<dyn std::error::Erro
     let started = Instant::now();
     loop {
         if let Some(connection) = existing(&data_root) {
-            return Ok(connection);
+            return Ok((connection, data_root));
         }
         if let Some(status) = child.try_wait()? {
             return Err(format!(
@@ -220,9 +344,13 @@ fn native_window_profile() -> (&'static str, &'static str, Option<Effect>) {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![connection_info])
+        .invoke_handler(tauri::generate_handler![
+            connection_info,
+            read_ui_zoom,
+            write_ui_zoom
+        ])
         .setup(|app| {
-            let connection = launch(app.handle())?;
+            let (connection, data_root) = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
             let mut url = tauri::Url::parse(&connection.url)?;
             let (platform, material, effect) = native_window_profile();
@@ -230,6 +358,9 @@ fn main() {
                 .append_pair("hbar-native", "1")
                 .append_pair("hbar-platform", platform)
                 .append_pair("hbar-material", material);
+            app.manage(UiZoomPath(
+                data_root.join("settings").join("desktop-ui-zoom.json"),
+            ));
             app.manage(connection);
             let mut window_builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
@@ -300,4 +431,92 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("Unable to start hbar desktop");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture_path(name: &str) -> (PathBuf, PathBuf) {
+        let root = std::env::temp_dir().join(format!(
+            "hbar-desktop-ui-zoom-test-{}-{}-{}",
+            std::process::id(),
+            name,
+            UI_ZOOM_WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&root).expect("create isolated UI zoom fixture");
+        let preference = root.join("settings").join("desktop-ui-zoom.json");
+        (root, preference)
+    }
+
+    #[test]
+    fn ui_zoom_accepts_only_finite_values_within_native_range() {
+        for value in [0.5, 1.0, 1.25, 2.0] {
+            assert_eq!(valid_ui_zoom(value).unwrap(), value);
+        }
+        for value in [
+            0.0,
+            0.499,
+            2.001,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ] {
+            assert!(valid_ui_zoom(value).is_err());
+        }
+    }
+
+    #[test]
+    fn ui_zoom_read_distinguishes_missing_and_damaged_preferences() {
+        let (root, preference) = fixture_path("read");
+        assert_eq!(read_ui_zoom_file(&preference).unwrap(), None);
+        fs::create_dir_all(preference.parent().unwrap()).unwrap();
+        for invalid in [
+            b"not-json".as_slice(),
+            br#"{"version":2,"zoom":1}"#.as_slice(),
+            br#"{"version":1,"zoom":3}"#.as_slice(),
+        ] {
+            fs::write(&preference, invalid).unwrap();
+            assert!(read_ui_zoom_file(&preference).is_err());
+        }
+        fs::write(&preference, vec![b' '; MAX_UI_ZOOM_FILE_BYTES as usize + 1]).unwrap();
+        assert!(read_ui_zoom_file(&preference)
+            .unwrap_err()
+            .contains("4 KiB"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ui_zoom_write_atomically_replaces_the_preference_and_preserves_it_on_invalid_input() {
+        let (root, preference) = fixture_path("write");
+        assert_eq!(write_ui_zoom_file(&preference, 0.75).unwrap(), 0.75);
+        assert_eq!(read_ui_zoom_file(&preference).unwrap(), Some(0.75));
+        assert_eq!(write_ui_zoom_file(&preference, 1.5).unwrap(), 1.5);
+        assert_eq!(read_ui_zoom_file(&preference).unwrap(), Some(1.5));
+        assert!(write_ui_zoom_file(&preference, 2.5).is_err());
+        assert_eq!(read_ui_zoom_file(&preference).unwrap(), Some(1.5));
+        assert_eq!(
+            fs::read_dir(preference.parent().unwrap()).unwrap().count(),
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ui_zoom_origin_is_limited_to_the_current_loopback_main_webview() {
+        let expected = tauri::Url::parse("http://127.0.0.1:4321").unwrap();
+        let current = tauri::Url::parse("http://127.0.0.1:4321/?hbar-native=1").unwrap();
+        assert!(is_main_workbench("main", &current, &expected));
+        assert!(!is_main_workbench("child", &current, &expected));
+        assert!(!is_main_workbench(
+            "main",
+            &tauri::Url::parse("http://127.0.0.1:4322").unwrap(),
+            &expected
+        ));
+        assert!(!is_main_workbench(
+            "main",
+            &current,
+            &tauri::Url::parse("http://localhost:4321").unwrap()
+        ));
+    }
 }
