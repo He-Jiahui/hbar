@@ -103,6 +103,14 @@ import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
 import { createWorkspaceOrganization, workspaceOrganizationClientCommands } from './workspace-organization'
 export { workspaceOrganizationClientCommands } from './workspace-organization'
 export type { WorkspaceOrganizationState, WorkspaceOrganizationAction } from './workspace-organization'
+import { createWorkspaceDisplayNames, workspaceDisplayNamesClientCommands } from './workspace-display-names'
+export { workspaceDisplayNamesClientCommands, workspaceDisplayName } from './workspace-display-names'
+export type {
+  WorkspaceDisplayNamesState,
+  WorkspaceDisplayNamesAction,
+  WorkspaceDisplayNameEditor,
+  WorkspaceDisplayNamesSnapshot,
+} from './workspace-display-names'
 export { MAX_PINNED_WORKSPACES, sortPinnedWorkspaces } from './workspace-pins'
 export type { WorkspacePinAction, WorkspacePinsState } from './workspace-pins'
 import type { NavigationState, PresentationState, RuntimeOptions, SurfaceState } from './types'
@@ -275,6 +283,7 @@ const runtimeCommands = {
   ...sessionToolCommands,
   ...workspacePinCommands,
   ...workspaceOrganizationClientCommands,
+  ...workspaceDisplayNamesClientCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
   ...systemDiagnosticsCommands,
@@ -362,6 +371,18 @@ export function createAppRuntime(options: RuntimeOptions) {
       return () =>
         source === navigation.reader.getSnapshot() && source.workspaceId === workspaceId && source.status === 'idle'
     },
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const workspaceDisplayNames = createWorkspaceDisplayNames(local, {
+    ...(options.workspaceDisplayNames
+      ? {
+          host: options.workspaceDisplayNames.commands,
+          ...(options.workspaceDisplayNames.events ? { events: options.workspaceDisplayNames.events } : {}),
+        }
+      : {}),
+    resolveWorkspace: (id) =>
+      directory.reader.getSnapshot().workspaces[id] ?? workspacePins.reader.getSnapshot().resolved[id],
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -689,6 +710,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionToolCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
         Object.hasOwn(workspaceOrganizationClientCommands, name) ||
+        Object.hasOwn(workspaceDisplayNamesClientCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -725,6 +747,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
       workspaceOrganization: workspaceOrganization.reader,
+      workspaceDisplayNames: workspaceDisplayNames.reader,
+      workspaceDisplayNameSnapshot: workspaceDisplayNames.snapshotReader,
       messageFork: messageFork.reader,
       directory: directory.reader,
       forms: forms.reader,
@@ -787,6 +811,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workspaceTabs.dispose()
       workspacePins.dispose()
       workspaceOrganization.dispose()
+      workspaceDisplayNames.dispose()
 
       local.dispose()
       platform.dispose()

@@ -101,6 +101,14 @@ export interface RuntimeOptions {
       onConnection?(listener: (connected: boolean) => void): () => void
     }
   }
+  /** Host/data-root aliases, independent of visibility and device-local preferences. */
+  readonly workspaceDisplayNames?: {
+    readonly commands: CommandExecutor
+    readonly events?: {
+      subscribe(listener: () => void): () => void
+      onConnection?(listener: (connected: boolean) => void): () => void
+    }
+  }
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
   readonly planProposal?: { readonly requestText: PlanProposalRequestText }

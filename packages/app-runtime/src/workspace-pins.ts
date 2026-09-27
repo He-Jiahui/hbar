@@ -81,6 +81,7 @@ function pinnedIds(preferences: ClientPreferencesState): readonly string[] {
 export function sortPinnedWorkspaces(
   directory: DirectoryState,
   pins: WorkspacePinsState,
+  displayName: (workspace: Readonly<Workspace>) => string = (workspace) => workspace.name,
 ): readonly Readonly<Workspace>[] {
   const byId = new Map(Object.entries(pins.resolved).filter(([id]) => pins.ids.includes(id)))
   for (const workspace of Object.values(directory.workspaces)) byId.set(workspace.id, workspace)
@@ -90,7 +91,7 @@ export function sortPinnedWorkspaces(
     const a = pinned.has(left.id)
     const b = pinned.has(right.id)
     if (a !== b) return a ? -1 : 1
-    return left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
+    return displayName(left).localeCompare(displayName(right)) || left.id.localeCompare(right.id)
   })
 }
 

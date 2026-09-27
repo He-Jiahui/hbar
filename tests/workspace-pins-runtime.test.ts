@@ -10,6 +10,36 @@ import type { Workspace } from '@hbar/contracts/directory'
 
 const workspace = (id: string, name = id): Workspace => ({ id, name, path: `D:/projects/${id}`, createdAt: 1 })
 
+test('display-name sorting preserves canonical records, pin partition and a stable ID tie-break', () => {
+  const a = workspace('a', 'Canonical A')
+  const b = workspace('b', 'Canonical B')
+  const runtime = createAppRuntime({
+    instanceId: 'alias-sort',
+    hostId: 'alias-sort',
+    directory: { execute: async () => ({ items: [], nextCursor: null }) },
+  })
+  try {
+    const directory = { ...runtime.view.state.directory.getSnapshot(), workspaces: { a, b } }
+    const pins = runtime.view.state.workspacePins.getSnapshot()
+    const names: Record<string, string> = { a: 'Zulu', b: 'Alpha' }
+    const displayName = (item: Readonly<Workspace>) => names[item.id] ?? item.name
+    expect(sortPinnedWorkspaces(directory, pins, displayName).map((item) => item.id)).toEqual(['b', 'a'])
+    expect(sortPinnedWorkspaces(directory, { ...pins, ids: ['a'] }, displayName).map((item) => item.id)).toEqual([
+      'a',
+      'b',
+    ])
+    names.a = 'Alpha'
+    expect(sortPinnedWorkspaces(directory, pins, displayName).map((item) => item.id)).toEqual(['a', 'b'])
+    delete names.a
+    delete names.b
+    expect(sortPinnedWorkspaces(directory, pins, displayName)).toEqual([a, b])
+    expect(directory.workspaces.a).toBe(a)
+    expect(a.name).toBe('Canonical A')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 function fixture(saved?: unknown) {
   const records = new Map<string, unknown>()
   if (saved !== undefined) records.set('hbar:pin-host:preferences', saved)
