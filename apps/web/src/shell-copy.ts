@@ -1048,13 +1048,16 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     permissionPicker: {
       execution: composerExecutionCopy(locale),
-      title: choose('执行模式与工具审批', 'Execution mode and tool approval'),
+      title: choose('执行选项', 'Execution options'),
       plan: {
         label: choose('计划模式', 'Plan mode'),
-        description: choose('只读规划，写入工具被服务端拒绝。', 'Read-only planning; the Host denies write tools.'),
+        description: choose(
+          '在本会话持续只读规划；服务端拒绝写入工具。',
+          'Read-only across sends; the Host blocks write tools.',
+        ),
         scope: choose(
-          '计划模式保存在此会话中，连续发送仍保持计划；按“退出计划模式”才恢复默认。执行计划文档不会自动退出。工具审批仍只作用于本次发送。',
-          'Plan mode persists for this session across sends. Use Exit Plan mode to return to default. Executing a plan proposal does not exit. Tool approval remains per-send.',
+          '计划模式保持到手动退出；批准计划不会自动退出。工具审批仍只用于本次发送。',
+          'Plan mode stays on until you exit it; approving a proposal does not exit. Tool approval remains per-send.',
         ),
         pending: choose('正在保存会话计划模式…', 'Saving this session’s Plan mode…'),
         unknown: choose(
@@ -1066,8 +1069,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         retry: choose('重新读取会话模式', 'Reload session mode'),
         recheck: choose('核对计划模式', 'Recheck Plan mode'),
         approvalPaused: choose(
-          '计划模式中暂不可改工具审批；先退出计划模式。原本次发送选择保留，服务端仍拒绝写入工具。',
-          'Exit Plan mode before changing tool approval. Your next-send choice is retained; the Host still denies write tools.',
+          '退出计划模式后才能更改工具审批；原选择已保留。',
+          'Exit Plan mode to change tool approval; your previous choice is retained.',
         ),
         goalPrepared: choose(
           '先取消目标准备，才能进入计划模式。文字和附件会保留。',
@@ -1086,18 +1089,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         'This send is not confirmed. Its policy is locked; check the submission result.',
       ),
       scopeHint: choose(
-        '下列工具审批仅用于下一次发送，不更改服务端默认策略。',
-        'The tool approval choices below apply only to the next send; the Host default is unchanged.',
+        '工具审批仅用于下一次发送，不更改服务端默认值。',
+        'Tool approval is for the next send; the Host default stays unchanged.',
       ),
       inheritedSnapshotHint: (mode) =>
         mode
           ? choose(
-              `当前默认：${mode}。发送时读取并固定本次策略。`,
-              `Current default: ${mode}. This send captures the default when submitted.`,
+              `当前默认：${mode}；发送时固定用于本次运行。`,
+              `Current default: ${mode}; captured for this run on send.`,
             )
           : choose(
-              '发送时读取服务端默认策略；读取失败不会发送。',
-              'The Host default is captured when sending. A failed read will not send the request.',
+              '发送时读取默认值；读取失败则不发送。',
+              'Read default on send; a failed read blocks sending.',
             ),
       options: {
         ask: {
@@ -1107,15 +1110,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         deny: {
           label: choose('拒绝需审批工具', 'Deny approval requests'),
           description: choose(
-            '拒绝需要审批的工具；已被策略允许的工具仍可执行，并非只读模式。',
-            'Deny tools requiring approval. Policy-allowed tools can still run; this is not read-only mode.',
+            '拒绝需审批工具；已获策略允许的工具仍可执行。',
+            'Deny tools needing approval; policy-allowed tools may still run.',
           ),
         },
         allow: {
           label: choose('自动批准', 'Auto-approve'),
           description: choose(
-            '自动批准需要审批的工具；服务端明确拒绝的策略仍然生效。',
-            'Automatically approve tools requiring approval. Explicit Host denials still apply.',
+            '批准需审批工具；服务端明确拒绝仍生效。',
+            'Approve tools needing approval; explicit Host denials still apply.',
           ),
         },
         inherit: {

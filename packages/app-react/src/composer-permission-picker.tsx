@@ -673,7 +673,11 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     <LumenIcon icon={icons[value]} tier="md" />
                     <LumenFrame className="hbar-composer-permission-description">
                       <LumenText as="span">{labels.options[value].label}</LumenText>
-                      <LumenText as="span">{labels.options[value].description}</LumenText>
+                      <LumenText as="span">
+                        {value === 'inherit'
+                          ? labels.inheritedSnapshotHint(hostDefault.mode ? labels.options[hostDefault.mode].label : null)
+                          : labels.options[value].description}
+                      </LumenText>
                     </LumenFrame>
                     {value === choice && ordinaryConfirmed && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>
@@ -723,14 +727,11 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     )}
                 </LumenFrame>
               )}
-              {plan && (
+              {plan && (planSelected || executionUnresolved) && (
                 <LumenText as="p" className="hbar-composer-permission-hint">
                   {labels.plan.scope}
                 </LumenText>
               )}
-              <LumenText as="p" className="hbar-composer-permission-hint">
-                {labels.inheritedSnapshotHint(hostDefault.mode ? labels.options[hostDefault.mode].label : null)}
-              </LumenText>
             </>
           )}
           {open && approvalFeedback}
