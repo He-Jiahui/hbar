@@ -1,0 +1,52 @@
+.hbar-app-react-session-stop {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  min-inline-size: 0;
+  padding: 0.5rem 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  background: var(--lumen-contrast);
+  font-size: 0.8125rem;
+}
+
+.hbar-app-react-session-stop-message {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-session-stop-message p {
+  margin: 0;
+}
+
+.hbar-app-react-session-stop-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-inline-size: 0;
+}
+
+.hbar-app-react-session-stop-actions button {
+  max-inline-size: 100%;
+  block-size: auto;
+  min-block-size: 2rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-session-stop-actions button[aria-disabled='true'] {
+  color: var(--lumen-muted);
+  cursor: not-allowed;
+}
+
+@media (forced-colors: active) {
+  .hbar-app-react-session-stop {
+    border-color: CanvasText;
+  }
+}

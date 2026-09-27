@@ -61,6 +61,8 @@ import {
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
 import { useSessionFind } from './session-find'
+import { HbarSessionStopNotice, useSessionStopAction } from './session-stop'
+import { sessionStopCanCancel } from './session-stop-model'
 import type { HbarSessionFindLabels } from './session-find-view'
 import { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
 import { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
@@ -198,6 +200,7 @@ function SessionWorkspaceContent({
   images,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
+  const stopRun = useSessionStopAction()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const executionAccess = useHbarRuntimeState(runtime.state.sessionExecutionAccess)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
@@ -252,6 +255,21 @@ function SessionWorkspaceContent({
     (composerModel.action.status === 'submitting' || composerModel.action.status === 'unknown')
   const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
   const activeRun = currentSessionRun(activeRuns)
+  const canCancelRun = (operationId: string) =>
+    sessionStopCanCancel(
+      {
+        hostId: runtime.hostId,
+        runtimeId: runtime.instanceId,
+        connected,
+        navigation,
+        tabs,
+        presentation,
+        surfaces,
+        timeline,
+        actions: runActions,
+      },
+      operationId,
+    )
   const terminalRunId =
     [...timeline.runs].reverse().find((run) => ['completed', 'failed', 'cancelled'].includes(run.status))?.id ?? null
   const projectContext = useHbarSessionProjectContext({
@@ -467,7 +485,9 @@ function SessionWorkspaceContent({
       () => {},
     )
   }
-  const runErrorAction = timeline.runs.map((run) => runActions[run.id]).find((action) => action?.error)
+  const runErrorAction = timeline.runs
+    .map((run) => runActions[run.id])
+    .find((action) => action?.error && (!stopRun || action.commandId !== 'operation.cancel'))
   const toolInstanceId = presentation.toolInstanceId
   const [toolFailure, setToolFailure] = useState<{
     sessionId: string
@@ -780,8 +800,14 @@ function SessionWorkspaceContent({
                 : undefined
             }
             cancellingRunIds={activeRuns
-              .filter((run) => ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? ''))
+              .filter(
+                (run) =>
+                  runActions[run.id]?.commandId === 'operation.cancel' &&
+                  (runActions[run.id]?.requestInFlight ||
+                    ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? '')),
+              )
               .map((run) => run.id)}
+            canCancelRun={canCancelRun}
             retryingRunIds={timeline.runs
               .filter((run) => runActions[run.id]?.status === 'submitting')
               .map((run) => run.id)}
@@ -795,7 +821,9 @@ function SessionWorkspaceContent({
               )
               .map((run) => run.id)}
             feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
-            onCancelRun={(operationId) => invoke('operation.cancel', { operationId })}
+            onCancelRun={(operationId) =>
+              stopRun ? stopRun(operationId) : invoke('operation.cancel', { operationId })
+            }
             onRetryRun={(operationId: string) => invoke('run.retry', { sessionId, operationId })}
           />
         )}
@@ -954,6 +982,7 @@ function SessionWorkspaceContent({
 
   const composer: ReactNode = sessionId ? (
     <LumenFrame className="hbar-app-react-session-footer" data-git-context-status={projectContext.context.status}>
+      <HbarSessionStopNotice region="main" />
       <HbarSessionExecutionNotice
         key={`${sessionId}:${sessionWorkspaceId}`}
         status={preparationStatus}
@@ -1079,9 +1108,7 @@ function SessionWorkspaceContent({
             ...labels.runningActions,
             submit: draft?.text.trim() || draft?.attachments.length ? 'queue' : 'hidden',
           }}
-          stopping={Boolean(
-            activeRun && ['submitting', 'unknown', 'succeeded'].includes(runActions[activeRun.id]?.status ?? ''),
-          )}
+          stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
           error={
             draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
               ? labels.attachments.error(draft.uploadError)
@@ -1253,7 +1280,10 @@ function SessionWorkspaceContent({
             if (sessionId && navigation.workspaceId) void submitLatest(sessionId, navigation.workspaceId)
           }}
           onStop={() => {
-            if (activeRun) invoke('operation.cancel', { operationId: activeRun.id })
+            if (activeRun) {
+              if (stopRun) stopRun(activeRun.id)
+              else invoke('operation.cancel', { operationId: activeRun.id })
+            }
           }}
         />
       </HbarComposerAttachmentDropTarget>

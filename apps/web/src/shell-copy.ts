@@ -35,6 +35,7 @@ import { codeBlockCopyLabels } from './code-block-copy-labels'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
+import { getSessionStopCopy, sessionStopButtonLabel } from './session-stop-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -1237,7 +1238,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       placeholder: choose('向助手发送消息…', 'Message the assistant…'),
       send: choose('发送', 'Send'),
       submitTitle: choose('发送提示词', 'Send prompt'),
-      stop: choose('停止当前运行', 'Stop the current run'),
+      stop: sessionStopButtonLabel(locale),
       uploading: choose('正在上传附件', 'Uploading attachments'),
       addAttachment: choose('添加附件', 'Add attachment'),
       removeAttachment: (attachment) => choose(`移除附件 ${attachment.name}`, `Remove attachment ${attachment.name}`),
@@ -2514,6 +2515,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     toolLayout: toolPaneLayoutCopy('zh-CN'),
     sidebarLayout: sidebarLayoutCopy('zh-CN'),
     shell: {
+      stop: getSessionStopCopy('zh-CN'),
       main: '工作台',
       brand: 'hbar',
       projectsAndSessions: '工程与会话',
@@ -2641,6 +2643,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     toolLayout: toolPaneLayoutCopy('en-US'),
     sidebarLayout: sidebarLayoutCopy('en-US'),
     shell: {
+      stop: getSessionStopCopy('en-US'),
       main: 'Workspace',
       brand: 'hbar',
       projectsAndSessions: 'Projects and sessions',
@@ -2766,8 +2769,25 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   },
 }
 
-export function getShellCopy(locale: ShellLocale): ShellCopy {
-  return copies[locale]
+// Only the shortcut differs by platform; keep all other label references stable.
+// There are at most two locale-specific Mac variants, never a cache per raw platform.
+const macCopies = new Map<ShellLocale, ShellCopy>()
+
+export function getShellCopy(
+  locale: ShellLocale,
+  platform = typeof navigator === 'undefined' ? '' : navigator.platform,
+): ShellCopy {
+  const base = copies[locale]
+  const stop = sessionStopButtonLabel(locale, platform)
+  if (stop === base.session.prompt.stop) return base
+  const cached = macCopies.get(locale)
+  if (cached) return cached
+  const copy: ShellCopy = {
+    ...base,
+    session: { ...base.session, prompt: { ...base.session.prompt, stop } },
+  }
+  macCopies.set(locale, copy)
+  return copy
 }
 
 export function resolveShellLocale(languages: readonly string[]): ShellLocale {

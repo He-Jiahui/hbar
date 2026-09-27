@@ -30,6 +30,7 @@ export interface HbarSessionRunActivityProps extends Omit<
 > {
   readonly labels: HbarSessionRunLabels
   readonly canRetryNewRun?: boolean
+  readonly canCancelRun?: (operationId: string) => boolean
   readonly unknownRetryRunIds?: readonly string[]
 }
 
@@ -48,6 +49,7 @@ export function HbarSessionRunActivity({
   cancellingRunIds = [],
   retryingRunIds = [],
   canRetryNewRun = true,
+  canCancelRun,
   unknownRetryRunIds = [],
   plan,
   feedback,
@@ -67,7 +69,13 @@ export function HbarSessionRunActivity({
     const retrying = retryingRunIds.includes(run.id)
     const rechecking = unknownRetryRunIds.includes(run.id)
     return isActive(run) && onCancelRun ? (
-      <LumenButton size="s" variant="text" indicator="none" disabled={cancelling} onClick={() => onCancelRun(run.id)}>
+      <LumenButton
+        size="s"
+        variant="text"
+        indicator="none"
+        disabled={cancelling || canCancelRun?.(run.id) === false}
+        onClick={() => onCancelRun(run.id)}
+      >
         <LumenIcon icon={Square} tier="sm" />
         {cancelling ? labels.cancellingLabel : labels.cancelLabel}
       </LumenButton>

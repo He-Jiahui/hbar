@@ -34,6 +34,7 @@ import {
 } from '@lumen/app-ui'
 import { sortPinnedWorkspaces, workspaceDisplayName } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarSessionStopNotice, HbarSessionStopProvider, type SessionStopLabels } from './session-stop'
 import {
   createWorkspaceNavigationActions,
   defaultSessionWorkspace,
@@ -66,6 +67,7 @@ import {
 } from './workspace-tool-focus'
 
 export interface HbarWorkspaceShellLabels {
+  readonly stop: SessionStopLabels
   readonly main: string
   readonly brand: string
   readonly projectsAndSessions: string
@@ -694,7 +696,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const serverTone =
     props.connection === 'connected' ? 'success' : props.connection === 'disconnected' ? 'danger' : 'warning'
 
-  return (
+  const shell = (
     <LumenAppShell
       label={props.labels.main}
       titlebar={props.titlebar}
@@ -729,6 +731,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         props.tool ? (
           <LumenFrame className="hbar-app-react-tool-content">
             {props.tool}
+            <HbarSessionStopNotice region="tool" />
             {toolFocusError && toolFocusError.key === focusSnapshot.target?.key && (
               <LumenText as="p" role="alert" className="hbar-app-react-tool-focus-error">
                 {props.labels.error(toolFocusError.code)}
@@ -1206,5 +1209,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     >
       {props.children}
     </LumenAppShell>
+  )
+  return (
+    <HbarSessionStopProvider
+      labels={props.labels.stop}
+      connected={props.connection === 'connected'}
+      mainRef={mainRef}
+      toolRef={toolRef}
+      toolPresentation={toolPresentation}
+    >
+      {shell}
+    </HbarSessionStopProvider>
   )
 }

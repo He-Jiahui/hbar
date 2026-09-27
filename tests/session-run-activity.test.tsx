@@ -70,6 +70,21 @@ test('pending cancellation remains disabled and independent plan progress is not
   expect(html).not.toContain('proposedPlan')
 })
 
+test('a scope or physical-request lock disables Stop without claiming cancellation was requested', () => {
+  const labels = getShellCopy('en-US').session.runs
+  const html = renderToStaticMarkup(
+    <HbarSessionRunActivity
+      runs={[run('active', 'running')]}
+      labels={labels}
+      canCancelRun={() => false}
+      onCancelRun={() => {}}
+    />,
+  )
+  expect(html).toContain(labels.cancelLabel)
+  expect(html).not.toContain(labels.cancellingLabel)
+  expect(html).toContain('disabled=""')
+})
+
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`retained read-only run history exposes only the exact unknown retry recovery: ${locale}`, () => {
     const labels = getShellCopy(locale).session.runs
