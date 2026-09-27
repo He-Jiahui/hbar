@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-7')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-shipping-reference.css', 'wizard/ShippingReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '5:click', change: 'Radio choice changes only the current question selection'},
+        {viewport: 'tablet', theme: 'dark', suffix: '10:click', change: 'Continue advances to unselected question 3 and disables itself'},
+        {viewport: 'mobile', theme: 'light', suffix: '9:click', change: 'Previous returns to question 1 with its own default and disabled back boundary'},
+        {viewport: 'stress', theme: 'light', suffix: '4:click', change: 'Last dot jumps to question 5 with disabled Finish and natural subtitle wrap'},
+        {viewport: 'mobile', theme: 'dark', suffix: '11:click', change: 'Skip has no visible transition in the public preview'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'wizard-shipping-final-selected:10:click', change: 'Selected final Finish is enabled yet remains a source preview no-op'},
+        {viewport: 'stress', theme: 'dark', suffix: 'wizard-shipping-third-selected:10:click', change: 'Selecting a previously empty question enables next and advances to question 4'},
+      ],
+      inferences: [
+        {scope: 'Other dot jumps, question selections and repeated keyboard gestures', basis: 'Five Host questions share one current ID and ID-keyed selection map. Samples span pointer radio, forward/back/jump, disabled guard recovery and final no-op. Browser checks keyboard radio, per-question retention, first/last boundaries and all five headings without a dot-by-option matrix.', verification: 'inferred-not-replayed'},
+        {scope: 'Other themes/sizes, Skip repeats and long option lists', basis: 'Eight static pairs cover centered compact card and stress subtitle wrapping; Skip is a passive preview action. Localized, duplicate, stale and 40-option capacity fixtures verify flow and scroll without inventing a completion state.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-6')
     return {
       revision: 1,

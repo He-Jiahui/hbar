@@ -11,6 +11,8 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
   const [environmentSelectedIds, setEnvironmentSelectedIds] = useState(content.referenceEnvironment?.selectedServiceIds ?? [])
   const [reviewConfirmed, setReviewConfirmed] = useState(content.referenceReview?.confirmed ?? false)
   const [migrationProgress, setMigrationProgress] = useState(content.referenceMigration?.progress ?? 0)
+  const [shippingQuestionId, setShippingQuestionId] = useState(content.referenceShipping?.currentQuestionId ?? '')
+  const [shippingSelectedIds, setShippingSelectedIds] = useState(content.referenceShipping?.selectedOptionIds ?? {})
   useEffect(() => {
     setFields(content.referenceInformation?.fields ?? [])
     setStepId(content.referenceInformation?.stepId ?? '')
@@ -21,6 +23,8 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
     setEnvironmentSelectedIds(content.referenceEnvironment?.selectedServiceIds ?? [])
     setReviewConfirmed(content.referenceReview?.confirmed ?? false)
     setMigrationProgress(content.referenceMigration?.progress ?? 0)
+    setShippingQuestionId(content.referenceShipping?.currentQuestionId ?? '')
+    setShippingSelectedIds(content.referenceShipping?.selectedOptionIds ?? {})
   }, [content])
   useEffect(() => {
     const migration = content.referenceMigration
@@ -34,8 +38,14 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
   const environment = content.referenceEnvironment
   const review = content.referenceReview
   const migration = content.referenceMigration
+  const shipping = content.referenceShipping
   return <HbarAppUiWizardProvider content={{
     ...content,
+    referenceShipping: shipping && {
+      ...shipping, currentQuestionId: shippingQuestionId, selectedOptionIds: shippingSelectedIds,
+      onQuestionChange: setShippingQuestionId,
+      onOptionChange: (questionId, optionId) => setShippingSelectedIds((current) => ({...current, [questionId]: optionId})),
+    },
     referenceMigration: migration && {...migration, progress: migrationProgress},
     referenceReview: review && {...review, confirmed: reviewConfirmed, onConfirmationChange: setReviewConfirmed},
     referenceEnvironment: environment && {

@@ -4,6 +4,36 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceShipping: {
+    labels: {
+      progress: (step, total) => `${step} of ${total}`, question: (step) => `Go to question ${step}`,
+      previous: 'Previous question', continue: 'Continue', finish: 'Finish', skip: 'Skip and use defaults', empty: 'No shipping questions',
+    },
+    questions: [
+      {id: 'volume', title: 'How much do you ship a month?', detail: 'This sets your default rate card.', options: [
+        {id: 'under-100', label: 'Under 100 parcels'}, {id: '100-1000', label: '100 to 1,000'},
+        {id: '1000-10000', label: '1,000 to 10,000'}, {id: 'more', label: 'More'},
+      ]},
+      {id: 'regions', title: 'Where do you ship to?', detail: 'We enable the right customs forms.', options: [
+        {id: 'domestic', label: 'Domestic only'}, {id: 'europe', label: 'Europe'},
+        {id: 'worldwide', label: 'Worldwide'}, {id: 'undecided', label: 'Not sure yet'},
+      ]},
+      {id: 'handoff', title: 'How do parcels leave your site?', detail: 'Pickups can be scheduled automatically.', options: [
+        {id: 'courier', label: 'Courier pickup'}, {id: 'dropoff', label: 'Drop-off point'},
+        {id: 'fleet', label: 'Own fleet'}, {id: 'mixed', label: 'Mixed'},
+      ]},
+      {id: 'orders', title: 'What do you use for orders today?', detail: 'We can import the last 90 days.', options: [
+        {id: 'storefront', label: 'A storefront platform'}, {id: 'spreadsheet', label: 'A spreadsheet'},
+        {id: 'custom', label: 'Custom system'}, {id: 'nothing', label: 'Nothing yet'},
+      ]},
+      {id: 'priority', title: 'What matters most right now?', detail: 'This orders the dashboard you land on.', options: [
+        {id: 'cost', label: 'Lower cost'}, {id: 'speed', label: 'Faster delivery'},
+        {id: 'support', label: 'Fewer support tickets'}, {id: 'tracking', label: 'Better tracking'},
+      ]},
+    ],
+    currentQuestionId: 'regions', selectedOptionIds: {volume: '100-1000', regions: 'europe'},
+    listStrategy: grown, onQuestionChange() {}, onOptionChange() {},
+  },
   referenceMigration: {
     labels: {
       title: 'Migrating workspace', detail: 'Step 3 of 4. You can leave this running and come back.', remaining: '~6 min left',
@@ -315,6 +345,17 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceShipping: HBAR_APP_UI_WIZARD_FIXTURES.referenceShipping && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceShipping,
+      labels: {
+        progress: (step, total) => `第 ${step} 题，共 ${total} 题`, question: (step) => `前往第 ${step} 题`,
+        previous: '上一题', continue: '继续', finish: '完成', skip: '跳过并使用默认值', empty: '暂无配送问题',
+      },
+      questions: [{id: 'regions', title: '配送到哪里？', detail: '我们会启用相应的海关表格。', options: [
+        {id: 'domestic', label: '仅本国'}, {id: 'europe', label: '欧洲'}, {id: 'worldwide', label: '全球'},
+      ]}],
+      currentQuestionId: 'regions', selectedOptionIds: {regions: 'europe'},
+    },
     referenceMigration: HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration && {
       ...HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration,
       labels: {
@@ -407,8 +448,15 @@ export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent 
   const environment = HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment!
   const review = HBAR_APP_UI_WIZARD_FIXTURES.referenceReview!
   const migration = HBAR_APP_UI_WIZARD_FIXTURES.referenceMigration!
+  const shipping = HBAR_APP_UI_WIZARD_FIXTURES.referenceShipping!
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceShipping: {
+      ...shipping,
+      questions: shipping.questions.map((question) => question.id === 'regions' ? {
+        ...question, options: [...question.options, ...Array.from({length: 36}, (_, index) => ({id: `extended-${index}`, label: `Delivery region ${index + 1} for a large international store`}))],
+      } : question),
+    },
     referenceMigration: {
       ...migration,
       tasks: [...migration.tasks, ...Array.from({length: 35}, (_, index) => ({id: `extended-${index}`, label: `Regional migration task ${index + 1} for a large workspace`, detail: `Queue item ${index + 1} with long source metadata`, status: 'queued' as const}))],
