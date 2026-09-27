@@ -1151,6 +1151,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       page: (current, total) => choose(`第 ${current} / ${total} 页`, `Page ${current} of ${total}`),
       attachments: (count) => choose(`${count} 个附件`, `${count} attachments`),
       ellipsis: '…',
+      remove: (position) => choose(`删除第 ${position} 条排队消息`, `Remove queued message ${position}`),
+      removing: choose('正在移除', 'Removing'),
+      removeUnknown: choose(
+        '移除结果尚未确认；可使用同一次请求安全重试。',
+        'Removal is not confirmed; retry the same request safely.',
+      ),
+      removeFailed: (code) => choose(`无法移除排队消息：${code}`, `Could not remove queued message: ${code}`),
+      retryRemoval: choose('重试移除', 'Retry removal'),
+      dismissRemoval: choose('关闭提示', 'Dismiss'),
     },
     decisions: {
       planExit: {

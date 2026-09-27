@@ -14,6 +14,12 @@ const labels: HbarQueuedUserRunsLabels = {
   page: (current, total) => `${current}/${total}`,
   attachments: (count) => `${count} 个附件`,
   ellipsis: '…',
+  remove: (position) => `删除第 ${position} 条`,
+  removing: '正在移除',
+  removeUnknown: '结果未知',
+  removeFailed: (code) => `移除失败：${code}`,
+  retryRemoval: '重试移除',
+  dismissRemoval: '关闭',
 }
 const base: QueuedUserRunsState = {
   sessionId: 'one',
@@ -25,6 +31,7 @@ const base: QueuedUserRunsState = {
   nextCursor: null,
   previousCursors: [],
   error: null,
+  removal: null,
 }
 function render(state: QueuedUserRunsState, sessionId = 'one', connected = true) {
   return renderToStaticMarkup(
@@ -36,6 +43,9 @@ function render(state: QueuedUserRunsState, sessionId = 'one', connected = true)
       onRefresh={() => undefined}
       onPrevious={() => undefined}
       onNext={() => undefined}
+      onRemove={() => undefined}
+      onRetryRemoval={() => undefined}
+      onDismissRemoval={() => undefined}
     />,
   )
 }
@@ -59,7 +69,8 @@ test('only Host-confirmed items for the selected session appear in the composer'
   expect(html).toContain('已排队')
   expect(html).toContain('这是很长的待发内容…')
   expect(html).toContain('2 个附件')
-  expect(html).not.toContain('删除')
+  expect(html).toContain('删除第 1 条')
+  expect(html).toContain('data-lumen-indicator="none"')
   expect(html).not.toContain('引导')
   expect(render(state, 'other')).toBe('')
   expect(render(base)).toBe('')
@@ -80,4 +91,25 @@ test('page controls, error recovery and offline states remain explicit', () => {
   expect(render({ ...state, status: 'loading' })).toContain('正在读取')
   expect(render(state, 'one', false)).toContain('离线')
   expect(render(state, 'one', false)).not.toContain('下一页')
+})
+
+test('unknown and failed removals show local recovery even after the queue becomes empty', () => {
+  const unknown = render({
+    ...base,
+    removal: { operationId: 'first', status: 'unknown', error: 'RESULT_UNKNOWN' },
+  })
+  expect(unknown).toContain('结果未知')
+  expect(unknown).toContain('重试移除')
+  expect(unknown).toContain('关闭')
+  const failed = render({
+    ...base,
+    totalQueued: 1,
+    items: [
+      { operationId: 'first', revision: 1, createdAt: 1, textPreview: '内容', truncated: false, attachmentCount: 0 },
+    ],
+    removal: { operationId: 'first', status: 'failed', error: 'COMMAND_CONFLICT' },
+  })
+  expect(failed).toContain('移除失败：COMMAND_CONFLICT')
+  expect(failed).toContain('disabled')
+  expect(failed).not.toContain('重试移除')
 })

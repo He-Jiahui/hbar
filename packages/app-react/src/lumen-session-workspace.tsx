@@ -1236,6 +1236,11 @@ function SessionWorkspaceContent({
                 onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
                 onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
                 onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
+                onRemove={(operationId, expectedRevision) =>
+                  void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
+                }
+                onRetryRemoval={(operationId) => void invoke('queuedUserRuns.retryRemoval', { sessionId, operationId })}
+                onDismissRemoval={() => void invoke('queuedUserRuns.dismissRemoval', { sessionId })}
               />
               <HbarComposerAttachmentTransfers
                 transfers={attachmentTransfers}
