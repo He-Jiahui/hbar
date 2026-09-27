@@ -2,6 +2,7 @@ import type {
     HbarAppUiEditorContent,
     HbarAppUiEditorFormattingAction,
     HbarAppUiMarkdownMode,
+    HbarAppUiRichEditorReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const formattingLabels: Readonly<Record<HbarAppUiEditorFormattingAction, string>> = {
@@ -18,11 +19,37 @@ const markdownModeLabels: Readonly<Record<HbarAppUiMarkdownMode, string>> = {
     preview: 'Preview',
 }
 
+export function editorWordCount(body: string): number {
+    return body.trim() ? body.trim().split(/\s+/).length : 0
+}
+
+const richEditorReference: HbarAppUiRichEditorReferenceContent = {
+    labels: {
+        emptyBlocks: 'No block styles', formatAction: (action) => formattingLabels[action], saving: 'Saving…',
+        undo: 'Undo', redo: 'Redo', title: 'Document title', body: 'Document body',
+        titlePlaceholder: 'Untitled', bodyPlaceholder: 'Start writing…',
+        wordCount: (body) => `${editorWordCount(body)} words`, characterCount: (body) => `${body.length} characters`,
+        readingTime: (body) => `${Math.max(1, Math.round(editorWordCount(body) / 220))} min read`, footerNote: 'Markdown shortcuts are on',
+    },
+    document: {
+        id: 'audit-ledger', title: 'Audit ledger design notes', metadata: 'Draft by Ana Reyes · last edited 4 minutes ago',
+        body: 'Halcyon writes every permission change to an append-only ledger. Each entry records the actor, the resource, the previous value and the reason supplied at the time of the change.\n\nEntries are immutable. A correction is a new entry that supersedes the old one, which means the history of a resource can always be replayed exactly as it happened.\n\nRetention follows the workspace plan: ninety days on Team, one year on Scale, and seven years on Enterprise.',
+    },
+    blocks: [
+        {id: 'paragraph', label: 'Paragraph'}, {id: 'heading-1', label: 'Heading 1', icon: 'heading-1'}, {id: 'heading-2', label: 'Heading 2', icon: 'heading-2'},
+        {id: 'quote', label: 'Quote', icon: 'quote'}, {id: 'bulleted-list', label: 'Bulleted list', icon: 'bulleted-list'}, {id: 'numbered-list', label: 'Numbered list', icon: 'numbered-list'},
+    ],
+    blockStrategy: {kind: 'pane-scroll', expectedMaximum: 6}, blockId: 'paragraph',
+    pressed: {bold: true, italic: false, strikethrough: false, 'inline-code': false, link: false},
+    status: 'Saved',
+}
+
 /**
  * Preview and behavior-test data only. The reusable package intentionally has
  * no implicit English records or locale fallback.
  */
 export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
+    referenceRichText: richEditorReference,
     richText: {
         labels: {
             blockMenuLabel: 'Paragraph',
@@ -211,6 +238,10 @@ const baseReader = requiredFixture(HBAR_APP_UI_EDITOR_FIXTURES.reader)
 export function createHbarAppUiEditorOverflowFixtures(): HbarAppUiEditorContent {
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
+        referenceRichText: {...richEditorReference,
+            document: {...richEditorReference.document, body: `${richEditorReference.document.body}\n\n`.repeat(60) + 'Last editable paragraph'},
+            blocks: [...richEditorReference.blocks, ...Array.from({length: 34}, (_, index) => ({id: `extra-${index}`, label: `Additional block style ${index + 1}`}))],
+        },
         suggestions: {
             ...baseSuggestions,
             suggestions: Array.from({length: 24}, (_, index) => {
@@ -250,6 +281,19 @@ export function createHbarAppUiEditorLocalizedFixtures(): HbarAppUiEditorContent
     }
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
+        referenceRichText: {...richEditorReference,
+            labels: {...richEditorReference.labels,
+                emptyBlocks: 'Keine Absatzformate', formatAction: (action) => ({bold: 'Fett', italic: 'Kursiv', strikethrough: 'Durchgestrichen', 'inline-code': 'Inline-Code', link: 'Verknuepfung'})[action], saving: 'Wird gespeichert…',
+                undo: 'Rueckgaengig', redo: 'Wiederholen', title: 'Dokumenttitel', body: 'Dokumentinhalt',
+                titlePlaceholder: 'Unbenannt', bodyPlaceholder: 'Hier schreiben…',
+                wordCount: (body) => `${editorWordCount(body)} Woerter`, characterCount: (body) => `${body.length} Zeichen`,
+                readingTime: (body) => `${Math.max(1, Math.round(editorWordCount(body) / 220))} Min. Lesezeit`,
+                footerNote: 'Markdown-Tastenkuerzel sind aktiviert',
+            },
+            document: {...richEditorReference.document, title: 'Entwurfsnotizen zum unveraenderlichen Audit-Protokoll', metadata: 'Entwurf von Ana Reyes · zuletzt vor vier Minuten bearbeitet'},
+            blocks: richEditorReference.blocks.toReversed().map((block) => ({...block, label: `Lokalisierter Absatzstil mit absichtlich sehr langer Bezeichnung: ${block.id}`})),
+            status: 'Gespeichert',
+        },
         markdown: {
             ...baseMarkdown,
             labels: {

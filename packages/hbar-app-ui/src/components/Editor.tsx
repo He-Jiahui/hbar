@@ -9,6 +9,11 @@ export type HbarAppUiEditorProps = HbarAppUiVariantProps & {
   readonly editorContent?: LumenEditorContent | undefined
 }
 export { HbarAppUiEditorProvider }
+export {uniqueLumenRichEditorBlocks as uniqueHbarAppUiRichEditorBlocks} from '@lumen/app-ui'
+export type {
+  LumenRichEditorBlock as HbarAppUiRichEditorBlock,
+  LumenRichEditorReferenceContent as HbarAppUiRichEditorReferenceContent,
+} from '@lumen/app-ui'
 export type {
   LumenCodeFile as HbarAppUiCodeFile,
   LumenCodeWorkspaceContent as HbarAppUiCodeWorkspaceContent,

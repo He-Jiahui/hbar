@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-editor-1')
+    return {
+      revision: 1,
+      lumenEntries: ['editor.tsx', 'editor-rich-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Block trigger opens six menu radios in toolbar flow, enlarging its header and centering sibling tools'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'editor-block-open:2:click', change: 'Heading 1 changes only the selected block label and closes the menu'},
+        {viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Initially pressed Bold toggles off without formatting the body'},
+        {viewport: 'desktop', theme: 'dark', suffix: '5:click', change: 'Link toggles its pressed state without inventing a URL dialog'},
+        {viewport: 'desktop', theme: 'light', suffix: '8:fill', change: 'Title edit shows Saving feedback while body counts stay unchanged'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'editor-edited:6:click', change: 'Undo after a real body edit is a verified source no-op'},
+        {viewport: 'stress', theme: 'light', suffix: '9:fill', change: 'Narrow body edit updates word and character counts with the wrapped toolbar intact'},
+        {viewport: 'stress', theme: 'dark', suffix: 'editor-block-open:6:press-space', change: 'Keyboard chooses the last menu radio and restores the narrow trigger'},
+      ],
+      inferences: [
+        {scope: 'Other format toggles, block IDs and history actions', basis: 'Five independent ID-bound booleans use one Host transition; live Italic/code/Link probing changes only pressed state. All six blocks use the same selection/close transition, and both Undo/Redo remain no-op after editing. Unit/browser checks cover both toggle directions, stale IDs, localized reordered menus and extended capacity.', verification: 'inferred-not-replayed'},
+        {scope: 'Repeated button gestures and viewport/theme permutations', basis: 'Eight static pairs cover toolbar wrapping and document width in both themes. Representative menu open/selection, off/on format toggles, title/body edits and settled post-edit history no-op cover distinct mechanisms. Focused browser checks also observe Saving→Saved, bounded scrolling and callback recovery without clicking every control at every size.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-7')
     return {
       revision: 1,

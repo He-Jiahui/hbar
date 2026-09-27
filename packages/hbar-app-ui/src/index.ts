@@ -906,6 +906,8 @@ export type {
   HbarAppUiMarkdownWorkspaceContent,
   HbarAppUiMarkdownWorkspaceLabels,
   HbarAppUiReaderSection,
+  HbarAppUiRichEditorBlock,
+  HbarAppUiRichEditorReferenceContent,
   HbarAppUiRichTextChange,
   HbarAppUiRichTextDocument,
   HbarAppUiRichTextEditorContent,
@@ -917,6 +919,7 @@ export type {
   HbarAppUiSuggestionReviewDocument,
   HbarAppUiSuggestionReviewLabels,
 } from './components/Editor'
+export {uniqueHbarAppUiRichEditorBlocks} from './components/Editor'
 export type {
   HbarAppUiNavbarActionLabelSet,
   HbarAppUiNavbarActivityContent,

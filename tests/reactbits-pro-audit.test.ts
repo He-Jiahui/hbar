@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('rich editor sampling separates menu selection, pressed state, live drafts and post-edit source history no-op', () => {
+  const id = 'hbar-app-ui-editor-1'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(8)
+  expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([`${id}:editor-block-open:6:press-space`])
+  expect(plan.samples.some((sample) => sample.suffix === 'editor-edited:6:click')).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('booking sampling separates date and time radios from no-op confirmation and narrow horizontal strip', () => {
   const id = 'hbar-app-ui-scheduling-7'
   const plan = auditSamplingPlan(id)!

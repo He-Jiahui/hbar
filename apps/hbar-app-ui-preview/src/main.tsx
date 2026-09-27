@@ -18,6 +18,7 @@ import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
+import { EditorPreviewHost } from './EditorPreviewHost'
 import { ApprovalPreviewHost } from './ApprovalPreviewHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -48,7 +49,6 @@ import {
   HbarAppUiListProvider,
   HbarAppUiFilteringProvider,
   HbarAppUiMonitoringProvider,
-  HbarAppUiEditorProvider,
   HbarAppUiNavbarProvider,
   HbarAppUiToolCallsProvider,
   HbarAppUiIconButton,
@@ -565,7 +565,7 @@ function PreviewApp() {
                                                                             <HbarAppUiNavbarProvider
                                                                               content={navbarContent}
                                                                             >
-                                                                              <HbarAppUiEditorProvider
+                                                                              <EditorPreviewHost
                                                                                 content={editorContent}
                                                                               >
                                                                                 <ShellPreviewHost
@@ -592,7 +592,7 @@ function PreviewApp() {
                                                                                     </UsagePreviewHost>
                                                                                   </ConversationPreviewHost>
                                                                                 </ShellPreviewHost>
-                                                                              </HbarAppUiEditorProvider>
+                                                                              </EditorPreviewHost>
                                                                             </HbarAppUiNavbarProvider>
                                                                           </HbarAppUiToolCallsProvider>
                                                                         </HbarAppUiAgentActivityProvider>
@@ -815,7 +815,7 @@ function PreviewApp() {
                                                                                       <HbarAppUiNavbarProvider
                                                                                         content={navbarContent}
                                                                                       >
-                                                                                        <HbarAppUiEditorProvider
+                                                                                        <EditorPreviewHost
                                                                                           content={editorContent}
                                                                                         >
                                                                                           <ShellPreviewHost
@@ -846,7 +846,7 @@ function PreviewApp() {
                                                                                               </UsagePreviewHost>
                                                                                             </ConversationPreviewHost>
                                                                                           </ShellPreviewHost>
-                                                                                        </HbarAppUiEditorProvider>
+                                                                                        </EditorPreviewHost>
                                                                                       </HbarAppUiNavbarProvider>
                                                                                     </HbarAppUiToolCallsProvider>
                                                                                   </HbarAppUiAgentActivityProvider>

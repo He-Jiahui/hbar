@@ -364,6 +364,8 @@ export type InteractionCase = Readonly<{
     | 'contracts-search'
     | 'contracts-search-query'
     | 'editorial-empty'
+    | 'editor-block-open'
+    | 'editor-edited'
     | 'editorial-navigation-closed'
     | 'editorial-schedule'
     | 'inbox-empty'
@@ -2291,6 +2293,15 @@ function inboxInteractionCases(
   )
 }
 const editorialScenarios = ['editorial-empty', 'editorial-navigation-closed', 'editorial-schedule'] as const
+const richEditorScenarios = ['editor-block-open', 'editor-edited'] as const
+async function prepareRichEditorScenario(root: Locator, scenario: (typeof richEditorScenarios)[number]): Promise<void> {
+  if (scenario === 'editor-block-open') await root.getByRole('button', {name: 'Paragraph', exact: true}).press('Space')
+  else {
+    await root.getByRole('textbox', {name: 'Document body', exact: true}).fill('audit sample')
+    await root.getByText('Saving…', {exact: true}).waitFor({timeout: 5000})
+    await root.getByText('Saved', {exact: true}).waitFor({timeout: 5000})
+  }
+}
 async function prepareEditorialScenario(root: Locator, scenario: (typeof editorialScenarios)[number]): Promise<void> {
   if (scenario === 'editorial-empty') {
     await root.getByRole('button', { name: 'Tuesday, September 1, 2026', exact: true }).click()
@@ -3678,6 +3689,8 @@ async function replayInteraction(
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
+  const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
+  if (spec.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3876,6 +3889,8 @@ async function replayReferenceInteraction(
   const railScenario = shellRailScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
+  const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
+  if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -4512,6 +4527,13 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (spec.id === 'hbar-app-ui-editor-1') {
+              for (const scenario of richEditorScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareRichEditorScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
+            }
             if (spec.id === 'hbar-app-ui-scheduling-4')
               discovered = [...schedulingDeadlineInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-authentication-6')
