@@ -3,6 +3,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   getHbarAppUiVariant,
+  filterHbarAppUiCommentsComposerMentions,
+  insertHbarAppUiCommentsComposerMention,
   HbarAppUiCommentsProvider,
   uniqueHbarAppUiCommentsItems,
   type HbarAppUiCommentsContent,
@@ -21,6 +23,62 @@ function render(variant: number, content: HbarAppUiCommentsContent = HBAR_APP_UI
   )
 }
 describe('hbar-app-ui comment surfaces', () => {
+  test('composer reference renders controlled draft, attachments, suggestions and passive history', () => {
+    const value = render(4)
+    expect(value).toContain('Leave a comment')
+    expect(value).toContain('Nice catch on the pool cap. @')
+    expect(value.match(/role="option"/g)?.length).toBe(5)
+    expect(value.match(/<article/g)?.length).toBe(3)
+    expect(value).toContain('Remove pool-saturation.png')
+    expect(value).toContain('Mention suggestions')
+    expect(value).not.toContain('disabled=""')
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!
+    expect(render(4, {referenceComposer: {...content, draft: '   ', suggestions: []}})).toContain('disabled=""')
+    expect(render(4, {composer: HBAR_APP_UI_COMMENTS_FIXTURES.composer})).not.toContain('lumen-comments-composer-layout')
+  })
+  test('mention projections match name filtering and insert only a trailing query without losing prior text', () => {
+    const people = HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!.suggestions
+    expect(filterHbarAppUiCommentsComposerMentions('Please ask @SO', people).map((person) => person.id)).toEqual(['sofia'])
+    expect(filterHbarAppUiCommentsComposerMentions('x@a', people).map((person) => person.id)).toEqual(['priya', 'marcus', 'sofia'])
+    expect(filterHbarAppUiCommentsComposerMentions('Please ask @pla', people)).toEqual([])
+    expect(filterHbarAppUiCommentsComposerMentions('Please ask @missing', people)).toEqual([])
+    expect(filterHbarAppUiCommentsComposerMentions('Please ask @so ', people)).toEqual([])
+    expect(filterHbarAppUiCommentsComposerMentions('Please ask ', people)).toEqual([])
+    expect(filterHbarAppUiCommentsComposerMentions('@', [people[0]!, people[0]!, people[1]!])).toEqual([people[0]!, people[1]!])
+    expect(insertHbarAppUiCommentsComposerMention('Ask @priya and @so', 'sofia')).toBe('Ask @priya and @sofia ')
+    expect(insertHbarAppUiCommentsComposerMention('A stale selection has no query', 'sofia')).toBe('A stale selection has no query')
+  })
+  test('composer collections preserve empty, one, normal, documented bound and bound-plus-one data', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!
+    for (const count of [0, 1, 5, 6]) {
+      const suggestions = Array.from({length: count}, (_, index) => ({...content.suggestions[0]!, id: String(index)}))
+      const value = render(4, {referenceComposer: {...content, suggestions}})
+      expect((value.match(/role="option"/g) ?? []).length).toBe(count)
+      if (!count) expect(value).not.toContain('role="listbox"')
+    }
+    for (const count of [0, 1, 2, 3]) {
+      const attachments = Array.from({length: count}, (_, index) => ({id: String(index), name: `file-${index}`}))
+      expect((render(4, {referenceComposer: {...content, attachments}}).match(/aria-label="Remove /g) ?? []).length).toBe(count)
+    }
+    for (const count of [0, 1, 3, 4]) {
+      const messages = Array.from({length: count}, (_, index) => ({...content.messages[0]!, id: String(index)}))
+      const value = render(4, {referenceComposer: {...content, messages}})
+      expect((value.match(/<article/g) ?? []).length).toBe(count)
+      if (!count) expect(value).toContain('No earlier comments')
+    }
+    const duplicate = render(4, {referenceComposer: {...content,
+      suggestions: [content.suggestions[0]!, content.suggestions[0]!],
+      attachments: [content.attachments[0]!, content.attachments[0]!], messages: [content.messages[0]!, content.messages[0]!],
+    }})
+    expect(duplicate.match(/role="option"/g)?.length).toBe(1)
+    expect(duplicate.match(/aria-label="Remove /g)?.length).toBe(1)
+    expect(duplicate.match(/<article/g)?.length).toBe(1)
+    expect(render(4, createHbarAppUiCommentsLocalizedFixtures())).toContain('留下评论并与区域可靠性团队一起审查连接池容量')
+    const overflow = render(4, createHbarAppUiCommentsOverflowFixtures())
+    expect(overflow).toContain('Additional regional member 6')
+    expect(overflow).toContain('Additional participant 4')
+    expect(overflow).toContain('extended-filename-3.png')
+  })
   test('renders six Lumen workflows from host content', () => {
     const values = Array.from({ length: 6 }, (_, i) => render(i + 1))
     expect(new Set(values).size).toBe(6)

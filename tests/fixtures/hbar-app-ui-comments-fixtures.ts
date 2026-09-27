@@ -2,6 +2,31 @@ import type { HbarAppUiCommentsContent } from '../../packages/hbar-app-ui/src/in
 const grown = { kind: 'content-grown', expectedMaximum: 8 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
+  referenceComposer: {
+    labels: {
+      title: 'Leave a comment', detail: 'Type @ to mention a teammate. They are notified once you post.',
+      placeholder: 'Write a comment', bold: 'Bold', italic: 'Italic', link: 'Add link', mention: 'Mention someone',
+      attach: 'Attach a file', comment: 'Comment', helper: 'Enter to post', suggestions: 'Mention suggestions',
+      earlier: 'Earlier in this thread', emptyMessages: 'No earlier comments', removeAttachment: (name) => `Remove ${name}`,
+    },
+    initials: 'AW', draft: 'Nice catch on the pool cap. @',
+    attachments: [{id: 'saturation', name: 'pool-saturation.png'}, {id: 'backfill', name: 'backfill-plan.md'}],
+    suggestions: [
+      {id: 'priya', initials: 'PN', name: 'Priya Nandakumar', handle: 'priya', detail: '@priya · Platform'},
+      {id: 'marcus', initials: 'MB', name: 'Marcus Bell', handle: 'marcus', detail: '@marcus · Infrastructure'},
+      {id: 'sofia', initials: 'SA', name: 'Sofia Alvarez', handle: 'sofia', detail: '@sofia · Platform'},
+      {id: 'wei', initials: 'WC', name: 'Wei Chen', handle: 'wei', detail: '@wei · Data'},
+      {id: 'tomas', initials: 'TG', name: 'Tomás Guerrero', handle: 'tomas', detail: '@tomas · Reliability'},
+    ],
+    messages: [
+      {id: 'wei', initials: 'WC', author: 'Wei Chen', meta: '4h ago', body: 'Hard-coding eight workers will bite us when the pool size changes. Read it from the pool config so the two never drift apart.'},
+      {id: 'marcus', initials: 'MB', author: 'Marcus Bell', meta: '2h ago', body: 'Agreed, and the same argument applies to the timeout. A slow region should not silently inherit the default.'},
+      {id: 'sofia', initials: 'SA', author: 'Sofia Alvarez', meta: '38m ago', body: 'I pulled both values into the region config so there is one place to change them. Screenshot of the saturation graph is attached.'},
+    ],
+    attachmentStrategy: {kind: 'content-grown', expectedMaximum: 2},
+    suggestionStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
+    messageStrategy: {kind: 'pane-scroll', expectedMaximum: 3},
+  },
   referenceReview: {
     labels: {
       title: 'Cap backfill concurrency', detail: 'packages/data/src/query.ts · 2 comments',
@@ -227,6 +252,14 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
 export function createHbarAppUiCommentsLocalizedFixtures(): HbarAppUiCommentsContent {
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceComposer: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!,
+      labels: {
+        title: '留下评论并与区域可靠性团队一起审查连接池容量', detail: '输入 @ 来提及队友，发布评论后他们会收到通知。',
+        placeholder: '撰写评论', bold: '加粗', italic: '斜体', link: '添加链接', mention: '提及成员', attach: '附加文件',
+        comment: '评论', helper: '按回车发布', suggestions: '可提及的成员', earlier: '这条线程中较早的评论', emptyMessages: '没有较早的评论', removeAttachment: (name) => `移除${name}`,
+      },
+    },
     referenceReview: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceReview!,
       labels: {
@@ -265,6 +298,13 @@ export function createHbarAppUiCommentsOverflowFixtures(): HbarAppUiCommentsCont
   const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceComposer: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceComposer!,
+      attachments: Array.from({length: 3}, (_, index) => ({id: `extra-${index}`, name: `regional-saturation-report-with-extended-filename-${index + 1}.png`})),
+      suggestions: Array.from({length: 6}, (_, index) => ({id: `extra-${index}`, initials: String(index + 1), name: `Additional regional member ${index + 1}`, handle: `member${index + 1}`, detail: `@member${index + 1} · Regional reliability`})),
+      messages: Array.from({length: 4}, (_, index) => ({id: `extra-${index}`, initials: String(index + 1), author: `Additional participant ${index + 1}`, meta: 'just now', body: 'Keep the regional timeout and worker capacity configuration together. '.repeat(5)})),
+      attachmentStrategy: {kind: 'pane-scroll', expectedMaximum: 2},
+    },
     referenceReview: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceReview!,
       lines: Array.from({length: 10}, (_, index) => ({id: `extra-${index}`, number: String(index + 1), marker: '+', value: `  await queueRegionalBackfillWithCapacity(${index});`, tone: 'added' as const})),

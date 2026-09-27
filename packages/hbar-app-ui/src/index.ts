@@ -246,11 +246,16 @@ export type {
 } from './components/Integrations'
 export {
   HbarAppUiCommentsProvider,
+  filterHbarAppUiCommentsComposerMentions,
+  insertHbarAppUiCommentsComposerMention,
   selectHbarAppUiCommentsItem,
   uniqueHbarAppUiCommentsItems,
 } from './components/Comments'
 export type {
   HbarAppUiCommentsAnnotation,
+  HbarAppUiCommentsComposerReferenceContent,
+  HbarAppUiCommentsComposerAttachment,
+  HbarAppUiCommentsComposerMention,
   HbarAppUiCommentsAnnotationContent,
   HbarAppUiCommentsAnnotationReferenceContent,
   HbarAppUiCommentsDocumentAnnotation,

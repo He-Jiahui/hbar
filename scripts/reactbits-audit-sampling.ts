@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-comments-4')
+    return {
+      revision: 1,
+      lumenEntries: ['comments.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Remove one attachment by stable ID while preserving the draft and suggestions'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:hover', change: 'Shared formatting toolbar pointer feedback'},
+        {viewport: 'desktop', theme: 'light', suffix: '7:click', change: 'Attach is a source no-op without a fabricated picker or upload'},
+        {viewport: 'desktop', theme: 'light', suffix: '8:click', change: 'Comment preserves the source draft, attachments and existing history'},
+        {viewport: 'desktop', theme: 'light', suffix: '11:click', change: 'Choose a mention and replace the trailing query with its handle'},
+        {viewport: 'desktop', theme: 'dark', suffix: '0:fill', change: 'A draft without a trailing mention query hides suggestions'},
+        {viewport: 'tablet', theme: 'dark', suffix: 'comments-composer-filtered:10:click', change: 'Name-filtered candidate inserts the original matching member'},
+        {viewport: 'stress', theme: 'light', suffix: 'comments-composer-next:0:press-enter', change: 'ArrowDown then Enter selects the next member at narrow width'},
+      ],
+      inferences: [
+        {scope: 'Equivalent format, link, mention-toolbar and submit gestures', basis: 'Live source probing found no formatting, link dialog, toolbar mention insertion, file chooser or posted message. Representative attach/submit and toolbar hover are replayed. Local checks preserve drafts and verify no invented controls.', verification: 'inferred-not-replayed'},
+        {scope: 'Other candidates, reverse arrows, empty queries and dismissal', basis: 'Options share stable-ID insertion and name-only filtering. Source Escape and outside click do not dismiss suggestions; Enter without candidates inserts a newline despite the helper label. Local browser tests cover these edges, wraparound and recovery from no matches.', verification: 'inferred-not-replayed'},
+        {scope: 'Repeated viewport/theme actions and content capacity', basis: 'Eight static pairs cover attachment wrapping, popup anchoring and narrow history scrolling. The source toolbar has intrinsic width and can protrude at 286px; the owning stage keeps the trailing action reachable. Local long-locale and boundary-plus-one tests cover overflow without a button-by-layout product.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-comments-3')
     return {
       revision: 1,

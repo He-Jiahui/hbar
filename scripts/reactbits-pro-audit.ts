@@ -329,6 +329,8 @@ export type InteractionCase = Readonly<{
     | 'wizard-review-confirmed'
     | 'comments-discussion-filled'
     | 'comments-review-filled'
+    | 'comments-composer-filtered'
+    | 'comments-composer-next'
     | 'wizard-shipping-third-selected'
     | 'wizard-shipping-final-selected'
     | 'tree-shipping-open'
@@ -2050,6 +2052,22 @@ async function prepareCommentsDiscussionFilled(root: Locator): Promise<void> {
 async function prepareCommentsReviewFilled(root: Locator): Promise<void> {
   await root.getByRole('textbox').fill('I will move both values into config.')
 }
+const commentsComposerScenarios = ['comments-composer-filtered', 'comments-composer-next'] as const
+async function prepareCommentsComposerScenario(root: Locator, scenario: (typeof commentsComposerScenarios)[number]): Promise<void> {
+  const input = root.getByRole('textbox')
+  if (scenario === 'comments-composer-filtered') await input.fill('Please ask @so')
+  else {
+    await input.fill('Nice catch on the pool cap. @')
+    await input.press('ArrowDown')
+  }
+}
+export function commentsComposerInteractionCases(snapshot: SemanticSnapshot, variantId: string, scenario: (typeof commentsComposerScenarios)[number]): readonly InteractionCase[] {
+  const cases = interactionCases(snapshot, variantId, scenario)
+  if (scenario !== 'comments-composer-next') return cases
+  const input = visibleControls(snapshot).find((control) => control.tag === 'textarea')
+  if (!input) throw new Error('Comments composer input changed; observe the live source before sampling')
+  return [...cases, {id: `${variantId}:${scenario}:${input.index}:press-enter`, action: 'press', key: 'Enter', control: input, scenario, focusBefore: true}]
+}
 async function prepareWizardShippingScenario(root: Locator, scenario: 'wizard-shipping-third-selected' | 'wizard-shipping-final-selected'): Promise<void> {
   const final = scenario === 'wizard-shipping-final-selected'
   await root.getByRole('button', {name: final ? 'Go to question 5' : 'Go to question 3'}).click()
@@ -3592,6 +3610,8 @@ async function replayInteraction(
     await prepareCommentsDiscussionFilled(root)
   if (spec.id === 'hbar-app-ui-comments-3' && interaction.scenario === 'comments-review-filled')
     await prepareCommentsReviewFilled(root)
+  if (spec.id === 'hbar-app-ui-comments-4' && commentsComposerScenarios.some((value) => value === interaction.scenario))
+    await prepareCommentsComposerScenario(root, interaction.scenario as (typeof commentsComposerScenarios)[number])
   if (spec.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
@@ -3934,6 +3954,8 @@ async function replayReferenceInteraction(
     await prepareCommentsDiscussionFilled(root)
   if (reference.id === 'hbar-app-ui-comments-3' && interaction.scenario === 'comments-review-filled')
     await prepareCommentsReviewFilled(root)
+  if (reference.id === 'hbar-app-ui-comments-4' && commentsComposerScenarios.some((value) => value === interaction.scenario))
+    await prepareCommentsComposerScenario(root, interaction.scenario as (typeof commentsComposerScenarios)[number])
   if (reference.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
@@ -4727,6 +4749,13 @@ async function runInteractionsParallel(
               await prepareCommentsReviewFilled(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-review-filled'))
               await sourceRoot.getByRole('textbox').fill('')
+            }
+            if (spec.id === 'hbar-app-ui-comments-4') {
+              for (const scenario of commentsComposerScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareCommentsComposerScenario(sourceRoot, scenario)
+                discovered.push(...commentsComposerInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
             }
             if (spec.id === 'hbar-app-ui-wizard-7') {
               for (const scenario of ['wizard-shipping-third-selected', 'wizard-shipping-final-selected'] as const) {

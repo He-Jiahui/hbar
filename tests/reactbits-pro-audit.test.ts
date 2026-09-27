@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('composer sampling separates draft, attachment, mention selection and static toolbar mechanisms', () => {
+  const id = 'hbar-app-ui-comments-4'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(8)
+  expect(sampledInteractionIds(id, 'tablet', 'dark')).toEqual([`${id}:comments-composer-filtered:10:click`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:comments-composer-next:0:press-enter`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('review sampling checks state mechanisms and treats code and suggested edits as passive content', () => {
   const id = 'hbar-app-ui-comments-3'
   const plan = auditSamplingPlan(id)!
@@ -253,6 +262,7 @@ import {
   checkableStates,
   cachedInventorySourcePath,
   interactionCases,
+  commentsComposerInteractionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
   includesAppUiAuditFixture,
@@ -297,6 +307,14 @@ test('implementation evidence includes App UI host fixtures but excludes unrelat
   expect(includesAppUiAuditFixture('nested\\hbar-app-ui-usage-fixtures.ts')).toBe(true)
   expect(includesAppUiAuditFixture('session-tool-presentation-browser.tsx')).toBe(false)
   expect(includesAppUiAuditFixture('nested/session-tool-presentation-browser.css')).toBe(false)
+})
+
+test('mention keyboard replay is discovered from the visible textarea and never fabricated after it disappears', () => {
+  const input = control(0, {tag: 'textarea', type: null, capabilities: ['focus', 'fill']})
+  const cases = commentsComposerInteractionCases(snapshot([input]), 'composer', 'comments-composer-next')
+  expect(cases.find((item) => item.id === 'composer:comments-composer-next:0:press-enter')).toMatchObject({key: 'Enter', focusBefore: true})
+  expect(commentsComposerInteractionCases(snapshot([input]), 'composer', 'comments-composer-filtered').some((item) => item.action === 'press')).toBe(false)
+  expect(() => commentsComposerInteractionCases(snapshot([]), 'composer', 'comments-composer-next')).toThrow('observe the live source')
 })
 
 function control(index: number, overrides: Partial<ControlSnapshot> = {}): ControlSnapshot {
