@@ -1311,7 +1311,10 @@ function SessionWorkspaceContent({
                 connected={connected}
                 runActive={Boolean(activeRun)}
                 disabled={
-                  draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending || Boolean(activeRun)
+                  draft?.status === 'submitting' ||
+                  draft?.status === 'unknown' ||
+                  intentPending ||
+                  Boolean(activeRun && canPrepare)
                 }
                 canSelect={canPrepare && !activeRun}
                 labels={labels.modelPicker}
