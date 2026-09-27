@@ -89,6 +89,9 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Kanban 4: the narrow detail sheet has a real board-covering close backdrop.
+  if (/packages\/lumen-app-ui\/src\/kanban-detail-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-app-ui-kanban-detail-backdrop') return true
   // cc-haha AttachmentGallery.tsx:235/286: only the sibling remove control
   // overlays the image corner; captions, status and retry remain normal flow.
   if (
@@ -518,6 +521,11 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
       validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages.replace('sticky', 'absolute')).length === 0 ||
       validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages.replace('inset-block-start: 0', 'inset-block-start: 1rem')).length === 0)
     throw new Error('Observed swimlane sticky header exception must remain exact and path-scoped')
+  const detailBackdrop = '.hbar-app-ui-kanban-detail-backdrop { position: absolute; inset-inline-start: 0; }'
+  if (validateCss('packages/lumen-app-ui/src/kanban-detail-reference.css', detailBackdrop).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', detailBackdrop).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/kanban-detail-reference.css', detailBackdrop.replace('detail-backdrop', 'detail-card')).length === 0)
+    throw new Error('Observed detail backdrop exception must remain exact and path-scoped')
   const wizardToast = '.hbar-app-ui-dialog-wizard-toast { position: absolute; inset-block-end: 1rem; }'
   if (validateCss('packages/lumen-app-ui/src/app-dialog-wizard.css', wizardToast).length ||
       validateCss('packages/lumen-app-ui/src/other.css', wizardToast).length === 0)
