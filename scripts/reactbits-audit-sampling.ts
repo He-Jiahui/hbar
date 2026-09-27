@@ -561,6 +561,27 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-5')
+    return {
+      revision: 1,
+      lumenEntries: ['scheduling.tsx', 'scheduling-availability-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:select', change: 'Native timezone changes only the selected value, not daily intervals'},
+        {viewport: 'desktop', theme: 'dark', suffix: '7:click', change: 'Two-interval Tuesday becomes unavailable and decreases the Host-formatted day count'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:select', change: 'A native start time changes only its own interval option'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:select', change: 'A native end time changes independently without fabricated interval validation'},
+        {viewport: 'desktop', theme: 'light', suffix: '10:click', change: 'Remove the first Tuesday interval, keeping the second original interval and disabling its last removal'},
+        {viewport: 'desktop', theme: 'dark', suffix: '5:click', change: 'Add an interval to a single-interval day with the source default 13:00–17:00'},
+        {viewport: 'desktop', theme: 'light', suffix: '15:click', change: 'Copy Tuesday has no visible source data result or invented toast'},
+        {viewport: 'desktop', theme: 'dark', suffix: '40:click', change: 'Save hours has no visible source submission feedback'},
+        {viewport: 'tablet', theme: 'dark', suffix: '14:hover', change: 'Shared add button pointer feedback in the wide rows'},
+        {viewport: 'stress', theme: 'light', suffix: '34:press-space', change: 'Narrow keyboard switch enables Saturday, inserts a default interval and updates the day count'},
+      ],
+      inferences: [
+        {scope: 'Other day IDs, start/end choices and repeated add/remove cycles', basis: 'Seven source rows share one ID-keyed Host transition. Tuesday removal, Monday addition and Saturday toggle sample three distinct mutations; live probing confirmed repeated addition appends 13:00–17:00, last interval removal is disabled and re-enabling a day resets to one 09:00–17:00 interval. Local tests cover duplicated/stale IDs and mutation of original IDs.', verification: 'inferred-not-replayed'},
+        {scope: 'Other themes, widths, equivalent pointer/keyboard gestures and remaining no-op buttons', basis: 'Eight static source/local pairs cover desktop, tablet and both narrow flows in two themes. Copy and Save are distinct sampled source no-ops; their other day labels share the same handlers. Space on narrow switch and native selects cover representative keyboard operation, without multiplying every action by layout.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-4')
     return {
       revision: 4,

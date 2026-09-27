@@ -24,6 +24,84 @@ function render(variant: number, content: HbarAppUiSchedulingContent = HBAR_APP_
 }
 
 describe('hbar-app-ui scheduling surfaces', () => {
+  test('availability reference preserves seven switches, native times, disabled boundaries and Host day count', () => {
+    const value = render(5)
+    expect(value.match(/role="switch"/g)?.length).toBe(7)
+    expect(value.match(/aria-checked="true"/g)?.length).toBe(5)
+    expect(value.match(/<select/g)?.length).toBe(13)
+    expect(value.match(/data-hbar-app-ui-action="remove-interval"/g)?.length).toBe(6)
+    expect(value).toContain('Bookable hours on 5 days. Holidays are excluded automatically.')
+    expect(value).toContain('aria-label="Remove interval from Monday" disabled=""')
+    expect(value).toContain('aria-label="Add interval to Saturday" disabled=""')
+    expect(value).toContain('aria-label="Copy Saturday to other days" disabled=""')
+    expect(value).toContain('value="Europe/Lisbon" selected=""')
+    expect(value).toContain('Changes apply to new bookings only.')
+    expect(value).not.toContain('type="time"')
+    expect(value).not.toContain('role="dialog"')
+  })
+
+  test('availability controlled intervals and non-default copy retain original mutation targets', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!
+    const value = render(5, {referenceAvailability: {...content, timezoneId: 'Europe/Berlin', days: content.days.map((day) => day.id === 'tuesday'
+      ? {...day, intervals: [{id: 'tue-2', startId: '18:00', endId: '07:00'}]} : day)}})
+    expect(value).toContain('data-hbar-app-ui-interval="tue-2"')
+    expect(value).not.toContain('data-hbar-app-ui-interval="tue-1"')
+    expect(value).toContain('value="18:00" selected=""')
+    expect(value).toContain('value="07:00" selected=""')
+    expect(value).not.toContain('aria-invalid')
+    const localized = render(5, createHbarAppUiSchedulingLocalizedFixtures())
+    expect(localized).toContain('每周有 5 天可预约。区域节假日将被自动排除')
+    expect(localized).toContain('aria-label="移除星期二的时段"')
+    expect(localized).toContain('data-hbar-app-ui-target="tuesday:tue-2"')
+    expect(localized).not.toContain('Weekly availability')
+  })
+
+  test('availability collections preserve empty, one, normal, bound-plus-one and deduplicated Host records', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!
+    for (const count of [0, 1, 7, 8]) {
+      const days = Array.from({length: count}, (_, index) => ({...content.days[0]!, id: `day-${index}`}))
+      const value = render(5, {referenceAvailability: {...content, days}})
+      expect((value.match(/role="switch"/g) ?? []).length).toBe(count)
+      expect(value).toContain(`Bookable hours on ${count} days.`)
+      if (!count) expect(value).toContain('No days available')
+    }
+    for (const count of [0, 1, 2, 3]) {
+      const intervals = Array.from({length: count}, (_, index) => ({id: `i-${index}`, startId: 'missing', endId: 'missing'}))
+      const value = render(5, {referenceAvailability: {...content, days: [{...content.days[0]!, intervals}]}})
+      expect((value.match(/data-hbar-app-ui-interval=/g) ?? []).length).toBe(count)
+      if (count) expect(value).toContain('value="07:00" selected=""')
+      else expect(value).toContain('No intervals')
+    }
+    for (const count of [0, 1, 8, 9]) {
+      const times = Array.from({length: count}, (_, index) => ({id: `time-${index}`, label: `Time ${index}`}))
+      const value = render(5, {referenceAvailability: {...content, times, days: [content.days[0]!]}})
+      if (count) expect(value).toContain('value="time-0" selected=""')
+      else expect(value).toContain('No times')
+    }
+    for (const count of [0, 1, 3, 4]) {
+      const timezones = Array.from({length: count}, (_, index) => ({id: `zone-${index}`, label: `Zone ${index}`}))
+      const value = render(5, {referenceAvailability: {...content, timezones, timezoneId: 'missing'}})
+      if (count) expect(value).toContain('value="zone-0" selected=""')
+      else expect(value).toContain('No timezones')
+    }
+    const duplicateDay = {...content.days[0]!, intervals: [content.days[0]!.intervals[0]!, content.days[0]!.intervals[0]!]}
+    const duplicate = render(5, {referenceAvailability: {...content, days: [duplicateDay, duplicateDay], times: [content.times[0]!, content.times[0]!], timezones: [content.timezones[0]!, content.timezones[0]!]}})
+    expect(duplicate.match(/role="switch"/g)?.length).toBe(1)
+    expect(duplicate.match(/data-hbar-app-ui-interval=/g)?.length).toBe(1)
+    expect(duplicate.match(/<option/g)?.length).toBe(3)
+    const overflow = render(5, createHbarAppUiSchedulingOverflowFixtures())
+    expect(overflow.match(/role="switch"/g)?.length).toBe(8)
+    expect(overflow.match(/data-hbar-app-ui-interval=/g)?.length).toBe(24)
+    expect(overflow).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+  })
+
+  test('legacy availability still has its independent native time inputs', () => {
+    const value = render(5, {availability: HBAR_APP_UI_SCHEDULING_FIXTURES.availability!})
+    expect(value).toContain('type="time"')
+    expect(value).toContain('Save availability')
+    expect(value).not.toContain('lumen-scheduling-availability-card')
+  })
+
   test('deadline reference preserves independent preset, month, calendar, radio and footer states', () => {
     const value = render(4)
     expect(value).toContain('Times shown in <span>Europe/Bucharest</span>')

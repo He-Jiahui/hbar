@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('weekly availability sampling separates independent edits, day reset, interval mutation and source no-ops', () => {
+  const id = 'hbar-app-ui-scheduling-5'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(10)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:34:press-space`])
+  expect(plan.inferences.some((entry) => entry.basis.includes('re-enabling a day resets'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('schedule form sampling covers independent drafts, ID removal and enabled source no-op actions', () => {
   const id = 'hbar-app-ui-scheduling-3'
   const plan = auditSamplingPlan(id)!

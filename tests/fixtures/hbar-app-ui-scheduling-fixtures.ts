@@ -5,6 +5,29 @@ const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceAvailability: {
+    labels: {
+      title: 'Weekly availability', description: (count) => `Bookable hours on ${count} days. Holidays are excluded automatically.`,
+      timezone: 'Timezone', availability: (day) => `${day} availability`, from: 'From', to: 'To',
+      remove: (day) => `Remove interval from ${day}`, add: (day) => `Add interval to ${day}`,
+      copy: (day) => `Copy ${day} to other days`, unavailable: 'Not bookable',
+      footer: 'Changes apply to new bookings only.', save: 'Save hours',
+      emptyDays: 'No days available', emptyTimes: 'No times', emptyTimezones: 'No timezones', emptyIntervals: 'No intervals',
+    },
+    timezones: ['Europe/Lisbon', 'Europe/Berlin', 'America/New_York'].map((label) => ({id: label, label})),
+    timezoneId: 'Europe/Lisbon',
+    times: ['07:00','08:00','09:00','12:00','13:00','14:00','17:00','18:00'].map((label) => ({id: label, label})),
+    days: [
+      {id: 'monday', label: 'Monday', enabled: true, intervals: [{id: 'mon-1', startId: '09:00', endId: '17:00'}]},
+      {id: 'tuesday', label: 'Tuesday', enabled: true, intervals: [{id: 'tue-1', startId: '09:00', endId: '12:00'}, {id: 'tue-2', startId: '13:00', endId: '18:00'}]},
+      {id: 'wednesday', label: 'Wednesday', enabled: true, intervals: [{id: 'wed-1', startId: '09:00', endId: '17:00'}]},
+      {id: 'thursday', label: 'Thursday', enabled: true, intervals: [{id: 'thu-1', startId: '08:00', endId: '14:00'}]},
+      {id: 'friday', label: 'Friday', enabled: true, intervals: [{id: 'fri-1', startId: '09:00', endId: '13:00'}]},
+      {id: 'saturday', label: 'Saturday', enabled: false, intervals: []},
+      {id: 'sunday', label: 'Sunday', enabled: false, intervals: []},
+    ],
+    dayStrategy: {kind: 'content-grown', expectedMaximum: 7}, intervalStrategy: {kind: 'content-grown', expectedMaximum: 2},
+  },
   referenceDeadline: {
     labels: {
       timezone: (zone) => createElement(Fragment, null, 'Times shown in ', zone),
@@ -313,6 +336,18 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceAvailability: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!,
+      labels: {
+        title: '每周可预约时间', description: (count) => `每周有 ${count} 天可预约。区域节假日将被自动排除，不影响已确认的预订。`,
+        timezone: '时区', availability: (day) => `${day}可预约状态`, from: '开始时间', to: '结束时间',
+        remove: (day) => `移除${day}的时段`, add: (day) => `为${day}添加时段`,
+        copy: (day) => `将${day}时段复制到其他日期`, unavailable: '不可预约',
+        footer: '修改仅适用于之后新创建的预约，不会变更已有预订。', save: '保存可预约时段',
+        emptyDays: '没有可预约日期', emptyTimes: '没有可选时间', emptyTimezones: '没有可用时区', emptyIntervals: '没有可预约时段',
+      },
+      days: HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!.days.map((item, index) => ({...item, intervals: [...item.intervals].reverse(), label: ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][index] ?? item.label})).reverse(),
+    },
     referenceDeadline: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!, timezone: '欧洲／布加勒斯特',
       labels: {...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!.labels,
@@ -378,7 +413,12 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
 
 export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
   const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
-  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceDeadline: {
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceAvailability: {
+    ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!,
+    days: Array.from({length: 8}, (_, index) => ({id: `overflow-day-${index}`, label: `Extended regional availability day ${index + 1}`, enabled: true,
+      intervals: Array.from({length: 3}, (_, slot) => ({id: `interval-${index}-${slot}`, startId: '09:00', endId: '17:00'}))})),
+    dayStrategy: {kind: 'pane-scroll', expectedMaximum: 7}, intervalStrategy: {kind: 'pane-scroll', expectedMaximum: 2},
+  }, referenceDeadline: {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceDeadline!,
     presets: Array.from({length: 6}, (_, index) => ({id: `preset-${index}`, label: `Regional deadline preset ${index + 1}`, detail: `Long region ${index + 1}`, icon: 'calendar' as const})),
     months: Array.from({length: 5}, (_, index) => ({id: `month-${index}`, label: `Extended month ${index + 1}`})),

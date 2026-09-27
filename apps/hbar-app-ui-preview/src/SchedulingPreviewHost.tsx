@@ -21,6 +21,9 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   const [deadlineMonthId, setDeadlineMonthId] = useState(content.referenceDeadline?.monthId ?? '')
   const [deadlineDayId, setDeadlineDayId] = useState(content.referenceDeadline?.dayId ?? '')
   const [deadlineTimeId, setDeadlineTimeId] = useState(content.referenceDeadline?.timeId ?? '')
+  const [availabilityZoneId, setAvailabilityZoneId] = useState(content.referenceAvailability?.timezoneId ?? '')
+  const [availabilityDays, setAvailabilityDays] = useState(content.referenceAvailability?.days ?? [])
+  const [availabilityNextInterval, setAvailabilityNextInterval] = useState(0)
   useEffect(() => {
     setDayId(content.referenceMonth?.activeDayId ?? '')
     setMonthId(content.referenceMonth?.monthId ?? '')
@@ -41,6 +44,9 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
     setDeadlineMonthId(content.referenceDeadline?.monthId ?? '')
     setDeadlineDayId(content.referenceDeadline?.dayId ?? '')
     setDeadlineTimeId(content.referenceDeadline?.timeId ?? '')
+    setAvailabilityZoneId(content.referenceAvailability?.timezoneId ?? '')
+    setAvailabilityDays(content.referenceAvailability?.days ?? [])
+    setAvailabilityNextInterval(0)
   }, [content])
   return <HbarAppUiSchedulingProvider content={{...content, referenceMonth: content.referenceMonth && {
     ...content.referenceMonth, activeDayId: dayId, monthId, yearId, filterId,
@@ -51,6 +57,22 @@ export function SchedulingPreviewHost({content, children}: {readonly content: Hb
   }, referenceDeadline: content.referenceDeadline && {
     ...content.referenceDeadline, presetId: deadlinePresetId, monthId: deadlineMonthId, dayId: deadlineDayId, timeId: deadlineTimeId,
     onPresetChange: setDeadlinePresetId, onMonthChange: setDeadlineMonthId, onDayChange: setDeadlineDayId, onTimeChange: setDeadlineTimeId,
+  }, referenceAvailability: content.referenceAvailability && {
+    ...content.referenceAvailability, timezoneId: availabilityZoneId, days: availabilityDays,
+    onTimezoneChange: setAvailabilityZoneId,
+    onDayChange: (id: string, enabled: boolean) => setAvailabilityDays((current) => current.map((day) => day.id === id
+      ? {...day, enabled, intervals: enabled ? [{id: `${id}-default`, startId: '09:00', endId: '17:00'}] : []} : day)),
+    onIntervalAdd: (id: string) => {
+      setAvailabilityDays((current) => current.map((day) => day.id === id && day.enabled
+        ? {...day, intervals: [...day.intervals, {id: `${id}-new-${availabilityNextInterval}`, startId: '13:00', endId: '17:00'}]} : day))
+      setAvailabilityNextInterval((current) => current + 1)
+    },
+    onIntervalRemove: (dayId: string, intervalId: string) => setAvailabilityDays((current) => current.map((day) => day.id === dayId && day.intervals.length > 1
+      ? {...day, intervals: day.intervals.filter((interval) => interval.id !== intervalId)} : day)),
+    onIntervalStartChange: (dayId: string, intervalId: string, timeId: string) => setAvailabilityDays((current) => current.map((day) => day.id === dayId
+      ? {...day, intervals: day.intervals.map((interval) => interval.id === intervalId ? {...interval, startId: timeId} : interval)} : day)),
+    onIntervalEndChange: (dayId: string, intervalId: string, timeId: string) => setAvailabilityDays((current) => current.map((day) => day.id === dayId
+      ? {...day, intervals: day.intervals.map((interval) => interval.id === intervalId ? {...interval, endId: timeId} : interval)} : day)),
   }, referenceForm: content.referenceForm && {
     ...content.referenceForm, name: formName, attendeeQuery: formQuery, attendees: formAttendees, date: formDate,
     startId: formStartId, endId: formEndId, meetingLink: formLink, notes: formNotes,

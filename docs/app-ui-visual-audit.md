@@ -231,6 +231,19 @@ Scheduling 4 在 2026-09-27 的当前证据位于
 保留这份诊断，最终选样采用桌面时段选择与极窄日期 Space；时段 Enter/Space 和全部时段滚动可达性在本地验证，
 其余同类手势/布局标为 `inferred-not-replayed`。Scheduling 5–7 仍待对齐，整类未验收。
 
+Scheduling 5 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-5-final/`：8 组静态截图对、10 个按状态机制选样的交互，
+7 个 `matched`、3 个 `source-no-op`，缺失 0。结构与状态硬门禁、桌面及窄屏当前截图复核、严格比较均通过；
+平均归一化像素 MAE 0.002713 仅作定位。宿主 `referenceAvailability` 契约提供时区、7 天、逐日开关、
+稳定 ID 时段、8 项起止选择与全部可见文案；旧 `availability` API 独立保留。
+开关即时改变标题中的可预约天数；关闭再开启会重置为 09:00–17:00 的一个时段，不保留原来的两个；
+添加会追加 13:00–17:00，可重复；移除只作用指定时段，最后一项禁用。原生起止选项独立，结束早于开始不制造校验。
+Copy 与 Save 在原版预览没有可见业务结果，本地也不制造复制提示或保存成功；这不代表正式产品保存链路已交付。
+选样覆盖时区、两种起止选择、开关、添加、移除、Copy、Save、hover 与极窄键盘 Space。
+其余日／时段、手势和视口主题组合明确标记 `inferred-not-replayed`；本地另外验证关闭恢复、连续增删、
+原始 ID、长中文反序、空／单项／边界及超容量日列表与时段 pane-scroll、窄屏长文案和页脚可达性。
+Scheduling 4 的窄屏几何仍待复核，Scheduling 6–7 仍待对齐，不登记整个 Scheduling 类别通过。
+
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
 控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/
 popover overlay 才能使用定位。内容、文案、集合和容量继续由宿主 contract 提供，不能在可复用

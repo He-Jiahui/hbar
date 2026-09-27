@@ -3,7 +3,7 @@ import {chromium, type Page} from '@playwright/test'
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5192'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
-function url(variant: 1 | 2 | 3 | 4, fixture?: 'localized' | 'overflow') {
+function url(variant: 1 | 2 | 3 | 4 | 5, fixture?: 'localized' | 'overflow') {
   const query = new URLSearchParams({mode: 'isolated', variant: `hbar-app-ui-scheduling-${variant}`, theme: 'light'})
   if (fixture) query.set('schedulingFixture', fixture)
   return `${baseUrl}/?${query.toString()}`
@@ -224,16 +224,75 @@ async function verifyDeadline(page: Page) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound deadline caused horizontal overflow')
 }
 
+async function verifyAvailability(page: Page) {
+  await page.setViewportSize({width: 1086, height: 720})
+  await page.goto(url(5), {waitUntil: 'networkidle'})
+  const card = page.locator('.lumen-scheduling-availability-card')
+  const day = (id: string) => card.locator(`.lumen-scheduling-availability-day[data-hbar-app-ui-target="${id}"]`)
+  const monday = day('monday'), tuesday = day('tuesday')
+  const description = card.locator('header p')
+  assert(await card.getByRole('switch').count() === 7 && await card.getByRole('combobox').count() === 13, 'Availability lost native source controls')
+  await card.getByRole('combobox', {name: 'Timezone'}).selectOption('Europe/Berlin')
+  assert(await monday.getByRole('combobox', {name: 'From'}).inputValue() === '09:00', 'Timezone recalculated independent intervals')
+  await tuesday.getByRole('switch').press('Space')
+  assert((await description.innerText()).includes('on 4 days') && await tuesday.getByRole('combobox').count() === 0, 'Disabling a day did not update count and remove controls')
+  assert(await tuesday.getByRole('button', {name: 'Add interval to Tuesday'}).isDisabled() && await tuesday.getByRole('button', {name: 'Copy Tuesday to other days'}).isDisabled(), 'Unavailable day actions are enabled')
+  await tuesday.getByRole('switch').press('Enter')
+  assert((await description.innerText()).includes('on 5 days') && await tuesday.getByRole('combobox').count() === 2, 'Re-enable retained the old two intervals instead of resetting to source default')
+  assert(await tuesday.getByRole('combobox', {name: 'From'}).inputValue() === '09:00' && await tuesday.getByRole('combobox', {name: 'To'}).inputValue() === '17:00', 'Re-enabled day has incorrect default times')
+  await monday.getByRole('button', {name: 'Add interval to Monday'}).click()
+  await monday.getByRole('button', {name: 'Add interval to Monday'}).press('Space')
+  assert(await monday.getByRole('combobox', {name: 'From'}).count() === 3, 'Repeated interval addition failed')
+  assert(await monday.getByRole('combobox', {name: 'From'}).last().inputValue() === '13:00', 'Appended interval lost source defaults')
+  await monday.locator('[data-hbar-app-ui-target="monday:mon-1"]').click()
+  assert(await monday.locator('[data-hbar-app-ui-interval="mon-1"]').count() === 0 && await monday.locator('[data-hbar-app-ui-interval="monday-new-0"]').count() === 1, 'Removal acted on an index instead of original interval ID')
+  await monday.getByRole('button', {name: 'Remove interval from Monday'}).last().click()
+  assert(await monday.getByRole('button', {name: 'Remove interval from Monday'}).isDisabled(), 'Last interval removal is not guarded')
+  await monday.getByRole('combobox', {name: 'From'}).selectOption('18:00')
+  await monday.getByRole('combobox', {name: 'To'}).selectOption('07:00')
+  const values = await card.locator('select').evaluateAll((nodes) => nodes.map((node) => node instanceof HTMLSelectElement ? node.value : null))
+  await monday.getByRole('button', {name: 'Copy Monday to other days'}).click()
+  await card.getByRole('button', {name: 'Save hours'}).click()
+  assert(JSON.stringify(await card.locator('select').evaluateAll((nodes) => nodes.map((node) => node instanceof HTMLSelectElement ? node.value : null))) === JSON.stringify(values), 'Source no-op Copy/Save changed data')
+  assert(await card.locator('[role="alert"],[role="status"],[aria-invalid="true"]').count() === 0 && await page.getByRole('dialog').count() === 0, 'No-op or reversed interval invented validation/success')
+  for (const width of [670, 356, 286]) {
+    await page.setViewportSize({width, height: 720})
+    assert(await monday.evaluate((element) => getComputedStyle(element).flexDirection === (window.innerWidth >= 640 ? 'row' : 'column')), `Availability day flow differs at ${width}`)
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `Availability escaped viewport at ${width}`)
+  }
+  await card.getByRole('switch', {name: 'Sunday availability'}).press('Space')
+  assert(await day('sunday').getByRole('combobox', {name: 'From'}).inputValue() === '09:00', 'Narrow switch default interval is not reachable')
+  await card.getByRole('button', {name: 'Save hours'}).press('Space')
+  assert(await card.locator('footer').isVisible(), 'Narrow footer is unreachable')
+  await page.goto(url(5, 'localized'), {waitUntil: 'networkidle'})
+  assert((await card.getByRole('heading').innerText()).includes('每周可预约'), 'Translated title disappeared')
+  await tuesday.getByRole('button', {name: '移除星期二的时段'}).first().press('Space')
+  assert(await tuesday.locator('[data-hbar-app-ui-interval="tue-2"]').count() === 0 && await tuesday.locator('[data-hbar-app-ui-interval="tue-1"]').count() === 1, 'Reordered localized removal lost original interval ID')
+  await tuesday.getByRole('combobox', {name: '开始时间'}).selectOption('08:00')
+  assert(await tuesday.getByRole('combobox', {name: '开始时间'}).inputValue() === '08:00', 'Localized edit did not reach original interval')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Localized availability escaped viewport')
+  await page.goto(url(5, 'overflow'), {waitUntil: 'networkidle'})
+  assert(await card.getByRole('switch').count() === 8 && await card.locator('[data-hbar-app-ui-interval]').count() === 24, 'Over-bound Host records were truncated')
+  const days = card.locator('.lumen-scheduling-availability-days')
+  assert(await days.evaluate((element) => {element.scrollTop = element.scrollHeight;return element.scrollTop > 0}), 'Over-bound day pane does not actually scroll')
+  const finalDay = day('overflow-day-7')
+  assert(await finalDay.locator('.lumen-scheduling-availability-intervals').evaluate((element) => {element.scrollTop = element.scrollHeight;return element.scrollTop > 0}), 'Over-bound interval pane does not actually scroll')
+  await finalDay.locator('[data-hbar-app-ui-target="overflow-day-7:interval-7-2"]').press('Space')
+  assert(await finalDay.locator('[data-hbar-app-ui-interval="interval-7-2"]').count() === 0 && await finalDay.locator('[data-hbar-app-ui-interval="interval-7-0"]').count() === 1, 'Last pane removal targeted the wrong record')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound availability escaped viewport')
+}
+
 const browser = await chromium.launch({headless: true, executablePath})
 try {
   const page = await browser.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-  if (!process.argv.some((arg) => ['--range-only','--form-only','--deadline-only'].includes(arg))) await verifyMonth(page)
-  if (!process.argv.some((arg) => ['--month-only','--form-only','--deadline-only'].includes(arg))) await verifyRange(page)
-  if (!process.argv.some((arg) => ['--month-only','--range-only','--deadline-only'].includes(arg))) await verifyForm(page)
-  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only'].includes(arg))) await verifyDeadline(page)
+  if (!process.argv.some((arg) => ['--range-only','--form-only','--deadline-only','--availability-only'].includes(arg))) await verifyMonth(page)
+  if (!process.argv.some((arg) => ['--month-only','--form-only','--deadline-only','--availability-only'].includes(arg))) await verifyRange(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--deadline-only','--availability-only'].includes(arg))) await verifyForm(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--availability-only'].includes(arg))) await verifyDeadline(page)
+  if (!process.argv.some((arg) => ['--month-only','--range-only','--form-only','--deadline-only'].includes(arg))) await verifyAvailability(page)
   assert(errors.length === 0, `Browser errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--deadline-only') ? ['scheduling-4'] : process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3', 'scheduling-4'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
+  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--availability-only') ? ['scheduling-5'] : process.argv.includes('--deadline-only') ? ['scheduling-4'] : process.argv.includes('--form-only') ? ['scheduling-3'] : process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2', 'scheduling-3', 'scheduling-4', 'scheduling-5'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
 } finally {await browser.close()}
