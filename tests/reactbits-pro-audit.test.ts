@@ -228,6 +228,7 @@ import {
   interactionCases,
   interactionCheckpointMatches,
   interactionFeedbackMatches,
+  includesAppUiAuditFixture,
   interactionWorkersPerVariant,
   interactiveControlSelector,
   liveActivityDelta,
@@ -262,6 +263,13 @@ test('local-only recapture binds inventory to the source screenshots it copies',
   )).toBe(true)
   expect(cachedInventorySourcePath({ ...options, sourceInventoryPath: 'explicit.json' })).toBe('explicit.json')
   expect(cachedInventorySourcePath({ ...options, localOnly: false })).toBeUndefined()
+})
+
+test('implementation evidence includes App UI host fixtures but excludes unrelated browser-test fixtures', () => {
+  expect(includesAppUiAuditFixture('hbar-app-ui-wizard-fixtures.ts')).toBe(true)
+  expect(includesAppUiAuditFixture('nested\\hbar-app-ui-usage-fixtures.ts')).toBe(true)
+  expect(includesAppUiAuditFixture('session-tool-presentation-browser.tsx')).toBe(false)
+  expect(includesAppUiAuditFixture('nested/session-tool-presentation-browser.css')).toBe(false)
 })
 
 function control(index: number, overrides: Partial<ControlSnapshot> = {}): ControlSnapshot {

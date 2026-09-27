@@ -715,6 +715,7 @@ async function localImplementationHash(variantIds: readonly string[], outputRoot
       .sort()
     for (const file of files) {
       if (root === 'hbar-ui/packages/lumen-app-ui/src' && !includesLumenAuditFile(file, dependencies)) continue
+      if (root === 'tests/fixtures' && !includesAppUiAuditFixture(file)) continue
       const path = join(root, file)
       coveredFiles.push(path)
       hash.update(path)
@@ -728,6 +729,10 @@ async function localImplementationHash(variantIds: readonly string[], outputRoot
       files: coveredFiles,
     })
   return hash.digest('hex')
+}
+
+export function includesAppUiAuditFixture(file: string): boolean {
+  return file.replaceAll('\\', '/').split('/').at(-1)?.startsWith('hbar-app-ui-') ?? false
 }
 
 async function localCategoryCounts(): Promise<Readonly<Record<string, number>>> {
