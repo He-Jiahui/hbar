@@ -322,7 +322,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await goalHelp.getByRole('button', { name: copy.session.intent.blocked.close, exact: true }).click()
       await expect(goalEntry).toBeFocused()
       await expect(page.getByRole('button', { name: copy.session.intent.clear, exact: true })).toBeEnabled()
-      await expect(page.getByRole('button', { name: copy.session.prompt.addAttachment, exact: true })).toBeDisabled()
+      await expect(page.getByRole('button', { name: copy.session.addMenu.open, exact: true })).toBeDisabled()
+      await expect(page.locator('.hbar-composer-add-root input[type="file"]')).toBeDisabled()
       await narrowPrompt.press('Enter')
       await dropFile(narrow, 'must-not-upload-after-archive.txt')
       await expect(
