@@ -974,7 +974,7 @@ export const rpcSchemas = {
   }),
   'command.describe': z.strictObject({ commandId: z.string().min(1).max(128) }),
   'command.getReceipt': z.strictObject({
-    commandId: z.enum(['session.setBudget', 'run.submit', 'run.retry']),
+    commandId: z.enum(['session.setBudget', 'run.submit', 'run.retry', 'queuedRun.remove']),
     sessionId: idSchema,
     idempotencyKey: z.string().min(1).max(128),
   }),
@@ -1243,7 +1243,11 @@ export interface RpcResults {
     nextCursor?: string
   }
   'command.describe': import('@hbar/commands/protocol').CommandDescriptor
-  'command.getReceipt': import('./commands/budget').BudgetReceipt | import('./commands/run').RunAccepted | null
+  'command.getReceipt':
+    | import('./commands/budget').BudgetReceipt
+    | import('./commands/run').RunAccepted
+    | import('./commands/run').QueuedRunRemoveReceipt
+    | null
   'operation.watch': import('./commands/run').OperationWatchResult
   'operation.unwatch': null
   'metrics.watch': import('./commands/metrics').MetricsWatchResult

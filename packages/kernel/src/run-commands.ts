@@ -172,6 +172,26 @@ export function createRunCommands(kernel: Kernel) {
       throw error
     }
   })
+  registry.register(
+    runCommands['queuedRun.remove'],
+    async (input, context) => {
+      const actorId = context.actorId,
+        idempotencyKey = context.idempotencyKey
+      if (!actorId || !idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      try {
+        return await kernel.removeQueuedRun(input, actorId, idempotencyKey)
+      } catch (error) {
+        if (
+          error instanceof HbarError &&
+          ['NOT_FOUND', 'FORBIDDEN', 'COMMAND_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'INVALID_INPUT'].includes(error.code)
+        )
+          throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue removal requires receipt reconciliation')
+      }
+    },
+    { durable: true },
+  )
   registry.register(runCommands['operation.get'], async ({ operationId }) => {
     try {
       const run = await kernel.storage.call('run', operationId)
@@ -252,6 +272,14 @@ export function createRunCommands(kernel: Kernel) {
       if (!found.command || found.command.actorId !== actorId || found.command.idempotencyKey !== idempotencyKey)
         throw new CommandError('IDEMPOTENCY_CONFLICT', 'Run key belongs to another actor')
       return accepted(found.run, found.command)
+    },
+    async getQueuedRemoveReceipt(sessionId: string, actorId: string, idempotencyKey: string) {
+      try {
+        return await kernel.storage.call('queuedRunRemoveReceipt', actorId, idempotencyKey, sessionId)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue removal receipt is unavailable')
+      }
     },
     dispose: () => registry.dispose(),
   }

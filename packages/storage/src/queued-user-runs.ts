@@ -45,17 +45,24 @@ export function readQueuedUserRuns(db: Database, value: QueuedUserRunsInput): Qu
     )
       throw new HbarError('INVALID_CURSOR', 'Queue cursor does not belong to this session')
     const rows = db
-      .query<{ id: string; createdAt: number; input: string }, [string, number, number, number, number]>(
-        `SELECT id,createdAt,input FROM runs WHERE sessionId=? AND status='queued' AND ${sourceFilter}
-          AND (createdAt>? OR (createdAt=? AND rowid>?))
-          ORDER BY createdAt,rowid LIMIT ?`,
+      .query<
+        { id: string; createdAt: number; input: string; revision: number | null },
+        [string, number, number, number, number]
+      >(
+        `SELECT r.id,r.createdAt,r.input,
+          (SELECT MAX(e.seq) FROM events e WHERE e.runId=r.id AND e.type IN ('run.queued','run.inputEdited')) AS revision
+         FROM runs r WHERE r.sessionId=? AND r.status='queued' AND ${sourceFilter}
+          AND (r.createdAt>? OR (r.createdAt=? AND r.rowid>?))
+          ORDER BY r.createdAt,r.rowid LIMIT ?`,
       )
       .all(sessionId, anchor?.createdAt ?? -1, anchor?.createdAt ?? -1, anchor?.rowid ?? -1, limit + 1)
     const items = rows.slice(0, limit).map((row) => {
       const input = inputSchema.parse(JSON.parse(row.input))
+      if (row.revision === null) throw new HbarError('RUN_JOURNAL_MISSING', 'Queued Run has no revision event')
       const points = Array.from(input.text)
       return {
         operationId: row.id,
+        revision: row.revision,
         createdAt: row.createdAt,
         textPreview: points.slice(0, PREVIEW_CODE_POINTS).join(''),
         truncated: points.length > PREVIEW_CODE_POINTS,

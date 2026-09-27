@@ -79,6 +79,7 @@ test('ViewModel pages one bounded Host queue window at a time and recovers a sta
       items: [
         {
           operationId: input.cursor ? 'second' : 'first',
+          revision: 1,
           createdAt: 1,
           textPreview: 'text',
           truncated: false,

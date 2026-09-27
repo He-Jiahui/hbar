@@ -60,9 +60,11 @@ test('approval and questionnaire commands validate session targets and converge 
     'planExit.get',
     'planExit.resolve',
     'questionnaire.answer',
+    'queuedRun.remove',
     'run.retry',
     'run.submit',
     'session.activeOperations',
+    'session.queuedUserRuns',
   ])
 
   await kernel.submit(

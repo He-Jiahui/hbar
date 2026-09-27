@@ -1019,9 +1019,11 @@ test('classified command catalog and Run operations are usable without a GUI', a
     'planExit.get',
     'planExit.resolve',
     'questionnaire.answer',
+    'queuedRun.remove',
     'run.retry',
     'run.submit',
     'session.activeOperations',
+    'session.queuedUserRuns',
   ])
   const description = await run([...common, 'commands', 'describe', 'run.submit'])
   expect(description.code).toBe(0)

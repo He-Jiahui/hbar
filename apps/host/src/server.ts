@@ -372,9 +372,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'command.getReceipt': {
         const input = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        return input.commandId === 'run.submit' || input.commandId === 'run.retry'
-          ? runCommands.getReceipt(input.commandId, input.sessionId, socket.data.deviceId, input.idempotencyKey)
-          : budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'run.submit' || input.commandId === 'run.retry')
+          return runCommands.getReceipt(input.commandId, input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.remove')
+          return runCommands.getQueuedRemoveReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
       }
       case 'operation.watch': {
         const input = rpcSchemas[method].parse(raw)

@@ -45,7 +45,14 @@ test('only Host-confirmed items for the selected session appear in the composer'
     ...base,
     totalQueued: 1,
     items: [
-      { operationId: 'first', createdAt: 1, textPreview: '这是很长的待发内容', truncated: true, attachmentCount: 2 },
+      {
+        operationId: 'first',
+        revision: 1,
+        createdAt: 1,
+        textPreview: '这是很长的待发内容',
+        truncated: true,
+        attachmentCount: 2,
+      },
     ],
   }
   const html = render(state)
@@ -62,7 +69,7 @@ test('page controls, error recovery and offline states remain explicit', () => {
   const state: QueuedUserRunsState = {
     ...base,
     totalQueued: 21,
-    items: [{ operationId: 'first', createdAt: 1, textPreview: '', truncated: false, attachmentCount: 1 }],
+    items: [{ operationId: 'first', revision: 1, createdAt: 1, textPreview: '', truncated: false, attachmentCount: 1 }],
     nextCursor: { afterOperationId: 'first', sessionSeq: 2, totalQueued: 21 },
   }
   const html = render(state)

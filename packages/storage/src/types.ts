@@ -18,7 +18,13 @@ import type {
   WorkspacePage,
   SessionPage,
 } from '@hbar/contracts'
-import type { ActiveOperationsInput, ActiveOperationsPage, RunCommandRecord } from '@hbar/contracts/commands/run'
+import type {
+  ActiveOperationsInput,
+  ActiveOperationsPage,
+  QueuedRunRemoveInput,
+  QueuedRunRemoveReceipt,
+  RunCommandRecord,
+} from '@hbar/contracts/commands/run'
 import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
@@ -156,6 +162,11 @@ export interface StorageMethods {
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
   activeOperations(input: ActiveOperationsInput): ActiveOperationsPage
   queuedUserRuns(input: QueuedUserRunsInput): QueuedUserRunsPage
+  removeQueuedRun(input: { actorId: string; idempotencyKey: string; request: QueuedRunRemoveInput }): {
+    receipt: QueuedRunRemoveReceipt
+    event: SessionEvent
+  }
+  queuedRunRemoveReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunRemoveReceipt | null
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
   compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
   fork(sessionId: string, atSeq?: number): Session

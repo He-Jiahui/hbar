@@ -49,7 +49,7 @@ import type {
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
-import type { RunCommandRecord } from '@hbar/contracts/commands/run'
+import type { QueuedRunRemoveInput, RunCommandRecord } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
@@ -1413,6 +1413,12 @@ export class Kernel {
         if (active.run.id === runId) active.controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
     } else this.cancelled.delete(runId)
     if (event) await this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run })
+  }
+  async removeQueuedRun(request: QueuedRunRemoveInput, actorId: string, idempotencyKey: string) {
+    const { receipt, event } = await this.storage.call('removeQueuedRun', { request, actorId, idempotencyKey })
+    // Replaying the same committed event is safe: session subscribers deduplicate by seq/eventId.
+    this.publishEvent(event)
+    return receipt
   }
   async compact(sessionId: string, modelId: string, signal?: AbortSignal) {
     this.assertIdle()

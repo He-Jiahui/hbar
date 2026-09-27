@@ -4,8 +4,9 @@ import {
   runAcceptedSchema,
   operationWatchResultSchema,
   operationCancelResultSchema,
+  queuedRunRemoveReceiptSchema,
 } from '@hbar/contracts/commands/run'
-import type { OperationWatchResult, RunAccepted } from '@hbar/contracts/commands/run'
+import type { OperationWatchResult, QueuedRunRemoveReceipt, RunAccepted } from '@hbar/contracts/commands/run'
 import { HbarError } from '@hbar/contracts'
 import type { SessionEvent, WireNotification } from '@hbar/contracts'
 import type { ConnectionStatus } from './index'
@@ -16,7 +17,7 @@ export function createRunCommandClient(client: ClientTransport) {
     async execute(id, input, options) {
       if (id === 'operation.cancel' && options?.signal?.aborted)
         throw new CommandError('CANCELLED', 'Cancellation was not dispatched')
-      if ((id === 'run.submit' || id === 'run.retry') && !options?.idempotencyKey)
+      if (['run.submit', 'run.retry', 'queuedRun.remove'].includes(id) && !options?.idempotencyKey)
         throw new CommandError('INVALID_INPUT', `An idempotency key is required for ${id}`)
       try {
         const output = await client.call('command.execute', {
@@ -32,6 +33,17 @@ export function createRunCommandClient(client: ClientTransport) {
           const requested = runCommands['operation.cancel'].input.parse(input)
           if (!result.success || result.data.operationId !== requested.operationId)
             throw new CommandError('RESULT_UNKNOWN', 'Cancellation response could not be verified')
+        }
+        if (id === 'queuedRun.remove') {
+          const result = queuedRunRemoveReceiptSchema.safeParse(output)
+          const requested = runCommands['queuedRun.remove'].input.parse(input)
+          if (
+            !result.success ||
+            result.data.sessionId !== requested.sessionId ||
+            result.data.operationId !== requested.operationId ||
+            result.data.idempotencyKey !== options?.idempotencyKey
+          )
+            throw new CommandError('RESULT_UNKNOWN', 'Queue removal response could not be verified')
         }
         return output
       } catch (error) {
@@ -57,7 +69,7 @@ export function createRunCommandClient(client: ClientTransport) {
             'Cancellation response was not confirmed; read the original operation state',
           )
         if (
-          ['run.submit', 'run.retry', 'context.compact'].includes(id) &&
+          ['run.submit', 'run.retry', 'queuedRun.remove', 'context.compact'].includes(id) &&
           error instanceof HbarError &&
           ['DISCONNECTED', 'TIMEOUT'].includes(error.code)
         )
@@ -79,6 +91,20 @@ export function createRunCommandClient(client: ClientTransport) {
       const result = await client.call('command.getReceipt', { commandId, sessionId, idempotencyKey })
       const parsed = runAcceptedSchema.nullable().safeParse(result)
       if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Invalid run acceptance receipt')
+      return parsed.data
+    },
+    async getQueuedRemoveReceipt(sessionId: string, idempotencyKey: string): Promise<QueuedRunRemoveReceipt | null> {
+      const result = await client.call('command.getReceipt', {
+        commandId: 'queuedRun.remove',
+        sessionId,
+        idempotencyKey,
+      })
+      const parsed = queuedRunRemoveReceiptSchema.nullable().safeParse(result)
+      if (
+        !parsed.success ||
+        (parsed.data && (parsed.data.sessionId !== sessionId || parsed.data.idempotencyKey !== idempotencyKey))
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Invalid queue removal receipt')
       return parsed.data
     },
   }

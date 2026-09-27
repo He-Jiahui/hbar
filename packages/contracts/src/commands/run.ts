@@ -5,9 +5,24 @@ import type { SessionEvent } from '../index'
 import { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
 export { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
 export type { ActiveOperationsInput, ActiveOperationsPage } from './active-operations'
-import { queuedUserRunsInputSchema, queuedUserRunsPageSchema } from './queued-user-runs'
-export { queuedUserRunsInputSchema, queuedUserRunsPageSchema } from './queued-user-runs'
-export type { QueuedUserRunsInput, QueuedUserRunsPage } from './queued-user-runs'
+import {
+  queuedRunRemoveInputSchema,
+  queuedRunRemoveReceiptSchema,
+  queuedUserRunsInputSchema,
+  queuedUserRunsPageSchema,
+} from './queued-user-runs'
+export {
+  queuedRunRemoveInputSchema,
+  queuedRunRemoveReceiptSchema,
+  queuedUserRunsInputSchema,
+  queuedUserRunsPageSchema,
+} from './queued-user-runs'
+export type {
+  QueuedRunRemoveInput,
+  QueuedRunRemoveReceipt,
+  QueuedUserRunsInput,
+  QueuedUserRunsPage,
+} from './queued-user-runs'
 
 export const submitRunInputSchema = z.strictObject({
   sessionId: idSchema,
@@ -73,6 +88,31 @@ export interface OperationWatchResult {
 }
 
 export const runCommands = {
+  'queuedRun.remove': defineCommand(
+    {
+      id: 'queuedRun.remove',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.queuedRun.remove.title',
+      descriptionKey: 'commands.queuedRun.remove.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      idempotency: 'required',
+      cli: {
+        arguments: [
+          { field: 'operationId', type: 'string', position: 0, flag: 'operation' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'expectedRevision', type: 'number', flag: 'revision' },
+        ],
+      },
+    },
+    queuedRunRemoveInputSchema,
+    queuedRunRemoveReceiptSchema,
+  ),
   'session.queuedUserRuns': defineCommand(
     {
       id: 'session.queuedUserRuns',

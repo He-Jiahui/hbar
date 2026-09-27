@@ -13,6 +13,7 @@ export const queuedUserRunsInputSchema = z.strictObject({
 })
 export const queuedUserRunSchema = z.strictObject({
   operationId: idSchema,
+  revision: z.number().int().nonnegative(),
   createdAt: z.number().int().nonnegative(),
   textPreview: z.string().max(240),
   truncated: z.boolean(),
@@ -27,3 +28,22 @@ export const queuedUserRunsPageSchema = z.strictObject({
 })
 export type QueuedUserRunsInput = z.input<typeof queuedUserRunsInputSchema>
 export type QueuedUserRunsPage = z.output<typeof queuedUserRunsPageSchema>
+
+export const queuedRunRemoveInputSchema = z.strictObject({
+  sessionId: idSchema,
+  operationId: idSchema,
+  expectedRevision: z.number().int().nonnegative(),
+})
+export const queuedRunRemoveReceiptSchema = z.strictObject({
+  commandId: z.literal('queuedRun.remove'),
+  commandVersion: z.literal(1),
+  sessionId: idSchema,
+  operationId: idSchema,
+  idempotencyKey: z.string().min(1).max(128),
+  status: z.literal('cancelled'),
+  eventId: idSchema,
+  sessionSeq: z.number().int().nonnegative(),
+  removedAt: z.number().int().nonnegative(),
+})
+export type QueuedRunRemoveInput = z.output<typeof queuedRunRemoveInputSchema>
+export type QueuedRunRemoveReceipt = z.output<typeof queuedRunRemoveReceiptSchema>

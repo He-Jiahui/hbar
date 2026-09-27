@@ -19,7 +19,11 @@ import {
   workspaceListInputSchema,
   sessionListInputSchema,
 } from '@hbar/contracts/directory'
-import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
+import {
+  queuedRunRemoveInputSchema,
+  queuedRunRemoveReceiptSchema,
+  runCommandRecordSchema,
+} from '@hbar/contracts/commands/run'
 import { USAGE_EVENT_TYPES } from '@hbar/usage'
 import type { UsageReadInput, UsageReadRow } from '@hbar/usage'
 import type {
@@ -722,6 +726,95 @@ const methods: StorageMethods = {
   },
   activeOperations: (input) => readActiveOperations(db, input),
   queuedUserRuns: (input) => readQueuedUserRuns(db, input),
+  removeQueuedRun(input) {
+    const request = queuedRunRemoveInputSchema.parse(input.request)
+    const actorId = z.string().min(1).max(160).parse(input.actorId)
+    const idempotencyKey = z.string().min(1).max(128).parse(input.idempotencyKey)
+    const commandId = 'queuedRun.remove'
+    const payloadHash = entityPayloadHash(commandId, request)
+    return db
+      .transaction(() => {
+        const prior = db
+          .query<{ commandId: string; payloadHash: string; resultJson: string }, [string, string]>(
+            'SELECT commandId,payloadHash,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?',
+          )
+          .get(actorId, idempotencyKey)
+        if (prior) {
+          if (prior.commandId !== commandId || prior.payloadHash !== payloadHash)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Queue removal key was used with different input')
+          const receipt = queuedRunRemoveReceiptSchema.parse(parseJson(prior.resultJson))
+          const event = eventRow(
+            required(
+              db.query('SELECT * FROM events WHERE eventId=?').get(receipt.eventId) as Row | null,
+              'Queue removal event',
+            ),
+          )
+          return { receipt, event }
+        }
+        const row = db
+          .query<Row, [string, string]>('SELECT * FROM runs WHERE id=? AND sessionId=?')
+          .get(request.operationId, request.sessionId)
+        if (!row) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
+        const run = runRow(row)
+        if ((run.input.source ?? 'user') !== 'user')
+          throw new HbarError('FORBIDDEN', 'Only user queue items can be removed')
+        if (run.status !== 'queued')
+          throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
+        const revision = db
+          .query<{ seq: number | null }, [string]>(
+            "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND type IN ('run.queued','run.inputEdited')",
+          )
+          .get(run.id)?.seq
+        if (revision === null || revision === undefined)
+          throw new HbarError('RUN_JOURNAL_MISSING', 'Queued Run has no revision event')
+        if (revision !== request.expectedRevision) throw new HbarError('COMMAND_CONFLICT', 'Queued Run content changed')
+        const removedAt = Date.now()
+        const failure = runFailureSchema.parse({ code: 'QUEUE_REMOVED', category: 'cancelled', retryable: false })
+        db.query(
+          "UPDATE runs SET status='cancelled',endedAt=?,error=NULL,failure=? WHERE id=? AND sessionId=? AND status='queued'",
+        ).run(removedAt, JSON.stringify(failure), run.id, run.sessionId)
+        const settled = methods.run(run.id)
+        const event = appendEvent(
+          run.sessionId,
+          'run.settled',
+          { run: settled, queueRemoval: { actorId, idempotencyKey, payloadHash } },
+          run.id,
+        )
+        const receipt = queuedRunRemoveReceiptSchema.parse({
+          commandId,
+          commandVersion: 1,
+          sessionId: run.sessionId,
+          operationId: run.id,
+          idempotencyKey,
+          status: 'cancelled',
+          eventId: event.eventId,
+          sessionSeq: event.seq,
+          removedAt: event.time,
+        })
+        db.query('INSERT INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+          actorId,
+          idempotencyKey,
+          commandId,
+          payloadHash,
+          JSON.stringify(receipt),
+        )
+        return { receipt, event }
+      })
+      .immediate()
+  },
+  queuedRunRemoveReceipt(actorId, idempotencyKey, sessionId) {
+    const row = db
+      .query<{ commandId: string; resultJson: string }, [string, string]>(
+        'SELECT commandId,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?',
+      )
+      .get(actorId, idempotencyKey)
+    if (!row) return null
+    if (row.commandId !== 'queuedRun.remove')
+      throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to a different command')
+    const receipt = queuedRunRemoveReceiptSchema.parse(parseJson(row.resultJson))
+    if (receipt.sessionId !== sessionId) throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to another session')
+    return receipt
+  },
   context(sessionId) {
     const compacted = db
       .query('SELECT * FROM compactions WHERE sessionId=? ORDER BY eventSeq DESC LIMIT 1')
@@ -1385,6 +1478,33 @@ function restoreProjection(event: SessionEvent) {
       run.error,
       run.failure ? JSON.stringify(runFailureSchema.parse(run.failure)) : null,
     )
+    if (event.type === 'run.settled' && data.queueRemoval !== undefined) {
+      const removal = z
+        .strictObject({
+          actorId: z.string().min(1).max(160),
+          idempotencyKey: z.string().min(1).max(128),
+          payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
+        })
+        .parse(data.queueRemoval)
+      const receipt = queuedRunRemoveReceiptSchema.parse({
+        commandId: 'queuedRun.remove',
+        commandVersion: 1,
+        sessionId: run.sessionId,
+        operationId: run.id,
+        idempotencyKey: removal.idempotencyKey,
+        status: 'cancelled',
+        eventId: event.eventId,
+        sessionSeq: event.seq,
+        removedAt: event.time,
+      })
+      db.query('INSERT OR IGNORE INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+        removal.actorId,
+        removal.idempotencyKey,
+        'queuedRun.remove',
+        removal.payloadHash,
+        JSON.stringify(receipt),
+      )
+    }
   } else if (event.type === 'approval.requested') {
     const approval = event.data as Approval
     db.query(
