@@ -62,7 +62,7 @@ function overlayOpen() {
   return (
     Boolean(document.querySelector('dialog:modal,[popover]:popover-open')) ||
     [...document.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"],[aria-modal="true"]')].some(
-      // Descendants of a closed <details> may retain a geometry box. They do
+      // Descendants of a closed disclosure may retain a geometry box. They do
       // not own keyboard input until the browser actually renders them.
       (element) => canFocusWorkspaceElement(element) && element.checkVisibility(),
     )
