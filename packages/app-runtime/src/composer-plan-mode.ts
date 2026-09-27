@@ -13,6 +13,8 @@ export interface ComposerPlanModeEntry {
   readonly status: 'loading' | 'ready' | 'pending' | 'unknown' | 'failed'
   readonly error: string | null
   readonly revision: number
+  /** A mode.get is still in flight, including recovery of an unknown write. */
+  readonly reading?: boolean
 }
 export interface ComposerPlanModeState {
   readonly available: boolean
@@ -59,6 +61,17 @@ const code = (error: unknown) =>
   error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
     ? error.code
     : 'EXECUTION_FAILED'
+const readErrorCodes = new Set([
+  ...unknownCodes,
+  'BUSY',
+  'FORBIDDEN',
+  'UNAUTHORIZED',
+  'CAPABILITY_UNAVAILABLE',
+  'STALE_TARGET',
+  'INVALID_INPUT',
+  'INVALID_STATE',
+  'DISPOSED',
+])
 
 /** Host mode is a durable session fact. A lost write reply must not be replayed or projected as confirmed. */
 export function createComposerPlanMode(
@@ -83,6 +96,7 @@ export function createComposerPlanMode(
   const generations = new Map<string, number>()
   const pending = new Map<string, { readonly mode: ComposerPlanMode; readonly key: string }>()
   const inFlight = new Set<string>()
+  const reading = new Set<string>()
   const invalidated = new Set<string>()
   const current = (sessionId: string) => state.reader.getSnapshot().entries[sessionId]
   const publish = (entry: ComposerPlanModeEntry) => {
@@ -90,7 +104,10 @@ export function createComposerPlanMode(
     const snapshot = state.reader.getSnapshot()
     if (!snapshot.entries[entry.sessionId] && Object.keys(snapshot.entries).length >= 100)
       throw new CommandError('BUSY', 'Too many session mode projections are open')
-    state.replace({ ...snapshot, entries: { ...snapshot.entries, [entry.sessionId]: entry } })
+    state.replace({
+      ...snapshot,
+      entries: { ...snapshot.entries, [entry.sessionId]: { ...entry, reading: reading.has(entry.sessionId) } },
+    })
   }
   const selected = (sessionId: string) => {
     if (disposed) throw new CommandError('DISPOSED', 'Composer mode was disposed')
@@ -98,6 +115,18 @@ export function createComposerPlanMode(
       throw new CommandError('STALE_TARGET', 'Composer mode belongs to another session')
     if (!options.configuration) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session modes are unavailable')
     return options.configuration
+  }
+  const readHostMode = async (configuration: CommandExecutor, sessionId: string, generation: number) => {
+    reading.add(sessionId)
+    const before = current(sessionId)
+    if (before) publish(before)
+    try {
+      return configurationCommands['mode.get'].output.parse(await configuration.execute('mode.get', { sessionId }))
+    } finally {
+      reading.delete(sessionId)
+      const entry = current(sessionId)
+      if (!disposed && generations.get(sessionId) === generation && entry) publish(entry)
+    }
   }
   const read = async (sessionId: string, reconcile: boolean) => {
     const configuration = selected(sessionId)
@@ -115,9 +144,7 @@ export function createComposerPlanMode(
       revision: current(sessionId)?.revision ?? 0,
     })
     try {
-      const result = configurationCommands['mode.get'].output.parse(
-        await configuration.execute('mode.get', { sessionId }),
-      )
+      const result = await readHostMode(configuration, sessionId, generation)
       if (disposed || generations.get(sessionId) !== generation)
         throw new CommandError('STALE_TARGET', 'Mode read was superseded')
       if (invalidated.has(sessionId)) throw new CommandError('RESULT_UNKNOWN', 'Host mode changed during the read')
@@ -141,12 +168,12 @@ export function createComposerPlanMode(
       })
       return { sessionId, mode: result.mode }
     } catch (error) {
-      if (!disposed && generations.get(sessionId) === generation && !pending.has(sessionId))
+      if (!disposed && generations.get(sessionId) === generation)
         publish({
           sessionId,
           mode: null,
-          status: 'failed',
-          error: code(error),
+          status: pending.has(sessionId) ? 'unknown' : 'failed',
+          error: readErrorCodes.has(code(error)) ? code(error) : 'EXECUTION_FAILED',
           revision: current(sessionId)?.revision ?? 0,
         })
       throw error
@@ -208,7 +235,7 @@ export function createComposerPlanMode(
         // The Host emits mode.changed before the reply. Re-read when that (or a paired client's)
         // notification raced this write, so the visible projection is the Host's latest fact.
         const actual = invalidated.delete(sessionId)
-          ? configurationCommands['mode.get'].output.parse(await configuration.execute('mode.get', { sessionId })).mode
+          ? (await readHostMode(configuration, sessionId, generation)).mode
           : mode
         if (invalidated.has(sessionId))
           throw new CommandError('RESULT_UNKNOWN', 'Host mode changed during confirmation')
@@ -247,6 +274,9 @@ export function createComposerPlanMode(
   const unsubscribe = options.navigation.subscribe(() => {
     const next = options.navigation.getSnapshot().sessionId
     if (next === selectedSession) return
+    // Notifications for inactive sessions are not observed. A physical read that
+    // spans leaving its session therefore cannot establish a current fact on return.
+    if (selectedSession && reading.has(selectedSession)) invalidated.add(selectedSession)
     selectedSession = next
     if (next && options.configuration && !inFlight.has(next)) {
       const command = pending.has(next) ? 'composerPlanMode.reconcile' : 'composerPlanMode.refresh'
@@ -312,6 +342,7 @@ export function createComposerPlanMode(
       state.dispose()
       pending.clear()
       inFlight.clear()
+      reading.clear()
       invalidated.clear()
     },
   }

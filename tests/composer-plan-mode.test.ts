@@ -26,7 +26,7 @@ function fixture() {
   let readGate: ReturnType<typeof deferred> | null = null
   let writeGate: ReturnType<typeof deferred> | null = null
   let fail: 'before' | 'after' | 'known' | null = null
-  let readFailure = false
+  let readFailure: boolean | string = false
   let locked = false
   const listeners = new Set<(sessionId: string) => void>()
   const connectionListeners = new Set<(connected: boolean) => void>()
@@ -43,7 +43,7 @@ function fixture() {
         const gate = readGate
         readGate = null
         await gate?.promise
-        if (readFailure) throw new CommandError('DISCONNECTED', 'Host read failed')
+        if (readFailure) throw new CommandError(readFailure === true ? 'DISCONNECTED' : readFailure, 'Host read failed')
         return { mode: captured }
       }
       if (name !== 'mode.set' || !input.mode) throw new Error('Unexpected Host command')
@@ -95,7 +95,7 @@ function fixture() {
     fail: (value: typeof fail) => {
       fail = value
     },
-    failRead: (value: boolean) => {
+    failRead: (value: boolean | string) => {
       readFailure = value
     },
     lock: (value: boolean) => {
@@ -250,5 +250,167 @@ test('fresh mode read failure masks old ready state and prevents a send', async 
   await expect(f.mode.captureFresh('a')).rejects.toHaveProperty('code', 'DISCONNECTED')
   expect(f.entry()).toMatchObject({ mode: null, status: 'failed', error: 'DISCONNECTED' })
   expect(() => f.mode.capture('a')).toThrow()
+  f.dispose()
+})
+
+test('mode owner exposes shared reading for refresh and fresh capture until each actual read settles', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  const gate = f.blockRead()
+  const refresh = f.commands.execute('composerPlanMode.refresh', { sessionId: 'a' })
+  expect(f.entry()).toMatchObject({ status: 'loading', reading: true })
+  gate.release()
+  await refresh
+  expect(f.entry()).toMatchObject({ status: 'ready', reading: false })
+  const freshGate = f.blockRead()
+  const fresh = f.mode.captureFresh('a')
+  expect(f.entry()).toMatchObject({ reading: true, mode: null })
+  freshGate.release()
+  await fresh
+  expect(f.entry()).toMatchObject({ reading: false, mode: 'default' })
+  f.dispose()
+})
+
+test('unknown reconciliation retains the original write and publishes failed read feedback for every entry', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  f.fail('after')
+  await f.set('plan').catch(() => undefined)
+  const writes = f.calls.filter((call) => call.name === 'mode.set')
+  const gate = f.blockRead()
+  f.failRead(true)
+  const check = f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' }).catch(() => undefined)
+  expect(f.entry()).toMatchObject({ status: 'unknown', reading: true, error: null })
+  await f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' }).catch(() => undefined)
+  expect(f.calls.filter((call) => call.name === 'mode.get')).toHaveLength(2)
+  gate.release()
+  await check
+  expect(f.entry()).toMatchObject({ status: 'unknown', reading: false, error: 'DISCONNECTED', mode: null })
+  await f.set('default').catch(() => undefined)
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toEqual(writes)
+  f.failRead(false)
+  await f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' })
+  expect(f.entry()).toMatchObject({ status: 'ready', reading: false, error: null, mode: 'plan' })
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toEqual(writes)
+  f.dispose()
+})
+
+test('write confirmation read is visible without presenting the write itself as reading', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  const writeGate = f.blockWrite()
+  const readGate = f.blockRead()
+  const write = f.set('plan')
+  expect(f.entry()).toMatchObject({ status: 'pending', reading: false })
+  writeGate.release()
+  for (let attempt = 0; attempt < 20 && !f.entry()?.reading; attempt++) await Bun.sleep(1)
+  expect(f.entry()).toMatchObject({ status: 'pending', reading: true, mode: null })
+  readGate.release()
+  await write
+  expect(f.entry()).toMatchObject({ status: 'ready', reading: false, mode: 'plan' })
+  f.dispose()
+})
+
+test('a held reconciliation remains owned across A-B-A and late disposal publishes nothing', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  f.fail('after')
+  await f.set('plan').catch(() => undefined)
+  const gate = f.blockRead()
+  const check = f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' }).catch(() => undefined)
+  expect(f.entry('a')?.reading).toBe(true)
+  f.select('b')
+  await Bun.sleep(1)
+  expect(f.entry('a')?.reading).toBe(true)
+  expect(f.entry('b')).toMatchObject({ mode: 'plan', status: 'ready', reading: false })
+  f.select('a')
+  expect(f.entry('a')?.reading).toBe(true)
+  const reads = f.calls.filter((call) => call.name === 'mode.get' && call.sessionId === 'a').length
+  expect(reads).toBe(2)
+  const before = f.mode.reader.getSnapshot()
+  f.dispose()
+  gate.release()
+  await check
+  expect(f.mode.reader.getSnapshot()).toBe(before)
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toHaveLength(1)
+})
+
+test('unknown read errors expose only safe codes and clear on the next read without unlocking a write', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  f.fail('after')
+  await f.set('plan').catch(() => undefined)
+  f.failRead('PRIVATE_PAYLOAD_DO_NOT_DISPLAY')
+  await f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' }).catch(() => undefined)
+  expect(f.entry()).toMatchObject({ status: 'unknown', mode: null, error: 'EXECUTION_FAILED', reading: false })
+  f.failRead(false)
+  const gate = f.blockRead()
+  const check = f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' })
+  expect(f.entry()).toMatchObject({ status: 'unknown', reading: true, error: null })
+  gate.release()
+  await check
+  expect(f.entry()).toMatchObject({ status: 'ready', reading: false, error: null })
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toHaveLength(1)
+  f.dispose()
+})
+
+test('leaving A during a read cannot publish its old fact after an inactive mode change and A-B-A return', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  const gate = f.blockRead()
+  const old = f.commands.execute('composerPlanMode.refresh', { sessionId: 'a' }).catch(() => undefined)
+  f.select('b')
+  await Bun.sleep(1)
+  f.notify('a', 'plan')
+  f.select('a')
+  gate.release()
+  await old
+  for (let attempt = 0; attempt < 20 && f.entry('a')?.status !== 'ready'; attempt++) await Bun.sleep(1)
+  expect(f.entry('a')).toMatchObject({ status: 'ready', mode: 'plan', reading: false })
+  expect(f.calls.filter((call) => call.name === 'mode.get' && call.sessionId === 'a')).toHaveLength(3)
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toEqual([])
+  f.dispose()
+})
+
+test('an inactive invalidated read settles without background retries and returning starts one fresh read', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  const gate = f.blockRead()
+  const old = f.commands.execute('composerPlanMode.refresh', { sessionId: 'a' }).catch(() => undefined)
+  f.select('b')
+  f.notify('a', 'plan')
+  gate.release()
+  await old
+  await Bun.sleep(1)
+  expect(f.entry('a')).toMatchObject({ status: 'failed', mode: null, reading: false })
+  expect(f.entry('b')).toMatchObject({ status: 'ready', mode: 'plan' })
+  expect(f.calls.filter((call) => call.name === 'mode.get' && call.sessionId === 'a')).toHaveLength(2)
+  f.select('a')
+  for (let attempt = 0; attempt < 20 && f.entry('a')?.status !== 'ready'; attempt++) await Bun.sleep(1)
+  expect(f.entry('a')).toMatchObject({ status: 'ready', mode: 'plan', reading: false })
+  expect(f.calls.filter((call) => call.name === 'mode.get' && call.sessionId === 'a')).toHaveLength(3)
+  f.dispose()
+})
+
+test('leaving an unknown reconciliation retains uncertainty and its original write until another explicit check', async () => {
+  const f = fixture()
+  await Bun.sleep(1)
+  f.fail('after')
+  await f.set('plan').catch(() => undefined)
+  const writes = f.calls.filter((call) => call.name === 'mode.set')
+  const gate = f.blockRead()
+  const old = f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' }).catch(() => undefined)
+  f.select('b')
+  f.select('a')
+  gate.release()
+  await old
+  await Bun.sleep(1)
+  expect(f.entry('a')).toMatchObject({ status: 'unknown', mode: null, error: 'RESULT_UNKNOWN', reading: false })
+  expect(f.calls.filter((call) => call.name === 'mode.get' && call.sessionId === 'a')).toHaveLength(2)
+  await f.set('default').catch(() => undefined)
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toEqual(writes)
+  await f.commands.execute('composerPlanMode.reconcile', { sessionId: 'a' })
+  expect(f.entry('a')).toMatchObject({ status: 'ready', mode: 'plan', reading: false })
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toEqual(writes)
   f.dispose()
 })
