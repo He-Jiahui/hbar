@@ -28,6 +28,7 @@ describe('hbar-app-ui kanban surfaces', () => {
       expect(value).toContain('data-lumen-component="kanban"')
       expect(value).toContain(`data-lumen-variant="${index + 1}"`)
       if (index === 0) expect(value).toContain('lucide-plus')
+      else if (index === 1) expect(value).toContain('lucide-chevron-down')
       else expect(value).not.toContain('lucide')
       expect(value).not.toContain('hbar-app-ui-button')
     })
@@ -52,9 +53,15 @@ describe('hbar-app-ui kanban surfaces', () => {
   })
   test('honors empty boards and explicit pane capacity', () => {
     const referenceBoard = HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard!
-    const content: HbarAppUiKanbanContent = { ...HBAR_APP_UI_KANBAN_FIXTURES, columns: [], lanes: [], cards: [], referenceBoard: {...referenceBoard, columns: [], cards: []} }
+    const content: HbarAppUiKanbanContent = {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      columns: [],
+      lanes: [],
+      cards: [],
+      referenceBoard: { ...referenceBoard, columns: [], cards: [] },
+    }
     expect(render(1, content)).toContain('No board columns')
-    expect(render(2, content)).toContain('No board columns')
+    expect(render(2, { ...content, referenceSwimlanes: undefined })).toContain('No board columns')
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
   })
   test('reference board keeps ten host-owned cards, regions, native composer labels and accessible priorities', () => {
@@ -65,13 +72,63 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect((markup.match(/role="region"/g) ?? []).length).toBe(4)
     expect(markup).toContain(reference.labels.card(reference.cards[0]!))
     expect(markup).not.toContain('New card in Backlog')
-    const composing = render(1, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceBoard: {...reference, composerColumnId: 'backlog', draft: 'Audit sample card'}})
+    const composing = render(1, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceBoard: { ...reference, composerColumnId: 'backlog', draft: 'Audit sample card' },
+    })
     expect(composing).toContain('New card in Backlog')
     expect(composing).toContain('value="Audit sample card"')
-    const one = render(1, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceBoard: {...reference, columns: [{...reference.columns[0]!, cardIds: ['HAL-241']}], cards: [reference.cards[0]!]}})
+    const one = render(1, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceBoard: {
+        ...reference,
+        columns: [{ ...reference.columns[0]!, cardIds: ['HAL-241'] }],
+        cards: [reference.cards[0]!],
+      },
+    })
     expect((one.match(/class="hbar-app-ui-kanban-reference-card /g) ?? []).length).toBe(1)
-    const duplicated = render(1, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceBoard: {...reference, cards: [reference.cards[0]!, {...reference.cards[0]!, label: 'duplicate'}]}})
+    const duplicated = render(1, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceBoard: { ...reference, cards: [reference.cards[0]!, { ...reference.cards[0]!, label: 'duplicate' }] },
+    })
     expect(duplicated).toContain('Retry billing webhooks that fail on timeout')
     expect(duplicated).not.toContain('duplicate')
+  })
+  test('swimlanes render Host stages, lane disclosures, counts and eleven accessible cards', () => {
+    const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceSwimlanes!
+    const markup = render(2)
+    expect(markup).toContain(flow.labels.detail)
+    expect((markup.match(/class="hbar-app-ui-kanban-swimlane-card /g) ?? []).length).toBe(11)
+    expect((markup.match(/class="hbar-app-ui-kanban-swimlane-lane"/g) ?? []).length).toBe(3)
+    expect(markup).toContain(flow.labels.card(flow.lanes[1]!.cards[0]!, flow.lanes[1]!.label, flow.stages[0]!.label))
+    expect(markup).toContain('aria-expanded="true"')
+    expect(markup).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    const collapsed = render(2, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceSwimlanes: { ...flow, collapsedLaneIds: ['billing', 'identity', 'platform'] },
+    })
+    expect(collapsed).toContain('Expand all')
+    expect((collapsed.match(/aria-expanded="false"/g) ?? []).length).toBe(3)
+    expect(collapsed).not.toContain('hbar-app-ui-kanban-swimlane-card ')
+    const partial = render(2, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceSwimlanes: { ...flow, collapsedLaneIds: ['billing'] },
+    })
+    expect((partial.match(/class="hbar-app-ui-kanban-swimlane-card /g) ?? []).length).toBe(7)
+  })
+  test('swimlane locale and data bounds come from the Host', () => {
+    const localized = render(2, createHbarAppUiKanbanLocalizedFixtures())
+    expect(localized).toContain('工作流')
+    expect(localized).toContain('核对发票')
+    expect(localized).not.toContain('Workstreams')
+    const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceSwimlanes!
+    const empty = render(2, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceSwimlanes: { ...flow, lanes: [] } })
+    expect(empty).toContain('Workstreams')
+    expect(empty).not.toContain('hbar-app-ui-kanban-swimlane-card ')
+    const one = render(2, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceSwimlanes: { ...flow, lanes: [{ ...flow.lanes[0]!, cards: [flow.lanes[0]!.cards[0]!] }] },
+    })
+    expect((one.match(/class="hbar-app-ui-kanban-swimlane-card /g) ?? []).length).toBe(1)
   })
 })

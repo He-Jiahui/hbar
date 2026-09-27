@@ -9,6 +9,7 @@ export function KanbanPreviewHost({
   readonly children: ReactNode
 }) {
   const initial = content.referenceBoard
+  const initialSwimlanes = content.referenceSwimlanes
   const [columns, setColumns] = useState(initial?.columns ?? content.columns)
   const [cards, setCards] = useState(initial?.cards ?? [])
   const [composerColumnId, setComposerColumnId] = useState<string | null>(initial?.composerColumnId ?? null)
@@ -16,6 +17,12 @@ export function KanbanPreviewHost({
   const [grabbedCardId, setGrabbedCardId] = useState<string | null>(initial?.grabbedCardId ?? null)
   const [targetColumnId, setTargetColumnId] = useState<string | null>(initial?.targetColumnId ?? null)
   const [announcement, setAnnouncement] = useState(initial?.announcement ?? '')
+  const [lanes, setLanes] = useState(initialSwimlanes?.lanes ?? [])
+  const [collapsedLaneIds, setCollapsedLaneIds] = useState<readonly string[]>(initialSwimlanes?.collapsedLaneIds ?? [])
+  const [swimlaneGrabbedCardId, setSwimlaneGrabbedCardId] = useState<string | null>(
+    initialSwimlanes?.grabbedCardId ?? null,
+  )
+  const [swimlaneAnnouncement, setSwimlaneAnnouncement] = useState(initialSwimlanes?.announcement ?? '')
 
   useEffect(() => {
     setColumns(content.referenceBoard?.columns ?? content.columns)
@@ -25,9 +32,14 @@ export function KanbanPreviewHost({
     setGrabbedCardId(content.referenceBoard?.grabbedCardId ?? null)
     setTargetColumnId(content.referenceBoard?.targetColumnId ?? null)
     setAnnouncement(content.referenceBoard?.announcement ?? '')
+    setLanes(content.referenceSwimlanes?.lanes ?? [])
+    setCollapsedLaneIds(content.referenceSwimlanes?.collapsedLaneIds ?? [])
+    setSwimlaneGrabbedCardId(content.referenceSwimlanes?.grabbedCardId ?? null)
+    setSwimlaneAnnouncement(content.referenceSwimlanes?.announcement ?? '')
   }, [content])
 
   const flow = content.referenceBoard
+  const swimlanes = content.referenceSwimlanes
   return (
     <HbarAppUiKanbanProvider
       content={{
@@ -110,6 +122,46 @@ export function KanbanPreviewHost({
             setGrabbedCardId(null)
             setTargetColumnId(null)
             setAnnouncement('')
+          },
+        },
+        referenceSwimlanes: swimlanes && {
+          ...swimlanes,
+          lanes,
+          collapsedLaneIds,
+          grabbedCardId: swimlaneGrabbedCardId,
+          announcement: swimlaneAnnouncement,
+          onToggleLane: (laneId) =>
+            setCollapsedLaneIds((current) =>
+              current.includes(laneId) ? current.filter((id) => id !== laneId) : [...current, laneId],
+            ),
+          onToggleAll: () =>
+            setCollapsedLaneIds((current) => (current.length === lanes.length ? [] : lanes.map((lane) => lane.id))),
+          onGrab: (cardId) => {
+            setSwimlaneGrabbedCardId(cardId)
+            setSwimlaneAnnouncement(swimlanes.labels.grabbed(cardId))
+          },
+          onMove: (cardId, laneId, stageId) =>
+            setLanes((current) => {
+              const card = current.flatMap((lane) => lane.cards).find((item) => item.id === cardId)
+              const originalLaneId = current.find((lane) => lane.cards.some((item) => item.id === cardId))?.id
+              if (!card) return current
+              return current.map((lane) => {
+                const remaining = lane.cards.filter((item) => item.id !== cardId)
+                if (lane.id !== laneId) return { ...lane, cards: remaining }
+                if (originalLaneId === laneId) return { ...lane, cards: [...remaining, { ...card, stageId }] }
+                const insertAt = remaining.findIndex((item) => item.stageId === stageId)
+                const next = [...remaining]
+                next.splice(insertAt < 0 ? next.length : insertAt, 0, { ...card, stageId })
+                return { ...lane, cards: next }
+              })
+            }),
+          onDrop: (cardId) => {
+            setSwimlaneGrabbedCardId(null)
+            setSwimlaneAnnouncement(swimlanes.labels.dropped(cardId))
+          },
+          onCancelGrab: () => {
+            setSwimlaneGrabbedCardId(null)
+            setSwimlaneAnnouncement('')
           },
         },
       }}

@@ -561,6 +561,76 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-kanban-2')
+    return {
+      revision: 2,
+      lumenEntries: [
+        'kanban.tsx',
+        'kanban.css',
+        'kanban-swimlanes-reference.css',
+        'kanban/SwimlanesReference.tsx',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:click',
+          change: 'Collapse all hides cards in the three lanes',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Independent lane disclosure preserves other lanes',
+        },
+        { viewport: 'desktop', theme: 'dark', suffix: '2:click', change: 'Card click tests its source no-op outcome' },
+        {
+          viewport: 'mobile',
+          theme: 'light',
+          suffix: '2:press-space',
+          change: 'Keyboard grab announces the active card',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: 'swimlane-all-collapsed:0:click',
+          change: 'Expand all restores three lane contents',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'swimlane-grabbed:move-stage',
+          change: 'ArrowRight immediately moves the grabbed card into the next stage',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'swimlane-stage-moved:move-lane',
+          change: 'ArrowDown moves the grabbed card into the next lane in the same stage',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: 'swimlane-lane-moved:drop',
+          change: 'Space ends the keyboard move and announces the drop',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated cards and lanes',
+          basis:
+            'Three lanes use the same disclosure and card controls; collapse, expand, no-op click and keyboard cross-stage/cross-lane/drop samples cover distinct mechanisms without clicking every cell at each width.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Pointer drag and repeated viewport permutations',
+          basis:
+            'The same Host move contract handles both pointer and keyboard drop targets; representative keyboard transitions are replayed and responsive scroll ownership is checked locally.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-kanban-1')
     return {
       revision: 3,

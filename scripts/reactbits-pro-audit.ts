@@ -310,6 +310,10 @@ export type InteractionCase = Readonly<{
     | 'kanban-composer-ready'
     | 'kanban-grabbed'
     | 'kanban-grabbed-target'
+    | 'swimlane-all-collapsed'
+    | 'swimlane-grabbed'
+    | 'swimlane-stage-moved'
+    | 'swimlane-lane-moved'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1811,6 +1815,29 @@ async function prepareKanbanBoardScenario(root: Locator, scenario: (typeof kanba
   await root.getByRole('button', { name: 'Add a card to Backlog' }).click()
   if (scenario === 'kanban-composer-ready')
     await root.getByRole('textbox', { name: 'New card in Backlog' }).fill('Audit sample card')
+}
+const kanbanSwimlaneScenarios = [
+  'swimlane-all-collapsed',
+  'swimlane-grabbed',
+  'swimlane-stage-moved',
+  'swimlane-lane-moved',
+] as const
+async function prepareKanbanSwimlaneScenario(
+  root: Locator,
+  scenario: (typeof kanbanSwimlaneScenarios)[number],
+): Promise<void> {
+  if (scenario === 'swimlane-all-collapsed') {
+    await root.getByRole('button', { name: 'Collapse all' }).click()
+    await root.page().waitForTimeout(400)
+    return
+  }
+  const card = root.getByRole('button', { name: /^HAL-231:/ })
+  await card.focus()
+  await card.press('Space')
+  if (scenario === 'swimlane-grabbed') return
+  await card.press('ArrowRight')
+  if (scenario === 'swimlane-stage-moved') return
+  await card.press('ArrowDown')
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3440,6 +3467,8 @@ async function replayInteraction(
     await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
   if (spec.id === 'hbar-app-ui-kanban-1' && kanbanBoardScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
+  if (spec.id === 'hbar-app-ui-kanban-2' && kanbanSwimlaneScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanSwimlaneScenario(root, interaction.scenario as (typeof kanbanSwimlaneScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3589,6 +3618,8 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-kanban-2' && interaction.action === 'click' && interaction.control.index <= 1)
+    await page.waitForTimeout(400)
   if (spec.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
     await page.waitForTimeout(450)
   if (spec.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
@@ -3751,6 +3782,11 @@ async function replayReferenceInteraction(
     await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
   if (reference.id === 'hbar-app-ui-kanban-1' && kanbanBoardScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
+  if (
+    reference.id === 'hbar-app-ui-kanban-2' &&
+    kanbanSwimlaneScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareKanbanSwimlaneScenario(root, interaction.scenario as (typeof kanbanSwimlaneScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -3851,6 +3887,8 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
+  if (reference.id === 'hbar-app-ui-kanban-2' && interaction.action === 'click' && interaction.control.index <= 1)
+    await page.waitForTimeout(400)
   if (reference.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
     await page.waitForTimeout(450)
   if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
@@ -4435,6 +4473,42 @@ async function runInteractionsParallel(
                   const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('HAL-241:'))
                   if (!card) throw new Error('Grabbed HAL-241 card missing from reference board')
                   discovered.push({ id: `${spec.id}:${scenario}:${card.index}:press-arrowright`, action: 'press', key: 'ArrowRight', control: card, scenario, focusBefore: true })
+                }
+              }
+            }
+            if (spec.id === 'hbar-app-ui-kanban-2') {
+              for (const scenario of kanbanSwimlaneScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareKanbanSwimlaneScenario(sourceRoot, scenario)
+                const scenarioSnapshot = await snapshotRoot(frame, sourceSelector)
+                discovered.push(...interactionCases(scenarioSnapshot, spec.id, scenario))
+                const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('HAL-231:'))
+                if (
+                  scenario === 'swimlane-grabbed' ||
+                  scenario === 'swimlane-stage-moved' ||
+                  scenario === 'swimlane-lane-moved'
+                ) {
+                  if (!card) throw new Error('Grabbed HAL-231 card missing from reference swimlane')
+                  const key =
+                    scenario === 'swimlane-grabbed'
+                      ? 'ArrowRight'
+                      : scenario === 'swimlane-stage-moved'
+                        ? 'ArrowDown'
+                        : 'Space'
+                  const action =
+                    scenario === 'swimlane-grabbed'
+                      ? 'move-stage'
+                      : scenario === 'swimlane-stage-moved'
+                        ? 'move-lane'
+                        : 'drop'
+                  discovered.push({
+                    id: `${spec.id}:${scenario}:${action}`,
+                    action: 'press',
+                    key,
+                    control: card,
+                    scenario,
+                    focusBefore: true,
+                  })
                 }
               }
             }
