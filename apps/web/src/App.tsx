@@ -409,6 +409,81 @@ function WorkspaceBodyContent({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const extensionCommandTrigger = useRef<HTMLButtonElement>(null)
+  const commandReturn = useRef<{
+    readonly opener: HTMLButtonElement
+    readonly settingsInstanceId: string
+    opened: boolean
+  } | null>(null)
+  const commandReturnFrame = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (commandReturnFrame.current !== null) cancelAnimationFrame(commandReturnFrame.current)
+      commandReturnFrame.current = null
+      commandReturn.current = null
+    },
+    [runtime],
+  )
+  useLayoutEffect(() => {
+    const lease = commandReturn.current
+    if (!lease) return
+    if (presentation.page.kind !== 'settings' || presentation.page.instanceId !== lease.settingsInstanceId) {
+      commandReturn.current = null
+      return
+    }
+    if (presentation.modalInstanceId === 'commands') {
+      lease.opened = true
+      return
+    }
+    if (presentation.modalInstanceId !== null) {
+      commandReturn.current = null
+      return
+    }
+    if (!lease.opened) return
+    commandReturn.current = null
+    // Native dialog teardown may reset focus after layout effects. The Settings
+    // group can remount on Host updates, so the ref tracks its semantic replacement.
+    commandReturnFrame.current = requestAnimationFrame(() => {
+      commandReturnFrame.current = null
+      const current = runtime.state.presentation.getSnapshot()
+      if (
+        current.page.kind !== 'settings' ||
+        current.page.instanceId !== lease.settingsInstanceId ||
+        current.modalInstanceId !== null ||
+        document.querySelector('dialog:modal')
+      )
+        return
+      const active = document.activeElement
+      if (
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active.isConnected &&
+        active.getClientRects().length
+      )
+        return
+      if (lease.opener.disabled) return
+      const opener = lease.opener.isConnected ? lease.opener : extensionCommandTrigger.current
+      if (
+        opener?.isConnected &&
+        !opener.disabled &&
+        opener.getClientRects().length &&
+        getComputedStyle(opener).visibility !== 'hidden' &&
+        !opener.closest('[hidden], [inert], [aria-hidden="true"]')
+      )
+        opener.focus({ preventScroll: true })
+    })
+  }, [presentation.modalInstanceId, presentation.page, runtime])
+  const captureCommandReturn = (opener: HTMLButtonElement) => {
+    const current = runtime.state.presentation.getSnapshot()
+    if (current.page.kind !== 'settings' || current.modalInstanceId !== null) return () => {}
+    if (commandReturnFrame.current !== null) cancelAnimationFrame(commandReturnFrame.current)
+    commandReturnFrame.current = null
+    const lease = { opener, settingsInstanceId: current.page.instanceId, opened: false }
+    commandReturn.current = lease
+    return () => {
+      if (commandReturn.current === lease) commandReturn.current = null
+    }
+  }
   const [workbenchError, setWorkbenchError] = useState<string | null>(null)
   const [agentReturn, setAgentReturn] = useState<{ busy: boolean; error: string | null }>({
     busy: false,
@@ -467,6 +542,8 @@ function WorkspaceBodyContent({
                 labels={copy.extensions}
                 connected={connected}
                 instanceId={presentation.page.instanceId}
+                onCommandPaletteOpen={captureCommandReturn}
+                commandPaletteTriggerRef={extensionCommandTrigger}
               />
             )
           if (groupId === 'usage' && presentation.page.kind === 'settings')

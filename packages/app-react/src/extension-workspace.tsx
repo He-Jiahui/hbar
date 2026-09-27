@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, type MouseEvent, type RefObject } from 'react'
 import { ChevronRight, Puzzle, RefreshCw } from 'lucide-react'
 import {
   LumenButton,
@@ -74,11 +74,15 @@ export function HbarExtensionWorkspace({
   connected,
   instanceId,
   collection,
+  onCommandPaletteOpen,
+  commandPaletteTriggerRef,
 }: {
   readonly labels: HbarExtensionWorkspaceLabels
   readonly connected: boolean
   readonly instanceId: string
   readonly collection?: 'plugins' | 'skills'
+  readonly onCommandPaletteOpen?: (opener: HTMLButtonElement) => () => void
+  readonly commandPaletteTriggerRef?: RefObject<HTMLButtonElement | null>
 }) {
   const runtime = useHbarRuntime()
   const extensions = useHbarRuntimeState(runtime.state.extensions)
@@ -130,11 +134,39 @@ export function HbarExtensionWorkspace({
       .execute('extensionWorkspace.refresh', { instanceId, ...(collection ? { collection } : {}) })
       .then(() => undefined)
       .catch(() => {})
-  const openCommands = () =>
+  const openCommands = (event: MouseEvent<HTMLButtonElement>) => {
+    const presentation = runtime.state.presentation.getSnapshot()
+    if (
+      presentation.page.kind !== 'settings' ||
+      presentation.page.instanceId !== instanceId ||
+      presentation.modalInstanceId !== null
+    )
+      return
+    const releaseReturnFocus = onCommandPaletteOpen?.(event.currentTarget)
     void runtime.commands
       .execute('app.openPanel', { panelId: 'commands' })
-      .then(() => runtime.commands.execute('commandPalette.setQuery', { query: 'system.' }))
-      .catch(() => {})
+      .then((opened) => {
+        if (opened.instanceId !== 'commands') return
+        const openedPanel = runtime.state.surfaces.getSnapshot().panels[opened.instanceId]
+        // The palette clears its search on mount. Apply the contextual query
+        // after that passive initialization, while this panel incarnation is open.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const current = runtime.state.presentation.getSnapshot()
+            if (
+              current.page.kind === 'settings' &&
+              current.page.instanceId === instanceId &&
+              current.modalInstanceId === opened.instanceId &&
+              runtime.state.surfaces.getSnapshot().panels[opened.instanceId] === openedPanel
+            )
+              void runtime.commands.execute('commandPalette.setQuery', { query: 'system.' }).catch(() => {})
+          })
+        })
+      })
+      .catch(() => {
+        releaseReturnFocus?.()
+      })
+  }
 
   return (
     <LumenFrame
@@ -183,7 +215,7 @@ export function HbarExtensionWorkspace({
               {labels.refresh}
             </LumenButton>
             {collection !== 'skills' && (
-              <LumenButton variant="text" onClick={openCommands}>
+              <LumenButton ref={commandPaletteTriggerRef} variant="text" onClick={openCommands}>
                 {labels.openSystemCommands}
               </LumenButton>
             )}
