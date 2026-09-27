@@ -31,11 +31,12 @@ const metadata = (id: string) => ({
   maxConcurrent: 8,
 })
 const sessionInput = z.strictObject({ sessionId: idSchema })
+const refreshInput = sessionInput.extend({ retainReady: z.boolean().optional() })
 const output = z.strictObject({ sessionId: idSchema })
 
 /** Local ViewModel actions; the Host wire contract remains modelCommands. */
 export const composerModelCommands = {
-  'composerModel.refresh': defineCommand(metadata('composerModel.refresh'), sessionInput, output),
+  'composerModel.refresh': defineCommand(metadata('composerModel.refresh'), refreshInput, output),
   'composerModel.selectModel': defineCommand(
     metadata('composerModel.selectModel'),
     sessionInput.extend({ modelId: idSchema }),
@@ -130,7 +131,7 @@ export function createComposerModel(
       throw new CommandError('SUBMISSION_PENDING', 'Reconcile the pending model change before starting another')
   }
 
-  const refresh = (sessionId: string, signal: AbortSignal, automatic = false): Promise<void> => {
+  const refresh = (sessionId: string, signal: AbortSignal, automatic = false, retainReady = false): Promise<void> => {
     if (automatic) assertSelected(sessionId)
     else requireIdle(sessionId)
     if (!connected) throw new CommandError('DISCONNECTED', 'Model commands need a connection')
@@ -146,7 +147,10 @@ export function createComposerModel(
     signal.addEventListener('abort', abort, { once: true })
     if (signal.aborted) abort()
     const initialAction = state.reader.getSnapshot().action
-    state.replace({ ...state.reader.getSnapshot(), status: 'loading', error: null })
+    // A previously confirmed catalog stays selectable during picker revalidation.
+    // The Host still validates the model and settings revision on every write.
+    const status = retainReady && state.reader.getSnapshot().status === 'ready' ? 'ready' : 'loading'
+    state.replace({ ...state.reader.getSnapshot(), status, error: null })
     const promise = Promise.resolve().then(async () => {
       try {
         const executor = port()
@@ -354,8 +358,8 @@ export function createComposerModel(
     }
   }
 
-  local.register(composerModelCommands['composerModel.refresh'], async ({ sessionId }, context) => {
-    await refresh(sessionId, context.signal)
+  local.register(composerModelCommands['composerModel.refresh'], async ({ sessionId, retainReady }, context) => {
+    await refresh(sessionId, context.signal, false, retainReady)
     return { sessionId }
   })
   local.register(composerModelCommands['composerModel.selectModel'], async ({ sessionId, modelId }, context) => {

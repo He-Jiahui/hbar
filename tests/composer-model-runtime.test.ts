@@ -234,6 +234,71 @@ test('composer catalog refresh coalesces repeated clicks and accepts an unset co
   }
 })
 
+test('picker revalidation retains confirmed candidates without blocking a concurrent model choice', async () => {
+  const app = fixture()
+  let release: (() => void) | undefined
+  try {
+    await app.select()
+    await app.commands.execute('composerModel.refresh', { sessionId: 'one' })
+    const listed = app.calls.filter((call) => call.name === 'model.list').length
+    release = app.delayList()
+    const refresh = app.commands.execute('composerModel.refresh', { sessionId: 'one', retainReady: true })
+    await waitFor(() => app.calls.filter((call) => call.name === 'model.list').length === listed + 1)
+    expect(app.snapshot()).toMatchObject({ status: 'ready', models })
+    await app.commands.execute('composerModel.selectModel', { sessionId: 'one', modelId: 'provider/deep' })
+    expect(app.model()?.modelId).toBe('provider/deep')
+    release()
+    release = undefined
+    await refresh
+    expect(app.snapshot()).toMatchObject({ status: 'ready', action: { status: 'idle' } })
+    expect(app.model()?.modelId).toBe('provider/deep')
+  } finally {
+    release?.()
+    app.runtime.dispose()
+  }
+})
+
+test('retainReady never invents a confirmed catalog before the first model read', async () => {
+  const app = fixture()
+  let release: (() => void) | undefined
+  try {
+    await app.select()
+    release = app.delayList()
+    const refresh = app.commands.execute('composerModel.refresh', { sessionId: 'one', retainReady: true })
+    await waitFor(() => app.snapshot().status === 'loading')
+    expect(app.snapshot().models).toEqual([])
+    release()
+    release = undefined
+    await refresh
+    expect(app.snapshot().status).toBe('ready')
+  } finally {
+    release?.()
+    app.runtime.dispose()
+  }
+})
+
+test('a failed picker revalidation stops stale catalog choices until a successful retry', async () => {
+  const app = fixture()
+  try {
+    await app.select()
+    await app.commands.execute('composerModel.refresh', { sessionId: 'one' })
+    app.catalog([models[0], models[0]])
+    await expect(
+      app.commands.execute('composerModel.refresh', { sessionId: 'one', retainReady: true }),
+    ).rejects.toMatchObject({ code: 'INVALID_OUTPUT' })
+    expect(app.snapshot()).toMatchObject({ status: 'error', error: 'INVALID_OUTPUT' })
+    await expect(
+      app.commands.execute('composerModel.selectModel', { sessionId: 'one', modelId: 'provider/deep' }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_READY' })
+    expect(app.calls.filter((call) => call.key)).toHaveLength(0)
+    app.catalog(models)
+    await app.commands.execute('composerModel.refresh', { sessionId: 'one' })
+    expect(app.snapshot().status).toBe('ready')
+  } finally {
+    app.runtime.dispose()
+  }
+})
+
 test('model and thinking selections confirm in place with current CAS baselines and no usage reload', async () => {
   const app = fixture()
   try {

@@ -388,7 +388,7 @@ export function HbarComposerModelPicker({
     }
     setLocalError(null)
     void runtime.commands
-      .execute('composerModel.refresh', { sessionId })
+      .execute('composerModel.refresh', { sessionId, retainReady: configureAfterRead && presentation.catalogReady })
       .then(() => {
         if (
           !configureAfterRead ||
