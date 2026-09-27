@@ -281,6 +281,12 @@ function isOverlaySelector(path, selector) {
     selector.trim() === '.hbar-composer-mention-menu'
   )
     return true
+  // cc-haha ChatInput plus menu: only the two-choice panel overlays its composer trigger.
+  if (
+    /packages\/app-react\/src\/composer-add-menu\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-composer-add-popover'
+  )
+    return true
   // cc-haha TabBar context menu: only the observed trigger-anchored top-layer container.
   if (
     /packages\/app-react\/src\/workspace-tabs\.css$/.test(path.replaceAll('\\', '/')) &&

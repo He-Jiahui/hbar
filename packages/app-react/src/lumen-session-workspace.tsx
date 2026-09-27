@@ -46,6 +46,7 @@ import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from 
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
+import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 import {
   HbarSessionProjectContext,
   useHbarSessionProjectContext,
@@ -102,6 +103,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly attachments: HbarComposerAttachmentLabels
   readonly mentions: HbarComposerMentionLabels
   readonly slash: HbarComposerSlashLabels
+  readonly addMenu: HbarComposerAddMenuLabels
   readonly modelPicker: HbarComposerModelLabels
   readonly intent: HbarComposerIntentLabels
   readonly permissionPicker: HbarComposerPermissionLabels
@@ -309,6 +311,7 @@ function SessionWorkspaceContent({
   const localSlashInFlight = useRef(false)
   const pendingModelSlash = useRef<{ sessionId: string; workspaceId: string; revision: number } | null>(null)
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
+  const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string } | null>(null)
   const slashIds = labels.slash.commands.map((item) => item.id)
   useEffect(() => {
@@ -485,6 +488,17 @@ function SessionWorkspaceContent({
     draft?.status !== 'unknown' &&
     !intentPending &&
     !attachmentTransfers.some((item) => item.status === 'unknown' || item.status === 'reconciling')
+  const canAddAttachments = attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
+  const canOpenSlash =
+    Boolean(files && sessionId && navigation.workspaceId && connected) &&
+    timeline.status !== 'loading' &&
+    timeline.status !== 'error' &&
+    draft?.status !== 'submitting' &&
+    draft?.status !== 'unknown' &&
+    !draft?.text.trim() &&
+    !draft?.mentions.length &&
+    !draft?.attachments.length &&
+    !attachmentTransfers.length
   const addAttachments = (files: readonly File[]) => {
     if (!sessionId || !prepareAttachment || !attachmentIntakeEnabled) return
     void addComposerAttachments(runtime, { sessionId, revision: draft?.revision ?? 0 }, files, prepareAttachment).catch(
@@ -1042,6 +1056,7 @@ function SessionWorkspaceContent({
                     placeholder={placeholder}
                     labels={labels.mentions}
                     slashLabels={labels.slash}
+                    slashOpenRequest={slashOpenRequest}
                     sendBehavior={sendBehavior}
                     files={files}
                     onContent={(text, mentions, expectedRevision) =>
@@ -1092,9 +1107,7 @@ function SessionWorkspaceContent({
           disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
           submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
           uploading={(draft?.uploading ?? 0) > 0}
-          canAddAttachments={
-            attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
-          }
+          canAddAttachments={canAddAttachments}
           canSubmit={
             (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
             (localSlashCommand(draft?.text ?? '', slashIds)
@@ -1135,6 +1148,14 @@ function SessionWorkspaceContent({
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">
+              <HbarComposerAddMenu
+                key={`add:${sessionId}`}
+                labels={labels.addMenu}
+                canAddFiles={canAddAttachments}
+                canOpenSlash={canOpenSlash}
+                onFiles={prepareAttachment ? addAttachments : undefined}
+                onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
+              />
               {(composerPermission.available || composerPlanMode.available) && (
                 <HbarComposerPermissionPicker
                   key={`permission:${sessionId}`}
@@ -1277,7 +1298,7 @@ function SessionWorkspaceContent({
             setSlashFailure(null)
             invoke('draft.setText', { sessionId, text })
           }}
-          onAddAttachments={prepareAttachment ? addAttachments : undefined}
+          onAddAttachments={undefined}
           onRemoveAttachment={(id, kind) =>
             invoke('draft.removeAttachment', {
               sessionId,

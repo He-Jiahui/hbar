@@ -1315,6 +1315,17 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ),
       error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
     },
+    addMenu: {
+      open: choose('添加内容', 'Add content'),
+      menu: choose('添加到消息', 'Add to message'),
+      files: choose('添加文件或照片', 'Add files or photos'),
+      filesUnavailable: choose('当前无法添加附件。', 'Attachments are unavailable right now.'),
+      slash: choose('斜杠命令', 'Slash commands'),
+      slashUnavailable: choose(
+        '请在空白且可编辑的草稿中使用本地命令。',
+        'Local commands require an empty, editable draft.',
+      ),
+    },
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),
       choose: choose('选择模型', 'Choose a model'),

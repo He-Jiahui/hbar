@@ -63,6 +63,8 @@ export interface HbarComposerMentionEditorProps {
   readonly files: { execute(name: string, input: unknown): Promise<unknown> }
   readonly onContent: (text: string, mentions: readonly PromptMention[], revision: number) => Promise<unknown>
   readonly onSubmit: () => void
+  /** Monotonic request from the composer plus menu; only a standalone local command is inserted. */
+  readonly slashOpenRequest?: number | undefined
   /** Null keeps editing available while the Host-owned shortcut is unresolved, but never submits from a key. */
   readonly sendBehavior?: 'enter' | 'modifierEnter' | null | undefined
 }
@@ -146,6 +148,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   const placeholderSlot = useRef(new Compartment())
   const propsRef = useRef(props)
   propsRef.current = props
+  const consumedSlashOpenRequest = useRef(props.slashOpenRequest ?? 0)
   const [trigger, setTrigger] = useState<Trigger | null>(null)
   const [slashTrigger, setSlashTrigger] = useState<Trigger | null>(null)
   const [slashSelected, setSlashSelected] = useState(0)
@@ -520,6 +523,18 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
     view.contentDOM.setAttribute('aria-placeholder', props.placeholder)
     view.contentDOM.setAttribute('placeholder', props.placeholder)
   }, [props.revision, props.text, props.mentions, props.disabled, props.inputLabel, props.placeholder])
+
+  useEffect(() => {
+    const request = props.slashOpenRequest ?? 0
+    if (request <= consumedSlashOpenRequest.current) return
+    consumedSlashOpenRequest.current = request
+    const view = viewRef.current
+    if (!view || props.disabled || !props.connected || view.state.doc.toString().trim()) return
+    const end = view.state.doc.length
+    slashDismissedRef.current = null
+    view.dispatch({ changes: { from: end, insert: '/' }, selection: { anchor: end + 1 } })
+    view.focus()
+  }, [props.slashOpenRequest, props.disabled, props.connected])
 
   useEffect(() => {
     const editor = viewRef.current?.contentDOM

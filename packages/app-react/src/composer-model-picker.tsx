@@ -642,8 +642,9 @@ export function HbarComposerModelPicker({
         popupRef={modelRef}
         onOpen={() => {
           setOpen('model')
-          if (document.activeElement === modelTriggerRef.current || document.activeElement === document.body)
-            searchRef.current?.focus()
+          // The same popup can be opened from the model trigger or a local /model
+          // command while the editor still owns focus. Its search is the first task.
+          searchRef.current?.focus()
           modelListRef.current?.scrollTo({ top: 0 })
           if (!unresolved && !busy) refresh(true)
           onOpened?.()
