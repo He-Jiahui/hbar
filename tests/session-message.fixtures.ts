@@ -3,6 +3,7 @@ import type {
   HbarMessageBlocksLabels,
   HbarMessageToolPresentation,
 } from '../packages/app-react/src/session-message'
+import { codeBlockCopyLabels } from '../apps/web/src/code-block-copy-labels'
 import type {
   SessionMessage,
   SessionMessageBlock,
@@ -16,6 +17,7 @@ export function messageLabels(locale: 'zh-CN' | 'en-US'): {
   const zh = locale === 'zh-CN'
   return {
     blocks: {
+      codeBlock: codeBlockCopyLabels(locale),
       thinking: zh ? '正在思考' : 'Thinking',
       thought: zh ? '已思考' : 'Thought',
       activity: ({ thinkingCount, toolCounts, failedCount }) => {

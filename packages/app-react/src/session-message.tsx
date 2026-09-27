@@ -14,12 +14,9 @@ import {
   Wrench,
 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
-import ReactMarkdown from 'react-markdown'
-import {
-  sessionMarkdownRemarkPlugins,
-  sessionMarkdownRehypePlugins,
-  sessionMarkdownRehypeOptions,
-} from './session-find-text'
+import { MessageMarkdown } from './message-markdown'
+import type { HbarCodeBlockLabels } from './code-block-copy-action'
+export { MessageMarkdown } from './message-markdown'
 import {
   copyMessageText,
   messageCopyText,
@@ -62,6 +59,7 @@ export interface HbarMessageBlocksLabels {
   readonly input: string
   readonly output: string
   readonly toolResultCopy: HbarToolResultCopyLabels
+  readonly codeBlock: HbarCodeBlockLabels
   readonly emptyOutput: string
   readonly unavailableInput: string
   readonly showFullContent: string
@@ -84,6 +82,8 @@ export interface HbarMessageBlocksProps {
   readonly labels: HbarMessageBlocksLabels
   /** Local read-only output actions remain available in archived history. */
   readonly clipboard?: MessageClipboardPort | null | undefined
+  /** Invalidate local copy receipts when the owning runtime/Host is replaced. */
+  readonly copyOwner?: object | undefined
   /** Domain-owned display metadata, not a hard-coded plugin/tool catalog in the view. */
   readonly describeTool?: (call: SessionToolCall) => HbarMessageToolPresentation
   /** Domain-owned text rendering, keyed to original block identity; non-text rows retain their order. */
@@ -138,19 +138,6 @@ export function invokeMessageForkAction(action: HbarMessageForkAction, target: H
     return true
   }
   return false
-}
-
-export function MessageMarkdown({ text, findSegmentId }: { readonly text: string; readonly findSegmentId?: string }) {
-  const content = (
-    <ReactMarkdown
-      remarkPlugins={sessionMarkdownRemarkPlugins}
-      rehypePlugins={sessionMarkdownRehypePlugins}
-      remarkRehypeOptions={sessionMarkdownRehypeOptions}
-    >
-      {text}
-    </ReactMarkdown>
-  )
-  return findSegmentId ? <LumenFrame data-session-find-segment={findSegmentId}>{content}</LumenFrame> : content
 }
 
 function Disclosure({
@@ -396,6 +383,7 @@ function MessageBlocksContent({
   sessionId,
   messageId,
   clipboard,
+  copyOwner,
   blocks,
   results,
   streaming = false,
@@ -479,7 +467,21 @@ function MessageBlocksContent({
             className="hbar-session-message-prose"
             data-session-find-segment={renderText ? undefined : group.id}
           >
-            {renderText ? renderText(group) : <MessageMarkdown text={group.text} />}
+            {renderText ? (
+              renderText(group)
+            ) : (
+              <MessageMarkdown
+                text={group.text}
+                code={{
+                  sessionId,
+                  messageId,
+                  segmentId: group.id,
+                  labels: labels.codeBlock,
+                  clipboard,
+                  owner: copyOwner,
+                }}
+              />
+            )}
           </LumenFrame>
         ) : (
           <LumenText as="span" key={group.id} className="hbar-session-message-attachment">

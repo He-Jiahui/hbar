@@ -24,6 +24,7 @@ export {
   type HbarMessageToolPresentation,
   type HbarMessageActivitySummary,
 } from './session-message'
+export type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
 export {
   HbarSessionDecision,

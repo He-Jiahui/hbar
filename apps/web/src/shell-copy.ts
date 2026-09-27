@@ -31,6 +31,7 @@ import { composerGoalRecoveryCopy } from './composer-goal-recovery-copy'
 import { composerExecutionCopy } from './composer-execution-copy'
 import { extensionCollectionCopy } from './extension-collection-copy'
 import { extensionNavigationCopy } from './extension-navigation-copy'
+import { codeBlockCopyLabels } from './code-block-copy-labels'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
@@ -953,6 +954,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       accessible: (title, status) => choose(`${title}，${status}`, `${title}, ${status}`),
     },
     messageBlocks: {
+      codeBlock: codeBlockCopyLabels(locale),
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),
       activity: ({ thinkingCount, toolCounts, failedCount }) =>
@@ -1110,6 +1112,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     decisions: {
       planExit: {
+        codeBlock: codeBlockCopyLabels(locale),
         title: choose('准备开始编码？', 'Ready to start coding?'),
         document: choose('计划文档', 'Plan document'),
         feedback: choose('计划反馈（可选）', 'Plan feedback (optional)'),

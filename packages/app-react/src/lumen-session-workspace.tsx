@@ -548,6 +548,7 @@ function SessionWorkspaceContent({
   )
   const renderDecision = (decision: SessionDecision) => (
     <HbarSessionDecision
+      copyOwner={runtime}
       key={`${decision.kind}:${decision.id}`}
       decision={decision}
       action={sessionDecisionAction(decision, interactions)}
@@ -621,6 +622,7 @@ function SessionWorkspaceContent({
       children:
         proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
           <HbarProposedPlanMessage
+            copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
             blocks={blocks}
@@ -651,6 +653,7 @@ function SessionWorkspaceContent({
           />
         ) : message.role === 'assistant' ? (
           <HbarHistoricalPlanMessage
+            copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
             blocks={blocks}
@@ -662,6 +665,7 @@ function SessionWorkspaceContent({
           />
         ) : (
           <HbarMessageBlocks
+            copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
             blocks={blocks}
@@ -702,6 +706,7 @@ function SessionWorkspaceContent({
       copyLabel: labels.copy,
       children: (
         <HbarMessageBlocks
+          copyOwner={runtime}
           sessionId={stream.sessionId}
           messageId={stream.id}
           blocks={[

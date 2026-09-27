@@ -1,12 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { FileText, PencilLine, Play, RefreshCw } from 'lucide-react'
 import { LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
-import ReactMarkdown from 'react-markdown'
-import {
-  sessionMarkdownRemarkPlugins,
-  sessionMarkdownRehypePlugins,
-  sessionMarkdownRehypeOptions,
-} from './session-find-text'
+import { MessageMarkdown, type MessageCodeContext } from './message-markdown'
 import './proposed-plan.css'
 
 export interface HbarProposedPlanTarget {
@@ -35,6 +30,7 @@ export interface HbarProposedPlanProps {
   readonly target: HbarProposedPlanTarget
   readonly markdown: string
   readonly findSegmentId?: string
+  readonly code?: MessageCodeContext | undefined
   readonly labels: HbarProposedPlanLabels
   readonly state: {
     readonly status: 'idle' | 'submitting' | 'unknown' | 'accepted' | 'failed'
@@ -52,6 +48,7 @@ function ProposedPlanContent({
   target,
   markdown,
   findSegmentId,
+  code,
   labels,
   state,
   onSubmit,
@@ -131,13 +128,7 @@ function ProposedPlanContent({
         tabIndex={0}
         data-session-find-segment={findSegmentId}
       >
-        <ReactMarkdown
-          remarkPlugins={sessionMarkdownRemarkPlugins}
-          rehypePlugins={sessionMarkdownRehypePlugins}
-          remarkRehypeOptions={sessionMarkdownRehypeOptions}
-        >
-          {markdown}
-        </ReactMarkdown>
+        <MessageMarkdown text={markdown} code={code} />
       </LumenFrame>
       {state.status !== 'accepted' && (
         <LumenText as="p" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">

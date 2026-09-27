@@ -2,10 +2,13 @@ import { useId, useState } from 'react'
 import { Check, FileText, PencilLine, RefreshCw } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
 import type { InteractionActionState, SessionDecision } from '@hbar/app-runtime'
-import { MessageMarkdown } from './session-message'
+import { MessageMarkdown } from './message-markdown'
+import type { HbarCodeBlockLabels } from './code-block-copy-action'
+import type { MessageClipboardPort } from './message-copy'
 import './plan-exit-decision.css'
 
 export interface HbarPlanExitDecisionLabels {
+  readonly codeBlock: HbarCodeBlockLabels
   readonly title: string
   readonly document: string
   readonly feedback: string
@@ -27,6 +30,8 @@ export interface HbarPlanExitTarget {
 }
 
 export function HbarPlanExitDecision({
+  copyOwner,
+  clipboard,
   decision,
   action,
   connected,
@@ -35,6 +40,8 @@ export function HbarPlanExitDecision({
   onDecision,
   onReconcile,
 }: {
+  readonly copyOwner?: object | undefined
+  readonly clipboard?: MessageClipboardPort | null | undefined
   readonly decision: Extract<SessionDecision, { kind: 'approval' }>
   readonly action?: InteractionActionState | undefined
   readonly connected: boolean
@@ -110,7 +117,17 @@ export function HbarPlanExitDecision({
           </LumenFrame>
           <LumenFrame className="hbar-plan-exit-markdown" role="region" aria-label={labels.document} tabIndex={0}>
             {plan ? (
-              <MessageMarkdown text={plan} />
+              <MessageMarkdown
+                text={plan}
+                code={{
+                  sessionId: decision.sessionId,
+                  messageId: decision.id,
+                  segmentId: 'plan-exit',
+                  labels: labels.codeBlock,
+                  owner: copyOwner,
+                  clipboard,
+                }}
+              />
             ) : (
               <LumenText as="p" role="alert">
                 {labels.invalidPlan}

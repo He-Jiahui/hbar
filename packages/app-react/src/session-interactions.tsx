@@ -15,6 +15,7 @@ import type { InteractionActionState, QuestionnaireDraftState, SessionDecision }
 import { toolInputText } from './session-message-model'
 import './session-interactions.css'
 import { HbarPlanExitDecision, type HbarPlanExitDecisionLabels, type HbarPlanExitTarget } from './plan-exit-decision'
+import type { MessageClipboardPort } from './message-copy'
 
 export interface HbarSessionDecisionLabels {
   readonly planExit: HbarPlanExitDecisionLabels
@@ -48,6 +49,8 @@ export interface HbarSessionDecisionLabels {
   readonly error: (code: string) => string
 }
 export interface HbarSessionDecisionProps {
+  readonly copyOwner?: object | undefined
+  readonly clipboard?: MessageClipboardPort | null | undefined
   readonly decision: SessionDecision
   readonly action?: InteractionActionState | undefined
   readonly answers?: QuestionnaireDraftState['answers'] | undefined
@@ -428,6 +431,8 @@ export function HbarSessionDecision(props: HbarSessionDecisionProps) {
   if (props.decision.kind === 'approval' && props.decision.tool === 'exit_plan_mode')
     return (
       <HbarPlanExitDecision
+        copyOwner={props.copyOwner}
+        clipboard={props.clipboard}
         key={JSON.stringify([props.decision.sessionId, props.decision.id])}
         decision={props.decision}
         action={props.action}

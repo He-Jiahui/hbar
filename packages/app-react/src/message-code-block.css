@@ -1,0 +1,70 @@
+.hbar-message-code {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  margin-block: 12px;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+.hbar-message-code-header,
+.hbar-message-code-metadata {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.hbar-message-code-header {
+  justify-content: space-between;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  padding: 6px 12px;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.hbar-message-code-metadata > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-message-code-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  margin-inline-start: auto;
+  gap: 4px;
+}
+.hbar-message-code-copy > button {
+  max-inline-size: 100%;
+  white-space: normal;
+  gap: 4px;
+}
+.hbar-message-code-copy > span {
+  overflow-wrap: anywhere;
+}
+.hbar-message-code .hbar-message-code-body {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  max-block-size: 25rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre;
+}
+.hbar-message-code [data-code-tail][hidden] {
+  display: none;
+}
+.hbar-message-code-footer {
+  display: flex;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-message-code-footer > button {
+  flex: 1;
+  min-inline-size: 0;
+  white-space: normal;
+}
