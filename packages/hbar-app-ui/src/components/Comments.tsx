@@ -24,6 +24,7 @@ export type {
   LumenCommentsComposerContent as HbarAppUiCommentsComposerContent,
   LumenCommentsContent as HbarAppUiCommentsContent,
   LumenCommentsDiscussionContent as HbarAppUiCommentsDiscussionContent,
+  LumenCommentsDiscussionReferenceContent as HbarAppUiCommentsDiscussionReferenceContent,
   LumenCommentsInboxContent as HbarAppUiCommentsInboxContent,
   LumenCommentsInboxItem as HbarAppUiCommentsInboxItem,
   LumenCommentsListStrategy as HbarAppUiCommentsListStrategy,

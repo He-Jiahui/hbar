@@ -259,6 +259,7 @@ export type {
   HbarAppUiCommentsComposerContent,
   HbarAppUiCommentsContent,
   HbarAppUiCommentsDiscussionContent,
+  HbarAppUiCommentsDiscussionReferenceContent,
   HbarAppUiCommentsInboxContent,
   HbarAppUiCommentsInboxItem,
   HbarAppUiCommentsListStrategy,

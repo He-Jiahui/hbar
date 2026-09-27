@@ -2,33 +2,47 @@ import type { HbarAppUiCommentsContent } from '../../packages/hbar-app-ui/src/in
 const grown = { kind: 'content-grown', expectedMaximum: 8 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
-  discussion: {
+  referenceDiscussion: {
     labels: {
-      title: 'Threaded discussion',
-      detail: 'Replies, reactions and resolve',
+      title: 'Migration plan feedback',
+      detail: '5 comments · 4 participants',
       sortLabel: 'Sort comments',
-      resolve: 'Resolve',
-      resolved: 'Resolved',
-      replyPlaceholder: 'Reply to this thread',
+      replyPlaceholder: 'Write a comment',
+      helper: 'Mention a teammate with @ to notify them.',
+      comment: 'Comment',
+      reply: 'Reply',
+      moreActions: (author) => `More actions on ${author}'s comment`,
     },
     sortOptions: [
-      { id: 'new', label: 'Newest' },
-      { id: 'old', label: 'Oldest' },
+      { id: 'new', label: 'Newest', direction: 'newest' },
+      { id: 'old', label: 'Oldest', direction: 'oldest' },
     ],
-    initialSortId: 'new',
-    initiallyResolved: false,
+    sortId: 'old',
+    draft: '',
     messages: [
       {
-        id: 'a',
-        initials: 'A',
-        author: 'Avery',
-        body: 'Can we keep this state local to the session?',
-        meta: '5m ago',
-        reaction: 'Like',
-        reactionCount: 2,
+        id: 'priya',
+        initials: 'PN',
+        author: 'Priya Nandakumar',
+        role: 'Platform',
+        body: 'The cutover window is tight. If we hold the read replica until the backfill drains we lose the rollback path, so I would rather split this into two deploys.',
+        meta: '2h ago',
+        reactionCount: 5,
+        reacted: true,
         replies: [
-          { id: 'm', initials: 'M', author: 'Mina', body: 'The feedback is beside the row now.', meta: '2m ago' },
+          { id: 'marcus', initials: 'MB', author: 'Marcus Bell', body: 'Agreed. Two deploys also means the schema change lands on a quiet day instead of during the migration itself.', meta: '1h ago' },
+          { id: 'sofia', initials: 'SA', author: 'Sofia Alvarez', body: 'I can prepare the second deploy behind a flag so we can flip it without another release.', meta: '48m ago' },
         ],
+      },
+      {
+        id: 'wei', initials: 'WC', author: 'Wei Chen', role: 'Data', meta: '36m ago',
+        body: 'One caveat: the backfill job reads from the same connection pool as the API. We should cap it at eight workers or the request latency will spike during business hours.',
+        reactionCount: 2,
+      },
+      {
+        id: 'tomas', initials: 'TG', author: 'Tomás Guerrero', role: 'Reliability', meta: '12m ago',
+        body: 'Added a dashboard for pool saturation so we can watch it live. Alert fires at 80 percent for five minutes.',
+        reactionCount: 1,
       },
     ],
     listStrategy: scroll,
@@ -84,9 +98,13 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
       title: 'Comment composer',
       detail: 'Mentions, attachments and formatting',
       bold: 'Bold',
+      boldMark: 'B',
       italic: 'Italic',
+      italicMark: 'I',
       mention: 'Mention',
+      mentionMark: '@',
       attach: 'Attach',
+      attachMark: '+',
       placeholder: 'Write a comment…',
       markdown: 'Markdown supported',
       comment: 'Comment',
@@ -153,17 +171,34 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
 export function createHbarAppUiCommentsLocalizedFixtures(): HbarAppUiCommentsContent {
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
-    discussion: {
-      ...HBAR_APP_UI_COMMENTS_FIXTURES.discussion!,
+    referenceDiscussion: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!,
       labels: {
-        ...HBAR_APP_UI_COMMENTS_FIXTURES.discussion!.labels,
+        ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!.labels,
         title: '讨论线程',
         detail: '回复、回应与解决',
         sortLabel: '评论排序',
-        resolve: '解决',
-        resolved: '已解决',
         replyPlaceholder: '回复此线程',
+        helper: '使用 @ 提及队友并通知他们。',
+        comment: '评论',
+        reply: '回复',
+        moreActions: (author) => `对${author}的评论执行更多操作`,
       },
+    },
+  }
+}
+export function createHbarAppUiCommentsOverflowFixtures(): HbarAppUiCommentsContent {
+  const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
+  return {
+    ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceDiscussion: {
+      ...discussion,
+      messages: Array.from({length: 45}, (_, index) => ({
+        id: `extended-${index}`, initials: `${index + 1}`, author: `Additional participant ${index + 1}`,
+        role: 'Regional migration and reliability team', meta: 'just now',
+        body: `Long migration review ${index + 1}: ${'Keep the rollback path and verify the service capacity. '.repeat(4)}`,
+        reactionCount: 0,
+      })),
     },
   }
 }

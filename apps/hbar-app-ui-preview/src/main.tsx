@@ -33,7 +33,6 @@ import {
   HbarAppUiFeedbackProvider,
   HbarAppUiBillingProvider,
   HbarAppUiIntegrationProvider,
-  HbarAppUiCommentsProvider,
   HbarAppUiSchedulingProvider,
   HbarAppUiChatProvider,
   HbarAppUiPromptInputProvider,
@@ -66,6 +65,8 @@ import type {
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import './wizard-preview.css'
+import './comments-preview.css'
+import { CommentsPreviewHost } from './CommentsPreviewHost'
 import { VariantHarness } from './VariantHarness'
 import { ShellPreviewHost } from './ShellPreviewHost'
 import { ConversationPreviewHost } from './ConversationPreviewHost'
@@ -135,7 +136,7 @@ import {
   createHbarAppUiIntegrationsOverflowFixtures,
   HBAR_APP_UI_INTEGRATIONS_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-integrations-fixtures'
-import { HBAR_APP_UI_COMMENTS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
+import { HBAR_APP_UI_COMMENTS_FIXTURES, createHbarAppUiCommentsLocalizedFixtures, createHbarAppUiCommentsOverflowFixtures } from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
 import { HBAR_APP_UI_SCHEDULING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
 import { HBAR_APP_UI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-chat-fixtures'
 import {
@@ -349,7 +350,11 @@ function PreviewApp() {
         return HBAR_APP_UI_INTEGRATIONS_FIXTURES
     }
   }, [])
-  const commentsContent = useMemo(() => HBAR_APP_UI_COMMENTS_FIXTURES, [])
+  const commentsContent = useMemo(() => {
+    const fixture = new URLSearchParams(window.location.search).get('commentsFixture')
+    return fixture === 'localized' ? createHbarAppUiCommentsLocalizedFixtures()
+      : fixture === 'overflow' ? createHbarAppUiCommentsOverflowFixtures() : HBAR_APP_UI_COMMENTS_FIXTURES
+  }, [])
   const schedulingContent = useMemo(() => HBAR_APP_UI_SCHEDULING_FIXTURES, [])
   const chatContent = useMemo(() => HBAR_APP_UI_CHAT_FIXTURES, [])
   const promptInputContent = useMemo(
@@ -521,7 +526,7 @@ function PreviewApp() {
                         >
                           <HbarAppUiBillingProvider content={billingContent}>
                             <HbarAppUiIntegrationProvider content={integrationsContent}>
-                              <HbarAppUiCommentsProvider content={commentsContent}>
+                              <CommentsPreviewHost content={commentsContent}>
                                 <HbarAppUiSchedulingProvider content={schedulingContent}>
                                   <HbarAppUiChatProvider content={chatContent}>
                                     <HbarAppUiPromptInputProvider content={promptInputContent}>
@@ -606,7 +611,7 @@ function PreviewApp() {
                                     </HbarAppUiPromptInputProvider>
                                   </HbarAppUiChatProvider>
                                 </HbarAppUiSchedulingProvider>
-                              </HbarAppUiCommentsProvider>
+                              </CommentsPreviewHost>
                             </HbarAppUiIntegrationProvider>
                           </HbarAppUiBillingProvider>
                         </AuthenticationPreviewHost>
@@ -761,7 +766,7 @@ function PreviewApp() {
                                   >
                                     <HbarAppUiBillingProvider content={billingContent}>
                                       <HbarAppUiIntegrationProvider content={integrationsContent}>
-                                        <HbarAppUiCommentsProvider content={commentsContent}>
+                                        <CommentsPreviewHost content={commentsContent}>
                                           <HbarAppUiSchedulingProvider content={schedulingContent}>
                                             <HbarAppUiChatProvider content={chatContent}>
                                               <HbarAppUiPromptInputProvider content={promptInputContent}>
@@ -860,7 +865,7 @@ function PreviewApp() {
                                               </HbarAppUiPromptInputProvider>
                                             </HbarAppUiChatProvider>
                                           </HbarAppUiSchedulingProvider>
-                                        </HbarAppUiCommentsProvider>
+                                        </CommentsPreviewHost>
                                       </HbarAppUiIntegrationProvider>
                                     </HbarAppUiBillingProvider>
                                   </AuthenticationPreviewHost>

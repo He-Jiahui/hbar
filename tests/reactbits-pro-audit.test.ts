@@ -4,6 +4,15 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('discussion sampling covers reorder, reaction, source no-ops, draft and narrow focus without a Cartesian matrix', () => {
+  const id = 'hbar-app-ui-comments-1'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(8)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toContain(`${id}:comments-discussion-filled:12:click`)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:11:focus`])
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('notification center samples distinct feedback and labels repeated rows as inference', () => {
   const id = 'hbar-app-ui-notifications-1'
   const plan = auditSamplingPlan(id)!

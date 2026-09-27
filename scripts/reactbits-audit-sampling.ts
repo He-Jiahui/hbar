@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-comments-1')
+    return {
+      revision: 1,
+      lumenEntries: ['comments.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'Newest reverses top-level threads without reversing nested replies'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'A selected reaction decrements count and clears pressed state'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'More actions is a source preview no-op'},
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Reply is a source preview no-op, not a fabricated composer workflow'},
+        {viewport: 'desktop', theme: 'light', suffix: '11:fill', change: 'Draft enables Comment without adding a thread'},
+        {viewport: 'desktop', theme: 'light', suffix: 'comments-discussion-filled:12:click', change: 'Enabled Comment preserves the source draft and thread'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:hover', change: 'Reaction control pointer feedback'},
+        {viewport: 'stress', theme: 'light', suffix: '11:focus', change: 'Narrow composer focus and native editable surface'},
+      ],
+      inferences: [
+        {scope: 'Repeated message reactions, reply and more controls', basis: 'Three parent messages share one stable-ID reaction mechanism and two no-op callback mechanisms. Each mechanism is sampled once; local tests cover reversal, stable targets and repeated toggles.', verification: 'inferred-not-replayed'},
+        {scope: 'Other layouts, themes and input values', basis: 'Eight static pairs cover both themes and all widths. Input trimming only gates Comment; empty, duplicate, long localized and over-capacity content are tested locally. No exhaustive control-by-layout replay is claimed.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-7')
     return {
       revision: 1,
