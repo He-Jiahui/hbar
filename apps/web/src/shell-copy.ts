@@ -29,6 +29,7 @@ import { sidebarLayoutCopy, type SidebarLayoutLabels } from './sidebar-layout-co
 import { composerIntentBlockedCopy } from './composer-intent-blocked-copy'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
+import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -2324,6 +2325,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       filters: choose('Git 查询条件', 'Git query filters'),
       advancedFilters: choose('更多筛选', 'More filters'),
       repositoryFilter: choose('仓库', 'Repository'),
+      workspaceOption: (name, path) => `${name} · ${path}`,
       timeWindow: choose('时间窗', 'Time window'),
       windows: {
         '7d': choose('最近 7 天', 'Last 7 days'),
@@ -2493,6 +2495,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       brand: 'hbar',
       projectsAndSessions: '工程与会话',
       organization: workspaceOrganizationCopy('zh-CN'),
+      displayNames: workspaceDisplayNamesCopy('zh-CN'),
       noWorkspaces: '尚无工程',
       noSessions: '尚无会话',
       loading: '正在加载',
@@ -2619,6 +2622,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       brand: 'hbar',
       projectsAndSessions: 'Projects and sessions',
       organization: workspaceOrganizationCopy('en-US'),
+      displayNames: workspaceDisplayNamesCopy('en-US'),
       noWorkspaces: 'No projects yet',
       noSessions: 'No sessions yet',
       loading: 'Loading',

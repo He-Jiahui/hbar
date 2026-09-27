@@ -143,6 +143,7 @@ export interface HbarSessionWorkspaceLabels {
 export interface HbarSessionWorkspaceProps {
   readonly sessionTitle: string
   readonly workspaceName: string
+  readonly workspacePath?: string | undefined
   readonly sessionWorkspaceId: string
   readonly labels: HbarSessionWorkspaceLabels
   readonly connected: boolean
@@ -186,6 +187,7 @@ function SessionToolButton({
 function SessionWorkspaceContent({
   sessionTitle,
   workspaceName,
+  workspacePath,
   sessionWorkspaceId,
   labels,
   connected,
@@ -263,6 +265,7 @@ function SessionWorkspaceContent({
     projectContextLabels && sessionId ? (
       <HbarSessionProjectContext
         workspaceName={workspaceName}
+        workspacePath={workspacePath}
         sessionId={sessionId}
         workspaceId={sessionWorkspaceId}
         connected={connected}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { createAppRuntime } from '@hbar/app-runtime'
+import { workspaceDisplayName, type createAppRuntime } from '@hbar/app-runtime'
 import { createWorkspaceTabClose } from '@hbar/app-runtime/workspace-tab-close'
 import type { HbarClient } from '@hbar/client'
 import { createRunCommandClient } from '@hbar/client'
@@ -35,6 +35,7 @@ export function WorkspaceTabsController({
 }) {
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const directory = useHbarRuntimeState(runtime.view.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.view.state.workspaceDisplayNameSnapshot)
   const timeline = useHbarRuntimeState(runtime.view.state.timeline)
   const navigation = useHbarRuntimeState(runtime.view.state.navigation)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
@@ -60,21 +61,24 @@ export function WorkspaceTabsController({
   )
   useEffect(() => () => coordinator.dispose(), [coordinator])
   const closeState = useHbarRuntimeState(coordinator.reader).request
-  const items: HbarWorkspaceTabItem[] = tabs.items.map((item) => ({
-    id: item.id,
-    kind: item.kind === 'session' && item.agentSource ? 'agent-run' : item.kind,
-    title:
-      item.kind === 'workbench'
-        ? copy.workbenchTitle
-        : (directory.sessions[item.sessionId]?.title ?? copy.unknownSession(item.sessionId)),
-    detail: directory.workspaces[item.workspaceId]?.name ?? copy.unknownWorkspace(item.workspaceId),
-    activity:
-      item.kind === 'session' &&
-      timeline.sessionId === item.sessionId &&
-      timeline.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
-        ? 'running'
-        : 'unknown',
-  }))
+  const items: HbarWorkspaceTabItem[] = tabs.items.map((item) => {
+    const workspace = directory.workspaces[item.workspaceId]
+    return {
+      id: item.id,
+      kind: item.kind === 'session' && item.agentSource ? 'agent-run' : item.kind,
+      title:
+        item.kind === 'workbench'
+          ? copy.workbenchTitle
+          : (directory.sessions[item.sessionId]?.title ?? copy.unknownSession(item.sessionId)),
+      detail: workspace ? workspaceDisplayName(workspace, displayNames) : copy.unknownWorkspace(item.workspaceId),
+      activity:
+        item.kind === 'session' &&
+        timeline.sessionId === item.sessionId &&
+        timeline.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+          ? 'running'
+          : 'unknown',
+    }
+  })
   const busy = closeState !== null || navigation.status === 'loading'
   const focusAfterClose = () => {
     if (coordinator.reader.getSnapshot().request !== null) return

@@ -51,3 +51,21 @@ test('failed and offline Git queries keep the real project and nearby bilingual 
   expect(offline).not.toContain('feature/very-long-branch')
   expect(offline).not.toContain('Retry')
 })
+
+test('a display alias keeps the canonical path available without changing branch or target', () => {
+  const html = renderToStaticMarkup(
+    <HbarSessionProjectContext
+      sessionId="session-a"
+      workspaceId="workspace-a"
+      workspaceName="Research 项目"
+      workspacePath="D:/work/same-folder-name"
+      context={ready}
+      connected
+      labels={sessionContextCopy('zh-CN')}
+      onRetry={() => undefined}
+    />,
+  )
+  expect(html).toContain('title="D:/work/same-folder-name"')
+  expect(html).toContain('Research 项目')
+  expect(html).toContain('feature/very-long-branch')
+})

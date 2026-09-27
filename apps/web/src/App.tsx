@@ -18,7 +18,7 @@ import {
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
-import { createAppRuntime } from '@hbar/app-runtime'
+import { createAppRuntime, workspaceDisplayName } from '@hbar/app-runtime'
 import type { GlobalSettingsStartup } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
@@ -162,6 +162,33 @@ function createRuntime(
               },
               onConnection(listener: (connected: boolean) => void) {
                 return client.onStatus((status) => listener(status === 'connected'))
+              },
+            },
+          },
+          workspaceDisplayNames: {
+            commands: createWorkspaceSessionCommandClient(client),
+            events: {
+              subscribe(listener: () => void) {
+                const off = client.onEvent((event) => {
+                  if (
+                    event.method === 'host.changed' &&
+                    ['workspace-display-names', 'resync'].includes(event.params.kind)
+                  )
+                    listener()
+                })
+                const onVisible = () => {
+                  if (document.visibilityState === 'visible') listener()
+                }
+                document.addEventListener('visibilitychange', onVisible)
+                return () => {
+                  off()
+                  document.removeEventListener('visibilitychange', onVisible)
+                }
+              },
+              onConnection(listener: (connected: boolean) => void) {
+                const off = client.onStatus((status) => listener(status === 'connected'))
+                listener(client.connectionStatus() === 'connected')
+                return off
               },
             },
           },
@@ -360,6 +387,7 @@ function WorkspaceBodyContent({
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
@@ -372,6 +400,7 @@ function WorkspaceBodyContent({
   useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
   useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
+  const sessionWorkspace = session ? directory.workspaces[session.workspaceId] : undefined
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
   if (presentation.page.kind === 'settings')
@@ -436,7 +465,8 @@ function WorkspaceBodyContent({
     const panel = surfaces.panels[activeTab.panelInstanceId]
     if (!panel || panel.panelId !== 'files')
       return <LumenWorkbenchNotice title={copy.files.title} description={tabCopy.error('PANEL_NOT_FOUND')} />
-    const targetLabel = directory.workspaces[activeTab.workspaceId]?.name ?? activeTab.workspaceId
+    const workspace = directory.workspaces[activeTab.workspaceId]
+    const targetLabel = workspace ? workspaceDisplayName(workspace, displayNames) : activeTab.workspaceId
     const reportWorkbenchError = (reason: unknown) => {
       const current = runtime.state.workspaceTabs.getSnapshot()
       if (
@@ -474,7 +504,8 @@ function WorkspaceBodyContent({
     return (
       <HbarSessionWorkspace
         sessionTitle={session.title}
-        workspaceName={directory.workspaces[session.workspaceId]?.name ?? session.workspaceId}
+        workspaceName={sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId}
+        workspacePath={sessionWorkspace?.path}
         sessionWorkspaceId={session.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
         labels={copy.session}
@@ -540,6 +571,7 @@ function WorkspaceTool({
   const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
   const runtime = useHbarRuntime()
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const [expandError, setExpandError] = useState<string | null>(null)
@@ -548,13 +580,15 @@ function WorkspaceTool({
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   useEffect(() => setExpandError(null), [instanceId, panel?.workspaceId, panel?.sessionId, panel?.panelId])
   if (!instanceId || !panel) return null
+  const workspace = panel.workspaceId ? directory.workspaces[panel.workspaceId] : undefined
+  const workspaceLabel = workspace ? workspaceDisplayName(workspace, displayNames) : (panel.workspaceId ?? undefined)
   const targetLabel =
     panel.panelId === 'files' && panel.workspaceId
-      ? (directory.workspaces[panel.workspaceId]?.name ?? panel.workspaceId)
+      ? workspaceLabel
       : panel.sessionId
         ? (directory.sessions[panel.sessionId]?.title ?? panel.sessionId)
         : panel.workspaceId
-          ? (directory.workspaces[panel.workspaceId]?.name ?? panel.workspaceId)
+          ? workspaceLabel
           : undefined
   if (panel.panelId === 'files')
     return (

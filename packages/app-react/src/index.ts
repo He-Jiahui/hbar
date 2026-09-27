@@ -1,5 +1,12 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
 export type { WorkspaceOrganizationLabels } from './workspace-organization'
+export { WorkspaceDisplayNameDialog, WorkspaceDisplayNameFeedback } from './workspace-display-names'
+export type {
+  WorkspaceDisplayNamesLabels,
+  WorkspaceDisplayNameTarget,
+  WorkspaceDisplayNameDialogProps,
+  WorkspaceDisplayNameFeedbackProps,
+} from './workspace-display-names'
 export type { HbarSessionImageLabels, HbarSessionImagesOptions } from './session-images'
 export {
   HbarSessionImagesModelProvider,

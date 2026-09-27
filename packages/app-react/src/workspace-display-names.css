@@ -1,0 +1,68 @@
+.hbar-workspace-display-name-dialog {
+  --lumen-dialog-width: 32.5rem;
+}
+
+.hbar-workspace-display-name-form,
+.hbar-workspace-display-name-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.hbar-workspace-display-name-form p,
+.hbar-workspace-display-name-feedback p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-workspace-display-name-form .lumen-control {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-workspace-display-name-path {
+  font-family: var(--hbar-font-mono, monospace);
+  font-size: 0.8125rem;
+}
+
+.hbar-workspace-display-name-restore,
+.hbar-workspace-display-name-actions,
+.hbar-workspace-display-name-recovery {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hbar-workspace-display-name-restore {
+  padding: 12px;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--lumen-ink) 3%, transparent);
+  justify-content: space-between;
+}
+
+.hbar-workspace-display-name-restore > div {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+}
+
+.hbar-workspace-display-name-actions {
+  justify-content: flex-end;
+  inline-size: 100%;
+}
+
+.hbar-workspace-display-name-feedback {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+}
+
+.hbar-workspace-display-name-dialog button,
+.hbar-workspace-display-name-feedback button {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

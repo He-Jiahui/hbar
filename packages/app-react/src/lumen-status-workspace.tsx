@@ -18,7 +18,7 @@ import {
   LumenPageHeader,
   LumenSelect,
 } from '@lumen/app-ui'
-import type { StatusWorkspaceEntryState } from '@hbar/app-runtime'
+import { workspaceDisplayName, type StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './lumen-status-workspace.css'
@@ -124,6 +124,7 @@ export interface HbarStatusWorkspaceLabels {
     readonly filters: string
     readonly advancedFilters: string
     readonly repositoryFilter: string
+    readonly workspaceOption: (name: string, path: string) => string
     readonly timeWindow: string
     readonly windows: Readonly<Record<'7d' | '30d' | '90d' | '1y', string>>
     readonly sources: string
@@ -221,6 +222,7 @@ export function HbarStatusWorkspace({
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const status = useHbarRuntimeState(runtime.state.status)
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const instanceId = requestedInstanceId ?? (presentation.page.kind === 'status' ? presentation.page.instanceId : null)
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const rawSection = panel?.params.section
@@ -339,7 +341,11 @@ export function HbarStatusWorkspace({
     if (!usageQuery) return
     invoke('statusWorkspace.setUsageQuery', { instanceId, ...usageQuery, ...patch })
   }
-  const gitWorkspaces = Object.values(directory.workspaces).sort((left, right) => left.name.localeCompare(right.name))
+  const gitWorkspaces = Object.values(directory.workspaces).sort(
+    (left, right) =>
+      workspaceDisplayName(left, displayNames).localeCompare(workspaceDisplayName(right, displayNames)) ||
+      left.id.localeCompare(right.id),
+  )
   const setGitQuery = (patch: Partial<StatusWorkspaceEntryState['gitQuery']>) => {
     if (!gitQuery?.workspaceId) return
     invoke('statusWorkspace.setGitQuery', { instanceId, ...gitQuery, ...patch })
@@ -577,7 +583,7 @@ export function HbarStatusWorkspace({
             >
               {gitWorkspaces.map((workspace) => (
                 <LumenOption key={workspace.id} value={workspace.id}>
-                  {workspace.name}
+                  {labels.git.workspaceOption(workspaceDisplayName(workspace, displayNames), workspace.path)}
                 </LumenOption>
               ))}
             </LumenSelect>

@@ -18,6 +18,7 @@ import {
   LumenTextarea,
 } from '@lumen/app-ui'
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
+import { workspaceDisplayName } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './command-palette.css'
@@ -208,6 +209,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
   const palette = useHbarRuntimeState(runtime.state.commandPalette)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const internalSearch = useRef<HTMLInputElement>(null)
   const search = searchRef ?? internalSearch
   const [actionError, setActionError] = useState<string | null>(null)
@@ -271,9 +273,16 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
   const workspaceTargets = useMemo<KnownTargetOption[]>(
     () =>
       Object.values(directory.workspaces)
-        .sort((left, right) => left.name.localeCompare(right.name))
-        .map((workspace) => ({ id: workspace.id, label: labels.workspaceOption(workspace.name, workspace.path) })),
-    [directory.workspaces, labels],
+        .sort(
+          (left, right) =>
+            workspaceDisplayName(left, displayNames).localeCompare(workspaceDisplayName(right, displayNames)) ||
+            left.id.localeCompare(right.id),
+        )
+        .map((workspace) => ({
+          id: workspace.id,
+          label: labels.workspaceOption(workspaceDisplayName(workspace, displayNames), workspace.path),
+        })),
+    [directory.workspaces, displayNames, labels],
   )
   const sessionTargets = useMemo<KnownTargetOption[]>(() => {
     const draftWorkspace = palette.draft?.values.workspaceId
@@ -281,14 +290,24 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
     return Object.values(directory.sessions)
       .filter((session) => !session.archived && (!workspaceId || session.workspaceId === workspaceId))
       .sort((left, right) => right.updatedAt - left.updatedAt)
-      .map((session) => ({
-        id: session.id,
-        label: labels.sessionOption(
-          session.title,
-          directory.workspaces[session.workspaceId]?.name ?? session.workspaceId,
-        ),
-      }))
-  }, [directory.sessions, directory.workspaces, labels, navigation.workspaceId, palette.draft?.values.workspaceId])
+      .map((session) => {
+        const workspace = directory.workspaces[session.workspaceId]
+        return {
+          id: session.id,
+          label: labels.sessionOption(
+            session.title,
+            workspace ? workspaceDisplayName(workspace, displayNames) : session.workspaceId,
+          ),
+        }
+      })
+  }, [
+    directory.sessions,
+    directory.workspaces,
+    displayNames,
+    labels,
+    navigation.workspaceId,
+    palette.draft?.values.workspaceId,
+  ])
 
   const commandTitle = selected
     ? labels.resolve(selected.descriptor.metadata.titleKey) === selected.descriptor.metadata.titleKey

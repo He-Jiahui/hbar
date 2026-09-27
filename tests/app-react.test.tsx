@@ -4,6 +4,7 @@ import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels 
 import { createAppRuntime } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
+import { workspaceDisplayNamesCopy } from '../apps/web/src/workspace-display-names-copy'
 
 const workspace = { id: 'workspace-1', path: 'D:/workspace', name: '非常长的工程名称', createdAt: 1 }
 const session = {
@@ -22,6 +23,7 @@ const labels: HbarWorkspaceShellLabels = {
   brand: 'hbar 测试',
   projectsAndSessions: '工程与会话树',
   organization: workspaceOrganizationCopy('zh-CN'),
+  displayNames: workspaceDisplayNamesCopy('zh-CN'),
   noWorkspaces: '没有工程',
   noSessions: '没有会话',
   loading: '正在加载数据',

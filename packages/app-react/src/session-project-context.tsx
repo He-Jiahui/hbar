@@ -18,6 +18,7 @@ export interface HbarSessionProjectContextLabels {
 
 export function HbarSessionProjectContext({
   workspaceName,
+  workspacePath,
   sessionId,
   workspaceId,
   connected,
@@ -26,6 +27,7 @@ export function HbarSessionProjectContext({
   onRetry,
 }: {
   readonly workspaceName: string
+  readonly workspacePath?: string | undefined
   readonly sessionId: string
   readonly workspaceId: string
   readonly connected: boolean
@@ -40,7 +42,7 @@ export function HbarSessionProjectContext({
   return (
     <LumenFrame className="hbar-session-project-context" role="group" aria-label={labels.project(workspaceName)}>
       <LumenIcon icon={Folder} tier="sm" />
-      <LumenText as="span" className="hbar-session-project-context-name" title={workspaceName}>
+      <LumenText as="span" className="hbar-session-project-context-name" title={workspacePath ?? workspaceName}>
         {workspaceName}
       </LumenText>
       {branch && (

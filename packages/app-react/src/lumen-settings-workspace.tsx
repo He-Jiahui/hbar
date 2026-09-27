@@ -29,7 +29,7 @@ import {
   LumenPageHeader,
   LumenSelect,
 } from '@lumen/app-ui'
-import type { SettingsFormEntry } from '@hbar/app-runtime'
+import { workspaceDisplayName, type SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createHbarSchemaComponents } from './lumen-schema-components'
 import {
@@ -141,6 +141,7 @@ export function HbarSettingsWorkspace({
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const settings = useHbarRuntimeState(runtime.state.settings)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
@@ -152,14 +153,18 @@ export function HbarSettingsWorkspace({
   const sessionId = settingsPanel?.binding === 'pinned' ? settingsPanel.sessionId : navigation.sessionId
   const requestedSection =
     settingsPanel && typeof settingsPanel.params.section === 'string' ? settingsPanel.params.section : null
+  const scopedWorkspace = entry?.scope.kind === 'workspace' ? directory.workspaces[entry.scope.targetId] : undefined
   const selectedTargetName = entry
     ? entry.scope.kind === 'global'
       ? null
       : entry.scope.kind === 'workspace'
-        ? (directory.workspaces[entry.scope.targetId]?.name ?? null)
+        ? scopedWorkspace
+          ? workspaceDisplayName(scopedWorkspace, displayNames)
+          : null
         : (directory.sessions[entry.scope.targetId]?.title ?? null)
     : null
-  const workspaceTargetName = workspaceId ? (directory.workspaces[workspaceId]?.name ?? null) : null
+  const workspaceTarget = workspaceId ? directory.workspaces[workspaceId] : undefined
+  const workspaceTargetName = workspaceTarget ? workspaceDisplayName(workspaceTarget, displayNames) : null
   const sessionTargetName = sessionId ? (directory.sessions[sessionId]?.title ?? null) : null
   const hostGroups = useMemo(
     () =>

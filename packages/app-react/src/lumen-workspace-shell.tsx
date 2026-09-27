@@ -32,7 +32,7 @@ import {
   type LumenToolPresentation,
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
-import { sortPinnedWorkspaces } from '@hbar/app-runtime'
+import { sortPinnedWorkspaces, workspaceDisplayName } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   createWorkspaceNavigationActions,
@@ -48,6 +48,12 @@ import {
   type WorkspaceOrganizationLabels,
 } from './workspace-organization'
 import { useWorkspaceOrganizationFocus } from './workspace-organization-focus'
+import {
+  WorkspaceDisplayNameDialog,
+  WorkspaceDisplayNameFeedback,
+  type WorkspaceDisplayNamesLabels,
+} from './workspace-display-names'
+import { useWorkspaceDisplayNameFocus } from './workspace-display-name-focus'
 import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } from './session-archive'
 import { useSessionRosterRefresh } from './session-roster-refresh'
@@ -64,6 +70,7 @@ export interface HbarWorkspaceShellLabels {
   readonly brand: string
   readonly projectsAndSessions: string
   readonly organization: WorkspaceOrganizationLabels
+  readonly displayNames: WorkspaceDisplayNamesLabels
   readonly noWorkspaces: string
   readonly noSessions: string
   readonly loading: string
@@ -235,6 +242,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const directory = useHbarRuntimeState(runtime.state.directory)
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
   const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNames)
   const organizationMenuRef = useRef<HTMLDivElement | null>(null)
   const hiddenWorkspaceIds = organization.snapshot?.hiddenWorkspaceIds ?? EMPTY_HIDDEN_IDS
   const captureHideFocus = useWorkspaceOrganizationFocus(
@@ -251,6 +259,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const toolRef = useRef<HTMLElement | null>(null)
   const sidebarFocusRef = useRef<HTMLButtonElement | null>(null)
   const sidebarShowFocusRef = useRef<HTMLButtonElement | null>(null)
+  const captureDisplayNameFocus = useWorkspaceDisplayNameFocus(
+    runtime,
+    displayNames.editor?.open ?? false,
+    organizationMenuRef,
+    sidebarShowFocusRef,
+    mainRef,
+  )
   const sidebarFocusOwner = useRef(runtime)
   sidebarFocusOwner.current = runtime
   const reportSidebarFocusUnavailable = props.sidebarResize?.onFocusUnavailable
@@ -471,7 +486,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [execute, recordError])
 
-  const workspaces = useMemo(() => sortPinnedWorkspaces(directory, workspacePins), [directory, workspacePins])
+  const workspaces = useMemo(
+    () =>
+      sortPinnedWorkspaces(directory, workspacePins, (workspace) =>
+        workspaceDisplayName(workspace, displayNames.snapshot),
+      ),
+    [directory, workspacePins, displayNames.snapshot],
+  )
+  const displayNameFor = (workspaceId: string) => {
+    const workspace = directory.workspaces[workspaceId] ?? workspacePins.resolved[workspaceId]
+    return workspace ? workspaceDisplayName(workspace, displayNames.snapshot) : workspaceId
+  }
+  const editWorkspace = ({ workspaceId }: { workspaceId: string }) => {
+    captureDisplayNameFocus(workspaceId)
+    void execute('workspaceAlias.open', { workspaceId }).catch(() => {
+      // The original unresolved editor remains accessible from its stable feedback entry.
+    })
+  }
+  const displayNameBusy =
+    displayNames.requestInFlight || ['submitting', 'unknown', 'reconciling'].includes(displayNames.action.status)
   const organizationInitializing = organization.status === 'loading' && organization.snapshot === null
   const sidebarWorkspaces = useMemo(() => {
     if (organizationInitializing) return []
@@ -483,9 +516,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const organizationCanWrite = props.connection === 'connected' && organization.status === 'ready' && !organizationBusy
   const organizationTarget = organization.action.request?.change
   const organizationTargetName =
-    organizationTarget?.kind === 'setHidden'
-      ? (workspaces.find((workspace) => workspace.id === organizationTarget.workspaceId)?.name ?? null)
-      : null
+    organizationTarget?.kind === 'setHidden' ? displayNameFor(organizationTarget.workspaceId) : null
   const hideWorkspace = (workspaceId: string) => {
     if (!organizationCanWrite || !organization.snapshot) return
     captureHideFocus(workspaceId)
@@ -568,7 +599,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const actionTargetName = navigationAction.action
     ? navigationAction.action.kind === 'open-workspace'
       ? navigationAction.action.path
-      : directory.workspaces[navigationAction.action.workspaceId]?.name
+      : displayNameFor(navigationAction.action.workspaceId)
     : undefined
   const completeNavigation = useCallback(
     (selection: WorkspaceNavigationSelection | null) => {
@@ -712,6 +743,23 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       overlay={
         <>
           {props.overlay}
+          <WorkspaceDisplayNameDialog
+            owner={runtime}
+            state={displayNames}
+            connected={connected}
+            labels={props.labels.displayNames}
+            onEdit={(input) => {
+              void execute('workspaceAlias.edit', input).catch(() => undefined)
+            }}
+            onClose={(input) => {
+              void execute('workspaceAlias.close', input).catch(() => undefined)
+            }}
+            onSave={(input) => execute('workspaceAlias.save', input).then(() => undefined)}
+            onReset={(input) => execute('workspaceAlias.reset', input).then(() => undefined)}
+            onRebase={(input) => execute('workspaceAlias.rebase', input).then(() => undefined)}
+            onRefresh={() => execute('workspaceAlias.refresh', {}).then(() => undefined)}
+            onReconcile={() => execute('workspaceAlias.reconcile', {}).then(() => undefined)}
+          />
           {projectPicker && (
             <LumenDialog
               open
@@ -741,8 +789,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       disabled={!connected || navigationBlocked}
                       aria-label={
                         projectPicker === 'create-session'
-                          ? props.labels.createSessionInWorkspace(workspace.name)
-                          : workspace.name
+                          ? props.labels.createSessionInWorkspace(
+                              workspaceDisplayName(workspace, displayNames.snapshot),
+                            )
+                          : workspaceDisplayName(workspace, displayNames.snapshot)
                       }
                       onClick={() =>
                         runNavigationAction({
@@ -753,7 +803,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     >
                       <WorkspaceShellIcon name="folder" />
                       <LumenFrame>
-                        <LumenText as="strong">{workspace.name}</LumenText>
+                        <LumenText as="strong">{workspaceDisplayName(workspace, displayNames.snapshot)}</LumenText>
                         <LumenText as="small">{workspace.path}</LumenText>
                       </LumenFrame>
                     </LumenButton>
@@ -916,6 +966,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           }
         >
           <LumenFrame as="nav" className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
+            <WorkspaceDisplayNameFeedback
+              state={displayNames}
+              connected={connected}
+              labels={props.labels.displayNames}
+              onOpen={editWorkspace}
+              onRefresh={() => execute('workspaceAlias.refresh', {}).then(() => undefined)}
+              onReconcile={() => execute('workspaceAlias.reconcile', {}).then(() => undefined)}
+            />
             <WorkspaceOrganizationFeedback
               state={organization}
               labels={props.labels.organization}
@@ -942,6 +1000,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               </LumenText>
             )}
             {sidebarWorkspaces.map((workspace) => {
+              const displayName = workspaceDisplayName(workspace, displayNames.snapshot)
               const isExpanded = expanded.has(workspace.id)
               const isPinned = workspacePins.ids.includes(workspace.id)
               const sessions = sessionsByWorkspace.get(workspace.id) ?? []
@@ -956,9 +1015,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       aria-expanded={isExpanded}
                       aria-label={`${
                         isExpanded
-                          ? props.labels.collapseWorkspace(workspace.name)
-                          : props.labels.expandWorkspace(workspace.name)
-                      }${isPinned ? ` · ${props.labels.pinnedWorkspace(workspace.name)}` : ''}`}
+                          ? props.labels.collapseWorkspace(displayName)
+                          : props.labels.expandWorkspace(displayName)
+                      }${isPinned ? ` · ${props.labels.pinnedWorkspace(displayName)}` : ''}`}
+                      title={workspace.path}
                       onClick={() =>
                         setExpanded((current) => {
                           const next = new Set(current)
@@ -971,21 +1031,28 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       <WorkspaceShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
                       <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
                       <LumenText size="s" variant="label">
-                        {workspace.name}
+                        {displayName}
                       </LumenText>
                       {isPinned && (
                         <LumenText
                           as="span"
                           className="hbar-app-react-workspace-pin"
-                          title={props.labels.pinnedWorkspace(workspace.name)}
+                          title={props.labels.pinnedWorkspace(displayName)}
                         >
                           <WorkspaceShellIcon name="pin" tier="sm" />
                         </LumenText>
                       )}
                     </LumenButton>
                     <WorkspaceProjectMenu
-                      label={props.labels.workspaceActions(workspace.name)}
+                      label={props.labels.workspaceActions(displayName)}
                       items={[
+                        {
+                          id: 'edit',
+                          label: props.labels.displayNames.title,
+                          disabled:
+                            displayNames.status === 'unavailable' ||
+                            (displayNameBusy && displayNames.editor?.workspaceId !== workspace.id),
+                        },
                         { id: 'files', label: props.labels.workspaceFiles },
                         { id: 'settings', label: props.labels.workspaceSettings },
                         {
@@ -993,16 +1060,17 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           label: isPinned ? props.labels.unpinWorkspace : props.labels.pinWorkspace,
                           disabled: pinBusy || workspacePins.status !== 'ready',
                         },
-                        { id: 'archived', label: props.labels.archive.openList(workspace.name), disabled: !connected },
+                        { id: 'archived', label: props.labels.archive.openList(displayName), disabled: !connected },
                         {
                           id: 'refresh',
-                          label: props.labels.roster.refreshWorkspace(workspace.name),
+                          label: props.labels.roster.refreshWorkspace(displayName),
                           disabled: !connected || rosterRefresh.entries[workspace.id]?.status === 'loading',
                         },
                         { id: 'hide', label: props.labels.organization.hide, disabled: !organizationCanWrite },
                       ]}
                       onAction={(action) => {
-                        if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
+                        if (action === 'edit') editWorkspace({ workspaceId: workspace.id })
+                        else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
                         else if (action === 'pin') toggleWorkspacePin(workspace.id)
                         else if (action === 'refresh') refreshRoster(workspace.id)
                         else if (action === 'hide') hideWorkspace(workspace.id)
@@ -1012,7 +1080,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     />
                     <LumenIconButton
                       className="hbar-app-react-project-new-session"
-                      label={props.labels.createSessionInWorkspace(workspace.name)}
+                      label={props.labels.createSessionInWorkspace(displayName)}
                       disabled={!connected || navigationBlocked}
                       loading={navigationBusy && actionWorkspaceId === workspace.id}
                       onClick={() => newSession(workspace.id)}
@@ -1072,7 +1140,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   )}
                   <ArchivedSessions
                     workspaceId={workspace.id}
-                    workspaceName={workspace.name}
+                    workspaceName={displayName}
                     labels={props.labels.archive}
                     connected={connected}
                   />
