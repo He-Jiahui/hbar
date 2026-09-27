@@ -89,6 +89,10 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Comments 6: numbered review pins overlay their owning diagram canvas.
+  // Only these data-positioned markers float; artwork and comment text use flow.
+  if (/packages\/lumen-app-ui\/src\/comments-canvas-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-comments-canvas-pin') return true
   // Comments 4: the rendered @ suggestion list is anchored to the composer
   // and overlaps earlier messages. Only its container, not option content, floats.
   if (/packages\/lumen-app-ui\/src\/comments-composer-reference\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -480,6 +484,12 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const canvasPin = '.lumen-comments-canvas-pin { position: absolute; inset-inline-start: var(--lumen-comment-pin-x); inset-block-start: var(--lumen-comment-pin-y); transform: translate(-50%, -50%); }'
+  if (validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin).length ||
+      validateCss('other.css', canvasPin).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin.replace('pin {', 'pin > span {')).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin.replace('canvas-pin {', 'canvas-card {')).length === 0)
+    throw new Error('Observed canvas pin overlay exception must remain exact, path-scoped and exclude flowing content')
   const commentMentions = '.lumen-comments-composer-mention-menu { position: absolute; inset-block-start: calc(100% - 0.375rem); inset-inline-start: 3.25rem; }'
   if (validateCss('packages/lumen-app-ui/src/comments-composer-reference.css', commentMentions).length ||
       validateCss('packages/lumen-app-ui/src/other.css', commentMentions).length === 0 ||
