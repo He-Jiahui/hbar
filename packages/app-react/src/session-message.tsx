@@ -5,7 +5,10 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  FilePen,
+  FilePlus,
   FileText,
+  FolderOpen,
   GitFork,
   LoaderCircle,
   RotateCcw,
@@ -49,7 +52,7 @@ import {
 
 export interface HbarMessageActivitySummary {
   readonly thinkingCount: number
-  readonly toolCounts: readonly { readonly name: string; readonly count: number }[]
+  readonly toolCounts: readonly { readonly name: string; readonly displayName?: string; readonly count: number }[]
   readonly failedCount: number
   readonly outcomeCounts: ReturnType<typeof toolOutcomeCounts>
 }
@@ -84,7 +87,7 @@ export interface HbarMessageBlocksProps {
   /** Invalidate local copy receipts when the owning runtime/Host is replaced. */
   readonly copyOwner?: object | undefined
   /** Domain-owned display metadata, not a hard-coded plugin/tool catalog in the view. */
-  readonly describeTool?: (call: SessionToolCall) => HbarMessageToolPresentation
+  readonly describeTool?: ((call: SessionToolCall) => HbarMessageToolPresentation) | undefined
   /** Domain-owned text rendering, keyed to original block identity; non-text rows retain their order. */
   readonly renderText?: (row: Extract<SessionMessageRow, { kind: 'text' }>) => ReactNode
   /** Decisions are siblings after their tool disclosure, never inside its collapsed details. */
@@ -139,9 +142,21 @@ export function invokeMessageForkAction(action: HbarMessageForkAction, target: H
   return false
 }
 
+const toolIcons: Record<HbarMessageToolPresentation['icon'], typeof Brain> = {
+  file: FileText,
+  'file-write': FilePlus,
+  'file-edit': FilePen,
+  directory: FolderOpen,
+  terminal: Terminal,
+  search: Search,
+  tool: Wrench,
+}
+
 function Disclosure({
   label,
   preview,
+  previewFormat,
+  title,
   status,
   icon,
   children,
@@ -151,6 +166,8 @@ function Disclosure({
 }: {
   readonly label: string
   readonly preview?: string | undefined
+  readonly previewFormat?: 'code' | 'text' | undefined
+  readonly title?: string | undefined
   readonly status?: string | undefined
   readonly icon: typeof Brain
   readonly children: ReactNode
@@ -160,6 +177,7 @@ function Disclosure({
     readonly callId: string | undefined
     readonly name: string
     readonly outcome: ReturnType<typeof sessionToolOutcome>
+    readonly icon: HbarMessageToolPresentation['icon']
   }
 }) {
   const [open, setOpen] = useState(false)
@@ -171,6 +189,7 @@ function Disclosure({
       data-tool-call-id={tool?.callId}
       data-tool-name={tool?.name}
       data-outcome={tool?.outcome}
+      data-presentation-icon={tool?.icon}
     >
       <LumenButton
         variant="text"
@@ -179,17 +198,20 @@ function Disclosure({
         className="hbar-session-disclosure-trigger"
         aria-expanded={open}
         aria-controls={id}
+        title={title}
         onClick={() => setOpen(!open)}
       >
         <LumenIcon icon={icon} tier="sm" />
-        <LumenText as="span" className="hbar-session-disclosure-label">
-          {label}
-        </LumenText>
-        {preview ? (
-          <LumenText as="span" className="hbar-session-disclosure-preview">
-            {preview}
+        <LumenText as="span" className="hbar-session-disclosure-identity">
+          <LumenText as="span" className="hbar-session-disclosure-label">
+            {label}
           </LumenText>
-        ) : null}
+          {preview ? (
+            <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
+              {preview}
+            </LumenText>
+          ) : null}
+        </LumenText>
         {status ? (
           <LumenText as="span" className="hbar-session-disclosure-status">
             {status}
@@ -220,14 +242,8 @@ function ToolRow({
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
-  const icon =
-    presentation?.icon === 'terminal'
-      ? Terminal
-      : presentation?.icon === 'file'
-        ? FileText
-        : presentation?.icon === 'search'
-          ? Search
-          : Wrench
+  const icon = toolIcons[presentation?.icon ?? 'tool']
+  const errorPreview = toolErrorPreview(row.result)
   const outcome = sessionToolOutcome(row.result)
   const status =
     outcome === 'pending'
@@ -239,13 +255,20 @@ function ToolRow({
           : labels[outcome]
   return (
     <Disclosure
-      label={labels.tool(row.name)}
-      preview={toolErrorPreview(row.result) || presentation?.summary}
+      label={presentation?.label ?? labels.tool(row.name)}
+      preview={errorPreview || presentation?.summary}
+      previewFormat={errorPreview ? 'text' : presentation?.summaryFormat}
+      title={presentation?.title}
       status={status}
       icon={icon}
       className="hbar-session-tool"
       failed={outcome === 'failed'}
-      tool={{ callId: row.call?.callId ?? row.result?.callId, name: row.name, outcome }}
+      tool={{
+        callId: row.call?.callId ?? row.result?.callId,
+        name: row.name,
+        outcome,
+        icon: presentation?.icon ?? 'tool',
+      }}
     >
       <SessionToolDetails
         row={row}
@@ -281,12 +304,22 @@ function Activity({
   const [pinnedOpen, setPinnedOpen] = useState<boolean | null>(null)
   const contentId = useId()
   const open = pinnedOpen ?? streaming
-  const toolCounts = new Map<string, number>()
-  for (const row of rows) if (row.kind === 'tool') toolCounts.set(row.name, (toolCounts.get(row.name) ?? 0) + 1)
+  const toolCounts = new Map<string, { name: string; displayName: string; count: number }>()
+  for (const row of rows) {
+    if (row.kind !== 'tool') continue
+    const displayName = (row.call && describeTool?.(row.call).label) || labels.tool(row.name)
+    const prior = toolCounts.get(row.name)
+    // Count by real name, never by translation. Mixed historical semantics use
+    // the original name rather than attributing every call to its latest label.
+    if (prior) {
+      prior.count += 1
+      if (prior.displayName !== displayName) prior.displayName = labels.tool(row.name)
+    } else toolCounts.set(row.name, { name: row.name, displayName, count: 1 })
+  }
   const outcomeCounts = toolOutcomeCounts(rows.filter((row): row is SessionToolRow => row.kind === 'tool'))
   const summary = labels.activity({
     thinkingCount: rows.filter((row) => row.kind === 'thinking').length,
-    toolCounts: [...toolCounts].map(([name, count]) => ({ name, count })),
+    toolCounts: [...toolCounts.values()],
     failedCount: outcomeCounts.failed,
     outcomeCounts,
   })

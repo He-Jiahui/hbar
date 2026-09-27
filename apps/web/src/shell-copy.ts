@@ -958,12 +958,19 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       codeBlock: codeBlockCopyLabels(locale),
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),
-      activity: ({ thinkingCount, toolCounts, failedCount, outcomeCounts }) =>
-        [
+      activity: ({ thinkingCount, toolCounts, failedCount, outcomeCounts }) => {
+        const displayCounts = new Map<string, number>()
+        for (const { displayName } of toolCounts)
+          if (displayName) displayCounts.set(displayName, (displayCounts.get(displayName) ?? 0) + 1)
+        return [
           ...(thinkingCount
             ? [choose(`${thinkingCount} 段思考`, `${thinkingCount} ${thinkingCount === 1 ? 'thought' : 'thoughts'}`)]
             : []),
-          ...toolCounts.map(({ name, count }) => choose(`${name} × ${count}`, `${name} × ${count}`)),
+          ...toolCounts.map(({ name, displayName, count }) => {
+            const collision = displayName && (displayCounts.get(displayName) ?? 0) > 1
+            const title = displayName ? (collision ? `${displayName} (${name})` : displayName) : name
+            return `${title} × ${count}`
+          }),
           ...(failedCount ? [choose(`${failedCount} 项失败`, `${failedCount} failed`)] : []),
           ...(outcomeCounts.denied ? [choose(`${outcomeCounts.denied} 项拒绝`, `${outcomeCounts.denied} denied`)] : []),
           ...(outcomeCounts.cancelled
@@ -978,7 +985,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           ...(outcomeCounts['legacy-error']
             ? [choose(`${outcomeCounts['legacy-error']} 项未完成`, `${outcomeCounts['legacy-error']} incomplete`)]
             : []),
-        ].join(' · '),
+        ].join(' · ')
+      },
       tool: (name) => name,
       failed: choose('失败', 'Failed'),
       denied: choose('已拒绝', 'Denied'),

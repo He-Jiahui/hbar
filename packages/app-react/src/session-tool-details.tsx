@@ -15,8 +15,13 @@ export interface HbarToolDetailsLabels {
 }
 
 export interface HbarMessageToolPresentation {
-  readonly icon: 'file' | 'terminal' | 'search' | 'tool'
+  readonly icon: 'file' | 'file-write' | 'file-edit' | 'directory' | 'terminal' | 'search' | 'tool'
+  /** Host-localized action; the original tool name remains the row's identity. */
+  readonly label?: string
   readonly summary?: string
+  readonly summaryFormat?: 'code' | 'text'
+  /** Host-owned, bounded requested-input context; never a file navigation action. */
+  readonly title?: string
   readonly input?: { readonly format: 'command' | 'text'; readonly text: string }
 }
 

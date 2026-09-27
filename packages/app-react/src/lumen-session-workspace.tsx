@@ -32,6 +32,7 @@ import {
   HbarMessageBlocks,
   HbarMessageActionBar,
   type HbarMessageBlocksLabels,
+  type HbarMessageBlocksProps,
   type HbarMessageActionLabels,
   type HbarMessageForkAction,
 } from './session-message'
@@ -148,6 +149,7 @@ export interface HbarSessionWorkspaceProps {
   readonly workspacePath?: string | undefined
   readonly sessionWorkspaceId: string
   readonly labels: HbarSessionWorkspaceLabels
+  readonly describeTool?: HbarMessageBlocksProps['describeTool']
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
@@ -192,6 +194,7 @@ function SessionWorkspaceContent({
   workspacePath,
   sessionWorkspaceId,
   labels,
+  describeTool,
   connected,
   prepareAttachment,
   files,
@@ -649,6 +652,7 @@ function SessionWorkspaceContent({
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
+            describeTool={describeTool}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             document={proposal}
             plan={{
@@ -680,6 +684,7 @@ function SessionWorkspaceContent({
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
+            describeTool={describeTool}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             readOnlyLabel={labels.proposedPlanReadOnly}
           />
@@ -692,6 +697,7 @@ function SessionWorkspaceContent({
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
+            describeTool={describeTool}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
           />
         ),

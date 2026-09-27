@@ -87,6 +87,7 @@ import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
+import { createSessionToolPresenter } from './session-tool-presentation'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { useSidebarLayout, useToolPaneLayout } from './tool-pane-layout'
 import { ToolPaneLayoutFeedback } from './ToolPaneLayoutFeedback'
@@ -518,6 +519,7 @@ function WorkspaceBodyContent({
         sessionWorkspaceId={session.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
         labels={copy.session}
+        describeTool={createSessionToolPresenter(locale)}
         connected={connected}
         prepareAttachment={prepareAttachment}
         images={images}
