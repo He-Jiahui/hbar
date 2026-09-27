@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-comments-6')
+    return {
+      revision: 1,
+      lumenEntries: ['comments.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Second canvas pin selects its matching comment border and reply target'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:click', change: 'Resolve updates open count, marker styling, strike-through and reversible action'},
+        {viewport: 'desktop', theme: 'light', suffix: '6:click', change: 'Locate selects the original second pin without changing resolution or history'},
+        {viewport: 'desktop', theme: 'dark', suffix: '9:fill', change: 'Native input changes only the controlled reply draft'},
+        {viewport: 'desktop', theme: 'light', suffix: '10:click', change: 'Send is enabled but source-no-op, leaving comments and draft intact'},
+        {viewport: 'tablet', theme: 'dark', suffix: '1:press-space', change: 'Native pin keyboard selection works in the stacked layout'},
+        {viewport: 'stress', theme: 'light', suffix: '5:press-space', change: 'Narrow resolution scrolls to the original comment action'},
+      ],
+      inferences: [
+        {scope: 'Repeated pin/locate/resolve actions, reopening and passive mode', basis: 'Live source confirms one ID-keyed selection shared by pins and Locate, reversible resolution without removing comments, and passive Comment mode. Local browser checks cover reopen, all-resolved selection and draft-preserving target switches; same-mechanism markers are not replayed individually.', verification: 'inferred-not-replayed'},
+        {scope: 'Hover/focus and input/submit keyboard variations', basis: 'Source pin hover/focus has no changed border/background or outline; compact action hover changes color. Native input and always-enabled Send do not submit, clear the draft or add a result. Local checks cover these behaviors without replaying every equivalent gesture.', verification: 'inferred-not-replayed'},
+        {scope: 'Remaining themes/viewports, localized and excess records', basis: 'Eight static pairs cover side-by-side versus stacked flow and pane scrolling. The source centers oversized narrow content with the title above the viewport; local safe centering keeps the header reachable. Long locale, empty/one/boundary-plus-one, duplicates and stale selection are separately tested.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-comments-5')
     return {
       revision: 1,

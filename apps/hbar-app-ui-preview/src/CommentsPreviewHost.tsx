@@ -13,6 +13,9 @@ export function CommentsPreviewHost({content, children}: {readonly content: Hbar
   const [attachments, setAttachments] = useState(content.referenceComposer?.attachments ?? [])
   const [inboxFilterId, setInboxFilterId] = useState(content.referenceInbox?.filterId ?? '')
   const [inboxItems, setInboxItems] = useState(content.referenceInbox?.items ?? [])
+  const [canvasPins, setCanvasPins] = useState(content.referenceCanvas?.pins ?? [])
+  const [canvasId, setCanvasId] = useState(content.referenceCanvas?.activeId ?? '')
+  const [canvasDraft, setCanvasDraft] = useState(content.referenceCanvas?.draft ?? '')
   useEffect(() => {
     setSortId(content.referenceDiscussion?.sortId ?? '')
     setDraft(content.referenceDiscussion?.draft ?? '')
@@ -25,9 +28,17 @@ export function CommentsPreviewHost({content, children}: {readonly content: Hbar
     setAttachments(content.referenceComposer?.attachments ?? [])
     setInboxFilterId(content.referenceInbox?.filterId ?? '')
     setInboxItems(content.referenceInbox?.items ?? [])
+    setCanvasPins(content.referenceCanvas?.pins ?? [])
+    setCanvasId(content.referenceCanvas?.activeId ?? '')
+    setCanvasDraft(content.referenceCanvas?.draft ?? '')
   }, [content])
   return <HbarAppUiCommentsProvider content={{
     ...content,
+    referenceCanvas: content.referenceCanvas && {
+      ...content.referenceCanvas, pins: canvasPins, activeId: canvasId, draft: canvasDraft,
+      onSelectionChange: setCanvasId, onDraftChange: setCanvasDraft,
+      onResolvedChange: (id, resolved) => setCanvasPins((current) => current.map((pin) => pin.id === id ? {...pin, resolved} : pin)),
+    },
     referenceInbox: content.referenceInbox && {
       ...content.referenceInbox, filterId: inboxFilterId, items: inboxItems,
       onFilterChange: setInboxFilterId,

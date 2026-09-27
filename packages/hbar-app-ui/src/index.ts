@@ -247,6 +247,8 @@ export type {
 export {
   HbarAppUiCommentsProvider,
   projectHbarAppUiCommentsInbox,
+  projectHbarAppUiCommentsCanvas,
+  normalizeHbarAppUiCommentsCanvasCoordinate,
   filterHbarAppUiCommentsComposerMentions,
   insertHbarAppUiCommentsComposerMention,
   selectHbarAppUiCommentsItem,
@@ -255,6 +257,8 @@ export {
 export type {
   HbarAppUiCommentsAnnotation,
   HbarAppUiCommentsInboxReferenceContent,
+  HbarAppUiCommentsCanvasReferenceContent,
+  HbarAppUiCommentsCanvasReferencePin,
   HbarAppUiCommentsInboxReferenceItem,
   HbarAppUiCommentsInboxFilter,
   HbarAppUiCommentsComposerReferenceContent,

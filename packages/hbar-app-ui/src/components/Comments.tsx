@@ -9,6 +9,8 @@ export type HbarAppUiCommentsProps = HbarAppUiVariantProps & {
 }
 export { HbarAppUiCommentsProvider }
 export {
+  projectLumenCommentsCanvas as projectHbarAppUiCommentsCanvas,
+  normalizeLumenCommentsCanvasCoordinate as normalizeHbarAppUiCommentsCanvasCoordinate,
   projectLumenCommentsInbox as projectHbarAppUiCommentsInbox,
   filterLumenCommentsComposerMentions as filterHbarAppUiCommentsComposerMentions,
   insertLumenCommentsComposerMention as insertHbarAppUiCommentsComposerMention,
@@ -17,6 +19,8 @@ export {
   useLumenCommentsContent as useHbarAppUiCommentsContent,
 } from '@lumen/app-ui'
 export type {
+  LumenCommentsCanvasReferenceContent as HbarAppUiCommentsCanvasReferenceContent,
+  LumenCommentsCanvasReferencePin as HbarAppUiCommentsCanvasReferencePin,
   LumenCommentsInboxReferenceContent as HbarAppUiCommentsInboxReferenceContent,
   LumenCommentsInboxReferenceItem as HbarAppUiCommentsInboxReferenceItem,
   LumenCommentsInboxFilter as HbarAppUiCommentsInboxFilter,

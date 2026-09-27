@@ -4,6 +4,16 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('canvas sampling separates selection, locate, resolution, draft and source no-op without multiplying every marker by layouts', () => {
+  const id = 'hbar-app-ui-comments-6'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(7)
+  expect(sampledInteractionIds(id, 'tablet', 'dark')).toEqual([`${id}:1:press-space`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:5:press-space`])
+  expect(plan.inferences.some((item) => item.basis.includes('title above the viewport'))).toBe(true)
+  expect(plan.inferences.every((item) => item.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('inbox sampling distinguishes filtered removal, last-item empty state and recovery from repeated row actions', () => {
   const id = 'hbar-app-ui-comments-5'
   const plan = auditSamplingPlan(id)!

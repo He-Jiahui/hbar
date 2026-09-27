@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   getHbarAppUiVariant,
   projectHbarAppUiCommentsInbox,
+  projectHbarAppUiCommentsCanvas,
+  normalizeHbarAppUiCommentsCanvasCoordinate,
   filterHbarAppUiCommentsComposerMentions,
   insertHbarAppUiCommentsComposerMention,
   HbarAppUiCommentsProvider,
@@ -24,6 +26,54 @@ function render(variant: number, content: HbarAppUiCommentsContent = HBAR_APP_UI
   )
 }
 describe('hbar-app-ui comment surfaces', () => {
+  test('the existing canvas contract remains available without opting into the reference canvas', () => {
+    const value = render(6, {canvas: HBAR_APP_UI_COMMENTS_FIXTURES.canvas!})
+    expect(value).toContain('Workspace canvas')
+    expect(value).toContain('lumen-comments-canvas')
+    expect(value).not.toContain('lumen-comments-canvas-layout')
+  })
+  test('canvas links overlay pins to all comments and a controlled reply without making mode actionable', () => {
+    const value = render(6)
+    expect(value).toContain('Pricing page · v7')
+    expect(value).toContain('3 open pins · 3 reviewers')
+    expect(value.match(/class="lumen-comments-canvas-card"/g)?.length).toBe(3)
+    expect(value.match(/aria-pressed="true"/g)?.length).toBe(1)
+    expect(value).toContain('Pin 2 by Amelia Whitfield')
+    expect(value).toContain('Reply to pin 1')
+    expect(value).not.toContain('disabled=""')
+    expect(value).not.toContain('<button type="button">Comment mode')
+  })
+  test('canvas projection deduplicates IDs, counts reviewers and falls back from stale selection', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceCanvas!
+    const first = content.pins[0]!
+    const projection = projectHbarAppUiCommentsCanvas([first, {...first, resolved: true}, {...content.pins[1]!, reviewerId: first.reviewerId}], 'missing')
+    expect(projection.pins.length).toBe(2)
+    expect(projection.selected?.id).toBe(first.id)
+    expect(projection.unresolved).toBe(2)
+    expect(projection.reviewers).toBe(1)
+    const resolved = content.pins.map((pin) => ({...pin, resolved: true}))
+    const value = render(6, {referenceCanvas: {...content, pins: resolved, activeId: 'card', draft: 'Host-owned reply'}})
+    expect(value).toContain('0 open pins · 3 reviewers')
+    expect(value).toContain('Reply to pin 2')
+    expect(value).toContain('Host-owned reply')
+    expect(value.match(/class="lumen-comments-canvas-body is-resolved"/g)?.length).toBe(3)
+    expect(value.match(/data-selected="true"/g)?.length).toBe(1)
+  })
+  test('canvas capacity, localization, empty input and normalized coordinates retain accessible data', () => {
+    const content = HBAR_APP_UI_COMMENTS_FIXTURES.referenceCanvas!
+    for (const count of [0, 1, 3, 4]) {
+      const pins = Array.from({length: count}, (_, index) => ({...content.pins[0]!, id: String(index), label: String(index + 1)}))
+      const value = render(6, {referenceCanvas: {...content, pins, activeId: 'missing'}})
+      expect((value.match(/class="lumen-comments-canvas-card"/g) ?? []).length).toBe(count)
+      if (!count) { expect(value).toContain('No comments'); expect(value).not.toContain('<input'); }
+      else expect(value).toContain('Reply to pin 1')
+    }
+    expect(render(6, createHbarAppUiCommentsLocalizedFixtures())).toContain('价格页面与区域企业套餐定价审查')
+    const overflow = render(6, createHbarAppUiCommentsOverflowFixtures())
+    expect(overflow.match(/class="lumen-comments-canvas-card"/g)?.length).toBe(4)
+    expect(overflow).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+    expect([-5, 22, 110, Number.NaN, Number.POSITIVE_INFINITY].map(normalizeHbarAppUiCommentsCanvasCoordinate)).toEqual([0, 22, 100, 50, 50])
+  })
   test('inbox keeps five passive comments with native filter tabs and reversible row actions', () => {
     const value = render(5)
     expect(value).toContain('Comment inbox')

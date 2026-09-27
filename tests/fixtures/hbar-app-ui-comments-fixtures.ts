@@ -2,6 +2,19 @@ import type { HbarAppUiCommentsContent } from '../../packages/hbar-app-ui/src/in
 const grown = { kind: 'content-grown', expectedMaximum: 8 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
+  referenceCanvas: {
+    labels: {
+      title: 'Pricing page · v7', summary: (open, reviewers) => `${open} open pin${open === 1 ? '' : 's'} · ${reviewers} reviewer${reviewers === 1 ? '' : 's'}`,
+      mode: 'Comment mode', comments: 'Comments', pin: (label, author) => `Pin ${label} by ${author}`,
+      resolve: 'Resolve', resolved: 'Resolved', locate: 'Locate pin', reply: (label) => `Reply to pin ${label}`, send: 'Send', empty: 'No comments',
+    },
+    pins: [
+      {id: 'headline', reviewerId: 'sofia', label: '1', x: 26, y: 22, initials: 'SA', author: 'Sofia Alvarez', time: '9m', body: 'The headline and the sub both sit at the same weight, so nothing leads. Drop the sub to secondary.', resolved: false},
+      {id: 'card', reviewerId: 'amelia', label: '2', x: 74, y: 44, initials: 'AW', author: 'Amelia Whitfield', time: '44m', body: 'This card is 4px off the column it belongs to. Snap it back before we hand off.', resolved: false},
+      {id: 'footer', reviewerId: 'jonas', label: '3', x: 30, y: 88, initials: 'JV', author: 'Jonas Vikander', time: '2h', body: 'Can the footer link row stay above the fold on a 13 inch screen? It disappears at that size today.', resolved: false},
+    ],
+    activeId: 'headline', draft: '', listStrategy: {kind: 'content-grown', expectedMaximum: 3},
+  },
   referenceInbox: {
     labels: {
       title: 'Comment inbox', summary: (unresolved, documents) => `${unresolved} unresolved across ${documents} document${documents === 1 ? '' : 's'}`,
@@ -269,6 +282,14 @@ export const HBAR_APP_UI_COMMENTS_FIXTURES: HbarAppUiCommentsContent = {
 export function createHbarAppUiCommentsLocalizedFixtures(): HbarAppUiCommentsContent {
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceCanvas: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceCanvas!,
+      labels: {
+        title: '价格页面与区域企业套餐定价审查 · 第七版', summary: (open, reviewers) => `${open} 条未解决标记 · ${reviewers} 位审查者`,
+        mode: '评论模式', comments: '画布评论', pin: (label, author) => `${author}的标记${label}`,
+        resolve: '解决', resolved: '已解决', locate: '定位标记', reply: (label) => `回复标记${label}`, send: '发送', empty: '没有画布评论',
+      },
+    },
     referenceInbox: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceInbox!,
       labels: {
@@ -324,6 +345,15 @@ export function createHbarAppUiCommentsOverflowFixtures(): HbarAppUiCommentsCont
   const discussion = HBAR_APP_UI_COMMENTS_FIXTURES.referenceDiscussion!
   return {
     ...HBAR_APP_UI_COMMENTS_FIXTURES,
+    referenceCanvas: {
+      ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceCanvas!,
+      pins: Array.from({length: 4}, (_, index) => ({
+        id: `extra-${index}`, reviewerId: `reviewer-${index}`, label: String(index + 1), x: 20 + index * 18, y: 20 + index * 18,
+        initials: String(index + 1), author: `Additional canvas reviewer ${index + 1}`, time: 'just now',
+        body: 'Preserve the original review target and complete regional context while scrolling the canvas comment pane. '.repeat(4), resolved: false,
+      })),
+      listStrategy: {kind: 'pane-scroll', expectedMaximum: 3},
+    },
     referenceInbox: {
       ...HBAR_APP_UI_COMMENTS_FIXTURES.referenceInbox!,
       items: Array.from({length: 6}, (_, index) => ({
