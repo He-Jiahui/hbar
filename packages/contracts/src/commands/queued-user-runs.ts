@@ -47,3 +47,32 @@ export const queuedRunRemoveReceiptSchema = z.strictObject({
 })
 export type QueuedRunRemoveInput = z.output<typeof queuedRunRemoveInputSchema>
 export type QueuedRunRemoveReceipt = z.output<typeof queuedRunRemoveReceiptSchema>
+
+export const queuedRunEditableInputSchema = z.strictObject({ sessionId: idSchema, operationId: idSchema })
+export const queuedRunEditableSchema = z.strictObject({
+  sessionId: idSchema,
+  operationId: idSchema,
+  revision: z.number().int().nonnegative(),
+  text: z.string().max(200_000),
+  attachmentCount: z.number().int().nonnegative(),
+})
+export const queuedRunEditTextInputSchema = z.strictObject({
+  sessionId: idSchema,
+  operationId: idSchema,
+  expectedRevision: z.number().int().nonnegative(),
+  text: z.string().trim().min(1).max(200_000),
+})
+export const queuedRunEditTextReceiptSchema = z.strictObject({
+  commandId: z.literal('queuedRun.editText'),
+  commandVersion: z.literal(1),
+  sessionId: idSchema,
+  operationId: idSchema,
+  idempotencyKey: z.string().min(1).max(128),
+  revision: z.number().int().nonnegative(),
+  eventId: idSchema,
+  editedAt: z.number().int().nonnegative(),
+})
+export type QueuedRunEditableInput = z.output<typeof queuedRunEditableInputSchema>
+export type QueuedRunEditable = z.output<typeof queuedRunEditableSchema>
+export type QueuedRunEditTextInput = z.output<typeof queuedRunEditTextInputSchema>
+export type QueuedRunEditTextReceipt = z.output<typeof queuedRunEditTextReceiptSchema>

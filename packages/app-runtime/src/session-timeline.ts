@@ -177,6 +177,10 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
       if (event.type === 'run.settled')
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== parsed.data.id))
     }
+  } else if (event.type === 'run.inputEdited' && data && event.runId === data.operationId) {
+    const text = z.string().trim().min(1).max(200_000).safeParse(data.text)
+    if (text.success)
+      runs = runs.map((run) => (run.id === event.runId ? { ...run, input: { ...run.input, text: text.data } } : run))
   } else if (
     event.type === 'approval.requested' ||
     event.type === 'approval.resolved' ||

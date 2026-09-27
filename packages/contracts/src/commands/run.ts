@@ -6,18 +6,30 @@ import { activeOperationsInputSchema, activeOperationsPageSchema } from './activ
 export { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
 export type { ActiveOperationsInput, ActiveOperationsPage } from './active-operations'
 import {
+  queuedRunEditableInputSchema,
+  queuedRunEditableSchema,
+  queuedRunEditTextInputSchema,
+  queuedRunEditTextReceiptSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
   queuedUserRunsInputSchema,
   queuedUserRunsPageSchema,
 } from './queued-user-runs'
 export {
+  queuedRunEditableInputSchema,
+  queuedRunEditableSchema,
+  queuedRunEditTextInputSchema,
+  queuedRunEditTextReceiptSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
   queuedUserRunsInputSchema,
   queuedUserRunsPageSchema,
 } from './queued-user-runs'
 export type {
+  QueuedRunEditableInput,
+  QueuedRunEditable,
+  QueuedRunEditTextInput,
+  QueuedRunEditTextReceipt,
   QueuedRunRemoveInput,
   QueuedRunRemoveReceipt,
   QueuedUserRunsInput,
@@ -88,6 +100,55 @@ export interface OperationWatchResult {
 }
 
 export const runCommands = {
+  'queuedRun.getEditable': defineCommand(
+    {
+      id: 'queuedRun.getEditable',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'query',
+      execution: 'host',
+      stateEffect: 'none',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.queuedRun.getEditable.title',
+      descriptionKey: 'commands.queuedRun.getEditable.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      cli: {
+        arguments: [
+          { field: 'operationId', type: 'string', position: 0, flag: 'operation' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+        ],
+      },
+    },
+    queuedRunEditableInputSchema,
+    queuedRunEditableSchema,
+  ),
+  'queuedRun.editText': defineCommand(
+    {
+      id: 'queuedRun.editText',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.queuedRun.editText.title',
+      descriptionKey: 'commands.queuedRun.editText.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      idempotency: 'required',
+      cli: {
+        arguments: [
+          { field: 'operationId', type: 'string', position: 0, flag: 'operation' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'expectedRevision', type: 'number', flag: 'revision' },
+          { field: 'text', type: 'string', flag: 'text' },
+        ],
+      },
+    },
+    queuedRunEditTextInputSchema,
+    queuedRunEditTextReceiptSchema,
+  ),
   'queuedRun.remove': defineCommand(
     {
       id: 'queuedRun.remove',

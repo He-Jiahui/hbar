@@ -7,6 +7,7 @@ import {
   HbarError,
   contentBlockSchema,
   emptyUsage,
+  inputSchema,
   providerSchema,
   runFailureSchema,
   runSchema,
@@ -20,6 +21,10 @@ import {
   sessionListInputSchema,
 } from '@hbar/contracts/directory'
 import {
+  queuedRunEditableInputSchema,
+  queuedRunEditableSchema,
+  queuedRunEditTextInputSchema,
+  queuedRunEditTextReceiptSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
   runCommandRecordSchema,
@@ -228,6 +233,16 @@ function runRow(row: Row | null): Run {
     input: parseJson(z.string().parse(value.input)),
     ...(typeof failure === 'string' ? { failure: runFailureSchema.parse(parseJson(failure)) } : {}),
   })
+}
+function queuedRunContentRevision(runId: string): number {
+  const seq = db
+    .query<{ seq: number | null }, [string]>(
+      "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND type IN ('run.queued','run.inputEdited')",
+    )
+    .get(runId)?.seq
+  if (seq === null || seq === undefined)
+    throw new HbarError('RUN_JOURNAL_MISSING', 'Queued Run has no content revision event')
+  return seq
 }
 function messageRow(row: Row): Message {
   return {
@@ -726,6 +741,116 @@ const methods: StorageMethods = {
   },
   activeOperations: (input) => readActiveOperations(db, input),
   queuedUserRuns: (input) => readQueuedUserRuns(db, input),
+  queuedRunEditable(value) {
+    const { sessionId, operationId } = queuedRunEditableInputSchema.parse(value)
+    return db.transaction(() => {
+      const row = db
+        .query<Row, [string, string]>('SELECT * FROM runs WHERE id=? AND sessionId=?')
+        .get(operationId, sessionId)
+      if (!row) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
+      const run = runRow(row)
+      if ((run.input.source ?? 'user') !== 'user')
+        throw new HbarError('FORBIDDEN', 'Only user queue items can be edited')
+      if (run.status !== 'queued') throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
+      const result = queuedRunEditableSchema.parse({
+        sessionId,
+        operationId,
+        revision: queuedRunContentRevision(operationId),
+        text: run.input.text,
+        attachmentCount: run.input.images.length + (run.input.files?.length ?? 0),
+      })
+      if (new TextEncoder().encode(JSON.stringify(result)).byteLength > 800_000)
+        throw new HbarError('INPUT_TOO_LARGE', 'Queued Run text exceeds the editable response limit')
+      return result
+    })()
+  },
+  editQueuedRunText(input) {
+    const request = queuedRunEditTextInputSchema.parse(input.request)
+    const actorId = z.string().min(1).max(160).parse(input.actorId)
+    const idempotencyKey = z.string().min(1).max(128).parse(input.idempotencyKey)
+    const commandId = 'queuedRun.editText'
+    const payloadHash = entityPayloadHash(commandId, request)
+    return db
+      .transaction(() => {
+        const prior = db
+          .query<{ commandId: string; payloadHash: string; resultJson: string }, [string, string]>(
+            'SELECT commandId,payloadHash,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?',
+          )
+          .get(actorId, idempotencyKey)
+        if (prior) {
+          if (prior.commandId !== commandId || prior.payloadHash !== payloadHash)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Queue edit key was used with different input')
+          const receipt = queuedRunEditTextReceiptSchema.parse(parseJson(prior.resultJson))
+          const event = eventRow(
+            required(
+              db.query('SELECT * FROM events WHERE eventId=?').get(receipt.eventId) as Row | null,
+              'Queue edit event',
+            ),
+          )
+          return { receipt, event }
+        }
+        const row = db
+          .query<Row, [string, string]>('SELECT * FROM runs WHERE id=? AND sessionId=?')
+          .get(request.operationId, request.sessionId)
+        if (!row) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
+        const run = runRow(row)
+        if ((run.input.source ?? 'user') !== 'user')
+          throw new HbarError('FORBIDDEN', 'Only user queue items can be edited')
+        if (run.status !== 'queued')
+          throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
+        if (queuedRunContentRevision(run.id) !== request.expectedRevision)
+          throw new HbarError('COMMAND_CONFLICT', 'Queued Run content changed')
+        const nextInput = inputSchema.parse({ ...run.input, text: request.text })
+        db.query("UPDATE runs SET input=? WHERE id=? AND sessionId=? AND status='queued'").run(
+          JSON.stringify(nextInput),
+          run.id,
+          run.sessionId,
+        )
+        const event = appendEvent(
+          run.sessionId,
+          'run.inputEdited',
+          {
+            operationId: run.id,
+            expectedRevision: request.expectedRevision,
+            text: request.text,
+            queueEdit: { actorId, idempotencyKey, payloadHash },
+          },
+          run.id,
+        )
+        const receipt = queuedRunEditTextReceiptSchema.parse({
+          commandId,
+          commandVersion: 1,
+          sessionId: run.sessionId,
+          operationId: run.id,
+          idempotencyKey,
+          revision: event.seq,
+          eventId: event.eventId,
+          editedAt: event.time,
+        })
+        db.query('INSERT INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+          actorId,
+          idempotencyKey,
+          commandId,
+          payloadHash,
+          JSON.stringify(receipt),
+        )
+        return { receipt, event }
+      })
+      .immediate()
+  },
+  queuedRunEditTextReceipt(actorId, idempotencyKey, sessionId) {
+    const row = db
+      .query<{ commandId: string; resultJson: string }, [string, string]>(
+        'SELECT commandId,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?',
+      )
+      .get(actorId, idempotencyKey)
+    if (!row) return null
+    if (row.commandId !== 'queuedRun.editText')
+      throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to a different command')
+    const receipt = queuedRunEditTextReceiptSchema.parse(parseJson(row.resultJson))
+    if (receipt.sessionId !== sessionId) throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to another session')
+    return receipt
+  },
   removeQueuedRun(input) {
     const request = queuedRunRemoveInputSchema.parse(input.request)
     const actorId = z.string().min(1).max(160).parse(input.actorId)
@@ -974,7 +1099,12 @@ const methods: StorageMethods = {
         .get(sessionId, requestId) as Row | null
       if (existing) {
         const prior = runRow(existing)
-        if (prior.modelId !== modelId || stableJson(prior.input) !== stableJson(input))
+        const queued = db
+          .query<{ data: string }, [string]>("SELECT data FROM events WHERE runId=? AND type='run.queued' LIMIT 1")
+          .get(prior.id)
+        if (!queued) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
+        const original = runSchema.parse((parseJson(queued.data) as { run: unknown }).run)
+        if (original.modelId !== modelId || stableJson(original.input) !== stableJson(input))
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
         return prior
       }
@@ -1505,6 +1635,51 @@ function restoreProjection(event: SessionEvent) {
         JSON.stringify(receipt),
       )
     }
+  } else if (event.type === 'run.inputEdited') {
+    const edited = z
+      .strictObject({
+        operationId: z.string().min(1),
+        expectedRevision: z.number().int().nonnegative(),
+        text: z.string().trim().min(1).max(200_000),
+        queueEdit: z.strictObject({
+          actorId: z.string().min(1).max(160),
+          idempotencyKey: z.string().min(1).max(128),
+          payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
+        }),
+      })
+      .parse(data)
+    if (event.runId !== edited.operationId) throw new Error('SESSION_LOG_CORRUPTED queue edit target mismatch')
+    const row = db
+      .query<Row, [string, string]>('SELECT * FROM runs WHERE id=? AND sessionId=?')
+      .get(edited.operationId, event.sessionId)
+    if (!row) throw new Error('SESSION_LOG_CORRUPTED queue edit has no Run')
+    const run = runRow(row)
+    const priorRevision = db
+      .query<{ seq: number | null }, [string, number]>(
+        "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND seq<? AND type IN ('run.queued','run.inputEdited')",
+      )
+      .get(run.id, event.seq)?.seq
+    if (run.status !== 'queued' || (run.input.source ?? 'user') !== 'user' || priorRevision !== edited.expectedRevision)
+      throw new Error('SESSION_LOG_CORRUPTED queue edit violated queued user revision')
+    const input = inputSchema.parse({ ...run.input, text: edited.text })
+    db.query('UPDATE runs SET input=? WHERE id=?').run(JSON.stringify(input), run.id)
+    const receipt = queuedRunEditTextReceiptSchema.parse({
+      commandId: 'queuedRun.editText',
+      commandVersion: 1,
+      sessionId: event.sessionId,
+      operationId: run.id,
+      idempotencyKey: edited.queueEdit.idempotencyKey,
+      revision: event.seq,
+      eventId: event.eventId,
+      editedAt: event.time,
+    })
+    db.query('INSERT OR IGNORE INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+      edited.queueEdit.actorId,
+      edited.queueEdit.idempotencyKey,
+      'queuedRun.editText',
+      edited.queueEdit.payloadHash,
+      JSON.stringify(receipt),
+    )
   } else if (event.type === 'approval.requested') {
     const approval = event.data as Approval
     db.query(

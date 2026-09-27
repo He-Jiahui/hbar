@@ -1019,6 +1019,8 @@ test('classified command catalog and Run operations are usable without a GUI', a
     'planExit.get',
     'planExit.resolve',
     'questionnaire.answer',
+    'queuedRun.editText',
+    'queuedRun.getEditable',
     'queuedRun.remove',
     'run.retry',
     'run.submit',

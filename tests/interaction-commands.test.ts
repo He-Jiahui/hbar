@@ -60,6 +60,8 @@ test('approval and questionnaire commands validate session targets and converge 
     'planExit.get',
     'planExit.resolve',
     'questionnaire.answer',
+    'queuedRun.editText',
+    'queuedRun.getEditable',
     'queuedRun.remove',
     'run.retry',
     'run.submit',

@@ -974,7 +974,7 @@ export const rpcSchemas = {
   }),
   'command.describe': z.strictObject({ commandId: z.string().min(1).max(128) }),
   'command.getReceipt': z.strictObject({
-    commandId: z.enum(['session.setBudget', 'run.submit', 'run.retry', 'queuedRun.remove']),
+    commandId: z.enum(['session.setBudget', 'run.submit', 'run.retry', 'queuedRun.editText', 'queuedRun.remove']),
     sessionId: idSchema,
     idempotencyKey: z.string().min(1).max(128),
   }),
@@ -1246,6 +1246,7 @@ export interface RpcResults {
   'command.getReceipt':
     | import('./commands/budget').BudgetReceipt
     | import('./commands/run').RunAccepted
+    | import('./commands/run').QueuedRunEditTextReceipt
     | import('./commands/run').QueuedRunRemoveReceipt
     | null
   'operation.watch': import('./commands/run').OperationWatchResult

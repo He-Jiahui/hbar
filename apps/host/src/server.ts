@@ -374,6 +374,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
         if (input.commandId === 'run.submit' || input.commandId === 'run.retry')
           return runCommands.getReceipt(input.commandId, input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.editText')
+          return runCommands.getQueuedEditTextReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
         if (input.commandId === 'queuedRun.remove')
           return runCommands.getQueuedRemoveReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
         return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)

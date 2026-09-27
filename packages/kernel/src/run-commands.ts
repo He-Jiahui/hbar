@@ -172,6 +172,41 @@ export function createRunCommands(kernel: Kernel) {
       throw error
     }
   })
+  registry.register(runCommands['queuedRun.getEditable'], async (input) => {
+    try {
+      return await kernel.storage.call('queuedRunEditable', input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(
+    runCommands['queuedRun.editText'],
+    async (input, context) => {
+      const actorId = context.actorId,
+        idempotencyKey = context.idempotencyKey
+      if (!actorId || !idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      try {
+        return await kernel.editQueuedRunText(input, actorId, idempotencyKey)
+      } catch (error) {
+        if (
+          error instanceof HbarError &&
+          [
+            'NOT_FOUND',
+            'FORBIDDEN',
+            'COMMAND_CONFLICT',
+            'IDEMPOTENCY_CONFLICT',
+            'INVALID_INPUT',
+            'INPUT_TOO_LARGE',
+          ].includes(error.code)
+        )
+          throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue edit requires receipt reconciliation')
+      }
+    },
+    { durable: true },
+  )
   registry.register(
     runCommands['queuedRun.remove'],
     async (input, context) => {
@@ -279,6 +314,14 @@ export function createRunCommands(kernel: Kernel) {
       } catch (error) {
         if (error instanceof HbarError) throw new CommandError(error.code, error.message)
         throw new CommandError('RESULT_UNKNOWN', 'Queue removal receipt is unavailable')
+      }
+    },
+    async getQueuedEditTextReceipt(sessionId: string, actorId: string, idempotencyKey: string) {
+      try {
+        return await kernel.storage.call('queuedRunEditTextReceipt', actorId, idempotencyKey, sessionId)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue edit receipt is unavailable')
       }
     },
     dispose: () => registry.dispose(),

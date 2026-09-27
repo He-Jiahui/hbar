@@ -21,6 +21,10 @@ import type {
 import type {
   ActiveOperationsInput,
   ActiveOperationsPage,
+  QueuedRunEditable,
+  QueuedRunEditableInput,
+  QueuedRunEditTextInput,
+  QueuedRunEditTextReceipt,
   QueuedRunRemoveInput,
   QueuedRunRemoveReceipt,
   RunCommandRecord,
@@ -162,6 +166,12 @@ export interface StorageMethods {
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
   activeOperations(input: ActiveOperationsInput): ActiveOperationsPage
   queuedUserRuns(input: QueuedUserRunsInput): QueuedUserRunsPage
+  queuedRunEditable(input: QueuedRunEditableInput): QueuedRunEditable
+  editQueuedRunText(input: { actorId: string; idempotencyKey: string; request: QueuedRunEditTextInput }): {
+    receipt: QueuedRunEditTextReceipt
+    event: SessionEvent
+  }
+  queuedRunEditTextReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunEditTextReceipt | null
   removeQueuedRun(input: { actorId: string; idempotencyKey: string; request: QueuedRunRemoveInput }): {
     receipt: QueuedRunRemoveReceipt
     event: SessionEvent
