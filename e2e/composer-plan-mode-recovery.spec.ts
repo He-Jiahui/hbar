@@ -82,7 +82,7 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
         ),
       })
       .click()
-    await picker.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
+    await picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }).click()
     await expect(picker.getByText(copy.session.permissionPicker.plan.unknown)).toBeVisible()
     await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
     await expectComposerText(prompt, 'This draft remains when mode confirmation is lost.')

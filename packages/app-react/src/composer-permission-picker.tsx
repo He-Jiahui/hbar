@@ -54,7 +54,7 @@ export interface HbarComposerPermissionLabels {
     readonly pending: string
     readonly unknown: string
     readonly loading: string
-    readonly exit: string
+    readonly selected: string
     readonly retry: string
     readonly recheck: string
     readonly approvalPaused: string
@@ -439,9 +439,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const moveChoice = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
     const options = [
-      ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitemradio"]:not(:disabled),[role="menuitemcheckbox"]:not(:disabled)',
-      ),
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)'),
     ]
     if (!options.length) return
     event.preventDefault()
@@ -584,7 +582,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           setConfirmation(null)
           if (opening) {
             const selected = popup.current?.querySelector<HTMLButtonElement>(
-              '[role="menuitemcheckbox"][aria-checked="true"]:not(:disabled), [role="menuitemradio"][aria-checked="true"]:not(:disabled)',
+              '[role="menuitemradio"][aria-checked="true"]:not(:disabled)',
             )
             ;(
               selected ??
@@ -707,18 +705,21 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     type="button"
                     variant="text"
                     indicator="none"
-                    role="menuitemcheckbox"
+                    role="menuitemradio"
                     aria-checked={planSelected}
                     aria-describedby={goalPreparation && !planSelected ? goalPreparedId : undefined}
                     disabled={planBlocked}
                     className="hbar-composer-permission-option hbar-composer-plan-option"
                     data-choice="plan"
-                    onClick={() => changePlan(planSelected ? 'default' : 'plan')}
+                    onClick={() => {
+                      if (planSelected) closePopover()
+                      else changePlan('plan')
+                    }}
                   >
                     <LumenIcon icon={Lightbulb} tier="md" />
                     <LumenFrame className="hbar-composer-permission-description">
                       <LumenText as="span">{labels.plan.label}</LumenText>
-                      <LumenText as="span">{planSelected ? labels.plan.exit : labels.plan.description}</LumenText>
+                      <LumenText as="span">{planSelected ? labels.plan.selected : labels.plan.description}</LumenText>
                     </LumenFrame>
                     {planSelected && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>

@@ -27,10 +27,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const open = async (label: string) => {
         await picker.getByRole('button', { name: labels.trigger(label), exact: true }).click()
       }
-      const plan = picker.getByRole('menuitemcheckbox', { name: labels.plan.label, exact: false })
+      const plan = picker.getByRole('menuitemradio', { name: labels.plan.label, exact: false })
       await open(labels.inheritedTrigger(labels.options.ask.label))
       await plan.click()
       await expect(picker.getByRole('button', { name: labels.trigger(labels.plan.label) })).toBeVisible()
+      expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
+      await open(labels.plan.label)
+      await plan.click()
+      await expect(picker.locator('.hbar-composer-permission-popover')).toBeHidden()
       expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
 
       for (const width of [1440, 320]) {

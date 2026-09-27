@@ -30,7 +30,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const modes = page.locator('.hbar-composer-intents')
       const permission = page.locator('.hbar-composer-permission-picker')
-      const planEntry = permission.getByRole('menuitemcheckbox', {
+      const planEntry = permission.getByRole('menuitemradio', {
         name: copy.session.permissionPicker.plan.label,
         exact: false,
       })
@@ -74,7 +74,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
       await expect(
-        permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+        permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
       ).toBeVisible()
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-durable-plan-menu-${locale}-1440.png` })
       await permission.getByRole('button', { name: copy.session.permissionPicker.close }).click()
@@ -89,15 +89,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
       await expect(
-        permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+        permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
       ).toBeVisible()
       await page.keyboard.press('End')
       await expect(
-        permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+        permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
       ).toBeFocused()
       expect(
         await permission.locator('.hbar-composer-permission-popover').evaluate((popup) => {
-          const option = popup.querySelector('[role="menuitemcheckbox"]')?.getBoundingClientRect()
+          const option = popup.querySelector('[role="menuitemradio"][data-choice="plan"]')?.getBoundingClientRect()
           const bounds = popup.getBoundingClientRect()
           return Boolean(option && option.top >= bounds.top && option.bottom <= bounds.bottom)
         }),
@@ -111,7 +111,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await permission
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
-      await permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
+      await permission.locator('[role="menuitemradio"][data-choice="inherit"]').click()
       expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
       await expectComposerText(prompt, objective)
 
@@ -248,7 +248,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await permission
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
-      await permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
+      await permission.locator('[role="menuitemradio"][data-choice="inherit"]').click()
       await prompt.fill('Act in default mode after explicit exit.')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await expectComposerText(prompt, '')

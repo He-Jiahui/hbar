@@ -1065,7 +1065,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           'Plan mode write is unconfirmed. Sending is paused; check the Host state.',
         ),
         loading: choose('正在读取会话计划模式…', 'Loading this session’s Plan mode…'),
-        exit: choose('退出计划模式', 'Exit Plan mode'),
+        selected: choose(
+          '当前会话正在规划；选择其他审批档位以退出。',
+          'Planning is active for this session. Choose another approval to exit.',
+        ),
         retry: choose('重新读取会话模式', 'Reload session mode'),
         recheck: choose('核对计划模式', 'Recheck Plan mode'),
         approvalPaused: choose(

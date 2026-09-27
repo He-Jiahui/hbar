@@ -18,7 +18,7 @@ const labels: HbarComposerPermissionLabels = {
     pending: '保存中',
     unknown: '尚未确认',
     loading: '读取中',
-    exit: '退出计划模式',
+    selected: '当前会话正在规划；选择其他审批档位以退出',
     retry: '重试读取',
     recheck: '核对',
     approvalPaused: '选择其他审批会先退出计划模式',
@@ -115,14 +115,13 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   }
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} />)
   expect(html).toContain('aria-label="工具审批：计划模式"')
-  expect(html).toContain('退出计划模式')
+  expect(html).toContain(labels.plan.selected)
   expect(html).toContain('此会话持续生效，不修改审批策略')
   expect(html).toContain(labels.plan.approvalPaused)
   expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
-  expect(html.match(/role="menuitemcheckbox"/g)).toHaveLength(1)
-  expect(html).toContain('role="menuitemcheckbox" aria-checked="true"')
-  expect(html).not.toContain('role="menuitemradio" aria-checked="true"')
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
+  expect(html).toContain('role="menuitemradio" aria-checked="true"')
+  expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
   const uncertain = renderToStaticMarkup(
     <HbarComposerPermissionPicker
       {...input}
@@ -134,7 +133,7 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   expect(uncertain).not.toContain('aria-label="工具审批：计划模式"')
   expect(uncertain).toContain(`aria-label="工具审批：${labels.execution.unknown}"`)
   expect(uncertain).not.toContain('aria-checked="true"')
-  expect(uncertain.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
+  expect(uncertain.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
 })
 
 test('long host-supplied names and exact default labels remain semantic text without duplicated options', () => {
@@ -168,8 +167,10 @@ test('prepared Goal explains its Plan conflict with a separate localized cancell
   expect(html).toContain(labels.plan.goalPrepared)
   expect(html).toContain(labels.plan.cancelGoalPreparation)
   expect(html).toContain('aria-describedby=')
-  expect(html.match(/<button[^>]*role="menuitemcheckbox"[^>]*disabled=""/g)).toHaveLength(1)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
+  const planOption = html.match(/<button[^>]*data-choice="plan"[^>]*>/)?.[0]
+  expect(planOption).toContain('role="menuitemradio"')
+  expect(planOption).toContain('disabled=""')
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(1)
   expect(html).not.toContain(labels.plan.cancellingGoalPreparation)
   const busy = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} disabled />)
   expect(busy).toContain(labels.plan.goalPrepared)

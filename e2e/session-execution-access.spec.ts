@@ -345,9 +345,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const picker = page.locator('.hbar-composer-permission-picker')
       await picker.locator('.hbar-composer-permission-trigger').click()
       for (const option of await picker.getByRole('menuitemradio').all()) await expect(option).toBeDisabled()
-      await expect(
-        picker.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
-      ).toBeDisabled()
+      await expect(picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })).toBeDisabled()
       await page.screenshot({ path: `${evidence}/${phase}/readonly-permission-plan-${locale}-1440.png` })
       await picker.getByRole('button', { name: copy.session.permissionPicker.close, exact: true }).click()
       expect(writes.commands).toHaveLength(writeCount)
@@ -477,7 +475,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
       } else if (kind === 'mode') {
         const picker = page.locator('.hbar-composer-permission-picker')
         await picker.locator('.hbar-composer-permission-trigger').click()
-        await picker.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }).click()
+        await picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }).click()
         await expect(picker.getByText(copy.session.permissionPicker.plan.unknown)).toBeVisible()
         expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
       } else {
@@ -529,7 +527,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
         await picker.getByRole('button', { name: copy.session.permissionPicker.plan.recheck, exact: true }).click()
         await expect(picker.getByText(copy.session.permissionPicker.plan.unknown)).toHaveCount(0)
         await expect(
-          picker.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label }),
+          picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
         ).toBeDisabled()
       } else {
         await page.getByRole('button', { name: copy.session.intent.reconcile, exact: true }).click()

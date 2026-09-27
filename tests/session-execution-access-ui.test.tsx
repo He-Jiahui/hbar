@@ -398,10 +398,8 @@ test('read-only permission menu disables all bounded new choices and Plan writes
       }}
     />,
   )
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
-  expect(html.match(/role="menuitemcheckbox"/g)).toHaveLength(1)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
-  expect(html.match(/<button[^>]*role="menuitemcheckbox"[^>]*disabled=""/g)).toHaveLength(1)
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
   const controls = await buttons(html)
   expect(controls.find((control) => control.text === labels.plan.recheck)?.disabled).toBe(false)
   expect(controls.find((control) => control.className.includes('hbar-composer-permission-trigger'))?.disabled).toBe(

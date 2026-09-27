@@ -136,7 +136,7 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
       page.locator('.hbar-composer-intents').getByRole('button', { name: copy.session.intent.goal, exact: true })
     const help = page.getByRole('dialog', { name: copy.session.intent.blocked.title, exact: true })
     const permission = page.locator('.hbar-composer-permission-picker')
-    const planOption = permission.getByRole('menuitemcheckbox', { name: copy.session.permissionPicker.plan.label })
+    const planOption = permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })
     const openPermission = async () => {
       await permission.locator('.hbar-composer-permission-trigger').click()
       await expect(planOption).toBeVisible()
