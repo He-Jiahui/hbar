@@ -44,6 +44,9 @@ export type {
   LumenSchedulingProviderProps as HbarAppUiSchedulingProviderProps,
   LumenSchedulingTimelineContent as HbarAppUiSchedulingTimelineContent,
   LumenSchedulingTimelineEvent as HbarAppUiSchedulingTimelineEvent,
+  LumenSchedulingTimelineReferenceContent as HbarAppUiSchedulingTimelineReferenceContent,
+  LumenSchedulingTimelineReferenceDay as HbarAppUiSchedulingTimelineReferenceDay,
+  LumenSchedulingTimelineReferenceEvent as HbarAppUiSchedulingTimelineReferenceEvent,
   LumenSchedulingTimeRangeContent as HbarAppUiSchedulingTimeRangeContent,
 } from '@lumen/app-ui'
 

@@ -5,6 +5,44 @@ const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceTimeline: {
+    labels: {
+      previous: 'Previous week', next: 'Next week', today: 'Today', view: 'Calendar view', day: 'Day', week: 'Week', create: 'New',
+      title: 'Event title', duration: 'Duration', delete: 'Delete event', close: 'Close editor', newTitle: 'Untitled',
+      hint: 'Drag on the grid to block out time. Drag an event to move it, or its bottom edge to resize.', emptyDays: 'No days', emptyDurations: 'No durations',
+      navigation: (view, direction) => `${direction === -1 ? 'Previous' : 'Next'} ${view}`,
+      time: (minutes) => `${Math.floor(minutes / 60) % 12 || 12}:${String(minutes % 60).padStart(2, '0')} ${minutes >= 720 ? 'pm' : 'am'}`,
+      weekHeading: (days) => {
+        const first = days[0];const last = days.at(-1);if (!first || !last) return 'No days';
+        return `${first.date} – ${last.date} ${new Intl.DateTimeFormat('en-GB', {month: 'long', year: 'numeric', timeZone: 'UTC'}).format(new Date(last.id))}`
+      },
+      dayHeading: (day) => new Intl.DateTimeFormat('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'}).format(new Date(day.id)),
+      summary: (event) => {
+        const date = new Date(event.dayId);const minutes = event.durationMinutes % 60;const hours = Math.floor(event.durationMinutes / 60);
+        const time = `${Math.floor(event.startMinutes / 60) % 12 || 12}:${String(event.startMinutes % 60).padStart(2, '0')} ${event.startMinutes >= 720 ? 'pm' : 'am'}`;
+        return `${new Intl.DateTimeFormat('en-US', {month: 'long', day: 'numeric', timeZone: 'UTC'}).format(date)} · ${time} · ${hours ? `${hours} h` : ''}${hours && minutes ? ' ' : ''}${minutes ? `${minutes} min` : ''}`
+      },
+    },
+    heading: '8 – 12 June 2026', view: 'week', activeDayId: '2026-06-10', selectedEventId: '', startMinutes: 480, endMinutes: 1080,
+    newEventStartMinutes: 540, newEventDurationMinutes: 60,
+    days: ['Mon','Tue','Wed','Thu','Fri'].map((label, index) => ({id: `2026-06-${String(8 + index).padStart(2,'0')}`, label, date: String(8 + index), isToday: index === 2})),
+    hours: Array.from({length: 10}, (_, index) => ({id: String(index + 8), label: `${(index + 8) % 12 || 12} ${index >= 4 ? 'pm' : 'am'}`})),
+    durations: [{id: '0.5', label: '30 min'}, {id: '0.75', label: '45 min'}, {id: '1', label: '1 hour'}, {id: '1.5', label: '90 min'}, {id: '2', label: '2 hours'}],
+    events: [
+      {id: 'standup', dayId: '2026-06-08', title: 'Standup', startMinutes: 540, durationMinutes: 30},
+      {id: 'roadmap', dayId: '2026-06-08', title: 'Roadmap shaping', startMinutes: 660, durationMinutes: 90},
+      {id: 'nadia', dayId: '2026-06-09', title: '1:1 · Nadia', startMinutes: 600, durationMinutes: 60},
+      {id: 'vendor', dayId: '2026-06-09', title: 'Vendor call', startMinutes: 630, durationMinutes: 60},
+      {id: 'design', dayId: '2026-06-09', title: 'Design critique', startMinutes: 840, durationMinutes: 120},
+      {id: 'qa', dayId: '2026-06-10', title: 'Mobile QA handoff', startMinutes: 570, durationMinutes: 60},
+      {id: 'all-hands', dayId: '2026-06-10', title: 'All-hands', startMinutes: 780, durationMinutes: 60},
+      {id: 'hiring', dayId: '2026-06-11', title: 'Hiring panel', startMinutes: 660, durationMinutes: 60},
+      {id: 'retro', dayId: '2026-06-11', title: 'Platform retro', startMinutes: 900, durationMinutes: 60},
+      {id: 'focus', dayId: '2026-06-12', title: 'Focus block', startMinutes: 540, durationMinutes: 180},
+      {id: 'demo', dayId: '2026-06-12', title: 'Customer demo', startMinutes: 840, durationMinutes: 60},
+    ],
+    dayStrategy: {kind: 'content-grown', expectedMaximum: 5}, eventStrategy: {kind: 'pane-scroll', expectedMaximum: 11},
+  },
   referenceAvailability: {
     labels: {
       title: 'Weekly availability', description: (count) => `Bookable hours on ${count} days. Holidays are excluded automatically.`,
@@ -336,6 +374,23 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceTimeline: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!,
+      labels: {...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.labels,
+        previous: '上一周', next: '下一周', today: '今天', view: '日历视图', day: '日', week: '周', create: '新建',
+        title: '事件标题', duration: '持续时间', delete: '删除事件', close: '关闭编辑', newTitle: '未命名',
+        navigation: (view, direction) => `${direction === -1 ? '上一' : '下一'}${view === 'day' ? '日' : '周'}`,
+        hint: '在时间轴空白处拖动以创建时间段；拖动事件可跨日期移动，拖动底边可调整持续时间。', emptyDays: '没有日期', emptyDurations: '没有时长',
+        weekHeading: (days) => `跨区域平台与产品协作周日程：六月${days[0]?.date ?? ''}日到${days.at(-1)?.date ?? ''}日`,
+        dayHeading: (day) => `六月${day.date}日跨区域协作日程`,
+        time: (minutes) => `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`,
+        summary: (event) => `六月${new Date(event.dayId).getUTCDate()}日 · ${event.durationMinutes}分钟`,
+      },
+      heading: '跨区域平台与产品协作周日程：六月8日到12日',
+      days: HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.days.map((day, index) => ({...day, label: ['周一','周二','周三','周四','周五'][index] ?? day.label})),
+      events: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.events].reverse().map((event) => ({...event, title: `${event.title}——区域平台与产品负责人协作同步会议`})),
+      durations: [{id: '0.5', label: '30分钟'}, {id: '0.75', label: '45分钟'}, {id: '1', label: '1小时'}, {id: '1.5', label: '90分钟'}, {id: '2', label: '2小时'}],
+    },
     referenceAvailability: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!,
       labels: {
@@ -413,7 +468,12 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
 
 export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
   const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
-  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceAvailability: {
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceTimeline: {
+    ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!,
+    days: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.days, {id: '2026-06-13', label: 'Sat', date: '13'}],
+    events: [...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!.events, {id: 'extra-event', dayId: '2026-06-13', title: 'Additional regional weekend event', startMinutes: 1020, durationMinutes: 60}],
+    dayStrategy: {kind: 'content-grown', expectedMaximum: 5}, eventStrategy: {kind: 'pane-scroll', expectedMaximum: 11},
+  }, referenceAvailability: {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceAvailability!,
     days: Array.from({length: 8}, (_, index) => ({id: `overflow-day-${index}`, label: `Extended regional availability day ${index + 1}`, enabled: true,
       intervals: Array.from({length: 3}, (_, slot) => ({id: `interval-${index}-${slot}`, startId: '09:00', endId: '17:00'}))})),

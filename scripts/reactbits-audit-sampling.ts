@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-6')
+    return {
+      revision: 1,
+      lumenEntries: ['scheduling.tsx', 'scheduling-timeline-reference.tsx', 'scheduling-timeline-model.ts', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Previous week changes its heading and date columns and leaves the empty adjacent week without events'},
+        {viewport: 'desktop', theme: 'dark', suffix: '1:click', change: 'Next week exercises the opposite calendar boundary and empty event set'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Today on the initial current week is a source no-op, not a newly invented projection'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Day tab reduces to the selected Wednesday and two events'},
+        {viewport: 'desktop', theme: 'light', suffix: '6:click', change: 'Day header opens Monday single-day view with both matching events'},
+        {viewport: 'desktop', theme: 'dark', suffix: '12:click', change: 'Event press opens the inline title and duration editor in the footer'},
+        {viewport: 'desktop', theme: 'light', suffix: '5:click', change: 'New creates and selects an Untitled event in the active day'},
+        {viewport: 'tablet', theme: 'dark', suffix: '17:hover', change: 'Shared event hover feedback in the five-column intermediate width'},
+        {viewport: 'stress', theme: 'light', suffix: '8:press-space', change: 'Narrow keyboard day selection changes the semantic view without a horizontal escape'},
+      ],
+      inferences: [
+        {scope: 'Remaining date/event IDs and repeated week directions, view toggles, and themes', basis: 'Shared ID-keyed Host transitions are sampled for week, single-day, current day, event selection and creation. Eight static viewport/theme pairs cover responsive column width, header hiding, clipping and colors; local tests cover duplicate, empty, stale, over-bound, localized and keyboard boundaries.', verification: 'inferred-not-replayed'},
+        {scope: 'Editor title/duration/close/delete and pointer move/resize combinations', basis: 'Live source probe observed direct title editing, duration resizing, close persistence, deletion, drag between days and bottom-edge resize. Distinct mechanisms receive focused local browser assertions; not every event/viewport permutation is replayed against the source.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-5')
     return {
       revision: 1,

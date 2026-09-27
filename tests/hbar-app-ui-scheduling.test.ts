@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import {groupLumenTimelineIntervals, snapLumenTimelineMinutes} from '@lumen/app-ui'
+import {createSchedulingTimelinePreviewStore, timelinePreviewProjection} from '../apps/hbar-app-ui-preview/src/schedulingTimelinePreviewStore'
 import {
   getHbarAppUiVariant,
   HbarAppUiSchedulingProvider,
@@ -24,6 +26,92 @@ function render(variant: number, content: HbarAppUiSchedulingContent = HBAR_APP_
 }
 
 describe('hbar-app-ui scheduling surfaces', () => {
+  test('timeline reference exposes native week/day buttons, temporal events and source-shaped passive footer', () => {
+    const value = render(6)
+    expect(value).toContain('<h1>8 – 12 June 2026</h1>')
+    expect(value.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(5)
+    expect(value.match(/data-hbar-app-ui-action="select-event"/g)?.length).toBe(11)
+    expect(value).toContain('aria-selected="true">Week')
+    expect(value).toContain('Drag on the grid to block out time.')
+    expect(value).not.toContain('style="inset')
+    expect(value).not.toContain('role="dialog"')
+    const legacy = render(6, {timeline: HBAR_APP_UI_SCHEDULING_FIXTURES.timeline!})
+    expect(legacy).toContain('Workspace review')
+    expect(legacy).not.toContain('lumen-scheduling-timeline-reference-layout')
+  })
+
+  test('temporal collision lanes use connected intervals, stable IDs, quarter-hour snaps and valid bounds', () => {
+    const item = (id: string, startMinutes: number, durationMinutes: number) => ({id, startMinutes, durationMinutes})
+    const groups = groupLumenTimelineIntervals([item('a', 540, 60), item('b', 570, 60), item('c', 600, 60), item('d', 660, 30), item('a', 600, 45), item('invalid', NaN, 10), item('outside', 400, 30), item('zero', 720, 0)], 480, 1080)
+    expect(groups.map((group) => [group.startMinutes, group.endMinutes, group.lanes.map((lane) => lane.map((event) => event.id))])).toEqual([[540, 660, [['a', 'c'], ['b']]], [660, 690, [['d']]]])
+    expect(snapLumenTimelineMinutes(589, 480, 1080)).toBe(585)
+    expect(snapLumenTimelineMinutes(400, 480, 1080)).toBe(480)
+    expect(snapLumenTimelineMinutes(1200, 480, 1080)).toBe(1080)
+    expect(groupLumenTimelineIntervals([], 480, 1080)).toEqual([])
+  })
+
+  test('controlled timeline editor and day view preserve original IDs and all non-overflow records', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!
+    const value = render(6, {referenceTimeline: {...content, view: 'day', activeDayId: '2026-06-09', selectedEventId: 'vendor', events: [...content.events].reverse()}})
+    expect(value.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(1)
+    expect(value.match(/data-hbar-app-ui-action="select-event"/g)?.length).toBe(3)
+    expect(value).toContain('aria-label="Event title"')
+    expect(value).toContain('value="Vendor call"')
+    expect(value).toContain('June 9 · 10:30 am · 1 h')
+    expect(value).toContain('aria-label="Delete event"')
+    expect(value).toContain('aria-label="Close editor"')
+    expect(value).not.toContain('Drag on the grid')
+    const stale = render(6, {referenceTimeline: {...content, selectedEventId: 'missing'}})
+    expect(stale).not.toContain('aria-label="Event title"')
+    const localized = render(6, createHbarAppUiSchedulingLocalizedFixtures())
+    expect(localized).toContain('区域平台与产品负责人协作同步会议')
+    expect(localized).toContain('在时间轴空白处拖动')
+    expect(localized).not.toContain('Drag on the grid')
+  })
+
+  test('timeline capacity keeps empty, one, normal, boundary-plus-one and duplicate day/event IDs explicit', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!
+    for (const count of [0, 1, 5, 6]) {
+      const days = Array.from({length: count}, (_, index) => ({id: `day-${index}`, label: `Day ${index}`, date: String(index + 1)}))
+      const value = render(6, {referenceTimeline: {...content, days}})
+      expect((value.match(/data-hbar-app-ui-action="select-day"/g) ?? []).length).toBe(count)
+      if (!count) expect(value).toContain('No days')
+    }
+    for (const count of [0, 1, 11, 12]) {
+      const events = Array.from({length: count}, (_, index) => ({...content.events[0]!, id: `event-${index}`, startMinutes: 480 + index * 30}))
+      const value = render(6, {referenceTimeline: {...content, events}})
+      expect((value.match(/data-hbar-app-ui-action="select-event"/g) ?? []).length).toBe(count)
+    }
+    const duplicate = render(6, {referenceTimeline: {...content, days: [content.days[0]!, content.days[0]!], events: [content.events[0]!, content.events[0]!]}})
+    expect(duplicate.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(1)
+    expect(duplicate.match(/data-hbar-app-ui-action="select-event"/g)?.length).toBe(1)
+    const overflow = render(6, createHbarAppUiSchedulingOverflowFixtures())
+    expect(overflow.match(/data-hbar-app-ui-action="select-day"/g)?.length).toBe(6)
+    expect(overflow.match(/data-hbar-app-ui-action="select-event"/g)?.length).toBe(12)
+  })
+
+  test('timeline Host mutation keeps independent navigation, view, selection, CRUD and retained edits', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceTimeline!
+    const store = createSchedulingTimelinePreviewStore(content)
+    store.getState().navigate(-1)
+    expect(timelinePreviewProjection(content, store.getState()).heading).toBe('1 – 5 June 2026')
+    store.getState().today()
+    store.getState().setDay('2026-06-09')
+    expect(timelinePreviewProjection(content, store.getState()).heading).toBe('Tuesday, 9 June 2026')
+    store.getState().navigate(1)
+    expect(store.getState().activeDayId).toBe('2026-06-10')
+    store.getState().create('2026-06-10', 540, 60)
+    expect(store.getState().selectedEventId).toBe('new-0')
+    store.getState().edit({...store.getState().events.at(-1)!, title: '', durationMinutes: 120})
+    store.getState().close()
+    expect(store.getState().events.at(-1)?.title).toBe('')
+    expect(store.getState().events.at(-1)?.durationMinutes).toBe(120)
+    store.getState().remove('vendor')
+    expect(store.getState().events.find((event) => event.id === 'vendor')).toBeUndefined()
+    expect(store.getState().events.find((event) => event.id === 'nadia')).toBeDefined()
+    store.getState().reset(content)
+    expect(store.getState().events).toEqual(content.events)
+  })
   test('availability reference preserves seven switches, native times, disabled boundaries and Host day count', () => {
     const value = render(5)
     expect(value.match(/role="switch"/g)?.length).toBe(7)

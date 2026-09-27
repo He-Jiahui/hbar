@@ -4,6 +4,16 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('week timeline sampling separates calendar projection, event selection and creation without a gesture-layout product', () => {
+  const id = 'hbar-app-ui-scheduling-6'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(9)
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:8:press-space`])
+  expect(plan.lumenEntries).toContain('scheduling-timeline-model.ts')
+  expect(plan.inferences.some((entry) => entry.basis.includes('bottom-edge resize'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('weekly availability sampling separates independent edits, day reset, interval mutation and source no-ops', () => {
   const id = 'hbar-app-ui-scheduling-5'
   const plan = auditSamplingPlan(id)!
