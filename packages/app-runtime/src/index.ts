@@ -246,7 +246,12 @@ export { SessionSelectionError } from './navigation'
 export { systemDiagnosticsCommands } from './system-diagnostics'
 export type { SystemDiagnosticsEntry, SystemDiagnosticsState } from './system-diagnostics'
 
-export type { ComposerIntent, ComposerIntentState, ComposerIntentEntry } from './composer-intent'
+export type {
+  ComposerIntent,
+  ComposerIntentState,
+  ComposerIntentEntry,
+  ComposerGoalReconciliation,
+} from './composer-intent'
 export { composerPlanModeCommands } from './composer-plan-mode'
 export type { ComposerPlanModeState, ComposerPlanModeEntry, ComposerPlanMode } from './composer-plan-mode'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
@@ -502,6 +507,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const composerIntent = createComposerIntent(local, {
     preparation: executionPreparation,
     goals: options.goals,
+    ...(options.goalEvents ? { events: options.goalEvents } : {}),
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,

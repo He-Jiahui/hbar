@@ -143,6 +143,10 @@ export interface RuntimeOptions {
   readonly files?: CommandExecutor
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
+  /** Transport lifetime for Goal reads; a reconnect is not confirmation of an unknown action. */
+  readonly goalEvents?: {
+    onConnection(listener: (connected: boolean) => void): () => void
+  }
   /** Explicit read-only canonical Goal history capability, separate from editable current Goal. */
   readonly goalHistory?: CommandExecutor
   readonly workflows?: WorkflowWorkspacePort

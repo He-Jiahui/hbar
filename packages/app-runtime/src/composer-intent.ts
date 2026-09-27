@@ -22,6 +22,17 @@ import type { SessionExecutionPreparationPort } from './session-execution-prepar
 import type { SessionExecutionTarget } from './session-execution-access'
 
 export type ComposerIntent = 'default' | 'goal' | 'plan'
+export interface ComposerGoalReconciliation {
+  readonly status: 'checking' | 'unconfirmed' | 'failed'
+  readonly error: string | null
+  /** Logical cancellation/timeout does not release a physical snapshot request. */
+  readonly requestInFlight: boolean
+  readonly operation: {
+    readonly sessionId: string
+    readonly expectedGoalId: string
+    readonly action: 'pause' | 'resume' | 'clear'
+  }
+}
 export interface ComposerIntentEntry {
   readonly sessionId: string
   readonly intent: ComposerIntent
@@ -35,6 +46,8 @@ export interface ComposerIntentEntry {
   readonly goalAction: {
     readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
     readonly error: string | null
+    /** Only a current snapshot comparison, never an exact persisted mutation receipt. */
+    readonly reconciliation?: ComposerGoalReconciliation
   }
 }
 export interface ComposerIntentState {
@@ -51,6 +64,9 @@ export interface ComposerIntentOptions {
   readonly goals?: GoalPlanWorkspacePort | undefined
   readonly preparation?: SessionExecutionPreparationPort | undefined
   readonly navigation: StateReader<NavigationState>
+  readonly events?: {
+    onConnection(listener: (connected: boolean) => void): () => void
+  }
   /** Delegate to the existing draft module so its draft revision and receipt rules remain authoritative. */
   readonly executeRun: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>
   readonly serializeDraft?: (sessionId: string, revision: number, workspaceId: string, displayText: string) => string
@@ -132,6 +148,35 @@ const UNKNOWN_CODES = new Set([
   'EXECUTION_FAILED',
 ])
 const MAX_ENTRIES = 100
+const MAX_SNAPSHOT_READS = 32
+const SNAPSHOT_READ_TIMEOUT_MS = 30_000
+
+type SnapshotRead = {
+  readonly promise: Promise<GoalPlanSnapshot>
+  readonly controller: AbortController
+  readonly reject: (error: unknown) => void
+  readonly clearDeadline: () => void
+  invalidated: boolean
+  refreshAfter: boolean
+}
+
+const RECONCILIATION_CODES = new Set([
+  'RESULT_UNKNOWN',
+  'TIMEOUT',
+  'TIMED_OUT',
+  'DISCONNECTED',
+  'CONNECTION_CLOSED',
+  'CANCELLED',
+  'INVALID_OUTPUT',
+  'CAPABILITY_UNAVAILABLE',
+  'STALE_TARGET',
+  'BUSY',
+  'GOAL_CONFLICT',
+])
+function reconciliationCode(error: unknown): string {
+  const value = code(error)
+  return RECONCILIATION_CODES.has(value) ? value : 'READ_FAILED'
+}
 
 function code(error: unknown): string {
   if (error instanceof z.ZodError) return 'INVALID_OUTPUT'
@@ -157,6 +202,9 @@ function goalDraftFingerprint(request: SubmitRunInput, tokenBudget: number | und
 export function createComposerIntent(local: CommandRegistry, options: ComposerIntentOptions) {
   let disposed = false
   let generation = 0
+  let selectionGeneration = 0
+  let connectionGeneration = 0
+  let connected = true
   const state = createState<ComposerIntentState>(
     {
       entries: {},
@@ -168,7 +216,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   const submissions = new Map<string, Submission>()
   const preparations = new Set<string>()
   const controls = new Map<string, GoalControl>()
-  const reads = new Map<string, Promise<GoalPlanSnapshot>>()
+  const reads = new Map<string, SnapshotRead>()
+  const reconciliations = new Map<string, { readonly control: GoalControl; readonly promise: Promise<void> }>()
   const entry = (sessionId: string) => state.reader.getSnapshot().entries[sessionId] ?? initial(sessionId)
   const replace = (next: ComposerIntentEntry) => {
     if (disposed) return
@@ -191,14 +240,55 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     if (!goals) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Goal commands are unavailable')
     return goals
   }
-  const snapshot = async (sessionId: string): Promise<GoalPlanSnapshot> => {
+  const publishReconciliation = (
+    control: GoalControl,
+    status: ComposerGoalReconciliation['status'],
+    error: string | null,
+  ) => {
+    const current = entry(control.sessionId)
+    if (disposed || controls.get(control.sessionId) !== control || current.goalAction.status !== 'unknown') return
+    replace({
+      ...current,
+      goalAction: {
+        ...current.goalAction,
+        reconciliation: { status, error, requestInFlight: reads.has(control.sessionId), operation: control },
+      },
+    })
+  }
+  const invalidateRead = (sessionId: string, reason = 'STALE_TARGET') => {
     const read = reads.get(sessionId)
-    if (read) return read
-    const request = (async () => {
+    if (!read || read.invalidated) return
+    read.invalidated = true
+    read.clearDeadline()
+    read.reject(new CommandError(reason, 'Goal snapshot scope changed'))
+    read.controller.abort()
+  }
+  const snapshot = async (sessionId: string): Promise<GoalPlanSnapshot> => {
+    if (disposed) throw new CommandError('DISPOSED', 'Composer intent is disposed')
+    if (!connected) throw new CommandError('DISCONNECTED', 'Goal snapshot is unavailable while disconnected')
+    const read = reads.get(sessionId)
+    if (read) {
+      if (read.invalidated) throw new CommandError('BUSY', 'The original Goal snapshot is still in flight')
+      return read.promise
+    }
+    if (reads.size >= MAX_SNAPSHOT_READS) throw new CommandError('BUSY', 'Goal snapshot read capacity reached')
+    const result = Promise.withResolvers<GoalPlanSnapshot>()
+    const controller = new AbortController()
+    const timer = setTimeout(() => invalidateRead(sessionId, 'TIMEOUT'), SNAPSHOT_READ_TIMEOUT_MS)
+    const task: SnapshotRead = {
+      promise: result.promise,
+      controller,
+      reject: result.reject,
+      clearDeadline: () => clearTimeout(timer),
+      invalidated: false,
+      refreshAfter: false,
+    }
+    reads.set(sessionId, task)
+    const physical = (async () => {
       const value = goalPlanSnapshotSchema.parse(
         options.goals?.snapshot
-          ? await options.goals.snapshot(sessionId)
-          : await requireGoals().execute('goal.snapshot', { sessionId }),
+          ? await options.goals.snapshot(sessionId, { signal: controller.signal })
+          : await requireGoals().execute('goal.snapshot', { sessionId }, { signal: controller.signal }),
       )
       if (
         value.sessionId !== sessionId ||
@@ -208,12 +298,27 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         throw new CommandError('INVALID_OUTPUT', 'Goal snapshot target mismatch')
       return value
     })()
-    reads.set(sessionId, request)
-    try {
-      return await request
-    } finally {
-      if (reads.get(sessionId) === request) reads.delete(sessionId)
+    const finish = () => {
+      task.clearDeadline()
+      if (reads.get(sessionId) !== task) return
+      reads.delete(sessionId)
+      const current = entry(sessionId).goalAction.reconciliation
+      const control = controls.get(sessionId)
+      if (control && current) publishReconciliation(control, current.status, current.error)
+      if (task.refreshAfter && !disposed && connected && options.navigation.getSnapshot().sessionId === sessionId)
+        void refresh(sessionId).catch(() => {})
     }
+    void physical.then(
+      (value) => {
+        finish()
+        if (!task.invalidated) result.resolve(value)
+      },
+      (error: unknown) => {
+        finish()
+        if (!task.invalidated) result.reject(error)
+      },
+    )
+    return result.promise
   }
   const feed = new GoalPlanFeed(
     options.goals,
@@ -239,6 +344,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   )
 
   async function refresh(sessionId: string) {
+    if (disposed) throw new CommandError('DISPOSED', 'Composer intent is disposed')
     if (options.navigation.getSnapshot().sessionId !== sessionId) return snapshot(sessionId)
     const intent = ++generation
     const current = state.reader.getSnapshot()
@@ -271,20 +377,56 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     }
   }
   const refreshSelected = (sessionId: string) => {
-    reads.delete(sessionId)
-    if (options.navigation.getSnapshot().sessionId === sessionId) void refresh(sessionId).catch(() => {})
+    invalidateRead(sessionId)
+    if (options.navigation.getSnapshot().sessionId !== sessionId || !connected || disposed) return
+    const active = reads.get(sessionId)
+    if (active) {
+      active.refreshAfter = true
+      const current = state.reader.getSnapshot()
+      state.replace({ ...current, facts: { sessionId, status: 'loading', snapshot: null, error: null } })
+      return
+    }
+    void refresh(sessionId).catch(() => {})
   }
   let selectedSessionId: string | null = null
   const select = () => {
     const sessionId = options.navigation.getSnapshot().sessionId
     if (sessionId === selectedSessionId) return
-    if (selectedSessionId) feed.close(selectedSessionId)
+    if (selectedSessionId) {
+      feed.close(selectedSessionId)
+      invalidateRead(selectedSessionId)
+    }
     selectedSessionId = sessionId
     generation += 1
+    selectionGeneration += 1
+    for (const { control } of reconciliations.values()) publishReconciliation(control, 'unconfirmed', 'STALE_TARGET')
     state.replace({ ...state.reader.getSnapshot(), facts: { sessionId, status: 'idle', snapshot: null, error: null } })
     if (sessionId) refreshSelected(sessionId)
   }
+  const setConnected = (value: boolean) => {
+    if (disposed || connected === value) return
+    connected = value
+    connectionGeneration += 1
+    generation += 1
+    for (const sessionId of reads.keys()) invalidateRead(sessionId, 'DISCONNECTED')
+    for (const { control } of reconciliations.values()) publishReconciliation(control, 'failed', 'DISCONNECTED')
+    if (selectedSessionId) {
+      feed.close(selectedSessionId)
+      const current = state.reader.getSnapshot()
+      state.replace({
+        ...current,
+        facts: {
+          sessionId: selectedSessionId,
+          status: value ? 'idle' : 'error',
+          snapshot: null,
+          error: value ? null : 'DISCONNECTED',
+        },
+      })
+      if (value) refreshSelected(selectedSessionId)
+    }
+  }
   const offNavigation = options.navigation.subscribe(select)
+  const offConnection = options.events?.onConnection(setConnected)
   select()
 
   const settle = (sessionId: string, pending: Submission) => {
@@ -300,6 +442,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   }
   const assertFree = (sessionId: string) => {
     const current = entry(sessionId)
+    const entries = state.reader.getSnapshot().entries
+    if (!entries[sessionId] && Object.keys(entries).length >= MAX_ENTRIES)
+      throw new CommandError('BUSY', 'Too many composer drafts are open')
     if (
       preparations.has(sessionId) ||
       controls.has(sessionId) ||
@@ -534,6 +679,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   })
   local.register(composerIntentCommands['composerIntent.controlGoal'], async (input, execution) => {
     const { sessionId } = input
+    if (disposed) throw new CommandError('DISPOSED', 'Composer intent is disposed')
+    if (!connected) throw new CommandError('DISCONNECTED', 'Goal control is unavailable while disconnected')
     assertFree(sessionId)
     controls.set(sessionId, input)
     replace({ ...entry(sessionId), goalAction: { status: 'submitting', error: null } })
@@ -545,6 +692,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         options.preparation.assertCanPrepare(target)
         if (disposed || execution.signal.aborted) throw new CommandError('CANCELLED', 'Goal preparation was cancelled')
       }
+      invalidateRead(sessionId)
       dispatched = true
       if (input.action === 'clear')
         await client.execute('goal.clear', { sessionId, expectedGoalId: input.expectedGoalId })
@@ -566,25 +714,66 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     return { sessionId }
   })
 
+  const reconcileControl = (control: GoalControl): Promise<void> => {
+    const { sessionId } = control
+    const currentTask = reconciliations.get(sessionId)
+    if (currentTask?.control === control) return currentTask.promise
+    if (disposed) return Promise.reject(new CommandError('DISPOSED', 'Composer intent is disposed'))
+    if (entry(sessionId).goalAction.status !== 'unknown')
+      return Promise.reject(new CommandError('BUSY', 'Goal control is pending'))
+    const selection = selectionGeneration
+    const connection = connectionGeneration
+    const result = Promise.withResolvers<void>()
+    const task = { control, promise: result.promise }
+    reconciliations.set(sessionId, task)
+    const run = async () => {
+      try {
+        if (!connected) throw new CommandError('DISCONNECTED', 'Goal reconciliation requires a connection')
+        const read = refresh(sessionId)
+        publishReconciliation(control, 'checking', null)
+        const value = await read
+        if (
+          disposed ||
+          !connected ||
+          connection !== connectionGeneration ||
+          selection !== selectionGeneration ||
+          controls.get(sessionId) !== control
+        )
+          throw new CommandError('STALE_TARGET', 'The original Goal reconciliation scope changed')
+        if (value.goal && value.goal.goalId !== control.expectedGoalId) {
+          controls.delete(sessionId)
+          replace({ ...entry(sessionId), goalAction: { status: 'failed', error: 'GOAL_CONFLICT' } })
+          throw new CommandError('GOAL_CONFLICT', 'The original Goal was replaced during reconciliation')
+        }
+        const confirmed =
+          control.action === 'clear'
+            ? value.goal === null
+            : value.goal?.goalId === control.expectedGoalId &&
+              value.goal.status === (control.action === 'pause' ? 'paused' : 'active')
+        if (!confirmed) throw new CommandError('RESULT_UNKNOWN', 'Goal control has not been confirmed')
+        controls.delete(sessionId)
+        replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
+      } catch (error) {
+        const errorCode = reconciliationCode(error)
+        publishReconciliation(
+          control,
+          ['RESULT_UNKNOWN', 'STALE_TARGET', 'CANCELLED'].includes(errorCode) ? 'unconfirmed' : 'failed',
+          errorCode,
+        )
+        throw error
+      } finally {
+        if (reconciliations.get(sessionId) === task) reconciliations.delete(sessionId)
+      }
+    }
+    void run().then(result.resolve, result.reject)
+    return result.promise
+  }
+
   local.register(composerIntentCommands['composerIntent.reconcile'], async ({ sessionId }) => {
     const control = controls.get(sessionId)
     const pending = submissions.get(sessionId)
     if (control) {
-      if (entry(sessionId).goalAction.status !== 'unknown') throw new CommandError('BUSY', 'Goal control is pending')
-      const value = await refresh(sessionId)
-      if (value.goal && value.goal.goalId !== control.expectedGoalId) {
-        controls.delete(sessionId)
-        replace({ ...entry(sessionId), goalAction: { status: 'failed', error: 'GOAL_CONFLICT' } })
-        throw new CommandError('GOAL_CONFLICT', 'The original Goal was replaced during reconciliation')
-      }
-      const confirmed =
-        control.action === 'clear'
-          ? value.goal === null
-          : value.goal?.goalId === control.expectedGoalId &&
-            value.goal.status === (control.action === 'pause' ? 'paused' : 'active')
-      if (!confirmed) throw new CommandError('RESULT_UNKNOWN', 'Goal control has not been confirmed')
-      controls.delete(sessionId)
-      replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
+      await reconcileControl(control)
     } else if (pending?.status === 'unknown') {
       if (pending.phase === 'run') {
         let accepted = options.getSettledReceipt?.(sessionId, pending.key) ?? null
@@ -641,8 +830,11 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       disposed = true
       generation += 1
       offNavigation()
+      offConnection?.()
       feed.dispose()
+      for (const sessionId of reads.keys()) invalidateRead(sessionId, 'DISPOSED')
       reads.clear()
+      reconciliations.clear()
       submissions.clear()
       preparations.clear()
       controls.clear()

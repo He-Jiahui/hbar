@@ -231,6 +231,13 @@ function createRuntime(
     files: createFileCommandClient(client),
     agents: createAgentCommandClient(client),
     goals,
+    goalEvents: {
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     goalHistory: goals,
     planProposal: copy.planProposal,
     workflows: createWorkflowCommandClient(client),
