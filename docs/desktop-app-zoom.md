@@ -48,12 +48,16 @@ zoom, a saved 120% value, and a second desktop/Host launch from the same owned
 data root restoring 120% were verified. No Run or paid provider request was
 issued. The precise asset/executable hashes, separate first/restart process
 identities, and cleanup are in
-`artifacts/app-zoom/native/hbar-native-session-ui-zoom-EgZIUv`.
+`artifacts/app-zoom/native/hbar-native-session-ui-zoom-RUQyTJ`.
 At 110% in a physical 900px window, WebView2 reports a CSS viewport of 818px;
 the General section, both send-key cards and Reset all end at CSS x≈789,
 inside that viewport. Their own scroll widths fit their client widths. CDP
 screenshots are captured at CSS viewport dimensions after native zoom, so a
 cropped-looking screenshot alone is not evidence of actual right-edge clipping.
+An owned-window `PrintWindow` capture independently confirms complete controls
+at 900px/110% (`physical-native-110-en-US-900.png`) and no black region at
+1440px/50% (`physical-native-050-zh-CN-1440.png`). The latter resolves the
+oversized black area seen in the CDP capture as a screenshot artifact.
 
 The separate canonical Lumen boundary test remains red in unrelated concurrent
 `hbar-ui` Comments/Authentication files (2 pass, 1 fail). None of the added
