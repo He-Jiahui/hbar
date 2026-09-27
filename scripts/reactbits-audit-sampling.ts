@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-1')
+    return {
+      revision: 1,
+      lumenEntries: ['scheduling.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '14:click', change: 'Date selection changes the pressed cell and heading, not the six event records'},
+        {viewport: 'desktop', theme: 'dark', suffix: '1:select', change: 'Native month selection changes only its selected value'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:select', change: 'Native year selection does not fabricate a new calendar projection'},
+        {viewport: 'desktop', theme: 'dark', suffix: '34:select', change: 'Filter value changes while the public source keeps the same event list'},
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Previous month is a source no-op'},
+        {viewport: 'desktop', theme: 'light', suffix: '35:click', change: 'Add does not open an invented creation form'},
+        {viewport: 'tablet', theme: 'dark', suffix: '14:hover', change: 'Shared date pointer feedback in stacked calendar flow'},
+        {viewport: 'stress', theme: 'light', suffix: '14:press-space', change: 'Native date keyboard selection at narrow width'},
+      ],
+      inferences: [
+        {scope: 'Other date cells, native keyboard gestures and date/year/filter values', basis: 'Thirty native date buttons share the same ID-bound selection. Source probing found that the heading keeps its Wednesday/June prefix as the date changes; the three selects alter only their own values. Native Space is replayed once; local tests cover reordered/stale/duplicate and over-bound data.', verification: 'inferred-not-replayed'},
+        {scope: 'Next month, Add and passive event metadata', basis: 'Live source Previous/Next and Add have no domain-state result. Previous and Add are representative no-op replays. Event articles, participants, time and location are passive content, not clickable rows.', verification: 'inferred-not-replayed'},
+        {scope: 'Other themes/viewports and calendar/agenda capacity', basis: 'Eight static pairs cover seven-column flex flow, desktop two panes, stacked narrow panes, hidden compact filter and wrapped metadata. Empty/one/boundary-plus-one, long locale and pane scrolling receive local tests rather than per-date by per-layout replay.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-comments-6')
     return {
       revision: 1,

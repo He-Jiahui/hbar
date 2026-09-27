@@ -4,6 +4,16 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('month calendar sampling treats date selection, native choices and reference no-ops as distinct mechanisms', () => {
+  const id = 'hbar-app-ui-scheduling-1'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(8)
+  expect(sampledInteractionIds(id, 'desktop', 'dark')).toEqual([`${id}:1:select`, `${id}:34:select`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:14:press-space`])
+  expect(plan.inferences.some((entry) => entry.basis.includes('same event list') || entry.basis.includes('only their own values'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('canvas sampling separates selection, locate, resolution, draft and source no-op without multiplying every marker by layouts', () => {
   const id = 'hbar-app-ui-comments-6'
   const plan = auditSamplingPlan(id)!

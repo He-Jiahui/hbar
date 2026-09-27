@@ -176,6 +176,20 @@ Comments 6 按选中标记、定位、解决、输入、Send 无业务反馈和�
 `bun scripts/verify-hbar-app-ui-comments.ts` 覆盖六个变体的本地功能，并额外检查 Comments 6 的
 全解决/恢复、草稿保留、长译文、超容量历史与原目标键盘动作。旧 `canvas` 契约仍可独立使用。
 
+Scheduling 1 在 2026-09-27 的证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-1-final-v2/`：8 组静态截图对、8 个代表性交互案例，
+其中 5 个 `matched`、3 个 `source-no-op`，缺失 0；机器门禁、当前截图人工复核和严格比较均通过。
+平均归一化像素 MAE 为 0.001982，仅作定位辅助，不替代语义、状态与人工验收。
+七列日期与事件元数据使用 flex 正常流；1024px 以下堆叠，640px 以下隐藏原生筛选框。
+选择日期只更新选中项与标题中的日期，保留原版固定 Wednesday/June 前缀与六条事件；
+月份、年份及筛选选项仅更新各自原生值。前后月与 Add 在源预览没有业务结果，不制造计算、筛选或弹窗。
+日期按钮、三个选择框、无操作按钮、hover 和窄屏 Space 分别选样，其余等价日期、值、手势和
+主题/宽度登记为 `inferred-not-replayed`，不做逐日期乘视口的重复重放。
+`bun scripts/verify-hbar-app-ui-scheduling.ts` 补充检查两侧断点、长中文、43 个日期与 7 条事件、
+显式 pane-scroll、元数据换行及键盘可达性；空态、边界与重复/失效 ID 另有单元测试。
+新 `referenceMonth` 由宿主提供受控数据与文案，旧 `month` 契约仍可独立使用。
+Scheduling 2–7 当前仅有源/旧本地基线，尚未实现本轮对齐，不把第 1 个的通过扩展到整类或正式宿主业务。
+
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
 控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/
 popover overlay 才能使用定位。内容、文案、集合和容量继续由宿主 contract 提供，不能在可复用

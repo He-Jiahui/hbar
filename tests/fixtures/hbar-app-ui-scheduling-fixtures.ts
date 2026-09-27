@@ -4,6 +4,32 @@ const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceMonth: {
+    labels: {
+      previous: 'Previous month', next: 'Next month', month: 'Month', year: 'Year', filter: 'Filter events', add: 'Add',
+      dateTitle: (day) => `Wednesday, June ${day}`, summary: (events, replies) => `${events} events · ${replies} need a reply`,
+      emptyDays: 'No dates available', emptyEvents: 'No events',
+    },
+    months: ['April', 'May', 'June', 'July'].map((label) => ({id: label, label})),
+    years: ['2025', '2026', '2027'].map((label) => ({id: label, label})),
+    filters: ['All events', 'Only mine', 'Needs reply'].map((label) => ({id: label, label})),
+    monthId: 'June', yearId: '2026', filterId: 'All events', activeDayId: '10',
+    weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => ({id: label, label})),
+    days: [
+      {id: 'previous-31', label: '31', selectable: false},
+      ...Array.from({length: 30}, (_, index) => ({id: String(index + 1), label: String(index + 1), selectable: true, hasEvents: [4, 8, 9, 10, 11, 13, 21, 28].includes(index + 1)})),
+      ...Array.from({length: 4}, (_, index) => ({id: `next-${index + 1}`, label: String(index + 1), selectable: false})),
+    ],
+    events: [
+      {id: 'qa', title: 'Mobile QA handoff', status: 'Upcoming', needsReply: true, participants: [{id: 'rs', initials: 'RS'}, {id: 'mk', initials: 'MK'}, {id: 'ta', initials: 'TA'}], time: '2:30 pm', location: 'Remote'},
+      {id: 'all-hands', title: 'Quarterly all-hands', status: 'Upcoming', needsReply: true, participants: [{id: 'dv', initials: 'DV'}], time: '4:00 pm', location: 'Main hall'},
+      {id: 'campaign', title: 'Campaign review', status: 'Upcoming', needsReply: true, participants: [{id: 'lm', initials: 'LM'}, {id: 'pn', initials: 'PN'}, {id: 'jr', initials: 'JR'}], time: '10:30 am', location: 'Video call'},
+      {id: 'hiring', title: 'Hiring panel · Design', status: 'Confirmed', needsReply: false, participants: [{id: 'ao', initials: 'AO'}, {id: 'se', initials: 'SE'}], time: '11:00 am', location: 'Room 4B'},
+      {id: 'retro', title: 'Platform retro', status: 'Confirmed', needsReply: false, participants: [{id: 'kt', initials: 'KT'}, {id: 'br', initials: 'BR'}], time: '5:15 pm', location: 'Video call'},
+      {id: 'support', title: 'Support escalation sync', status: 'Tentative', needsReply: false, participants: [{id: 'wh', initials: 'WH'}], time: '6:00 pm', location: 'Remote'},
+    ],
+    dayStrategy: {kind: 'content-grown', expectedMaximum: 42}, eventStrategy: {kind: 'content-grown', expectedMaximum: 6},
+  },
   month: {
     labels: {
       title: 'Calendar',
@@ -235,6 +261,17 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceMonth: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!,
+      labels: {
+        previous: '上个月', next: '下个月', month: '月份', year: '年份', filter: '筛选事件', add: '添加',
+        dateTitle: (day) => `六月${day}日的跨区域平台与产品协作日程`, summary: (events, replies) => `${events} 个事件，${replies} 项等待回复`,
+        emptyDays: '没有可选日期', emptyEvents: '没有日程事件',
+      },
+      months: [{id: 'April', label: '四月'}, {id: 'May', label: '五月'}, {id: 'June', label: '六月'}, {id: 'July', label: '七月'}],
+      weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map((label, index) => ({id: String(index), label})),
+      filters: [{id: 'All events', label: '全部事件'}, {id: 'Only mine', label: '仅我的事件'}, {id: 'Needs reply', label: '需要回复'}],
+    },
     month: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.month!,
       labels: {
@@ -250,4 +287,18 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
       monthLabel: '2026 年 9 月',
     },
   }
+}
+
+export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
+  const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceMonth: {
+    ...reference,
+    days: Array.from({length: 43}, (_, index) => ({id: `extra-${index}`, label: String(index + 1), selectable: true, hasEvents: index % 4 === 0})),
+    events: Array.from({length: 7}, (_, index) => ({id: `extra-${index}`, title: `Additional regional event ${index + 1}`, status: 'Upcoming', needsReply: true,
+      participants: Array.from({length: 4}, (_, person) => ({id: `person-${person}`, initials: String(person + 1)})),
+      time: '10:30 am', location: 'A deliberately extended regional meeting location that remains readable in a narrow workbench pane',
+    })),
+    eventStrategy: {kind: 'pane-scroll', expectedMaximum: 6},
+    dayStrategy: {kind: 'pane-scroll', expectedMaximum: 42},
+  }}
 }

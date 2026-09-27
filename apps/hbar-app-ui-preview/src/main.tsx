@@ -33,7 +33,6 @@ import {
   HbarAppUiFeedbackProvider,
   HbarAppUiBillingProvider,
   HbarAppUiIntegrationProvider,
-  HbarAppUiSchedulingProvider,
   HbarAppUiChatProvider,
   HbarAppUiPromptInputProvider,
   HbarAppUiCardProvider,
@@ -67,6 +66,8 @@ import './preview.css'
 import './wizard-preview.css'
 import './comments-preview.css'
 import { CommentsPreviewHost } from './CommentsPreviewHost'
+import { SchedulingPreviewHost } from './SchedulingPreviewHost'
+import './scheduling-preview.css'
 import { VariantHarness } from './VariantHarness'
 import { ShellPreviewHost } from './ShellPreviewHost'
 import { ConversationPreviewHost } from './ConversationPreviewHost'
@@ -137,7 +138,7 @@ import {
   HBAR_APP_UI_INTEGRATIONS_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-integrations-fixtures'
 import { HBAR_APP_UI_COMMENTS_FIXTURES, createHbarAppUiCommentsLocalizedFixtures, createHbarAppUiCommentsOverflowFixtures } from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
-import { HBAR_APP_UI_SCHEDULING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
+import { HBAR_APP_UI_SCHEDULING_FIXTURES, createHbarAppUiSchedulingLocalizedFixtures, createHbarAppUiSchedulingOverflowFixtures } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
 import { HBAR_APP_UI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-chat-fixtures'
 import {
   createHbarAppUiPromptInputLocalizedFixtures,
@@ -355,7 +356,11 @@ function PreviewApp() {
     return fixture === 'localized' ? createHbarAppUiCommentsLocalizedFixtures()
       : fixture === 'overflow' ? createHbarAppUiCommentsOverflowFixtures() : HBAR_APP_UI_COMMENTS_FIXTURES
   }, [])
-  const schedulingContent = useMemo(() => HBAR_APP_UI_SCHEDULING_FIXTURES, [])
+  const schedulingContent = useMemo(() => {
+    const fixture = new URLSearchParams(window.location.search).get('schedulingFixture')
+    return fixture === 'localized' ? createHbarAppUiSchedulingLocalizedFixtures()
+      : fixture === 'overflow' ? createHbarAppUiSchedulingOverflowFixtures() : HBAR_APP_UI_SCHEDULING_FIXTURES
+  }, [])
   const chatContent = useMemo(() => HBAR_APP_UI_CHAT_FIXTURES, [])
   const promptInputContent = useMemo(
     () =>
@@ -527,7 +532,7 @@ function PreviewApp() {
                           <HbarAppUiBillingProvider content={billingContent}>
                             <HbarAppUiIntegrationProvider content={integrationsContent}>
                               <CommentsPreviewHost content={commentsContent}>
-                                <HbarAppUiSchedulingProvider content={schedulingContent}>
+                                <SchedulingPreviewHost content={schedulingContent}>
                                   <HbarAppUiChatProvider content={chatContent}>
                                     <HbarAppUiPromptInputProvider content={promptInputContent}>
                                       <HbarAppUiCardProvider content={cardContent}>
@@ -610,7 +615,7 @@ function PreviewApp() {
                                       </HbarAppUiCardProvider>
                                     </HbarAppUiPromptInputProvider>
                                   </HbarAppUiChatProvider>
-                                </HbarAppUiSchedulingProvider>
+                                </SchedulingPreviewHost>
                               </CommentsPreviewHost>
                             </HbarAppUiIntegrationProvider>
                           </HbarAppUiBillingProvider>
@@ -767,7 +772,7 @@ function PreviewApp() {
                                     <HbarAppUiBillingProvider content={billingContent}>
                                       <HbarAppUiIntegrationProvider content={integrationsContent}>
                                         <CommentsPreviewHost content={commentsContent}>
-                                          <HbarAppUiSchedulingProvider content={schedulingContent}>
+                                          <SchedulingPreviewHost content={schedulingContent}>
                                             <HbarAppUiChatProvider content={chatContent}>
                                               <HbarAppUiPromptInputProvider content={promptInputContent}>
                                                 <HbarAppUiCardProvider content={cardContent}>
@@ -864,7 +869,7 @@ function PreviewApp() {
                                                 </HbarAppUiCardProvider>
                                               </HbarAppUiPromptInputProvider>
                                             </HbarAppUiChatProvider>
-                                          </HbarAppUiSchedulingProvider>
+                                          </SchedulingPreviewHost>
                                         </CommentsPreviewHost>
                                       </HbarAppUiIntegrationProvider>
                                     </HbarAppUiBillingProvider>

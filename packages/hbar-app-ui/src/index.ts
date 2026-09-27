@@ -294,6 +294,9 @@ export {
 } from './components/Scheduling'
 export type {
   HbarAppUiSchedulingAction,
+  HbarAppUiSchedulingMonthReferenceContent,
+  HbarAppUiSchedulingMonthReferenceDay,
+  HbarAppUiSchedulingMonthReferenceEvent,
   HbarAppUiSchedulingAgendaEvent,
   HbarAppUiSchedulingAttendee,
   HbarAppUiSchedulingAvailabilityContent,
