@@ -322,6 +322,7 @@ export type InteractionCase = Readonly<{
     | 'wizard-information-step-two'
     | 'wizard-information-step-three'
     | 'wizard-information-empty-name'
+    | 'wizard-invoice-scroll'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1997,6 +1998,29 @@ async function observeDialogEvidenceScroll(root: Locator, variantId: string): Pr
     },
   }
 }
+async function wizardInvoiceScrollOwner(root: Locator): Promise<Locator> {
+  const descendants = root.locator('div')
+  const index = await descendants.evaluateAll((elements) => elements.findIndex((element) => {
+    const style = getComputedStyle(element)
+    return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
+  }))
+  if (index < 0) throw new Error('Invoice body is not an observed scroll owner')
+  return descendants.nth(index)
+}
+async function observeWizardInvoiceScroll(root: Locator, variantId: string): Promise<InteractionCase> {
+  const pane = await wizardInvoiceScrollOwner(root)
+  const rect = await pane.boundingBox()
+  if (!rect) throw new Error('Invoice scroll owner has no visible bounds')
+  return {
+    id: `${variantId}:invoice-body:scroll:end`, action: 'scroll', scenario: 'wizard-invoice-scroll',
+    wheelDeltaY: 2000,
+    control: {
+      index: 0, tag: 'div', role: null, type: null, name: '', disabled: false, visible: true,
+      rect, expanded: null, pressed: null, selected: null, state: null,
+      stablePath: 'invoice > scroll-body', labelFor: null, describedBy: null, capabilities: ['scroll'], options: [],
+    },
+  }
+}
 async function prepareDialogAlertScenario(root: Locator, scenario: (typeof dialogAlertScenarios)[number]): Promise<void> {
   if (scenario === 'dialog-alert-closed') {
     await root.getByRole('button', { name: 'Cancel', exact: true }).click()
@@ -2971,6 +2995,7 @@ export function selectInteractionCases(
 
 async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
   if (scenario === 'dialog-evidence-scroll') return dialogEvidenceScrollOwner(root)
+  if (scenario === 'wizard-invoice-scroll') return wizardInvoiceScrollOwner(root)
   if (scenario === 'usage-model-row') {
     passiveModelRowHoverCase('probe', control)
     return root.getByText('Atlas Pro', { exact: true }).locator('../../..')
@@ -3018,7 +3043,7 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
   if (interaction.action === 'scroll') {
     if (
-      !['board-column-scroll', 'board-stack-scroll', 'dialog-evidence-scroll'].includes(interaction.scenario ?? '') ||
+      !['board-column-scroll', 'board-stack-scroll', 'dialog-evidence-scroll', 'wizard-invoice-scroll'].includes(interaction.scenario ?? '') ||
       !Number.isFinite(interaction.wheelDeltaY) ||
       !interaction.wheelDeltaY
     )
@@ -4606,6 +4631,8 @@ async function runInteractionsParallel(
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
+            if (spec.id === 'hbar-app-ui-wizard-2' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:invoice-body:scroll:`))))
+              discovered.push(await observeWizardInvoiceScroll(sourceRoot, spec.id))
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-ai-usage-6')

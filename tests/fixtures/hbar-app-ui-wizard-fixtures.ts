@@ -4,6 +4,31 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceInvoice: {
+    labels: {
+      title: 'Send invoice', progress: (step, total) => `${step} / ${total}`, progressBar: 'Invoice progress', close: 'Close',
+      customer: 'Customer details', customerDetail: 'Customer, invoice references, and billing terms.',
+      customerGroup: 'Customer', customerGroupDetail: 'Billable account and invoice reference.',
+      required: 'Required', terms: 'Terms', termsDetail: 'Dates, currency, and collection method.',
+      currencyBadge: 'USD', termsBadge: 'Net 14', clearCustomer: 'Clear customer', save: 'Save draft', next: 'Next step',
+    },
+    step: 1, totalSteps: 4, listStrategy: scroll,
+    customerFields: [
+      {id: 'customer', label: 'Customer', value: 'Orchid Ledger Group', kind: 'text', information: true, clear: true},
+      {id: 'tax-id', label: 'Tax ID', value: 'US-88-2947135', kind: 'text', information: true, icon: 'building'},
+      {id: 'number', label: 'Invoice number', value: 'INV-2048', kind: 'text', icon: 'hash'},
+      {id: 'purchase-order', label: 'PO reference', value: 'PO-7418', kind: 'text'},
+    ],
+    termsFields: [
+      {id: 'issue-date', label: 'Issue date', value: 'Apr 24, 2026', kind: 'text', icon: 'calendar'},
+      {id: 'due-date', label: 'Due date', value: 'May 08, 2026', kind: 'text', icon: 'calendar'},
+      {id: 'currency', label: 'Currency', value: 'USD', kind: 'select', options: [{id: 'USD', label: 'USD'}, {id: 'EUR', label: 'EUR'}, {id: 'GBP', label: 'GBP'}]},
+      {id: 'terms', label: 'Payment terms', value: 'Net 14', kind: 'select', options: [{id: 'Net 14', label: 'Net 14'}, {id: 'Net 30', label: 'Net 30'}, {id: 'Due on receipt', label: 'Due on receipt'}]},
+      {id: 'collection', label: 'Collection', value: 'ACH transfer', kind: 'select', options: [{id: 'ACH transfer', label: 'ACH transfer'}, {id: 'Card', label: 'Card'}, {id: 'Wire', label: 'Wire'}]},
+      {id: 'address', label: 'Billing address', value: '14 Warren Street, Suite 620, New York, NY', kind: 'text'},
+    ],
+    onFieldChange() {},
+  },
   referenceInformation: {
     labels: {
       title: 'Your information', detail: 'Billing owner details. These appear on every receipt.',
@@ -202,6 +227,18 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceInvoice: HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice,
+      labels: {
+        title: '发送发票', progress: (step, total) => `${step} / ${total}`, progressBar: '发票进度', close: '关闭',
+        customer: '客户资料', customerDetail: '客户、发票编号与付款条款。', required: '必填',
+        customerGroup: '客户', customerGroupDetail: '付款账户与发票编号。',
+        terms: '条款', termsDetail: '日期、币种与收款方式。', currencyBadge: '人民币', termsBadge: '收到即付',
+        clearCustomer: '清除客户', save: '保存草稿', next: '下一步',
+      },
+      customerFields: [{id: 'customer', label: '客户', value: '华港公司', kind: 'text', information: true, clear: true}],
+      termsFields: [{id: 'currency', label: '币种', value: 'CNY', kind: 'select', options: [{id: 'CNY', label: '人民币'}, {id: 'USD', label: '美元'}]}],
+    },
     referenceInformation: HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation && {
       ...HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation,
       labels: {
@@ -231,8 +268,13 @@ export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent
 
 export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent {
   const flow = HBAR_APP_UI_WIZARD_FIXTURES.referenceInformation!
+  const invoice = HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice!
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceInvoice: {
+      ...invoice,
+      termsFields: [...invoice.termsFields, ...Array.from({length: 40}, (_, index) => ({id: `extended-${index}`, label: `Additional billing term ${index + 1}`, value: `Value ${index + 1}`, kind: 'text' as const}))],
+    },
     referenceInformation: {
       ...flow,
       fields: [...flow.fields, ...Array.from({length: 40}, (_, index) => ({id: `extended-${index}`, label: `Long review field ${index + 1} for the billing owner`, value: `Value ${index + 1}`, kind: 'text' as const}))],

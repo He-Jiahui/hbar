@@ -561,6 +561,23 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-2')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-invoice-reference.css', 'wizard/InvoiceReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '13:click', change: 'Next step has no source business transition in this preview'},
+        {viewport: 'tablet', theme: 'dark', suffix: '2:click', change: 'Clear customer is a source no-op, not an invented reset'},
+        {viewport: 'mobile', theme: 'dark', suffix: '0:click', change: 'Close is a source no-op in the narrow layout'},
+        {viewport: 'desktop', theme: 'dark', suffix: '8:select', change: 'Currency select updates its own value, not the passive USD badge'},
+        {viewport: 'mobile', theme: 'light', suffix: '1:fill', change: 'Customer input updates in the stacked narrow form'},
+        {viewport: 'desktop', theme: 'light', suffix: 'invoice-body:scroll:end', change: 'Native wheel reveals Collection and Billing address while header/footer stay fixed'},
+      ],
+      inferences: [
+        {scope: 'Save draft and other passive action buttons', basis: 'Live source probe also confirmed Save draft has no visible result; Close, Clear customer and Next sample distinct no-op controls. The local browser checks all four without inventing a submit or close state.', verification: 'inferred-not-replayed'},
+        {scope: 'Other fields, select options, layouts and themes', basis: 'All eight text fields use the same Host value update; the three native selects share one mechanism. Six real states and eight static pairs cover movement, input, selection and responsive stacking; local tests cover empty, duplicate, localized and over-bound data.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-1')
     return {
       revision: 1,

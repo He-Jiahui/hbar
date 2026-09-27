@@ -5,8 +5,8 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
-function url(fixture?: 'localized' | 'overflow') {
-  const query = new URLSearchParams({mode: 'isolated', variant: 'hbar-app-ui-wizard-1', theme: 'light'})
+function url(fixture?: 'localized' | 'overflow', variant = 1) {
+  const query = new URLSearchParams({mode: 'isolated', variant: `hbar-app-ui-wizard-${variant}`, theme: 'light'})
   if (fixture) query.set('wizardFixture', fixture)
   return `${baseUrl}/?${query.toString()}`
 }
@@ -56,8 +56,43 @@ try {
   assert(scroll.scrollable && scroll.moved, 'Over-bound wizard cannot reach final fields and footer')
   assert(await form.getByRole('button', {name: 'Next step'}).count() === 1, 'Over-bound wizard lost footer action')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound wizard escaped horizontal viewport')
+
+  await page.setViewportSize({width: 1086, height: 720})
+  await page.goto(url(undefined, 2), {waitUntil: 'networkidle'})
+  const invoice = page.locator('.hbar-app-ui-wizard-invoice-reference')
+  const invoiceScroll = page.locator('.hbar-app-ui-wizard-invoice-scroll')
+  assert(await invoice.getByRole('textbox').count() === 7, 'Invoice text fields missing')
+  assert(await invoice.getByRole('combobox').count() === 3, 'Invoice select fields missing')
+  assert(await invoice.getByRole('progressbar', {name: 'Invoice progress'}).getAttribute('aria-valuenow') === '1', 'Invoice progress missing')
+  await invoice.getByRole('button', {name: 'Clear customer'}).click()
+  assert(await invoice.getByRole('textbox', {name: 'Customer'}).inputValue() === 'Orchid Ledger Group', 'Clear customer invented a reset')
+  await invoice.getByRole('button', {name: 'Next step'}).click()
+  await invoice.getByRole('button', {name: 'Save draft'}).click()
+  await invoice.getByRole('button', {name: 'Close'}).click()
+  assert(await invoice.getByRole('heading', {name: 'Customer details'}).count() === 1, 'Passive invoice action replaced page')
+  await invoice.getByRole('combobox', {name: 'Currency'}).selectOption('EUR')
+  assert(await invoice.getByRole('combobox', {name: 'Currency'}).inputValue() === 'EUR', 'Currency select did not update Host')
+  assert(await invoice.locator('.hbar-app-ui-wizard-invoice-card-header').getByText('USD').count() === 1, 'Passive currency badge was incorrectly changed')
+  const invoiceOverflow = await invoiceScroll.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return {scrollable, moved: element.scrollTop > 0}
+  })
+  assert(invoiceOverflow.scrollable && invoiceOverflow.moved, 'Invoice content did not scroll independently')
+  assert(await invoice.getByRole('textbox', {name: 'Billing address'}).isVisible(), 'Invoice scroll did not reveal billing address')
+  assert(await invoice.getByRole('button', {name: 'Next step'}).isVisible(), 'Invoice footer did not remain visible')
+  await page.setViewportSize({width: 356, height: 720})
+  await page.goto(url('localized', 2), {waitUntil: 'networkidle'})
+  assert(await invoice.getByRole('heading', {name: '发送发票'}).count() === 1, 'Localized invoice title missing')
+  assert(await invoice.getByRole('textbox', {name: '客户'}).inputValue() === '华港公司', 'Localized invoice customer missing')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow invoice overflowed horizontally')
+  await page.setViewportSize({width: 320, height: 720})
+  await page.goto(url('overflow', 2), {waitUntil: 'networkidle'})
+  assert(await invoice.getByRole('textbox').count() === 47, 'Over-bound invoice fields were truncated')
+  assert(await invoiceScroll.evaluate((element) => element.scrollHeight > element.clientHeight), 'Over-bound invoice lost scroll owner')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Over-bound invoice overflowed horizontally')
   assert(errors.length === 0, `Wizard raised page errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({fields: 8, options: 2, steps: 3, overflow: scroll, localizedNarrow: true, pageErrors: errors.length}))
+  console.log(JSON.stringify({informationFields: 8, invoiceFields: 10, invoiceOptions: 3, steps: 3, informationOverflow: scroll, invoiceOverflow, localizedNarrow: true, pageErrors: errors.length}))
 } finally {
   await browser.close()
 }
