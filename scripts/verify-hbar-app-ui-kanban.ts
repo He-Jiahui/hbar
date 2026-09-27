@@ -181,16 +181,58 @@ try {
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     'Narrow swimlanes overflowed outside their pane',
   )
+
+  await page.setViewportSize({width: 1086, height: 680})
+  await page.goto(url(undefined, 3), {waitUntil: 'networkidle'})
+  const regroupScroll = page.locator('.hbar-app-ui-kanban-regroup-scroll')
+  assert(await page.getByRole('region').count() === 4, 'Regroup status mode did not render four columns')
+  assert(await page.getByRole('button', {name: /^NW-/}).count() === 9, 'Regroup did not render nine Host cards')
+  await page.getByRole('tab', {name: 'Assignee'}).click()
+  assert(await page.getByRole('region', {name: 'Ana Reyes'}).getByRole('button', {name: /^NW-/}).count() === 3, 'Assignee grouping did not partition Ana cards')
+  await page.getByRole('tab', {name: 'Priority'}).click()
+  assert(await page.getByRole('region', {name: 'Urgent'}).getByRole('button', {name: /^NW-/}).count() === 2, 'Priority grouping did not partition urgent cards')
+  await page.getByRole('tab', {name: 'Status'}).click()
+  const regroupCard = page.getByRole('button', {name: /^NW-408:/})
+  await regroupCard.click()
+  assert(await regroupCard.count() === 1, 'Passive regroup card click invented a detail transition')
+  await regroupCard.focus()
+  await regroupCard.press('Space')
+  assert(await page.getByText('NW-408 grabbed. Left and right change status.').count() === 1, 'Regroup keyboard grab did not announce')
+  await regroupCard.press('ArrowRight')
+  assert(await page.getByRole('region', {name: 'Building'}).getByRole('button', {name: /^NW-408:/}).count() === 1, 'Regroup ArrowRight did not update the status field')
+  await regroupCard.press('Space')
+  assert(await page.getByText('NW-408 dropped in Building.').count() === 1, 'Regroup drop did not announce')
+  await page.getByRole('tab', {name: 'Assignee'}).click()
+  assert(await page.getByRole('region', {name: 'Ana Reyes'}).getByRole('button', {name: /^NW-408:/}).count() === 1, 'Status move unexpectedly changed assignee')
+
+  await page.goto(url(undefined, 3), {waitUntil: 'networkidle'})
+  await page.getByRole('button', {name: /^NW-392:/}).dragTo(page.getByRole('region', {name: 'Building'}))
+  assert(await page.getByRole('region', {name: 'Building'}).getByRole('button', {name: /^NW-392:/}).count() === 1, 'Regroup pointer drop did not update status')
+  await page.goto(url('overflow', 3), {waitUntil: 'networkidle'})
+  const regroupOverflow = await regroupScroll.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return {scrollable, moved: element.scrollTop > 0}
+  })
+  assert(regroupOverflow.scrollable && regroupOverflow.moved, 'Over-bound regroup cards did not scroll in their pane')
+  await page.setViewportSize({width: 320, height: 720})
+  await page.goto(url('localized', 3), {waitUntil: 'networkidle'})
+  assert(await page.getByRole('heading', {name: '项目路线图'}).count() === 1, 'Localized regroup title was not supplied by Host')
+  assert(await page.getByRole('button', {name: /核对发票/}).count() === 1, 'Localized regroup card was not supplied by Host')
+  assert(await regroupScroll.evaluate((element) => element.scrollWidth > element.clientWidth), 'Narrow regroup board lost horizontal owner')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Narrow regroup columns overflowed outside pane')
   assert(errors.length === 0, `Board preview raised page errors: ${errors.join('; ')}`)
   console.log(
     JSON.stringify({
       boardCards: 10,
       swimlaneCards: 11,
+      regroupCards: 9,
       keyboardMove: true,
       pointerMove: true,
       inlineComposer: true,
       columnScroll: scroll,
       swimlaneScroll: swimlaneOverflow,
+      regroupScroll: regroupOverflow,
       localizedNarrow: true,
       pageErrors: errors.length,
     }),

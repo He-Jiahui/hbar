@@ -374,6 +374,35 @@ export const HBAR_APP_UI_KANBAN_FIXTURES: HbarAppUiKanbanContent = {
     onDrop() {},
     onCancelGrab() {},
   },
+  referenceRegroup: {
+    labels: {
+      title: 'Northwind roadmap',
+      detail: 'Regroup the board on any field. Dropping a card into a column sets that field on it.',
+      groupBy: 'Group by',
+      card: (card, group, column) => `${card.id}: ${card.label}. ${group} ${column}.`,
+      grabbed: (id, group) => `${id} grabbed. Left and right change ${group}.`,
+      dropped: (id, column) => `${id} dropped in ${column}.`,
+    },
+    groups: [{id: 'status', label: 'Status'}, {id: 'assignee', label: 'Assignee'}, {id: 'priority', label: 'Priority'}],
+    columns: {
+      status: [{id: 'triage', label: 'Triage'}, {id: 'building', label: 'Building'}, {id: 'review', label: 'Review'}, {id: 'live', label: 'Live'}],
+      assignee: [{id: 'ana', label: 'Ana Reyes', avatar: 'AR'}, {id: 'priya', label: 'Priya Nandakumar', avatar: 'PN'}, {id: 'marco', label: 'Marco Silva', avatar: 'MS'}],
+      priority: [{id: 'urgent', label: 'Urgent', tone: 'strong'}, {id: 'high', label: 'High', tone: 'medium'}, {id: 'normal', label: 'Normal', tone: 'soft'}],
+    },
+    cards: [
+      {id: 'NW-412', label: 'Rate-limit the public search API', tag: 'API', statusId: 'building', assigneeId: 'marco', priorityId: 'urgent', priorityTone: 'strong'},
+      {id: 'NW-408', label: 'Draft the Q3 reliability review', tag: 'Docs', statusId: 'triage', assigneeId: 'ana', priorityId: 'normal', priorityTone: 'soft'},
+      {id: 'NW-401', label: 'Fix flaky checkout integration test', tag: 'Quality', statusId: 'review', assigneeId: 'priya', priorityId: 'high', priorityTone: 'medium'},
+      {id: 'NW-397', label: 'Region failover runbook', tag: 'Infra', statusId: 'building', assigneeId: 'marco', priorityId: 'high', priorityTone: 'medium'},
+      {id: 'NW-392', label: 'Compress asset uploads on ingest', tag: 'Media', statusId: 'triage', assigneeId: 'priya', priorityId: 'normal', priorityTone: 'soft'},
+      {id: 'NW-388', label: 'Warn before destructive bulk edits', tag: 'Safety', statusId: 'live', assigneeId: 'ana', priorityId: 'high', priorityTone: 'medium'},
+      {id: 'NW-380', label: 'Import contacts from CSV', tag: 'Growth', statusId: 'review', assigneeId: 'ana', priorityId: 'normal', priorityTone: 'soft'},
+      {id: 'NW-374', label: 'Retire the legacy search index', tag: 'Infra', statusId: 'building', assigneeId: 'priya', priorityId: 'urgent', priorityTone: 'strong'},
+      {id: 'NW-369', label: 'Keyboard shortcuts help sheet', tag: 'Craft', statusId: 'live', assigneeId: 'marco', priorityId: 'normal', priorityTone: 'soft'},
+    ],
+    groupId: 'status', grabbedCardId: null, announcement: '',
+    onGroupChange() {}, onGrab() {}, onMove() {}, onDrop() {}, onCancelGrab() {},
+  },
   listStrategy: { kind: 'pane-scroll', expectedMaximum: 96 },
 }
 
@@ -446,12 +475,29 @@ export function createHbarAppUiKanbanLocalizedFixtures(): HbarAppUiKanbanContent
         },
       ],
     },
+    referenceRegroup: HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup && {
+      ...HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup,
+      labels: {
+        title: '项目路线图', detail: '按任意字段重新分组，将卡片拖到列中即可更新。', groupBy: '分组依据',
+        card: (card, group, column) => `${card.id}：${card.label}。${group}：${column}。`,
+        grabbed: (id, group) => `${id} 已抓取，左右键更改${group}。`,
+        dropped: (id, column) => `${id} 已放到${column}。`,
+      },
+      groups: [{id: 'status', label: '状态'}, {id: 'assignee', label: '负责人'}, {id: 'priority', label: '优先级'}],
+      columns: {
+        status: [{id: 'triage', label: '待分类'}, {id: 'building', label: '开发中'}],
+        assignee: [{id: 'ana', label: '陈同事', avatar: '陈'}],
+        priority: [{id: 'normal', label: '普通', tone: 'soft'}],
+      },
+      cards: [{id: 'local-card', label: '核对发票', tag: '财务', statusId: 'triage', assigneeId: 'ana', priorityId: 'normal', priorityTone: 'soft'}],
+    },
   }
 }
 
 export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent {
   const reference = HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard!
   const swimlanes = HBAR_APP_UI_KANBAN_FIXTURES.referenceSwimlanes!
+  const regroup = HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup!
   const extra = Array.from({ length: 30 }, (_, index) => ({
     id: `HAL-${300 + index}`,
     label: `Review the extended platform incident history for workspace ${index + 1}`,
@@ -482,6 +528,10 @@ export function createHbarAppUiKanbanOverflowFixtures(): HbarAppUiKanbanContent 
             }
           : lane,
       ),
+    },
+    referenceRegroup: {
+      ...regroup,
+      cards: [...regroup.cards, ...extra.map((card) => ({id: card.id, label: card.label, tag: card.tag, statusId: 'triage', assigneeId: 'ana', priorityId: 'normal', priorityTone: 'soft' as const}))],
     },
   }
 }

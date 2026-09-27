@@ -561,6 +561,23 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-kanban-3')
+    return {
+      revision: 1,
+      lumenEntries: ['kanban.tsx', 'kanban.css', 'kanban-regroup-reference.css', 'kanban/RegroupReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '1:click', change: 'Assignee tab regroups all nine cards into three owner columns'},
+        {viewport: 'tablet', theme: 'dark', suffix: '2:click', change: 'Priority tab regroups cards into three severity columns'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Card click has no detail transition on the source'},
+        {viewport: 'mobile', theme: 'light', suffix: '3:press-space', change: 'Space grabs the card for a keyboard move'},
+        {viewport: 'desktop', theme: 'light', suffix: 'regroup-grabbed:move-right', change: 'ArrowRight changes the grabbed card status immediately'},
+        {viewport: 'mobile', theme: 'dark', suffix: 'regroup-target:drop', change: 'Space completes the keyboard move and announces the destination'},
+      ],
+      inferences: [
+        {scope: 'Other cards and repeated viewport/theme combinations', basis: 'Nine cards share one controlled field-update path; sampled Assignee, Priority, no-op click and keyboard status movement cover distinct state branches, while all eight static pairs cover layout.', verification: 'inferred-not-replayed'},
+        {scope: 'Pointer drag', basis: 'Pointer and keyboard use the same Host onMove contract; a local browser check verifies representative pointer drop without multiplying every card by every column.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-kanban-2')
     return {
       revision: 2,

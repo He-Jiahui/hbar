@@ -314,6 +314,8 @@ export type InteractionCase = Readonly<{
     | 'swimlane-grabbed'
     | 'swimlane-stage-moved'
     | 'swimlane-lane-moved'
+    | 'regroup-grabbed'
+    | 'regroup-target'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -1838,6 +1840,13 @@ async function prepareKanbanSwimlaneScenario(
   await card.press('ArrowRight')
   if (scenario === 'swimlane-stage-moved') return
   await card.press('ArrowDown')
+}
+const kanbanRegroupScenarios = ['regroup-grabbed', 'regroup-target'] as const
+async function prepareKanbanRegroupScenario(root: Locator, scenario: (typeof kanbanRegroupScenarios)[number]): Promise<void> {
+  const card = root.getByRole('button', { name: /^NW-408:/ })
+  await card.focus()
+  await card.press('Space')
+  if (scenario === 'regroup-target') await card.press('ArrowRight')
 }
 async function prepareQuoteInitial(root: Locator): Promise<void> {
   const first = root.locator('aside button[aria-label^="Show quote from"]').first()
@@ -3469,6 +3478,8 @@ async function replayInteraction(
     await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
   if (spec.id === 'hbar-app-ui-kanban-2' && kanbanSwimlaneScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanSwimlaneScenario(root, interaction.scenario as (typeof kanbanSwimlaneScenarios)[number])
+  if (spec.id === 'hbar-app-ui-kanban-3' && kanbanRegroupScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanRegroupScenario(root, interaction.scenario as (typeof kanbanRegroupScenarios)[number])
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3787,6 +3798,8 @@ async function replayReferenceInteraction(
     kanbanSwimlaneScenarios.some((value) => value === interaction.scenario)
   )
     await prepareKanbanSwimlaneScenario(root, interaction.scenario as (typeof kanbanSwimlaneScenarios)[number])
+  if (reference.id === 'hbar-app-ui-kanban-3' && kanbanRegroupScenarios.some((value) => value === interaction.scenario))
+    await prepareKanbanRegroupScenario(root, interaction.scenario as (typeof kanbanRegroupScenarios)[number])
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4510,6 +4523,18 @@ async function runInteractionsParallel(
                     focusBefore: true,
                   })
                 }
+              }
+            }
+            if (spec.id === 'hbar-app-ui-kanban-3') {
+              for (const scenario of kanbanRegroupScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareKanbanRegroupScenario(sourceRoot, scenario)
+                const scenarioSnapshot = await snapshotRoot(frame, sourceSelector)
+                discovered.push(...interactionCases(scenarioSnapshot, spec.id, scenario))
+                const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('NW-408:'))
+                if (!card) throw new Error('Grabbed NW-408 missing from reference regroup board')
+                const action = scenario === 'regroup-grabbed' ? 'move-right' : 'drop'
+                discovered.push({id: `${spec.id}:${scenario}:${action}`, action: 'press', key: scenario === 'regroup-grabbed' ? 'ArrowRight' : 'Space', control: card, scenario, focusBefore: true})
               }
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')

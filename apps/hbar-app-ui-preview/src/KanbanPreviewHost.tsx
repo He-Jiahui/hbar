@@ -10,6 +10,7 @@ export function KanbanPreviewHost({
 }) {
   const initial = content.referenceBoard
   const initialSwimlanes = content.referenceSwimlanes
+  const initialRegroup = content.referenceRegroup
   const [columns, setColumns] = useState(initial?.columns ?? content.columns)
   const [cards, setCards] = useState(initial?.cards ?? [])
   const [composerColumnId, setComposerColumnId] = useState<string | null>(initial?.composerColumnId ?? null)
@@ -23,6 +24,10 @@ export function KanbanPreviewHost({
     initialSwimlanes?.grabbedCardId ?? null,
   )
   const [swimlaneAnnouncement, setSwimlaneAnnouncement] = useState(initialSwimlanes?.announcement ?? '')
+  const [regroupCards, setRegroupCards] = useState(initialRegroup?.cards ?? [])
+  const [regroupGroupId, setRegroupGroupId] = useState(initialRegroup?.groupId ?? '')
+  const [regroupGrabbedCardId, setRegroupGrabbedCardId] = useState<string | null>(initialRegroup?.grabbedCardId ?? null)
+  const [regroupAnnouncement, setRegroupAnnouncement] = useState(initialRegroup?.announcement ?? '')
 
   useEffect(() => {
     setColumns(content.referenceBoard?.columns ?? content.columns)
@@ -36,10 +41,15 @@ export function KanbanPreviewHost({
     setCollapsedLaneIds(content.referenceSwimlanes?.collapsedLaneIds ?? [])
     setSwimlaneGrabbedCardId(content.referenceSwimlanes?.grabbedCardId ?? null)
     setSwimlaneAnnouncement(content.referenceSwimlanes?.announcement ?? '')
+    setRegroupCards(content.referenceRegroup?.cards ?? [])
+    setRegroupGroupId(content.referenceRegroup?.groupId ?? '')
+    setRegroupGrabbedCardId(content.referenceRegroup?.grabbedCardId ?? null)
+    setRegroupAnnouncement(content.referenceRegroup?.announcement ?? '')
   }, [content])
 
   const flow = content.referenceBoard
   const swimlanes = content.referenceSwimlanes
+  const regroup = content.referenceRegroup
   return (
     <HbarAppUiKanbanProvider
       content={{
@@ -162,6 +172,39 @@ export function KanbanPreviewHost({
           onCancelGrab: () => {
             setSwimlaneGrabbedCardId(null)
             setSwimlaneAnnouncement('')
+          },
+        },
+        referenceRegroup: regroup && {
+          ...regroup,
+          cards: regroupCards,
+          groupId: regroupGroupId,
+          grabbedCardId: regroupGrabbedCardId,
+          announcement: regroupAnnouncement,
+          onGroupChange: (groupId) => {
+            setRegroupGroupId(groupId)
+            setRegroupGrabbedCardId(null)
+            setRegroupAnnouncement('')
+          },
+          onGrab: (cardId) => {
+            setRegroupGrabbedCardId(cardId)
+            setRegroupAnnouncement(regroup.labels.grabbed(cardId, regroupGroupId))
+          },
+          onMove: (cardId, groupId, columnId) => setRegroupCards((current) => {
+            const card = current.find((item) => item.id === cardId)
+            if (!card) return current
+            const updated = groupId === 'assignee' ? {...card, assigneeId: columnId}
+              : groupId === 'priority' ? {...card, priorityId: columnId, priorityTone: columnId === 'urgent' ? 'strong' as const : columnId === 'high' ? 'medium' as const : 'soft' as const}
+              : {...card, statusId: columnId}
+            return [...current.filter((item) => item.id !== cardId), updated]
+          }),
+          onDrop: (cardId, columnId) => {
+            setRegroupGrabbedCardId(null)
+            const label = regroup.columns[regroupGroupId]?.find((column) => column.id === columnId)?.label ?? columnId
+            setRegroupAnnouncement(regroup.labels.dropped(cardId, label))
+          },
+          onCancelGrab: () => {
+            setRegroupGrabbedCardId(null)
+            setRegroupAnnouncement('')
           },
         },
       }}
