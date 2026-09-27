@@ -89,6 +89,10 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Comments 4: the rendered @ suggestion list is anchored to the composer
+  // and overlaps earlier messages. Only its container, not option content, floats.
+  if (/packages\/lumen-app-ui\/src\/comments-composer-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-comments-composer-mention-menu') return true
   // Kanban 4: the narrow detail sheet has a real board-covering close backdrop.
   if (/packages\/lumen-app-ui\/src\/kanban-detail-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.hbar-app-ui-kanban-detail-backdrop') return true
@@ -476,6 +480,11 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const commentMentions = '.lumen-comments-composer-mention-menu { position: absolute; inset-block-start: calc(100% - 0.375rem); inset-inline-start: 3.25rem; }'
+  if (validateCss('packages/lumen-app-ui/src/comments-composer-reference.css', commentMentions).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', commentMentions).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/comments-composer-reference.css', commentMentions.replace('mention-menu {', 'mention-menu > button {')).length === 0)
+    throw new Error('Observed comment mention menu exception must be exact, path-scoped and exclude option content')
   const imageRemove =
     '.lumen-image-tile > .lumen-image-tile-remove-overlay { position: absolute; inset-block-start: 0; inset-inline-end: 0; }'
   if (
