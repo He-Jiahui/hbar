@@ -326,6 +326,7 @@ export type InteractionCase = Readonly<{
     | 'wizard-upgrade-step-two'
     | 'wizard-environment-empty'
     | 'wizard-environment-scroll'
+    | 'wizard-review-confirmed'
     | 'tree-shipping-open'
     | 'passive-table-row'
     | 'board-column-scroll'
@@ -2031,6 +2032,9 @@ async function prepareWizardEnvironmentEmpty(root: Locator): Promise<void> {
   const selected = root.getByRole('checkbox', {checked: true});
   while (await selected.count()) await selected.first().click();
 }
+async function prepareWizardReviewConfirmed(root: Locator): Promise<void> {
+  await root.getByRole('checkbox').click()
+}
 async function observeWizardEnvironmentScroll(root: Locator, variantId: string): Promise<InteractionCase> {
   const pane = await wizardInvoiceScrollOwner(root)
   const rect = await pane.boundingBox()
@@ -3562,6 +3566,8 @@ async function replayInteraction(
     await prepareWizardUpgradeStepTwo(root)
   if (spec.id === 'hbar-app-ui-wizard-4' && interaction.scenario === 'wizard-environment-empty')
     await prepareWizardEnvironmentEmpty(root)
+  if (spec.id === 'hbar-app-ui-wizard-5' && interaction.scenario === 'wizard-review-confirmed')
+    await prepareWizardReviewConfirmed(root)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
   if (spec.id === 'hbar-app-ui-agent-activity-7' && interaction.scenario === 'retry-queued')
@@ -3896,6 +3902,8 @@ async function replayReferenceInteraction(
     await prepareWizardUpgradeStepTwo(root)
   if (reference.id === 'hbar-app-ui-wizard-4' && interaction.scenario === 'wizard-environment-empty')
     await prepareWizardEnvironmentEmpty(root)
+  if (reference.id === 'hbar-app-ui-wizard-5' && interaction.scenario === 'wizard-review-confirmed')
+    await prepareWizardReviewConfirmed(root)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
   if (reference.id === 'hbar-app-ui-app-shell-4' && editorialScenario)
@@ -4673,6 +4681,10 @@ async function runInteractionsParallel(
                 await prepareWizardEnvironmentEmpty(sourceRoot)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-environment-empty'))
               }
+            }
+            if (spec.id === 'hbar-app-ui-wizard-5' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:wizard-review-confirmed:`)))) {
+              await prepareWizardReviewConfirmed(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-review-confirmed'))
             }
             if (spec.id === 'hbar-app-ui-ai-usage-5')
               discovered = [...usageBudgetInteractionCases(sourceSnapshot, spec.id)]

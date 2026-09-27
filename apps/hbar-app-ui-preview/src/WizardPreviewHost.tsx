@@ -9,6 +9,7 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
   const [upgradeStepId, setUpgradeStepId] = useState(content.referenceUpgrade?.stepId ?? '')
   const [upgradePlanId, setUpgradePlanId] = useState(content.referenceUpgrade?.selectedPlanId ?? '')
   const [environmentSelectedIds, setEnvironmentSelectedIds] = useState(content.referenceEnvironment?.selectedServiceIds ?? [])
+  const [reviewConfirmed, setReviewConfirmed] = useState(content.referenceReview?.confirmed ?? false)
   useEffect(() => {
     setFields(content.referenceInformation?.fields ?? [])
     setStepId(content.referenceInformation?.stepId ?? '')
@@ -17,13 +18,16 @@ export function WizardPreviewHost({content, children}: {readonly content: HbarAp
     setUpgradeStepId(content.referenceUpgrade?.stepId ?? '')
     setUpgradePlanId(content.referenceUpgrade?.selectedPlanId ?? '')
     setEnvironmentSelectedIds(content.referenceEnvironment?.selectedServiceIds ?? [])
+    setReviewConfirmed(content.referenceReview?.confirmed ?? false)
   }, [content])
   const flow = content.referenceInformation
   const invoice = content.referenceInvoice
   const upgrade = content.referenceUpgrade
   const environment = content.referenceEnvironment
+  const review = content.referenceReview
   return <HbarAppUiWizardProvider content={{
     ...content,
+    referenceReview: review && {...review, confirmed: reviewConfirmed, onConfirmationChange: setReviewConfirmed},
     referenceEnvironment: environment && {
       ...environment, selectedServiceIds: environmentSelectedIds,
       onServiceToggle: (serviceId) => setEnvironmentSelectedIds((current) => current.includes(serviceId) ? current.filter((id) => id !== serviceId) : [...current, serviceId]),

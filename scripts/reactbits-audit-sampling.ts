@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-wizard-5')
+    return {
+      revision: 1,
+      lumenEntries: ['wizard.tsx', 'wizard.css', 'wizard-review-reference.css', 'wizard/ReviewReference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Campaign Edit leaves read-only review content intact in the public preview'},
+        {viewport: 'tablet', theme: 'dark', suffix: '3:toggle', change: 'Confirmation enables send at the content-grown footer'},
+        {viewport: 'mobile', theme: 'light', suffix: '3:press-space', change: 'Narrow keyboard confirmation scrolls to the footer and enables send'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'wizard-review-confirmed:5:click', change: 'Enabled Schedule send has no visible completion transition in the source preview'},
+        {viewport: 'mobile', theme: 'dark', suffix: 'wizard-review-confirmed:3:toggle', change: 'Unchecking confirmation re-disables send in narrow flow'},
+        {viewport: 'stress', theme: 'light', suffix: '2:click', change: 'Last section Edit is passive after natural overflow scroll'},
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Back has no visible navigation in the source preview'},
+      ],
+      inferences: [
+        {scope: 'Other Edit controls, repeated confirmation gestures and passive actions', basis: 'Three section edits share one read-only button, and a single Host boolean gates the native send control. Baseline confirms disabled-send boundary. Browser covers pointer, keyboard, check/uncheck and enabled-send no-op without every button/layout combination.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme states and additional read-only rows', basis: 'Eight static pairs cover card width, mobile step-label collapse and long row truncation. Three Host sections with nine rows share flow-based markup; localized/duplicate/empty/over-bound fixtures verify capacity and accessibility without fabricated editing or delivery.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-wizard-4')
     return {
       revision: 1,

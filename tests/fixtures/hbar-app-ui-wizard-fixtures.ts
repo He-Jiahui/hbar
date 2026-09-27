@@ -4,6 +4,34 @@ const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 64 } as const
 
 export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
+  referenceReview: {
+    labels: {
+      title: 'Review before sending', detail: 'Nothing sends until you confirm. Each section can still be changed.',
+      edit: 'Edit', editSection: (title) => `Edit ${title}`,
+      confirmation: 'I have checked the audience and schedule. Sending to 18,204 contacts cannot be undone once delivery starts.',
+      back: 'Back', send: 'Schedule send', empty: 'Nothing to review',
+    },
+    steps: [{id: 'details', label: 'Details'}, {id: 'schedule', label: 'Schedule'}, {id: 'recipients', label: 'Recipients'}, {id: 'review', label: 'Review'}],
+    currentStepId: 'review', completedStepIds: ['details', 'schedule', 'recipients'],
+    sections: [
+      {id: 'campaign', title: 'Campaign details', rows: [
+        {id: 'name', label: 'Name', value: 'Spring product update'},
+        {id: 'sender', label: 'Sender', value: 'Kepler Works <news@kepler.works>'},
+        {id: 'reply', label: 'Reply-to', value: 'support@kepler.works'},
+      ]},
+      {id: 'schedule', title: 'Schedule', rows: [
+        {id: 'send-at', label: 'Send at', value: '24 April 2026, 09:00'},
+        {id: 'timezone', label: 'Timezone', value: 'Europe/Lisbon'},
+        {id: 'throttle', label: 'Throttle', value: '5,000 per hour'},
+      ]},
+      {id: 'recipients', title: 'Recipients', rows: [
+        {id: 'audience', label: 'Audience', value: 'Product subscribers'},
+        {id: 'size', label: 'Size', value: '18,204 contacts'},
+        {id: 'suppressed', label: 'Suppressed', value: '412 unsubscribed'},
+      ]},
+    ],
+    confirmed: false, listStrategy: grown, onConfirmationChange() {},
+  },
   referenceEnvironment: {
     labels: {
       title: 'New environment', detail: 'staging · eu-west', back: 'Back to region', save: 'Save and exit',
@@ -270,6 +298,17 @@ export const HBAR_APP_UI_WIZARD_FIXTURES: HbarAppUiWizardContent = {
 export function createHbarAppUiWizardLocalizedFixtures(): HbarAppUiWizardContent {
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceReview: HBAR_APP_UI_WIZARD_FIXTURES.referenceReview && {
+      ...HBAR_APP_UI_WIZARD_FIXTURES.referenceReview,
+      labels: {
+        title: '发送前审核', detail: '确认后才会发送。所有分区仍可修改。',
+        edit: '编辑', editSection: (title) => `编辑${title}`,
+        confirmation: '我已核对收件人和发送时间。向 18,204 位联系人发送后，无法撤销。',
+        back: '返回', send: '安排发送', empty: '没有可审核的内容',
+      },
+      steps: [{id: 'details', label: '详情'}, {id: 'schedule', label: '日程'}, {id: 'recipients', label: '收件人'}, {id: 'review', label: '审核'}],
+      sections: [{id: 'campaign', title: '活动详情', rows: [{id: 'name', label: '名称', value: '春季产品更新'}]}],
+    },
     referenceEnvironment: HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment && {
       ...HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment,
       labels: {
@@ -339,8 +378,13 @@ export function createHbarAppUiWizardOverflowFixtures(): HbarAppUiWizardContent 
   const invoice = HBAR_APP_UI_WIZARD_FIXTURES.referenceInvoice!
   const upgrade = HBAR_APP_UI_WIZARD_FIXTURES.referenceUpgrade!
   const environment = HBAR_APP_UI_WIZARD_FIXTURES.referenceEnvironment!
+  const review = HBAR_APP_UI_WIZARD_FIXTURES.referenceReview!
   return {
     ...HBAR_APP_UI_WIZARD_FIXTURES,
+    referenceReview: {
+      ...review,
+      sections: [...review.sections, ...Array.from({length: 25}, (_, index) => ({id: `extended-${index}`, title: `Additional review section ${index + 1}`, rows: [{id: 'long', label: `Regional compliance and delivery policy ${index + 1}`, value: `Private delivery target ${index + 1} with long account name` }]}))],
+    },
     referenceEnvironment: {
       ...environment,
       services: [...environment.services, ...Array.from({length: 40}, (_, index) => ({id: `extended-${index}`, label: `Additional service ${index + 1} for a large environment`, detail: `Private provisioning details for regional workspace ${index + 1}.`, icon: 'database' as const, deploySeconds: 2}))],
