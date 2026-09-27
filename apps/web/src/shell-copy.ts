@@ -2153,6 +2153,18 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
     skills: choose('技能', 'Skills'),
     noPlugins: choose('当前 Host 没有注册插件。', 'No plugins are registered on this Host.'),
     noSkills: choose('当前 Host 没有发现技能。', 'No skills were discovered on this Host.'),
+    noMatchingPlugins: choose('没有匹配的插件。', 'No matching plugins.'),
+    noMatchingSkills: choose('没有匹配的技能。', 'No matching skills.'),
+    noMatchesHint: choose(
+      '试试其他关键词，或清除搜索以显示全部内容。',
+      'Try another keyword or clear the search to show every item.',
+    ),
+    clearSearch: choose('清除搜索', 'Clear search'),
+    skillSearchResults: (matching, total) =>
+      choose(
+        `${number.format(total)} 个技能中匹配 ${number.format(matching)} 个`,
+        `${number.format(matching)} of ${number.format(total)} skills match`,
+      ),
     status: {
       active: choose('已启用', 'Active'),
       disabled: choose('已禁用', 'Disabled'),

@@ -160,11 +160,29 @@ test('filters read their canonical collection query without contaminating the ot
   const plugins = render(value, 'plugins')
   const skills = render(value, 'skills')
   expect(plugins.html).toContain('value="not-a-plugin"')
-  expect(plugins.html).toContain(plugins.labels.noMatches)
+  expect(plugins.html).toContain(plugins.labels.noMatchingPlugins)
+  expect(plugins.html).toContain(plugins.labels.clearSearch)
+  expect(plugins.html).toContain(plugins.labels.noMatchesHint)
   expect(plugins.html).not.toContain(plugin.name)
   expect(skills.html).toContain('value="navigation-skill"')
   expect(skills.html).toContain(skill.id)
   expect(skills.html).not.toContain(skills.labels.noMatches)
+})
+
+test('Skills no-match offers both clear routes, a bounded result count and no fabricated empty inventory', () => {
+  const value = entry({ queries: { plugins: '', skills: 'no-such-skill' } })
+  const { html, labels } = render(value, 'skills', 'zh-CN')
+  expect(html).toContain(labels.skillSearchResults(0, 1))
+  expect(html).toContain(labels.noMatchingSkills)
+  expect(html).toContain(labels.noMatchesHint)
+  expect(html.match(/aria-label="清除搜索"/g)).toHaveLength(1)
+  expect(html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g)?.filter((node) => node.includes(labels.clearSearch))).toHaveLength(2)
+  expect(html).not.toContain(skill.id)
+
+  const absent = render(entry({ skills: [], queries: { plugins: '', skills: '' } }), 'skills', 'zh-CN')
+  expect(absent.html).toContain(absent.labels.noSkills)
+  expect(absent.html).not.toContain(absent.labels.noMatchesHint)
+  expect(absent.html).not.toContain(absent.labels.clearSearch)
 })
 
 for (const count of [0, 1, 20, 21]) {
