@@ -47,8 +47,8 @@ export const extensionWorkspaceCommands = {
     summary,
   ),
   'extensionWorkspace.refresh': defineCommand(
-    metadata('extensionWorkspace.refresh'),
-    z.strictObject({ instanceId }),
+    { ...metadata('extensionWorkspace.refresh'), timeoutMs: 35_000 },
+    z.strictObject({ instanceId, collection: z.enum(['plugins', 'skills']).optional() }),
     summary,
   ),
   'extensionWorkspace.setEnabled': defineCommand(

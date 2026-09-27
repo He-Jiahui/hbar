@@ -340,11 +340,23 @@ export interface ExtensionWorkspaceDetailState {
   readonly error: string | null
 }
 
+export interface ExtensionCollectionReadState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly hasSnapshot: boolean
+  readonly error: string | null
+  /** True until the executor physically settles, even after logical cancellation. */
+  readonly requestInFlight: boolean
+}
+
 export interface ExtensionWorkspaceEntryState {
   readonly instanceId: string
   readonly status: 'loading' | 'ready' | 'error'
   readonly plugins: readonly Readonly<PluginInfo>[]
   readonly skills: readonly Readonly<SkillDescriptor>[]
+  readonly collections: Readonly<{
+    plugins: Readonly<ExtensionCollectionReadState>
+    skills: Readonly<ExtensionCollectionReadState>
+  }>
   readonly actions: Readonly<Record<string, Readonly<ExtensionWorkspaceActionState>>>
   readonly error: string | null
   readonly query: string

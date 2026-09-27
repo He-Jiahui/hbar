@@ -186,12 +186,34 @@ for (const readKind of ['inspect', 'refresh'] as const)
       ).catch((reason: unknown) => reason)
       reply.resolve([plugin('a', 'disabled'), plugin('b')])
       await write
+      if (readKind === 'refresh')
+        expect(value.entry().collections.plugins).toEqual({
+          status: 'error',
+          error: 'RESULT_UNKNOWN',
+          hasSnapshot: true,
+          requestInFlight: true,
+        })
       oldList.resolve([plugin('a'), plugin('b')])
       oldDetail.resolve(plugin('a'))
       expect(await read).toMatchObject({ code: readKind === 'inspect' ? 'CANCELLED' : 'RESULT_UNKNOWN' })
       expect(value.entry().plugins[0]?.status).toBe('disabled')
       expect(value.entry().detail?.plugin?.status).toBe('disabled')
-      expect(value.entry().status).toBe('ready')
+      expect(value.entry().status).toBe(readKind === 'inspect' ? 'ready' : 'error')
+      // The logical refresh was interrupted by the ACK before this old executor settled.
+      for (
+        let attempt = 0;
+        readKind === 'refresh' && value.entry().collections.plugins.requestInFlight && attempt < 50;
+        attempt++
+      )
+        await new Promise<void>((resolve) => setTimeout(resolve, 1))
+      if (readKind === 'refresh')
+        expect(value.entry().collections.plugins).toEqual({
+          status: 'error',
+          error: 'RESULT_UNKNOWN',
+          hasSnapshot: true,
+          requestInFlight: false,
+        })
+      expect(value.writes()).toBe(1)
     } finally {
       reply.resolve([])
       oldList.resolve([])

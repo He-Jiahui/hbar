@@ -5,6 +5,7 @@ import { createState, type StateReader } from './state'
 import { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import type {
   ExtensionWorkspaceEntryState,
+  ExtensionCollectionReadState,
   ExtensionWorkspaceActionState,
   ExtensionWorkspaceState,
   PresentationState,
@@ -14,6 +15,22 @@ import type {
 
 const MAX_PANELS = 4
 const MAX_ACTIONS = 64
+const MAX_COLLECTION_READS = 8
+const COLLECTION_TIMEOUT_MS = 30_000
+type Collection = 'plugins' | 'skills'
+interface CollectionRequest {
+  readonly instanceId: string
+  readonly collection: Collection
+  readonly target: SurfaceState['panels'][string]
+  readonly controller: AbortController
+  cancel(error: string, detach?: boolean): void
+}
+const idleCollection = (): ExtensionCollectionReadState => ({
+  status: 'idle',
+  hasSnapshot: false,
+  error: null,
+  requestInFlight: false,
+})
 const REJECTED_CODES = new Set([
   'BUSY',
   'NOT_FOUND',
@@ -54,11 +71,10 @@ export function createExtensionWorkspace(
 ) {
   const state = createState<ExtensionWorkspaceState>({ entries: {} }, onSubscriberError)
   const client = options.extensions ? createCommandClient(extensionCommands, options.extensions) : null
-  const generations = new Map<string, number>()
-  const loadTargets = new Map<
-    string,
-    { readonly target: SurfaceState['panels'][string]; readonly generation: number }
-  >()
+  const collectionRequests = new Map<string, CollectionRequest>()
+  const inFlightCollections = new Set<CollectionRequest>()
+  let disposed = false
+  const closed = () => disposed || isDisposed()
   const detailGenerations = new Map<string, number>()
   const detailTargets = new Map<string, SurfaceState['panels'][string]>()
   const detailRequests = new Map<string, AbortController>()
@@ -79,7 +95,7 @@ export function createExtensionWorkspace(
     return client
   }
   const replace = (entry: ExtensionWorkspaceEntryState) => {
-    if (isDisposed()) return
+    if (closed()) return
     const current = state.reader.getSnapshot()
     const projectedActions = Object.fromEntries(
       entry.plugins.flatMap((plugin) => {
@@ -87,14 +103,24 @@ export function createExtensionWorkspace(
         return action ? [[plugin.id, action]] : []
       }),
     )
-    const entries = { ...current.entries, [entry.instanceId]: { ...entry, actions: projectedActions } }
+    const reads = Object.values(entry.collections)
+    const status = reads.some((read) => read.status === 'loading')
+      ? ('loading' as const)
+      : reads.some((read) => read.status === 'error')
+        ? ('error' as const)
+        : ('ready' as const)
+    const projected = {
+      ...entry,
+      status,
+      actions: projectedActions,
+      error: entry.error === 'CAPACITY_EXCEEDED' ? entry.error : (reads.find((read) => read.error)?.error ?? null),
+    }
+    const entries = { ...current.entries, [entry.instanceId]: projected }
     const ids = Object.keys(entries)
     if (ids.length > MAX_PANELS)
       for (const id of ids) {
         if (id !== entry.instanceId && !surfaces.getSnapshot().panels[id]) {
           delete entries[id]
-          generations.delete(id)
-          loadTargets.delete(id)
           detailGenerations.delete(id)
           detailTargets.delete(id)
           break
@@ -108,7 +134,7 @@ export function createExtensionWorkspace(
       return surface && (surface.panelId === 'settings' || surface.panelId === 'extensions')
     })
   const publishAction = (pluginId: string, action: Readonly<ExtensionWorkspaceActionState>) => {
-    if (isDisposed()) return
+    if (closed()) return
     actions.set(pluginId, action)
     for (const entry of openEntries())
       replace({
@@ -118,18 +144,20 @@ export function createExtensionWorkspace(
   }
   const publishFact = (plugin: Readonly<ExtensionWorkspaceEntryState['plugins'][number]>) => {
     for (const entry of openEntries()) {
-      generations.set(entry.instanceId, ++revision)
-      const detail = entry.detail
+      // This ACK confirms one plugin, not the entire collection. A pre-ACK list
+      // cannot overwrite it, and its physical capacity is retained until settle.
+      collectionRequests.get(`${entry.instanceId}:plugins`)?.cancel('RESULT_UNKNOWN', true)
+      const latest = state.reader.getSnapshot().entries[entry.instanceId] ?? entry
+      const detail = latest.detail
       const matchesDetail = detail?.pluginId === plugin.id && (detail.status === 'ready' || detail.status === 'loading')
       if (matchesDetail) {
         detailGenerations.set(entry.instanceId, ++revision)
         detailRequests.get(entry.instanceId)?.abort()
       }
       replace({
-        ...entry,
-        status: 'ready',
-        plugins: entry.plugins.map((item) => (item.id === plugin.id ? plugin : item)),
-        error: entry.error === 'CAPACITY_EXCEEDED' && !matchesDetail ? entry.error : null,
+        ...latest,
+        plugins: latest.plugins.map((item) => (item.id === plugin.id ? plugin : item)),
+        error: latest.error === 'CAPACITY_EXCEEDED' && !matchesDetail ? latest.error : null,
         detail: matchesDetail ? { ...detail, status: 'ready', plugin, error: null } : detail,
       })
     }
@@ -141,78 +169,147 @@ export function createExtensionWorkspace(
     skillCount: entry.skills.length,
     error: entry.error ?? Object.values(entry.actions).find((action) => action.error)?.error ?? null,
   })
-  const load = async (instanceId: string) => {
+  const physicallyReading = (instanceId: string, collection: Collection) =>
+    [...inFlightCollections].some(
+      (request) =>
+        request.instanceId === instanceId &&
+        request.collection === collection &&
+        request.target === surfaces.getSnapshot().panels[instanceId],
+    )
+  const updateRead = (instanceId: string, collection: Collection, read: Partial<ExtensionCollectionReadState>) => {
+    const entry = state.reader.getSnapshot().entries[instanceId]
+    if (entry)
+      replace({
+        ...entry,
+        collections: {
+          ...entry.collections,
+          [collection]: {
+            ...entry.collections[collection],
+            ...read,
+            requestInFlight: physicallyReading(instanceId, collection),
+          },
+        },
+      })
+  }
+  const readCollection = (instanceId: string, collection: Collection, signal: AbortSignal): Promise<void> => {
     const target = panel(instanceId)
-    const previous = state.reader.getSnapshot().entries[instanceId]
-    if (previous?.status === 'loading' && loadTargets.get(instanceId)?.target === target) return summary(previous)
-    const generation = ++revision
-    generations.set(instanceId, generation)
-    const readTarget = { target, generation }
-    loadTargets.set(instanceId, readTarget)
-    const loading: ExtensionWorkspaceEntryState = {
+    const key = `${instanceId}:${collection}`
+    const previous = collectionRequests.get(key)
+    // Joining is observational; the second caller's cancellation cannot cancel the owner.
+    if (previous?.target === target) return Promise.resolve()
+    previous?.cancel('CANCELLED', true)
+    if (closed() || signal.aborted) return Promise.reject(new CommandError('CANCELLED', 'Extension read cancelled'))
+    if (inFlightCollections.size >= MAX_COLLECTION_READS) {
+      updateRead(instanceId, collection, { status: 'error', error: 'BUSY' })
+      return Promise.reject(new CommandError('BUSY', 'Extension collection read capacity is exhausted'))
+    }
+    const controller = new AbortController()
+    const logical = Promise.withResolvers<void>()
+    let settled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const current = () =>
+      !closed() && collectionRequests.get(key) === request && surfaces.getSnapshot().panels[instanceId] === target
+    const finish = (reason?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal.removeEventListener('abort', aborted)
+      if (reason !== undefined) {
+        if (current()) updateRead(instanceId, collection, { status: 'error', error: code(reason) })
+        logical.reject(failure(reason))
+      } else logical.resolve()
+    }
+    const request: CollectionRequest = {
       instanceId,
-      status: 'loading',
-      plugins: previous?.plugins ?? [],
-      skills: previous?.skills ?? [],
-      actions: previous?.actions ?? {},
-      error: null,
-      query: previous?.query ?? '',
-      pluginPage: previous?.pluginPage ?? 0,
-      skillPage: previous?.skillPage ?? 0,
-      selectedPluginId: previous?.selectedPluginId ?? null,
-      detail: previous?.detail ?? null,
+      collection,
+      target,
+      controller,
+      cancel(error, detach = false) {
+        finish(new CommandError(error, 'Extension collection read was interrupted'))
+        if (detach && collectionRequests.get(key) === request) collectionRequests.delete(key)
+        controller.abort()
+      },
     }
-    replace(loading)
-    try {
-      const [plugins, skills] = await Promise.all([
-        requireClient().execute('plugin.list', {}),
-        requireClient().execute('skill.list', {}),
-      ])
-      if (
-        isDisposed() ||
-        generations.get(instanceId) !== generation ||
-        surfaces.getSnapshot().panels[instanceId] !== target
-      )
-        throw new CommandError('RESULT_UNKNOWN', 'Extension refresh was superseded')
-      if (
-        new Set(plugins.map((item) => item.id)).size !== plugins.length ||
-        new Set(skills.map((item) => item.id)).size !== skills.length
-      )
-        throw new CommandError('INVALID_OUTPUT', 'Extension identifiers must be unique')
-      const latest = state.reader.getSnapshot().entries[instanceId] ?? loading
-      const detail = latest.detail
-      const selected = detail ? plugins.find((plugin) => plugin.id === detail.pluginId) : null
-      const ready: ExtensionWorkspaceEntryState = {
-        ...latest,
-        status: 'ready',
-        plugins,
-        skills,
-        actions: loading.actions,
-        detail:
-          detail?.status === 'ready'
-            ? { ...detail, status: selected ? 'ready' : 'missing', plugin: selected ?? null, error: null }
-            : detail,
+    const aborted = () => request.cancel('CANCELLED')
+    collectionRequests.set(key, request)
+    inFlightCollections.add(request)
+    updateRead(instanceId, collection, { status: 'loading', error: null })
+    signal.addEventListener('abort', aborted, { once: true })
+    timer = setTimeout(() => request.cancel('TIMEOUT'), COLLECTION_TIMEOUT_MS)
+    const execute = async () => {
+      try {
+        if (!current() || signal.aborted || settled) {
+          request.cancel('CANCELLED')
+          return
+        }
+        const commandClient = requireClient()
+        const result =
+          collection === 'plugins'
+            ? { collection, items: await commandClient.execute('plugin.list', {}, { signal: controller.signal }) }
+            : { collection, items: await commandClient.execute('skill.list', {}, { signal: controller.signal }) }
+        if (!current() || settled) return
+        if (new Set(result.items.map((item) => item.id)).size !== result.items.length)
+          throw new CommandError('INVALID_OUTPUT', 'Extension identifiers must be unique')
+        const latest = state.reader.getSnapshot().entries[instanceId]
+        if (!latest) return
+        const read: ExtensionCollectionReadState = {
+          status: 'ready',
+          hasSnapshot: true,
+          error: null,
+          requestInFlight: true,
+        }
+        if (result.collection === 'plugins') {
+          const plugins = result.items
+          const detail = latest.detail
+          const selected = detail ? plugins.find((item) => item.id === detail.pluginId) : null
+          replace({
+            ...latest,
+            plugins,
+            collections: { ...latest.collections, plugins: read },
+            detail:
+              detail?.status === 'ready'
+                ? { ...detail, status: selected ? 'ready' : 'missing', plugin: selected ?? null, error: null }
+                : detail,
+          })
+        } else replace({ ...latest, skills: result.items, collections: { ...latest.collections, skills: read } })
+        finish()
+      } catch (reason) {
+        finish(reason)
+      } finally {
+        inFlightCollections.delete(request)
+        if (collectionRequests.get(key) === request) collectionRequests.delete(key)
+        // A superseded physical completion may release capacity, never replace its successor's facts.
+        updateRead(instanceId, collection, {})
+      }
+    }
+    void execute()
+    return logical.promise
+  }
+  const load = async (instanceId: string, collection: Collection | undefined, signal: AbortSignal) => {
+    panel(instanceId)
+    if (!state.reader.getSnapshot().entries[instanceId])
+      replace({
+        instanceId,
+        status: 'loading',
+        plugins: [],
+        skills: [],
+        actions: {},
         error: null,
-      }
-      replace(ready)
-      return summary(ready)
-    } catch (reason) {
-      if (
-        isDisposed() ||
-        generations.get(instanceId) !== generation ||
-        surfaces.getSnapshot().panels[instanceId] !== target
-      )
-        throw reason
-      const failed = {
-        ...(state.reader.getSnapshot().entries[instanceId] ?? loading),
-        status: 'error' as const,
-        error: code(reason),
-      }
-      replace(failed)
-      throw failure(reason)
-    } finally {
-      if (loadTargets.get(instanceId) === readTarget) loadTargets.delete(instanceId)
-    }
+        collections: { plugins: idleCollection(), skills: idleCollection() },
+        query: '',
+        pluginPage: 0,
+        skillPage: 0,
+        selectedPluginId: null,
+        detail: null,
+      })
+    const results = await Promise.allSettled(
+      (collection ? [collection] : (['plugins', 'skills'] as const)).map((name) =>
+        readCollection(instanceId, name, signal),
+      ),
+    )
+    const rejected = results.find((result) => result.status === 'rejected')
+    if (rejected?.status === 'rejected') throw failure(rejected.reason)
+    return summary(entryFor(instanceId))
   }
   const entryFor = (instanceId: string) => {
     panel(instanceId)
@@ -239,7 +336,7 @@ export function createExtensionWorkspace(
     const controller = new AbortController()
     const current = () => {
       const latest = state.reader.getSnapshot().entries[instanceId]
-      return !isDisposed() &&
+      return !closed() &&
         detailGenerations.get(instanceId) === generation &&
         surfaces.getSnapshot().panels[instanceId] === target &&
         latest?.detail?.pluginId === pluginId
@@ -288,8 +385,27 @@ export function createExtensionWorkspace(
         replace({ ...entry, detail: { ...entry.detail, status: 'error', plugin: null, error: 'CANCELLED' } })
     }
   }
-  const unsubscribeSurfaces = surfaces.subscribe(invalidateDetails)
-  const unsubscribePresentation = presentation.subscribe(invalidateDetails)
+  const invalidateCollections = () => {
+    const page = presentation.getSnapshot().page
+    for (const request of collectionRequests.values()) {
+      if (
+        surfaces.getSnapshot().panels[request.instanceId] === request.target &&
+        page.kind === 'settings' &&
+        page.instanceId === request.instanceId
+      )
+        continue
+      request.cancel('CANCELLED', true)
+      updateRead(request.instanceId, request.collection, { status: 'error', error: 'CANCELLED' })
+    }
+  }
+  const unsubscribeSurfaces = surfaces.subscribe(() => {
+    invalidateCollections()
+    invalidateDetails()
+  })
+  const unsubscribePresentation = presentation.subscribe(() => {
+    invalidateCollections()
+    invalidateDetails()
+  })
   const setEnabled = async (instanceId: string, pluginId: string, enabled: boolean) => {
     panel(instanceId)
     const entry = state.reader.getSnapshot().entries[instanceId]
@@ -311,7 +427,7 @@ export function createExtensionWorkspace(
     publishAction(pluginId, { status: 'submitting', error: null })
     try {
       const plugins = await commandClient.execute(enabled ? 'plugin.enable' : 'plugin.disable', { id: pluginId })
-      if (isDisposed()) throw new CommandError('RESULT_UNKNOWN', 'Plugin operation outlived this runtime')
+      if (closed()) throw new CommandError('RESULT_UNKNOWN', 'Plugin operation outlived this runtime')
       const changed = plugins.find((item) => item.id === pluginId)
       if (
         new Set(plugins.map((item) => item.id)).size !== plugins.length ||
@@ -336,7 +452,9 @@ export function createExtensionWorkspace(
     }
   }
 
-  local.register(extensionWorkspaceCommands['extensionWorkspace.refresh'], ({ instanceId }) => load(instanceId))
+  local.register(extensionWorkspaceCommands['extensionWorkspace.refresh'], ({ instanceId, collection }, context) =>
+    load(instanceId, collection, context.signal),
+  )
   local.register(extensionWorkspaceCommands['extensionWorkspace.inspect'], ({ instanceId, pluginId }) =>
     inspect(instanceId, pluginId),
   )
@@ -369,10 +487,11 @@ export function createExtensionWorkspace(
   return {
     reader: state.reader,
     dispose() {
+      disposed = true
       unsubscribeSurfaces()
       unsubscribePresentation()
-      generations.clear()
-      loadTargets.clear()
+      for (const request of inFlightCollections) request.cancel('CANCELLED', true)
+      collectionRequests.clear()
       detailGenerations.clear()
       detailTargets.clear()
       for (const controller of inFlightDetails) controller.abort()

@@ -230,6 +230,7 @@ export type {
   WorkflowWorkspacePort,
   WorkflowWorkspaceState,
   ExtensionWorkspaceActionState,
+  ExtensionCollectionReadState,
   ExtensionWorkspaceDetailState,
   ExtensionWorkspaceEntryState,
   ExtensionWorkspaceState,
