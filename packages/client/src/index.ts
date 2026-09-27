@@ -10,6 +10,7 @@ export {
   type ImageArtifactMime,
 } from './image-artifacts'
 export { createDirectoryQueryAdapter } from './directory'
+export { createSessionSearchCommandClient } from './session-search'
 export { createCommandCatalogClient } from './command-catalog'
 export { createBudgetCommandClient } from './budget'
 export { createRunCommandClient } from './run'

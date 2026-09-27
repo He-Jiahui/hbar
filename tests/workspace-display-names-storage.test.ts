@@ -38,7 +38,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 8 })
+  expect(await store.call('ready')).toEqual({ version: 9 })
   const workspace = await store.call('createWorkspace', root, 'folder')
   return { root, path, store, workspace }
 }
@@ -214,7 +214,7 @@ test('new aliases require existing identity but stale entries can be reset witho
 })
 
 for (const version of [6, 7]) {
-  test(`two Workers migrate v${version} to v8 preserving existing organization receipts, then serialize CAS`, async () => {
+  test(`two Workers migrate v${version} to v9 preserving existing organization receipts, then serialize CAS`, async () => {
     const f = await fixture()
     const hiddenRequest = {
       actorId: 'actor-a',
@@ -229,7 +229,7 @@ for (const version of [6, 7]) {
     })
     const a = open(f.path)
     const b = open(f.path)
-    expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 8 }, { version: 8 }])
+    expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 9 }, { version: 9 }])
     const writes = await Promise.allSettled([
       a.call('applyWorkspaceDisplayNames', input(f.workspace.id, 'A')),
       b.call('applyWorkspaceDisplayNames', input(f.workspace.id, 'B')),

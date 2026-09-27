@@ -71,6 +71,17 @@ export {
   type HbarProviderDialogLabels,
 } from './provider-settings'
 export { HbarCommandPalette, type HbarCommandPaletteLabels, type HbarCommandPaletteProps } from './command-palette'
+export {
+  HbarChatSearchView,
+  highlightedChatSearchText,
+  visibleChatSearchRows,
+  type HbarChatSearchHighlight,
+  type HbarChatSearchSnippet,
+  type HbarChatSearchRow,
+  type HbarChatSearchStatus,
+  type HbarChatSearchLabels,
+  type HbarChatSearchViewProps,
+} from './chat-search-view'
 export { HbarFileWorkspace, type HbarFileWorkspaceLabels } from './lumen-file-workspace'
 export {
   HbarFilePreviewTabs,

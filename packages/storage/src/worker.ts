@@ -41,6 +41,7 @@ import { readActiveOperations } from './active-operations.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
+import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -51,7 +52,7 @@ const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 8) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 9) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -122,7 +123,7 @@ if (schemaVersion < 7)
   db.transaction(() => {
     // Another Worker may already have completed this migration while this one waited for the write lock.
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 7 && current !== 8) {
+    if (current !== 7 && current !== 8 && current !== 9) {
       if (current !== 6) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
       db.exec(WORKSPACE_ORGANIZATION_SQL)
       db.exec('PRAGMA user_version=7;')
@@ -132,15 +133,29 @@ if (schemaVersion < 7)
 if (schemaVersion < 8)
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 8) {
+    if (current !== 8 && current !== 9) {
       if (current !== 7) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
       db.exec(WORKSPACE_DISPLAY_NAMES_SQL)
       db.exec('PRAGMA user_version=8;')
     }
   }).immediate()
 
+if (schemaVersion < 9)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current !== 9) {
+      if (current !== 8) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+      db.exec(SESSION_SEARCH_SQL)
+      db.exec('PRAGMA user_version=9;')
+    }
+  }).immediate()
+
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
+const sessionSearch = createSessionSearchStorage(
+  db,
+  () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
+)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 db.exec(GOAL_HISTORY_INDEX_SQL)
@@ -427,7 +442,11 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 8 }),
+  ready: () => ({ version: 9 }),
+  searchIndexStatus: sessionSearch.indexStatus,
+  searchIndexStep: sessionSearch.backfillStep,
+  recentSessions: sessionSearch.recent,
+  searchSessions: sessionSearch.search,
   workspaceDisplayNames: workspaceDisplayNames.read,
   applyWorkspaceDisplayNames: workspaceDisplayNames.apply,
   workspaceDisplayNamesReceipt: workspaceDisplayNames.receipt,
@@ -645,6 +664,7 @@ const methods: StorageMethods = {
         event.time,
         providerData ? JSON.stringify(providerData) : null,
       )
+      sessionSearch.queueMessage(message.id, sessionId, role, event.seq, content)
       return { message, event }
     })(),
   snapshot(sessionId, before, limit = 60) {
@@ -1335,6 +1355,13 @@ function restoreProjection(event: SessionEvent) {
       event.seq,
       event.time,
       data.providerData === undefined ? null : JSON.stringify(data.providerData),
+    )
+    sessionSearch.queueMessage(
+      String(data.id),
+      event.sessionId,
+      String(data.role),
+      event.seq,
+      z.array(contentBlockSchema).parse(data.content),
     )
   } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
     const run = runSchema.parse(data.run)

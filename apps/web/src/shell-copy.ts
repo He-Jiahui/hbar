@@ -2567,7 +2567,9 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       cancel: '取消',
       createSessionInWorkspace: (name) => `在项目“${name}”中新建会话`,
       commands: '命令',
-      commandShortcut: 'Ctrl K',
+      commandShortcut: 'Ctrl Shift P',
+      searchChats: '搜索聊天',
+      searchShortcut: 'Ctrl K',
       roster: {
         refreshExpanded: '刷新已展开项目的会话',
         refreshWorkspace: (name) => `刷新 ${name} 的会话`,
@@ -2695,7 +2697,9 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       cancel: 'Cancel',
       createSessionInWorkspace: (name) => `Create a session in project ${name}`,
       commands: 'Commands',
-      commandShortcut: 'Ctrl K',
+      commandShortcut: 'Ctrl Shift P',
+      searchChats: 'Search chats',
+      searchShortcut: 'Ctrl K',
       roster: {
         refreshExpanded: 'Refresh sessions in expanded projects',
         refreshWorkspace: (name) => `Refresh sessions in ${name}`,
@@ -2798,7 +2802,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   },
 }
 
-// Only the shortcut differs by platform; keep all other label references stable.
+// Only platform-specific shortcut labels differ; keep all other label references stable.
 // There are at most two locale-specific Mac variants, never a cache per raw platform.
 const macCopies = new Map<ShellLocale, ShellCopy>()
 
@@ -2813,6 +2817,7 @@ export function getShellCopy(
   if (cached) return cached
   const copy: ShellCopy = {
     ...base,
+    shell: { ...base.shell, searchShortcut: '⌘K', commandShortcut: '⌘⇧P' },
     session: { ...base.session, prompt: { ...base.session.prompt, stop } },
   }
   macCopies.set(locale, copy)

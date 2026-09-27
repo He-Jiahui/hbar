@@ -69,6 +69,8 @@ import { UsageService } from '@hbar/usage'
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
 import { createMetricsCommands } from './metrics-commands.ts'
+import { createSessionSearchCommands } from '@hbar/kernel/session-search-commands'
+import { sessionSearchCommands as sessionSearchDefinitions } from '@hbar/contracts/commands/session-search'
 
 interface SocketData {
   token?: string | undefined
@@ -150,6 +152,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
   const workflowCommands = createWorkflowCommands(kernel.plugins.get<WorkflowService>('workflow'))
+  const sessionSearchCommands = createSessionSearchCommands(kernel.storage)
   const commandServices = [
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
@@ -158,6 +161,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: extensionDefinitions, service: extensionCommands },
     { definitions: gitDefinitions, service: gitCommands },
     { definitions: directoryDefinitions, service: kernel.directoryQueries },
+    { definitions: sessionSearchDefinitions, service: sessionSearchCommands },
     { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
@@ -1163,6 +1167,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       extensionCommands.dispose()
       gitCommands.dispose()
       workspaceSessionCommands.dispose()
+      await sessionSearchCommands.dispose()
       budgetCommands.dispose()
       fileCommands.dispose()
       goalPlanCommands.dispose()

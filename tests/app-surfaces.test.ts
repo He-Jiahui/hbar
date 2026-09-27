@@ -71,7 +71,8 @@ test('presentation commands separate the main page, session tool, modal, return 
     hostId: 'host',
     directory,
     surfaces: {
-      canRender: (panelId) => ['files', 'settings', 'status', 'commands', 'settings-editor'].includes(panelId),
+      canRender: (panelId) =>
+        ['files', 'settings', 'status', 'commands', 'chat-search', 'settings-editor'].includes(panelId),
     },
   })
   try {
@@ -109,6 +110,17 @@ test('presentation commands separate the main page, session tool, modal, return 
     })
     const modal = await runtime.view.commands.execute('app.openPanel', { panelId: 'commands' })
     expect(runtime.view.state.presentation.getSnapshot().modalInstanceId).toBe(modal.instanceId)
+    expect(await runtime.view.commands.execute('app.back', {})).toMatchObject({
+      page: 'settings',
+      modalInstanceId: null,
+    })
+    const search = await runtime.view.commands.execute('app.openPanel', { panelId: 'chat-search' })
+    expect(search.panelId).toBe('chat-search')
+    expect(runtime.view.state.presentation.getSnapshot()).toMatchObject({
+      page: { kind: 'settings', instanceId: settings.instanceId },
+      toolInstanceId: null,
+      modalInstanceId: search.instanceId,
+    })
     expect(await runtime.view.commands.execute('app.back', {})).toMatchObject({
       page: 'settings',
       modalInstanceId: null,

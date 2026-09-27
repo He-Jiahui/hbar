@@ -12,7 +12,7 @@ import type {
 } from './types'
 
 const toolPanelIds = new Set(['files', 'monitoring', 'agents', 'goals'])
-const modalPanelIds = new Set(['commands', 'settings-editor'])
+const modalPanelIds = new Set(['commands', 'chat-search', 'settings-editor'])
 
 function summary(panel: PanelSurface, focused: boolean) {
   return {

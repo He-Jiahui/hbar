@@ -6,6 +6,7 @@ import { CommandError } from '@hbar/commands'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
 import { workspaceDisplayNamesCopy } from '../apps/web/src/workspace-display-names-copy'
 import { getSessionStopCopy } from '../apps/web/src/session-stop-copy'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const workspace = { id: 'workspace-1', path: 'D:/workspace', name: '非常长的工程名称', createdAt: 1 }
 const session = {
@@ -43,7 +44,9 @@ const labels: HbarWorkspaceShellLabels = {
   cancel: '取消',
   createSessionInWorkspace: (name) => `在 ${name} 中创建新会话`,
   commands: '打开命令目录',
-  commandShortcut: 'Ctrl K',
+  commandShortcut: 'Ctrl Shift P',
+  searchChats: '搜索全部聊天记录中的内容',
+  searchShortcut: 'Ctrl K',
   roster: {
     refreshExpanded: '刷新所有展开工程的会话',
     refreshWorkspace: (name) => `刷新 ${name} 的会话`,
@@ -171,6 +174,10 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('需要键盘导航的会话')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('打开命令目录')
+    expect(html).toContain(labels.searchChats)
+    expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.searchChats))
+    expect(html.indexOf(labels.searchChats)).toBeLessThan(html.indexOf(labels.commands))
+    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
     expect(html).toContain('打开工作区')
     expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
@@ -214,6 +221,27 @@ test('separate React runtime providers keep each window selection private', asyn
   } finally {
     selected.dispose()
     idle.dispose()
+  }
+})
+
+test('English host copy renders Search chats and Commands as separate first-level actions', () => {
+  const runtime = runtimeFixture('search-entry-en')
+  try {
+    const english = getShellCopy('en-US', 'Win32').shell
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarWorkspaceShell labels={english} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <h1>Host content</h1>
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain(english.searchChats)
+    expect(html).toContain(english.commands)
+    expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.commands))
+    expect(html).toContain(english.searchShortcut)
+    expect(html).toContain(english.commandShortcut)
+  } finally {
+    runtime.dispose()
   }
 })
 

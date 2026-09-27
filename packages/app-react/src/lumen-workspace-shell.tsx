@@ -11,6 +11,7 @@ import {
   Pin,
   Plus,
   RefreshCw,
+  Search,
   Settings,
   SquarePen,
   type LucideIcon,
@@ -91,6 +92,8 @@ export interface HbarWorkspaceShellLabels {
   readonly createSessionInWorkspace: (name: string) => string
   readonly commands: string
   readonly commandShortcut: string
+  readonly searchChats: string
+  readonly searchShortcut: string
   readonly roster: SessionRosterRefreshLabels
   readonly openWorkspace: string
   readonly status: string
@@ -180,11 +183,35 @@ const workspaceShellIcons = {
   pin: Pin,
   plus: Plus,
   refresh: RefreshCw,
+  search: Search,
   settings: Settings,
   'new-session': SquarePen,
 } satisfies Readonly<Record<string, LucideIcon>>
 
 type WorkspaceShellIconName = keyof typeof workspaceShellIcons
+
+export function workspaceShellShortcut(
+  event: Pick<
+    KeyboardEvent,
+    'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'isComposing' | 'keyCode' | 'repeat' | 'defaultPrevented'
+  >,
+  topLayerOpen: boolean,
+): 'chat-search' | 'commands' | null {
+  if (
+    topLayerOpen ||
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    event.repeat ||
+    event.altKey ||
+    event.ctrlKey === event.metaKey
+  )
+    return null
+  const key = event.key.toLowerCase()
+  if (key === 'k' && !event.shiftKey) return 'chat-search'
+  if (key === 'p' && event.shiftKey) return 'commands'
+  return null
+}
 
 function WorkspaceShellIcon({
   name,
@@ -473,16 +500,19 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        void execute('app.openPanel', { panelId: 'commands' })
-          .then(() => {
-            if (window.matchMedia('(max-width: 63.9375rem)').matches)
-              return execute('app.setSidebarVisible', { visible: false })
-            return undefined
-          })
-          .catch(recordError)
-      }
+      const panelId = workspaceShellShortcut(
+        event,
+        Boolean(document.querySelector('dialog:modal, [popover]:popover-open')),
+      )
+      if (!panelId) return
+      event.preventDefault()
+      void execute('app.openPanel', { panelId })
+        .then(() => {
+          if (window.matchMedia('(max-width: 63.9375rem)').matches)
+            return execute('app.setSidebarVisible', { visible: false })
+          return undefined
+        })
+        .catch(recordError)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -893,11 +923,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               )}
               <LumenFrame className="hbar-app-react-sidebar-query-actions">
                 <WorkspaceSidebarAction
-                  icon="command"
-                  label={props.labels.commands}
-                  detail={props.labels.commandShortcut}
-                  selected={presentation.modalInstanceId === 'commands'}
-                  onClick={() => openPanel('commands')}
+                  icon="search"
+                  label={props.labels.searchChats}
+                  detail={props.labels.searchShortcut}
+                  selected={presentation.modalInstanceId === 'chat-search'}
+                  onClick={() => openPanel('chat-search')}
                 />
                 <LumenIconButton
                   className="hbar-app-react-roster-refresh"
@@ -909,6 +939,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   <WorkspaceShellIcon name="refresh" />
                 </LumenIconButton>
               </LumenFrame>
+              <WorkspaceSidebarAction
+                icon="command"
+                label={props.labels.commands}
+                detail={props.labels.commandShortcut}
+                selected={presentation.modalInstanceId === 'commands'}
+                onClick={() => openPanel('commands')}
+              />
             </LumenFrame>
           }
           treeAction={

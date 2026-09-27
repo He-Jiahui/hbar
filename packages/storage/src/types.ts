@@ -22,6 +22,12 @@ import type { ActiveOperationsInput, ActiveOperationsPage, RunCommandRecord } fr
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type {
+  SessionRecentInput,
+  SessionRecentPage,
+  SessionSearchInput,
+  SessionSearchPage,
+} from '@hbar/contracts/commands/session-search'
+import type {
   WorkspaceOrganizationApplyInput,
   WorkspaceOrganizationReceipt,
   WorkspaceOrganizationSnapshot,
@@ -108,6 +114,10 @@ export interface ForkableMessagesResult {
 
 export interface StorageMethods {
   ready(): { version: number }
+  searchIndexStatus(): { complete: boolean }
+  searchIndexStep(): { complete: boolean }
+  recentSessions(input: SessionRecentInput): SessionRecentPage
+  searchSessions(input: SessionSearchInput): SessionSearchPage
   createWorkspace(path: string, name: string): Workspace
   workspaces(): Workspace[]
   workspacePage(input: WorkspaceListInput): WorkspacePage

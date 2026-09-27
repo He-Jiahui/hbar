@@ -67,6 +67,17 @@ dialog.hbar-app-react-command-modal {
   block-size: min(42rem, calc(100dvb - 2rem));
 }
 
+dialog.hbar-app-react-chat-search-dialog {
+  --lumen-dialog-width: 40rem;
+
+  block-size: auto;
+  max-block-size: calc(100dvb - 2rem);
+}
+
+dialog.hbar-app-react-chat-search-dialog > .lumen-dialog-body {
+  min-block-size: 0;
+}
+
 dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='parameters']) {
   block-size: min(36rem, calc(100dvb - 2rem));
 }
@@ -88,6 +99,10 @@ dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[d
 @media (max-width: 48rem) {
   dialog.hbar-app-react-workspace-modal {
     block-size: calc(100dvb - 2rem);
+  }
+
+  dialog.hbar-app-react-chat-search-dialog {
+    block-size: auto;
   }
 
   dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette) {

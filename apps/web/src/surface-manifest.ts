@@ -6,6 +6,7 @@ export const webSurfaceOutlets = Object.freeze({
   agents: 'tool',
   goals: 'tool',
   commands: 'modal',
+  'chat-search': 'modal',
   'settings-editor': 'modal',
 } as const)
 

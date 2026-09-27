@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   HbarAgentWorkspace,
   HbarCommandPalette,
+  HbarChatSearchView,
   HbarExtensionWorkspace,
   HbarFileWorkspace,
   HbarGoalPlanWorkspace,
@@ -51,6 +52,7 @@ import {
   createWorkflowCommandClient,
   createGitCommandClient,
   createRunCommandClient,
+  createSessionSearchCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
   createInteractionRecoveryClient,
@@ -89,6 +91,9 @@ import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
+import { chatSearchCopy, chatSearchErrorCopy } from './chat-search-copy'
+import { createWebChatSearchController, type WebChatSearchController } from './chat-search-controller'
+import { createHostChatSearchPort } from './chat-search-port'
 import { createSessionToolPresenter } from './session-tool-presentation'
 import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
 import { useSidebarLayout, useToolPaneLayout } from './tool-pane-layout'
@@ -716,16 +721,93 @@ function WorkspaceTool({
   return null
 }
 
-function WorkspaceModal({ locale, connected }: { readonly locale: ShellLocale; readonly connected: boolean }) {
+function WorkspaceModal({
+  locale,
+  connected,
+  chatSearch,
+}: {
+  readonly locale: ShellLocale
+  readonly connected: boolean
+  readonly chatSearch: WebChatSearchController
+}) {
   const copy = getShellCopy(locale)
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const commandSearch = useRef<HTMLInputElement>(null)
+  const chatSearchInput = useRef<HTMLInputElement>(null)
+  const chatSearchState = useStore(chatSearch.store)
   const modalInstanceId = presentation.modalInstanceId
   const modal = modalInstanceId ? surfaces.panels[modalInstanceId] : undefined
+  const searchOpen = Boolean(modalInstanceId && modal?.panelId === 'chat-search')
+  useEffect(() => {
+    if (searchOpen) chatSearch.open()
+    else chatSearch.close()
+    return () => chatSearch.close()
+  }, [chatSearch, searchOpen])
   const close = (instanceId: string) => {
     void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
+  }
+  if (modalInstanceId && searchOpen) {
+    const labels = chatSearchCopy(locale)
+    const selectedInstanceId = modalInstanceId
+    return (
+      <LumenDialog
+        open
+        chromeless
+        appearance="panel"
+        title={labels.search}
+        closeLabel={labels.close}
+        className="hbar-app-react-workspace-modal hbar-app-react-chat-search-dialog"
+        initialFocus={chatSearchInput}
+        onClose={() => close(selectedInstanceId)}
+      >
+        <HbarChatSearchView
+          inputRef={chatSearchInput}
+          query={chatSearchState.query}
+          status={chatSearchState.status === 'closed' ? 'loading' : chatSearchState.status}
+          rows={chatSearchState.rows}
+          selectedSessionId={chatSearchState.selectedSessionId}
+          truncated={chatSearchState.truncated}
+          error={chatSearchState.error ? chatSearchErrorCopy(locale, chatSearchState.error) : null}
+          openingSessionId={chatSearchState.openingSessionId}
+          openError={
+            chatSearchState.openError
+              ? {
+                  sessionId: chatSearchState.openError.sessionId,
+                  message: chatSearchErrorCopy(locale, chatSearchState.openError.message),
+                }
+              : null
+          }
+          labels={labels}
+          onQueryChange={chatSearch.setQuery}
+          onMove={chatSearch.move}
+          onSelect={chatSearch.select}
+          onOpen={(sessionId, workspaceId) => {
+            void chatSearch
+              .openRow(sessionId, workspaceId, async (row) => {
+                await runtime.commands.execute('app.setSession', {
+                  sessionId: row.sessionId,
+                  workspaceId: row.workspaceId,
+                })
+                // A global hit may belong to a hidden project. Reveal it only after the
+                // exact session navigation succeeds; reveal failure does not undo the tab.
+                void runtime.commands
+                  .execute('workspaceSidebar.reveal', { workspaceId: row.workspaceId })
+                  .catch(() => undefined)
+              })
+              .then((opened) => {
+                if (opened && runtime.state.presentation.getSnapshot().modalInstanceId === selectedInstanceId)
+                  close(selectedInstanceId)
+              })
+          }}
+          onClose={() => close(selectedInstanceId)}
+          onCompositionStart={chatSearch.compositionStart}
+          onCompositionEnd={chatSearch.compositionEnd}
+          onRetry={chatSearch.retry}
+        />
+      </LumenDialog>
+    )
   }
   if (modalInstanceId && modal?.panelId === 'commands')
     return (
@@ -844,6 +926,10 @@ export default function App({
   const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
   const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
   const composerFiles = useMemo(() => createFileCommandClient(client), [client])
+  const chatSearch = useMemo(
+    () => createWebChatSearchController(createHostChatSearchPort(createSessionSearchCommandClient(client))),
+    [client],
+  )
   const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
   const [bootstrapAppearance, setBootstrapAppearance] = useState(() => readAppearanceBootstrap(window.localStorage))
   const [systemPrefersDark, setSystemPrefersDark] = useState(
@@ -894,6 +980,9 @@ export default function App({
   useEffect(() => {
     sendBehavior.bind(binding.hostId, connection === 'connected')
   }, [binding.hostId, connection, sendBehavior])
+  useEffect(() => {
+    chatSearch.bind(binding.hostId, connection === 'connected')
+  }, [binding.hostId, chatSearch, connection])
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === 'visible') void sendBehavior.refresh()
@@ -1132,7 +1221,7 @@ export default function App({
               </LumenFrame>
             ) : undefined
           }
-          overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} />}
+          overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} chatSearch={chatSearch} />}
         >
           {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
             <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
