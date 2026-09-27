@@ -1,20 +1,16 @@
-import {chromium} from '@playwright/test'
+import {chromium, type Page} from '@playwright/test'
 
 const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5192'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
-function url(fixture?: 'localized' | 'overflow') {
-  const query = new URLSearchParams({mode: 'isolated', variant: 'hbar-app-ui-scheduling-1', theme: 'light'})
+function url(variant: 1 | 2, fixture?: 'localized' | 'overflow') {
+  const query = new URLSearchParams({mode: 'isolated', variant: `hbar-app-ui-scheduling-${variant}`, theme: 'light'})
   if (fixture) query.set('schedulingFixture', fixture)
   return `${baseUrl}/?${query.toString()}`
 }
-const browser = await chromium.launch({headless: true, executablePath})
-try {
-  const page = await browser.newPage({viewport: {width: 1086, height: 720}})
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(error.message))
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
-  await page.goto(url(), {waitUntil: 'networkidle'})
+async function verifyMonth(page: Page) {
+  await page.setViewportSize({width: 1086, height: 720})
+  await page.goto(url(1), {waitUntil: 'networkidle'})
   const root = page.locator('.lumen-scheduling-month-reference-layout')
   const dates = root.locator('.lumen-scheduling-month-dates')
   const agenda = root.locator('.lumen-scheduling-month-events')
@@ -43,14 +39,14 @@ try {
   assert(await dates.locator('[aria-pressed="true"]').getAttribute('data-hbar-app-ui-target') === '4', 'Narrow native Enter failed')
   await agenda.locator('article').last().scrollIntoViewIfNeeded()
   assert(await agenda.locator('article').last().isVisible(), 'Content-grown history hides its final event')
-  await page.goto(url('localized'), {waitUntil: 'networkidle'})
+  await page.goto(url(1, 'localized'), {waitUntil: 'networkidle'})
   assert((await root.getByRole('heading', {level: 2}).innerText()).includes('跨区域平台'), 'Host localized title was lost')
   await root.getByRole('button', {name: '12', exact: true}).press('Space')
   assert((await root.getByRole('heading', {level: 2}).innerText()).includes('六月12日'), 'Localized day selection lost its original target')
   await root.getByRole('button', {name: '添加', exact: true}).click()
   assert(await page.getByRole('dialog').count() === 0, 'Localized source no-op was replaced by a fake workflow')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Long translated title caused page overflow')
-  await page.goto(url('overflow'), {waitUntil: 'networkidle'})
+  await page.goto(url(1, 'overflow'), {waitUntil: 'networkidle'})
   assert(await dates.getByRole('button').count() === 43 && await agenda.locator('article').count() === 7, 'Over-bound Host records were truncated')
   assert(await dates.evaluate((element) => {element.scrollTop = element.scrollHeight; return element.scrollTop > 0}), 'Extended calendar lost pane scroll ownership')
   await dates.getByRole('button', {name: '43', exact: true}).press('Space')
@@ -58,6 +54,67 @@ try {
   assert(await agenda.evaluate((element) => {element.scrollTop = element.scrollHeight; return element.scrollTop > 0 && element.scrollWidth <= element.clientWidth + 1}), 'Extended agenda lost its vertical scroll owner')
   assert((await agenda.locator('article').last().innerText()).includes('regional event 7'), 'Final extended event is missing')
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Extended metadata escaped the viewport')
+}
+
+async function verifyRange(page: Page) {
+  await page.setViewportSize({width: 1086, height: 480})
+  await page.goto(url(2), {waitUntil: 'networkidle'})
+  const card = page.locator('.lumen-scheduling-range-card')
+  const radios = card.getByRole('radio')
+  const summary = card.locator('footer > p')
+  assert(await radios.count() === 10 && await card.getByRole('combobox').count() === 2, 'Range lost its native choices or ten duration radios')
+  assert((await card.locator('header').innerText()).includes('Anna Neary') && (await card.locator('header').innerText()).includes('Head of Operations'), 'Passive person header changed semantics')
+  await card.getByRole('radio', {name: '30 min', exact: true}).press('Space')
+  assert(await summary.innerText() === 'Blocks 30 min on the shared calendar', 'Duration did not update the inline summary')
+  await card.getByRole('combobox', {name: 'Start', exact: true}).selectOption('10:30')
+  await card.getByRole('combobox', {name: 'End', exact: true}).selectOption('09:30')
+  assert(await summary.innerText() === 'Blocks 30 min on the shared calendar', 'Independent times recalculated duration')
+  assert(await card.locator('[aria-invalid="true"]').count() === 0, 'Source end-before-start state invented validation')
+  await card.getByRole('radio', {name: 'Custom', exact: true}).press('Enter')
+  assert(await summary.innerText() === 'Blocks Custom on the shared calendar' && await card.locator('input').count() === 0, 'Custom invented a separate editor')
+  for (const name of ['More options', 'Cancel', 'Apply']) await card.getByRole('button', {name, exact: true}).click()
+  assert(await summary.innerText() === 'Blocks Custom on the shared calendar', 'Source no-op action reset the duration')
+  assert(await card.getByRole('combobox', {name: 'Start', exact: true}).inputValue() === '10:30', 'Cancel reset the native source time')
+  assert(await page.getByRole('dialog').count() === 0 && await page.getByRole('menu').count() === 0, 'Source no-op invented an overlay')
+  await card.getByRole('radio', {name: '15 min', exact: true}).press('ArrowRight')
+  assert(await card.locator('[aria-checked="true"]').getAttribute('data-hbar-app-ui-target') === 'Custom', 'Button radios invented roving selection')
+  for (const width of [670, 640, 639, 356, 286]) {
+    await page.setViewportSize({width, height: 480})
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `Range escaped viewport at ${width}`)
+    assert(await card.locator('.lumen-scheduling-range-times').evaluate((element) => getComputedStyle(element).display === 'flex' && getComputedStyle(element).flexDirection === 'row'), `Time fields lost shared row at ${width}`)
+  }
+  await page.setViewportSize({width: 286, height: 190})
+  await card.getByRole('radio', {name: '15 min', exact: true}).press('Space')
+  assert(await card.locator('[aria-checked="true"]').getAttribute('data-hbar-app-ui-target') === '15 min', 'Short-host keyboard action lost its original ID')
+  await card.getByRole('button', {name: 'Apply', exact: true}).press('Space')
+  assert(await page.locator('.lumen-scheduling-range-reference').evaluate((element) => element.scrollHeight > element.clientHeight), 'Short Host lost the card scroll owner')
+  await page.setViewportSize({width: 286, height: 480})
+  await page.goto(url(2, 'localized'), {waitUntil: 'networkidle'})
+  assert((await card.locator('header').innerText()).includes('跨区域运营'), 'Localized identity was lost')
+  await card.getByRole('radio', {name: '由跨区域团队协商的自定义持续时间', exact: true}).press('Space')
+  assert((await summary.innerText()).includes('自定义持续时间'), 'Localized summary did not use current Host choice')
+  assert(await card.locator('[aria-checked="true"]').getAttribute('data-hbar-app-ui-target') === 'Custom', 'Locale changed the duration target ID')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Long translated choices caused page overflow')
+  await page.goto(url(2, 'overflow'), {waitUntil: 'networkidle'})
+  assert(await radios.count() === 11 && await card.locator('select option').count() === 12, 'Over-bound native choices were truncated')
+  await card.getByRole('combobox', {name: 'Start', exact: true}).selectOption({label: 'Start 1'})
+  assert(await card.getByRole('combobox', {name: 'Start', exact: true}).inputValue() === 'start-0', 'Reordered native callback lost its original Host ID')
+  const pane = card.getByRole('radiogroup')
+  assert(await pane.evaluate((element) => {element.scrollTop = element.scrollHeight;return element.scrollTop > 0}), 'Duration pane does not actually scroll')
+  await card.getByRole('radio', {name: 'Extended regional duration 11', exact: true}).press('Space')
+  assert(await card.locator('[aria-checked="true"]').getAttribute('data-hbar-app-ui-target') === 'duration-10', 'Extended callback lost its original duration ID')
+  assert((await summary.innerText()).includes('Extended regional duration 11'), 'Final extended duration is not reachable')
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'Extended range caused page overflow')
+}
+
+const browser = await chromium.launch({headless: true, executablePath})
+try {
+  const page = await browser.newPage()
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
+  if (!process.argv.includes('--range-only')) await verifyMonth(page)
+  if (!process.argv.includes('--month-only')) await verifyRange(page)
   assert(errors.length === 0, `Browser errors: ${errors.join('; ')}`)
-  console.log(JSON.stringify({status: 'passed', variants: ['scheduling-1'], states: ['date-select', 'native-choice-only', 'source-no-op', 'keyboard', 'responsive-breakpoints', 'localized', 'overflow']}))
+  console.log(JSON.stringify({status: 'passed', variants: process.argv.includes('--range-only') ? ['scheduling-2'] : process.argv.includes('--month-only') ? ['scheduling-1'] : ['scheduling-1', 'scheduling-2'], states: ['id-bound-choices', 'source-no-op', 'keyboard', 'responsive-flow', 'localized', 'overflow']}))
 } finally {await browser.close()}

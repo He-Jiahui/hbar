@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-scheduling-2')
+    return {
+      revision: 1,
+      lumenEntries: ['scheduling.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Duration radio updates its checked state and the inline calendar summary, not the time choices'},
+        {viewport: 'desktop', theme: 'dark', suffix: '1:select', change: 'Start is a native choice independent of the duration summary'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:select', change: 'End is independently selected without fabricated interval validation'},
+        {viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'More options is a source no-op, not an invented menu'},
+        {viewport: 'desktop', theme: 'light', suffix: '13:click', change: 'Cancel is a source no-op, not a draft reset'},
+        {viewport: 'desktop', theme: 'dark', suffix: '14:click', change: 'Apply is a source no-op, not a fabricated success result'},
+        {viewport: 'tablet', theme: 'dark', suffix: '3:hover', change: 'Unselected duration pointer feedback in the wrapped radio flow'},
+        {viewport: 'stress', theme: 'light', suffix: '12:press-space', change: 'Native Custom radio activation updates the same inline summary without adding inputs'},
+      ],
+      inferences: [
+        {scope: 'Other durations, time option values and equivalent keyboard gestures', basis: 'Ten native button radios share ID-bound selection and the same Host-localized inline summary. Live Custom probing adds no editor; changing either native time leaves the summary unchanged, even when end precedes start. Space is replayed once; source ArrowRight does not implement roving selection. Local tests cover stale/reordered/duplicate IDs and original callback targets.', verification: 'inferred-not-replayed'},
+        {scope: 'Other widths/themes, passive identity and capacity', basis: 'Eight static pairs cover the centered content-grown card, two equal flowing time fields, wrapped duration options, truncated identity/summary and ordered footer actions. Identity and helper text are passive. Local checks cover long translation, native option boundaries, explicit duration pane scrolling and short-host keyboard reachability.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-scheduling-1')
     return {
       revision: 1,

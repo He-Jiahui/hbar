@@ -64,6 +64,69 @@ describe('hbar-app-ui scheduling surfaces', () => {
     expect(value).not.toContain('lumen-scheduling-month-reference-layout')
   })
 
+  test('range reference uses a person header, associated native selects, ten radios and an inline summary', () => {
+    const value = render(2)
+    expect(value).toContain('Anna Neary')
+    expect(value).toContain('Head of Operations')
+    expect(value.match(/role="radio"/g)?.length).toBe(10)
+    expect(value.match(/<select/g)?.length).toBe(2)
+    expect(value.match(/aria-checked="true"/g)?.length).toBe(1)
+    expect(value).toContain('role="radiogroup" aria-label="Duration"')
+    expect(value).toContain('Blocks <span class="lumen-scheduling-range-summary-value">1 hour</span> on the shared calendar')
+    expect(value).toContain('>Cancel</button>')
+    expect(value).toContain('>Apply</button>')
+    expect(value).not.toContain('aria-pressed')
+    expect(value).not.toContain('role="dialog"')
+    expect(value).not.toContain('<h2')
+  })
+
+  test('legacy time range remains available without the reference opt-in', () => {
+    const value = render(2, {timeRange: HBAR_APP_UI_SCHEDULING_FIXTURES.timeRange!})
+    expect(value).toContain('Time range')
+    expect(value).toContain('Use 60 min')
+    expect(value).not.toContain('lumen-scheduling-range-card')
+  })
+
+  test('controlled range choices keep their original IDs and do not calculate or validate a time interval', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceRange!
+    const value = render(2, {referenceRange: {...content, startId: '10:30', endId: '09:30', durationId: 'Custom', durations: [...content.durations].reverse()}})
+    expect(value).toContain('value="10:30" selected=""')
+    expect(value).toContain('value="09:30" selected=""')
+    expect(value).toContain('aria-checked="true" data-hbar-app-ui-action="select-duration" data-hbar-app-ui-target="Custom"')
+    expect(value).toContain('>Custom</span> on the shared calendar')
+    expect(value).not.toContain('aria-invalid')
+    const localized = render(2, createHbarAppUiSchedulingLocalizedFixtures())
+    expect(localized).toContain('跨区域运营、产品和共享日程负责人')
+    expect(localized).toContain('由跨区域团队协商的自定义持续时间')
+    expect(localized).toContain('在跨区域团队共享日历中保留')
+    expect(localized).not.toContain('Blocks ')
+  })
+
+  test('range capacity handles empty, boundary, over-bound, duplicate, stale and disabled Host choices', () => {
+    const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceRange!
+    for (const count of [0, 1, 10, 11]) {
+      const durations = Array.from({length: count}, (_, index) => ({id: `d-${index}`, label: `Duration ${index + 1}`}))
+      const value = render(2, {referenceRange: {...content, durations, durationId: 'missing'}})
+      expect((value.match(/role="radio"/g) ?? []).length).toBe(count)
+      if (count) expect(value).toContain('aria-checked="true" data-hbar-app-ui-action="select-duration" data-hbar-app-ui-target="d-0"')
+      else expect(value).toContain('No durations')
+    }
+    for (const count of [0, 1, 5, 6]) {
+      const starts = Array.from({length: count}, (_, index) => ({id: `s-${index}`, label: `Start ${index + 1}`}))
+      const ends = Array.from({length: count}, (_, index) => ({id: `e-${index}`, label: `End ${index + 1}`}))
+      const value = render(2, {referenceRange: {...content, starts, ends, startId: 'missing', endId: 'missing'}})
+      if (count) {expect(value).toContain('value="s-0" selected=""');expect(value).toContain('value="e-0" selected=""')}
+      else {expect(value).toContain('No start times');expect(value).toContain('No end times')}
+    }
+    const duplicate = render(2, {referenceRange: {...content, durations: [{id: 'original', label: 'Original', disabled: true}, {id: 'original', label: 'Duplicate'}], durationId: 'missing'}})
+    expect(duplicate.match(/role="radio"/g)?.length).toBe(1)
+    expect(duplicate).toContain('disabled="" data-hbar-app-ui-action="select-duration" data-hbar-app-ui-target="original"')
+    expect(duplicate).not.toContain('Duplicate')
+    const overflow = render(2, createHbarAppUiSchedulingOverflowFixtures())
+    expect(overflow.match(/role="radio"/g)?.length).toBe(11)
+    expect(overflow).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+  })
+
   test('Host day changes and native choices remain independent without fabricated event filtering', () => {
     const content = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
     const value = render(1, {referenceMonth: {...content, activeDayId: '11', monthId: 'April', yearId: '2027', filterId: 'Needs reply', days: [...content.days].reverse()}})

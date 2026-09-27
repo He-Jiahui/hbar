@@ -1,9 +1,21 @@
+import {createElement, Fragment} from 'react'
 import type { HbarAppUiSchedulingContent } from '../../packages/hbar-app-ui/src/index'
 
 const grown = { kind: 'content-grown', expectedMaximum: 12 } as const
 const scroll = { kind: 'pane-scroll', expectedMaximum: 40 } as const
 
 export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
+  referenceRange: {
+    person: {initials: 'AN', name: 'Anna Neary', role: 'Head of Operations'},
+    labels: {more: 'More options', start: 'Start', end: 'End', duration: 'Duration', cancel: 'Cancel', apply: 'Apply',
+      emptyStart: 'No start times', emptyEnd: 'No end times', emptyDurations: 'No durations',
+      summary: (duration) => createElement(Fragment, null, 'Blocks ', duration, ' on the shared calendar'),
+    },
+    starts: ['08:30', '09:00', '09:30', '10:00', '10:30'].map((label) => ({id: label, label})),
+    ends: ['09:30', '10:00', '10:30', '11:00', '11:30'].map((label) => ({id: label, label})),
+    durations: ['15 min', '30 min', '45 min', '1 hour', '90 min', '2 hours', '3 hours', 'Half day', 'Full day', 'Custom'].map((label) => ({id: label, label})),
+    startId: '09:00', endId: '10:00', durationId: '1 hour', durationStrategy: {kind: 'content-grown', expectedMaximum: 10},
+  },
   referenceMonth: {
     labels: {
       previous: 'Previous month', next: 'Next month', month: 'Month', year: 'Year', filter: 'Filter events', add: 'Add',
@@ -261,6 +273,16 @@ export const HBAR_APP_UI_SCHEDULING_FIXTURES: HbarAppUiSchedulingContent = {
 export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulingContent {
   return {
     ...HBAR_APP_UI_SCHEDULING_FIXTURES,
+    referenceRange: {
+      ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceRange!,
+      person: {initials: '安', name: '安娜·尼尔与跨区域运营协作团队', role: '跨区域运营、产品和共享日程负责人'},
+      labels: {more: '更多选项', start: '开始时间', end: '结束时间', duration: '预约持续时间', cancel: '取消', apply: '应用',
+        emptyStart: '没有开始时间', emptyEnd: '没有结束时间', emptyDurations: '没有可选时长',
+        summary: (duration) => createElement(Fragment, null, '在跨区域团队共享日历中保留 ', duration, ' 的协作时间'),
+      },
+      durations: [{id: '15 min', label: '15 分钟'}, {id: '30 min', label: '30 分钟'}, {id: '45 min', label: '45 分钟'}, {id: '1 hour', label: '1 小时'},
+        {id: '90 min', label: '90 分钟'}, {id: '2 hours', label: '2 小时'}, {id: '3 hours', label: '3 小时'}, {id: 'Half day', label: '半天'}, {id: 'Full day', label: '全天'}, {id: 'Custom', label: '由跨区域团队协商的自定义持续时间'}].reverse(),
+    },
     referenceMonth: {
       ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!,
       labels: {
@@ -291,7 +313,13 @@ export function createHbarAppUiSchedulingLocalizedFixtures(): HbarAppUiSchedulin
 
 export function createHbarAppUiSchedulingOverflowFixtures(): HbarAppUiSchedulingContent {
   const reference = HBAR_APP_UI_SCHEDULING_FIXTURES.referenceMonth!
-  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceMonth: {
+  return {...HBAR_APP_UI_SCHEDULING_FIXTURES, referenceRange: {
+    ...HBAR_APP_UI_SCHEDULING_FIXTURES.referenceRange!,
+    durations: Array.from({length: 11}, (_, index) => ({id: `duration-${index}`, label: `Extended regional duration ${index + 1}`})),
+    starts: Array.from({length: 6}, (_, index) => ({id: `start-${index}`, label: `Start ${index + 1}`})).reverse(),
+    ends: Array.from({length: 6}, (_, index) => ({id: `end-${index}`, label: `End ${index + 1}`})),
+    durationStrategy: {kind: 'pane-scroll', expectedMaximum: 10},
+  }, referenceMonth: {
     ...reference,
     days: Array.from({length: 43}, (_, index) => ({id: `extra-${index}`, label: String(index + 1), selectable: true, hasEvents: index % 4 === 0})),
     events: Array.from({length: 7}, (_, index) => ({id: `extra-${index}`, title: `Additional regional event ${index + 1}`, status: 'Upcoming', needsReply: true,

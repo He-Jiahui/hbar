@@ -188,7 +188,22 @@ Scheduling 1 在 2026-09-27 的证据位于
 `bun scripts/verify-hbar-app-ui-scheduling.ts` 补充检查两侧断点、长中文、43 个日期与 7 条事件、
 显式 pane-scroll、元数据换行及键盘可达性；空态、边界与重复/失效 ID 另有单元测试。
 新 `referenceMonth` 由宿主提供受控数据与文案，旧 `month` 契约仍可独立使用。
-Scheduling 2–7 当前仅有源/旧本地基线，尚未实现本轮对齐，不把第 1 个的通过扩展到整类或正式宿主业务。
+Scheduling 2–7 在 Scheduling 1 完成时仅有源/旧本地基线；以下第 2 个独立验收记录更新此状态，
+不把第 1 个的通过扩展到整类或正式宿主业务。
+
+Scheduling 2 的 2026-09-27 证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-2-final-v2/`：8 组静态截图对、8 个机制交互，
+4 个 `matched`、4 个 `source-no-op`，缺失 0；结构和状态门禁、当前截图人工复核及严格比较通过。
+平均归一化像素 MAE 0.00089 仅供定位，不代替语义与交互复核。
+该变体是自然高度居中的人员时间卡：人物信息为被动段落，开始/结束是同排独立原生选择框，
+10 个时长为同一 `radiogroup` 中的按钮，已选时长在底部说明句内联强调，Cancel/Apply 保持原顺序。
+时长选中改变单选状态和说明；起止时间只改自己的值，即使结束早于开始也不制造验证。
+Custom 不出现编辑器；More、Cancel、Apply 在公开源预览无业务状态结果，不制造菜单、重置或提交成功。
+选样覆盖三种独立状态变化、三个无结果动作、hover 和极窄屏原生 Space；其他选项与手势标为
+`inferred-not-replayed`。现有 `timeRange` 契约仍独立可用；新增 `referenceRange` 的文案、人物、
+选项和受控 ID 由宿主提供。相关单元测试和 `bun scripts/verify-hbar-app-ui-scheduling.ts`
+覆盖旧契约、空态、重复/失效 ID、10/11 项容量、长中文、超容量 pane-scroll 和短宿主键盘可达性。
+Scheduling 3–7 仍未完成对齐，不因前两个通过而登记整类通过。
 
 按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
 控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/

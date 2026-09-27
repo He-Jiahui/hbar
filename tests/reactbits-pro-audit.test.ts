@@ -4,6 +4,16 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('range sampling separates duration summary, independent times and source no-op actions', () => {
+  const id = 'hbar-app-ui-scheduling-2'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(8)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:4:click`, `${id}:2:select`, `${id}:13:click`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([`${id}:12:press-space`])
+  expect(plan.inferences.some((entry) => entry.basis.includes('ArrowRight'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('month calendar sampling treats date selection, native choices and reference no-ops as distinct mechanisms', () => {
   const id = 'hbar-app-ui-scheduling-1'
   const plan = auditSamplingPlan(id)!

@@ -16,6 +16,7 @@ export {
   useLumenSchedulingContent as useHbarAppUiSchedulingContent,
 } from '@lumen/app-ui'
 export type {
+  LumenSchedulingRangeReferenceContent as HbarAppUiSchedulingRangeReferenceContent,
   LumenSchedulingMonthReferenceContent as HbarAppUiSchedulingMonthReferenceContent,
   LumenSchedulingMonthReferenceDay as HbarAppUiSchedulingMonthReferenceDay,
   LumenSchedulingMonthReferenceEvent as HbarAppUiSchedulingMonthReferenceEvent,
