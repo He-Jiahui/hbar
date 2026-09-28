@@ -103,6 +103,23 @@ async function run(): Promise<void> {
       'Advanced select did not update the host draft',
     )
 
+    await page.goto(previewUrl(2), { waitUntil: 'networkidle' })
+    const profileSave = page.getByRole('button', { name: 'Save profile', exact: true })
+    assert(await profileSave.isDisabled(), 'Taken username should keep profile save disabled')
+    await page.getByLabel('Username', { exact: true }).fill('mara-new')
+    assert(!(await profileSave.isDisabled()), 'Available username did not enable profile save')
+    await page.getByLabel('Bio', { exact: true }).fill('b'.repeat(161))
+    assert(
+      (await page.getByRole('alert').getByText('Remove 1 characters to fit the limit.').count()) === 1,
+      'Over-limit Bio did not expose the source-shaped validation alert',
+    )
+    assert(await profileSave.isDisabled(), 'Over-limit Bio should disable profile save')
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert(
+      (await page.getByLabel('Username', { exact: true }).inputValue()) === 'mara',
+      'Profile cancel did not restore the host baseline',
+    )
+
     await page.goto(previewUrl(3), { waitUntil: 'networkidle' })
     await page.getByRole('switch', { name: 'Weekly summary', exact: true }).click()
     assert(
