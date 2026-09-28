@@ -1547,6 +1547,13 @@ async function screenshotStable(locator: Locator, path: string): Promise<void> {
   throw lastError instanceof Error ? lastError : new Error(`Could not capture stable screenshot: ${path}`)
 }
 
+async function waitForReferenceCodeHighlight(root: Locator): Promise<void> {
+  // The live preview first paints raw code and asynchronously replaces it with
+  // highlighted tokens. A before screenshot during that transition invents a
+  // visual change for otherwise passive file actions.
+  await root.locator('[role="presentation"] span').nth(20).waitFor({state: 'attached', timeout: 15_000})
+}
+
 async function captureSource(
   page: Page,
   reference: ReactBitsProReferenceVariant,
@@ -1564,6 +1571,7 @@ async function captureSource(
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   if (reference.id === 'hbar-app-ui-editor-3') {
+    await waitForReferenceCodeHighlight(root)
     // Isolating the iframe can put the documentation theme-toggle pointer over
     // a code line on narrow canvases. Restore the preview's real initial cursor
     // using its blank line, rather than interpreting that pointer state as a breakpoint.
@@ -3873,6 +3881,7 @@ async function replayReferenceInteraction(
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (reference.id === 'hbar-app-ui-editor-3') await waitForReferenceCodeHighlight(root)
   if (reference.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
   if (reference.id === 'hbar-app-ui-notifications-2' && toastScenario)
@@ -4337,6 +4346,7 @@ async function _runInteractionsLegacy(
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
             const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
             const sourceSelector = sourceCanvasSelector
+            if (spec.id === 'hbar-app-ui-editor-3') await waitForReferenceCodeHighlight(frame.locator(sourceSelector).first())
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas = await readReferenceCanvas(frame)
             const cases = interactionCases(sourceSnapshot, spec.id)
@@ -4559,6 +4569,7 @@ async function runInteractionsParallel(
             const frame = await loadReferencePreview(discoveryPage, referencePageUrl(reference, options), theme)
             const sourceSelector = sourceCanvasSelector
             const sourceRoot = frame.locator(sourceSelector).first()
+            if (spec.id === 'hbar-app-ui-editor-3') await waitForReferenceCodeHighlight(sourceRoot)
             if (spec.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(sourceRoot)
             if (spec.id === 'hbar-app-ui-agent-activity-5')
               await prepareAgentLogScenario(discoveryPage, sourceRoot, undefined, true)

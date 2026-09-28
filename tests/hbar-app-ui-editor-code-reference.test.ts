@@ -26,6 +26,7 @@ describe('source code preview and host contract', () => {
   test('keeps visible file controls, safe highlighted lines, minimap and flowing footer', () => {
     const html = render({ ...required(), activeLine: required().cursor?.line })
     expect(html).toContain('meter.ts')
+    expect(html.match(/aria-current="true"/g)).toHaveLength(1)
     expect(html).toContain('aria-label="Unsaved changes"')
     expect(html).toContain('aria-label="Close ledger.ts"')
     expect(html).toContain('aria-label="Code overview"')
@@ -55,6 +56,9 @@ describe('source code preview and host contract', () => {
     const store = createCodeEditorPreviewStore(content)
     store.getState().selectFile('ledger')
     expect(store.getState().activeFileId).toBe('ledger')
+    expect(render({ ...content, activeFileId: store.getState().activeFileId })).toMatch(
+      /aria-current="true"[^>]*>[\s\S]*?<span>ledger\.ts<\/span>/,
+    )
     store.getState().closeFile('meter')
     expect(store.getState().files.map((file) => file.id)).toEqual(['ledger', 'types'])
     expect(store.getState().activeFileId).toBe('ledger')
