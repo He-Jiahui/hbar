@@ -268,19 +268,19 @@ async function run(): Promise<void> {
     }
 
     await page.goto(previewUrl(2), { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: '8', exact: true }).click()
+    await page.getByRole('radio', { name: '8', exact: true }).click()
     await page.getByRole('button', { name: 'Submit', exact: true }).click()
     assert(
-      (await page.getByText('Thanks, your response was recorded.', { exact: true }).count()) === 1,
+      (await page.getByText('Recorded, thank you', { exact: true }).count()) === 1,
       'Survey did not settle after score submission',
     )
 
     await page.goto(previewUrl(3), { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: '4 out of 5, Good', exact: true }).click()
+    await page.getByRole('radio', { name: '4 out of 5, Good', exact: true }).click()
     await page.getByRole('button', { name: 'Send rating', exact: true }).click()
     assert(
-      (await page.getByText('Thanks for rating your support experience.', { exact: true }).count()) === 1,
-      'Post-resolution rating did not settle',
+      (await page.getByRole('radio', { name: '4 out of 5, Good', exact: true }).getAttribute('aria-checked')) === 'true',
+      'Source no-result rating action did not retain selection',
     )
 
     await page.goto(previewUrl(4), { waitUntil: 'networkidle' })
@@ -291,34 +291,36 @@ async function run(): Promise<void> {
         .count()) === 1,
       'Feature request vote did not toggle its target',
     )
-    await page.getByRole('textbox', { name: 'Search requests', exact: true }).fill('webhook')
+    await page.getByRole('searchbox', { name: 'Search requests', exact: true }).fill('webhook')
     assert(
-      (await page.getByText('Webhook retries with a dead letter queue', { exact: true }).count()) === 1,
-      'Feature request search did not filter host records',
+      (await page.locator('.lumen-feedback-board-reference-list article').count()) === 5,
+      'Source search-only draft unexpectedly filtered cards',
     )
 
     await page.goto(previewUrl(5), { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: 'Open Saved views replaced our spreadsheet', exact: true }).click()
+    await page.getByRole('button', { name: /Jonas Vikander 1h Saved views replaced our spreadsheet/ }).click()
     assert(
-      (await page.locator('.hbar-app-ui-feedback-thread-detail h3').textContent()) ===
+      (await page.locator('.lumen-feedback-inbox-reference-detail h3').textContent()) ===
         'Saved views replaced our spreadsheet',
       'Inbox thread selection did not update the detail pane',
     )
     await page.getByRole('button', { name: 'Add tag', exact: true }).click()
-    await page.getByRole('button', { name: 'Archive', exact: true }).last().click()
+    await page.getByRole('button', { name: 'Archive', exact: true }).click()
+    assert((await page.locator('.lumen-feedback-inbox-reference-list li').count()) === 7, 'Source no-result archive removed threads')
 
     await page.goto(previewUrl(6), { waitUntil: 'networkidle' })
-    await page.getByRole('radio', { name: '90 days', exact: true }).click()
+    await page.getByRole('button', { name: '90 days', exact: true }).click()
     assert(
-      (await page.getByRole('radio', { name: '90 days', exact: true }).getAttribute('aria-checked')) === 'true',
+      (await page.getByRole('button', { name: '90 days', exact: true }).getAttribute('aria-pressed')) === 'true' &&
+        (await page.getByText('1,187', { exact: true }).count()) === 1,
       'Insights period did not switch',
     )
 
     const overflowChecks: Record<string, { readonly scrollable: boolean; readonly moved: boolean }> = {}
     const overflowSelectors: Readonly<Record<number, string>> = {
-      4: '.hbar-app-ui-feedback-request-list',
-      5: '.hbar-app-ui-feedback-thread-list',
-      6: '.hbar-app-ui-feedback-themes',
+      4: '.lumen-feedback-board-reference-list',
+      5: '.lumen-feedback-inbox-reference-list',
+      6: '.lumen-feedback-insights-reference-themes ol',
     }
     for (const [variantText, selector] of Object.entries(overflowSelectors)) {
       const variant = Number(variantText)
