@@ -26,7 +26,7 @@ describe('hbar-app-ui feedback surfaces', () => {
     expect(new Set(markup).size).toBe(6)
     expect(markup[0]).toContain('lumen-feedback-widget-reference')
     expect(markup[1]).toContain('lumen-feedback-survey-reference')
-    expect(markup[2]).toContain('hbar-app-ui-feedback-rating-fieldset')
+    expect(markup[2]).toContain('lumen-feedback-rating-reference')
     expect(markup[3]).toContain('hbar-app-ui-feedback-request-list')
     expect(markup[4]).toContain('hbar-app-ui-feedback-thread-detail')
     expect(markup[5]).toContain('hbar-app-ui-feedback-volume-chart')

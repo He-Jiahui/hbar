@@ -62,12 +62,47 @@ async function noHorizontalOverflow(
 async function run(): Promise<void> {
   const widgetOnly = process.argv.includes('--widget-only')
   const surveyOnly = process.argv.includes('--survey-only')
+  const ratingOnly = process.argv.includes('--rating-only')
   const server = await ensurePreview()
   const browser = await chromium.launch({ headless: true, executablePath })
   const page = await browser.newPage({ viewport: { width: 1192, height: 800 } })
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   try {
+    if (ratingOnly) {
+      await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
+      assert((await page.getByRole('button', {name: 'Took too long'}).count()) === 0, 'Unselected rating reasons should be inert')
+      await page.getByRole('radio', {name: '4 out of 5, Good'}).hover()
+      assert((await page.getByText('Good', {exact: true}).count()) === 1, 'Star hover preview missing')
+      await page.mouse.move(0, 0)
+      assert((await page.getByText('Tap a star to rate').count()) === 1, 'Hover preview did not clear')
+      await page.getByRole('radio', {name: '1 out of 5, Not good'}).click()
+      assert((await page.getByText('What should have gone better?').count()) === 1, 'Negative reason family missing')
+      await page.getByRole('button', {name: 'Took too long'}).click()
+      await page.getByRole('radio', {name: '4 out of 5, Good'}).click()
+      assert((await page.getByText('What went well?').count()) === 1, 'Positive reason family missing')
+      await page.getByRole('button', {name: 'Fast reply'}).click()
+      assert((await page.getByRole('button', {name: 'Fast reply'}).getAttribute('aria-pressed')) === 'true', 'Reason did not toggle')
+      await page.getByRole('textbox', {name: 'Add a comment'}).fill('Sofia helped us promptly.')
+      await page.getByRole('button', {name: 'Send rating'}).click()
+      assert((await page.getByRole('radio', {name: '4 out of 5, Good'}).getAttribute('aria-checked')) === 'true', 'Source no-result send should retain rating')
+      await page.getByRole('button', {name: 'No thanks'}).click()
+      assert((await page.getByRole('button', {name: 'Fast reply'}).getAttribute('aria-pressed')) === 'true', 'Source no-result skip should retain reason')
+      await page.goto(previewUrl(3, 'localized'), {waitUntil: 'networkidle'})
+      assert((await page.getByRole('heading', {name: 'Wie beurteilen Sie die erhaltene Unterstützung?'}).count()) === 1, 'Localized rating heading missing')
+      await page.setViewportSize({width: 320, height: 360})
+      await page.goto(previewUrl(3, 'localized'), {waitUntil: 'networkidle'})
+      const stage = page.locator('.lumen-feedback-rating-reference')
+      const scroll = await inspectScroll(stage)
+      assert(scroll.scrollable && scroll.moved, `Narrow rating did not expose full form scroll: ${JSON.stringify(scroll)}`)
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Narrow rating overflowed horizontally')
+      await page.getByRole('radio', {name: /5 von 5/}).focus()
+      await page.keyboard.press('Space')
+      assert((await page.getByText('Was hat besonders gut funktioniert?').count()) === 1, 'Keyboard rating failed')
+      assert(pageErrors.length === 0, `Rating preview reported page errors: ${pageErrors.join(' | ')}`)
+      console.log(JSON.stringify({ratingOnly: true, localizedHostCopy: true, narrowScroll: scroll, pageErrors: pageErrors.length}))
+      return
+    }
     if (surveyOnly) {
       await page.goto(previewUrl(2), { waitUntil: 'networkidle' })
       assert(

@@ -6,6 +6,7 @@ import type {
   HbarAppUiFeedbackVolumePoint,
   HbarAppUiFeedbackWidgetReferenceContent,
   HbarAppUiFeedbackSurveyReferenceContent,
+  HbarAppUiFeedbackRatingReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const requests: readonly HbarAppUiFeedbackRequest[] = [
@@ -417,6 +418,41 @@ export const HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
     scoreStrategy: { kind: 'content-grown', expectedMaximum: 11 },
     reasonStrategy: { kind: 'content-grown', expectedMaximum: 6 },
   } satisfies HbarAppUiFeedbackSurveyReferenceContent,
+  referenceRating: {
+    ticketId: '#4192',
+    labels: {
+      question: 'How was the support you received?',
+      ratingGroup: 'Rating out of five',
+      tapPrompt: 'Tap a star to rate',
+      lowReasonPrompt: 'What should have gone better?',
+      highReasonPrompt: 'What went well?',
+      comment: 'Add a comment',
+      commentPlaceholder: 'Add a comment for Sofia (optional)',
+      noThanks: 'No thanks',
+      send: 'Send rating',
+      emptyRatings: 'No ratings available',
+    },
+    ticket: {initials: 'SA', header: 'Sofia Alvarez closed your ticket', summary: '#4192 · Export job stuck in queue · resolved in 3h 12m'},
+    ratings: [
+      {value: 1, label: '1 out of 5, Not good', shortLabel: 'Not good'},
+      {value: 2, label: '2 out of 5, Could be better', shortLabel: 'Could be better'},
+      {value: 3, label: '3 out of 5, Fine', shortLabel: 'Fine'},
+      {value: 4, label: '4 out of 5, Good', shortLabel: 'Good'},
+      {value: 5, label: '5 out of 5, Excellent', shortLabel: 'Excellent'},
+    ],
+    lowReasons: BASE_HBAR_APP_UI_FEEDBACK_FIXTURES.postResolution?.reasons ?? [],
+    highReasons: [
+      {id: 'fast-reply', label: 'Fast reply'},
+      {id: 'first-time', label: 'Solved it first time'},
+      {id: 'clear', label: 'Clear explanation'},
+      {id: 'follow-up', label: 'Followed up'},
+    ],
+    selectedRating: undefined,
+    selectedReasonIds: [],
+    comment: '',
+    ratingStrategy: {kind: 'content-grown', expectedMaximum: 5},
+    reasonStrategy: {kind: 'content-grown', expectedMaximum: 4},
+  } satisfies HbarAppUiFeedbackRatingReferenceContent,
 }
 
 export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackContent {
@@ -452,6 +488,9 @@ export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackCont
           label: `Additional survey reason ${index + 1}`,
         })),
       ],
+    },
+    referenceRating: base.referenceRating && {...base.referenceRating,
+      highReasons: [...base.referenceRating.highReasons, ...Array.from({length: 12}, (_, index) => ({id: `extra-rating-reason-${index}`, label: `Additional rating reason ${index + 1}`}))],
     },
     featureBoard: base.featureBoard && {
       ...base.featureBoard,
@@ -492,6 +531,23 @@ export function createHbarAppUiFeedbackLocalizedFixtures(): HbarAppUiFeedbackCon
   const base = HBAR_APP_UI_FEEDBACK_FIXTURES
   return {
     ...base,
+    referenceRating: base.referenceRating && {
+      ...base.referenceRating,
+      labels: {...base.referenceRating.labels,
+        question: 'Wie beurteilen Sie die erhaltene Unterstützung?',
+        ratingGroup: 'Bewertung von eins bis fünf',
+        tapPrompt: 'Wählen Sie einen Stern aus',
+        lowReasonPrompt: 'Was hätte besser laufen können?',
+        highReasonPrompt: 'Was hat besonders gut funktioniert?',
+        comment: 'Kommentar hinzufügen',
+        commentPlaceholder: 'Einen ausführlichen Kommentar für Sofia hinzufügen (optional)',
+        noThanks: 'Nein danke',
+        send: 'Bewertung senden',
+      },
+      ratings: base.referenceRating.ratings.map(rating => ({...rating, label: `${rating.value} von 5, ${rating.shortLabel}`})),
+      lowReasons: base.referenceRating.lowReasons.map(reason => ({...reason, label: `Grund: ${reason.label}`})),
+      highReasons: base.referenceRating.highReasons.map(reason => ({...reason, label: `Grund: ${reason.label}`})),
+    },
     referenceSurvey: base.referenceSurvey && {
       ...base.referenceSurvey,
       labels: {

@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-feedback-3')
+    return {
+      revision: 1,
+      lumenEntries: ['feedback-workflows.tsx', 'feedback-rating-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'One-star rating reveals the low-score reasons and fixed caption'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Four-star rating switches to the positive reason family'},
+        {viewport: 'desktop', theme: 'light', suffix: '3:hover', change: 'Star hover previews fill and caption without selecting or exposing reasons'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'rating-high:5:click', change: 'Positive reason chip toggles pressed state'},
+        {viewport: 'desktop', theme: 'light', suffix: 'rating-high:9:fill', change: 'Optional comment drafts independently of selected reason'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'rating-high:11:click', change: 'Send rating has no visible source delivery result'},
+        {viewport: 'desktop', theme: 'light', suffix: '10:click', change: 'No thanks has no visible source dismissal result'},
+        {viewport: 'stress', theme: 'light', suffix: '3:click', change: 'Narrow ticket/star form retains its normal flow on positive choice'},
+      ],
+      inferences: [
+        {scope: 'Other star counts, reason labels, repeated toggles and equivalent native gestures', basis: 'All five stars use one host rating selection; 1–3 share low reasons, 4–5 high reasons. Host tests cover stale IDs, deduplication, reset when switching families and keyboard Space; one action per distinct family is replayed.', verification: 'inferred-not-replayed'},
+        {scope: 'Further viewport/theme/rating products and no-op buttons', basis: 'Eight static pairs cover four widths and both themes; desktop and 286px selections sample dynamic flow. The live preview exposes no Send or No thanks completion and equivalent permutations are not individually replayed.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-feedback-2')
     return {
       revision: 1,
