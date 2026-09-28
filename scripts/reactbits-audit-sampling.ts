@@ -561,6 +561,51 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-settings-form-5')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'index.ts',
+        'settings-form.tsx',
+        'settings-form-5-reference.tsx',
+        'settings-form-5-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Open the Production actions menu and inspect Rotate/Revoke choices without selecting either',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '10:toggle',
+          change: 'Disable Slack and observe its checked state and Connected label update',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Reveal/Hide plaintext and Copy clipboard payload',
+          basis:
+            'The source key value is intentionally not read or captured. The local preview reveals only a host-provided redaction notice and keeps Copy callback-only; focused tests verify Reveal→Hide masking and the copy callback does not replace the masked display. Exact secret-string parity is not claimed.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Rotate/Revoke completion or remote key mutation',
+          basis:
+            'The source menu is opened, but neither destructive menu item is selected. The local host forwards typed preview-request callbacks only and does not claim remote success or remove/replace a key.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'GitHub/Linear switch repetitions and 320px lower content',
+          basis:
+            'All three integrations share one ID-based controlled switch state; fixture/store tests cover all initial values and an off/on transition. Source and host 320px document-scroll checks verify bottom note reachability without a switch-by-viewport product.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-4')
     return {
       revision: 1,
