@@ -553,3 +553,15 @@ Cancel、Delete 仅发送类型化回调；不会自行删除、归档、重置�
 因此账本刻意保持 `needs-review`，没有人工签署全变体通过；本地对 Cancel 的 callback-only
 处理不宣称与来源后续相符。类型检查、6 项 F6 专项测试（29 条断言）、局部 lint 和构建
 通过，构建仍有既有大 chunk 警告。此静态/安全输入实现可用，但完整来源动作验收仍待证。
+
+Forms 1（Survey deployment）于 2026-09-28 的受限证据位于
+`artifacts/reactbits-pro-visual-audit/forms-form-1-integrated-r1/`：授权缓存的 8 组 AX 快照
+与本地结构一致；宿主掌管 11 行字段、两条采样方法、完成率、Revert 和有限选项。
+此前公开来源实时观察到 Station code 清空、双方法移除后从 100% 到 90%、Revert 还原，
+以及选择/开关编辑；本地生产浏览器脚本 `scripts/verify-hbar-app-ui-forms-1.ts` 抽样验证
+进度/Revert、宿主本地化、320px 文档滚动至页脚与 page error（0）。Save 与照片移除仅回调，
+不冒称远端结果。人工图审记录了来源白色平面与本地 Lumen 浅灰填充/分隔线的视觉残差。
+本轮官方 iframe 为 `about:blank`，旧授权缓存的 capture protocol 与当前严格 runner 不兼容；
+因此**未签署 strict 视觉/实时交互审计，也未把旧来源实测冒充本轮回放**。类型检查、
+5 项专项测试（65 条断言）、局部 lint/guard 和生产构建通过，构建仍有既有大 chunk 警告。
+此实现可继续迭代，但 Forms 1 的完整来源验收仍待可用 iframe 或兼容捕获证据。
