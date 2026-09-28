@@ -581,6 +581,50 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         {scope: 'Other viewport/theme/action combinations, including Archive', basis: 'Eight static pairs cover all four widths and both themes. The live source leaves Archive read, Add tag, Reply, Create issue and Archive visibly unchanged; each distinct control is observed, while their Cartesian combinations are not replayed.', verification: 'inferred-not-replayed'},
       ],
     }
+  if (variantId === 'hbar-app-ui-feedback-6')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'feedback-workflows.tsx',
+        'feedback-insights-reference.tsx',
+        'feedback-insights-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Selecting the 90-day period updates the pressed state and the host-supplied summary data',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '2:click',
+          change: 'Selecting 12 months changes the selected range and its source-observed totals',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '1:press-space',
+          change: 'Keyboard activation selects the same period group at a narrow width',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Repeated period selection gestures and untested range/layout combinations',
+          basis:
+            'The three native buttons share one aria-pressed period-group action and the host store maps each accepted ID to its own snapshot. Pointer samples cover both alternate ranges; Space covers the keyboard mechanism at one narrow state. Equivalent range/layout combinations are not multiplied.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme combinations',
+          basis:
+            'Eight static pairs cover all four audited widths and both themes. The responsive period group uses one semantic button flow; those combinations are not multiplied by every button gesture.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-feedback-4')
     return {
       revision: 1,

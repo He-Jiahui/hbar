@@ -29,6 +29,10 @@ export {
   uniqueLumenFeedbackInboxThreads as uniqueHbarAppUiFeedbackInboxThreads,
   selectLumenFeedbackInboxThread as selectHbarAppUiFeedbackInboxThread,
 } from '@lumen/app-ui'
+export {
+  uniqueLumenFeedbackInsightsReferencePeriods as uniqueHbarAppUiFeedbackInsightsReferencePeriods,
+  selectLumenFeedbackInsightsReferencePeriod as selectHbarAppUiFeedbackInsightsReferencePeriod,
+} from '@lumen/app-ui'
 
 export type {
   LumenFeedbackWidgetReferenceContent as HbarAppUiFeedbackWidgetReferenceContent,
@@ -42,6 +46,14 @@ export type {
   LumenFeedbackInboxReferenceContent as HbarAppUiFeedbackInboxReferenceContent,
   LumenFeedbackInboxReferenceThread as HbarAppUiFeedbackInboxReferenceThread,
   LumenFeedbackInboxReferenceDetail as HbarAppUiFeedbackInboxReferenceDetail,
+  LumenFeedbackInsightsReferenceAction as HbarAppUiFeedbackInsightsReferenceAction,
+  LumenFeedbackInsightsReferenceContent as HbarAppUiFeedbackInsightsReferenceContent,
+  LumenFeedbackInsightsReferenceListStrategy as HbarAppUiFeedbackInsightsReferenceListStrategy,
+  LumenFeedbackInsightsReferenceMetric as HbarAppUiFeedbackInsightsReferenceMetric,
+  LumenFeedbackInsightsReferencePeriod as HbarAppUiFeedbackInsightsReferencePeriod,
+  LumenFeedbackInsightsReferenceSentiment as HbarAppUiFeedbackInsightsReferenceSentiment,
+  LumenFeedbackInsightsReferenceTheme as HbarAppUiFeedbackInsightsReferenceTheme,
+  LumenFeedbackInsightsReferenceVolumePoint as HbarAppUiFeedbackInsightsReferenceVolumePoint,
   LumenFeedbackReferenceType as HbarAppUiFeedbackReferenceType,
   LumenFeedbackAttachment as HbarAppUiFeedbackAttachment,
   LumenFeedbackContent as HbarAppUiFeedbackContent,

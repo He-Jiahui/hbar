@@ -9,6 +9,7 @@ import type {
   HbarAppUiFeedbackRatingReferenceContent,
   HbarAppUiFeedbackBoardReferenceContent,
   HbarAppUiFeedbackInboxReferenceContent,
+  HbarAppUiFeedbackInsightsReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const requests: readonly HbarAppUiFeedbackRequest[] = [
@@ -504,6 +505,104 @@ export const HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
     selectedThreadId: 'export-column', noteDraft: '',
     listStrategy: {kind:'pane-scroll', expectedMaximum:7}, detailStrategy: {kind:'pane-scroll', expectedMaximum:7},
   } satisfies HbarAppUiFeedbackInboxReferenceContent,
+  referenceInsights: (() => {
+    const source = BASE_HBAR_APP_UI_FEEDBACK_FIXTURES.insights
+    if (!source) throw new Error('Expected Feedback 6 insight fixture')
+    const sourceVolumeHeights = [31, 41, 36, 52, 47, 60, 53, 50, 66, 59, 71, 64, 76, 67, 81, 90, 78, 86, 100, 93]
+    const period = (
+      id: string,
+      label: string,
+      metrics: typeof source.metrics,
+      sentiment: typeof source.sentiment,
+      ratingDirection?: 'up' | 'down' | 'flat',
+    ) => ({
+      id,
+      label,
+      periodStart: source.labels.periodStart,
+      periodEnd: source.labels.periodEnd,
+      metrics: metrics.map((metric) => {
+        if (metric.id !== 'rating') return metric
+        const separator = metric.detail.indexOf(' · ')
+        if (separator < 0) return metric
+        return {
+          ...metric,
+          change: metric.detail.slice(0, separator),
+          changeDirection: ratingDirection,
+          detail: metric.detail.slice(separator + 3),
+        }
+      }),
+      sentiment,
+      themes: source.themes.map((theme) => ({
+        ...theme,
+        mentions: String(theme.mentions),
+        changeLabel: theme.changeLabel.replace(/^[↗↘→]\s*/, ''),
+        changeDirection: theme.changeLabel.startsWith('↗')
+          ? 'up' as const
+          : theme.changeLabel.startsWith('↘')
+            ? 'down' as const
+            : 'flat' as const,
+      })),
+      volume: source.volume.map((point, index) => ({
+        ...point,
+        value: sourceVolumeHeights[index] ?? point.value,
+      })),
+    })
+    return {
+      reportId: 'feedback-insights',
+      labels: {
+        title: source.labels.title,
+        description: source.labels.description,
+        sentiment: source.labels.sentiment,
+        topThemes: source.labels.topThemes,
+        mentionsPeriod: source.labels.mentionsPeriod,
+        weeklyVolume: source.labels.weeklyVolume,
+        responsesPerDay: source.labels.responsesPerDay,
+        empty: 'No insight data is available.',
+        sentimentSummary: (items) => items.map((item) => `${item.label} ${item.value.replace('%', ' percent')}`).join(', '),
+        volumeSummary: 'Daily responses rising from 18 to 54',
+      },
+      periods: [
+        period('30d', '30 days', source.metrics, source.sentiment, 'up'),
+        period(
+          '90d',
+          '90 days',
+          source.metrics.map((metric) =>
+            metric.id === 'responses'
+              ? {...metric, value: '1,187', detail: '12% response rate from 9,800 prompts'}
+              : metric.id === 'rating'
+                ? {...metric, value: '4.2', detail: '0.1 · Out of 5, against previous period'}
+                : metric,
+          ),
+          source.sentiment.map((item) => ({
+            ...item,
+            value: item.id === 'positive' ? '58%' : item.id === 'neutral' ? '26%' : item.id === 'negative' ? '16%' : item.value,
+            percent: item.id === 'positive' ? 58 : item.id === 'neutral' ? 26 : item.id === 'negative' ? 16 : item.percent,
+          })),
+          'down',
+        ),
+        period(
+          '12m',
+          '12 months',
+          source.metrics.map((metric) =>
+            metric.id === 'responses'
+              ? {...metric, value: '4,630', detail: '47% response rate from 9,800 prompts'}
+              : metric.id === 'rating'
+                ? {...metric, value: '4.1', detail: '0.4 · Out of 5, against previous period'}
+                : metric,
+          ),
+          source.sentiment.map((item) => ({
+            ...item,
+            value: item.id === 'positive' ? '55%' : item.id === 'neutral' ? '27%' : item.id === 'negative' ? '18%' : item.value,
+            percent: item.id === 'positive' ? 55 : item.id === 'neutral' ? 27 : item.id === 'negative' ? 18 : item.percent,
+          })),
+          'up',
+        ),
+      ],
+      initialPeriodId: '30d',
+      selectedPeriodId: '30d',
+      listStrategy: source.listStrategy,
+    } satisfies HbarAppUiFeedbackInsightsReferenceContent
+  })(),
 }
 
 export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackContent {
@@ -553,6 +652,23 @@ export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackCont
         body: `${thread.subject} remains readable inside the bounded detail pane.`, tags: [],
         metrics: [{id: 'plan', label: 'Plan', value: 'Pro'}], related: [],
       }))],
+    },
+    referenceInsights: base.referenceInsights && {
+      ...base.referenceInsights,
+      periods: base.referenceInsights.periods.map((period) => ({
+        ...period,
+        themes: [
+          ...period.themes,
+          ...Array.from({length: 14}, (_, index) => ({
+            id: `overflow-insight-${period.id}-${index}`,
+            label: `Additional theme ${index + 1}`,
+            mentions: String(index + 1),
+            changeLabel: '→ 0%',
+            changeDirection: 'flat' as const,
+            progress: index + 1,
+          })),
+        ],
+      })),
     },
     featureBoard: base.featureBoard && {
       ...base.featureBoard,
@@ -750,6 +866,29 @@ export function createHbarAppUiFeedbackLocalizedFixtures(): HbarAppUiFeedbackCon
         reply: 'Antworten',
         createIssue: 'Problem erstellen',
       },
+    },
+    referenceInsights: base.referenceInsights && {
+      ...base.referenceInsights,
+      labels: {
+        ...base.referenceInsights.labels,
+        title: 'Feedback-Analysen für international verteilte Supportteams',
+        description: 'Umfragen, Widgets und E-Mail-Antworten werden nach gemeinsam genannten Themen gruppiert.',
+        topThemes: 'Am häufigsten genannte Rückmeldungsthemen',
+        mentionsPeriod: 'Erwähnungen im ausgewählten Zeitraum',
+        weeklyVolume: 'Wöchentliche Rückmeldungsmenge',
+        responsesPerDay: 'Rückmeldungen pro Tag in den letzten zwanzig Tagen',
+        empty: 'Für den ausgewählten Zeitraum liegen keine Analyseergebnisse vor.',
+        sentimentSummary: (items) => items.map((item) => `${item.label} ${item.value.replace('%', ' Prozent')}`).join(', '),
+        volumeSummary: 'Tägliche Rückmeldungen steigen von 18 auf 54',
+      },
+      periods: base.referenceInsights.periods.map((period) => ({
+        ...period,
+        label: `${period.label} — Rückmeldungen des internationalen Supportteams`,
+        themes: period.themes.map((theme) => ({
+          ...theme,
+          label: `${theme.label} für international verteilte Supportteams`,
+        })),
+      })),
     },
     insights: base.insights && {
       ...base.insights,

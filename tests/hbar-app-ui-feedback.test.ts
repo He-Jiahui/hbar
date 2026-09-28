@@ -29,7 +29,7 @@ describe('hbar-app-ui feedback surfaces', () => {
     expect(markup[2]).toContain('lumen-feedback-rating-reference')
     expect(markup[3]).toContain('lumen-feedback-board-reference')
     expect(markup[4]).toContain('lumen-feedback-inbox-reference')
-    expect(markup[5]).toContain('hbar-app-ui-feedback-volume-chart')
+    expect(markup[5]).toContain('lumen-feedback-insights-reference')
     for (const value of markup) {
       expect(value.toLocaleLowerCase()).not.toContain('react-bits')
       expect(value.toLocaleLowerCase()).not.toContain('reactbits')

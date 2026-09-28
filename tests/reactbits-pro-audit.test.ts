@@ -45,6 +45,19 @@ test('rich editor sampling separates menu selection, pressed state, live drafts 
   expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
 })
 
+test('feedback insights samples period data change and keyboard selection without button-layout products', () => {
+  const id = 'hbar-app-ui-feedback-6'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(3)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:1:click`])
+  expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([`${id}:2:click`])
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([`${id}:1:press-space`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([])
+  expect(plan.lumenEntries).toContain('feedback-insights-reference.tsx')
+  expect(plan.samples.some((sample) => sample.suffix === '2:click' && sample.change.includes('source-observed totals'))).toBe(true)
+  expect(plan.inferences.every((entry) => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('booking sampling separates date and time radios from no-op confirmation and narrow horizontal strip', () => {
   const id = 'hbar-app-ui-scheduling-7'
   const plan = auditSamplingPlan(id)!
