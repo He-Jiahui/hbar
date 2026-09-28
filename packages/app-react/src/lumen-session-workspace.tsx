@@ -160,6 +160,7 @@ export interface HbarSessionWorkspaceProps {
   readonly connected: boolean
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
+  readonly showFilesInHeader?: boolean | undefined
   readonly navigationAccessory?: ReactNode | undefined
   readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
   readonly images?: HbarSessionImagesOptions | undefined
@@ -206,6 +207,7 @@ function SessionWorkspaceContent({
   connected,
   prepareAttachment,
   files,
+  showFilesInHeader = true,
   navigationAccessory,
   projectContextLabels,
   images,
@@ -1589,16 +1591,18 @@ function SessionWorkspaceContent({
         actionsLabel={labels.tools.label}
         actions={
           // Named actions stay directly accessible; narrow headings wrap into
-          // a separate normal-flow row instead of clipping a sixth hit area.
+          // a separate normal-flow row instead of clipping tool hit areas.
           <>
             {find.trigger}
-            <SessionToolButton
-              icon={Files}
-              label={labels.tools.files}
-              selected={isToolActive('files')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('files')}
-            />
+            {showFilesInHeader && (
+              <SessionToolButton
+                icon={Files}
+                label={labels.tools.files}
+                selected={isToolActive('files')}
+                disabled={!sessionId}
+                onClick={() => toggleTool('files')}
+              />
+            )}
             <SessionToolButton
               icon={ChartNoAxesColumnIncreasing}
               label={labels.tools.monitoring}

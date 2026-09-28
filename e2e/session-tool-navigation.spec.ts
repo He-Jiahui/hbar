@@ -25,9 +25,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('A draft belongs to this session — 工具切换不应丢失草稿')
       const tools = page.getByRole('group', { name: copy.session.tools.label, exact: true })
+      const filesAction = page
+        .getByRole('toolbar', { name: copy.session.tools.label, exact: true })
+        .getByRole('button', { name: copy.session.tools.files, exact: true })
       const labels = [
         copy.session.find.entry,
-        copy.session.tools.files,
         copy.session.tools.monitoring,
         copy.session.tools.agents,
         copy.session.tools.goals,
@@ -39,6 +41,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { label: copy.session.tools.agents, title: copy.agents.title, close: copy.agents.close },
         { label: copy.session.tools.goals, title: copy.goals.title, close: copy.goals.close },
       ]
+      const toolAction = (label: string) =>
+        label === copy.session.tools.files
+          ? filesAction
+          : tools.getByRole('button', { name: label, exact: true })
       for (const viewport of [
         { width: 1440, height: 960 },
         { width: 900, height: 700 },
@@ -46,9 +52,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        await expect(tools.getByRole('button')).toHaveCount(6)
-        for (const label of labels) {
-          const action = tools.getByRole('button', { name: label, exact: true })
+        await expect(tools.getByRole('button')).toHaveCount(5)
+        await expect(tools.getByRole('button', { name: copy.session.tools.files, exact: true })).toHaveCount(0)
+        for (const label of [copy.session.tools.files, ...labels]) {
+          const action = toolAction(label)
           await expect(action).toBeVisible()
           await expect(action).toBeInViewport()
           await expect(action).toHaveAttribute('aria-label', label)
@@ -102,7 +109,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             ),
         ).toBe(true)
         for (const [index, panel] of panels.entries()) {
-          const action = tools.getByRole('button', { name: panel.label, exact: true })
+          const action = toolAction(panel.label)
           await expect(action).toHaveAttribute('aria-pressed', 'false')
           await action.focus()
           await page.keyboard.press(index % 2 ? 'Space' : 'Enter')
@@ -113,7 +120,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           if (viewport.width > 1024) {
             await expect(action).toHaveAttribute('aria-pressed', 'true')
             for (const other of panels.filter((candidate) => candidate !== panel))
-              await expect(tools.getByRole('button', { name: other.label, exact: true })).toHaveAttribute(
+              await expect(toolAction(other.label)).toHaveAttribute(
                 'aria-pressed',
                 'false',
               )

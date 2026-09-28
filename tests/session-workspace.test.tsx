@@ -429,7 +429,7 @@ test('Find and five bounded session tools expose host-owned names, hints and sem
         goals: '当前会话的目标、执行计划与待完成的工作流程',
       },
     }
-    const render = () =>
+    const render = (showFilesInHeader = true) =>
       renderToStaticMarkup(
         <HbarRuntimeProvider view={runtime.view}>
           <HbarSessionWorkspace
@@ -438,6 +438,7 @@ test('Find and five bounded session tools expose host-owned names, hints and sem
             sessionWorkspaceId={workspace.id}
             labels={labels}
             connected
+            showFilesInHeader={showFilesInHeader}
           />
         </HbarRuntimeProvider>,
       )
@@ -466,6 +467,14 @@ test('Find and five bounded session tools expose host-owned names, hints and sem
           hiddenIcons: 1,
         })
       }
+      const tabOwned = await toolControls(render(false))
+      expect(tabOwned.controls.map((control) => control.label)).toEqual([
+        labels.find.entry,
+        labels.tools.monitoring,
+        labels.tools.agents,
+        labels.tools.goals,
+        labels.tools.settings,
+      ])
     }
   } finally {
     runtime.dispose()

@@ -18,6 +18,25 @@
 .hbar-workspace-tabs-region {
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
+.hbar-workspace-tabs-bar {
+  display: flex;
+  align-items: stretch;
+  min-inline-size: 0;
+}
+.hbar-workspace-tabs-bar > .hbar-workspace-tabs {
+  flex: 1;
+  min-inline-size: 0;
+}
+.hbar-workspace-tabs-tools {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding-inline: 0.375rem;
+  background: var(--lumen-reading);
+}
+.hbar-workspace-tabs-files-error {
+  overflow-wrap: anywhere;
+}
 .hbar-workspace-tabs-region > p {
   margin: 0;
   padding: 0.75rem;
