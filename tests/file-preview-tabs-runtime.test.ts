@@ -272,7 +272,7 @@ test('dirty previews only select, share one canonical document across panes, and
     expect(
       isSessionToolProtected('files', {
         files: f.runtime.view.state.files.getSnapshot(),
-        agents: { entries: {} },
+        agents: { entries: {}, catalog: { status: 'idle', models: [], error: null } },
         goals: { entries: {} },
         workflow: { entries: {} },
       }),

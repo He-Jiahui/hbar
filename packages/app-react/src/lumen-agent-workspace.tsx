@@ -19,6 +19,7 @@ import {
 } from '@lumen/app-ui'
 import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { AgentModelPicker, type AgentModelPickerLabels } from './agent-model-picker'
 import './lumen-agent-workspace.css'
 
 type Agent = AgentWorkspaceEntryState['items'][number]
@@ -45,8 +46,12 @@ export interface HbarAgentWorkspaceLabels {
   readonly currentSession: (sessionId: string) => string
   readonly createdAt: string
   readonly model: string
+  readonly modelPicker: AgentModelPickerLabels
   readonly tokenBudget: string
   readonly thinkingLevel: string
+  readonly thinkingDefault: (level: string | null) => string
+  readonly thinkingOption: (level: string) => string
+  readonly thinkingUnavailable: (level: string) => string
   readonly approval: string
   readonly approvalOptions: Readonly<Record<'deny' | 'ask' | 'allow', string>>
   readonly create: string
@@ -127,6 +132,8 @@ export function HbarAgentWorkspace({
     view === 'detail' ? entry?.items.find((agent) => agent.agentId === entry.selectedAgentId) : undefined
   const selectedAction = selectedAgent ? entry?.actions[selectedAgent.agentId] : undefined
   const setField = (field: string, value: string) => invoke('agentWorkspace.setField', { instanceId, field, value })
+  const catalog = agents.catalog
+  const selectedModel = catalog.models.find((model) => model.id === entry?.draft.modelId)
   const openSession = (agent: Agent) => {
     if (openState?.status === 'submitting') return
     const source = tabs.items.find((item) => item.kind === 'session' && item.sessionId === agent.parentSessionId)
@@ -243,11 +250,15 @@ export function HbarAgentWorkspace({
                 required
                 {...(entry.draft.issues.modelId ? { error: labels.issue('modelId') } : {})}
               >
-                <LumenInput
+                <AgentModelPicker
                   id={`${instanceId}-agent-model`}
-                  required
                   value={entry.draft.modelId}
-                  onChange={(event) => setField('modelId', event.currentTarget.value)}
+                  catalog={catalog}
+                  connected={connected}
+                  disabled={creationBusy}
+                  labels={labels.modelPicker}
+                  onSelect={(modelId) => setField('modelId', modelId)}
+                  onRetry={() => invoke('agentWorkspace.refreshModels', { instanceId })}
                 />
               </LumenFormField>
               <LumenFormField
@@ -266,11 +277,27 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               <LumenFormField controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
-                <LumenInput
+                <LumenSelect
                   id={`${instanceId}-agent-thinking`}
                   value={entry.draft.thinkingLevel}
                   onChange={(event) => setField('thinkingLevel', event.currentTarget.value)}
-                />
+                  disabled={!selectedModel && !entry.draft.thinkingLevel}
+                >
+                  <LumenOption value="">
+                    {labels.thinkingDefault(selectedModel?.defaultThinkingLevel ?? null)}
+                  </LumenOption>
+                  {selectedModel?.thinkingLevels.map((level) => (
+                    <LumenOption key={level} value={level}>
+                      {labels.thinkingOption(level)}
+                    </LumenOption>
+                  ))}
+                  {entry.draft.thinkingLevel &&
+                    !selectedModel?.thinkingLevels.some((level) => level === entry.draft.thinkingLevel) && (
+                      <LumenOption value={entry.draft.thinkingLevel}>
+                        {labels.thinkingUnavailable(entry.draft.thinkingLevel)}
+                      </LumenOption>
+                    )}
+                </LumenSelect>
               </LumenFormField>
               <LumenFormField controlId={`${instanceId}-agent-approval`} label={labels.approval}>
                 <LumenSelect

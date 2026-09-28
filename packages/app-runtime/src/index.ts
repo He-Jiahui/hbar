@@ -633,6 +633,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const offAgentModelEvents = options.modelEvents?.subscribe(agentWorkspace.invalidateModels)
+  const offAgentModelConnection = options.modelEvents?.onConnection?.(agentWorkspace.setConnected)
   createAgentChildNavigation(local, {
     ...(options.agents ? { agents: options.agents } : {}),
     queries: directory.queries,
@@ -878,6 +880,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       commandPalette.dispose()
       fileWorkspace.dispose()
       agentWorkspace.dispose()
+      offAgentModelEvents?.()
+      offAgentModelConnection?.()
       goalPlanWorkspace.dispose()
       workflowWorkspace.dispose()
       extensionWorkspace.dispose()

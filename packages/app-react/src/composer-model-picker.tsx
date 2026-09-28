@@ -13,6 +13,7 @@ import { ArrowRight, Check, ChevronDown, Search, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenText } from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { filterCatalogModels, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
 import './composer-model-picker.css'
 
 type ModelDescriptor = ComposerModelState['models'][number]
@@ -81,7 +82,7 @@ export interface HbarComposerModelLabels {
 
 // The catalog is contract-bounded at 4,096. Render an explicit 60-row page,
 // with fixed search/header and a pane-owned list; search always covers the catalog.
-export const COMPOSER_MODEL_PAGE_SIZE = 60
+export const COMPOSER_MODEL_PAGE_SIZE = MODEL_CATALOG_PAGE_SIZE
 
 /** Selection validity comes from the exact configuration, never catalog membership:
  * a hidden but configured model remains valid even if model.list excludes it. */
@@ -120,26 +121,7 @@ export function filterComposerModels(
   limit: number,
   selectedModelId?: string | null,
 ) {
-  const needle = query.trim().toLocaleLowerCase()
-  const unique = new Map(models.map((model) => [model.id, model]))
-  const matches = [...unique.values()].filter((model) =>
-    `${model.providerName} ${model.modelName} ${model.modelId}`.toLocaleLowerCase().includes(needle),
-  )
-  // Keep Host catalog order stable while the selected item is already on this page.
-  // Only an off-page selection needs a temporary leading slot for discoverability.
-  const selectedIndex = selectedModelId ? matches.findIndex((model) => model.id === selectedModelId) : -1
-  const selected = selectedIndex >= limit && limit > 0 ? matches[selectedIndex] : undefined
-  const visible =
-    selected && limit > 0
-      ? [selected, ...matches.filter((model) => model !== selected).slice(0, limit - 1)]
-      : matches.slice(0, limit)
-  const groups = new Map<string, { name: string; models: ModelDescriptor[] }>()
-  for (const model of visible) {
-    const group = groups.get(model.providerId) ?? { name: model.providerName, models: [] }
-    group.models.push(model)
-    groups.set(model.providerId, group)
-  }
-  return { groups: [...groups.entries()], remaining: matches.length - visible.length }
+  return filterCatalogModels(models, query, limit, selectedModelId)
 }
 
 /** Only the true overlay container is positioned, relative to its trigger group. */

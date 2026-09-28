@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarAgentWorkspace, HbarRuntimeProvider } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
+import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
@@ -30,6 +31,20 @@ const agent: AgentRecord = {
   createdAt: 10,
   updatedAt: 11,
 }
+const model: ModelDescriptor = {
+  id: 'provider:model',
+  providerId: 'provider',
+  providerName: 'Provider',
+  modelId: 'model',
+  modelName: 'Named model',
+  contextWindow: 128_000,
+  maxOutput: 8192,
+  imageInput: false,
+  reasoning: true,
+  thinkingLevels: ['low', 'high'],
+  defaultThinkingLevel: 'low',
+  hasKey: true,
+}
 
 test('child agent panel renders Host records and a command-owned creation draft', async () => {
   const runtime = createAppRuntime({
@@ -50,6 +65,20 @@ test('child agent panel renders Host records and a command-owned creation draft'
         throw new Error(`Unsupported agent command: ${name}`)
       },
     },
+    models: {
+      async execute(name: string) {
+        if (name === 'model.list') return [model]
+        return {
+          sessionId: session.id,
+          status: 'configured',
+          modelId: model.id,
+          model,
+          thinkingLevel: 'low',
+          revisions: {},
+          sources: { model: 'session', thinkingLevel: 'default' },
+        }
+      },
+    },
     surfaces: { canRender: (panelId) => panelId === 'agents' },
   })
   try {
@@ -68,6 +97,12 @@ test('child agent panel renders Host records and a command-owned creation draft'
     expect(listHtml).toContain('View details for Verify the release candidate')
 
     await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: panel.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.refreshModels', { instanceId: panel.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: panel.instanceId,
+      field: 'modelId',
+      value: model.id,
+    })
     await runtime.view.commands.execute('agentWorkspace.setField', {
       instanceId: panel.instanceId,
       field: 'objective',
@@ -80,8 +115,16 @@ test('child agent panel renders Host records and a command-owned creation draft'
     )
     expect(html).toContain('Create child agent')
     expect(html).toContain('Draft child task')
+    expect(html).toContain('Named model')
+    expect(html).toContain('Model default (Low)')
     expect(html).toContain('Back to child agents')
     expect(html).not.toContain('Verify the release candidate')
+    const chineseCreate = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarAgentWorkspace labels={getShellCopy('zh-CN').agents} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(chineseCreate).toContain('模型默认（低）')
 
     await runtime.view.commands.execute('agentWorkspace.showAgent', {
       instanceId: panel.instanceId,

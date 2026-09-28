@@ -241,6 +241,11 @@ export interface AgentWorkspaceEntryState {
 
 export interface AgentWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<AgentWorkspaceEntryState>>>
+  readonly catalog: {
+    readonly status: 'idle' | 'loading' | 'ready' | 'error'
+    readonly models: readonly ModelDescriptor[]
+    readonly error: string | null
+  }
 }
 
 export interface GoalPlanActionState {

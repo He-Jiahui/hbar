@@ -413,6 +413,7 @@
     "agentWorkspace.create",
     "agentWorkspace.loadMore",
     "agentWorkspace.refresh",
+    "agentWorkspace.refreshModels",
     "agentWorkspace.showAgent",
     "agentWorkspace.showCreate",
     "agentWorkspace.showList",

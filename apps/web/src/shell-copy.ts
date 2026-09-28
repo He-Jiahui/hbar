@@ -1861,8 +1861,30 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     currentSession: () => choose('当前会话', 'Current session'),
     createdAt: choose('创建时间', 'Created'),
     model: choose('模型', 'Model'),
+    modelPicker: {
+      title: choose('选择子 Agent 模型', 'Choose child agent model'),
+      choose: choose('选择模型', 'Choose a model'),
+      search: choose('搜索模型', 'Search models'),
+      close: choose('关闭模型列表', 'Close model list'),
+      loading: choose('正在读取可用模型…', 'Loading available models…'),
+      empty: choose('没有可用模型。请先配置供应商。', 'No models available. Configure a provider first.'),
+      noMatches: choose('没有匹配的模型。', 'No matching models.'),
+      retry: choose('重试读取模型', 'Retry models'),
+      more: (count) => choose(`显示更多（剩余 ${count} 个）`, `Show more (${count} remaining)`),
+      unavailable: (modelId) => choose(`不可用：${modelId}`, `Unavailable: ${modelId}`),
+      error: (code) => choose(`无法读取模型：${code}`, `Could not load models: ${code}`),
+    },
     tokenBudget: choose('Token 预算', 'Token budget'),
     thinkingLevel: choose('思考等级', 'Thinking level'),
+    thinkingDefault: (level) =>
+      level
+        ? choose(
+            `模型默认（${thinkingLevelLabel(locale, level)}）`,
+            `Model default (${thinkingLevelLabel(locale, level)})`,
+          )
+        : choose('模型默认', 'Model default'),
+    thinkingOption: (level) => thinkingLevelLabel(locale, level),
+    thinkingUnavailable: (level) => choose(`不可用：${level}`, `Unavailable: ${level}`),
     approval: choose('工具审批', 'Tool approval'),
     approvalOptions: {
       deny: choose('拒绝', 'Deny'),

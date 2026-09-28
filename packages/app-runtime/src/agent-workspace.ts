@@ -1,6 +1,7 @@
 import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
 import { agentCommands, agentCreateInputSchema, type AgentRecord } from '@hbar/contracts/commands/agents'
+import { modelCommands } from '@hbar/contracts/commands/models'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
 import type {
@@ -76,16 +77,24 @@ export function createAgentWorkspace(
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
 ) {
-  const state = createState<AgentWorkspaceState>({ entries: {} }, onSubscriberError)
+  const state = createState<AgentWorkspaceState>(
+    { entries: {}, catalog: { status: 'idle', models: [], error: null } },
+    onSubscriberError,
+  )
   const client = options.agents ? createCommandClient(agentCommands, options.agents) : null
+  const models = options.models ? createCommandClient(modelCommands, options.models) : null
+  let connected = true
+  let catalogGeneration = 0
+  let catalogRead: {
+    readonly controller: AbortController
+    readonly promise: Promise<AgentWorkspaceState['catalog']>
+  } | null = null
   const generations = new Map<string, number>()
   const pendingCreateKeys = new Map<string, string>()
   let previousPanels = surfaces.getSnapshot().panels
   const offSurfaces = surfaces.subscribe(() => {
     const panels = surfaces.getSnapshot().panels
-    const removed = Object.entries(previousPanels).filter(
-      ([id, panel]) => panel.panelId === 'agents' && panel.sessionTool && !panels[id],
-    )
+    const removed = Object.entries(previousPanels).filter(([id, panel]) => panel.panelId === 'agents' && !panels[id])
     previousPanels = panels
     if (!removed.length) return
     const ids = new Set(removed.map(([id]) => id))
@@ -94,7 +103,17 @@ export function createAgentWorkspace(
       pendingCreateKeys.delete(id)
     }
     const snapshot = state.reader.getSnapshot()
-    state.replace({ entries: Object.fromEntries(Object.entries(snapshot.entries).filter(([id]) => !ids.has(id))) })
+    const noAgentPanels = !Object.values(panels).some((value) => value.panelId === 'agents')
+    if (noAgentPanels) {
+      catalogGeneration += 1
+      catalogRead?.controller.abort()
+      catalogRead = null
+    }
+    state.replace({
+      ...snapshot,
+      entries: Object.fromEntries(Object.entries(snapshot.entries).filter(([id]) => !ids.has(id))),
+      ...(noAgentPanels ? { catalog: { status: 'idle', models: [], error: null } } : {}),
+    })
   })
 
   const panel = (instanceId: string) => {
@@ -119,7 +138,57 @@ export function createAgentWorkspace(
           break
         }
       }
-    state.replace({ entries })
+    state.replace({ ...current, entries })
+  }
+  const refreshModels = (instanceId: string) => {
+    panel(instanceId)
+    if (catalogRead) return catalogRead.promise
+    const controller = new AbortController()
+    const generation = ++catalogGeneration
+    const current = state.reader.getSnapshot()
+    state.replace({ ...current, catalog: { ...current.catalog, status: 'loading', error: null } })
+    const promise = Promise.resolve().then(async (): Promise<AgentWorkspaceState['catalog']> => {
+      try {
+        if (!connected) throw new CommandError('DISCONNECTED', 'Model catalog needs a connection')
+        if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model catalog is unavailable')
+        const result = await models.execute('model.list', {}, { signal: controller.signal })
+        if (new Set(result.map((model) => model.id)).size !== result.length)
+          throw new CommandError('INVALID_OUTPUT', 'Model catalog contains duplicate IDs')
+        if (isDisposed() || controller.signal.aborted || generation !== catalogGeneration)
+          throw new CommandError('CANCELLED', 'Model catalog read was superseded')
+        const catalog = { status: 'ready' as const, models: result, error: null }
+        state.replace({ ...state.reader.getSnapshot(), catalog })
+        return catalog
+      } catch (reason) {
+        if (!isDisposed() && !controller.signal.aborted && generation === catalogGeneration)
+          state.replace({
+            ...state.reader.getSnapshot(),
+            catalog: { status: 'error', models: [], error: code(reason) },
+          })
+        throw commandFailure(reason)
+      } finally {
+        if (catalogRead?.controller === controller) catalogRead = null
+      }
+    })
+    catalogRead = { controller, promise }
+    return promise
+  }
+  const invalidateModels = () => {
+    catalogGeneration += 1
+    catalogRead?.controller.abort()
+    catalogRead = null
+    const current = state.reader.getSnapshot()
+    state.replace({ ...current, catalog: { status: 'idle', models: [], error: null } })
+    const openCreate = Object.values(current.entries).find(
+      (entry) =>
+        entry.view === 'create' && surfaces.getSnapshot().panels[entry.instanceId]?.sessionId === entry.parentSessionId,
+    )
+    if (connected && openCreate) void refreshModels(openCreate.instanceId).catch(() => {})
+  }
+  const setConnected = (value: boolean) => {
+    if (connected === value) return
+    connected = value
+    invalidateModels()
   }
   const summary = (entry: AgentWorkspaceEntryState) => ({
     instanceId: entry.instanceId,
@@ -226,6 +295,8 @@ export function createAgentWorkspace(
       throw new CommandError('RESULT_UNKNOWN', 'Refresh agent panel target')
     const next = { ...entry, view: 'create' as const, selectedAgentId: null }
     replace(next)
+    if (state.reader.getSnapshot().catalog.status === 'idle' || state.reader.getSnapshot().catalog.status === 'error')
+      void refreshModels(instanceId).catch(() => {})
     return summary(next)
   }
   const showAgent = (instanceId: string, agentId: string) => {
@@ -251,9 +322,15 @@ export function createAgentWorkspace(
       throw new CommandError('BUSY', 'Resolve the pending agent creation before editing its fields')
     const issues = { ...entry.draft.issues }
     delete issues[field]
+    const selectedModel =
+      field === 'modelId' ? state.reader.getSnapshot().catalog.models.find((model) => model.id === value) : undefined
     const draft = {
       ...entry.draft,
       [field]: field === 'approval' && !['deny', 'ask', 'allow'].includes(value) ? entry.draft.approval : value,
+      ...(field === 'modelId' &&
+      (!selectedModel || !selectedModel.thinkingLevels.some((level) => level === entry.draft.thinkingLevel))
+        ? { thinkingLevel: '' }
+        : {}),
       revision: entry.draft.revision + 1,
       issues,
     } as AgentWorkspaceDraftState
@@ -372,6 +449,15 @@ export function createAgentWorkspace(
   local.register(agentWorkspaceCommands['agentWorkspace.loadMore'], ({ instanceId }) => loadMore(instanceId))
   local.register(agentWorkspaceCommands['agentWorkspace.showList'], ({ instanceId }) => showList(instanceId))
   local.register(agentWorkspaceCommands['agentWorkspace.showCreate'], ({ instanceId }) => showCreate(instanceId))
+  local.register(agentWorkspaceCommands['agentWorkspace.refreshModels'], async ({ instanceId }) => {
+    try {
+      const catalog = await refreshModels(instanceId)
+      return { status: 'ready' as const, itemCount: catalog.models.length, error: null }
+    } catch (reason) {
+      const catalog = state.reader.getSnapshot().catalog
+      return { status: 'error' as const, itemCount: catalog.models.length, error: code(reason) }
+    }
+  })
   local.register(agentWorkspaceCommands['agentWorkspace.showAgent'], ({ instanceId, agentId }) =>
     showAgent(instanceId, agentId),
   )
@@ -384,8 +470,13 @@ export function createAgentWorkspace(
   )
   return {
     reader: state.reader,
+    invalidateModels,
+    setConnected,
     dispose() {
       offSurfaces()
+      catalogGeneration += 1
+      catalogRead?.controller.abort()
+      catalogRead = null
       generations.clear()
       pendingCreateKeys.clear()
       state.dispose()

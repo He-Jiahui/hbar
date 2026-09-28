@@ -15,6 +15,11 @@ const summary = z.strictObject({
   creationStatus: z.enum(['idle', 'submitting', 'succeeded', 'failed', 'unknown']),
   error: z.string().nullable(),
 })
+const modelCatalogSummary = z.strictObject({
+  status: z.enum(['ready', 'error']),
+  itemCount: z.number().int().nonnegative(),
+  error: z.string().nullable(),
+})
 const metadata = (id: string) => ({
   id,
   version: 1,
@@ -46,6 +51,11 @@ export const agentWorkspaceCommands = {
     metadata('agentWorkspace.showCreate'),
     z.strictObject({ instanceId }),
     summary,
+  ),
+  'agentWorkspace.refreshModels': defineCommand(
+    metadata('agentWorkspace.refreshModels'),
+    z.strictObject({ instanceId }),
+    modelCatalogSummary,
   ),
   'agentWorkspace.showAgent': defineCommand(
     metadata('agentWorkspace.showAgent'),

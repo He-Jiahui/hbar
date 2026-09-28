@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { CommandError, type ExecuteOptions } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
+import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const session = {
@@ -13,6 +14,28 @@ const session = {
   createdAt: 2,
   updatedAt: 3,
   seq: 4,
+}
+const primaryModel: ModelDescriptor = {
+  id: 'provider:model',
+  providerId: 'provider',
+  providerName: 'Provider',
+  modelId: 'model',
+  modelName: 'Model',
+  contextWindow: 128_000,
+  maxOutput: 8192,
+  imageInput: false,
+  reasoning: true,
+  thinkingLevels: ['low', 'high'],
+  defaultThinkingLevel: 'low',
+  hasKey: true,
+}
+const alternateModel: ModelDescriptor = {
+  ...primaryModel,
+  id: 'provider:alternate',
+  modelId: 'alternate',
+  modelName: 'Alternate',
+  thinkingLevels: ['medium'],
+  defaultThinkingLevel: 'medium',
 }
 
 function child(status: AgentRecord['status']): AgentRecord {
@@ -58,12 +81,13 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
       },
     },
     models: {
-      async execute() {
+      async execute(name: string) {
+        if (name === 'model.list') return [primaryModel, alternateModel]
         return {
           sessionId: session.id,
           status: 'configured',
           modelId: 'provider:model',
-          model: null,
+          model: primaryModel,
           thinkingLevel: null,
           revisions: {},
           sources: { model: 'session', thinkingLevel: 'default' },
@@ -108,6 +132,24 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
     ).rejects.toMatchObject({ code: 'COMMAND_NOT_FOUND' })
     await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: opened.instanceId })
     expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.view).toBe('create')
+    await waitFor(() => runtime.view.state.agents.getSnapshot().catalog.status === 'ready')
+    expect(runtime.view.state.agents.getSnapshot().catalog.models).toEqual([primaryModel, alternateModel])
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: opened.instanceId,
+      field: 'thinkingLevel',
+      value: 'high',
+    })
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: opened.instanceId,
+      field: 'modelId',
+      value: alternateModel.id,
+    })
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.draft.thinkingLevel).toBe('')
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: opened.instanceId,
+      field: 'modelId',
+      value: primaryModel.id,
+    })
 
     for (const [field, value] of [
       ['objective', 'Review the change'],
@@ -153,6 +195,135 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
       view: 'list',
       selectedAgentId: null,
     })
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('agent model catalog failure is local and retry preserves the target draft', async () => {
+  let reads = 0
+  const runtime = createAppRuntime({
+    instanceId: 'agent-model-retry',
+    hostId: 'host',
+    directory: {
+      async execute(name: string) {
+        if (name === 'session.get') return session
+        if (name === 'workspace.get') return workspace
+        if (name === 'session.list') return { items: [session], nextCursor: null }
+        if (name === 'workspace.list') return { items: [workspace], nextCursor: null }
+        throw new Error(`Unsupported query: ${name}`)
+      },
+    },
+    agents: {
+      async execute() {
+        return { items: [], nextCursor: null }
+      },
+    },
+    models: {
+      async execute(name: string) {
+        if (name === 'model.list') {
+          reads += 1
+          if (reads === 1) throw new CommandError('DISCONNECTED', 'Temporary model catalog failure')
+          return [primaryModel]
+        }
+        return {
+          sessionId: session.id,
+          status: 'configured',
+          modelId: primaryModel.id,
+          model: primaryModel,
+          thinkingLevel: 'low',
+          revisions: {},
+          sources: { model: 'session', thinkingLevel: 'default' },
+        }
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'agents' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: panel.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: panel.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: panel.instanceId,
+      field: 'objective',
+      value: 'Keep this draft',
+    })
+    await waitFor(() => runtime.view.state.agents.getSnapshot().catalog.status === 'error')
+    expect(runtime.view.state.agents.getSnapshot().catalog.error).toBe('DISCONNECTED')
+    expect(
+      await runtime.view.commands.execute('agentWorkspace.refreshModels', { instanceId: panel.instanceId }),
+    ).toEqual({
+      status: 'ready',
+      itemCount: 1,
+      error: null,
+    })
+    expect(runtime.view.state.agents.getSnapshot().entries[panel.instanceId]!.draft.objective).toBe('Keep this draft')
+    expect(reads).toBe(2)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('closing an Agent panel fences a late model catalog response from the next panel', async () => {
+  let resolveFirst: (models: ModelDescriptor[]) => void = () => {}
+  let reads = 0
+  const runtime = createAppRuntime({
+    instanceId: 'agent-model-late-read',
+    hostId: 'host',
+    directory: {
+      async execute(name: string) {
+        if (name === 'session.get') return session
+        if (name === 'workspace.get') return workspace
+        if (name === 'session.list') return { items: [session], nextCursor: null }
+        if (name === 'workspace.list') return { items: [workspace], nextCursor: null }
+        throw new Error(`Unsupported query: ${name}`)
+      },
+    },
+    agents: {
+      async execute() {
+        return { items: [], nextCursor: null }
+      },
+    },
+    models: {
+      async execute(name: string) {
+        if (name === 'model.list') {
+          reads += 1
+          return reads === 1
+            ? new Promise<ModelDescriptor[]>((resolve) => {
+                resolveFirst = resolve
+              })
+            : [alternateModel]
+        }
+        return {
+          sessionId: session.id,
+          status: 'configured',
+          modelId: primaryModel.id,
+          model: primaryModel,
+          thinkingLevel: 'low',
+          revisions: {},
+          sources: { model: 'session', thinkingLevel: 'default' },
+        }
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'agents' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const first = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: first.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: first.instanceId })
+    await waitFor(() => reads === 1)
+    await runtime.view.commands.execute('app.closePanel', { instanceId: first.instanceId })
+    expect(runtime.view.state.agents.getSnapshot().catalog.status).toBe('idle')
+    const second = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: second.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: second.instanceId })
+    await waitFor(() => runtime.view.state.agents.getSnapshot().catalog.status === 'ready')
+    resolveFirst([primaryModel])
+    await Bun.sleep(0)
+    expect(runtime.view.state.agents.getSnapshot().catalog.models).toEqual([alternateModel])
+    expect(reads).toBe(2)
   } finally {
     runtime.dispose()
   }

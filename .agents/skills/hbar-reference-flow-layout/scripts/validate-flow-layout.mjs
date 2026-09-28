@@ -320,6 +320,13 @@ function isOverlaySelector(path, selector) {
     /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\])?$/.test(selector.trim())
   )
     return true
+  // cc-haha AgentManager uses the shared trigger-anchored model selector.
+  // Only hbar's top-layer Agent model menu, never its flowing options, floats.
+  if (
+    /packages\/app-react\/src\/agent-model-picker\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-agent-model-popover:popover-open'
+  )
+    return true
   // App Shell 1: observed drawer/backdrop, footer-anchored account menu and pane-edge fades.
   // Only these containers may overlay; content descendants still require normal flow.
   if (/packages\/lumen-app-ui\/src\/app-shell-sidebar\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -908,6 +915,13 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const agentModelPath = 'packages/app-react/src/agent-model-picker.css'
+  if (validateCss(agentModelPath, '.hbar-agent-model-popover:popover-open { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed Agent model popover container')
+  if (validateCss(agentModelPath, '.hbar-agent-model-popover button { position: fixed; }').length !== 1)
+    throw new Error('Agent model popover exception leaked to options')
+  if (validateCss('other.css', '.hbar-agent-model-popover:popover-open { position: fixed; }').length !== 1)
+    throw new Error('Agent model popover exception leaked across files')
   const attachmentPath = 'packages/app-react/src/composer-attachments.css'
   if (validateCss(attachmentPath, '.hbar-composer-attachment-drop-overlay {\nposition: absolute;\ninset: 0;\n}').length)
     throw new Error('Rejected observed composer attachment drop overlay')
