@@ -561,6 +561,50 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-settings-form-2')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'settings-form.tsx',
+        'settings-form-2-reference.tsx',
+        'settings-form-2-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '4:fill',
+          change: 'Replace the captured taken username with a valid typed preview handle and clear its error',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '6:fill',
+          change: 'Enter 161 Bio characters, retain the value, expose the over-limit alert and disable Save',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other text controls, character counts at or below 160, and repeated fill gestures',
+          basis:
+            'All five editable fields share the same host ID state update. Focused store/component tests cover source values, email semantics, exact 160/161 Bio boundaries, and username recovery without truncation; direct representative fills cover each distinct validation mechanism. A local Playwright continuity check separately confirms edits survive the event-log parent render before Cancel resets the draft.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Cancel and photo-selection outcomes',
+          basis:
+            'The source snapshot confirms the controls but no source interaction establishes their resulting state. Local Cancel resets only the preview draft; photo selection forwards a callback without simulating upload or remote success.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme/action combinations',
+          basis:
+            'Eight static pairs cover all four viewports and both themes, including the 320px stress view. Username and Bio validation use separate source-observed mechanisms, so equivalent layout combinations are not multiplied.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-1')
     return {
       revision: 1,

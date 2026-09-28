@@ -1742,7 +1742,21 @@ export function interactionCases(
           cases.push({ id: `${prefix}:tab-${key.toLowerCase()}`, action: 'press', key, control, scenario })
         continue
       }
-      cases.push({ id: `${prefix}:${capability}`, action: capability, control, scenario })
+      const settingsForm2FillValue =
+        variantId === 'hbar-app-ui-settings-form-2' && capability === 'fill'
+          ? control.index === 4
+            ? 'mara-preview'
+            : control.index === 6
+              ? 'b'.repeat(161)
+              : undefined
+          : undefined
+      cases.push({
+        id: `${prefix}:${capability}`,
+        action: capability,
+        control,
+        scenario,
+        ...(settingsForm2FillValue === undefined ? {} : { fillValue: settingsForm2FillValue }),
+      })
       if (capability === 'expand' || capability === 'menu')
         cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })
     }
