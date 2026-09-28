@@ -240,16 +240,55 @@ async function run(): Promise<void> {
 
     await page.goto(previewUrl(6), { waitUntil: 'networkidle' })
     const deleteAction = page.getByRole('button', { name: 'Delete this workspace', exact: true })
-    assert(await deleteAction.isDisabled(), 'Danger action should be disabled before confirmation')
-    await page.getByLabel('Workspace name confirmation', { exact: true }).fill('northwind')
-    assert(!(await deleteAction.isDisabled()), 'Danger action did not enable for an exact confirmation')
+    const transferAction = page.getByRole('button', { name: 'Transfer', exact: true })
+    const archiveAction = page.getByRole('button', { name: 'Archive workspace', exact: true })
+    const confirmationInput = page.getByLabel('Type northwind to confirm', { exact: true })
+    assert(
+      !(await deleteAction.isDisabled()) &&
+        !(await transferAction.isDisabled()) &&
+        !(await archiveAction.isDisabled()),
+      'Source-observed danger actions should begin enabled',
+    )
     await deleteAction.click()
     assert(
-      (await page.getByText('Workspace deletion requested.', { exact: true }).count()) === 1,
-      'Danger action did not expose its resulting status',
+      (await page.getByText('Workspace deletion requested.', { exact: true }).count()) === 0 &&
+        (await confirmationInput.count()) === 1 &&
+        (await page.getByRole('button', { name: 'Delete this workspace', exact: true }).count()) === 1,
+      'Delete callback should leave the safe preview unchanged without claiming completion',
+    )
+    await confirmationInput.fill('northwind')
+    assert((await confirmationInput.inputValue()) === 'northwind', 'Confirmation draft did not remain host-owned')
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert(
+      (await confirmationInput.inputValue()) === 'northwind' &&
+        (await page.getByText('Workspace deletion requested.', { exact: true }).count()) === 0,
+      'Cancel callback should not invent an unverified reset or confirmation flow',
     )
 
     await page.setViewportSize({ width: 320, height: 740 })
+    assert(await noHorizontalOverflow(page, 6), '320px danger-zone content should not overflow horizontally')
+    const narrowDeleteAction = page.getByRole('button', { name: 'Delete this workspace', exact: true })
+    await narrowDeleteAction.scrollIntoViewIfNeeded()
+    assert(await narrowDeleteAction.isVisible(), '320px document flow should keep the destructive callback reachable')
+    await page.getByText('Export data before irreversible workspace changes.', { exact: true }).scrollIntoViewIfNeeded()
+    assert(
+      await page.getByText('Export data before irreversible workspace changes.', { exact: true }).isVisible(),
+      '320px document flow should keep the guidance footer reachable',
+    )
+    await page.goto(`${baseUrl}/?variant=hbar-app-ui-settings-form-6`, { waitUntil: 'networkidle' })
+    const fullPreviewFooter = page.getByText('Export data before irreversible workspace changes.', { exact: true })
+    await fullPreviewFooter.scrollIntoViewIfNeeded()
+    const fullPreviewReachability = await fullPreviewFooter.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return {
+        scrollTop: document.scrollingElement?.scrollTop ?? 0,
+        visible: rect.top >= 0 && rect.bottom <= window.innerHeight,
+      }
+    })
+    assert(
+      fullPreviewReachability.scrollTop > 0 && fullPreviewReachability.visible,
+      '320px normal document flow should scroll to the F6 guidance footer',
+    )
     await page.goto(previewUrl(4), { waitUntil: 'networkidle' })
     const memberList = page.locator('.lumen-settings-form-4-content-scroll')
     const overflowCheck = await inspectScroll(memberList)
