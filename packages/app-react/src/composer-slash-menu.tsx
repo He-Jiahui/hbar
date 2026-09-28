@@ -1,4 +1,4 @@
-import { Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
+import { Bot, Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import './composer-slash-menu.css'
@@ -78,11 +78,13 @@ export function HbarComposerSlashMenu({
                     ? Box
                     : command === 'goal'
                       ? Target
-                      : command === 'cost'
-                        ? CircleDollarSign
-                        : command === 'help'
-                          ? HelpCircle
-                          : Settings
+                      : command === 'agents'
+                        ? Bot
+                        : command === 'cost'
+                          ? CircleDollarSign
+                          : command === 'help'
+                            ? HelpCircle
+                            : Settings
                 }
                 tier="sm"
               />

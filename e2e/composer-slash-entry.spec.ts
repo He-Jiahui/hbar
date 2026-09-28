@@ -32,7 +32,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
-      await expect(menu.getByRole('option')).toHaveCount(5)
+      await expect(menu.getByRole('option')).toHaveCount(6)
       await prompt.dispatchEvent('compositionstart', { data: '中' })
       await prompt.dispatchEvent('keydown', {
         key: 'Enter',
@@ -78,10 +78,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await commands.getByRole('button', { name: copy.commandPalette.close, exact: true }).click()
       await expect(commands).toHaveCount(0)
 
+      await prompt.fill('/agents')
+      await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await expect(page.locator('.hbar-app-react-agent-workspace')).toBeVisible()
+      await expect(page.getByRole('heading', { name: copy.agents.title, exact: true })).toBeVisible()
+      await expectComposerText(prompt, '')
+      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(0)
+      await page.getByRole('button', { name: copy.agents.close, exact: true }).click()
+      await expect(page.locator('.hbar-app-react-agent-workspace')).toHaveCount(0)
+
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 800 })
         await prompt.fill('/')
-        await expect(menu.getByRole('option')).toHaveCount(5)
+        await expect(menu.getByRole('option')).toHaveCount(6)
         await page.screenshot({ path: `artifacts/reference-ux-v2/slash-catalog-${locale}-${width}.png` })
         await prompt.fill('/mo')
         await expect(menu.getByRole('option')).toHaveCount(1)

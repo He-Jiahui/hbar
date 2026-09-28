@@ -535,9 +535,9 @@ function SessionWorkspaceContent({
         if (slash === 'model') {
           pendingModelSlash.current = target
           setModelOpenRequest((value) => value + 1)
-        } else if (slash === 'cost') {
+        } else if (slash === 'cost' || slash === 'agents') {
           const opened = await runtime.commands.execute('sessionTools.open', {
-            panelId: 'monitoring',
+            panelId: slash === 'agents' ? 'agents' : 'monitoring',
             workspaceId: targetWorkspaceId,
             sessionId: targetSessionId,
             sourceTabInstanceKey: sourceTab?.instanceKey ?? null,

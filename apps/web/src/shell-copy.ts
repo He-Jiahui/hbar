@@ -1353,6 +1353,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           description: choose('设置或清除此会话的目标', 'Set or clear this session’s Goal'),
         },
         {
+          id: 'agents',
+          label: '/agents',
+          description: choose('打开此会话的子 Agent 工作区', 'Open child agents for this session'),
+        },
+        {
           id: 'cost',
           label: '/cost',
           description: choose('查看本会话用量和成本', 'Show this session’s usage and costs'),

@@ -1,4 +1,4 @@
-export type LocalSlashCommand = 'model' | 'settings' | 'goal' | 'cost' | 'help'
+export type LocalSlashCommand = 'model' | 'settings' | 'goal' | 'agents' | 'cost' | 'help'
 const unsupportedGoalArguments = new Set(['status', 'pause', 'resume', 'complete'])
 
 /** Only an entire standalone composer command is a local action. */
@@ -6,6 +6,7 @@ export function localSlashCommand(text: string, available: readonly LocalSlashCo
   const value = text.trim()
   if (value === '/model' && available.includes('model')) return 'model'
   if (value === '/settings' && available.includes('settings')) return 'settings'
+  if (value === '/agents' && available.includes('agents')) return 'agents'
   if (value === '/cost' && available.includes('cost')) return 'cost'
   if (value === '/help' && available.includes('help')) return 'help'
   if (/^\/goal(?:\s|$)/.test(value) && available.includes('goal')) return 'goal'
