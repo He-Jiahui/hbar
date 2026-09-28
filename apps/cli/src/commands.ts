@@ -656,6 +656,7 @@ export async function runAgentCommand(
         }
       : (() => {
           argv.push('--model', args.model ? selectModel(runtime.bootstrap, args.model) : runtime.modelId)
+          if (args.profile !== undefined) argv.push('--profile', args.profile)
           if (args.title !== undefined) argv.push('--title', args.title)
           if (args.tokenBudget !== undefined) argv.push('--token-budget', args.tokenBudget)
           if (args.thinkingExplicit) argv.push('--thinking', args.thinking)

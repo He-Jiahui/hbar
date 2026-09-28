@@ -310,15 +310,20 @@ test('exec agent commands create and list child sessions through the shared comm
     'cli-agent',
     '--model',
     'local-fixture',
+    '--profile',
+    'explore',
     '--token-budget',
     '400',
   ])
-  expect(child.code).toBe(0)
-  const agent = JSON.parse(child.stdout) as { agentId: string; parentSessionId: string }
+  expect(child.code, child.stderr).toBe(0)
+  const agent = JSON.parse(child.stdout) as { agentId: string; parentSessionId: string; profileId: string }
   expect(agent.parentSessionId).toBe(parent.id)
+  expect(agent.profileId).toBe('explore')
   const listed = await run([...common, '--session', parent.id, 'exec', 'agent.list'])
   expect(listed.code).toBe(0)
-  expect(JSON.parse(listed.stdout)).toMatchObject({ items: [{ agentId: agent.agentId, tokenBudget: 400 }] })
+  expect(JSON.parse(listed.stdout)).toMatchObject({
+    items: [{ agentId: agent.agentId, profileId: 'explore', tokenBudget: 400 }],
+  })
   const duplicate = await run([
     ...common,
     '--session',
@@ -330,6 +335,8 @@ test('exec agent commands create and list child sessions through the shared comm
     'cli-agent',
     '--model',
     'local-fixture',
+    '--profile',
+    'explore',
     '--token-budget',
     '400',
   ])

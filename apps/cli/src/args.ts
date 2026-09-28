@@ -64,6 +64,7 @@ export interface CliArgs {
   after?: string | undefined
   limit?: string | undefined
   model?: string | undefined
+  profile?: string | undefined
   thinking: ThinkingLevel
   thinkingExplicit: boolean
   approval: ApprovalMode
@@ -115,7 +116,8 @@ Usage:
   hbar exec file.find <query> [--path <directory> --limit <count>] [--workspace <id|name>]
   hbar exec file.list|file.read|file.write [path] [--workspace <id|name>]
   hbar exec attachment.query <artifactId>
-  hbar exec agent.create|agent.list|agent.cancel|agent.result.get|agent.patch.apply --session <id|name>
+  hbar exec agent.create <objective> [--profile explore] --session <id|name>
+  hbar exec agent.list|agent.cancel|agent.result.get|agent.patch.apply --session <id|name>
   hbar exec browser.status|browser.navigate|browser.snapshot|browser.close --session <id|name>
   hbar exec computer.status|computer.screenshot|computer.click|computer.type --session <id|name>
   hbar exec git.info|git.status|git.diff|git.log|git.diffToRemote [--cwd <path>]
@@ -160,6 +162,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
       headless: { type: 'boolean' },
       message: { type: 'string' },
       model: { type: 'string' },
+      profile: { type: 'string' },
       thinking: { type: 'string' },
       approval: { type: 'string' },
       project: { type: 'string' },
@@ -313,6 +316,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     after: values.after as string | undefined,
     limit: values.limit as string | undefined,
     model: values.model as string | undefined,
+    profile: values.profile as string | undefined,
     thinking,
     thinkingExplicit: values.thinking !== undefined,
     approval,

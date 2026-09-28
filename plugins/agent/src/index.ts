@@ -5,16 +5,18 @@ import type { AgentPatch, Run, WorkflowScope } from '@hbar/contracts'
 import {
   agentCreateInputSchema,
   agentPatchTaskSchema,
+  agentProfileIdSchema,
   agentRecordSchema,
   agentReviewTaskSchema,
 } from '@hbar/contracts/commands/agents'
-import type { AgentCreateInput, AgentPatchTask, AgentRecord } from '@hbar/contracts/commands/agents'
+import type { AgentCreateInput, AgentPatchTask, AgentProfileId, AgentRecord } from '@hbar/contracts/commands/agents'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   BudgetService,
   GitService,
   HbarAPI,
+  HookEvents,
   SessionService,
   ToolContext,
   ToolDefinition,
@@ -32,6 +34,28 @@ import {
 const MAX_CHILDREN = 128
 const MAX_SCANNED_CHILD_SESSIONS = 2_000
 const MAX_AGENT_EVENTS = 100_000
+const PROFILE_DEFINITIONS = {
+  explore: {
+    instructions:
+      'You are an Explore child agent. Investigate the assigned objective using read-only workspace tools. Do not modify files, run processes, or claim changes were made. Report findings with concrete file paths and uncertainty.',
+    toolNames: new Set([
+      'read_file',
+      'search_text',
+      'find_files',
+      'list_directory',
+      'git_info',
+      'git_status',
+      'git_diff',
+      'git_log',
+      'git_stats',
+      'git_diff_to_remote',
+    ]),
+  },
+} satisfies Record<AgentProfileId, { readonly instructions: string; readonly toolNames: ReadonlySet<string> }>
+
+function profileAllowsTool(profileId: AgentProfileId, tool: ToolDefinition): boolean {
+  return tool.effect === 'read' && PROFILE_DEFINITIONS[profileId].toolNames.has(tool.name)
+}
 
 const commandSchema = z.strictObject({
   actorId: z.string().min(1).max(160),
@@ -57,6 +81,7 @@ const createdSchema = z.strictObject({
   sessionId: z.string().min(1).max(160),
   requestId: z.string().min(1).max(160),
   objective: z.string().min(1).max(4_000),
+  profileId: agentProfileIdSchema.optional(),
   modelId: z.string().min(1).max(160),
   tokenBudget: z.number().int().positive().max(1_000_000_000).nullable(),
   patchTask: agentPatchTaskSchema.optional(),
@@ -169,6 +194,7 @@ export class AgentRuntime implements AgentService {
       runId: run?.id ?? null,
       requestId: seed.requestId,
       objective: seed.objective,
+      ...(seed.profileId ? { profileId: seed.profileId } : {}),
       modelId: seed.modelId,
       tokenBudget: seed.tokenBudget,
       status: run
@@ -259,6 +285,7 @@ export class AgentRuntime implements AgentService {
         sessionId: child.id,
         requestId: `agent-${crypto.randomUUID()}`,
         objective: parsed.objective,
+        ...(parsed.profileId ? { profileId: parsed.profileId } : {}),
         modelId: parsed.modelId,
         tokenBudget: parsed.tokenBudget ?? null,
         patchTask: parsed.patchTask,
@@ -310,6 +337,7 @@ export class AgentRuntime implements AgentService {
         sessionId: child.id,
         requestId: `agent-${crypto.randomUUID()}`,
         objective: parsed.objective,
+        ...(parsed.profileId ? { profileId: parsed.profileId } : {}),
         modelId: parsed.modelId,
         tokenBudget: parsed.tokenBudget ?? null,
         reviewTask: parsed.reviewTask,
@@ -451,8 +479,25 @@ export class AgentRuntime implements AgentService {
     await this.sessions.append(seed.parentSessionId, 'agent.patch.updated', data)
   }
 
+  async selectProfileTools(event: HookEvents['tools.select']): Promise<HookEvents['tools.select']> {
+    const profileId = (await this.created(event.sessionId))?.profileId
+    if (!profileId) return event
+    return { ...event, tools: event.tools.filter((tool) => profileAllowsTool(profileId, tool)) }
+  }
+
+  async advertiseProfile(event: HookEvents['tools.advertise']): Promise<HookEvents['tools.advertise']> {
+    const seed = await this.created(event.sessionId)
+    if (!seed?.profileId) return event
+    return {
+      ...event,
+      instructions: [event.instructions, PROFILE_DEFINITIONS[seed.profileId].instructions].filter(Boolean).join('\n\n'),
+    }
+  }
+
   async beforeTool(name: string, args: Record<string, unknown>, context: ToolContext, tool: ToolDefinition) {
     const seed = await this.created(context.session.id)
+    if (seed?.profileId && !profileAllowsTool(seed.profileId, tool))
+      throw new HbarError('AGENT_PROFILE_TOOL', `Tool ${name} is unavailable to the ${seed.profileId} profile`)
     if (seed?.reviewTask) {
       if (!seed.reviewTask.scope.tools.includes(name))
         throw new HbarError('AGENT_REVIEW_SCOPE', `Tool ${name} is outside the read-only review scope`)
@@ -643,6 +688,8 @@ export const agentPlugin = definePlugin({
       api,
     )
     provide<AgentService>(ctx, 'agent', runtime)
+    api.hooks.on('tools.select', (event) => runtime.selectProfileTools(event))
+    api.hooks.on('tools.advertise', (event) => runtime.advertiseProfile(event))
     api.hooks.on('tool.before', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)
       return event

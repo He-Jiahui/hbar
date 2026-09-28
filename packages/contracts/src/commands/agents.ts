@@ -14,6 +14,8 @@ export const agentStatusSchema = z.enum([
   'failed',
   'interrupted',
 ])
+export const agentProfileIdSchema = z.enum(['explore'])
+export type AgentProfileId = z.output<typeof agentProfileIdSchema>
 export const agentRecordSchema = z.strictObject({
   agentId: idSchema,
   parentSessionId: idSchema,
@@ -21,6 +23,7 @@ export const agentRecordSchema = z.strictObject({
   runId: idSchema.nullable(),
   requestId: idSchema,
   objective: z.string().min(1).max(4_000),
+  profileId: agentProfileIdSchema.optional(),
   modelId: idSchema,
   tokenBudget: z.number().int().positive().max(1_000_000_000).nullable(),
   status: agentStatusSchema,
@@ -48,6 +51,7 @@ export const agentCreateInputSchema = z
   .strictObject({
     parentSessionId: idSchema,
     objective: z.string().trim().min(1).max(4_000),
+    profileId: agentProfileIdSchema.optional(),
     modelId: idSchema,
     title: z.string().trim().min(1).max(160).optional(),
     tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
@@ -58,6 +62,9 @@ export const agentCreateInputSchema = z
   })
   .refine((value) => !(value.patchTask && value.reviewTask), {
     message: 'patchTask and reviewTask are mutually exclusive',
+  })
+  .refine((value) => !(value.profileId && (value.patchTask || value.reviewTask)), {
+    message: 'profileId cannot be combined with workflow-scoped tasks',
   })
 export const agentListInputSchema = z.strictObject({
   parentSessionId: idSchema,
@@ -94,6 +101,7 @@ export const agentCommands = {
           { field: 'parentSessionId', type: 'string' as const, flag: 'session' },
           { field: 'modelId', type: 'string' as const, flag: 'model' },
           { field: 'title', type: 'string' as const, flag: 'title' },
+          { field: 'profileId', type: 'string' as const, flag: 'profile' },
           { field: 'tokenBudget', type: 'number' as const, flag: 'token-budget' },
           { field: 'thinkingLevel', type: 'string' as const, flag: 'thinking' },
           { field: 'approval', type: 'string' as const, flag: 'approval' },

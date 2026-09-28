@@ -1,9 +1,12 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { z } from 'zod'
+import { COMMAND_PROTOCOL_VERSION } from '@hbar/commands'
 import { HbarClient, createAgentCommandClient } from '@hbar/client'
 import { emptyUsage } from '@hbar/contracts'
+import { agentCreateInputSchema } from '@hbar/contracts/commands/agents'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { BudgetService, HarnessDriver } from '@hbar/plugin-sdk'
@@ -164,6 +167,113 @@ test('agent commands create one budgeted child session per actor key and recover
     items: [{ agentId: first.agentId, status: 'completed' }],
   })
   expect((await reopened.storage.call('workspace', workspace.id)).id).toBe(workspace.id)
+})
+
+test('Host-owned Explore profile keeps the exact objective and advertises only read tools', async () => {
+  const resource = await fixture()
+  const { root, kernel, parent, client, commands } = resource
+  const objective = 'Find the files responsible for session navigation; do not edit anything.'
+  const input = {
+    parentSessionId: parent.id,
+    objective,
+    modelId: 'local-fixture',
+    profileId: 'explore' as const,
+  }
+  const created = await commands.execute('agent.create', input, { idempotencyKey: 'explore-one' })
+  expect(created.profileId).toBe('explore')
+  expect(created.objective).toBe(objective)
+  expect((await commands.execute('agent.create', input, { idempotencyKey: 'explore-one' })).agentId).toBe(
+    created.agentId,
+  )
+  await expect(
+    commands.execute('agent.create', { ...input, profileId: undefined }, { idempotencyKey: 'explore-one' }),
+  ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+  await kernel.waitForIdle()
+  const snapshot = await kernel.storage.call('snapshot', created.sessionId)
+  expect(snapshot.runs[0]?.input).toMatchObject({ text: objective, approval: 'deny', source: 'system' })
+  const requests = (await kernel.storage.call('events', created.sessionId, 0)).filter(
+    (event) => event.type === 'request.started',
+  )
+  const request = z
+    .object({ request: z.object({ system: z.string(), toolNames: z.array(z.string()) }) })
+    .parse(requests[0]?.data).request
+  expect(request.system).toContain('You are an Explore child agent.')
+  expect(request.toolNames).toContain('read_file')
+  expect(request.toolNames).toContain('search_text')
+  expect(request.toolNames).not.toContain('write_file')
+  expect(request.toolNames).not.toContain('shell')
+  expect((await commands.execute('agent.list', { parentSessionId: parent.id })).items[0]?.profileId).toBe('explore')
+  await expect(
+    client.call('command.execute', {
+      protocol: COMMAND_PROTOCOL_VERSION,
+      requestId: 'invalid-explore-profile',
+      commandId: 'agent.create',
+      commandVersion: 1,
+      idempotencyKey: 'invalid-explore-profile',
+      input: { ...input, profileId: 'unknown' },
+    }),
+  ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+  expect((await commands.execute('agent.list', { parentSessionId: parent.id })).items).toHaveLength(1)
+  expect(agentCreateInputSchema.safeParse({ ...input, profileId: 'unknown' }).success).toBe(false)
+  expect(
+    agentCreateInputSchema.safeParse({
+      ...input,
+      patchTask: {
+        itemId: 'unrelated-workflow',
+        planRevision: 1,
+        scope: { readPaths: ['.'], writePaths: [], tools: ['read_file'] },
+        acceptanceChecks: [],
+      },
+    }).success,
+  ).toBe(false)
+
+  client.disconnect()
+  await resource.close()
+  cleanups.shift()
+  const reopened = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  const host = await startServer(reopened, { port: 0 })
+  const reconnected = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  cleanups.push(async () => {
+    reconnected.disconnect()
+    await host.close()
+    await reopened.close()
+    await rm(root, { recursive: true, force: true })
+  })
+  await reconnected.pair(host.pairing.code, 'explore profile recovery test')
+  expect(
+    (await createAgentCommandClient(reconnected).execute('agent.list', { parentSessionId: parent.id })).items[0],
+  ).toMatchObject({ agentId: created.agentId, profileId: 'explore', objective })
+})
+
+test('Explore profile does not gain write access even when its child Run requests allow', async () => {
+  const { root, kernel, parent, commands } = await fixture()
+  const child = await commands.execute(
+    'agent.create',
+    {
+      parentSessionId: parent.id,
+      objective: '/tool write_file {"path":"blocked.txt","text":"should not exist"}',
+      modelId: 'local-fixture',
+      profileId: 'explore',
+      approval: 'allow',
+    },
+    { idempotencyKey: 'explore-write-denied' },
+  )
+  await kernel.waitForIdle()
+  await expect(access(join(root, 'blocked.txt'))).rejects.toThrow()
+  const events = await kernel.storage.call('events', child.sessionId, 0)
+  const requests = events
+    .filter((event) => event.type === 'request.started')
+    .map((event) => z.object({ request: z.object({ toolNames: z.array(z.string()) }) }).parse(event.data).request)
+  expect(requests.length).toBeGreaterThan(0)
+  expect(requests.every((request) => !request.toolNames.includes('write_file'))).toBe(true)
+  expect(
+    (await commands.execute('agent.result.get', { parentSessionId: parent.id, agentId: child.agentId })).profileId,
+  ).toBe('explore')
 })
 
 test('cancelling a child agent propagates through its descendant agent sessions', async () => {
