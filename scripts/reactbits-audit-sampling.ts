@@ -561,6 +561,25 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-feedback-4')
+    return {
+      revision: 1,
+      lumenEntries: ['feedback-workflows.tsx', 'feedback-board-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '7:click', change: 'Vote adds one and changes the selected card affordance'},
+        {viewport: 'desktop', theme: 'dark', suffix: '5:click', change: 'Removing an initial vote retains the baseline count and clears selected styling'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'New reorders the same five cards without fabricating records'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Shipped filters down to one card with correct pressed state'},
+        {viewport: 'desktop', theme: 'light', suffix: '4:fill', change: 'Source search stores text but leaves the five cards visible'},
+        {viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'New request is a source demo no-op'},
+        {viewport: 'stress', theme: 'light', suffix: '7:click', change: 'Narrow vote updates within the bounded card list'},
+        {viewport: 'mobile', theme: 'dark', suffix: '2:click', change: 'Mobile New order preserves stacked card flow'},
+      ],
+      inferences: [
+        {scope: 'Other request IDs, repeat votes, query strings and native gestures', basis: 'All votes use a stable-ID toggle; all cards use the same semantic article. Host tests cover reverse, stale, duplicate and over-bound lists; one positive and one initial-vote removal are replayed. Search is intentionally input-only in the source demo.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme/sort combinations and card scroll positions', basis: 'Eight static pairs cover four widths and both themes. Desktop and narrow state samples plus browser checks for long localized pane scrolling establish distinct mechanisms without multiplying each button across widths.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-feedback-3')
     return {
       revision: 1,

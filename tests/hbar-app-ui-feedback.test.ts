@@ -27,7 +27,7 @@ describe('hbar-app-ui feedback surfaces', () => {
     expect(markup[0]).toContain('lumen-feedback-widget-reference')
     expect(markup[1]).toContain('lumen-feedback-survey-reference')
     expect(markup[2]).toContain('lumen-feedback-rating-reference')
-    expect(markup[3]).toContain('hbar-app-ui-feedback-request-list')
+    expect(markup[3]).toContain('lumen-feedback-board-reference')
     expect(markup[4]).toContain('hbar-app-ui-feedback-thread-detail')
     expect(markup[5]).toContain('hbar-app-ui-feedback-volume-chart')
     for (const value of markup) {
@@ -65,7 +65,7 @@ describe('hbar-app-ui feedback surfaces', () => {
     const featureBoard = base.featureBoard
     const inbox = base.inbox
     if (!featureBoard || !inbox) throw new Error('Expected feature-board and inbox fixtures')
-    expect(renderFeedback(4, { ...base, featureBoard: { ...featureBoard, requests: [] } })).toContain(
+    expect(renderFeedback(4, { ...base, referenceBoard: undefined, featureBoard: { ...featureBoard, requests: [] } })).toContain(
       'No feature requests match this search.',
     )
     expect(renderFeedback(5, { ...base, inbox: { ...inbox, threads: [], details: [] } })).toContain(
@@ -95,12 +95,12 @@ describe('hbar-app-ui feedback surfaces', () => {
       },
     ]
     expect(
-      renderFeedback(4, { ...base, featureBoard: { ...featureBoard, requests: boundary } }).match(
+      renderFeedback(4, { ...base, referenceBoard: undefined, featureBoard: { ...featureBoard, requests: boundary } }).match(
         /<h3>Boundary request/g,
       ),
     ).toHaveLength(featureBoard.listStrategy.expectedMaximum)
     expect(
-      renderFeedback(4, { ...base, featureBoard: { ...featureBoard, requests: overBoundary } }).match(
+      renderFeedback(4, { ...base, referenceBoard: undefined, featureBoard: { ...featureBoard, requests: overBoundary } }).match(
         /<h3>(?:Boundary request|Over-bound request)/g,
       ),
     ).toHaveLength(featureBoard.listStrategy.expectedMaximum + 1)

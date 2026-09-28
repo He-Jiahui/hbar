@@ -7,6 +7,7 @@ import type {
   HbarAppUiFeedbackWidgetReferenceContent,
   HbarAppUiFeedbackSurveyReferenceContent,
   HbarAppUiFeedbackRatingReferenceContent,
+  HbarAppUiFeedbackBoardReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const requests: readonly HbarAppUiFeedbackRequest[] = [
@@ -453,6 +454,29 @@ export const HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
     ratingStrategy: {kind: 'content-grown', expectedMaximum: 5},
     reasonStrategy: {kind: 'content-grown', expectedMaximum: 4},
   } satisfies HbarAppUiFeedbackRatingReferenceContent,
+  referenceBoard: {
+    boardId: 'feedback-board',
+    labels: {
+      title: 'Feature requests',
+      description: 'Vote on what you need next. Status changes appear here first.',
+      newRequest: 'New request',
+      search: 'Search requests',
+      sortGroup: 'Request status',
+      voteFor: (title) => `Vote for ${title}`,
+      removeVote: (title) => `Remove vote from ${title}`,
+      commentCount: (count) => `${count}`,
+      empty: 'No feature requests match this search.',
+    },
+    sorts: [{id: 'top', label: 'Top'}, {id: 'new', label: 'New'}, {id: 'shipped', label: 'Shipped'}],
+    selectedSortId: 'top',
+    searchQuery: '',
+    requests: requests.map((request, index) => ({...request,
+      initiallyVoted: request.votedByDefault ?? false,
+      newRank: [1, 4, 3, 0, 2][index] ?? index,
+    })),
+    votedIds: requests.filter(request => request.votedByDefault).map(request => request.id),
+    listStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
+  } satisfies HbarAppUiFeedbackBoardReferenceContent,
 }
 
 export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackContent {
@@ -491,6 +515,9 @@ export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackCont
     },
     referenceRating: base.referenceRating && {...base.referenceRating,
       highReasons: [...base.referenceRating.highReasons, ...Array.from({length: 12}, (_, index) => ({id: `extra-rating-reason-${index}`, label: `Additional rating reason ${index + 1}`}))],
+    },
+    referenceBoard: base.referenceBoard && {...base.referenceBoard,
+      requests: [...base.referenceBoard.requests, ...moreRequests.map((request, index) => ({...request, initiallyVoted: false, newRank: index + 5}))],
     },
     featureBoard: base.featureBoard && {
       ...base.featureBoard,
@@ -531,6 +558,24 @@ export function createHbarAppUiFeedbackLocalizedFixtures(): HbarAppUiFeedbackCon
   const base = HBAR_APP_UI_FEEDBACK_FIXTURES
   return {
     ...base,
+    referenceBoard: base.referenceBoard && {
+      ...base.referenceBoard,
+      labels: {...base.referenceBoard.labels,
+        title: 'Funktionswünsche',
+        description: 'Stimmen Sie über die Funktionen ab, die Ihr Team als Nächstes benötigt.',
+        newRequest: 'Neue Anfrage',
+        search: 'Funktionswünsche durchsuchen',
+        sortGroup: 'Sortierung der Funktionswünsche',
+        empty: 'Es sind keine passenden Funktionswünsche verfügbar.',
+        voteFor: (title) => `Für ${title} abstimmen`,
+        removeVote: (title) => `Stimme für ${title} entfernen`,
+      },
+      sorts: [{id: 'top', label: 'Beliebt'}, {id: 'new', label: 'Neu'}, {id: 'shipped', label: 'Ausgeliefert'}],
+      requests: base.referenceBoard.requests.map(request => ({...request,
+        title: `${request.title} für international verteilte Arbeitsgruppen`,
+        description: `${request.description} Diese längere Erklärung bleibt in jeder verfügbaren Breite lesbar.`,
+      })),
+    },
     referenceRating: base.referenceRating && {
       ...base.referenceRating,
       labels: {...base.referenceRating.labels,

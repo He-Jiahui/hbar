@@ -122,6 +122,8 @@ export {
   uniqueHbarAppUiFeedbackSurveyScores,
   uniqueHbarAppUiFeedbackRatingOptions,
   uniqueHbarAppUiFeedbackRatingReasons,
+  uniqueHbarAppUiFeedbackBoardRequests,
+  visibleHbarAppUiFeedbackBoardRequests,
 } from './components/Feedback'
 export type {
   HbarAppUiFeedbackWidgetReferenceContent,
@@ -130,6 +132,8 @@ export type {
   HbarAppUiFeedbackRatingReferenceContent,
   HbarAppUiFeedbackRatingReferenceOption,
   HbarAppUiFeedbackRatingReferenceReason,
+  HbarAppUiFeedbackBoardReferenceContent,
+  HbarAppUiFeedbackBoardReferenceRequest,
   HbarAppUiFeedbackReferenceType,
   HbarAppUiFeedbackContent,
   HbarAppUiFeedbackProps,

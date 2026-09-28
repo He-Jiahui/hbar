@@ -21,6 +21,10 @@ export {
   uniqueLumenFeedbackRatingOptions as uniqueHbarAppUiFeedbackRatingOptions,
   uniqueLumenFeedbackRatingReasons as uniqueHbarAppUiFeedbackRatingReasons,
 } from '@lumen/app-ui'
+export {
+  uniqueLumenFeedbackBoardRequests as uniqueHbarAppUiFeedbackBoardRequests,
+  visibleLumenFeedbackBoardRequests as visibleHbarAppUiFeedbackBoardRequests,
+} from '@lumen/app-ui'
 
 export type {
   LumenFeedbackWidgetReferenceContent as HbarAppUiFeedbackWidgetReferenceContent,
@@ -29,6 +33,8 @@ export type {
   LumenFeedbackRatingReferenceContent as HbarAppUiFeedbackRatingReferenceContent,
   LumenFeedbackRatingReferenceOption as HbarAppUiFeedbackRatingReferenceOption,
   LumenFeedbackRatingReferenceReason as HbarAppUiFeedbackRatingReferenceReason,
+  LumenFeedbackBoardReferenceContent as HbarAppUiFeedbackBoardReferenceContent,
+  LumenFeedbackBoardReferenceRequest as HbarAppUiFeedbackBoardReferenceRequest,
   LumenFeedbackReferenceType as HbarAppUiFeedbackReferenceType,
   LumenFeedbackAttachment as HbarAppUiFeedbackAttachment,
   LumenFeedbackContent as HbarAppUiFeedbackContent,

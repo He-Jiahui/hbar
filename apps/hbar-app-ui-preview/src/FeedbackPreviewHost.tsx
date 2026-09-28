@@ -4,6 +4,7 @@ import { HbarAppUiFeedbackProvider, type HbarAppUiFeedbackContent } from 'hbar-a
 import { createFeedbackWidgetPreviewStore } from './feedbackWidgetPreviewStore'
 import { createFeedbackSurveyPreviewStore } from './feedbackSurveyPreviewStore'
 import { createFeedbackRatingPreviewStore } from './feedbackRatingPreviewStore'
+import { createFeedbackBoardPreviewStore } from './feedbackBoardPreviewStore'
 
 export function FeedbackPreviewHost({
   content,
@@ -18,9 +19,12 @@ export function FeedbackPreviewHost({
   const surveyState = useStore(surveyStore)
   const [ratingStore] = useState(() => createFeedbackRatingPreviewStore(content.referenceRating))
   const ratingState = useStore(ratingStore)
+  const [boardStore] = useState(() => createFeedbackBoardPreviewStore(content.referenceBoard))
+  const boardState = useStore(boardStore)
   useEffect(() => store.getState().reset(content.referenceWidget), [store, content.referenceWidget])
   useEffect(() => surveyStore.getState().reset(content.referenceSurvey), [surveyStore, content.referenceSurvey])
   useEffect(() => ratingStore.getState().reset(content.referenceRating), [ratingStore, content.referenceRating])
+  useEffect(() => boardStore.getState().reset(content.referenceBoard), [boardStore, content.referenceBoard])
   return (
     <HbarAppUiFeedbackProvider
       content={{
@@ -62,6 +66,17 @@ export function FeedbackPreviewHost({
           onSelectRating: ratingState.selectRating,
           onToggleReason: ratingState.toggleReason,
           onCommentChange: ratingState.changeComment,
+        },
+        referenceBoard: content.referenceBoard && {
+          ...content.referenceBoard,
+          sorts: boardState.sorts,
+          requests: boardState.requests,
+          selectedSortId: boardState.selectedSortId,
+          searchQuery: boardState.searchQuery,
+          votedIds: boardState.votedIds,
+          onSort: boardState.sort,
+          onSearch: boardState.search,
+          onVote: boardState.vote,
         },
       }}
     >
