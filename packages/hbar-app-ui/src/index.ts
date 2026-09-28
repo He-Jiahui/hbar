@@ -837,6 +837,15 @@ export {
   uniqueHbarAppUiSettingsItems,
 } from './components/SettingsForm'
 export type {
+  HbarAppUiSettingsForm1Choice,
+  HbarAppUiSettingsForm1Content,
+  HbarAppUiSettingsForm1Feedback,
+  HbarAppUiSettingsForm1Field,
+  HbarAppUiSettingsForm1FieldGroup,
+  HbarAppUiSettingsForm1SaveState,
+  HbarAppUiSettingsForm1Section,
+  HbarAppUiSettingsForm1Value,
+  HbarAppUiSettingsForm1ViewModel,
   HbarAppUiSettingsApiKeysContent,
   HbarAppUiSettingsChoice,
   HbarAppUiSettingsDangerContent,

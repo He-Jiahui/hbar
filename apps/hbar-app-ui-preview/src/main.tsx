@@ -121,6 +121,7 @@ import {
   createHbarAppUiSettingsFormOverflowFixtures,
   HBAR_APP_UI_SETTINGS_FORM_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-settings-form-fixtures'
+import { createSettingsForm1ReferencePreviewFixture } from './settingsForm1ReferenceFixtures'
 import {
   createHbarAppUiAuthenticationLocalizedFixtures,
   createHbarAppUiAuthenticationOverflowFixtures,
@@ -330,6 +331,13 @@ function PreviewApp() {
       default:
         return HBAR_APP_UI_SETTINGS_FORM_FIXTURES
     }
+  }, [])
+  const settingsForm1ReferenceFixture = useMemo(() => {
+    const fixture = new URLSearchParams(window.location.search).get('settingsFormFixture')
+    return createSettingsForm1ReferencePreviewFixture(
+      fixture === 'localized' ? 'de' : 'en',
+      fixture === 'save-failure' ? 'fail-once' : 'success',
+    )
   }, [])
   const authenticationContent = useMemo(() => {
     switch (new URLSearchParams(window.location.search).get('authenticationFixture')) {
@@ -563,7 +571,12 @@ function PreviewApp() {
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
                     <FeedbackPreviewHost content={feedbackContent}>
-                      <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
+                      <SettingsPreviewHost
+                        content={settingsFormContent}
+                        spec={selected.spec}
+                        onAction={handleAction}
+                        referenceFixture={settingsForm1ReferenceFixture}
+                      >
                         <AuthenticationPreviewHost
                           content={authenticationContent}
                           spec={selected.spec}
@@ -803,6 +816,7 @@ function PreviewApp() {
                                   content={settingsFormContent}
                                   spec={selected.spec}
                                   onAction={handleAction}
+                                  referenceFixture={settingsForm1ReferenceFixture}
                                 >
                                   <AuthenticationPreviewHost
                                     content={authenticationContent}

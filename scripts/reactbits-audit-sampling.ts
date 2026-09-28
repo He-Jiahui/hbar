@@ -561,6 +561,62 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-settings-form-1')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'settings-form.tsx',
+        'settings-form-1-reference.tsx',
+        'settings-form-1-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Switch from Workspace to Billing and expose its distinct host-supplied fields',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '17:click',
+          change: 'Cancel returns the initially dirty workspace form to its saved feedback state',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '18:hover',
+          change: 'Save action pointer feedback; live and host tests verify the asynchronous save result separately',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '6:click',
+          change: 'Switch the narrow mobile navigation to Billing without losing access to the bottom save bar',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other section labels, text fields and select values',
+          basis:
+            'Five section buttons share the host ID selection path. Typed host fixtures and store tests cover every supplied section, editable field, valid select ID, textarea, prefixed input, checkbox and switch; one desktop and one narrow section switch establish the distinct content flow.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Save completion timing and save failure recovery',
+          basis:
+            'The live source shows pending then settled save feedback; the preview host tests delayed success and fail-once retry separately. A click screenshot is not paired because the independently scheduled source and local timers can reach different settled frames.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remaining viewport/theme/action combinations and repeated gestures',
+          basis:
+            'Eight static pairs cover all four widths and both themes. Interaction cases cover section selection, cancel, pending save and narrow navigation; identical controls are not multiplied across every layout.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-feedback-5')
     return {
       revision: 1,
