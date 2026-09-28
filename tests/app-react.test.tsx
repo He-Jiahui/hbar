@@ -73,6 +73,9 @@ const labels: HbarWorkspaceShellLabels = {
   workspaceActions: (name) => `${name} 的工程操作`,
   newSessionInWorkspace: '在该工程新建会话',
   workspaceFiles: '查看该工程的文件',
+  workspaceFilesEntry: '工程文件',
+  workspaceFilesUnavailable: '先选择工程',
+  openWorkspaceFiles: (name) => `打开 ${name} 的文件`,
   workspaceSettings: '查看并编辑此工作区的设置与覆盖值',
   pinWorkspace: '置顶工程',
   unpinWorkspace: '取消置顶',
@@ -182,7 +185,9 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain(labels.searchChats)
     expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.searchChats))
     expect(html.indexOf(labels.searchChats)).toBeLessThan(html.indexOf(labels.commands))
-    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
+    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf(labels.workspaceFilesEntry))
+    expect(html.indexOf(labels.workspaceFilesEntry)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
+    expect(html).toContain(`aria-label="${labels.openWorkspaceFiles(workspace.name)}"`)
     expect(html).toContain('打开工作区')
     expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
@@ -229,7 +234,7 @@ test('separate React runtime providers keep each window selection private', asyn
   }
 })
 
-test('English host copy renders Search chats and Commands as separate first-level actions', () => {
+test('English host copy renders Search, Commands, and workspace Files as separate first-level actions', () => {
   const runtime = runtimeFixture('search-entry-en')
   try {
     const english = getShellCopy('en-US', 'Win32').shell
@@ -242,7 +247,10 @@ test('English host copy renders Search chats and Commands as separate first-leve
     )
     expect(html).toContain(english.searchChats)
     expect(html).toContain(english.commands)
+    expect(html).toContain(english.workspaceFilesEntry)
+    expect(html).toContain(english.workspaceFilesUnavailable)
     expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.commands))
+    expect(html.indexOf(english.commands)).toBeLessThan(html.indexOf(english.workspaceFilesEntry))
     expect(html).toContain(english.searchShortcut)
     expect(html).toContain(english.commandShortcut)
   } finally {

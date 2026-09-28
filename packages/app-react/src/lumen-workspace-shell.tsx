@@ -110,6 +110,9 @@ export interface HbarWorkspaceShellLabels {
   readonly workspaceActions: (name: string) => string
   readonly newSessionInWorkspace: string
   readonly workspaceFiles: string
+  readonly workspaceFilesEntry: string
+  readonly workspaceFilesUnavailable: string
+  readonly openWorkspaceFiles: (name: string) => string
   readonly workspaceSettings: string
   readonly pinWorkspace: string
   readonly unpinWorkspace: string
@@ -398,6 +401,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
   const [workspaceActionError, setWorkspaceActionError] = useState<{ workspaceId: string; code: string } | null>(null)
+  const [sidebarFilesError, setSidebarFilesError] = useState<{ workspaceId: string; code: string } | null>(null)
   const [navigationAction, setNavigationAction] = useState<WorkspaceNavigationActionState>({
     status: 'idle',
     action: null,
@@ -619,14 +623,21 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [execute])
   const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
-  const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings') => {
+  const openWorkspaceSurface = (
+    workspaceId: string,
+    surface: 'files' | 'settings',
+    source: 'project' | 'sidebar' = 'project',
+  ) => {
     setWorkspaceActionError(null)
+    setSidebarFilesError(null)
     const operation =
       surface === 'files'
         ? execute('app.openPanel', { panelId: 'files', workspaceId, binding: 'pinned' })
         : execute('app.openSettings', { scope: 'workspace', targetId: workspaceId, workspaceId, binding: 'pinned' })
     void operation.then(closeNarrowSidebar).catch((reason: unknown) => {
-      setWorkspaceActionError({ workspaceId, code: reason instanceof Error ? reason.message : String(reason) })
+      const failure = { workspaceId, code: reason instanceof Error ? reason.message : String(reason) }
+      if (source === 'sidebar') setSidebarFilesError(failure)
+      else setWorkspaceActionError(failure)
     })
   }
   const openWorkspace = () => {
@@ -635,6 +646,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const navigationBusy = navigationAction.status === 'submitting'
   const navigationBlocked = navigationBusy || navigationAction.status === 'unknown'
   const connected = props.connection === 'connected'
+  const workspaceFilesName = navigation.workspaceId ? displayNameFor(navigation.workspaceId) : null
+  const workspaceFilesPanel = presentation.toolInstanceId ? surfaces.panels[presentation.toolInstanceId] : undefined
+  const workspaceFilesSelected =
+    workspaceFilesPanel?.panelId === 'files' &&
+    workspaceFilesPanel.workspaceId === navigation.workspaceId &&
+    workspaceFilesPanel.sessionId === null
   const actionTargetName = navigationAction.action
     ? navigationAction.action.kind === 'open-workspace'
       ? navigationAction.action.path
@@ -953,6 +970,26 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 selected={presentation.modalInstanceId === 'commands'}
                 onClick={() => openPanel('commands')}
               />
+              <WorkspaceSidebarAction
+                icon="folder-open"
+                label={props.labels.workspaceFilesEntry}
+                detail={workspaceFilesName ? undefined : props.labels.workspaceFilesUnavailable}
+                aria-label={
+                  workspaceFilesName
+                    ? props.labels.openWorkspaceFiles(workspaceFilesName)
+                    : props.labels.workspaceFilesUnavailable
+                }
+                selected={workspaceFilesSelected}
+                disabled={!navigation.workspaceId}
+                onClick={() => {
+                  if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'files', 'sidebar')
+                }}
+              />
+              {sidebarFilesError?.workspaceId === navigation.workspaceId && (
+                <LumenText as="p" role="alert" className="hbar-app-react-workspace-action-error">
+                  {props.labels.error(sidebarFilesError.code)}
+                </LumenText>
+              )}
             </LumenFrame>
           }
           treeAction={
