@@ -529,3 +529,16 @@ Settings Form 4 于 2026-09-28 的证据位于
 溢出与 page error（0）；类型检查、局部 lint、8 项专项测试（61 条断言）与生产构建通过，
 构建仍有既有大 chunk 警告。等价菜单/角色/视口组合标为 `inferred-not-replayed`；
 真实远端角色写入、邀请或移除和 Settings Form 5–6 的来源验收不在此结论内。
+
+Settings Form 5 于 2026-09-28 的最终证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-5-integrated-r4/`：8 组静态来源/本地对、
+2 个安全的实时交互样本（操作菜单展开、Slack 开关），缺失 0；AX/控件硬门槛零失败，
+账本 `passed` 且人工复核已签署。宿主提供三把脱敏密钥、Reveal/Hide 的安全占位、
+Rotate/Revoke 的请求回调及 Slack/GitHub/Linear 受控开关。**来源明文密钥与后缀不读取、
+不记录，也不宣称逐字 parity**；本地 Reveal 只显示明确的安全占位，Copy 不在界面解密，
+Rotate/Revoke 不伪造完成或远端变更。桌面/平板审计说明在首屏内，320px 以文档正常滚动
+可达且无横向溢出；人工复核记录了 Lumen 按钮/字重/图标短横线的材质残差。
+整类浏览器脚本验证安全的 Reveal/Hide、脱敏 Copy、菜单与集成开关，覆盖六变体
+320px 溢出及 page error（0）；类型检查、局部 lint、5 项专项测试（32 条断言）和构建通过，
+构建仍有既有大 chunk 警告。其他相同开关手势及主题/视口乘积标为
+`inferred-not-replayed`；真实密钥值、远端写入和 Settings Form 6 的来源验收不在此结论内。
