@@ -540,6 +540,11 @@ function SessionWorkspaceContent({
           const presented = runtime.state.presentation.getSnapshot()
           if (presented.page.kind === 'session' && presented.toolInstanceId === opened.instanceId)
             await clearLocalSlash(target)
+        } else if (slash === 'help') {
+          const opened = await runtime.commands.execute('app.openPanel', { panelId: 'commands' })
+          const presented = runtime.state.presentation.getSnapshot()
+          if (opened.panelId === 'commands' && presented.modalInstanceId === opened.instanceId)
+            await clearLocalSlash(target)
         } else {
           await execute('app.openSettings', {
             scope: 'session',

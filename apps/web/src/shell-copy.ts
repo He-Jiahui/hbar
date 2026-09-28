@@ -1356,6 +1356,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           label: '/cost',
           description: choose('查看本会话用量和成本', 'Show this session’s usage and costs'),
         },
+        { id: 'help', label: '/help', description: choose('浏览可用命令', 'Browse available commands') },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
       hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),

@@ -8,10 +8,11 @@ import {
 } from '../packages/app-react/src/composer-slash'
 
 test('only entire supported local command is intercepted, preserving ordinary Run text', () => {
-  const available = ['model', 'settings', 'goal', 'cost'] as const
+  const available = ['model', 'settings', 'goal', 'cost', 'help'] as const
   expect(localSlashCommand('/model', available)).toBe('model')
   expect(localSlashCommand(' \n/settings ', available)).toBe('settings')
   expect(localSlashCommand('/cost', available)).toBe('cost')
+  expect(localSlashCommand('/help', available)).toBe('help')
   expect(localSlashCommand('/goal Review the navigation', available)).toBe('goal')
   expect(localSlashCommand('/goal clear', available)).toBe('goal')
   expect(localSlashCommand('/goal', available)).toBe('goal')
@@ -23,6 +24,7 @@ test('only entire supported local command is intercepted, preserving ordinary Ru
     '/model then review',
     '/settings more',
     '/cost now',
+    '/help me',
   ])
     expect(localSlashCommand(text, available)).toBeNull()
   expect(localSlashCommand('/model', [])).toBeNull()
@@ -58,10 +60,11 @@ test('local entry is unavailable while draft, intent, model or approval is pendi
 })
 
 test('slash suggestions are bounded to real local destinations and only token positions', () => {
-  const available = ['model', 'settings', 'goal', 'cost', 'model'] as const
-  expect(slashMatches('', available)).toEqual(['model', 'settings', 'goal', 'cost'])
+  const available = ['model', 'settings', 'goal', 'cost', 'help', 'model'] as const
+  expect(slashMatches('', available)).toEqual(['model', 'settings', 'goal', 'cost', 'help'])
   expect(slashMatches('s', available)).toEqual(['settings'])
   expect(slashMatches('c', available)).toEqual(['cost'])
+  expect(slashMatches('h', available)).toEqual(['help'])
   expect(slashMatches('unknown', available)).toEqual([])
   expect(slashMatches('', [])).toEqual([])
   expect(slashTokenAt('Review /mo', 10)).toEqual({ from: 7, to: 10, term: 'mo' })
