@@ -41,6 +41,9 @@ test('catalog search covers hidden pages, provider names and empty results witho
   expect(filterComposerModels(models, 'model-60', 60).groups[0]?.[1].models).toEqual([models[60]!])
   expect(filterComposerModels(models, '长供应商', 60).remaining).toBe(1)
   expect(filterComposerModels(models, 'missing', 60).groups).toEqual([])
+  const described = { ...models[60]!, description: '适合复杂规划 — Strategic planning and review' }
+  const results = filterComposerModels([...models.slice(0, 60), described], 'strategic planning', 60)
+  expect(results.groups.flatMap(([, group]) => group.models)).toEqual([described])
 })
 
 test('thinking fill follows the exact number of Host-provided discrete stops', () => {

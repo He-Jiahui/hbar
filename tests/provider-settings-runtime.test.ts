@@ -707,6 +707,23 @@ test('provider runtime applies paged presets and edits multi-model visibility an
       field: 'visible',
       value: false,
     })
+    await runtime.view.commands.execute('providerEditor.setModelField', {
+      editorId: editor.editorId,
+      modelId: 'gpt-5.4-mini',
+      field: 'description',
+      value: 'x'.repeat(161),
+    })
+    expect(
+      runtime.view.state.providers
+        .getSnapshot()
+        .editor?.draftIssues.some((issue) => issue.path === 'models.1.description'),
+    ).toBe(true)
+    await runtime.view.commands.execute('providerEditor.setModelField', {
+      editorId: editor.editorId,
+      modelId: 'gpt-5.4-mini',
+      field: 'description',
+      value: 'Quick multilingual edits and review',
+    })
     await runtime.view.commands.execute('providerEditor.setModelThinkingLevels', {
       editorId: editor.editorId,
       modelId: 'gpt-5.4-mini',
@@ -719,6 +736,9 @@ test('provider runtime applies paged presets and edits multi-model visibility an
     const structured = runtime.view.state.providers.getSnapshot().editor!
     expect(structured.draft.models).toHaveLength(2)
     expect(structured.draftDirty).toContain('models')
+    expect(structured.draft.models.find((model) => model.id === 'gpt-5.4-mini')?.description).toBe(
+      'Quick multilingual edits and review',
+    )
     expect(structured.draftIssues).toEqual([])
     await runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
     expect(configuration.profiles.get('openai')?.provider).toMatchObject({
@@ -729,6 +749,7 @@ test('provider runtime applies paged presets and edits multi-model visibility an
         {
           id: 'gpt-5.4-mini',
           visible: false,
+          description: 'Quick multilingual edits and review',
           thinkingLevels: ['off', 'high'],
           defaultThinkingLevel: 'high',
         },

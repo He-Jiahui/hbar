@@ -20,6 +20,7 @@ export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[n
     providerName: model.providerName,
     modelId: model.modelId,
     modelName: model.modelName,
+    ...(model.description ? { description: model.description } : {}),
     contextWindow: model.contextWindow,
     maxOutput: model.maxOutput,
     imageInput: model.imageInput,

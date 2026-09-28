@@ -8,6 +8,7 @@ export const modelDescriptorSchema = z.strictObject({
   providerName: z.string().min(1).max(100),
   modelId: idSchema,
   modelName: z.string().min(1).max(160),
+  description: z.string().max(160).optional(),
   contextWindow: z.number().int().positive(),
   maxOutput: z.number().int().positive(),
   imageInput: z.boolean(),

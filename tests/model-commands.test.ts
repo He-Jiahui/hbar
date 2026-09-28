@@ -27,7 +27,12 @@ async function fixture() {
     baseUrl: 'http://127.0.0.1',
     model: 'deep',
     models: [
-      { id: 'fast', thinkingLevels: ['off', 'low'], defaultThinkingLevel: 'low' },
+      {
+        id: 'fast',
+        description: 'Quick revisions and short questions',
+        thinkingLevels: ['off', 'low'],
+        defaultThinkingLevel: 'low',
+      },
       { id: 'deep', thinkingLevels: ['off', 'medium', 'high'], defaultThinkingLevel: 'high' },
     ],
   })
@@ -61,6 +66,7 @@ test('model commands use layered settings with capability validation and atomic 
   const models = await commands.execute('model.list', {})
   expect(models.find((model) => model.id === 'multi/fast')).toMatchObject({
     providerName: 'Multi',
+    description: 'Quick revisions and short questions',
     thinkingLevels: ['off', 'low'],
     defaultThinkingLevel: 'low',
   })
@@ -68,6 +74,7 @@ test('model commands use layered settings with capability validation and atomic 
     thinkingLevels: ['off', 'medium', 'high'],
     defaultThinkingLevel: 'high',
   })
+  expect(models.find((model) => model.id === 'multi/deep')?.description).toBeUndefined()
 
   const unset = await commands.execute('session.getModel', { sessionId: session.id })
   expect(unset).toMatchObject({ status: 'unset', modelId: null, model: null, thinkingLevel: null })

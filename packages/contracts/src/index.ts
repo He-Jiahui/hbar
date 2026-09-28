@@ -553,6 +553,7 @@ export interface SessionSnapshot {
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),
   name: z.string().min(1).max(160).optional(),
+  description: z.string().trim().max(160).optional(),
   visible: z.boolean().optional(),
   contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
   maxOutput: z.number().int().min(64).max(10_000_000).optional(),
@@ -570,6 +571,7 @@ const providerModelInputSchema = z.object({
 export interface ProviderModelConfig {
   id: string
   name: string
+  description?: string
   visible: boolean
   contextWindow: number
   maxOutput: number
@@ -675,6 +677,7 @@ function normalizeProviderModel(
   return {
     id: value.id,
     name: value.name ?? value.id,
+    ...(value.description ? { description: value.description } : {}),
     visible: value.visible ?? true,
     contextWindow: value.contextWindow ?? fallback.contextWindow,
     maxOutput: value.maxOutput ?? fallback.maxOutput,
@@ -809,6 +812,7 @@ export interface ModelInfo extends ProviderConfig {
   providerVisible: boolean
   modelId: string
   modelName: string
+  description?: string
   modelVisible: boolean
 }
 export interface Device {

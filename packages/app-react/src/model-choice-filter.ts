@@ -14,7 +14,9 @@ export function filterCatalogModels(
   const needle = query.trim().toLocaleLowerCase()
   const unique = new Map(models.map((model) => [model.id, model]))
   const matches = [...unique.values()].filter((model) =>
-    `${model.providerName} ${model.modelName} ${model.modelId}`.toLocaleLowerCase().includes(needle),
+    `${model.providerName} ${model.modelName} ${model.modelId} ${model.description ?? ''}`
+      .toLocaleLowerCase()
+      .includes(needle),
   )
   // Keep Host order stable for on-page choices; bring in only a selected off-page item.
   const selectedIndex = selectedModelId ? matches.findIndex((model) => model.id === selectedModelId) : -1

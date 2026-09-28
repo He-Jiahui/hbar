@@ -633,6 +633,7 @@ export interface ProviderEditorState {
 export interface ProviderEditorDraftModel {
   readonly id: string
   readonly name: string
+  readonly description?: string
   readonly visible: boolean
   readonly contextWindow: number
   readonly maxOutput: number

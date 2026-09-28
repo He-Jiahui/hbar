@@ -57,6 +57,7 @@ const providerFields = ['id', 'name', 'visible', 'protocol', 'baseUrl'] as const
 const modelFields = [
   'id',
   'name',
+  'description',
   'visible',
   'contextWindow',
   'maxOutput',
@@ -148,6 +149,7 @@ function draftModel(model: ProviderConfig['models'][number]): ProviderEditorDraf
   return {
     id: model.id,
     name: model.name,
+    description: model.description ?? '',
     visible: model.visible,
     contextWindow: model.contextWindow,
     maxOutput: model.maxOutput,
@@ -188,6 +190,7 @@ function defaultModel(id: string): ProviderEditorDraftModel {
   return {
     id,
     name: id,
+    description: '',
     visible: true,
     contextWindow: 128_000,
     maxOutput: 8_192,
@@ -204,6 +207,7 @@ function draftFromPreset(model: ProviderPresetModel): ProviderEditorDraftModel {
   return {
     id: model.id,
     name: model.name,
+    description: '',
     visible: true,
     contextWindow: model.contextWindow,
     maxOutput: model.maxOutput,
@@ -227,6 +231,7 @@ function toProviderInput(draft: ProviderEditorDraft): ProviderInput {
     models: draft.models.map((model) => ({
       id: model.id,
       name: model.name,
+      description: model.description,
       visible: model.visible,
       contextWindow: model.contextWindow,
       maxOutput: model.maxOutput,
@@ -896,7 +901,7 @@ export function createProviderSettings(
       if (!existing) throw new CommandError('MODEL_NOT_FOUND', 'Provider draft model was not found')
       let nextId = modelId
       let replacement: ProviderEditorDraftModel
-      if (field === 'id' || field === 'name' || field === 'defaultThinkingLevel') {
+      if (field === 'id' || field === 'name' || field === 'description' || field === 'defaultThinkingLevel') {
         if (typeof value !== 'string') throw new CommandError('INVALID_INPUT', 'Model field requires text')
         if (field === 'id') {
           if (!value) throw new CommandError('INVALID_INPUT', 'Model id is required')

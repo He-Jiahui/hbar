@@ -22,6 +22,7 @@ type ThinkingLevel = ProviderEditorState['draft']['models'][number]['thinkingLev
 type ModelField =
   | 'id'
   | 'name'
+  | 'description'
   | 'visible'
   | 'contextWindow'
   | 'maxOutput'
@@ -143,6 +144,7 @@ export interface HbarProviderDialogLabels {
     readonly remove: string
     readonly id: string
     readonly name: string
+    readonly description: string
     readonly visible: string
     readonly visibleDescription: string
     readonly contextWindow: string
@@ -737,6 +739,18 @@ function ModelEditor({
           />
         </LumenFormField>
       </LumenFrame>
+      <LumenFormField
+        controlId="provider-model-description"
+        label={labels.models.description}
+        {...draftIssueProps(editor, path('description'), labels)}
+      >
+        <LumenInput
+          id="provider-model-description"
+          value={model.description ?? ''}
+          disabled={disabled}
+          onChange={(event) => set('description', event.currentTarget.value)}
+        />
+      </LumenFormField>
       <AdvancedSection
         label={labels.advancedModel}
         description={labels.advancedDescription}

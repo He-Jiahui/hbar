@@ -27,7 +27,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           baseUrl: 'http://127.0.0.1',
           model: 'alternate',
           models: [
-            { id: 'alternate', name: longModelName },
+            { id: 'alternate', name: longModelName, description: 'Fast focused edits and review' },
             ...Array.from({ length: 64 }, (_, index) => ({
               id: `fixture-${index}`,
               name: `Catalog fixture ${index}`,
@@ -110,6 +110,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await searchSurface.evaluate((element) => parseFloat(getComputedStyle(element).outlineWidth)),
       ).toBeGreaterThanOrEqual(1)
       await expect(popup.getByRole('option')).toHaveCount(60)
+      await expect(popup.getByRole('option').filter({ hasText: longModelName })).toContainText(
+        'Fast focused edits and review',
+      )
+      await search.fill('focused edits')
+      await expect(popup.getByRole('option')).toHaveCount(1)
+      await expect(popup.getByRole('option').first()).toContainText(longModelName)
+      await search.fill('')
       const firstCatalogOption = await popup
         .getByRole('option')
         .first()

@@ -30,6 +30,7 @@ const providerFieldSchema = z.enum(['id', 'name', 'visible', 'protocol', 'baseUr
 const modelFieldSchema = z.enum([
   'id',
   'name',
+  'description',
   'visible',
   'contextWindow',
   'maxOutput',
@@ -107,7 +108,7 @@ export const providerEditorCommands = {
       editorId: editorIdSchema,
       modelId: z.string().min(1).max(160),
       field: modelFieldSchema,
-      value: z.union([z.string().max(160), z.number().finite(), z.boolean()]),
+      value: z.union([z.string().max(512), z.number().finite(), z.boolean()]),
     }),
     summarySchema,
   ),

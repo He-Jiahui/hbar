@@ -186,9 +186,14 @@
   font-size: 0.8125rem;
 }
 
-.hbar-composer-model-description > :last-child {
+.hbar-composer-model-purpose,
+.hbar-composer-model-capability {
   color: var(--lumen-muted);
   font-size: 0.6875rem;
+}
+
+.hbar-composer-model-purpose + .hbar-composer-model-capability {
+  font-size: 0.625rem;
 }
 
 .hbar-composer-picker-feedback:empty {

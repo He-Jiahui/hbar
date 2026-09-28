@@ -798,6 +798,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       remove: choose('移除模型', 'Remove model'),
       id: choose('模型 ID', 'Model ID'),
       name: choose('显示名称', 'Display name'),
+      description: choose('用途说明（可选）', 'What this model is for (optional)'),
       visible: choose('在模型选择中显示', 'Show in model selection'),
       visibleDescription: choose(
         '隐藏后已有会话仍可继续引用此模型。',

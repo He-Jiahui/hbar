@@ -735,7 +735,14 @@ export function HbarComposerModelPicker({
                   >
                     <LumenFrame className="hbar-composer-model-description">
                       <LumenText as="span">{option.modelName}</LumenText>
-                      <LumenText as="span">{labels.capability(option)}</LumenText>
+                      {option.description && (
+                        <LumenText as="span" className="hbar-composer-model-purpose">
+                          {option.description}
+                        </LumenText>
+                      )}
+                      <LumenText as="span" className="hbar-composer-model-capability">
+                        {labels.capability(option)}
+                      </LumenText>
                     </LumenFrame>
                     {option.id === model?.modelId && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>

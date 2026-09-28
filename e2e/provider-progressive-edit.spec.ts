@@ -124,6 +124,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await dialog.getByRole('button', { name: labels.models.select('second-model'), exact: true }).click()
       await advanced.click()
       await expect(contextField).toHaveValue('123456')
+      const purpose = 'For short implementation and review tasks'
+      await dialog.getByRole('textbox', { name: labels.models.description, exact: true }).fill(purpose)
       await contextField.fill('1')
       await dialog.getByRole('button', { name: labels.models.select(firstModelName), exact: true }).click()
       await dialog.getByRole('button', { name: labels.checkConfiguration, exact: true }).click()
@@ -150,6 +152,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(saved?.provider.models?.find((model) => model.id === 'second-model')).toMatchObject({
         contextWindow: 200000,
         inputPrice: 1.25,
+        description: purpose,
       })
       expect(saved?.hasKey).toBe(true)
       expect(JSON.stringify(saved)).not.toContain('test-only-progressive-key')
@@ -157,6 +160,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const edit = page.getByRole('button', { name: copy.providers.list.edit(name), exact: true })
       await edit.click()
       await expect(dialog.getByLabel(labels.provider.apiKey, { exact: true })).toHaveValue('')
+      await dialog.getByRole('button', { name: labels.models.select('second-model'), exact: true }).click()
+      await expect(dialog.getByRole('textbox', { name: labels.models.description, exact: true })).toHaveValue(purpose)
       await expect(advanced).toHaveAttribute('aria-expanded', 'false')
       await dialog.locator('#provider-name').fill('This name will be discarded')
       await dialog.getByLabel(labels.provider.apiKey, { exact: true }).fill('cancelled-test-key')
