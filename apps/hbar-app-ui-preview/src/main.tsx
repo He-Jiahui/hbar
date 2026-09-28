@@ -16,6 +16,7 @@ import { WizardPreviewHost } from './WizardPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
 import { SettingsForm2PreviewHost } from './SettingsForm2PreviewHost'
 import { SettingsForm3PreviewHost } from './SettingsForm3PreviewHost'
+import { SettingsForm4PreviewHost } from './SettingsForm4PreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
@@ -126,6 +127,7 @@ import {
 import { createSettingsForm1ReferencePreviewFixture } from './settingsForm1ReferenceFixtures'
 import { createSettingsForm2PreviewFixture } from './settingsForm2PreviewFixtures'
 import { createSettingsForm3PreviewFixture } from './settingsForm3PreviewFixtures'
+import { createSettingsForm4PreviewFixture } from './settingsForm4PreviewFixtures'
 import {
   createHbarAppUiAuthenticationLocalizedFixtures,
   createHbarAppUiAuthenticationOverflowFixtures,
@@ -353,6 +355,13 @@ function PreviewApp() {
   const settingsForm3ReferenceFixture = useMemo(
     () =>
       createSettingsForm3PreviewFixture(
+        new URLSearchParams(window.location.search).get('settingsFormFixture') === 'localized' ? 'de' : 'en',
+      ),
+    [],
+  )
+  const settingsForm4ReferenceFixture = useMemo(
+    () =>
+      createSettingsForm4PreviewFixture(
         new URLSearchParams(window.location.search).get('settingsFormFixture') === 'localized' ? 'de' : 'en',
       ),
     [],
@@ -669,10 +678,17 @@ function PreviewApp() {
                                                                                               settingsForm3ReferenceFixture
                                                                                             }
                                                                                           >
-                                                                                            <SelectedComponent
+                                                                                            <SettingsForm4PreviewHost
+                                                                                              content={settingsFormContent}
                                                                                               spec={selected.spec}
                                                                                               onAction={handleAction}
-                                                                                            />
+                                                                                              referenceFixture={settingsForm4ReferenceFixture}
+                                                                                            >
+                                                                                              <SelectedComponent
+                                                                                                spec={selected.spec}
+                                                                                                onAction={handleAction}
+                                                                                              />
+                                                                                            </SettingsForm4PreviewHost>
                                                                                           </SettingsForm3PreviewHost>
                                                                                         </CommandPreviewHost>
                                                                                       </UsagePreviewHost>
@@ -944,14 +960,27 @@ function PreviewApp() {
                                                                                                         settingsForm3ReferenceFixture
                                                                                                       }
                                                                                                     >
-                                                                                                      <SelectedComponent
-                                                                                                        spec={
-                                                                                                          selected.spec
+                                                                                                      <SettingsForm4PreviewHost
+                                                                                                        content={
+                                                                                                          settingsFormContent
                                                                                                         }
+                                                                                                        spec={selected.spec}
                                                                                                         onAction={
                                                                                                           handleAction
                                                                                                         }
-                                                                                                      />
+                                                                                                        referenceFixture={
+                                                                                                          settingsForm4ReferenceFixture
+                                                                                                        }
+                                                                                                      >
+                                                                                                        <SelectedComponent
+                                                                                                          spec={
+                                                                                                            selected.spec
+                                                                                                          }
+                                                                                                          onAction={
+                                                                                                            handleAction
+                                                                                                          }
+                                                                                                        />
+                                                                                                      </SettingsForm4PreviewHost>
                                                                                                     </SettingsForm3PreviewHost>
                                                                                                   </CommandPreviewHost>
                                                                                                 </UsagePreviewHost>

@@ -1750,12 +1750,17 @@ export function interactionCases(
               ? 'b'.repeat(161)
               : undefined
           : undefined
+      const settingsForm4FillValue =
+        variantId === 'hbar-app-ui-settings-form-4' && capability === 'fill' && control.index === 0
+          ? 'riley-preview@example.invalid'
+          : undefined
       cases.push({
         id: `${prefix}:${capability}`,
         action: capability,
         control,
         scenario,
         ...(settingsForm2FillValue === undefined ? {} : { fillValue: settingsForm2FillValue }),
+        ...(settingsForm4FillValue === undefined ? {} : { fillValue: settingsForm4FillValue }),
       })
       if (capability === 'expand' || capability === 'menu')
         cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })

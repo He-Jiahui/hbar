@@ -561,6 +561,56 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-settings-form-4')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'settings-form.tsx',
+        'settings-form-4-reference.tsx',
+        'settings-form-4-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '4:select',
+          change: 'Change Devan Rao through a native member-role select',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '5:expand',
+          change: 'Open Devan Rao’s trigger-anchored copy/remove menu without invoking Remove',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:fill',
+          change: 'Enter a syntactically valid local preview invite address',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other member roles and repeated menu triggers',
+          basis:
+            'Five non-owner rows use the same typed ID-based role/menu handlers. Store tests cover role guards, owner copy-only actions, clipboard feedback, and callback-only Remove; source Remove is intentionally not clicked.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Invite submission outcome',
+          basis:
+            'The UI adds only a host-owned local preview invitation and callback; it makes no claim about remote delivery. Focused host/store checks cover that local state transition.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: '320px content scrolling and other viewport/theme combinations',
+          basis:
+            'Eight static pairs cover the four source viewports and both themes. The source content region owns vertical scrolling; the preview keeps all rows and the seat summary reachable in normal flow.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-3')
     return {
       revision: 1,

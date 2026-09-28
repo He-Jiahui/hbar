@@ -89,6 +89,10 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Settings Form 4: the observed member action menu overlays its trigger row.
+  // Only the anchored menu container floats; member content and menu choices flow.
+  if (/packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-settings-form-4-menu') return true
   // Comments 6: numbered review pins overlay their owning diagram canvas.
   // Only these data-positioned markers float; artwork and comment text use flow.
   if (/packages\/lumen-app-ui\/src\/comments-canvas-reference\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -497,6 +501,18 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const settingsForm4Menu = `.lumen-settings-form-4-menu {
+position: absolute;
+inset-block-start: calc(100% + 0.25rem);
+inset-inline-end: 0;
+}`
+  const settingsForm4MenuPath = 'hbar-ui/packages/lumen-app-ui/src/settings-form-4-reference.css'
+  if (
+    validateCss(settingsForm4MenuPath, settingsForm4Menu).length ||
+    validateCss('hbar-ui/packages/lumen-app-ui/src/other.css', settingsForm4Menu).length === 0 ||
+    validateCss(settingsForm4MenuPath, settingsForm4Menu.replace('lumen-settings-form-4-menu {', 'lumen-settings-form-4-menu > button {')).length === 0
+  )
+    throw new Error('Settings Form 4 menu overlay exception must be exact, path-scoped and exclude its options')
   const canvasPin = '.lumen-comments-canvas-pin { position: absolute; inset-inline-start: var(--lumen-comment-pin-x); inset-block-start: var(--lumen-comment-pin-y); transform: translate(-50%, -50%); }'
   if (validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin).length ||
       validateCss('other.css', canvasPin).length === 0 ||
