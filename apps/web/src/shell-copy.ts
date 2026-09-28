@@ -1098,6 +1098,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '工具审批会保留在本会话，不更改服务端默认值。',
         'Tool approval persists for this session; the Host default stays unchanged.',
       ),
+      runActiveHint: choose('运行中无法切换执行选项', 'Execution options cannot change during a run'),
       inheritedSnapshotHint: (mode) =>
         mode
           ? choose(

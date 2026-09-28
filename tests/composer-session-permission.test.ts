@@ -28,6 +28,7 @@ test('session approval choice is Host-confirmed, persists across sends, isolates
   )
   let loseNextReply = false
   let hideReceipt = false
+  let runActive = false
   const settings: CommandExecutor = {
     async execute(id, raw, options) {
       if (id === 'settings.get') return service.get((raw as { scope: { kind: 'session'; targetId: string } }).scope)
@@ -95,6 +96,7 @@ test('session approval choice is Host-confirmed, persists across sends, isolates
     configuration,
     navigation: navigation.reader,
     isSubmissionLocked: () => false,
+    isRunActive: () => runActive,
     onSubscriberError: () => {},
   })
   const commands = createCommandClient(composerPermissionCommands, registry)
@@ -109,6 +111,36 @@ test('session approval choice is Host-confirmed, persists across sends, isolates
   try {
     let entry = await ready(first.id)
     expect(entry.choice).toBe('inherit')
+    runActive = true
+    await expect(
+      commands.execute('composerPermission.setChoice', {
+        sessionId: first.id,
+        choice: 'allow',
+        expectedRevision: entry.revision,
+        confirmAllow: true,
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+    expect(permission.reader.getSnapshot().entries[first.id]).toEqual(entry)
+    expect(await kernel.sessionPermissionMode(first.id)).toBe('ask')
+    runActive = false
+    const stopRace = permission.reader.subscribe(() => {
+      if (permission.reader.getSnapshot().entries[first.id]?.status === 'preparing') runActive = true
+    })
+    try {
+      await expect(
+        commands.execute('composerPermission.setChoice', {
+          sessionId: first.id,
+          choice: 'allow',
+          expectedRevision: entry.revision,
+          confirmAllow: true,
+        }),
+      ).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+    } finally {
+      stopRace()
+    }
+    expect(permission.reader.getSnapshot().entries[first.id]).toEqual(entry)
+    expect(await kernel.sessionPermissionMode(first.id)).toBe('ask')
+    runActive = false
     await commands.execute('composerPermission.setChoice', {
       sessionId: first.id,
       choice: 'allow',

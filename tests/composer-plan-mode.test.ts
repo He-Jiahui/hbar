@@ -28,6 +28,7 @@ function fixture() {
   let fail: 'before' | 'after' | 'known' | null = null
   let readFailure: boolean | string = false
   let locked = false
+  let runActive = false
   const listeners = new Set<(sessionId: string) => void>()
   const connectionListeners = new Set<(connected: boolean) => void>()
   const configuration: CommandExecutor = {
@@ -62,6 +63,7 @@ function fixture() {
     configuration,
     navigation: navigation.reader,
     isSubmissionLocked: () => locked,
+    isRunActive: () => runActive,
     onSubscriberError: () => {},
     events: {
       subscribe(listener) {
@@ -101,6 +103,9 @@ function fixture() {
     lock: (value: boolean) => {
       locked = value
     },
+    runActive: (value: boolean) => {
+      runActive = value
+    },
     notify: (sessionId: string, value: 'default' | 'plan') => {
       values.set(sessionId, value)
       for (const listener of listeners) listener(sessionId)
@@ -133,6 +138,31 @@ test('durable Plan captures across consecutive sends and only an explicit exit c
   await f.set('default')
   expect(f.mode.capture('a')).toBe('default')
   expect(f.calls.filter((call) => call.name === 'mode.set')).toHaveLength(2)
+  f.dispose()
+})
+
+test('an active Run blocks mode changes, including a Run starting after mode preparation begins', async () => {
+  const f = fixture()
+  await f.commands.execute('composerPlanMode.refresh', { sessionId: 'a' }).catch(() => undefined)
+  expect(f.mode.capture('a')).toBe('default')
+  const before = f.entry()
+  f.runActive(true)
+  await expect(f.set('plan')).rejects.toHaveProperty('code', 'RUN_ACTIVE')
+  expect(f.entry()).toEqual(before)
+  f.runActive(false)
+  const stopRace = f.mode.reader.subscribe(() => {
+    if (f.entry()?.status === 'pending') f.runActive(true)
+  })
+  try {
+    await expect(f.set('plan')).rejects.toHaveProperty('code', 'RUN_ACTIVE')
+  } finally {
+    stopRace()
+  }
+  expect(f.entry()).toEqual(before)
+  expect(f.calls.filter((call) => call.name === 'mode.set')).toHaveLength(0)
+  f.runActive(false)
+  await f.set('plan')
+  expect(f.entry()).toMatchObject({ mode: 'plan', status: 'ready' })
   f.dispose()
 })
 

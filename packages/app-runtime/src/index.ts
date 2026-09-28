@@ -472,6 +472,13 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const isCurrentRunActive = (sessionId: string) => {
+    const current = timeline.reader.getSnapshot()
+    return (
+      current.sessionId === sessionId &&
+      current.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+    )
+  }
   const queuedUserRuns = createQueuedUserRuns(
     local,
     options.run,
@@ -502,6 +509,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.settings ? { settings: options.settings } : {}),
     ...(options.permissionEvents ? { events: options.permissionEvents } : {}),
     navigation: navigation.reader,
+    isRunActive: isCurrentRunActive,
     isSubmissionLocked: (sessionId) => {
       const draft = drafts.reader.getSnapshot()[sessionId]
       const intent = composerIntent.reader.getSnapshot().entries[sessionId]
@@ -519,6 +527,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.planMode ? { configuration: options.planMode } : {}),
     ...(options.planModeEvents ? { events: options.planModeEvents } : {}),
     navigation: navigation.reader,
+    isRunActive: isCurrentRunActive,
     isSubmissionLocked: (sessionId) =>
       composerIntent.isSubmissionPending(sessionId) ||
       composerIntent.reader.getSnapshot().entries[sessionId]?.intent === 'goal' ||
@@ -552,13 +561,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     permissions: composerPermission,
     ...(options.planMode ? { captureMode: composerPlanMode.capture } : {}),
     ...(options.planMode ? { refreshMode: composerPlanMode.captureFresh } : {}),
-    isRunActive: (sessionId) => {
-      const current = timeline.reader.getSnapshot()
-      return (
-        current.sessionId === sessionId &&
-        current.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
-      )
-    },
+    isRunActive: isCurrentRunActive,
     getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
@@ -625,13 +628,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
     executionPreparation,
-    (sessionId) => {
-      const current = timeline.reader.getSnapshot()
-      return (
-        current.sessionId === sessionId &&
-        current.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
-      )
-    },
+    isCurrentRunActive,
   )
   const offModelEvents = options.modelEvents?.subscribe(composerModel.invalidateModels)
   const offModelConnection = options.modelEvents?.onConnection?.(composerModel.setConnected)

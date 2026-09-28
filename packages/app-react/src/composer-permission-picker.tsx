@@ -42,6 +42,7 @@ export interface HbarComposerPermissionLabels {
   readonly unknown: string
   readonly recheck: string
   readonly scopeHint: string
+  readonly runActiveHint: string
   readonly inheritedSnapshotHint: (modeLabel: string | null) => string
   readonly options: Readonly<Record<ComposerPermissionChoice, { readonly label: string; readonly description: string }>>
   readonly confirmTitle: string
@@ -82,6 +83,7 @@ export interface HbarComposerPermissionPickerProps {
   readonly defaultAvailable: boolean
   readonly connected: boolean
   readonly disabled: boolean
+  readonly runActive?: boolean
   readonly canPrepare?: boolean
   readonly labels: HbarComposerPermissionLabels
   readonly onRefresh: () => Promise<void>
@@ -139,7 +141,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const choice = entry?.choice ?? 'inherit'
   const revision = entry?.revision ?? 0
   const locked = entry?.locked ?? false
-  const unavailable = !connected || disabled || locked
+  const unavailable = !connected || disabled || props.runActive || locked
   const preparationUnavailable =
     unavailable || props.canPrepare === false || entry?.status === 'loading' || entry?.status === 'failed'
   const anchor = useRef<HTMLButtonElement>(null)
@@ -208,7 +210,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       : inheritedMode
         ? labels.inheritedTrigger(labels.options[inheritedMode].label)
         : labels.options[choice].label
-  const triggerDisabled = !executionUnresolved && (unavailable || busy)
+  const triggerDisabled = Boolean(props.runActive) || (!executionUnresolved && (unavailable || busy))
   const planBlocked =
     executionStatus !== 'ready' ||
     preparationUnavailable ||
@@ -561,6 +563,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
+        title={props.runActive ? labels.runActiveHint : undefined}
         disabled={triggerDisabled}
         popoverTarget={popupId}
       >

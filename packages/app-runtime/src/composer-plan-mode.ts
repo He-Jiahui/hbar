@@ -85,6 +85,7 @@ export function createComposerPlanMode(
     }
     readonly navigation: StateReader<NavigationState>
     readonly isSubmissionLocked: (sessionId: string) => boolean
+    readonly isRunActive?: (sessionId: string) => boolean
     readonly onSubscriberError: (error: unknown) => void
   },
 ) {
@@ -196,6 +197,8 @@ export function createComposerPlanMode(
     composerPlanModeCommands['composerPlanMode.setMode'],
     async ({ sessionId, mode, expectedRevision }, execution) => {
       const configuration = selected(sessionId)
+      if (options.isRunActive?.(sessionId))
+        throw new CommandError('RUN_ACTIVE', 'Wait for the current Run before changing execution mode')
       const before = current(sessionId)
       if (
         !before ||
@@ -217,6 +220,8 @@ export function createComposerPlanMode(
       try {
         const target = options.preparation ? await options.preparation.capture(sessionId, execution.signal) : undefined
         selected(sessionId)
+        if (options.isRunActive?.(sessionId))
+          throw new CommandError('RUN_ACTIVE', 'The current Run started before the mode change')
         if (target) options.preparation?.assertCanPrepare(target)
         if (execution.signal.aborted) throw new CommandError('CANCELLED', 'Session mode preparation was cancelled')
         if (before.mode === mode) {
@@ -246,13 +251,15 @@ export function createComposerPlanMode(
         if (!disposed && generations.get(sessionId) === generation) {
           const unknown = dispatched && unknownCodes.has(code(error))
           if (!unknown) pending.delete(sessionId)
-          publish({
-            sessionId,
-            mode: null,
-            status: unknown ? 'unknown' : 'failed',
-            error: code(error),
-            revision: before.revision,
-          })
+          if (!dispatched && code(error) === 'RUN_ACTIVE' && !invalidated.has(sessionId)) publish(before)
+          else
+            publish({
+              sessionId,
+              mode: null,
+              status: unknown ? 'unknown' : 'failed',
+              error: code(error),
+              revision: before.revision,
+            })
         }
         throw error
       } finally {

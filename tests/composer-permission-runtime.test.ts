@@ -26,6 +26,7 @@ function fixture({ unavailable = false, readTimeoutMs = 500 }: { unavailable?: b
   let failure: Error | null = null
   let gate: ReturnType<typeof deferred> | null = null
   let locked = false
+  let runActive = false
   const calls: { id: string; input: unknown; signal: AbortSignal | undefined }[] = []
   const configuration: CommandExecutor = {
     async execute(id, input, options) {
@@ -43,6 +44,7 @@ function fixture({ unavailable = false, readTimeoutMs = 500 }: { unavailable?: b
     configuration: unavailable ? undefined : configuration,
     navigation: navigation.reader,
     isSubmissionLocked: () => locked,
+    isRunActive: () => runActive,
     onSubscriberError: () => {},
     readTimeoutMs,
   })
@@ -69,6 +71,9 @@ function fixture({ unavailable = false, readTimeoutMs = 500 }: { unavailable?: b
     },
     locked: (value: boolean) => {
       locked = value
+    },
+    runActive: (value: boolean) => {
+      runActive = value
     },
     block: () => {
       gate = deferred()
@@ -160,6 +165,17 @@ test('allow requires explicit confirmation of the current session and draft revi
   f.select('a')
   const capture = await f.permission.prepareSubmission('a', 1)
   expect(capture.approval).toBe('allow')
+  f.dispose()
+})
+
+test('a current Run blocks legacy execution-choice changes without changing the draft', async () => {
+  const f = fixture()
+  f.runActive(true)
+  await expect(f.choice('deny')).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+  expect(f.current()).toBeUndefined()
+  f.runActive(false)
+  await f.choice('deny')
+  expect(f.current()).toMatchObject({ choice: 'deny', revision: 1 })
   f.dispose()
 })
 

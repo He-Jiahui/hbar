@@ -1357,6 +1357,7 @@ function SessionWorkspaceContent({
                   defaultAvailable={composerPermission.available}
                   connected={connected}
                   disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                  runActive={Boolean(activeRun)}
                   canPrepare={canPrepare}
                   labels={labels.permissionPicker}
                   onRefresh={async () => {

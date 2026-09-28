@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { createConfigurationCommandClient } from '@hbar/client'
+import { createConfigurationCommandClient, createRunCommandClient } from '@hbar/client'
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -151,6 +151,46 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await configuration.execute('permission.get', {})).toEqual(baseline)
 
       await choose('ask')
+      await trigger.click()
+      await expect(popup).toBeVisible()
+      const externalText = `/tool write_file ${JSON.stringify({ path: 'running-lock.txt', text: 'confirmed' })}`
+      await createRunCommandClient(host.client).execute(
+        'run.submit',
+        { sessionId, modelId: 'local-fixture', input: { text: externalText, images: [], approval: 'ask' } },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      await expect
+        .poll(
+          async () =>
+            (await target.client.call('session.snapshot', { sessionId })).runs.find(
+              (run) => run.input.text === externalText,
+            )?.status,
+        )
+        .toBe('waiting_approval')
+      await expect(trigger).toBeDisabled()
+      await expect(popup).toBeHidden()
+      await expect(trigger).toHaveAttribute('title', labels.runActiveHint)
+      await page.screenshot({ path: testInfo.outputPath(`permission-run-active-${locale}-1440.png`) })
+      await page.setViewportSize({ width: 320, height: 900 })
+      await page.screenshot({ path: testInfo.outputPath(`permission-run-active-${locale}-320.png`) })
+      await selectSession(page, 'Session 001', locale)
+      await expect(trigger).toBeEnabled()
+      await selectSession(page, host.ready.sessionTitle, locale)
+      await expect(trigger).toBeDisabled()
+      await page
+        .getByRole('region', { name: copy.session.decisions.approval, exact: true })
+        .getByRole('button', { name: copy.session.decisions.allow, exact: true })
+        .click()
+      await expect
+        .poll(
+          async () =>
+            (await target.client.call('session.snapshot', { sessionId })).runs.find(
+              (run) => run.input.text === externalText,
+            )?.status,
+        )
+        .toBe('completed')
+      await expect(trigger).toBeEnabled()
+      await page.setViewportSize({ width: 1440, height: 960 })
       const askedText = await sendTool('asked.txt')
       const approvalCard = page.getByRole('region', { name: copy.session.decisions.approval, exact: true })
       await expect(approvalCard.getByRole('button', { name: copy.session.decisions.allow, exact: true })).toBeVisible()

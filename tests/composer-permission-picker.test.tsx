@@ -36,6 +36,7 @@ const labels: HbarComposerPermissionLabels = {
   unknown: '提交结果尚未确认，保留这次发送的原审批策略',
   recheck: '核对审批设置',
   scopeHint: '本会话持续生效；不会更改服务端默认值',
+  runActiveHint: '运行中无法切换执行选项',
   inheritedSnapshotHint: (mode) => `发送时读取服务端默认值并保留用于该次运行；最近读取：${mode ?? '尚未读取'}`,
   options: {
     inherit: {
@@ -78,6 +79,19 @@ test('permission picker shows four real options with localized names and session
   expect(html).not.toContain('Plan')
   expect(html).not.toContain('bypassPermissions')
   expect(html).not.toContain(labels.confirmTitle)
+})
+
+test('an active Run locks and labels the execution entry without hiding its confirmed choice', () => {
+  const html = renderToStaticMarkup(
+    <HbarComposerPermissionPicker
+      {...props()}
+      runActive
+      entry={{ sessionId: 'a', choice: 'ask', revision: 2, status: 'idle', locked: false, error: null }}
+    />,
+  )
+  expect(html).toContain(`title="${labels.runActiveHint}"`)
+  expect(html).toContain('data-choice="ask"')
+  expect(html.match(/<button[^>]*disabled=""/g)).toHaveLength(5)
 })
 
 test('an inherited trigger names the confirmed effective default, but never guesses through read failure', () => {

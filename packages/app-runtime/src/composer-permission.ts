@@ -50,6 +50,7 @@ export interface ComposerPermissionOptions {
   readonly navigation: StateReader<NavigationState>
   /** Existing Draft/Composer submission ownership remains authoritative, including detached Plan runs. */
   readonly isSubmissionLocked: (sessionId: string) => boolean
+  readonly isRunActive?: (sessionId: string) => boolean
   readonly onSubscriberError: (error: unknown) => void
   readonly readTimeoutMs?: number
 }
@@ -213,6 +214,8 @@ export function createComposerPermission(local: CommandRegistry, options: Compos
   })
   local.register(composerPermissionCommands['composerPermission.setChoice'], (input) => {
     assertSelected(input.sessionId)
+    if (options.isRunActive?.(input.sessionId))
+      throw new CommandError('RUN_ACTIVE', 'Wait for the current Run before changing execution permissions')
     const current = entry(input.sessionId)
     if (current.locked || options.isSubmissionLocked(input.sessionId))
       throw new CommandError('SUBMISSION_PENDING', 'The original submitted permission choice is frozen')

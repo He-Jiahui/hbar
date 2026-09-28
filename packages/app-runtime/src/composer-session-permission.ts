@@ -234,6 +234,8 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
   })
   local.register(composerPermissionCommands['composerPermission.setChoice'], async (input) => {
     selected(input.sessionId)
+    if (options.isRunActive?.(input.sessionId))
+      throw new CommandError('RUN_ACTIVE', 'Wait for the current Run before changing execution permissions')
     const before = current(input.sessionId)
     const baseline = baselines.get(input.sessionId)
     if (
@@ -278,6 +280,8 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
     let dispatched = false
     try {
       selected(input.sessionId)
+      if (options.isRunActive?.(input.sessionId))
+        throw new CommandError('RUN_ACTIVE', 'The current Run started before the permission change')
       dispatched = true
       const receipt = settingsCommands[operation.commandId].output.parse(
         await settings.execute(operation.commandId, operation.input, { idempotencyKey: operation.key }),
@@ -287,13 +291,15 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
     } catch (reason) {
       const unknown = dispatched && unknownCodes.has(errorCode(reason))
       if (!unknown) operations.delete(input.sessionId)
-      publish({
-        ...before,
-        status: unknown ? 'unknown' : 'failed',
-        locked: unknown,
-        error: errorCode(reason),
-        writeUnknown: unknown,
-      })
+      if (!dispatched && errorCode(reason) === 'RUN_ACTIVE' && !invalidated.has(input.sessionId)) publish(before)
+      else
+        publish({
+          ...before,
+          status: unknown ? 'unknown' : 'failed',
+          locked: unknown,
+          error: errorCode(reason),
+          writeUnknown: unknown,
+        })
       throw reason
     }
   })
