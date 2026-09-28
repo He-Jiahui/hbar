@@ -1754,6 +1754,10 @@ export function interactionCases(
         variantId === 'hbar-app-ui-settings-form-4' && capability === 'fill' && control.index === 0
           ? 'riley-preview@example.invalid'
           : undefined
+      const settingsForm6FillValue =
+        variantId === 'hbar-app-ui-settings-form-6' && capability === 'fill' && control.index === 2
+          ? 'northwind'
+          : undefined
       cases.push({
         id: `${prefix}:${capability}`,
         action: capability,
@@ -1761,6 +1765,7 @@ export function interactionCases(
         scenario,
         ...(settingsForm2FillValue === undefined ? {} : { fillValue: settingsForm2FillValue }),
         ...(settingsForm4FillValue === undefined ? {} : { fillValue: settingsForm4FillValue }),
+        ...(settingsForm6FillValue === undefined ? {} : { fillValue: settingsForm6FillValue }),
       })
       if (capability === 'expand' || capability === 'menu')
         cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })

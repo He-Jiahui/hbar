@@ -561,6 +561,44 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-settings-form-6')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'settings-form.tsx',
+        'settings-form-6-reference.tsx',
+        'settings-form-6-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '2:fill',
+          change: 'Type the observed workspace name into the confirmation field; no destructive action is activated',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Cancel follow-up state',
+          basis:
+            'A live safe probe filled the confirmation field and clicked Cancel. The field disappeared and the button became Review deletion; its meaning and next state are unverified, so the preview leaves Cancel callback-only and does not claim parity.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Transfer, Archive, Delete outcomes',
+          basis:
+            'All three source buttons begin enabled, but none was activated. The preview only emits typed host callbacks and creates no transfer, archive, deletion, or success state.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: '320px reachability and source scroll ownership',
+          basis:
+            'Eight cached source pairs cover both themes and all four viewports. The local preview uses normal document flow and is checked at 320px; the source iframe clips lower content and its scroll owner was not verified.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-5')
     return {
       revision: 1,
