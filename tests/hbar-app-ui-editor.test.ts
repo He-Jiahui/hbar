@@ -50,7 +50,7 @@ describe('hbar-app-ui editor workflows', () => {
     })
 
     test('keeps review copy in one flowing paragraph while actions target supplied suggestion IDs', () => {
-        const markup = renderEditor(4)
+        const markup = renderEditor(4, {...HBAR_APP_UI_EDITOR_FIXTURES, referenceSuggestions: undefined})
 
         expect(markup).toContain('hbar-app-ui-editor-suggestion-copy')
         expect(markup).toContain('>should probably be rolled out slowly<span data-edge="bottom"')
@@ -89,6 +89,7 @@ describe('hbar-app-ui editor workflows', () => {
         const staleAndDuplicateCode: HbarAppUiEditorContent = {
             ...HBAR_APP_UI_EDITOR_FIXTURES,
             referenceCode: undefined,
+            referenceSuggestions: undefined,
             code: {
                 ...code,
                 activeFileId: 'missing-file',
@@ -121,10 +122,12 @@ describe('hbar-app-ui editor workflows', () => {
         }]
         const boundaryContent: HbarAppUiEditorContent = {
             ...HBAR_APP_UI_EDITOR_FIXTURES,
+            referenceSuggestions: undefined,
             suggestions: {...suggestions, suggestions: boundaryItems},
         }
         const overBoundContent: HbarAppUiEditorContent = {
             ...HBAR_APP_UI_EDITOR_FIXTURES,
+            referenceSuggestions: undefined,
             suggestions: {...suggestions, suggestions: overBoundItems},
         }
         expect(renderEditor(4, boundaryContent).match(/hbar-app-ui-editor-suggestion-card/g)).toHaveLength(3)

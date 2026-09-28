@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-editor-4')
+    return {
+      revision: 1,
+      lumenEntries: ['editor.tsx', 'editor-suggestions-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Accept replaces only the matching inline text and removes its card'},
+        {viewport: 'desktop', theme: 'dark', suffix: '7:click', change: 'Dismiss removes the selected card while leaving document copy unchanged'},
+        {viewport: 'tablet', theme: 'light', suffix: '6:click', change: 'Resolve removes a no-replacement card but retains its document phrase'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'Accept all completes all cards and exposes the empty recovery state'},
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Inline suggestion selects its original ID without mutating the document'},
+        {viewport: 'stress', theme: 'dark', suffix: '8:click', change: 'The narrow panel can reach and accept a later card'},
+        {viewport: 'desktop', theme: 'light', suffix: 'suggestions-complete:3:click', change: 'Restore returns all original cards and inline source copy'},
+      ],
+      inferences: [
+        {scope: 'Other card IDs, action order and equivalent inline selections', basis: 'One document-ID-bound Host transition drives card removal, accepted replacements, count, selected card, completion and recovery. Empty/one/duplicate/bound/overflow and stale callbacks have focused tests; representative accept, resolve, dismiss, accept-all and restore are replayed.', verification: 'inferred-not-replayed'},
+        {scope: 'Remaining theme/width/action combinations and scroll positions', basis: 'Eight static pairs expose the source narrow-header overlap. Local keeps the title and review toolbar in separate flex rows without copying a clipping defect; focused production checks cover long localized labels, short heights and list scrolling. Other equivalent combinations are not replayed.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-editor-3')
     return {
       revision: 1,

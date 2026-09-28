@@ -5,6 +5,7 @@ import type {
     HbarAppUiRichEditorReferenceContent,
     HbarAppUiMarkdownReferenceContent,
     HbarAppUiCodeReferenceContent,
+    HbarAppUiSuggestionsReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const formattingLabels: Readonly<Record<HbarAppUiEditorFormattingAction, string>> = {
@@ -76,7 +77,7 @@ const codeReference: HbarAppUiCodeReferenceContent = {
  * Preview and behavior-test data only. The reusable package intentionally has
  * no implicit English records or locale fallback.
  */
-export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
+const BASE_HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
     referenceRichText: richEditorReference,
     referenceMarkdown: markdownReference,
     referenceCode: codeReference,
@@ -256,6 +257,36 @@ export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
     },
 }
 
+const baseReferenceReview = BASE_HBAR_APP_UI_EDITOR_FIXTURES.suggestions
+if (!baseReferenceReview) throw new Error('Expected suggestion fixture')
+const suggestionsReference: HbarAppUiSuggestionsReferenceContent = {
+    labels: {
+        panel: baseReferenceReview.labels.suggestionPanelLabel,
+        acceptAll: baseReferenceReview.labels.acceptAllLabel,
+        accept: baseReferenceReview.labels.acceptLabel,
+        resolve: baseReferenceReview.labels.resolveLabel,
+        dismiss: baseReferenceReview.labels.dismissLabel,
+        openCount: baseReferenceReview.labels.openCountLabel,
+        remainingCount: baseReferenceReview.labels.remainingCountLabel,
+        completeTitle: 'Review complete',
+        completeBody: 'Every suggestion on this draft has been handled.',
+        restore: 'Restore',
+    },
+    document: {...baseReferenceReview.document,
+        paragraphs: baseReferenceReview.document.paragraphs.map(paragraph => ({...paragraph,
+            segments: paragraph.segments.map(segment => segment.kind === 'strong'
+                ? {kind: 'text' as const, value: segment.value} : segment),
+        })),
+    },
+    suggestions: baseReferenceReview.suggestions,
+    selectedSuggestionId: 'rollout', decisions: {},
+    paneStrategy: {kind: 'pane-scroll', expectedMaximum: 3},
+}
+export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
+    ...BASE_HBAR_APP_UI_EDITOR_FIXTURES,
+    referenceSuggestions: suggestionsReference,
+}
+
 function requiredFixture<T>(value: T | undefined): T {
     if (!value) throw new Error('Expected editor overflow fixture')
     return value
@@ -266,25 +297,23 @@ const baseReader = requiredFixture(HBAR_APP_UI_EDITOR_FIXTURES.reader)
 
 /** Exercises the pane-owned scroll path without embedding example rows in the package. */
 export function createHbarAppUiEditorOverflowFixtures(): HbarAppUiEditorContent {
+    const overflowSuggestions = Array.from({length: 24}, (_, index) => {
+        const source = baseSuggestions.suggestions[index % baseSuggestions.suggestions.length]
+        if (!source) throw new Error('Expected suggestion source')
+        return {...source, id: `overflow-suggestion-${index}`, author: `${source.author} ${index}`}
+    })
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
         referenceMarkdown: {...markdownReference, document: {...markdownReference.document, source: `${markdownReference.document.source}\n\n`.repeat(60) + 'Final editable paragraph'}},
         referenceCode: {...codeReference, files: [...codeReference.files, {id: 'long', name: 'long.ts', source: `${codeReference.files[0]!.source}\n`.repeat(70) + 'export const finalLine = true;'}], activeFileId: 'long'},
+        referenceSuggestions: {...suggestionsReference, suggestions: overflowSuggestions, selectedSuggestionId: overflowSuggestions[0]?.id},
         referenceRichText: {...richEditorReference,
             document: {...richEditorReference.document, body: `${richEditorReference.document.body}\n\n`.repeat(60) + 'Last editable paragraph'},
             blocks: [...richEditorReference.blocks, ...Array.from({length: 34}, (_, index) => ({id: `extra-${index}`, label: `Additional block style ${index + 1}`}))],
         },
         suggestions: {
             ...baseSuggestions,
-            suggestions: Array.from({length: 24}, (_, index) => {
-                const source = baseSuggestions.suggestions[index % baseSuggestions.suggestions.length]
-                if (!source) throw new Error('Expected suggestion source')
-                return {
-                    ...source,
-                    id: `overflow-suggestion-${index}`,
-                    author: `${source.author} ${index}`,
-                }
-            }),
+            suggestions: overflowSuggestions,
         },
         reader: {
             ...baseReader,
@@ -320,6 +349,10 @@ export function createHbarAppUiEditorLocalizedFixtures(): HbarAppUiEditorContent
         referenceCode: {...codeReference,
             labels: {...codeReference.labels, openFiles: 'Geoeffnete Dateien', closeFile: (name) => `Datei ${name} schliessen`, unsavedChanges: 'Ungespeicherte Aenderungen', run: 'Ausfuehren', emptyFiles: 'Keine geoeffneten Dateien', codeOverview: 'Codeuebersicht', warning: (count) => `${count} Warnung`, cursor: (line, column) => `Zeile ${line}, Spalte ${column}`},
             files: codeReference.files.map(file => ({...file, name: `arbeitsbereichsweite-streaming-zaehler-${file.name}`})),
+        },
+        referenceSuggestions: {...suggestionsReference,
+            labels: {panel: 'Vorschlaege', acceptAll: 'Alle annehmen', accept: 'Annehmen', resolve: 'Klaeren', dismiss: 'Verwerfen', openCount: (count) => `${count} offen`, remainingCount: (count) => `${count} Vorschlaege verbleiben`, completeTitle: 'Pruefung abgeschlossen', completeBody: 'Alle Vorschlaege fuer diesen Entwurf wurden bearbeitet.', restore: 'Wiederherstellen'},
+            document: {...suggestionsReference.document, title: 'Ausfuehrlicher Entwurf zur Streaming-Zaehler-Migration', summary: 'In Pruefung · drei Mitwirkende'},
         },
         referenceRichText: {...richEditorReference,
             labels: {...richEditorReference.labels,

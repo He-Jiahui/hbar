@@ -366,6 +366,7 @@ export type InteractionCase = Readonly<{
     | 'editorial-empty'
     | 'editor-block-open'
     | 'markdown-preview'
+    | 'suggestions-complete'
     | 'editor-edited'
     | 'editorial-navigation-closed'
     | 'editorial-schedule'
@@ -2309,6 +2310,10 @@ const richEditorScenarios = ['editor-block-open', 'editor-edited'] as const
 async function prepareMarkdownPreview(root: Locator): Promise<void> {
   await root.getByRole('tab', {name: 'Preview', exact: true}).click()
 }
+async function prepareSuggestionsComplete(root: Locator): Promise<void> {
+  await root.getByRole('button', {name: 'Accept all', exact: true}).click()
+  await root.getByRole('button', {name: 'Restore', exact: true}).waitFor()
+}
 async function prepareRichEditorScenario(root: Locator, scenario: (typeof richEditorScenarios)[number]): Promise<void> {
   if (scenario === 'editor-block-open') await root.getByRole('button', {name: 'Paragraph', exact: true}).press('Space')
   else {
@@ -3706,6 +3711,7 @@ async function replayInteraction(
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
   const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview') await prepareMarkdownPreview(root)
+  if (spec.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete') await prepareSuggestionsComplete(root)
   if (spec.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
@@ -3823,6 +3829,8 @@ async function replayInteraction(
     await page.waitForTimeout(400)
   if (spec.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
     await page.waitForTimeout(450)
+  if (spec.id === 'hbar-app-ui-editor-4' && interaction.action === 'click' && interaction.control.name === 'Dismiss')
+    await page.waitForTimeout(250)
   if (spec.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (spec.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
   if (spec.id === 'hbar-app-ui-app-dialog-7') await settleDialogMenuFeedback(root, interaction)
@@ -3907,6 +3915,7 @@ async function replayReferenceInteraction(
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
   const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview') await prepareMarkdownPreview(root)
+  if (reference.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete') await prepareSuggestionsComplete(root)
   if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
@@ -4123,6 +4132,8 @@ async function replayReferenceInteraction(
     await page.waitForTimeout(400)
   if (reference.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
     await page.waitForTimeout(450)
+  if (reference.id === 'hbar-app-ui-editor-4' && interaction.action === 'click' && interaction.control.name === 'Dismiss')
+    await page.waitForTimeout(250)
   if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (reference.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
   if (reference.id === 'hbar-app-ui-app-dialog-7') await settleDialogMenuFeedback(root, interaction)
@@ -4547,6 +4558,10 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-editor-2' && sampleIds?.some((id) => id.startsWith(`${spec.id}:markdown-preview:`))) {
               await prepareMarkdownPreview(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'markdown-preview'))
+            }
+            if (spec.id === 'hbar-app-ui-editor-4' && sampleIds?.some((id) => id.startsWith(`${spec.id}:suggestions-complete:`))) {
+              await prepareSuggestionsComplete(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'suggestions-complete'))
             }
             if (spec.id === 'hbar-app-ui-editor-1') {
               for (const scenario of richEditorScenarios) {

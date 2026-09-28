@@ -7,6 +7,7 @@ type EditorFixture = 'overflow' | 'localized'
 const richOnly = process.argv.includes('--rich-only')
 const markdownOnly = process.argv.includes('--markdown-only')
 const codeOnly = process.argv.includes('--code-only')
+const suggestionsOnly = process.argv.includes('--suggestions-only')
 
 function previewUrl(variant: number, options: { readonly fixture?: EditorFixture } = {}): string {
   const parameters = new URLSearchParams({ variant: `hbar-app-ui-editor-${variant}`, mode: 'isolated' })
@@ -53,6 +54,59 @@ async function run(): Promise<void> {
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
   try {
+    if (suggestionsOnly) {
+      await page.goto(previewUrl(4), {waitUntil: 'networkidle'})
+      const cards = page.locator('.lumen-suggestions-reference-card')
+      assert((await cards.count()) === 3, 'Initial suggestion list did not render')
+      await page.getByRole('button', {name: 'customers on the bigger plans', exact: true}).click()
+      assert(await cards.nth(2).evaluate(element => element.classList.contains('is-selected')), 'Inline selection did not target the original ID')
+      await page.getByRole('button', {name: 'Dismiss', exact: true}).nth(1).click()
+      assert((await cards.count()) === 2, 'Dismiss did not remove only the selected suggestion')
+      assert((await page.getByRole('button', {name: 'a drift of under 0.5%', exact: true}).count()) === 1, 'Dismiss removed document copy')
+      assert(await page.getByRole('button', {name: 'a drift of under 0.5%', exact: true}).evaluate(element => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'), 'Dismiss retained unresolved highlight')
+      await page.getByRole('button', {name: 'Accept', exact: true}).first().click()
+      assert((await cards.count()) === 1, 'Accept did not remove the matching card')
+      assert((await page.getByRole('button', {name: 'rolls out in three stages', exact: true}).count()) === 1, 'Accepted copy did not replace its inline phrase')
+      await page.getByRole('button', {name: 'Accept all', exact: true}).click()
+      assert((await cards.count()) === 0, 'Accept all left actionable cards')
+      assert((await page.getByText('Review complete', {exact: true}).count()) === 1, 'Empty recovery message was missing')
+      await page.getByRole('button', {name: 'Restore', exact: true}).click()
+      assert((await cards.count()) === 3, 'Restore did not recover the source list')
+      assert((await page.getByRole('button', {name: 'should probably be rolled out slowly', exact: true}).count()) === 1, 'Restore lost source document copy')
+      const narrow: Array<{width: number; overlap: boolean; footerReachable: boolean}> = []
+      for (const width of [670, 356, 286]) {
+        await page.setViewportSize({width, height: 360})
+        const state = await page.evaluate(() => {
+          const title = document.querySelector('.lumen-suggestions-reference-document-header')!.getBoundingClientRect()
+          const toolbar = document.querySelector('.lumen-suggestions-reference-panel-header')!.getBoundingClientRect()
+          const list = document.querySelector('.lumen-suggestions-reference-list')!
+          return {overlap: title.bottom > toolbar.top + 1, footerReachable: list.scrollHeight > list.clientHeight,
+            horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 1}
+        })
+        assert(!state.overlap && !state.horizontalOverflow, `Narrow review flow overlapped or overflowed at ${width}`)
+        assert(state.footerReachable, `Narrow review list did not own vertical scrolling at ${width}`)
+        narrow.push({width, overlap: state.overlap, footerReachable: state.footerReachable})
+      }
+      await page.getByRole('button', {name: 'Accept', exact: true}).last().click()
+      const narrowAfterAccept = await page.evaluate(() => {
+        const copy = document.querySelector('.lumen-suggestions-reference-copy')!.getBoundingClientRect()
+        const toolbar = document.querySelector('.lumen-suggestions-reference-panel-header')!.getBoundingClientRect()
+        return {copyVisible: copy.height > 50, flowing: copy.bottom <= toolbar.top + 1}
+      })
+      assert(narrowAfterAccept.copyVisible && narrowAfterAccept.flowing, 'Narrow two-card state did not reveal a flowing document excerpt')
+      await page.goto(previewUrl(4, {fixture: 'overflow'}), {waitUntil: 'networkidle'})
+      const list = page.locator('.lumen-suggestions-reference-list')
+      await list.evaluate(element => {element.scrollTop = element.scrollHeight})
+      const overflow = await list.evaluate(element => ({scrollable: element.scrollHeight > element.clientHeight, moved: element.scrollTop > 0}))
+      assert(overflow.scrollable && overflow.moved, 'Over-bound suggestion list did not reach its last card')
+      assert((await page.locator('.lumen-suggestions-reference-card').count()) === 24, 'Over-bound list lost records')
+      await page.goto(previewUrl(4, {fixture: 'localized'}), {waitUntil: 'networkidle'})
+      assert((await page.getByRole('button', {name: 'Alle annehmen', exact: true}).count()) === 1, 'Localized review action did not render')
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Long localized review labels overflowed')
+      assert(pageErrors.length === 0, `Suggestions preview reported page errors: ${pageErrors.join(' | ')}`)
+      console.log(JSON.stringify({inlineSelection: true, dismiss: true, accept: true, acceptAllRestore: true, narrow, narrowAfterAccept, overflow, localized: true, pageErrors: pageErrors.length}))
+      return
+    }
     if (codeOnly) {
       await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
       const lines = page.locator('.lumen-code-reference-line')

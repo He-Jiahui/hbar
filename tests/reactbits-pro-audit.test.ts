@@ -4,6 +4,14 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('review sampling separates accept, resolve, dismiss, selection, completion and Restore', () => {
+  const id = 'hbar-app-ui-editor-4'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(7)
+  expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([`${id}:8:click`])
+  expect(plan.inferences.every(entry => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('code preview sampling separates selection, active/inactive removal and source Run no-op', () => {
   const id = 'hbar-app-ui-editor-3'
   const plan = auditSamplingPlan(id)!

@@ -907,6 +907,7 @@ export type {
   HbarAppUiMarkdownReferenceContent,
   HbarAppUiCodeReferenceContent,
   HbarAppUiCodeToken,
+  HbarAppUiSuggestionsReferenceContent,
   HbarAppUiMarkdownBlock,
   HbarAppUiMarkdownInline,
   HbarAppUiMarkdownWorkspaceLabels,
@@ -927,6 +928,7 @@ export type {
 export {uniqueHbarAppUiRichEditorBlocks} from './components/Editor'
 export {countHbarAppUiMarkdownWords, parseHbarAppUiReferenceMarkdown} from './components/Editor'
 export {tokenizeHbarAppUiCodeLine, uniqueHbarAppUiCodeFiles} from './components/Editor'
+export {uniqueHbarAppUiReferenceSuggestions} from './components/Editor'
 export type {
   HbarAppUiNavbarActionLabelSet,
   HbarAppUiNavbarActivityContent,

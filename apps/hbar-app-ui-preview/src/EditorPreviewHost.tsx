@@ -4,6 +4,7 @@ import { HbarAppUiEditorProvider, type HbarAppUiEditorContent } from 'hbar-app-u
 import { createRichEditorPreviewStore } from './richEditorPreviewStore'
 import { createMarkdownEditorPreviewStore } from './markdownEditorPreviewStore'
 import { createCodeEditorPreviewStore } from './codeEditorPreviewStore'
+import { createSuggestionsEditorPreviewStore } from './suggestionsEditorPreviewStore'
 
 export function EditorPreviewHost({
   content,
@@ -18,6 +19,9 @@ export function EditorPreviewHost({
   const markdown = useStore(markdownStore)
   const [codeStore] = useState(() => createCodeEditorPreviewStore(content.referenceCode))
   const code = useStore(codeStore)
+  const [suggestionsStore] = useState(() => createSuggestionsEditorPreviewStore(content.referenceSuggestions))
+  const suggestions = useStore(suggestionsStore)
+  useEffect(() => suggestionsStore.getState().reset(content.referenceSuggestions), [suggestionsStore, content.referenceSuggestions])
   useEffect(() => codeStore.getState().reset(content.referenceCode), [codeStore, content.referenceCode])
   useEffect(() => markdownStore.getState().reset(content.referenceMarkdown), [markdownStore, content.referenceMarkdown])
   useEffect(() => store.getState().reset(content.referenceRichText), [store, content.referenceRichText])
@@ -37,6 +41,16 @@ export function EditorPreviewHost({
     <HbarAppUiEditorProvider
       content={{
         ...content,
+        referenceSuggestions: content.referenceSuggestions && {
+          ...content.referenceSuggestions,
+          suggestions: suggestions.suggestions,
+          decisions: suggestions.decisions,
+          selectedSuggestionId: suggestions.selectedSuggestionId,
+          onSelectSuggestion: suggestions.select,
+          onResolve: suggestions.resolve,
+          onAcceptAll: suggestions.acceptAll,
+          onRestore: suggestions.restore,
+        },
         referenceCode: content.referenceCode && {
           ...content.referenceCode,
           files: code.files,
