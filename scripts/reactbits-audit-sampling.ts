@@ -756,6 +756,62 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-1')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-1-reference.tsx',
+        'forms-1-reference.css',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:fill',
+          change: 'Clear Station code and check the 100% to 90% completion transition',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'forms1-method-revert:revert:click',
+          change: 'Remove both selected methods to reach 90%, then Revert to restore them and 100%',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '10:select',
+          change: 'Open Lead crew combobox and expose its host-supplied choices',
+        },
+        {
+          viewport: 'stress',
+          theme: 'light',
+          suffix: '12:toggle',
+          change: 'Toggle the twelve-month embargo switch without submitting the plan',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other survey fields, Data release options, and equivalent combo/switch gestures',
+          basis:
+            'All fields and choices use the same typed host store paths. Focused tests cover field edits, both combobox value changes, switch changes, method capacity and Revert; the previous live source pass confirmed Lead crew and Revert behavior.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Save and station-photo removal outcomes',
+          basis:
+            'No remote save or photo-removal result is asserted. Both controls remain callback-only; the current source iframe is unavailable for further outcome verification.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Other viewport/theme/action combinations and repeated gestures',
+          basis:
+            'Eight static pairs cover all four viewports and both themes. The four interaction samples cover completion, remove/revert, combobox expansion and switch toggling without multiplying equivalent mechanisms across layouts.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-1')
     return {
       revision: 1,

@@ -421,6 +421,7 @@ export type InteractionCase = Readonly<{
     | 'dialog-menu-delete-keyboard'
     | 'toast-success'
     | 'toast-stack'
+    | 'forms1-method-revert'
     | 'preferences-dirty'
     | QueueApprovalScenario
     | PermissionApprovalScenario
@@ -1758,6 +1759,8 @@ export function interactionCases(
         variantId === 'hbar-app-ui-settings-form-6' && capability === 'fill' && control.index === 2
           ? 'northwind'
           : undefined
+      const formsForm1FillValue =
+        variantId === 'hbar-app-ui-forms-1' && capability === 'fill' && control.index === 1 ? '' : undefined
       cases.push({
         id: `${prefix}:${capability}`,
         action: capability,
@@ -1766,12 +1769,32 @@ export function interactionCases(
         ...(settingsForm2FillValue === undefined ? {} : { fillValue: settingsForm2FillValue }),
         ...(settingsForm4FillValue === undefined ? {} : { fillValue: settingsForm4FillValue }),
         ...(settingsForm6FillValue === undefined ? {} : { fillValue: settingsForm6FillValue }),
+        ...(formsForm1FillValue === undefined ? {} : { fillValue: formsForm1FillValue }),
       })
       if (capability === 'expand' || capability === 'menu')
         cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })
     }
   }
   return cases
+}
+
+async function prepareFormsForm1MethodRevert(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Remove Benthic cores', exact: true }).click({ timeout: 10_000 })
+  await root.getByRole('button', { name: 'Remove Water column', exact: true }).click({ timeout: 10_000 })
+  await root.getByText('90%', { exact: true }).waitFor({ state: 'visible', timeout: 5_000 })
+  const revert = root.getByRole('button', { name: 'Revert', exact: true })
+  if (!(await revert.isEnabled())) throw new Error('Revert did not enable after removing both methods')
+}
+
+function formsForm1MethodRevertCase(snapshot: SemanticSnapshot): InteractionCase {
+  const control = visibleControls(snapshot).find((candidate) => candidate.name === 'Revert')
+  if (!control) throw new Error('The dirty survey form did not expose its Revert button')
+  return {
+    id: 'hbar-app-ui-forms-1:forms1-method-revert:revert:click',
+    action: 'click',
+    control,
+    scenario: 'forms1-method-revert',
+  }
 }
 
 /** Preserve the native focus/scroll evidence separately from keyboard selection. */
@@ -3909,6 +3932,8 @@ async function replayInteraction(
   const root = page.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   if (spec.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
+  if (spec.id === 'hbar-app-ui-forms-1' && interaction.scenario === 'forms1-method-revert')
+    await prepareFormsForm1MethodRevert(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
   if (spec.id === 'hbar-app-ui-notifications-2' && toastScenario)
     await prepareNotificationToastScenario(root, toastScenario)
@@ -4255,6 +4280,8 @@ async function replayReferenceInteraction(
   const selector = sourceCanvasSelector
   const root = frame.locator(selector).first()
   await root.waitFor({ state: 'visible', timeout: 30_000 })
+  if (reference.id === 'hbar-app-ui-forms-1' && interaction.scenario === 'forms1-method-revert')
+    await prepareFormsForm1MethodRevert(root)
   if (reference.id === 'hbar-app-ui-editor-3') await waitForReferenceCodeHighlight(root)
   if (reference.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
@@ -5061,6 +5088,13 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
+            if (
+              spec.id === 'hbar-app-ui-forms-1' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:forms1-method-revert:`))
+            ) {
+              await prepareFormsForm1MethodRevert(sourceRoot)
+              discovered.push(formsForm1MethodRevertCase(await snapshotRoot(frame, sourceSelector)))
+            }
             if (
               spec.id === 'hbar-app-ui-editor-2' &&
               sampleIds?.some((id) => id.startsWith(`${spec.id}:markdown-preview:`))
