@@ -75,6 +75,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(bounds).not.toBeNull()
         expect(bounds!.x).toBeGreaterThanOrEqual(0)
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1)
+        if (width === 1440) expect(bounds!.width).toBeLessThanOrEqual(361)
+        else expect(bounds!.width).toBeGreaterThanOrEqual(width - 1)
         await page.screenshot({ path: testInfo.outputPath(`permission-options-${locale}-${width}.png`) })
         if (width !== 390)
           await page.screenshot({ path: `artifacts/desktop-permission-density/after-${locale}-${width}.png` })

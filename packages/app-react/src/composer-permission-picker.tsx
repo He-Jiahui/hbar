@@ -112,7 +112,7 @@ const icons = { ask: ShieldCheck, deny: ShieldX, allow: ShieldAlert, inherit: Ro
 function placePopover(popover: HTMLElement, anchor: HTMLElement) {
   const rect = anchor.getBoundingClientRect()
   const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const width = Math.min(24 * rem, innerWidth - 2 * rem)
+  const width = Math.min(22.5 * rem, Math.max(0, innerWidth - 2 * rem))
   const above = rect.top > innerHeight - rect.bottom
   popover.style.setProperty(
     '--permission-popup-left',
