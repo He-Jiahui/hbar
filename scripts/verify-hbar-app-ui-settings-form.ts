@@ -197,16 +197,46 @@ async function run(): Promise<void> {
     )
 
     await page.goto(previewUrl(5), { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: 'Reveal Production server', exact: true }).click()
+    const productionKey = page
+      .locator('[data-hbar-app-ui-region="api-key-row"]')
+      .filter({ hasText: 'Production server' })
     assert(
-      (await page.getByText('sk_live_1234567890abcdef4a2f6c0b', { exact: true }).count()) === 1,
-      'API key reveal action did not expose the host token',
+      (await productionKey.getByRole('button', { name: 'Copy Production server', exact: true }).count()) === 1,
+      'Production key should expose its host-owned copy request control',
     )
-    await page.getByRole('switch', { name: 'Toggle GitHub', exact: true }).click()
+    await productionKey.getByRole('button', { name: 'Copy Production server', exact: true }).click()
     assert(
-      await page.getByRole('switch', { name: 'Toggle GitHub', exact: true }).isChecked(),
-      'Integration toggle did not change state',
+      await productionKey
+        .locator('[data-hbar-app-ui-region="masked-key-display"]')
+        .evaluate((element) => element.textContent?.includes('••') ?? false),
+      'Copy request must not reveal or replace the safe masked-key presentation',
     )
+    await productionKey.getByRole('button', { name: 'Actions for Production server', exact: true }).click()
+    assert(
+      (await productionKey.getByRole('menuitem', { name: 'Rotate key', exact: true }).count()) === 1 &&
+        (await productionKey.getByRole('menuitem', { name: 'Revoke key', exact: true }).count()) === 1,
+      'Key actions menu should expose rotate and revoke requests without executing either request',
+    )
+    await page.getByRole('button', { name: 'Actions for Production server', exact: true }).click()
+    await productionKey.getByRole('button', { name: 'Reveal Production server', exact: true }).click()
+    assert(
+      (await productionKey.getByRole('button', { name: 'Hide Production server', exact: true }).count()) === 1 &&
+        (await productionKey.getByText('Secret value is withheld in this safe preview.', { exact: true }).count()) ===
+          1,
+      'Reveal should show only the explicit safe-preview placeholder',
+    )
+    await productionKey.getByRole('button', { name: 'Hide Production server', exact: true }).click()
+    assert(
+      (await productionKey.getByRole('button', { name: 'Reveal Production server', exact: true }).count()) === 1 &&
+        (await productionKey
+          .locator('[data-hbar-app-ui-region="masked-key-display"]')
+          .evaluate((element) => /^[a-z_]+[•*]+$/.test(element.textContent?.trim() ?? ''))),
+      'Hide should restore the source-style masked key presentation',
+    )
+    const githubSwitch = page.getByRole('switch', { name: 'GitHub', exact: true })
+    assert(!(await githubSwitch.isChecked()), 'GitHub should begin disconnected in the preview fixture')
+    await githubSwitch.click()
+    assert(await githubSwitch.isChecked(), 'Integration toggle did not change state')
 
     await page.goto(previewUrl(6), { waitUntil: 'networkidle' })
     const deleteAction = page.getByRole('button', { name: 'Delete this workspace', exact: true })
