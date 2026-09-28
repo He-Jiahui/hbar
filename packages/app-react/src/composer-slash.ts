@@ -1,4 +1,4 @@
-export type LocalSlashCommand = 'model' | 'settings' | 'goal'
+export type LocalSlashCommand = 'model' | 'settings' | 'goal' | 'cost'
 const unsupportedGoalArguments = new Set(['status', 'pause', 'resume', 'complete'])
 
 /** Only an entire standalone composer command is a local action. */
@@ -6,6 +6,7 @@ export function localSlashCommand(text: string, available: readonly LocalSlashCo
   const value = text.trim()
   if (value === '/model' && available.includes('model')) return 'model'
   if (value === '/settings' && available.includes('settings')) return 'settings'
+  if (value === '/cost' && available.includes('cost')) return 'cost'
   if (/^\/goal(?:\s|$)/.test(value) && available.includes('goal')) return 'goal'
   return null
 }
@@ -38,7 +39,7 @@ export function localSlashCanSubmit(input: {
 
 export function slashMatches(term: string, available: readonly LocalSlashCommand[]): readonly LocalSlashCommand[] {
   const normalized = term.toLocaleLowerCase()
-  return [...new Set(available)].filter((command) => command.startsWith(normalized)).slice(0, 3)
+  return [...new Set(available)].filter((command) => command.startsWith(normalized)).slice(0, 24)
 }
 
 export function slashTokenAt(text: string, cursor: number): { from: number; to: number; term: string } | null {

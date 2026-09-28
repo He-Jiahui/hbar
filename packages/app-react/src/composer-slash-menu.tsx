@@ -1,4 +1,4 @@
-import { Box, Settings, Target } from 'lucide-react'
+import { Box, CircleDollarSign, Settings, Target } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import './composer-slash-menu.css'
@@ -72,7 +72,18 @@ export function HbarComposerSlashMenu({
               onMouseEnter={() => onHover(index)}
               onClick={() => onSelect(command)}
             >
-              <LumenIcon icon={command === 'model' ? Box : command === 'goal' ? Target : Settings} tier="sm" />
+              <LumenIcon
+                icon={
+                  command === 'model'
+                    ? Box
+                    : command === 'goal'
+                      ? Target
+                      : command === 'cost'
+                        ? CircleDollarSign
+                        : Settings
+                }
+                tier="sm"
+              />
               <LumenText as="span" className="hbar-composer-slash-name">
                 {item.label} {item.argumentHint}
               </LumenText>

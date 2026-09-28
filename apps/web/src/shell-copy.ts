@@ -1351,6 +1351,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           argumentHint: choose('[<目标> | clear]', '[<objective> | clear]'),
           description: choose('设置或清除此会话的目标', 'Set or clear this session’s Goal'),
         },
+        {
+          id: 'cost',
+          label: '/cost',
+          description: choose('查看本会话用量和成本', 'Show this session’s usage and costs'),
+        },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
       hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),

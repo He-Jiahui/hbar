@@ -32,7 +32,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
-      await expect(menu.getByRole('option')).toHaveCount(3)
+      await expect(menu.getByRole('option')).toHaveCount(4)
       await prompt.dispatchEvent('compositionstart', { data: '中' })
       await prompt.dispatchEvent('keydown', {
         key: 'Enter',
@@ -61,8 +61,20 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expectComposerText(prompt, '')
 
+      await prompt.fill('/cost')
+      await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await expect(page.locator('.hbar-app-react-session-monitoring')).toBeVisible()
+      await expect(page.getByRole('heading', { name: copy.monitoring.title, exact: true })).toBeVisible()
+      await expectComposerText(prompt, '')
+      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(0)
+      await page.getByRole('button', { name: copy.monitoring.close, exact: true }).click()
+      await expect(page.locator('.hbar-app-react-session-monitoring')).toHaveCount(0)
+
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 800 })
+        await prompt.fill('/')
+        await expect(menu.getByRole('option')).toHaveCount(4)
+        await page.screenshot({ path: `artifacts/reference-ux-v2/slash-catalog-${locale}-${width}.png` })
         await prompt.fill('/mo')
         await expect(menu.getByRole('option')).toHaveCount(1)
         await expect(menu.getByRole('option')).toBeInViewport()

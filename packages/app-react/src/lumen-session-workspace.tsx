@@ -530,6 +530,16 @@ function SessionWorkspaceContent({
         if (slash === 'model') {
           pendingModelSlash.current = target
           setModelOpenRequest((value) => value + 1)
+        } else if (slash === 'cost') {
+          const opened = await runtime.commands.execute('sessionTools.open', {
+            panelId: 'monitoring',
+            workspaceId: targetWorkspaceId,
+            sessionId: targetSessionId,
+            sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
+          })
+          const presented = runtime.state.presentation.getSnapshot()
+          if (presented.page.kind === 'session' && presented.toolInstanceId === opened.instanceId)
+            await clearLocalSlash(target)
         } else {
           await execute('app.openSettings', {
             scope: 'session',
