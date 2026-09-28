@@ -76,6 +76,7 @@ const labels: HbarWorkspaceShellLabels = {
   workspaceFilesEntry: '工程文件',
   workspaceFilesUnavailable: '先选择工程',
   openWorkspaceFiles: (name) => `打开 ${name} 的文件`,
+  extensionsAndSkills: '扩展与技能',
   workspaceSettings: '查看并编辑此工作区的设置与覆盖值',
   pinWorkspace: '置顶工程',
   unpinWorkspace: '取消置顶',
@@ -183,7 +184,8 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('打开命令目录')
     expect(html).toContain(labels.searchChats)
-    expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.searchChats))
+    expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.extensionsAndSkills))
+    expect(html.indexOf(labels.extensionsAndSkills)).toBeLessThan(html.indexOf(labels.searchChats))
     expect(html.indexOf(labels.searchChats)).toBeLessThan(html.indexOf(labels.commands))
     expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf(labels.workspaceFilesEntry))
     expect(html.indexOf(labels.workspaceFilesEntry)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
@@ -248,6 +250,7 @@ test('English host copy renders Search, Commands, and workspace Files as separat
     expect(html).toContain(english.searchChats)
     expect(html).toContain(english.commands)
     expect(html).toContain(english.workspaceFilesEntry)
+    expect(html).toContain(english.extensionsAndSkills)
     expect(html).toContain(english.workspaceFilesUnavailable)
     expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.commands))
     expect(html.indexOf(english.commands)).toBeLessThan(html.indexOf(english.workspaceFilesEntry))
@@ -379,6 +382,14 @@ test('settings and status highlight only their page while preserving the selecte
       workspaceId: workspace.id,
       sessionId: session.id,
     })
+    await runtime.view.commands.execute('app.back', {})
+    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'skills' })
+    expect(await currentPageLabels()).toEqual([labels.extensionsAndSkills])
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'extensions' })
+    expect(await currentPageLabels()).toEqual([labels.extensionsAndSkills])
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
+    expect(await currentPageLabels()).toEqual([labels.settings])
     await runtime.view.commands.execute('app.back', {})
     expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
     await runtime.view.commands.execute('app.openStatus', { section: 'dashboard' })

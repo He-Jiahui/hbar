@@ -60,6 +60,44 @@ async function openGlobalSettings(f: ExtensionCollectionsFixture) {
 }
 
 for (const config of configurations) {
+  test(`sidebar Extensions and skills opens real Skills without losing the conversation ${config.locale} ${config.width}`, async ({
+    browser,
+  }, info) => {
+    const f = await startExtensionCollections(browser, { ...config, skillCount: 21 })
+    const directory = join(evidenceRoot, `sidebar-${config.locale}-${config.width}`)
+    const draft = `Skills sidebar original draft — ${config.locale} ${config.width}`
+    try {
+      await setDraft(f, draft)
+      const sidebar = f.page.getByRole('complementary', { name: f.copy.shell.projectsAndSessions, exact: true })
+      if (!(await sidebar.isVisible()))
+        await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+      const entry = sidebar.getByRole('button', { name: f.copy.shell.extensionsAndSkills, exact: true })
+      await entry.click()
+      await ready(f, 'skills')
+      await expect(panel(f).getByRole('heading', { name: f.copy.extensions.navigation.skills.title })).toBeVisible()
+      await expect(filter(f, 'skills')).toBeVisible()
+      await expect(panel(f)).toContainText(f.copy.extensions.skillCount(21))
+      expect(f.faults.count('plugin.list')).toBe(0)
+      await screenshot(f, directory, 'skills-from-sidebar')
+      if (!(await sidebar.isVisible()))
+        await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+      await expect(entry).toHaveAttribute('aria-current', 'page')
+      await expect(sidebar.getByRole('button', { name: f.copy.shell.settings, exact: true })).not.toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+      await screenshot(f, directory, 'selected-sidebar-entry')
+      if (config.width < 1024)
+        await sidebar.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true }).click()
+      await selectExtensionCollection(f, 'plugins')
+      await ready(f, 'plugins')
+      await f.page.getByRole('button', { name: f.copy.settings.back, exact: true }).click()
+      await expectComposerText(composer(f), draft)
+      await assertReadOnly(f)
+    } finally {
+      await finish(f, directory, info)
+    }
+  })
   for (const skillCount of [0, 21]) {
     test(`direct Skills entry and saved category ${skillCount} ${config.locale} ${config.width}`, async ({
       browser,

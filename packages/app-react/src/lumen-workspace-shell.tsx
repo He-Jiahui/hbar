@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity,
+  Blocks,
   ChevronDown,
   ChevronRight,
   Command,
@@ -113,6 +114,7 @@ export interface HbarWorkspaceShellLabels {
   readonly workspaceFilesEntry: string
   readonly workspaceFilesUnavailable: string
   readonly openWorkspaceFiles: (name: string) => string
+  readonly extensionsAndSkills: string
   readonly workspaceSettings: string
   readonly pinWorkspace: string
   readonly unpinWorkspace: string
@@ -177,6 +179,7 @@ function forwardShellRef(ref: LumenAppShellProps['mainRef'], node: HTMLElement |
 
 const workspaceShellIcons = {
   activity: Activity,
+  blocks: Blocks,
   'chevron-down': ChevronDown,
   'chevron-right': ChevronRight,
   command: Command,
@@ -402,6 +405,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [error, setError] = useState<string | null>(null)
   const [workspaceActionError, setWorkspaceActionError] = useState<{ workspaceId: string; code: string } | null>(null)
   const [sidebarFilesError, setSidebarFilesError] = useState<{ workspaceId: string; code: string } | null>(null)
+  const [extensionsEntryError, setExtensionsEntryError] = useState<string | null>(null)
   const [navigationAction, setNavigationAction] = useState<WorkspaceNavigationActionState>({
     status: 'idle',
     action: null,
@@ -652,6 +656,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     workspaceFilesPanel?.panelId === 'files' &&
     workspaceFilesPanel.workspaceId === navigation.workspaceId &&
     workspaceFilesPanel.sessionId === null
+  const settingsPanel =
+    presentation.page.kind === 'settings' ? surfaces.panels[presentation.page.instanceId] : undefined
+  const extensionsSelected =
+    settingsPanel?.params.scope === 'global' &&
+    (settingsPanel.params.section === 'extensions' || settingsPanel.params.section === 'skills')
   const actionTargetName = navigationAction.action
     ? navigationAction.action.kind === 'open-workspace'
       ? navigationAction.action.path
@@ -945,6 +954,24 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   onReconcile={reconcileNavigationAction}
                 />
               )}
+              <WorkspaceSidebarAction
+                icon="blocks"
+                label={props.labels.extensionsAndSkills}
+                selected={extensionsSelected}
+                onClick={() => {
+                  setExtensionsEntryError(null)
+                  void execute('app.openSettings', { scope: 'global', section: 'skills' })
+                    .then(closeNarrowSidebar)
+                    .catch((reason: unknown) =>
+                      setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
+                    )
+                }}
+              />
+              {extensionsEntryError && (
+                <LumenText as="p" role="alert" className="hbar-app-react-sidebar-action-error">
+                  {props.labels.error(extensionsEntryError)}
+                </LumenText>
+              )}
               <LumenFrame className="hbar-app-react-sidebar-query-actions">
                 <WorkspaceSidebarAction
                   icon="search"
@@ -986,7 +1013,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 }}
               />
               {sidebarFilesError?.workspaceId === navigation.workspaceId && (
-                <LumenText as="p" role="alert" className="hbar-app-react-workspace-action-error">
+                <LumenText as="p" role="alert" className="hbar-app-react-sidebar-action-error">
                   {props.labels.error(sidebarFilesError.code)}
                 </LumenText>
               )}
@@ -1043,7 +1070,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               <WorkspaceSidebarAction
                 icon="settings"
                 label={props.labels.settings}
-                selected={presentation.page.kind === 'settings'}
+                selected={presentation.page.kind === 'settings' && !extensionsSelected}
                 onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
               />
             </LumenFrame>
