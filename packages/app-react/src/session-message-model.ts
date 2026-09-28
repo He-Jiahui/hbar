@@ -50,8 +50,9 @@ export type SessionTimelineSequenceItem =
   | { readonly kind: 'goalLifecycle'; readonly row: GoalLifecycleRow }
 
 /**
- * Reuse the paged message projection and persistent Run source to mark automatic
- * Goal turns once. Empty input envelopes supply an exact seq anchor but remain
+ * Reuse the paged message projection and persistent continuation identity to mark
+ * automatic Goal turns once. An initial Goal kickoff can share source=goal but
+ * is not a continuation. Empty input envelopes supply an exact seq anchor but remain
  * hidden. A Run without a message uses its first stream, or its persisted
  * creation time amongst the loaded messages; no current Goal state is consulted.
  * Missing paged-out Runs do not acquire markers and no extra history is fetched.
@@ -79,7 +80,7 @@ export function projectSessionTimelineSequence(
   for (const run of timeline.runs) {
     if (run.sessionId !== sessionId || seenRuns.has(run.id)) continue
     seenRuns.add(run.id)
-    if (run.input.source !== 'goal') continue
+    if (run.input.source !== 'goal' || !run.input.continuation) continue
     const message = firstMessageByRun.get(run.id)
     const streamIndex = firstStreamByRun.get(run.id)
     const stream = streamIndex === undefined ? undefined : streams[streamIndex]

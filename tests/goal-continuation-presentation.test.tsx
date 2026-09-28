@@ -83,7 +83,7 @@ test('persistent Goal Run marks the hidden input boundary once, before all its v
   expect(markers(result)[0]?.id).toBe('goal-continuation:["session","continuation"]')
 })
 
-test('only persistent source=goal qualifies, not text, continuation fields or a current Goal', () => {
+test('only a persistent automatic Goal continuation qualifies, not kickoff, text, fields or current Goal', () => {
   const result = projectSessionTimelineSequence(
     timeline({
       runs: [
@@ -91,6 +91,7 @@ test('only persistent source=goal qualifies, not text, continuation fields or a 
           input: { text: 'Goal continuing', images: [], source: 'user', continuation: { goalId: 'g', intentId: 'i' } },
         }),
         run('legacy', { input: { text: '', images: [] } }),
+        run('kickoff', { input: { text: '', images: [], source: 'goal' } }),
       ],
       messages: [sessionMessage([{ type: 'text', text: 'Goal continuing' }], { id: 'text', runId: 'user' })],
     }),

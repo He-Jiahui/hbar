@@ -132,7 +132,7 @@ test('Goal rows merge by seq around messages, hidden Goal envelopes and stream b
           id: 'auto',
           sessionId: 'session',
           requestId: 'request',
-          input: { text: '', images: [], source: 'goal' },
+          input: { text: '', images: [], source: 'goal', continuation: { goalId: 'goal', intentId: 'intent' } },
           status: 'completed',
           modelId: 'fixture',
           createdAt: 3,
