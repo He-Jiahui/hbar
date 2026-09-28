@@ -117,8 +117,11 @@ export {
   HbarAppUiFeedbackProvider,
   selectHbarAppUiFeedbackItem,
   uniqueHbarAppUiFeedbackItems,
+  uniqueHbarAppUiFeedbackReferenceTypes,
 } from './components/Feedback'
 export type {
+  HbarAppUiFeedbackWidgetReferenceContent,
+  HbarAppUiFeedbackReferenceType,
   HbarAppUiFeedbackContent,
   HbarAppUiFeedbackProps,
   HbarAppUiFeedbackFeatureBoardContent,
@@ -927,11 +930,11 @@ export type {
   HbarAppUiSuggestionReviewDocument,
   HbarAppUiSuggestionReviewLabels,
 } from './components/Editor'
-export {uniqueHbarAppUiRichEditorBlocks} from './components/Editor'
-export {countHbarAppUiMarkdownWords, parseHbarAppUiReferenceMarkdown} from './components/Editor'
-export {tokenizeHbarAppUiCodeLine, uniqueHbarAppUiCodeFiles} from './components/Editor'
-export {uniqueHbarAppUiReferenceSuggestions} from './components/Editor'
-export {uniqueHbarAppUiReaderReferenceSections} from './components/Editor'
+export { uniqueHbarAppUiRichEditorBlocks } from './components/Editor'
+export { countHbarAppUiMarkdownWords, parseHbarAppUiReferenceMarkdown } from './components/Editor'
+export { tokenizeHbarAppUiCodeLine, uniqueHbarAppUiCodeFiles } from './components/Editor'
+export { uniqueHbarAppUiReferenceSuggestions } from './components/Editor'
+export { uniqueHbarAppUiReaderReferenceSections } from './components/Editor'
 export type {
   HbarAppUiNavbarActionLabelSet,
   HbarAppUiNavbarActivityContent,

@@ -12,8 +12,11 @@ export type HbarAppUiFeedbackProps = HbarAppUiVariantProps & {
 }
 
 export { HbarAppUiFeedbackProvider, selectHbarAppUiFeedbackItem, uniqueHbarAppUiFeedbackItems }
+export { uniqueLumenFeedbackReferenceTypes as uniqueHbarAppUiFeedbackReferenceTypes } from '@lumen/app-ui'
 
 export type {
+  LumenFeedbackWidgetReferenceContent as HbarAppUiFeedbackWidgetReferenceContent,
+  LumenFeedbackReferenceType as HbarAppUiFeedbackReferenceType,
   LumenFeedbackAttachment as HbarAppUiFeedbackAttachment,
   LumenFeedbackContent as HbarAppUiFeedbackContent,
   LumenFeedbackFeatureBoardContent as HbarAppUiFeedbackFeatureBoardContent,

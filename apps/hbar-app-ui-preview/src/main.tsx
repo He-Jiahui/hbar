@@ -19,6 +19,7 @@ import { UsagePreviewHost } from './UsagePreviewHost'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import { EditorPreviewHost } from './EditorPreviewHost'
+import { FeedbackPreviewHost } from './FeedbackPreviewHost'
 import { ApprovalPreviewHost } from './ApprovalPreviewHost'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -31,7 +32,6 @@ import {
   HbarAppUiAgentActivityProvider,
   HbarAppUiPaywallProvider,
   HbarAppUiFileManagerProvider,
-  HbarAppUiFeedbackProvider,
   HbarAppUiBillingProvider,
   HbarAppUiIntegrationProvider,
   HbarAppUiChatProvider,
@@ -137,8 +137,16 @@ import {
   createHbarAppUiIntegrationsOverflowFixtures,
   HBAR_APP_UI_INTEGRATIONS_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-integrations-fixtures'
-import { HBAR_APP_UI_COMMENTS_FIXTURES, createHbarAppUiCommentsLocalizedFixtures, createHbarAppUiCommentsOverflowFixtures } from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
-import { HBAR_APP_UI_SCHEDULING_FIXTURES, createHbarAppUiSchedulingLocalizedFixtures, createHbarAppUiSchedulingOverflowFixtures } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
+import {
+  HBAR_APP_UI_COMMENTS_FIXTURES,
+  createHbarAppUiCommentsLocalizedFixtures,
+  createHbarAppUiCommentsOverflowFixtures,
+} from '../../../tests/fixtures/hbar-app-ui-comments-fixtures'
+import {
+  HBAR_APP_UI_SCHEDULING_FIXTURES,
+  createHbarAppUiSchedulingLocalizedFixtures,
+  createHbarAppUiSchedulingOverflowFixtures,
+} from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
 import { HBAR_APP_UI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-chat-fixtures'
 import {
   createHbarAppUiPromptInputLocalizedFixtures,
@@ -150,10 +158,19 @@ import { HBAR_APP_UI_DASHBOARD_FIXTURES } from '../../../tests/fixtures/hbar-app
 import { HBAR_APP_UI_ANALYTICS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-analytics-fixtures'
 import { HBAR_APP_UI_FORMS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-forms-fixtures'
 import { appDialogFixture } from '../../../tests/fixtures/hbar-app-ui-app-dialog-fixtures'
-import { createHbarAppUiNotificationActivityFixture, createHbarAppUiNotificationBellFixture, createHbarAppUiNotificationPreferencesFixture, createHbarAppUiNotificationSystemFixture } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
+import {
+  createHbarAppUiNotificationActivityFixture,
+  createHbarAppUiNotificationBellFixture,
+  createHbarAppUiNotificationPreferencesFixture,
+  createHbarAppUiNotificationSystemFixture,
+} from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
 import { HBAR_APP_UI_MOBILE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-mobile-fixtures'
 import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-support-fixtures'
-import { createHbarAppUiWizardLocalizedFixtures, createHbarAppUiWizardOverflowFixtures, HBAR_APP_UI_WIZARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
+import {
+  createHbarAppUiWizardLocalizedFixtures,
+  createHbarAppUiWizardOverflowFixtures,
+  HBAR_APP_UI_WIZARD_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-shell-fixtures'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
 import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
@@ -167,7 +184,11 @@ import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-ai-chat-fixtures'
-import { createHbarAppUiKanbanLocalizedFixtures, createHbarAppUiKanbanOverflowFixtures, HBAR_APP_UI_KANBAN_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-kanban-fixtures'
+import {
+  createHbarAppUiKanbanLocalizedFixtures,
+  createHbarAppUiKanbanOverflowFixtures,
+  HBAR_APP_UI_KANBAN_FIXTURES,
+} from '../../../tests/fixtures/hbar-app-ui-kanban-fixtures'
 import { HBAR_APP_UI_ONBOARDING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-onboarding-fixtures'
 import { HBAR_APP_UI_LIST_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-list-fixtures'
 import { HBAR_APP_UI_FILTERING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-filtering-fixtures'
@@ -323,7 +344,9 @@ function PreviewApp() {
       case 'sign-in-one':
       case 'sign-in-duplicate':
       case 'sign-in-overbound':
-        return createHbarAppUiAuthenticationSignInFixture(new URLSearchParams(window.location.search).get('authenticationFixture'))
+        return createHbarAppUiAuthenticationSignInFixture(
+          new URLSearchParams(window.location.search).get('authenticationFixture'),
+        )
       case null:
       default:
         return HBAR_APP_UI_AUTHENTICATION_FIXTURES
@@ -353,13 +376,19 @@ function PreviewApp() {
   }, [])
   const commentsContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('commentsFixture')
-    return fixture === 'localized' ? createHbarAppUiCommentsLocalizedFixtures()
-      : fixture === 'overflow' ? createHbarAppUiCommentsOverflowFixtures() : HBAR_APP_UI_COMMENTS_FIXTURES
+    return fixture === 'localized'
+      ? createHbarAppUiCommentsLocalizedFixtures()
+      : fixture === 'overflow'
+        ? createHbarAppUiCommentsOverflowFixtures()
+        : HBAR_APP_UI_COMMENTS_FIXTURES
   }, [])
   const schedulingContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('schedulingFixture')
-    return fixture === 'localized' ? createHbarAppUiSchedulingLocalizedFixtures()
-      : fixture === 'overflow' ? createHbarAppUiSchedulingOverflowFixtures() : HBAR_APP_UI_SCHEDULING_FIXTURES
+    return fixture === 'localized'
+      ? createHbarAppUiSchedulingLocalizedFixtures()
+      : fixture === 'overflow'
+        ? createHbarAppUiSchedulingOverflowFixtures()
+        : HBAR_APP_UI_SCHEDULING_FIXTURES
   }, [])
   const chatContent = useMemo(() => HBAR_APP_UI_CHAT_FIXTURES, [])
   const promptInputContent = useMemo(
@@ -374,35 +403,40 @@ function PreviewApp() {
   const dashboardContent = useMemo(() => HBAR_APP_UI_DASHBOARD_FIXTURES, [])
   const analyticsContent = useMemo(() => HBAR_APP_UI_ANALYTICS_FIXTURES, [])
   const formsContent = useMemo(() => HBAR_APP_UI_FORMS_FIXTURES, [])
-  const appDialogContent = useMemo(
-    () => {
-      const params = new URLSearchParams(window.location.search)
-        return appDialogFixture(
-          params.get('appDialogMenuFixture') ?? params.get('appDialogEvidenceFixture') ?? params.get('appDialogAlertFixture') ??
-          params.get('appDialogWizardFixture') ?? params.get('appDialogDeleteFixture'),
-        )
-    },
-    [],
-  )
+  const appDialogContent = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return appDialogFixture(
+      params.get('appDialogMenuFixture') ??
+        params.get('appDialogEvidenceFixture') ??
+        params.get('appDialogAlertFixture') ??
+        params.get('appDialogWizardFixture') ??
+        params.get('appDialogDeleteFixture'),
+    )
+  }, [])
   const notificationsContent = useMemo(
-    () => createHbarAppUiNotificationBellFixture(
-      new URLSearchParams(window.location.search).get('bellFixture'),
-      createHbarAppUiNotificationSystemFixture(
-        new URLSearchParams(window.location.search).get('systemFixture'),
-        createHbarAppUiNotificationActivityFixture(
-          new URLSearchParams(window.location.search).get('activityFixture'),
-          createHbarAppUiNotificationPreferencesFixture(new URLSearchParams(window.location.search).get('notificationsFixture')),
+    () =>
+      createHbarAppUiNotificationBellFixture(
+        new URLSearchParams(window.location.search).get('bellFixture'),
+        createHbarAppUiNotificationSystemFixture(
+          new URLSearchParams(window.location.search).get('systemFixture'),
+          createHbarAppUiNotificationActivityFixture(
+            new URLSearchParams(window.location.search).get('activityFixture'),
+            createHbarAppUiNotificationPreferencesFixture(
+              new URLSearchParams(window.location.search).get('notificationsFixture'),
+            ),
+          ),
         ),
       ),
-    ),
     [],
   )
   const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])
   const supportContent = useMemo(() => HBAR_APP_UI_SUPPORT_FIXTURES, [])
   const wizardContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('wizardFixture')
-    return fixture === 'localized' ? createHbarAppUiWizardLocalizedFixtures()
-      : fixture === 'overflow' ? createHbarAppUiWizardOverflowFixtures()
+    return fixture === 'localized'
+      ? createHbarAppUiWizardLocalizedFixtures()
+      : fixture === 'overflow'
+        ? createHbarAppUiWizardOverflowFixtures()
         : HBAR_APP_UI_WIZARD_FIXTURES
   }, [])
   const appShellContent = useMemo(() => HBAR_APP_UI_APP_SHELL_FIXTURES, [])
@@ -420,7 +454,9 @@ function PreviewApp() {
         appSidebarDualSectionId,
       ),
       treePreview: appSidebarTreeFixture(new URLSearchParams(window.location.search).get('appSidebarTreeFixture')),
-      drawerPreview: appSidebarDrawerFixture(new URLSearchParams(window.location.search).get('appSidebarDrawerFixture')),
+      drawerPreview: appSidebarDrawerFixture(
+        new URLSearchParams(window.location.search).get('appSidebarDrawerFixture'),
+      ),
       fullPreview: appSidebarFullFixture(new URLSearchParams(window.location.search).get('appSidebarFullFixture')),
     }),
     [appSidebarWorkspaceId, appSidebarDualSectionId],
@@ -434,7 +470,11 @@ function PreviewApp() {
   )
   const kanbanContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('kanbanFixture')
-    return fixture === 'localized' ? createHbarAppUiKanbanLocalizedFixtures() : fixture === 'overflow' ? createHbarAppUiKanbanOverflowFixtures() : HBAR_APP_UI_KANBAN_FIXTURES
+    return fixture === 'localized'
+      ? createHbarAppUiKanbanLocalizedFixtures()
+      : fixture === 'overflow'
+        ? createHbarAppUiKanbanOverflowFixtures()
+        : HBAR_APP_UI_KANBAN_FIXTURES
   }, [])
   const onboardingContent = useMemo(() => HBAR_APP_UI_ONBOARDING_FIXTURES, [])
   const listContent = useMemo(() => HBAR_APP_UI_LIST_FIXTURES, [])
@@ -522,7 +562,7 @@ function PreviewApp() {
               <HbarAppUiAppSidebarProvider content={appSidebarContent}>
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
-                    <HbarAppUiFeedbackProvider content={feedbackContent}>
+                    <FeedbackPreviewHost content={feedbackContent}>
                       <SettingsPreviewHost content={settingsFormContent} spec={selected.spec} onAction={handleAction}>
                         <AuthenticationPreviewHost
                           content={authenticationContent}
@@ -621,7 +661,7 @@ function PreviewApp() {
                           </HbarAppUiBillingProvider>
                         </AuthenticationPreviewHost>
                       </SettingsPreviewHost>
-                    </HbarAppUiFeedbackProvider>
+                    </FeedbackPreviewHost>
                   </HbarAppUiFileManagerProvider>
                 </AppShellPreviewHost>
               </HbarAppUiAppSidebarProvider>
@@ -758,7 +798,7 @@ function PreviewApp() {
                         <HbarAppUiAppSidebarProvider content={appSidebarContent}>
                           <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                             <HbarAppUiFileManagerProvider content={fileManagerContent}>
-                              <HbarAppUiFeedbackProvider content={feedbackContent}>
+                              <FeedbackPreviewHost content={feedbackContent}>
                                 <SettingsPreviewHost
                                   content={settingsFormContent}
                                   spec={selected.spec}
@@ -875,7 +915,7 @@ function PreviewApp() {
                                     </HbarAppUiBillingProvider>
                                   </AuthenticationPreviewHost>
                                 </SettingsPreviewHost>
-                              </HbarAppUiFeedbackProvider>
+                              </FeedbackPreviewHost>
                             </HbarAppUiFileManagerProvider>
                           </AppShellPreviewHost>
                         </HbarAppUiAppSidebarProvider>

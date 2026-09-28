@@ -369,6 +369,8 @@ export type InteractionCase = Readonly<{
     | 'markdown-preview'
     | 'suggestions-complete'
     | 'reader-outline-closed'
+    | 'feedback-draft'
+    | 'feedback-sent'
     | 'editor-edited'
     | 'editorial-navigation-closed'
     | 'editorial-schedule'
@@ -781,10 +783,12 @@ function inventoryPath(options: AuditOptions): string {
 export function cachedInventorySourcePath(
   options: Pick<AuditOptions, 'sourceInventoryPath' | 'sourceCaptureRoot' | 'localOnly'>,
 ): string | undefined {
-  return options.sourceInventoryPath ??
+  return (
+    options.sourceInventoryPath ??
     (options.localOnly && options.sourceCaptureRoot
       ? join(resolve(options.sourceCaptureRoot), 'source-inventory.json')
       : undefined)
+  )
 }
 
 async function discoverReferenceInventory(browser: Browser, options: AuditOptions): Promise<ReactBitsProInventory> {
@@ -1441,8 +1445,11 @@ export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): 
         // React-controlled textarea content is a draft value, not its accessible name.
         // Keep the value in its own field so a source's property-only update and a
         // local React text-node update produce the same semantic feedback.
-        name: control.getAttribute('aria-label') ??
-          (control.tagName.toLowerCase() === 'textarea' ? '' : (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160)),
+        name:
+          control.getAttribute('aria-label') ??
+          (control.tagName.toLowerCase() === 'textarea'
+            ? ''
+            : (control.textContent ?? '').trim().replaceAll(/\s+/g, ' ').slice(0, 160)),
         disabled: control.matches(':disabled') || control.getAttribute('aria-disabled') === 'true',
         visible: (() => {
           const rect = control.getBoundingClientRect()
@@ -1483,17 +1490,22 @@ export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): 
       // dual sidebar). Only count overflow on text-bearing elements here; the
       // separate horizontalOverflow metric records structural clipping.
       const truncatedTextCount = [...element.querySelectorAll('*')].filter((value) => {
-        const textBearing = value.matches('h1,h2,h3,h4,h5,h6,p,span,button,a,label,dt,dd,input,textarea')
-          || [...value.childNodes].some(
-            (node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()),
-          )
+        const textBearing =
+          value.matches('h1,h2,h3,h4,h5,h6,p,span,button,a,label,dt,dd,input,textarea') ||
+          [...value.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()))
         return textBearing && value.scrollWidth > value.clientWidth + 1
       }).length
       return {
         rootTag: element.tagName.toLowerCase(),
         rootRect: { width: Math.round(rootRect.width), height: Math.round(rootRect.height) },
-        bodyTextLength: Math.max(0, (element.textContent ?? '').trim().length -
-          [...element.querySelectorAll('textarea')].reduce((length, textarea) => length + (textarea.textContent ?? '').length, 0)),
+        bodyTextLength: Math.max(
+          0,
+          (element.textContent ?? '').trim().length -
+            [...element.querySelectorAll('textarea')].reduce(
+              (length, textarea) => length + (textarea.textContent ?? '').length,
+              0,
+            ),
+        ),
         textLineCount,
         truncatedTextCount,
         horizontalOverflow: shouldCheckBody
@@ -1551,7 +1563,7 @@ async function waitForReferenceCodeHighlight(root: Locator): Promise<void> {
   // The live preview first paints raw code and asynchronously replaces it with
   // highlighted tokens. A before screenshot during that transition invents a
   // visual change for otherwise passive file actions.
-  await root.locator('[role="presentation"] span').nth(20).waitFor({state: 'attached', timeout: 15_000})
+  await root.locator('[role="presentation"] span').nth(20).waitFor({ state: 'attached', timeout: 15_000 })
 }
 
 async function captureSource(
@@ -1575,12 +1587,18 @@ async function captureSource(
     // Isolating the iframe can put the documentation theme-toggle pointer over
     // a code line on narrow canvases. Restore the preview's real initial cursor
     // using its blank line, rather than interpreting that pointer state as a breakpoint.
-    await root.locator('[role="presentation"]').nth(11).click({position: {x: 4, y: 10}})
-    await root.locator('[role="presentation"]').nth(11).evaluate((line) => {
-      let pane = line.parentElement
-      while (pane && !['auto', 'scroll'].includes(getComputedStyle(pane).overflowX)) pane = pane.parentElement
-      if (pane) pane.scrollLeft = 0
-    })
+    await root
+      .locator('[role="presentation"]')
+      .nth(11)
+      .click({ position: { x: 4, y: 10 } })
+    await root
+      .locator('[role="presentation"]')
+      .nth(11)
+      .evaluate((line) => {
+        let pane = line.parentElement
+        while (pane && !['auto', 'scroll'].includes(getComputedStyle(pane).overflowX)) pane = pane.parentElement
+        if (pane) pane.scrollLeft = 0
+      })
   }
   if (reference.id === 'hbar-app-ui-agent-activity-5') {
     await root.locator('ol li').nth(25).waitFor({ state: 'attached', timeout: 15_000 })
@@ -1731,11 +1749,21 @@ export function interactionCases(
 }
 
 /** Preserve the native focus/scroll evidence separately from keyboard selection. */
-export function schedulingDeadlineInteractionCases(snapshot: SemanticSnapshot, variantId: string): readonly InteractionCase[] {
-  return interactionCases(snapshot, variantId).map((item) => item.action === 'press' ? {...item, focusBefore: true} : item)
+export function schedulingDeadlineInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+): readonly InteractionCase[] {
+  return interactionCases(snapshot, variantId).map((item) =>
+    item.action === 'press' ? { ...item, focusBefore: true } : item,
+  )
 }
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
+const feedbackScenarios = ['feedback-draft', 'feedback-sent'] as const
+async function prepareFeedbackScenario(root: Locator, scenario: (typeof feedbackScenarios)[number]): Promise<void> {
+  await root.locator('textarea').fill('Please make exports easier to review.')
+  if (scenario === 'feedback-sent') await root.getByRole('button', { name: 'Send feedback' }).click()
+}
 const inboxScenarios = ['inbox-empty', 'inbox-unread', 'inbox-menu', 'inbox-reading', 'inbox-mailboxes'] as const
 const documentsScenarios = ['documents-closed', 'documents-menu', 'documents-format-menu'] as const
 const scopeScenarios = [
@@ -1755,23 +1783,46 @@ const sidebarDrawerScenarios = ['sidebar-drawer-closed'] as const
 const sidebarFullScenarios = ['sidebar-full-closed'] as const
 const dialogPlanScenarios = ['dialog-plan-closed'] as const
 const dialogDeleteScenarios = ['dialog-delete-valid', 'dialog-delete-closed'] as const
-const dialogInviteScenarios = ['dialog-invite-empty', 'dialog-invite-invalid', 'dialog-invite-valid', 'dialog-invite-closed'] as const
+const dialogInviteScenarios = [
+  'dialog-invite-empty',
+  'dialog-invite-invalid',
+  'dialog-invite-valid',
+  'dialog-invite-closed',
+] as const
 const dialogWizardScenarios = [
-  'dialog-wizard-region', 'dialog-wizard-region-selected', 'dialog-wizard-team',
-  'dialog-wizard-team-custom', 'dialog-wizard-closed',
+  'dialog-wizard-region',
+  'dialog-wizard-region-selected',
+  'dialog-wizard-team',
+  'dialog-wizard-team-custom',
+  'dialog-wizard-closed',
 ] as const
 const dialogAlertScenarios = ['dialog-alert-dirty', 'dialog-alert-guard', 'dialog-alert-closed'] as const
 const notificationToastScenarios = ['toast-success', 'toast-stack'] as const
-const notificationActivityScenarios = ['activity-snooze-menu', 'activity-snoozed', 'activity-archived', 'activity-back'] as const
+const notificationActivityScenarios = [
+  'activity-snooze-menu',
+  'activity-snoozed',
+  'activity-archived',
+  'activity-back',
+] as const
 const notificationSystemScenarios = ['system-expanded', 'system-dismissed', 'system-empty'] as const
 const notificationBellScenarios = ['bell-open', 'bell-unread', 'bell-unread-empty'] as const
 const authenticationSignInScenarios = ['auth-email-only', 'auth-valid'] as const
-async function prepareAuthenticationSignInScenario(root: Locator, scenario: (typeof authenticationSignInScenarios)[number]): Promise<void> {
+async function prepareAuthenticationSignInScenario(
+  root: Locator,
+  scenario: (typeof authenticationSignInScenarios)[number],
+): Promise<void> {
   await root.getByRole('textbox', { name: 'Email or username' }).fill('dana@example.com')
   if (scenario === 'auth-valid') await root.getByPlaceholder('Enter your password').fill('secret-password')
 }
-const authenticationProviderFirstScenarios = ['auth-provider-sso', 'auth-provider-sso-valid', 'auth-provider-email-valid'] as const
-async function prepareAuthenticationProviderFirstScenario(root: Locator, scenario: (typeof authenticationProviderFirstScenarios)[number]): Promise<void> {
+const authenticationProviderFirstScenarios = [
+  'auth-provider-sso',
+  'auth-provider-sso-valid',
+  'auth-provider-email-valid',
+] as const
+async function prepareAuthenticationProviderFirstScenario(
+  root: Locator,
+  scenario: (typeof authenticationProviderFirstScenarios)[number],
+): Promise<void> {
   if (scenario === 'auth-provider-email-valid') {
     if (await root.getByRole('button', { name: 'Use email instead' }).count())
       await root.getByRole('button', { name: 'Use email instead' }).click()
@@ -1780,10 +1831,14 @@ async function prepareAuthenticationProviderFirstScenario(root: Locator, scenari
   }
   if (await root.getByRole('button', { name: 'Use single sign-on' }).count())
     await root.getByRole('button', { name: 'Use single sign-on' }).click()
-  if (scenario === 'auth-provider-sso-valid') await root.getByRole('textbox', { name: 'Company domain' }).fill('northwind')
+  if (scenario === 'auth-provider-sso-valid')
+    await root.getByRole('textbox', { name: 'Company domain' }).fill('northwind')
 }
 const authenticationTwoStepScenarios = ['auth-two-step-password', 'auth-two-step-invalid'] as const
-async function prepareAuthenticationTwoStepScenario(root: Locator, scenario: (typeof authenticationTwoStepScenarios)[number]): Promise<void> {
+async function prepareAuthenticationTwoStepScenario(
+  root: Locator,
+  scenario: (typeof authenticationTwoStepScenarios)[number],
+): Promise<void> {
   if (scenario === 'auth-two-step-invalid') {
     await root.getByRole('textbox', { name: 'Work email' }).fill('invalid')
     return
@@ -1792,19 +1847,31 @@ async function prepareAuthenticationTwoStepScenario(root: Locator, scenario: (ty
   await root.getByText('Step 2 of 2').waitFor({ state: 'visible', timeout: 5_000 })
 }
 const authenticationMagicLinkScenarios = ['auth-magic-form', 'auth-magic-form-invalid'] as const
-async function prepareAuthenticationMagicLinkScenario(root: Locator, scenario: (typeof authenticationMagicLinkScenarios)[number]): Promise<void> {
+async function prepareAuthenticationMagicLinkScenario(
+  root: Locator,
+  scenario: (typeof authenticationMagicLinkScenarios)[number],
+): Promise<void> {
   if (await root.getByRole('button', { name: 'Use a different email' }).count())
     await root.getByRole('button', { name: 'Use a different email' }).click()
   await root.getByRole('textbox', { name: 'Work email' }).waitFor({ state: 'visible' })
   if (scenario === 'auth-magic-form-invalid') await root.getByRole('textbox', { name: 'Work email' }).fill('invalid')
 }
-const authenticationCodeScenarios = ['auth-code-recovery', 'auth-code-recovery-valid', 'auth-code-five', 'auth-code-verified'] as const
-async function prepareAuthenticationCodeScenario(root: Locator, scenario: (typeof authenticationCodeScenarios)[number]): Promise<void> {
+const authenticationCodeScenarios = [
+  'auth-code-recovery',
+  'auth-code-recovery-valid',
+  'auth-code-five',
+  'auth-code-verified',
+] as const
+async function prepareAuthenticationCodeScenario(
+  root: Locator,
+  scenario: (typeof authenticationCodeScenarios)[number],
+): Promise<void> {
   if (scenario === 'auth-code-recovery' || scenario === 'auth-code-recovery-valid') {
     if (await root.getByRole('button', { name: 'Use a recovery code' }).count())
       await root.getByRole('button', { name: 'Use a recovery code' }).click()
     await root.getByRole('textbox', { name: 'Recovery code' }).waitFor({ state: 'visible' })
-    if (scenario === 'auth-code-recovery-valid') await root.getByRole('textbox', { name: 'Recovery code' }).fill('ABCDE-12345')
+    if (scenario === 'auth-code-recovery-valid')
+      await root.getByRole('textbox', { name: 'Recovery code' }).fill('ABCDE-12345')
     return
   }
   if (await root.getByRole('button', { name: 'Verify another device' }).count())
@@ -1814,14 +1881,25 @@ async function prepareAuthenticationCodeScenario(root: Locator, scenario: (typeo
   const digits = root.getByRole('textbox', { name: /^Digit \d+$/ })
   for (let index = 0; index < (scenario === 'auth-code-five' ? 5 : 6); index += 1)
     await digits.nth(index).fill(String(index + 1))
-  if (scenario === 'auth-code-verified') await root.getByRole('heading', { name: 'Device verified' }).waitFor({ state: 'visible', timeout: 5_000 })
+  if (scenario === 'auth-code-verified')
+    await root.getByRole('heading', { name: 'Device verified' }).waitFor({ state: 'visible', timeout: 5_000 })
 }
-const authenticationSignUpScenarios = ['auth-signup-password', 'auth-signup-complete', 'auth-signup-ready', 'auth-signup-invalid-email'] as const
-async function prepareAuthenticationSignUpScenario(root: Locator, scenario: (typeof authenticationSignUpScenarios)[number]): Promise<void> {
+const authenticationSignUpScenarios = [
+  'auth-signup-password',
+  'auth-signup-complete',
+  'auth-signup-ready',
+  'auth-signup-invalid-email',
+] as const
+async function prepareAuthenticationSignUpScenario(
+  root: Locator,
+  scenario: (typeof authenticationSignUpScenarios)[number],
+): Promise<void> {
   await root.getByRole('textbox', { name: 'Password' }).fill('StrongPassword1!')
   if (scenario === 'auth-signup-password') return
   await root.getByRole('textbox', { name: 'Full name' }).fill('Dana Whitfield')
-  await root.getByRole('textbox', { name: 'Work email' }).fill(scenario === 'auth-signup-invalid-email' ? '' : 'dana@example.test')
+  await root
+    .getByRole('textbox', { name: 'Work email' })
+    .fill(scenario === 'auth-signup-invalid-email' ? '' : 'dana@example.test')
   const agreement = root.getByRole('checkbox', { name: 'I agree to the terms of service and the privacy policy.' })
   if (scenario === 'auth-signup-ready' || scenario === 'auth-signup-invalid-email') await agreement.check()
   else await agreement.uncheck()
@@ -1830,7 +1908,10 @@ async function prepareAuthenticationEnterpriseMismatch(root: Locator): Promise<v
   await root.getByRole('textbox', { name: 'Work email' }).fill('dana@example.test')
 }
 const authenticationPasskeyScenarios = ['auth-passkey-selected', 'auth-passkey-request'] as const
-async function prepareAuthenticationPasskeyScenario(root: Locator, scenario: (typeof authenticationPasskeyScenarios)[number]): Promise<void> {
+async function prepareAuthenticationPasskeyScenario(
+  root: Locator,
+  scenario: (typeof authenticationPasskeyScenarios)[number],
+): Promise<void> {
   if (await root.getByRole('button', { name: /Dana's iPhone Face ID/ }).count())
     await root.getByRole('button', { name: /Dana's iPhone Face ID/ }).click()
   if (scenario === 'auth-passkey-request') {
@@ -1843,29 +1924,50 @@ async function prepareAuthenticationAccountContractor(root: Locator): Promise<vo
   await root.getByRole('button', { name: /D\. Whitfield \(contractor\)/ }).click()
 }
 const authenticationInvitationScenarios = ['auth-invite-named', 'auth-invite-ready', 'auth-invite-success'] as const
-async function prepareAuthenticationInvitationScenario(root: Locator, scenario: (typeof authenticationInvitationScenarios)[number]): Promise<void> {
+async function prepareAuthenticationInvitationScenario(
+  root: Locator,
+  scenario: (typeof authenticationInvitationScenarios)[number],
+): Promise<void> {
   await root.getByRole('textbox', { name: 'Full name' }).fill('Dana Whitfield')
-  if (scenario !== 'auth-invite-named')
-    await root.getByRole('textbox', { name: 'Password' }).fill('StrongPassword1!')
-  if (scenario === 'auth-invite-success')
-    await root.getByRole('button', { name: 'Accept invitation' }).click()
+  if (scenario !== 'auth-invite-named') await root.getByRole('textbox', { name: 'Password' }).fill('StrongPassword1!')
+  if (scenario === 'auth-invite-success') await root.getByRole('button', { name: 'Accept invitation' }).click()
 }
-const authenticationResetScenarios = ['auth-reset-strong', 'auth-reset-ready', 'auth-reset-ready-no-signout', 'auth-reset-success'] as const
-async function prepareAuthenticationResetScenario(root: Locator, scenario: (typeof authenticationResetScenarios)[number]): Promise<void> {
+const authenticationResetScenarios = [
+  'auth-reset-strong',
+  'auth-reset-ready',
+  'auth-reset-ready-no-signout',
+  'auth-reset-success',
+] as const
+async function prepareAuthenticationResetScenario(
+  root: Locator,
+  scenario: (typeof authenticationResetScenarios)[number],
+): Promise<void> {
   await root.getByRole('textbox', { name: 'New password' }).fill('Abcdefghij1!')
   if (scenario !== 'auth-reset-strong')
     await root.getByRole('textbox', { name: 'Confirm password' }).fill('Abcdefghij1!')
   if (scenario === 'auth-reset-ready-no-signout')
     await root.getByRole('checkbox', { name: 'Sign out of my other devices' }).uncheck()
-  if (scenario === 'auth-reset-success')
-    await root.getByRole('button', { name: 'Update password' }).click()
+  if (scenario === 'auth-reset-success') await root.getByRole('button', { name: 'Update password' }).click()
 }
 const authenticationApprovalScenarios = ['auth-approval-approved', 'auth-approval-blocked'] as const
-async function prepareAuthenticationApprovalScenario(root: Locator, scenario: (typeof authenticationApprovalScenarios)[number]): Promise<void> {
-  await root.getByRole('button', { name: scenario === 'auth-approval-approved' ? 'Yes, that was me' : 'No, secure my account' }).click()
+async function prepareAuthenticationApprovalScenario(
+  root: Locator,
+  scenario: (typeof authenticationApprovalScenarios)[number],
+): Promise<void> {
+  await root
+    .getByRole('button', { name: scenario === 'auth-approval-approved' ? 'Yes, that was me' : 'No, secure my account' })
+    .click()
 }
-const kanbanBoardScenarios = ['kanban-composer-open', 'kanban-composer-ready', 'kanban-grabbed', 'kanban-grabbed-target'] as const
-async function prepareKanbanBoardScenario(root: Locator, scenario: (typeof kanbanBoardScenarios)[number]): Promise<void> {
+const kanbanBoardScenarios = [
+  'kanban-composer-open',
+  'kanban-composer-ready',
+  'kanban-grabbed',
+  'kanban-grabbed-target',
+] as const
+async function prepareKanbanBoardScenario(
+  root: Locator,
+  scenario: (typeof kanbanBoardScenarios)[number],
+): Promise<void> {
   if (scenario === 'kanban-grabbed' || scenario === 'kanban-grabbed-target') {
     const card = root.getByRole('button', { name: /^HAL-241:/ })
     await card.focus()
@@ -1901,30 +2003,43 @@ async function prepareKanbanSwimlaneScenario(
   await card.press('ArrowDown')
 }
 const kanbanRegroupScenarios = ['regroup-grabbed', 'regroup-target'] as const
-async function prepareKanbanRegroupScenario(root: Locator, scenario: (typeof kanbanRegroupScenarios)[number]): Promise<void> {
+async function prepareKanbanRegroupScenario(
+  root: Locator,
+  scenario: (typeof kanbanRegroupScenarios)[number],
+): Promise<void> {
   const card = root.getByRole('button', { name: /^NW-408:/ })
   await card.focus()
   await card.press('Space')
   if (scenario === 'regroup-target') await card.press('ArrowRight')
 }
 async function prepareKanbanDetailClosed(root: Locator): Promise<void> {
-  await root.getByRole('button', {name: 'Close details'}).last().click()
+  await root.getByRole('button', { name: 'Close details' }).last().click()
   await root.page().waitForTimeout(450)
 }
 const kanbanSprintScenarios = ['sprint-grabbed', 'sprint-target'] as const
-async function prepareKanbanSprintScenario(root: Locator, scenario: (typeof kanbanSprintScenarios)[number]): Promise<void> {
-  const card = root.getByRole('button', {name: /^MER-52:/})
+async function prepareKanbanSprintScenario(
+  root: Locator,
+  scenario: (typeof kanbanSprintScenarios)[number],
+): Promise<void> {
+  const card = root.getByRole('button', { name: /^MER-52:/ })
   await card.focus()
   await card.press('Space')
   if (scenario === 'sprint-target') await card.press('ArrowRight')
 }
-const wizardInformationScenarios = ['wizard-information-step-two', 'wizard-information-step-three', 'wizard-information-empty-name'] as const
-async function prepareWizardInformationScenario(root: Locator, scenario: (typeof wizardInformationScenarios)[number]): Promise<void> {
+const wizardInformationScenarios = [
+  'wizard-information-step-two',
+  'wizard-information-step-three',
+  'wizard-information-empty-name',
+] as const
+async function prepareWizardInformationScenario(
+  root: Locator,
+  scenario: (typeof wizardInformationScenarios)[number],
+): Promise<void> {
   if (scenario === 'wizard-information-empty-name') {
-    await root.getByRole('textbox', {name: 'First name'}).fill('')
+    await root.getByRole('textbox', { name: 'First name' }).fill('')
     return
   }
-  await root.getByRole('button', {name: 'Next step'}).click()
+  await root.getByRole('button', { name: 'Next step' }).click()
   if (scenario === 'wizard-information-step-three') await root.locator('ol button').nth(2).click()
 }
 async function prepareWizardUpgradeStepTwo(root: Locator): Promise<void> {
@@ -1937,7 +2052,10 @@ async function prepareQuoteInitial(root: Locator): Promise<void> {
     await first.page().mouse.move(0, 0)
   }
 }
-async function prepareNotificationBellScenario(root: Locator, scenario: (typeof notificationBellScenarios)[number]): Promise<void> {
+async function prepareNotificationBellScenario(
+  root: Locator,
+  scenario: (typeof notificationBellScenarios)[number],
+): Promise<void> {
   const dialog = root.getByRole('dialog', { name: 'Notifications' })
   if (!(await dialog.count())) await root.getByRole('button', { name: /^Notifications, \d+ unread$/ }).click()
   if (scenario === 'bell-open') return
@@ -1945,24 +2063,39 @@ async function prepareNotificationBellScenario(root: Locator, scenario: (typeof 
   if ((await unread.getAttribute('aria-selected')) !== 'true') await unread.click()
   if (scenario === 'bell-unread-empty') await dialog.getByRole('button', { name: 'Mark all read' }).click()
 }
-async function prepareNotificationSystemScenario(root: Locator, scenario: (typeof notificationSystemScenarios)[number]): Promise<void> {
+async function prepareNotificationSystemScenario(
+  root: Locator,
+  scenario: (typeof notificationSystemScenarios)[number],
+): Promise<void> {
   if (scenario === 'system-expanded') {
     await root.getByRole('button', { name: 'Show details', exact: true }).click()
     return
   }
   const hide = root.getByRole('button', { name: 'Hide details', exact: true })
   if (await hide.count()) await hide.click()
-  const titles = scenario === 'system-dismissed'
-    ? ['Scheduled maintenance on Sunday']
-    : ['Scheduled maintenance on Sunday', 'Your card expires in 6 days', '3 of 5 imports failed', 'meridian.example is verified', 'You have used 84% of your monthly events']
+  const titles =
+    scenario === 'system-dismissed'
+      ? ['Scheduled maintenance on Sunday']
+      : [
+          'Scheduled maintenance on Sunday',
+          'Your card expires in 6 days',
+          '3 of 5 imports failed',
+          'meridian.example is verified',
+          'You have used 84% of your monthly events',
+        ]
   for (const title of titles) {
     const dismiss = root.getByRole('button', { name: `Dismiss: ${title}` })
     if (await dismiss.count()) await dismiss.click()
   }
 }
-async function prepareNotificationActivityScenario(root: Locator, scenario: (typeof notificationActivityScenarios)[number]): Promise<void> {
+async function prepareNotificationActivityScenario(
+  root: Locator,
+  scenario: (typeof notificationActivityScenarios)[number],
+): Promise<void> {
   if (scenario === 'activity-snoozed' || scenario === 'activity-archived') {
-    await root.getByRole('tab', { name: new RegExp(scenario === 'activity-snoozed' ? '^Snoozed' : '^Archived') }).click()
+    await root
+      .getByRole('tab', { name: new RegExp(scenario === 'activity-snoozed' ? '^Snoozed' : '^Archived') })
+      .click()
     return
   }
   await root.getByRole('tab', { name: /^Inbox/ }).click()
@@ -1979,7 +2112,10 @@ async function prepareNotificationPreferencesDirty(root: Locator): Promise<void>
   await root.getByRole('switch', { name: 'Assigned to you: Push' }).click()
   await root.getByRole('button', { name: 'Save preferences' }).waitFor({ state: 'visible' })
 }
-async function prepareNotificationToastScenario(root: Locator, scenario: (typeof notificationToastScenarios)[number]): Promise<void> {
+async function prepareNotificationToastScenario(
+  root: Locator,
+  scenario: (typeof notificationToastScenarios)[number],
+): Promise<void> {
   const clear = root.getByRole('button', { name: 'Clear all', exact: true })
   if (await clear.isEnabled()) await clear.click()
   await root.getByRole('button', { name: 'Success', exact: true }).click()
@@ -1994,7 +2130,10 @@ async function prepareDialogEvidenceClosed(root: Locator): Promise<void> {
   await root.getByRole('button', { name: 'Close panel', exact: true }).click()
   await root.getByRole('dialog', { name: 'SOC 2 Type II report' }).waitFor({ state: 'hidden' })
 }
-async function prepareDialogMenuScenario(root: Locator, scenario: 'dialog-menu-export' | 'dialog-menu-closed' | 'dialog-menu-delete-keyboard'): Promise<void> {
+async function prepareDialogMenuScenario(
+  root: Locator,
+  scenario: 'dialog-menu-export' | 'dialog-menu-closed' | 'dialog-menu-delete-keyboard',
+): Promise<void> {
   if (scenario === 'dialog-menu-export') {
     await root.getByRole('menuitem', { name: 'Export as' }).hover()
     await root.getByRole('menu', { name: 'Export as' }).waitFor()
@@ -2010,9 +2149,11 @@ async function prepareDialogMenuScenario(root: Locator, scenario: 'dialog-menu-e
 }
 async function settleDialogMenuFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
   if (interaction.action === 'click' && interaction.control.name === 'Export as') return
-  if (interaction.action === 'click' && interaction.control.role === 'menuitem' ||
-      interaction.action === 'press' && interaction.key === 'Space' && interaction.control.role === 'menuitem' ||
-      interaction.action === 'press' && interaction.key === 'Escape' && interaction.control.role === 'menuitem')
+  if (
+    (interaction.action === 'click' && interaction.control.role === 'menuitem') ||
+    (interaction.action === 'press' && interaction.key === 'Space' && interaction.control.role === 'menuitem') ||
+    (interaction.action === 'press' && interaction.key === 'Escape' && interaction.control.role === 'menuitem')
+  )
     await root.getByRole('dialog', { name: 'Report actions' }).waitFor({ state: 'hidden' })
 }
 async function settleDialogEvidenceFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
@@ -2021,17 +2162,20 @@ async function settleDialogEvidenceFeedback(root: Locator, interaction: Interact
 }
 async function dialogEvidenceScrollOwner(root: Locator): Promise<Locator> {
   const descendants = root.getByRole('dialog', { name: 'SOC 2 Type II report' }).locator('div')
-  const index = await descendants.evaluateAll((elements) => elements.findIndex((element) => {
-    const style = getComputedStyle(element)
-    return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
-  }))
+  const index = await descendants.evaluateAll((elements) =>
+    elements.findIndex((element) => {
+      const style = getComputedStyle(element)
+      return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
+    }),
+  )
   if (index < 0) throw new Error('React Bits evidence body is not an observed scroll owner')
   return descendants.nth(index)
 }
 async function observeDialogEvidenceScroll(root: Locator, variantId: string): Promise<InteractionCase> {
   const pane = await dialogEvidenceScrollOwner(root)
   const observed = await pane.evaluate((element) => {
-    const style = getComputedStyle(element), rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element),
+      rect = element.getBoundingClientRect()
     return {
       tag: element.tagName.toLowerCase(),
       role: element.getAttribute('role'),
@@ -2043,22 +2187,39 @@ async function observeDialogEvidenceScroll(root: Locator, variantId: string): Pr
   if (observed.tag !== 'div' || !observed.visible || !observed.scrollable)
     throw new Error('React Bits evidence body is not an observed scroll owner')
   return {
-    id: `${variantId}:evidence-body:scroll:end`, action: 'scroll', scenario: 'dialog-evidence-scroll',
+    id: `${variantId}:evidence-body:scroll:end`,
+    action: 'scroll',
+    scenario: 'dialog-evidence-scroll',
     wheelDeltaY: 2000,
     control: {
-      index: 0, tag: 'div', role: observed.role, type: null, name: '', disabled: false,
-      visible: true, rect: observed.rect, expanded: null, pressed: null, selected: null,
-      state: null, stablePath: 'dialog > div', labelFor: null, describedBy: null,
-      capabilities: ['scroll'], options: [],
+      index: 0,
+      tag: 'div',
+      role: observed.role,
+      type: null,
+      name: '',
+      disabled: false,
+      visible: true,
+      rect: observed.rect,
+      expanded: null,
+      pressed: null,
+      selected: null,
+      state: null,
+      stablePath: 'dialog > div',
+      labelFor: null,
+      describedBy: null,
+      capabilities: ['scroll'],
+      options: [],
     },
   }
 }
 async function wizardInvoiceScrollOwner(root: Locator): Promise<Locator> {
   const descendants = root.locator('div')
-  const index = await descendants.evaluateAll((elements) => elements.findIndex((element) => {
-    const style = getComputedStyle(element)
-    return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
-  }))
+  const index = await descendants.evaluateAll((elements) =>
+    elements.findIndex((element) => {
+      const style = getComputedStyle(element)
+      return ['auto', 'scroll'].includes(style.overflowY) && element.scrollHeight > element.clientHeight + 1
+    }),
+  )
   if (index < 0) throw new Error('Invoice body is not an observed scroll owner')
   return descendants.nth(index)
 }
@@ -2067,18 +2228,34 @@ async function observeWizardInvoiceScroll(root: Locator, variantId: string): Pro
   const rect = await pane.boundingBox()
   if (!rect) throw new Error('Invoice scroll owner has no visible bounds')
   return {
-    id: `${variantId}:invoice-body:scroll:end`, action: 'scroll', scenario: 'wizard-invoice-scroll',
+    id: `${variantId}:invoice-body:scroll:end`,
+    action: 'scroll',
+    scenario: 'wizard-invoice-scroll',
     wheelDeltaY: 2000,
     control: {
-      index: 0, tag: 'div', role: null, type: null, name: '', disabled: false, visible: true,
-      rect, expanded: null, pressed: null, selected: null, state: null,
-      stablePath: 'invoice > scroll-body', labelFor: null, describedBy: null, capabilities: ['scroll'], options: [],
+      index: 0,
+      tag: 'div',
+      role: null,
+      type: null,
+      name: '',
+      disabled: false,
+      visible: true,
+      rect,
+      expanded: null,
+      pressed: null,
+      selected: null,
+      state: null,
+      stablePath: 'invoice > scroll-body',
+      labelFor: null,
+      describedBy: null,
+      capabilities: ['scroll'],
+      options: [],
     },
   }
 }
 async function prepareWizardEnvironmentEmpty(root: Locator): Promise<void> {
-  const selected = root.getByRole('checkbox', {checked: true});
-  while (await selected.count()) await selected.first().click();
+  const selected = root.getByRole('checkbox', { checked: true })
+  while (await selected.count()) await selected.first().click()
 }
 async function prepareWizardReviewConfirmed(root: Locator): Promise<void> {
   await root.getByRole('checkbox').click()
@@ -2090,17 +2267,28 @@ async function prepareCommentsReviewFilled(root: Locator): Promise<void> {
   await root.getByRole('textbox').fill('I will move both values into config.')
 }
 const commentsComposerScenarios = ['comments-composer-filtered', 'comments-composer-next'] as const
-const commentsInboxScenarios = ['comments-inbox-unresolved', 'comments-inbox-last-open', 'comments-inbox-empty'] as const
-async function prepareCommentsInboxScenario(root: Locator, scenario: (typeof commentsInboxScenarios)[number]): Promise<void> {
-  await root.getByRole('tab', {name: 'Unresolved', exact: true}).click()
+const commentsInboxScenarios = [
+  'comments-inbox-unresolved',
+  'comments-inbox-last-open',
+  'comments-inbox-empty',
+] as const
+async function prepareCommentsInboxScenario(
+  root: Locator,
+  scenario: (typeof commentsInboxScenarios)[number],
+): Promise<void> {
+  await root.getByRole('tab', { name: 'Unresolved', exact: true }).click()
   if (scenario === 'comments-inbox-unresolved') return
-  const actions = root.getByRole('button', {name: /^Resolve comment from /})
+  const actions = root.getByRole('button', { name: /^Resolve comment from / })
   const keep = scenario === 'comments-inbox-last-open' ? 1 : 0
   const count = await actions.count()
   for (let index = keep; index < count; index += 1) await actions.first().click()
-  if (await actions.count() !== keep) throw new Error('Comments inbox resolution changed; re-observe the source before sampling')
+  if ((await actions.count()) !== keep)
+    throw new Error('Comments inbox resolution changed; re-observe the source before sampling')
 }
-async function prepareCommentsComposerScenario(root: Locator, scenario: (typeof commentsComposerScenarios)[number]): Promise<void> {
+async function prepareCommentsComposerScenario(
+  root: Locator,
+  scenario: (typeof commentsComposerScenarios)[number],
+): Promise<void> {
   const input = root.getByRole('textbox')
   if (scenario === 'comments-composer-filtered') await input.fill('Please ask @so')
   else {
@@ -2108,30 +2296,69 @@ async function prepareCommentsComposerScenario(root: Locator, scenario: (typeof 
     await input.press('ArrowDown')
   }
 }
-export function commentsComposerInteractionCases(snapshot: SemanticSnapshot, variantId: string, scenario: (typeof commentsComposerScenarios)[number]): readonly InteractionCase[] {
+export function commentsComposerInteractionCases(
+  snapshot: SemanticSnapshot,
+  variantId: string,
+  scenario: (typeof commentsComposerScenarios)[number],
+): readonly InteractionCase[] {
   const cases = interactionCases(snapshot, variantId, scenario)
   if (scenario !== 'comments-composer-next') return cases
   const input = visibleControls(snapshot).find((control) => control.tag === 'textarea')
   if (!input) throw new Error('Comments composer input changed; observe the live source before sampling')
-  return [...cases, {id: `${variantId}:${scenario}:${input.index}:press-enter`, action: 'press', key: 'Enter', control: input, scenario, focusBefore: true}]
+  return [
+    ...cases,
+    {
+      id: `${variantId}:${scenario}:${input.index}:press-enter`,
+      action: 'press',
+      key: 'Enter',
+      control: input,
+      scenario,
+      focusBefore: true,
+    },
+  ]
 }
-async function prepareWizardShippingScenario(root: Locator, scenario: 'wizard-shipping-third-selected' | 'wizard-shipping-final-selected'): Promise<void> {
+async function prepareWizardShippingScenario(
+  root: Locator,
+  scenario: 'wizard-shipping-third-selected' | 'wizard-shipping-final-selected',
+): Promise<void> {
   const final = scenario === 'wizard-shipping-final-selected'
-  await root.getByRole('button', {name: final ? 'Go to question 5' : 'Go to question 3'}).click()
-  await root.getByRole('radio', {name: final ? 'Lower cost' : 'Courier pickup'}).click()
+  await root.getByRole('button', { name: final ? 'Go to question 5' : 'Go to question 3' }).click()
+  await root.getByRole('radio', { name: final ? 'Lower cost' : 'Courier pickup' }).click()
 }
 async function observeWizardEnvironmentScroll(root: Locator, variantId: string): Promise<InteractionCase> {
   const pane = await wizardInvoiceScrollOwner(root)
   const rect = await pane.boundingBox()
   if (!rect) throw new Error('Environment service pane has no visible bounds')
   return {
-    id: `${variantId}:environment-body:scroll:end`, action: 'scroll', scenario: 'wizard-environment-scroll', wheelDeltaY: 2000,
-    control: {index: 0, tag: 'div', role: null, type: null, name: '', disabled: false, visible: true, rect,
-      expanded: null, pressed: null, selected: null, state: null, stablePath: 'environment > service-body',
-      labelFor: null, describedBy: null, capabilities: ['scroll'], options: []},
+    id: `${variantId}:environment-body:scroll:end`,
+    action: 'scroll',
+    scenario: 'wizard-environment-scroll',
+    wheelDeltaY: 2000,
+    control: {
+      index: 0,
+      tag: 'div',
+      role: null,
+      type: null,
+      name: '',
+      disabled: false,
+      visible: true,
+      rect,
+      expanded: null,
+      pressed: null,
+      selected: null,
+      state: null,
+      stablePath: 'environment > service-body',
+      labelFor: null,
+      describedBy: null,
+      capabilities: ['scroll'],
+      options: [],
+    },
   }
 }
-async function prepareDialogAlertScenario(root: Locator, scenario: (typeof dialogAlertScenarios)[number]): Promise<void> {
+async function prepareDialogAlertScenario(
+  root: Locator,
+  scenario: (typeof dialogAlertScenarios)[number],
+): Promise<void> {
   if (scenario === 'dialog-alert-closed') {
     await root.getByRole('button', { name: 'Cancel', exact: true }).click()
     await root.getByRole('dialog', { name: 'Edit alert rule' }).waitFor({ state: 'hidden' })
@@ -2145,9 +2372,11 @@ async function prepareDialogAlertScenario(root: Locator, scenario: (typeof dialo
   }
 }
 async function settleDialogAlertFeedback(root: Locator, interaction: InteractionCase): Promise<void> {
-  if (interaction.id.endsWith(':6:click') ||
-      interaction.id.endsWith('dialog-alert-guard:9:click') ||
-      interaction.id.endsWith('dialog-alert-dirty:7:click'))
+  if (
+    interaction.id.endsWith(':6:click') ||
+    interaction.id.endsWith('dialog-alert-guard:9:click') ||
+    interaction.id.endsWith('dialog-alert-dirty:7:click')
+  )
     await root.getByRole('dialog', { name: 'Edit alert rule' }).waitFor({ state: 'hidden' })
   if (interaction.id.endsWith('dialog-alert-guard:8:click'))
     await root.getByRole('alertdialog', { name: 'Discard your changes?' }).waitFor({ state: 'hidden' })
@@ -2156,7 +2385,10 @@ async function settleDialogAlertFeedback(root: Locator, interaction: Interaction
     await root.evaluate(() => new Promise<void>((resolve) => window.setTimeout(resolve, 350)))
   }
 }
-async function prepareDialogWizardScenario(root: Locator, scenario: (typeof dialogWizardScenarios)[number]): Promise<void> {
+async function prepareDialogWizardScenario(
+  root: Locator,
+  scenario: (typeof dialogWizardScenarios)[number],
+): Promise<void> {
   if (scenario === 'dialog-wizard-closed') {
     await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
     await root.getByRole('dialog').waitFor({ state: 'hidden' })
@@ -2170,7 +2402,10 @@ async function prepareDialogWizardScenario(root: Locator, scenario: (typeof dial
   if (scenario === 'dialog-wizard-team' || scenario === 'dialog-wizard-team-custom')
     await root.getByRole('button', { name: 'Continue', exact: true }).click()
 }
-async function prepareDialogInviteScenario(root: Locator, scenario: (typeof dialogInviteScenarios)[number]): Promise<void> {
+async function prepareDialogInviteScenario(
+  root: Locator,
+  scenario: (typeof dialogInviteScenarios)[number],
+): Promise<void> {
   if (scenario === 'dialog-invite-closed') {
     await root.getByRole('button', { name: 'Close dialog', exact: true }).click()
     await root.getByRole('dialog', { name: 'Invite a member', exact: true }).waitFor({ state: 'hidden' })
@@ -2186,7 +2421,10 @@ async function prepareDialogInviteScenario(root: Locator, scenario: (typeof dial
   }
   await root.getByRole('button', { name: 'Send invite', exact: true }).click()
 }
-async function prepareDialogDeleteScenario(root: Locator, scenario: (typeof dialogDeleteScenarios)[number]): Promise<void> {
+async function prepareDialogDeleteScenario(
+  root: Locator,
+  scenario: (typeof dialogDeleteScenarios)[number],
+): Promise<void> {
   if (scenario === 'dialog-delete-valid') {
     await root.getByRole('textbox', { name: 'Type atlas-production to confirm' }).fill('atlas-production')
     return
@@ -2319,23 +2557,24 @@ function inboxInteractionCases(
 const editorialScenarios = ['editorial-empty', 'editorial-navigation-closed', 'editorial-schedule'] as const
 const richEditorScenarios = ['editor-block-open', 'editor-edited'] as const
 async function prepareMarkdownPreview(root: Locator): Promise<void> {
-  await root.getByRole('tab', {name: 'Preview', exact: true}).click()
+  await root.getByRole('tab', { name: 'Preview', exact: true }).click()
 }
 async function prepareSuggestionsComplete(root: Locator): Promise<void> {
-  await root.getByRole('button', {name: 'Accept all', exact: true}).click()
-  await root.getByRole('button', {name: 'Restore', exact: true}).waitFor()
+  await root.getByRole('button', { name: 'Accept all', exact: true }).click()
+  await root.getByRole('button', { name: 'Restore', exact: true }).waitFor()
 }
 async function prepareReaderOutlineClosed(root: Locator): Promise<void> {
-  const toggle = root.getByRole('button', {name: 'Toggle outline'})
+  const toggle = root.getByRole('button', { name: 'Toggle outline' })
   await toggle.click()
-  await toggle.waitFor({state: 'visible'})
+  await toggle.waitFor({ state: 'visible' })
 }
 async function prepareRichEditorScenario(root: Locator, scenario: (typeof richEditorScenarios)[number]): Promise<void> {
-  if (scenario === 'editor-block-open') await root.getByRole('button', {name: 'Paragraph', exact: true}).press('Space')
+  if (scenario === 'editor-block-open')
+    await root.getByRole('button', { name: 'Paragraph', exact: true }).press('Space')
   else {
-    await root.getByRole('textbox', {name: 'Document body', exact: true}).fill('audit sample')
-    await root.getByText('Saving…', {exact: true}).waitFor({timeout: 5000})
-    await root.getByText('Saved', {exact: true}).waitFor({timeout: 5000})
+    await root.getByRole('textbox', { name: 'Document body', exact: true }).fill('audit sample')
+    await root.getByText('Saving…', { exact: true }).waitFor({ timeout: 5000 })
+    await root.getByText('Saved', { exact: true }).waitFor({ timeout: 5000 })
   }
 }
 async function prepareEditorialScenario(root: Locator, scenario: (typeof editorialScenarios)[number]): Promise<void> {
@@ -3126,7 +3365,8 @@ export function selectInteractionCases(
 
 async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
   if (scenario === 'dialog-evidence-scroll') return dialogEvidenceScrollOwner(root)
-  if (scenario === 'wizard-invoice-scroll' || scenario === 'wizard-environment-scroll') return wizardInvoiceScrollOwner(root)
+  if (scenario === 'wizard-invoice-scroll' || scenario === 'wizard-environment-scroll')
+    return wizardInvoiceScrollOwner(root)
   if (scenario === 'usage-model-row') {
     passiveModelRowHoverCase('probe', control)
     return root.getByText('Atlas Pro', { exact: true }).locator('../../..')
@@ -3148,7 +3388,9 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
       index,
       tag: element.tagName.toLowerCase(),
       type: element.getAttribute('type'),
-      name: (element.getAttribute('aria-label') ?? (element.tagName === 'TEXTAREA' ? '' : element.textContent) ?? '').trim().replaceAll(/\s+/g, ' '),
+      name: (element.getAttribute('aria-label') ?? (element.tagName === 'TEXTAREA' ? '' : element.textContent) ?? '')
+        .trim()
+        .replaceAll(/\s+/g, ' '),
       visible: (() => {
         const rect = element.getBoundingClientRect()
         const style = getComputedStyle(element)
@@ -3174,7 +3416,13 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
 async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
   if (interaction.action === 'scroll') {
     if (
-      !['board-column-scroll', 'board-stack-scroll', 'dialog-evidence-scroll', 'wizard-invoice-scroll', 'wizard-environment-scroll'].includes(interaction.scenario ?? '') ||
+      ![
+        'board-column-scroll',
+        'board-stack-scroll',
+        'dialog-evidence-scroll',
+        'wizard-invoice-scroll',
+        'wizard-environment-scroll',
+      ].includes(interaction.scenario ?? '') ||
       !Number.isFinite(interaction.wheelDeltaY) ||
       !interaction.wheelDeltaY
     )
@@ -3210,8 +3458,7 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
     // Sidebar tree search does not hover a folder. The live documentation's
     // pointer can rest over its first row after iframe alignment, so remove
     // that unrelated hover from both sides of this sampled input feedback.
-    if (interaction.id.startsWith('hbar-app-ui-app-sidebar-5:'))
-      await control.page().mouse.move(0, 0)
+    if (interaction.id.startsWith('hbar-app-ui-app-sidebar-5:')) await control.page().mouse.move(0, 0)
   }
   if (interaction.action === 'select') {
     const values = await control
@@ -3381,14 +3628,11 @@ async function interactionDelta(
     const live = liveActivityDelta(before, after)
     if (live) return live
   }
-  if (interaction.id.startsWith('hbar-app-ui-app-dialog-7:'))
-    return dialogMenuInteractionDelta(before, after)
-  if (interaction.id.startsWith('hbar-app-ui-authentication-5:'))
-    return magicLinkInteractionDelta(before, after)
+  if (interaction.id.startsWith('hbar-app-ui-app-dialog-7:')) return dialogMenuInteractionDelta(before, after)
+  if (interaction.id.startsWith('hbar-app-ui-authentication-5:')) return magicLinkInteractionDelta(before, after)
   if (interaction.id.startsWith('hbar-app-ui-authentication-6:'))
     return codeAuthenticationInteractionDelta(before, after)
-  if (interaction.id.startsWith('hbar-app-ui-authentication-13:'))
-    return passwordResetInteractionDelta(before, after)
+  if (interaction.id.startsWith('hbar-app-ui-authentication-13:')) return passwordResetInteractionDelta(before, after)
   return semanticInteractionDelta(before, after)
 }
 
@@ -3427,7 +3671,8 @@ export function magicLinkInteractionDelta(
     })),
   })
   const base = semanticInteractionDelta(normalize(before), normalize(after))
-  const beforeAx = accessible(before), afterAx = accessible(after)
+  const beforeAx = accessible(before),
+    afterAx = accessible(after)
   return {
     changed: base.changed || beforeAx !== afterAx,
     signature: JSON.stringify({ base: base.signature, beforeAx, afterAx }),
@@ -3445,11 +3690,18 @@ export function codeAuthenticationInteractionDelta(
   const normalize = (snapshot: SemanticSnapshot): SemanticSnapshot => ({
     ...snapshot,
     bodyTextLength: accessible(snapshot).length,
-    controls: snapshot.controls.map((control) => ({ ...control, name: control.name.replace(countdown, 'Resend in 0:--') })),
+    controls: snapshot.controls.map((control) => ({
+      ...control,
+      name: control.name.replace(countdown, 'Resend in 0:--'),
+    })),
   })
   const base = semanticInteractionDelta(normalize(before), normalize(after))
-  const beforeAx = accessible(before), afterAx = accessible(after)
-  return { changed: base.changed || beforeAx !== afterAx, signature: JSON.stringify({ base: base.signature, beforeAx, afterAx }) }
+  const beforeAx = accessible(before),
+    afterAx = accessible(after)
+  return {
+    changed: base.changed || beforeAx !== afterAx,
+    signature: JSON.stringify({ base: base.signature, beforeAx, afterAx }),
+  }
 }
 
 export function dialogMenuInteractionDelta(
@@ -3457,10 +3709,13 @@ export function dialogMenuInteractionDelta(
   after: SemanticSnapshot,
 ): Readonly<{ changed: boolean; signature: string }> {
   const base = semanticInteractionDelta(before, after)
-  const result = (snapshot: SemanticSnapshot) => snapshot.axSnapshot.split('\n')
-    .filter((line) => /^- paragraph: /.test(line))
-    .map((line) => line.slice('- paragraph: '.length))
-  const beforeResult = result(before), afterResult = result(after)
+  const result = (snapshot: SemanticSnapshot) =>
+    snapshot.axSnapshot
+      .split('\n')
+      .filter((line) => /^- paragraph: /.test(line))
+      .map((line) => line.slice('- paragraph: '.length))
+  const beforeResult = result(before),
+    afterResult = result(after)
   return {
     changed: base.changed || JSON.stringify(beforeResult) !== JSON.stringify(afterResult),
     signature: JSON.stringify({ base: base.signature, beforeResult, afterResult }),
@@ -3627,36 +3882,105 @@ async function replayInteraction(
     await prepareNotificationToastScenario(root, toastScenario)
   if (spec.id === 'hbar-app-ui-notifications-3' && interaction.scenario === 'preferences-dirty')
     await prepareNotificationPreferencesDirty(root)
-  if (spec.id === 'hbar-app-ui-notifications-4' && notificationActivityScenarios.some((value) => value === interaction.scenario))
-    await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
-  if (spec.id === 'hbar-app-ui-notifications-5' && notificationSystemScenarios.some((value) => value === interaction.scenario))
+  if (
+    spec.id === 'hbar-app-ui-notifications-4' &&
+    notificationActivityScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareNotificationActivityScenario(
+      root,
+      interaction.scenario as (typeof notificationActivityScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-notifications-5' &&
+    notificationSystemScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
-  if (spec.id === 'hbar-app-ui-notifications-6' && notificationBellScenarios.some((value) => value === interaction.scenario))
+  if (
+    spec.id === 'hbar-app-ui-notifications-6' &&
+    notificationBellScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-1' && authenticationSignInScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-2' && authenticationProviderFirstScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-4' && authenticationTwoStepScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-5' && authenticationMagicLinkScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-6' && authenticationCodeScenarios.some((value) => value === interaction.scenario))
+  if (
+    spec.id === 'hbar-app-ui-authentication-1' &&
+    authenticationSignInScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationSignInScenario(
+      root,
+      interaction.scenario as (typeof authenticationSignInScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-authentication-2' &&
+    authenticationProviderFirstScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationProviderFirstScenario(
+      root,
+      interaction.scenario as (typeof authenticationProviderFirstScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-authentication-4' &&
+    authenticationTwoStepScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationTwoStepScenario(
+      root,
+      interaction.scenario as (typeof authenticationTwoStepScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-authentication-5' &&
+    authenticationMagicLinkScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationMagicLinkScenario(
+      root,
+      interaction.scenario as (typeof authenticationMagicLinkScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-authentication-6' &&
+    authenticationCodeScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-7' && authenticationSignUpScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
+  if (
+    spec.id === 'hbar-app-ui-authentication-7' &&
+    authenticationSignUpScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationSignUpScenario(
+      root,
+      interaction.scenario as (typeof authenticationSignUpScenarios)[number],
+    )
   if (spec.id === 'hbar-app-ui-authentication-8' && interaction.scenario === 'auth-enterprise-mismatch')
     await prepareAuthenticationEnterpriseMismatch(root)
-  if (spec.id === 'hbar-app-ui-authentication-9' && authenticationPasskeyScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
+  if (
+    spec.id === 'hbar-app-ui-authentication-9' &&
+    authenticationPasskeyScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationPasskeyScenario(
+      root,
+      interaction.scenario as (typeof authenticationPasskeyScenarios)[number],
+    )
   if (spec.id === 'hbar-app-ui-authentication-10' && interaction.scenario === 'auth-account-contractor')
     await prepareAuthenticationAccountContractor(root)
-  if (spec.id === 'hbar-app-ui-authentication-12' && authenticationInvitationScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-13' && authenticationResetScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
-  if (spec.id === 'hbar-app-ui-authentication-14' && authenticationApprovalScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
+  if (
+    spec.id === 'hbar-app-ui-authentication-12' &&
+    authenticationInvitationScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationInvitationScenario(
+      root,
+      interaction.scenario as (typeof authenticationInvitationScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-authentication-13' &&
+    authenticationResetScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationResetScenario(
+      root,
+      interaction.scenario as (typeof authenticationResetScenarios)[number],
+    )
+  if (
+    spec.id === 'hbar-app-ui-authentication-14' &&
+    authenticationApprovalScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationApprovalScenario(
+      root,
+      interaction.scenario as (typeof authenticationApprovalScenarios)[number],
+    )
   if (spec.id === 'hbar-app-ui-kanban-1' && kanbanBoardScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
   if (spec.id === 'hbar-app-ui-kanban-2' && kanbanSwimlaneScenarios.some((value) => value === interaction.scenario))
@@ -3683,7 +4007,11 @@ async function replayInteraction(
     await prepareCommentsComposerScenario(root, interaction.scenario as (typeof commentsComposerScenarios)[number])
   if (spec.id === 'hbar-app-ui-comments-5' && commentsInboxScenarios.some((value) => value === interaction.scenario))
     await prepareCommentsInboxScenario(root, interaction.scenario as (typeof commentsInboxScenarios)[number])
-  if (spec.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
+  if (
+    spec.id === 'hbar-app-ui-wizard-7' &&
+    (interaction.scenario === 'wizard-shipping-third-selected' ||
+      interaction.scenario === 'wizard-shipping-final-selected')
+  )
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-agent-activity-5')
     await prepareAgentLogScenario(page, root, interaction.scenario, false, checkpointRows)
@@ -3727,10 +4055,16 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
   const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
-  if (spec.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview') await prepareMarkdownPreview(root)
-  if (spec.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete') await prepareSuggestionsComplete(root)
-  if (spec.id === 'hbar-app-ui-editor-5' && interaction.scenario === 'reader-outline-closed') await prepareReaderOutlineClosed(root)
-  if (spec.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
+  if (spec.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview')
+    await prepareMarkdownPreview(root)
+  if (spec.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete')
+    await prepareSuggestionsComplete(root)
+  if (spec.id === 'hbar-app-ui-editor-5' && interaction.scenario === 'reader-outline-closed')
+    await prepareReaderOutlineClosed(root)
+  if (spec.id === 'hbar-app-ui-feedback-1' && feedbackScenarios.some((value) => value === interaction.scenario))
+    await prepareFeedbackScenario(root, interaction.scenario as (typeof feedbackScenarios)[number])
+  if (spec.id === 'hbar-app-ui-editor-1' && richEditorScenario)
+    await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3754,8 +4088,10 @@ async function replayInteraction(
     await prepareSidebarFullScenario(root)
   if (spec.id === 'hbar-app-ui-app-dialog-1' && interaction.scenario === 'dialog-plan-closed')
     await prepareDialogPlanScenario(root)
-  if (spec.id === 'hbar-app-ui-app-dialog-2' &&
-      (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed'))
+  if (
+    spec.id === 'hbar-app-ui-app-dialog-2' &&
+    (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed')
+  )
     await prepareDialogDeleteScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-dialog-3') {
     const scenario = dialogInviteScenarios.find((value) => value === interaction.scenario)
@@ -3771,9 +4107,12 @@ async function replayInteraction(
   }
   if (spec.id === 'hbar-app-ui-app-dialog-6' && interaction.scenario === 'dialog-evidence-closed')
     await prepareDialogEvidenceClosed(root)
-  if (spec.id === 'hbar-app-ui-app-dialog-7' &&
-      (interaction.scenario === 'dialog-menu-export' || interaction.scenario === 'dialog-menu-closed' ||
-       interaction.scenario === 'dialog-menu-delete-keyboard'))
+  if (
+    spec.id === 'hbar-app-ui-app-dialog-7' &&
+    (interaction.scenario === 'dialog-menu-export' ||
+      interaction.scenario === 'dialog-menu-closed' ||
+      interaction.scenario === 'dialog-menu-delete-keyboard')
+  )
     await prepareDialogMenuScenario(root, interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
@@ -3839,8 +4178,7 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
-  if (spec.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
-    await page.waitForTimeout(450)
+  if (spec.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed') await page.waitForTimeout(450)
   if (spec.id === 'hbar-app-ui-kanban-4' && interaction.action === 'click' && interaction.control.index === 8)
     await page.waitForTimeout(450)
   if (spec.id === 'hbar-app-ui-kanban-2' && interaction.action === 'click' && interaction.control.index <= 1)
@@ -3933,10 +4271,16 @@ async function replayReferenceInteraction(
   if (reference.id === 'hbar-app-ui-app-shell-2' && railScenario) await prepareShellRailScenario(root, railScenario)
   const editorialScenario = editorialScenarios.find((scenario) => scenario === interaction.scenario)
   const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
-  if (reference.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview') await prepareMarkdownPreview(root)
-  if (reference.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete') await prepareSuggestionsComplete(root)
-  if (reference.id === 'hbar-app-ui-editor-5' && interaction.scenario === 'reader-outline-closed') await prepareReaderOutlineClosed(root)
-  if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
+  if (reference.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview')
+    await prepareMarkdownPreview(root)
+  if (reference.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete')
+    await prepareSuggestionsComplete(root)
+  if (reference.id === 'hbar-app-ui-editor-5' && interaction.scenario === 'reader-outline-closed')
+    await prepareReaderOutlineClosed(root)
+  if (reference.id === 'hbar-app-ui-feedback-1' && feedbackScenarios.some((value) => value === interaction.scenario))
+    await prepareFeedbackScenario(root, interaction.scenario as (typeof feedbackScenarios)[number])
+  if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario)
+    await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
   const documentsScenario = documentsScenarios.find((scenario) => scenario === interaction.scenario)
@@ -3960,8 +4304,10 @@ async function replayReferenceInteraction(
     await prepareSidebarFullScenario(root)
   if (reference.id === 'hbar-app-ui-app-dialog-1' && interaction.scenario === 'dialog-plan-closed')
     await prepareDialogPlanScenario(root)
-  if (reference.id === 'hbar-app-ui-app-dialog-2' &&
-      (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed'))
+  if (
+    reference.id === 'hbar-app-ui-app-dialog-2' &&
+    (interaction.scenario === 'dialog-delete-valid' || interaction.scenario === 'dialog-delete-closed')
+  )
     await prepareDialogDeleteScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-dialog-3') {
     const scenario = dialogInviteScenarios.find((value) => value === interaction.scenario)
@@ -3977,42 +4323,114 @@ async function replayReferenceInteraction(
   }
   if (reference.id === 'hbar-app-ui-app-dialog-6' && interaction.scenario === 'dialog-evidence-closed')
     await prepareDialogEvidenceClosed(root)
-  if (reference.id === 'hbar-app-ui-app-dialog-7' &&
-      (interaction.scenario === 'dialog-menu-export' || interaction.scenario === 'dialog-menu-closed' ||
-       interaction.scenario === 'dialog-menu-delete-keyboard'))
+  if (
+    reference.id === 'hbar-app-ui-app-dialog-7' &&
+    (interaction.scenario === 'dialog-menu-export' ||
+      interaction.scenario === 'dialog-menu-closed' ||
+      interaction.scenario === 'dialog-menu-delete-keyboard')
+  )
     await prepareDialogMenuScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-notifications-3' && interaction.scenario === 'preferences-dirty')
     await prepareNotificationPreferencesDirty(root)
-  if (reference.id === 'hbar-app-ui-notifications-4' && notificationActivityScenarios.some((value) => value === interaction.scenario))
-    await prepareNotificationActivityScenario(root, interaction.scenario as (typeof notificationActivityScenarios)[number])
-  if (reference.id === 'hbar-app-ui-notifications-5' && notificationSystemScenarios.some((value) => value === interaction.scenario))
+  if (
+    reference.id === 'hbar-app-ui-notifications-4' &&
+    notificationActivityScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareNotificationActivityScenario(
+      root,
+      interaction.scenario as (typeof notificationActivityScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-notifications-5' &&
+    notificationSystemScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareNotificationSystemScenario(root, interaction.scenario as (typeof notificationSystemScenarios)[number])
-  if (reference.id === 'hbar-app-ui-notifications-6' && notificationBellScenarios.some((value) => value === interaction.scenario))
+  if (
+    reference.id === 'hbar-app-ui-notifications-6' &&
+    notificationBellScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareNotificationBellScenario(root, interaction.scenario as (typeof notificationBellScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-1' && authenticationSignInScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationSignInScenario(root, interaction.scenario as (typeof authenticationSignInScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-2' && authenticationProviderFirstScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationProviderFirstScenario(root, interaction.scenario as (typeof authenticationProviderFirstScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-4' && authenticationTwoStepScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationTwoStepScenario(root, interaction.scenario as (typeof authenticationTwoStepScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-5' && authenticationMagicLinkScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationMagicLinkScenario(root, interaction.scenario as (typeof authenticationMagicLinkScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-6' && authenticationCodeScenarios.some((value) => value === interaction.scenario))
+  if (
+    reference.id === 'hbar-app-ui-authentication-1' &&
+    authenticationSignInScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationSignInScenario(
+      root,
+      interaction.scenario as (typeof authenticationSignInScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-authentication-2' &&
+    authenticationProviderFirstScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationProviderFirstScenario(
+      root,
+      interaction.scenario as (typeof authenticationProviderFirstScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-authentication-4' &&
+    authenticationTwoStepScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationTwoStepScenario(
+      root,
+      interaction.scenario as (typeof authenticationTwoStepScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-authentication-5' &&
+    authenticationMagicLinkScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationMagicLinkScenario(
+      root,
+      interaction.scenario as (typeof authenticationMagicLinkScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-authentication-6' &&
+    authenticationCodeScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareAuthenticationCodeScenario(root, interaction.scenario as (typeof authenticationCodeScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-7' && authenticationSignUpScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationSignUpScenario(root, interaction.scenario as (typeof authenticationSignUpScenarios)[number])
+  if (
+    reference.id === 'hbar-app-ui-authentication-7' &&
+    authenticationSignUpScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationSignUpScenario(
+      root,
+      interaction.scenario as (typeof authenticationSignUpScenarios)[number],
+    )
   if (reference.id === 'hbar-app-ui-authentication-8' && interaction.scenario === 'auth-enterprise-mismatch')
     await prepareAuthenticationEnterpriseMismatch(root)
-  if (reference.id === 'hbar-app-ui-authentication-9' && authenticationPasskeyScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationPasskeyScenario(root, interaction.scenario as (typeof authenticationPasskeyScenarios)[number])
+  if (
+    reference.id === 'hbar-app-ui-authentication-9' &&
+    authenticationPasskeyScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationPasskeyScenario(
+      root,
+      interaction.scenario as (typeof authenticationPasskeyScenarios)[number],
+    )
   if (reference.id === 'hbar-app-ui-authentication-10' && interaction.scenario === 'auth-account-contractor')
     await prepareAuthenticationAccountContractor(root)
-  if (reference.id === 'hbar-app-ui-authentication-12' && authenticationInvitationScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationInvitationScenario(root, interaction.scenario as (typeof authenticationInvitationScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-13' && authenticationResetScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationResetScenario(root, interaction.scenario as (typeof authenticationResetScenarios)[number])
-  if (reference.id === 'hbar-app-ui-authentication-14' && authenticationApprovalScenarios.some((value) => value === interaction.scenario))
-    await prepareAuthenticationApprovalScenario(root, interaction.scenario as (typeof authenticationApprovalScenarios)[number])
+  if (
+    reference.id === 'hbar-app-ui-authentication-12' &&
+    authenticationInvitationScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationInvitationScenario(
+      root,
+      interaction.scenario as (typeof authenticationInvitationScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-authentication-13' &&
+    authenticationResetScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationResetScenario(
+      root,
+      interaction.scenario as (typeof authenticationResetScenarios)[number],
+    )
+  if (
+    reference.id === 'hbar-app-ui-authentication-14' &&
+    authenticationApprovalScenarios.some((value) => value === interaction.scenario)
+  )
+    await prepareAuthenticationApprovalScenario(
+      root,
+      interaction.scenario as (typeof authenticationApprovalScenarios)[number],
+    )
   if (reference.id === 'hbar-app-ui-kanban-1' && kanbanBoardScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanBoardScenario(root, interaction.scenario as (typeof kanbanBoardScenarios)[number])
   if (
@@ -4026,7 +4444,10 @@ async function replayReferenceInteraction(
     await prepareKanbanDetailClosed(root)
   if (reference.id === 'hbar-app-ui-kanban-5' && kanbanSprintScenarios.some((value) => value === interaction.scenario))
     await prepareKanbanSprintScenario(root, interaction.scenario as (typeof kanbanSprintScenarios)[number])
-  if (reference.id === 'hbar-app-ui-wizard-1' && wizardInformationScenarios.some((value) => value === interaction.scenario))
+  if (
+    reference.id === 'hbar-app-ui-wizard-1' &&
+    wizardInformationScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareWizardInformationScenario(root, interaction.scenario as (typeof wizardInformationScenarios)[number])
   if (reference.id === 'hbar-app-ui-wizard-3' && interaction.scenario === 'wizard-upgrade-step-two')
     await prepareWizardUpgradeStepTwo(root)
@@ -4038,11 +4459,21 @@ async function replayReferenceInteraction(
     await prepareCommentsDiscussionFilled(root)
   if (reference.id === 'hbar-app-ui-comments-3' && interaction.scenario === 'comments-review-filled')
     await prepareCommentsReviewFilled(root)
-  if (reference.id === 'hbar-app-ui-comments-4' && commentsComposerScenarios.some((value) => value === interaction.scenario))
+  if (
+    reference.id === 'hbar-app-ui-comments-4' &&
+    commentsComposerScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareCommentsComposerScenario(root, interaction.scenario as (typeof commentsComposerScenarios)[number])
-  if (reference.id === 'hbar-app-ui-comments-5' && commentsInboxScenarios.some((value) => value === interaction.scenario))
+  if (
+    reference.id === 'hbar-app-ui-comments-5' &&
+    commentsInboxScenarios.some((value) => value === interaction.scenario)
+  )
     await prepareCommentsInboxScenario(root, interaction.scenario as (typeof commentsInboxScenarios)[number])
-  if (reference.id === 'hbar-app-ui-wizard-7' && (interaction.scenario === 'wizard-shipping-third-selected' || interaction.scenario === 'wizard-shipping-final-selected'))
+  if (
+    reference.id === 'hbar-app-ui-wizard-7' &&
+    (interaction.scenario === 'wizard-shipping-third-selected' ||
+      interaction.scenario === 'wizard-shipping-final-selected')
+  )
     await prepareWizardShippingScenario(root, interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-6' && documentsScenario)
     await prepareDocumentsScenario(root, documentsScenario)
@@ -4150,9 +4581,17 @@ async function replayReferenceInteraction(
     await page.waitForTimeout(450)
   if (reference.id === 'hbar-app-ui-kanban-2' && interaction.action === 'click' && interaction.control.index <= 1)
     await page.waitForTimeout(400)
-  if (reference.id === 'hbar-app-ui-notifications-1' && interaction.action !== 'hover' && interaction.action !== 'focus')
+  if (
+    reference.id === 'hbar-app-ui-notifications-1' &&
+    interaction.action !== 'hover' &&
+    interaction.action !== 'focus'
+  )
     await page.waitForTimeout(450)
-  if (reference.id === 'hbar-app-ui-editor-4' && interaction.action === 'click' && interaction.control.name === 'Dismiss')
+  if (
+    reference.id === 'hbar-app-ui-editor-4' &&
+    interaction.action === 'click' &&
+    interaction.control.name === 'Dismiss'
+  )
     await page.waitForTimeout(250)
   if (reference.id === 'hbar-app-ui-app-dialog-5') await settleDialogAlertFeedback(root, interaction)
   if (reference.id === 'hbar-app-ui-app-dialog-6') await settleDialogEvidenceFeedback(root, interaction)
@@ -4346,7 +4785,8 @@ async function _runInteractionsLegacy(
             await sourcePage.setViewportSize({ width: viewport.width, height: viewport.height })
             const frame = await loadReferencePreview(sourcePage, referencePageUrl(reference, options), theme)
             const sourceSelector = sourceCanvasSelector
-            if (spec.id === 'hbar-app-ui-editor-3') await waitForReferenceCodeHighlight(frame.locator(sourceSelector).first())
+            if (spec.id === 'hbar-app-ui-editor-3')
+              await waitForReferenceCodeHighlight(frame.locator(sourceSelector).first())
             const sourceSnapshot = await snapshotRoot(frame, sourceSelector)
             const referenceCanvas = await readReferenceCanvas(frame)
             const cases = interactionCases(sourceSnapshot, spec.id)
@@ -4577,17 +5017,39 @@ async function runInteractionsParallel(
             const referenceCanvas =
               staticCanvases.get(`${spec.id}/${theme}/${viewport.id}`) ?? (await readReferenceCanvas(frame))
             let discovered = [...interactionCases(sourceSnapshot, spec.id)]
-            if (spec.id === 'hbar-app-ui-editor-2' && sampleIds?.some((id) => id.startsWith(`${spec.id}:markdown-preview:`))) {
+            if (
+              spec.id === 'hbar-app-ui-editor-2' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:markdown-preview:`))
+            ) {
               await prepareMarkdownPreview(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'markdown-preview'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'markdown-preview'),
+              )
             }
-            if (spec.id === 'hbar-app-ui-editor-4' && sampleIds?.some((id) => id.startsWith(`${spec.id}:suggestions-complete:`))) {
+            if (
+              spec.id === 'hbar-app-ui-editor-4' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:suggestions-complete:`))
+            ) {
               await prepareSuggestionsComplete(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'suggestions-complete'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'suggestions-complete'),
+              )
             }
-            if (spec.id === 'hbar-app-ui-editor-5' && sampleIds?.some((id) => id.startsWith(`${spec.id}:reader-outline-closed:`))) {
+            if (
+              spec.id === 'hbar-app-ui-editor-5' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:reader-outline-closed:`))
+            ) {
               await prepareReaderOutlineClosed(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'reader-outline-closed'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'reader-outline-closed'),
+              )
+            }
+            if (spec.id === 'hbar-app-ui-feedback-1') {
+              for (const scenario of feedbackScenarios) {
+                if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
+                await prepareFeedbackScenario(sourceRoot, scenario)
+                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+              }
             }
             if (spec.id === 'hbar-app-ui-editor-1') {
               for (const scenario of richEditorScenarios) {
@@ -4599,14 +5061,25 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-scheduling-4')
               discovered = [...schedulingDeadlineInteractionCases(sourceSnapshot, spec.id)]
             if (spec.id === 'hbar-app-ui-authentication-6')
-              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: '1' } : item)
+              discovered = discovered.map((item) =>
+                item.id === `${spec.id}:0:fill` ? { ...item, fillValue: '1' } : item,
+              )
             if (spec.id === 'hbar-app-ui-authentication-7')
-              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: 'Dana Whitfield' }
-                : item.id === `${spec.id}:1:fill` ? { ...item, fillValue: 'dana@example.test' }
-                  : item.id === `${spec.id}:2:fill` ? { ...item, fillValue: theme === 'light' ? 'abcdefghij' : 'Abcdefghij1!' }
-                    : item)
+              discovered = discovered.map((item) =>
+                item.id === `${spec.id}:0:fill`
+                  ? { ...item, fillValue: 'Dana Whitfield' }
+                  : item.id === `${spec.id}:1:fill`
+                    ? { ...item, fillValue: 'dana@example.test' }
+                    : item.id === `${spec.id}:2:fill`
+                      ? { ...item, fillValue: theme === 'light' ? 'abcdefghij' : 'Abcdefghij1!' }
+                      : item,
+              )
             if (spec.id === 'hbar-app-ui-authentication-8')
-              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill` ? { ...item, fillValue: theme === 'dark' ? 'dana@ardentfreight.co' : 'dana@example.test' } : item)
+              discovered = discovered.map((item) =>
+                item.id === `${spec.id}:0:fill`
+                  ? { ...item, fillValue: theme === 'dark' ? 'dana@ardentfreight.co' : 'dana@example.test' }
+                  : item,
+              )
             if (spec.id === 'hbar-app-ui-notifications-2') {
               for (const scenario of notificationToastScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
@@ -4614,9 +5087,14 @@ async function runInteractionsParallel(
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
-            if (spec.id === 'hbar-app-ui-notifications-3' && sampleIds?.some((id) => id.includes(':preferences-dirty:'))) {
+            if (
+              spec.id === 'hbar-app-ui-notifications-3' &&
+              sampleIds?.some((id) => id.includes(':preferences-dirty:'))
+            ) {
               await prepareNotificationPreferencesDirty(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'preferences-dirty'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'preferences-dirty'),
+              )
             }
             if (spec.id === 'hbar-app-ui-notifications-4') {
               for (const scenario of notificationActivityScenarios) {
@@ -4653,11 +5131,13 @@ async function runInteractionsParallel(
               for (const scenario of authenticationProviderFirstScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationProviderFirstScenario(sourceRoot, scenario)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
-                  scenario === 'auth-provider-sso' && item.action === 'fill'
-                    ? { ...item, fillValue: 'northwind' }
-                    : item,
-                ))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                    scenario === 'auth-provider-sso' && item.action === 'fill'
+                      ? { ...item, fillValue: 'northwind' }
+                      : item,
+                  ),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-authentication-4') {
@@ -4678,29 +5158,41 @@ async function runInteractionsParallel(
               for (const scenario of authenticationCodeScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationCodeScenario(sourceRoot, scenario)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
-                  scenario === 'auth-code-five' && item.id === `${spec.id}:${scenario}:5:fill`
-                    ? { ...item, fillValue: '6' }
-                    : item,
-                ))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                    scenario === 'auth-code-five' && item.id === `${spec.id}:${scenario}:5:fill`
+                      ? { ...item, fillValue: '6' }
+                      : item,
+                  ),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-authentication-7') {
               for (const scenario of authenticationSignUpScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationSignUpScenario(sourceRoot, scenario)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
-                  scenario === 'auth-signup-invalid-email' && item.id === `${spec.id}:${scenario}:1:fill`
-                    ? { ...item, fillValue: 'bad@' }
-                    : item,
-                ))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                    scenario === 'auth-signup-invalid-email' && item.id === `${spec.id}:${scenario}:1:fill`
+                      ? { ...item, fillValue: 'bad@' }
+                      : item,
+                  ),
+                )
               }
             }
-            if (spec.id === 'hbar-app-ui-authentication-8' && sampleIds?.some((id) => id.startsWith(`${spec.id}:auth-enterprise-mismatch:`))) {
+            if (
+              spec.id === 'hbar-app-ui-authentication-8' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:auth-enterprise-mismatch:`))
+            ) {
               await prepareAuthenticationEnterpriseMismatch(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-enterprise-mismatch').map((item) =>
-                item.id === `${spec.id}:auth-enterprise-mismatch:0:fill` ? { ...item, fillValue: 'dana@northwind.com' } : item,
-              ))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-enterprise-mismatch').map(
+                  (item) =>
+                    item.id === `${spec.id}:auth-enterprise-mismatch:0:fill`
+                      ? { ...item, fillValue: 'dana@northwind.com' }
+                      : item,
+                ),
+              )
             }
             if (spec.id === 'hbar-app-ui-authentication-9') {
               for (const scenario of authenticationPasskeyScenarios) {
@@ -4709,37 +5201,54 @@ async function runInteractionsParallel(
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
-            if (spec.id === 'hbar-app-ui-authentication-10' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:auth-account-contractor:`)))) {
+            if (
+              spec.id === 'hbar-app-ui-authentication-10' &&
+              (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:auth-account-contractor:`)))
+            ) {
               await prepareAuthenticationAccountContractor(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-account-contractor'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'auth-account-contractor'),
+              )
             }
             if (spec.id === 'hbar-app-ui-authentication-11') {
-              discovered = discovered.map((item) => item.id === `${spec.id}:1:fill`
-                ? { ...item, fillValue: viewport.id === 'mobile' ? 'no matching workspace' : 'Design' }
-                : item)
+              discovered = discovered.map((item) =>
+                item.id === `${spec.id}:1:fill`
+                  ? { ...item, fillValue: viewport.id === 'mobile' ? 'no matching workspace' : 'Design' }
+                  : item,
+              )
             }
             if (spec.id === 'hbar-app-ui-authentication-12') {
-              discovered = discovered.map((item) => item.id === `${spec.id}:1:fill` ? { ...item, fillValue: 'Dana Whitfield' } : item)
+              discovered = discovered.map((item) =>
+                item.id === `${spec.id}:1:fill` ? { ...item, fillValue: 'Dana Whitfield' } : item,
+              )
               for (const scenario of authenticationInvitationScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationInvitationScenario(sourceRoot, scenario)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
-                  item.id === `${spec.id}:auth-invite-named:2:fill` ? { ...item, fillValue: 'StrongPassword1!' } : item,
-                ))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                    item.id === `${spec.id}:auth-invite-named:2:fill`
+                      ? { ...item, fillValue: 'StrongPassword1!' }
+                      : item,
+                  ),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-authentication-13') {
-              discovered = discovered.map((item) => item.id === `${spec.id}:0:fill`
-                ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'abcdefghij' }
-                : item)
+              discovered = discovered.map((item) =>
+                item.id === `${spec.id}:0:fill`
+                  ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'abcdefghij' }
+                  : item,
+              )
               for (const scenario of authenticationResetScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareAuthenticationResetScenario(sourceRoot, scenario)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
-                  item.id === `${spec.id}:auth-reset-strong:2:fill`
-                    ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'Different123!' }
-                    : item,
-                ))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                    item.id === `${spec.id}:auth-reset-strong:2:fill`
+                      ? { ...item, fillValue: theme === 'dark' ? 'Abcdefghij1!' : 'Different123!' }
+                      : item,
+                  ),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-authentication-14') {
@@ -4758,7 +5267,14 @@ async function runInteractionsParallel(
                 if (scenario === 'kanban-grabbed') {
                   const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('HAL-241:'))
                   if (!card) throw new Error('Grabbed HAL-241 card missing from reference board')
-                  discovered.push({ id: `${spec.id}:${scenario}:${card.index}:press-arrowright`, action: 'press', key: 'ArrowRight', control: card, scenario, focusBefore: true })
+                  discovered.push({
+                    id: `${spec.id}:${scenario}:${card.index}:press-arrowright`,
+                    action: 'press',
+                    key: 'ArrowRight',
+                    control: card,
+                    scenario,
+                    focusBefore: true,
+                  })
                 }
               }
             }
@@ -4807,10 +5323,20 @@ async function runInteractionsParallel(
                 const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('NW-408:'))
                 if (!card) throw new Error('Grabbed NW-408 missing from reference regroup board')
                 const action = scenario === 'regroup-grabbed' ? 'move-right' : 'drop'
-                discovered.push({id: `${spec.id}:${scenario}:${action}`, action: 'press', key: scenario === 'regroup-grabbed' ? 'ArrowRight' : 'Space', control: card, scenario, focusBefore: true})
+                discovered.push({
+                  id: `${spec.id}:${scenario}:${action}`,
+                  action: 'press',
+                  key: scenario === 'regroup-grabbed' ? 'ArrowRight' : 'Space',
+                  control: card,
+                  scenario,
+                  focusBefore: true,
+                })
               }
             }
-            if (spec.id === 'hbar-app-ui-kanban-4' && sampleIds?.some((id) => id.startsWith(`${spec.id}:detail-closed:`))) {
+            if (
+              spec.id === 'hbar-app-ui-kanban-4' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:detail-closed:`))
+            ) {
               await prepareKanbanDetailClosed(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'detail-closed'))
             }
@@ -4823,7 +5349,14 @@ async function runInteractionsParallel(
                 const card = visibleControls(scenarioSnapshot).find((control) => control.name.startsWith('MER-52:'))
                 if (!card) throw new Error('Grabbed MER-52 missing from reference sprint board')
                 const action = scenario === 'sprint-grabbed' ? 'move-right' : 'drop'
-                discovered.push({id: `${spec.id}:${scenario}:${action}`, action: 'press', key: scenario === 'sprint-grabbed' ? 'ArrowRight' : 'Space', control: card, scenario, focusBefore: true})
+                discovered.push({
+                  id: `${spec.id}:${scenario}:${action}`,
+                  action: 'press',
+                  key: scenario === 'sprint-grabbed' ? 'ArrowRight' : 'Space',
+                  control: card,
+                  scenario,
+                  focusBefore: true,
+                })
               }
             }
             if (spec.id === 'hbar-app-ui-wizard-1') {
@@ -4833,39 +5366,66 @@ async function runInteractionsParallel(
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
-            if (spec.id === 'hbar-app-ui-wizard-2' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:invoice-body:scroll:`))))
+            if (
+              spec.id === 'hbar-app-ui-wizard-2' &&
+              (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:invoice-body:scroll:`)))
+            )
               discovered.push(await observeWizardInvoiceScroll(sourceRoot, spec.id))
-            if (spec.id === 'hbar-app-ui-wizard-3' && sampleIds?.some((id) => id.startsWith(`${spec.id}:wizard-upgrade-step-two:`))) {
+            if (
+              spec.id === 'hbar-app-ui-wizard-3' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:wizard-upgrade-step-two:`))
+            ) {
               await prepareWizardUpgradeStepTwo(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-upgrade-step-two'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-upgrade-step-two'),
+              )
             }
             if (spec.id === 'hbar-app-ui-wizard-4') {
               if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:environment-body:scroll:`)))
                 discovered.push(await observeWizardEnvironmentScroll(sourceRoot, spec.id))
               if (sampleIds?.some((id) => id.startsWith(`${spec.id}:wizard-environment-empty:`))) {
                 await prepareWizardEnvironmentEmpty(sourceRoot)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-environment-empty'))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-environment-empty'),
+                )
               }
             }
-            if (spec.id === 'hbar-app-ui-wizard-5' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:wizard-review-confirmed:`)))) {
+            if (
+              spec.id === 'hbar-app-ui-wizard-5' &&
+              (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:wizard-review-confirmed:`)))
+            ) {
               await prepareWizardReviewConfirmed(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-review-confirmed'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'wizard-review-confirmed'),
+              )
             }
-            if (spec.id === 'hbar-app-ui-comments-1' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:comments-discussion-filled:`)))) {
+            if (
+              spec.id === 'hbar-app-ui-comments-1' &&
+              (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:comments-discussion-filled:`)))
+            ) {
               await prepareCommentsDiscussionFilled(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-discussion-filled'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-discussion-filled'),
+              )
               await sourceRoot.locator('textarea').fill('')
             }
-            if (spec.id === 'hbar-app-ui-comments-3' && (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:comments-review-filled:`)))) {
+            if (
+              spec.id === 'hbar-app-ui-comments-3' &&
+              (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:comments-review-filled:`)))
+            ) {
               await prepareCommentsReviewFilled(sourceRoot)
-              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-review-filled'))
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'comments-review-filled'),
+              )
               await sourceRoot.getByRole('textbox').fill('')
             }
             if (spec.id === 'hbar-app-ui-comments-4') {
               for (const scenario of commentsComposerScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareCommentsComposerScenario(sourceRoot, scenario)
-                discovered.push(...commentsComposerInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
+                discovered.push(
+                  ...commentsComposerInteractionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-comments-5') {
@@ -5018,17 +5578,19 @@ async function runInteractionsParallel(
               for (const scenario of dialogInviteScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareDialogInviteScenario(sourceRoot, scenario)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
-                  scenario === 'dialog-invite-invalid' && item.action === 'fill' && item.control.index === 3
-                    ? { ...item, fillValue: 'jordan@example.com' }
-                    : item,
-                ))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario).map((item) =>
+                    scenario === 'dialog-invite-invalid' && item.action === 'fill' && item.control.index === 3
+                      ? { ...item, fillValue: 'jordan@example.com' }
+                      : item,
+                  ),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-app-dialog-4') {
               const fill = discovered.find((item) => item.id === `${spec.id}:2:fill`)
               if (!fill) throw new Error('Workspace name field changed; re-observe the wizard feedback groups')
-              discovered = discovered.map((item) => item.id === fill.id ? { ...item, fillValue: 'Acme Ops' } : item)
+              discovered = discovered.map((item) => (item.id === fill.id ? { ...item, fillValue: 'Acme Ops' } : item))
               for (const scenario of dialogWizardScenarios) {
                 if (sampleIds && !sampleIds.some((id) => id.startsWith(`${spec.id}:${scenario}:`))) continue
                 await prepareDialogWizardScenario(sourceRoot, scenario)
@@ -5047,21 +5609,33 @@ async function runInteractionsParallel(
                 discovered.push(await observeDialogEvidenceScroll(sourceRoot, spec.id))
               if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-evidence-closed:`))) {
                 await prepareDialogEvidenceClosed(sourceRoot)
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-evidence-closed'))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-evidence-closed'),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-app-dialog-7') {
               if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-menu-delete-keyboard:`))) {
                 await prepareDialogMenuScenario(sourceRoot, 'dialog-menu-delete-keyboard')
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-delete-keyboard'))
+                discovered.push(
+                  ...interactionCases(
+                    await snapshotRoot(frame, sourceSelector),
+                    spec.id,
+                    'dialog-menu-delete-keyboard',
+                  ),
+                )
               }
               if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-menu-export:`))) {
                 await prepareDialogMenuScenario(sourceRoot, 'dialog-menu-export')
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-export'))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-export'),
+                )
               }
               if (!sampleIds || sampleIds.some((id) => id.startsWith(`${spec.id}:dialog-menu-closed:`))) {
                 await prepareDialogMenuScenario(sourceRoot, 'dialog-menu-closed')
-                discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-closed'))
+                discovered.push(
+                  ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'dialog-menu-closed'),
+                )
               }
             }
             if (spec.id === 'hbar-app-ui-app-shell-3') {
@@ -5931,9 +6505,12 @@ async function main(): Promise<void> {
         ? await loadOrDiscoverInventory(browser, options)
         : await discoverReferenceInventory(browser, options)
       await writeLocalInventory(options.outputRoot)
-      if (!options.offline) await writeJson(join(options.outputRoot, 'reference-access.json'), {
-        status: 'available', url: inventory.sourceUrl, checkedAt: new Date().toISOString(),
-      })
+      if (!options.offline)
+        await writeJson(join(options.outputRoot, 'reference-access.json'), {
+          status: 'available',
+          url: inventory.sourceUrl,
+          checkedAt: new Date().toISOString(),
+        })
       console.log(
         JSON.stringify({
           command: 'discover',
@@ -5951,9 +6528,12 @@ async function main(): Promise<void> {
     if (options.command === 'interactions' || options.command === 'audit')
       await runInteractionsParallel(options, browser, inventory)
     if (options.command === 'audit') await runCompare(options)
-    if (!options.offline && !options.localOnly) await writeJson(join(options.outputRoot, 'reference-access.json'), {
-      status: 'available', url: inventory.sourceUrl, checkedAt: new Date().toISOString(),
-    })
+    if (!options.offline && !options.localOnly)
+      await writeJson(join(options.outputRoot, 'reference-access.json'), {
+        status: 'available',
+        url: inventory.sourceUrl,
+        checkedAt: new Date().toISOString(),
+      })
   } catch (error) {
     if (error instanceof ReferenceAccessBlockedError) {
       await writeJson(join(options.outputRoot, 'reference-access.json'), {

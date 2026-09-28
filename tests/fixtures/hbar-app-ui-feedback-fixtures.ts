@@ -1,109 +1,545 @@
 import type {
-    HbarAppUiFeedbackContent,
-    HbarAppUiFeedbackInboxDetail,
-    HbarAppUiFeedbackInboxThread,
-    HbarAppUiFeedbackRequest,
-    HbarAppUiFeedbackVolumePoint,
+  HbarAppUiFeedbackContent,
+  HbarAppUiFeedbackInboxDetail,
+  HbarAppUiFeedbackInboxThread,
+  HbarAppUiFeedbackRequest,
+  HbarAppUiFeedbackVolumePoint,
+  HbarAppUiFeedbackWidgetReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const requests: readonly HbarAppUiFeedbackRequest[] = [
-    {id: 'dark-mode', title: 'Dark mode for shared dashboards', status: 'shipped', statusLabel: 'Shipped', description: 'Our wallboards run overnight in a dim room and the white background is hard to look at for a whole shift.', category: 'Dashboards', commentCount: 41, voteCount: 342, votedByDefault: true},
-    {id: 'sheet-export', title: 'Schedule exports to a Google Sheet', status: 'in-progress', statusLabel: 'In progress', description: 'We rebuild the same sheet every Monday. A native destination would remove the last manual step in our reporting.', category: 'Exports', commentCount: 18, voteCount: 214, votedByDefault: true},
-    {id: 'row-permissions', title: 'Row-level permissions on shared views', status: 'planned', statusLabel: 'Planned', description: 'Contractors should see their own accounts only. Today we duplicate a view per person, which drifts within a week.', category: 'Access', commentCount: 24, voteCount: 187},
-    {id: 'webhook-retries', title: 'Webhook retries with a dead letter queue', status: 'planned', statusLabel: 'Planned', description: 'A five minute outage on our side silently dropped events. We would rather replay them than reconcile by hand.', category: 'Integrations', commentCount: 11, voteCount: 128},
-    {id: 'bulk-undo', title: 'Undo a bulk edit', status: 'under-review', statusLabel: 'Under review', description: 'One mis-clicked filter rewrote 4,000 rows. A 30 second undo window would have saved a full afternoon.', category: 'Editing', commentCount: 7, voteCount: 96},
+  {
+    id: 'dark-mode',
+    title: 'Dark mode for shared dashboards',
+    status: 'shipped',
+    statusLabel: 'Shipped',
+    description:
+      'Our wallboards run overnight in a dim room and the white background is hard to look at for a whole shift.',
+    category: 'Dashboards',
+    commentCount: 41,
+    voteCount: 342,
+    votedByDefault: true,
+  },
+  {
+    id: 'sheet-export',
+    title: 'Schedule exports to a Google Sheet',
+    status: 'in-progress',
+    statusLabel: 'In progress',
+    description:
+      'We rebuild the same sheet every Monday. A native destination would remove the last manual step in our reporting.',
+    category: 'Exports',
+    commentCount: 18,
+    voteCount: 214,
+    votedByDefault: true,
+  },
+  {
+    id: 'row-permissions',
+    title: 'Row-level permissions on shared views',
+    status: 'planned',
+    statusLabel: 'Planned',
+    description:
+      'Contractors should see their own accounts only. Today we duplicate a view per person, which drifts within a week.',
+    category: 'Access',
+    commentCount: 24,
+    voteCount: 187,
+  },
+  {
+    id: 'webhook-retries',
+    title: 'Webhook retries with a dead letter queue',
+    status: 'planned',
+    statusLabel: 'Planned',
+    description:
+      'A five minute outage on our side silently dropped events. We would rather replay them than reconcile by hand.',
+    category: 'Integrations',
+    commentCount: 11,
+    voteCount: 128,
+  },
+  {
+    id: 'bulk-undo',
+    title: 'Undo a bulk edit',
+    status: 'under-review',
+    statusLabel: 'Under review',
+    description:
+      'One mis-clicked filter rewrote 4,000 rows. A 30 second undo window would have saved a full afternoon.',
+    category: 'Editing',
+    commentCount: 7,
+    voteCount: 96,
+  },
 ]
 
 const inboxThreads: readonly HbarAppUiFeedbackInboxThread[] = [
-    {id: 'export-column', sender: 'Amelia Whitfield', initials: 'AW', relativeTime: '12m', subject: 'Export silently drops the last column', account: 'Halcyon Pay', channel: '/reports/revenue', unread: true},
-    {id: 'saved-views', sender: 'Jonas Vikander', initials: 'JV', relativeTime: '1h', subject: 'Saved views replaced our spreadsheet', account: 'Meridian', channel: 'email'},
-    {id: 'sso-plan', sender: 'Wei Chen', initials: 'WC', relativeTime: '3h', subject: 'Can we get SSO on the Pro plan?', account: 'Acme', channel: 'email'},
-    {id: 'filter-tabs', sender: 'Tomás Guerrero', initials: 'TG', relativeTime: 'Yesterday', subject: 'Filter resets when I switch tabs', account: 'Lumendesk', channel: 'chat'},
-    {id: 'board-speed', sender: 'Priya Nandakumar', initials: 'PN', relativeTime: 'Yesterday', subject: 'Board view slows down past 200 rows', account: 'Northwind', channel: 'chat'},
-    {id: 'invite-spam', sender: 'Marcus Bell', initials: 'MB', relativeTime: '2d', subject: 'Invite emails keep landing in spam', account: 'Meridian', channel: 'email'},
-    {id: 'onboarding-tour', sender: 'Sofia Alvarez', initials: 'SA', relativeTime: '3d', subject: 'Onboarding tour skips the part I needed', account: 'Orbital', channel: 'chat'},
+  {
+    id: 'export-column',
+    sender: 'Amelia Whitfield',
+    initials: 'AW',
+    relativeTime: '12m',
+    subject: 'Export silently drops the last column',
+    account: 'Halcyon Pay',
+    channel: '/reports/revenue',
+    unread: true,
+  },
+  {
+    id: 'saved-views',
+    sender: 'Jonas Vikander',
+    initials: 'JV',
+    relativeTime: '1h',
+    subject: 'Saved views replaced our spreadsheet',
+    account: 'Meridian',
+    channel: 'email',
+  },
+  {
+    id: 'sso-plan',
+    sender: 'Wei Chen',
+    initials: 'WC',
+    relativeTime: '3h',
+    subject: 'Can we get SSO on the Pro plan?',
+    account: 'Acme',
+    channel: 'email',
+  },
+  {
+    id: 'filter-tabs',
+    sender: 'Tomás Guerrero',
+    initials: 'TG',
+    relativeTime: 'Yesterday',
+    subject: 'Filter resets when I switch tabs',
+    account: 'Lumendesk',
+    channel: 'chat',
+  },
+  {
+    id: 'board-speed',
+    sender: 'Priya Nandakumar',
+    initials: 'PN',
+    relativeTime: 'Yesterday',
+    subject: 'Board view slows down past 200 rows',
+    account: 'Northwind',
+    channel: 'chat',
+  },
+  {
+    id: 'invite-spam',
+    sender: 'Marcus Bell',
+    initials: 'MB',
+    relativeTime: '2d',
+    subject: 'Invite emails keep landing in spam',
+    account: 'Meridian',
+    channel: 'email',
+  },
+  {
+    id: 'onboarding-tour',
+    sender: 'Sofia Alvarez',
+    initials: 'SA',
+    relativeTime: '3d',
+    subject: 'Onboarding tour skips the part I needed',
+    account: 'Orbital',
+    channel: 'chat',
+  },
 ]
 
-const inboxDetails: readonly HbarAppUiFeedbackInboxDetail[] = [{
+const inboxDetails: readonly HbarAppUiFeedbackInboxDetail[] = [
+  {
     threadId: 'export-column',
     sentiment: 'Negative',
     body: 'Running the Monday revenue export drops the final column about one time in five. It is always the last one, whatever it happens to be. We only noticed because a total stopped matching the invoice run.',
     tags: ['Exports', 'Data loss'],
-    metrics: [{id: 'plan', label: 'Plan', value: 'Pro'}, {id: 'seats', label: 'Seats', value: '42 of 50'}, {id: 'age', label: 'Account age', value: '2y 3m'}, {id: 'past', label: 'Past feedback', value: '9 notes'}],
-    related: [{id: 'related-1', text: 'The CSV export loses a column now and then.', author: 'R. Okafor'}, {id: 'related-2', text: 'Export ran twice and produced different totals.', author: 'L. Fontaine'}],
-}, ...inboxThreads.slice(1).map((thread) => ({threadId: thread.id, sentiment: 'Neutral', body: thread.subject, tags: [], metrics: [], related: []}))]
+    metrics: [
+      { id: 'plan', label: 'Plan', value: 'Pro' },
+      { id: 'seats', label: 'Seats', value: '42 of 50' },
+      { id: 'age', label: 'Account age', value: '2y 3m' },
+      { id: 'past', label: 'Past feedback', value: '9 notes' },
+    ],
+    related: [
+      { id: 'related-1', text: 'The CSV export loses a column now and then.', author: 'R. Okafor' },
+      { id: 'related-2', text: 'Export ran twice and produced different totals.', author: 'L. Fontaine' },
+    ],
+  },
+  ...inboxThreads
+    .slice(1)
+    .map((thread) => ({
+      threadId: thread.id,
+      sentiment: 'Neutral',
+      body: thread.subject,
+      tags: [],
+      metrics: [],
+      related: [],
+    })),
+]
 
-const volume: readonly HbarAppUiFeedbackVolumePoint[] = Array.from({length: 20}, (_, index) => ({id: `day-${index}`, label: `${20 - index} days ago`, value: 12 + ((index * 11) % 43)}))
+const volume: readonly HbarAppUiFeedbackVolumePoint[] = Array.from({ length: 20 }, (_, index) => ({
+  id: `day-${index}`,
+  label: `${20 - index} days ago`,
+  value: 12 + ((index * 11) % 43),
+}))
 
+const BASE_HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
+  widget: {
+    labels: {
+      title: 'Send feedback',
+      description: 'Goes to the team that owns this screen.',
+      close: 'Close feedback',
+      typeGroup: 'Feedback type',
+      prompt: 'Your feedback',
+      promptPlaceholder: 'What would you like the product to do?',
+      attachment: 'Screenshot attached',
+      privacyNotice:
+        'Sent with your page URL, browser and workspace so we can reproduce it. No page content is captured.',
+      characterCount: (count, maximum) => (count ? `${count} / ${maximum}` : `${maximum}`),
+      cancel: 'Cancel',
+      send: 'Send feedback',
+      sentTitle: 'Thanks for the feedback',
+      sentDescription: (kind) => `Your ${kind.toLowerCase()} report was sent to the workspace team.`,
+      sendAnother: 'Send another',
+    },
+    types: [
+      { id: 'idea', label: 'Idea' },
+      { id: 'issue', label: 'Issue' },
+      { id: 'praise', label: 'Praise' },
+    ],
+    initialTypeId: 'idea',
+    attachment: { name: 'screenshot.png', countLabel: 'Screenshot attached' },
+    maximumCharacters: 400,
+  },
+  survey: {
+    labels: {
+      eyebrow: 'Quarterly survey',
+      question: 'How likely are you to recommend Northwind to a colleague?',
+      close: 'Dismiss survey',
+      scoreGroup: 'Recommendation score',
+      scoreLow: 'Not at all likely',
+      scoreHigh: 'Extremely likely',
+      scorePrompt: 'Pick a score to continue',
+      reasonGroup: 'Reasons',
+      commentPlaceholder: 'Anything else worth adding (optional)',
+      note: 'One question, and we will not ask again for 90 days.',
+      later: 'Ask me later',
+      submit: 'Submit',
+      submitted: 'Thanks, your response was recorded.',
+      scoreAccessible: (score) => `${score}`,
+    },
+    scores: Array.from({ length: 11 }, (_, value) => value),
+    reasons: [
+      { id: 'fast', label: 'It is fast' },
+      { id: 'replaced', label: 'It replaced other tools' },
+      { id: 'support', label: 'Support helped' },
+      { id: 'pricing', label: 'Pricing works for us' },
+      { id: 'missing', label: 'Missing a feature' },
+      { id: 'learning', label: 'Too hard to learn' },
+    ],
+    initialScore: undefined,
+    listStrategy: { kind: 'content-grown', expectedMaximum: 11 },
+  },
+  postResolution: {
+    labels: {
+      question: 'How was the support you received?',
+      ratingGroup: 'Support rating',
+      reasonGroup: 'What should have gone better?',
+      commentPlaceholder: 'Add a comment for Sofia (optional)',
+      noThanks: 'No thanks',
+      submit: 'Send rating',
+      submitted: 'Thanks for rating your support experience.',
+    },
+    ticket: {
+      initials: 'SA',
+      agentName: 'Sofia Alvarez',
+      header: 'Sofia Alvarez closed your ticket',
+      summary: '#4192 · Export job stuck in queue · resolved in 3h 12m',
+      ticketId: '#4192',
+      subject: 'Export job stuck in queue',
+      detail: 'resolved in 3h 12m',
+    },
+    ratings: [
+      { value: 1, label: '1 out of 5, Not good' },
+      { value: 2, label: '2 out of 5, Could be better' },
+      { value: 3, label: '3 out of 5, Fine' },
+      { value: 4, label: '4 out of 5, Good' },
+      { value: 5, label: '5 out of 5, Excellent' },
+    ],
+    reasons: [
+      { id: 'slow', label: 'Took too long' },
+      { id: 'repeat', label: 'Had to repeat myself' },
+      { id: 'unclear', label: 'Answer was unclear' },
+      { id: 'unsolved', label: 'Not actually solved' },
+    ],
+    listStrategy: { kind: 'content-grown', expectedMaximum: 5 },
+  },
+  featureBoard: {
+    labels: {
+      title: 'Feature requests',
+      description: 'Vote on what you need next. Status changes appear here first.',
+      newRequest: 'New request',
+      sortGroup: 'Request status',
+      search: 'Search requests',
+      commentCount: (count) => `${count}`,
+      voteFor: (title) => `Vote for ${title}`,
+      removeVote: (title) => `Remove vote from ${title}`,
+      empty: 'No feature requests match this search.',
+    },
+    sortOptions: [
+      { id: 'top', label: 'Top' },
+      { id: 'new', label: 'New' },
+      { id: 'shipped', label: 'Shipped' },
+    ],
+    initialSortId: 'top',
+    requests,
+    listStrategy: { kind: 'pane-scroll', expectedMaximum: 5 },
+  },
+  inbox: {
+    labels: {
+      title: 'Feedback inbox',
+      summary: '2 unread · 42 this week',
+      archiveRead: 'Archive read',
+      detailLabel: 'Others said the same thing',
+      addTag: 'Add tag',
+      internalNotePlaceholder: 'Add an internal note for the team',
+      addInternalNote: 'Add an internal note for the team',
+      reply: 'Reply',
+      createIssue: 'Create issue',
+      archive: 'Archive',
+      empty: 'No feedback threads are available.',
+      openThread: (subject) => `Open ${subject}`,
+      threadMeta: (account, channel, relativeTime) => `${account} · ${channel} · ${relativeTime} ago`,
+    },
+    threads: inboxThreads,
+    details: inboxDetails,
+    initialThreadId: 'export-column',
+    listStrategy: { kind: 'pane-scroll', expectedMaximum: 7 },
+  },
+  insights: {
+    labels: {
+      title: 'Feedback insights',
+      description: 'Every survey, widget and email reply, grouped by theme.',
+      periodGroup: 'Insight period',
+      responsesPerDay: 'Responses per day, last 20 days',
+      topThemes: 'Top themes',
+      mentionsPeriod: 'Mentions this period',
+      weeklyVolume: 'Weekly volume',
+      periodStart: '20 days ago',
+      periodEnd: '54 today',
+      sentiment: 'Sentiment',
+    },
+    periods: [
+      { id: '30d', label: '30 days' },
+      { id: '90d', label: '90 days' },
+      { id: '12m', label: '12 months' },
+    ],
+    initialPeriodId: '30d',
+    metrics: [
+      { id: 'responses', label: 'Responses', value: '412', detail: '4% response rate from 9,800 prompts' },
+      { id: 'rating', label: 'Average rating', value: '4.4', detail: '0.2 · Out of 5, against previous period' },
+    ],
+    sentiment: [
+      { id: 'positive', label: 'Positive', value: '64%', percent: 64 },
+      { id: 'neutral', label: 'Neutral', value: '24%', percent: 24 },
+      { id: 'negative', label: 'Negative', value: '12%', percent: 12 },
+    ],
+    themes: [
+      { id: 'export', label: 'Export reliability', mentions: 84, changeLabel: '↗ 22%', progress: 84 },
+      { id: 'pricing', label: 'Pricing and plans', mentions: 61, changeLabel: '↘ 8%', progress: 61 },
+      { id: 'onboarding', label: 'Onboarding clarity', mentions: 47, changeLabel: '↗ 4%', progress: 47 },
+      { id: 'filters', label: 'Filter persistence', mentions: 39, changeLabel: '↗ 31%', progress: 39 },
+      { id: 'mobile', label: 'Mobile layout', mentions: 22, changeLabel: '→ 0%', progress: 22 },
+      { id: 'webhooks', label: 'Webhook retries', mentions: 18, changeLabel: '↗ 12%', progress: 18 },
+      { id: 'search', label: 'Search relevance', mentions: 14, changeLabel: '↘ 3%', progress: 14 },
+      { id: 'audit', label: 'Audit log gaps', mentions: 9, changeLabel: '↗ 6%', progress: 9 },
+    ],
+    volume,
+    listStrategy: { kind: 'pane-scroll', expectedMaximum: 8 },
+  },
+}
+
+const baseWidget = BASE_HBAR_APP_UI_FEEDBACK_FIXTURES.widget
+if (!baseWidget) throw new Error('Expected feedback widget fixture')
+const widgetReference: HbarAppUiFeedbackWidgetReferenceContent = {
+  widgetId: 'feedback-widget',
+  labels: {
+    title: baseWidget.labels.title,
+    description: baseWidget.labels.description,
+    close: baseWidget.labels.close,
+    typeGroup: baseWidget.labels.typeGroup,
+    prompt: baseWidget.labels.prompt,
+    emptyTypes: 'No feedback types',
+    emptyPlaceholder: 'Write your feedback',
+    screenshotAttached: baseWidget.labels.attachment,
+    attachScreenshot: 'Attach a screenshot',
+    privacyNotice: baseWidget.labels.privacyNotice,
+    remainingCharacters: (count) => `${count}`,
+    cancel: baseWidget.labels.cancel,
+    send: baseWidget.labels.send,
+    sentTitle: 'Thanks, that is on its way',
+    sentDescription: 'We read every note. If it needs a reply you will hear from us at your account address.',
+    sendAnother: baseWidget.labels.sendAnother,
+  },
+  types: baseWidget.types.map((type) => ({
+    ...type,
+    placeholder: {
+      idea: 'What would you like the product to do?',
+      issue: 'What went wrong, and what did you expect instead?',
+      praise: 'What worked well? We pass these on to the team.',
+    }[type.id],
+  })),
+  selectedTypeId: baseWidget.initialTypeId,
+  draft: '',
+  screenshotAttached: true,
+  phase: 'editing',
+  maximumCharacters: 400,
+  typeStrategy: { kind: 'pane-scroll', expectedMaximum: 3 },
+}
 export const HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
-    widget: {
-        labels: {title: 'Send feedback', description: 'Goes to the team that owns this screen.', close: 'Close feedback', typeGroup: 'Feedback type', prompt: 'Your feedback', promptPlaceholder: 'What would you like the product to do?', attachment: 'Screenshot attached', privacyNotice: 'Sent with your page URL, browser and workspace so we can reproduce it. No page content is captured.', characterCount: (count, maximum) => count ? `${count} / ${maximum}` : `${maximum}`, cancel: 'Cancel', send: 'Send feedback', sentTitle: 'Thanks for the feedback', sentDescription: (kind) => `Your ${kind.toLowerCase()} report was sent to the workspace team.`, sendAnother: 'Send another'},
-        types: [{id: 'idea', label: 'Idea'}, {id: 'issue', label: 'Issue'}, {id: 'praise', label: 'Praise'}],
-        initialTypeId: 'idea',
-        attachment: {name: 'screenshot.png', countLabel: 'Screenshot attached'},
-        maximumCharacters: 400,
-    },
-    survey: {
-        labels: {eyebrow: 'Quarterly survey', question: 'How likely are you to recommend Northwind to a colleague?', close: 'Dismiss survey', scoreGroup: 'Recommendation score', scoreLow: 'Not at all likely', scoreHigh: 'Extremely likely', scorePrompt: 'Pick a score to continue', reasonGroup: 'Reasons', commentPlaceholder: 'Anything else worth adding (optional)', note: 'One question, and we will not ask again for 90 days.', later: 'Ask me later', submit: 'Submit', submitted: 'Thanks, your response was recorded.', scoreAccessible: (score) => `${score}`},
-        scores: Array.from({length: 11}, (_, value) => value),
-        reasons: [{id: 'fast', label: 'It is fast'}, {id: 'replaced', label: 'It replaced other tools'}, {id: 'support', label: 'Support helped'}, {id: 'pricing', label: 'Pricing works for us'}, {id: 'missing', label: 'Missing a feature'}, {id: 'learning', label: 'Too hard to learn'}],
-        initialScore: undefined,
-        listStrategy: {kind: 'content-grown', expectedMaximum: 11},
-    },
-    postResolution: {
-        labels: {question: 'How was the support you received?', ratingGroup: 'Support rating', reasonGroup: 'What should have gone better?', commentPlaceholder: 'Add a comment for Sofia (optional)', noThanks: 'No thanks', submit: 'Send rating', submitted: 'Thanks for rating your support experience.'},
-        ticket: {initials: 'SA', agentName: 'Sofia Alvarez', header: 'Sofia Alvarez closed your ticket', summary: '#4192 · Export job stuck in queue · resolved in 3h 12m', ticketId: '#4192', subject: 'Export job stuck in queue', detail: 'resolved in 3h 12m'},
-        ratings: [{value: 1, label: '1 out of 5, Not good'}, {value: 2, label: '2 out of 5, Could be better'}, {value: 3, label: '3 out of 5, Fine'}, {value: 4, label: '4 out of 5, Good'}, {value: 5, label: '5 out of 5, Excellent'}],
-        reasons: [{id: 'slow', label: 'Took too long'}, {id: 'repeat', label: 'Had to repeat myself'}, {id: 'unclear', label: 'Answer was unclear'}, {id: 'unsolved', label: 'Not actually solved'}],
-        listStrategy: {kind: 'content-grown', expectedMaximum: 5},
-    },
-    featureBoard: {
-        labels: {title: 'Feature requests', description: 'Vote on what you need next. Status changes appear here first.', newRequest: 'New request', sortGroup: 'Request status', search: 'Search requests', commentCount: (count) => `${count}`, voteFor: (title) => `Vote for ${title}`, removeVote: (title) => `Remove vote from ${title}`, empty: 'No feature requests match this search.'},
-        sortOptions: [{id: 'top', label: 'Top'}, {id: 'new', label: 'New'}, {id: 'shipped', label: 'Shipped'}],
-        initialSortId: 'top',
-        requests,
-        listStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
-    },
-    inbox: {
-        labels: {title: 'Feedback inbox', summary: '2 unread · 42 this week', archiveRead: 'Archive read', detailLabel: 'Others said the same thing', addTag: 'Add tag', internalNotePlaceholder: 'Add an internal note for the team', addInternalNote: 'Add an internal note for the team', reply: 'Reply', createIssue: 'Create issue', archive: 'Archive', empty: 'No feedback threads are available.', openThread: (subject) => `Open ${subject}`, threadMeta: (account, channel, relativeTime) => `${account} · ${channel} · ${relativeTime} ago`},
-        threads: inboxThreads,
-        details: inboxDetails,
-        initialThreadId: 'export-column',
-        listStrategy: {kind: 'pane-scroll', expectedMaximum: 7},
-    },
-    insights: {
-        labels: {title: 'Feedback insights', description: 'Every survey, widget and email reply, grouped by theme.', periodGroup: 'Insight period', responsesPerDay: 'Responses per day, last 20 days', topThemes: 'Top themes', mentionsPeriod: 'Mentions this period', weeklyVolume: 'Weekly volume', periodStart: '20 days ago', periodEnd: '54 today', sentiment: 'Sentiment'},
-        periods: [{id: '30d', label: '30 days'}, {id: '90d', label: '90 days'}, {id: '12m', label: '12 months'}],
-        initialPeriodId: '30d',
-        metrics: [{id: 'responses', label: 'Responses', value: '412', detail: '4% response rate from 9,800 prompts'}, {id: 'rating', label: 'Average rating', value: '4.4', detail: '0.2 · Out of 5, against previous period'}],
-        sentiment: [{id: 'positive', label: 'Positive', value: '64%', percent: 64}, {id: 'neutral', label: 'Neutral', value: '24%', percent: 24}, {id: 'negative', label: 'Negative', value: '12%', percent: 12}],
-        themes: [{id: 'export', label: 'Export reliability', mentions: 84, changeLabel: '↗ 22%', progress: 84}, {id: 'pricing', label: 'Pricing and plans', mentions: 61, changeLabel: '↘ 8%', progress: 61}, {id: 'onboarding', label: 'Onboarding clarity', mentions: 47, changeLabel: '↗ 4%', progress: 47}, {id: 'filters', label: 'Filter persistence', mentions: 39, changeLabel: '↗ 31%', progress: 39}, {id: 'mobile', label: 'Mobile layout', mentions: 22, changeLabel: '→ 0%', progress: 22}, {id: 'webhooks', label: 'Webhook retries', mentions: 18, changeLabel: '↗ 12%', progress: 18}, {id: 'search', label: 'Search relevance', mentions: 14, changeLabel: '↘ 3%', progress: 14}, {id: 'audit', label: 'Audit log gaps', mentions: 9, changeLabel: '↗ 6%', progress: 9}],
-        volume,
-        listStrategy: {kind: 'pane-scroll', expectedMaximum: 8},
-    },
+  ...BASE_HBAR_APP_UI_FEEDBACK_FIXTURES,
+  referenceWidget: widgetReference,
 }
 
 export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackContent {
-    const base = HBAR_APP_UI_FEEDBACK_FIXTURES
-    const moreRequests = Array.from({length: 14}, (_, index) => ({id: `overflow-request-${index}`, title: `Additional request ${index + 1}`, status: 'planned' as const, statusLabel: 'Planned', description: `Long feedback request description ${index + 1} remains readable in the bounded board pane.`, category: 'Operations', commentCount: index, voteCount: index + 1}))
-    const moreThreads = Array.from({length: 18}, (_, index) => ({id: `overflow-thread-${index}`, sender: `Additional sender ${index + 1}`, initials: 'AS', relativeTime: `${index + 1}d`, subject: `Additional feedback thread ${index + 1}`, account: 'Meridian', channel: 'email'}))
-    return {
-        ...base,
-        featureBoard: base.featureBoard && {...base.featureBoard, requests: [...base.featureBoard.requests, ...moreRequests]},
-        inbox: base.inbox && {...base.inbox, threads: [...base.inbox.threads, ...moreThreads], details: [...base.inbox.details, ...moreThreads.map((thread) => ({threadId: thread.id, sentiment: 'Neutral', body: thread.subject, tags: [], metrics: [], related: []}))]},
-        insights: base.insights && {...base.insights, themes: [...base.insights.themes, ...Array.from({length: 14}, (_, index) => ({id: `overflow-theme-${index}`, label: `Additional theme ${index + 1}`, mentions: index + 1, changeLabel: '→ 0%', progress: index + 1}))]},
-    }
+  const base = HBAR_APP_UI_FEEDBACK_FIXTURES
+  const moreRequests = Array.from({ length: 14 }, (_, index) => ({
+    id: `overflow-request-${index}`,
+    title: `Additional request ${index + 1}`,
+    status: 'planned' as const,
+    statusLabel: 'Planned',
+    description: `Long feedback request description ${index + 1} remains readable in the bounded board pane.`,
+    category: 'Operations',
+    commentCount: index,
+    voteCount: index + 1,
+  }))
+  const moreThreads = Array.from({ length: 18 }, (_, index) => ({
+    id: `overflow-thread-${index}`,
+    sender: `Additional sender ${index + 1}`,
+    initials: 'AS',
+    relativeTime: `${index + 1}d`,
+    subject: `Additional feedback thread ${index + 1}`,
+    account: 'Meridian',
+    channel: 'email',
+  }))
+  return {
+    ...base,
+    referenceWidget: { ...widgetReference, draft: 'x'.repeat(widgetReference.maximumCharacters) },
+    featureBoard: base.featureBoard && {
+      ...base.featureBoard,
+      requests: [...base.featureBoard.requests, ...moreRequests],
+    },
+    inbox: base.inbox && {
+      ...base.inbox,
+      threads: [...base.inbox.threads, ...moreThreads],
+      details: [
+        ...base.inbox.details,
+        ...moreThreads.map((thread) => ({
+          threadId: thread.id,
+          sentiment: 'Neutral',
+          body: thread.subject,
+          tags: [],
+          metrics: [],
+          related: [],
+        })),
+      ],
+    },
+    insights: base.insights && {
+      ...base.insights,
+      themes: [
+        ...base.insights.themes,
+        ...Array.from({ length: 14 }, (_, index) => ({
+          id: `overflow-theme-${index}`,
+          label: `Additional theme ${index + 1}`,
+          mentions: index + 1,
+          changeLabel: '→ 0%',
+          progress: index + 1,
+        })),
+      ],
+    },
+  }
 }
 
 export function createHbarAppUiFeedbackLocalizedFixtures(): HbarAppUiFeedbackContent {
-    const base = HBAR_APP_UI_FEEDBACK_FIXTURES
-    return {
-        ...base,
-        widget: base.widget && {...base.widget, labels: {...base.widget.labels, title: 'Feedback senden', description: 'Wird an das Team gesendet, das diesen Bildschirm betreut.', prompt: 'Ihr Feedback', promptPlaceholder: 'Was soll das Produkt können?', send: 'Feedback senden'}},
-        survey: base.survey && {...base.survey, labels: {...base.survey.labels, eyebrow: 'Vierteljährliche Umfrage', question: 'Wie wahrscheinlich empfehlen Sie Northwind einer Kollegin oder einem Kollegen?', scorePrompt: 'Wählen Sie eine Bewertung aus', later: 'Später erinnern', submit: 'Absenden'}},
-        postResolution: base.postResolution && {...base.postResolution, labels: {...base.postResolution.labels, question: 'Wie war der Support, den Sie erhalten haben?', commentPlaceholder: 'Kommentar für Sofia hinzufügen (optional)', submit: 'Bewertung senden'}},
-        featureBoard: base.featureBoard && {...base.featureBoard, labels: {...base.featureBoard.labels, title: 'Funktionswünsche', description: 'Stimmen Sie ab, was als Nächstes benötigt wird.', newRequest: 'Neue Anfrage', search: 'Anfragen durchsuchen'}},
-        inbox: base.inbox && {...base.inbox, labels: {...base.inbox.labels, title: 'Feedback-Posteingang', summary: '2 ungelesen · 42 diese Woche', archiveRead: 'Gelesenes archivieren', internalNotePlaceholder: 'Interne Notiz für das Team hinzufügen', reply: 'Antworten', createIssue: 'Problem erstellen'}},
-        insights: base.insights && {...base.insights, labels: {...base.insights.labels, title: 'Feedback-Analysen', description: 'Umfragen, Widgets und E-Mail-Antworten nach Thema gruppiert.', topThemes: 'Wichtigste Themen', weeklyVolume: 'Wöchentliches Volumen'}},
-    }
+  const base = HBAR_APP_UI_FEEDBACK_FIXTURES
+  return {
+    ...base,
+    referenceWidget: {
+      ...widgetReference,
+      labels: {
+        ...widgetReference.labels,
+        title: 'Feedback senden',
+        description: 'Wird an das Team gesendet, das diesen Bildschirm betreut.',
+        close: 'Feedback schließen',
+        typeGroup: 'Feedbackart',
+        prompt: 'Ihr Feedback',
+        emptyTypes: 'Keine Feedbackarten',
+        emptyPlaceholder: 'Schreiben Sie Ihre Rückmeldung',
+        screenshotAttached: 'Bildschirmfoto angehängt',
+        attachScreenshot: 'Bildschirmfoto hinzufügen',
+        privacyNotice:
+          'Mit Ihrer Seitenadresse, Ihrem Browser und Arbeitsbereich gesendet. Seiteninhalte werden nicht aufgezeichnet.',
+        remainingCharacters: (count) => `${count} Zeichen frei`,
+        cancel: 'Abbrechen',
+        send: 'Feedback senden',
+        sentTitle: 'Vielen Dank, Ihre Nachricht ist unterwegs',
+        sentDescription: 'Wir lesen jede Nachricht und antworten bei Bedarf.',
+        sendAnother: 'Weitere Nachricht senden',
+      },
+      types: widgetReference.types.map((type) => ({
+        ...type,
+        label: { idea: 'Idee', issue: 'Problem', praise: 'Lob' }[type.id],
+        placeholder: 'Beschreiben Sie Ihr Anliegen für das zuständige Team.',
+      })),
+    },
+    widget: base.widget && {
+      ...base.widget,
+      labels: {
+        ...base.widget.labels,
+        title: 'Feedback senden',
+        description: 'Wird an das Team gesendet, das diesen Bildschirm betreut.',
+        prompt: 'Ihr Feedback',
+        promptPlaceholder: 'Was soll das Produkt können?',
+        send: 'Feedback senden',
+      },
+    },
+    survey: base.survey && {
+      ...base.survey,
+      labels: {
+        ...base.survey.labels,
+        eyebrow: 'Vierteljährliche Umfrage',
+        question: 'Wie wahrscheinlich empfehlen Sie Northwind einer Kollegin oder einem Kollegen?',
+        scorePrompt: 'Wählen Sie eine Bewertung aus',
+        later: 'Später erinnern',
+        submit: 'Absenden',
+      },
+    },
+    postResolution: base.postResolution && {
+      ...base.postResolution,
+      labels: {
+        ...base.postResolution.labels,
+        question: 'Wie war der Support, den Sie erhalten haben?',
+        commentPlaceholder: 'Kommentar für Sofia hinzufügen (optional)',
+        submit: 'Bewertung senden',
+      },
+    },
+    featureBoard: base.featureBoard && {
+      ...base.featureBoard,
+      labels: {
+        ...base.featureBoard.labels,
+        title: 'Funktionswünsche',
+        description: 'Stimmen Sie ab, was als Nächstes benötigt wird.',
+        newRequest: 'Neue Anfrage',
+        search: 'Anfragen durchsuchen',
+      },
+    },
+    inbox: base.inbox && {
+      ...base.inbox,
+      labels: {
+        ...base.inbox.labels,
+        title: 'Feedback-Posteingang',
+        summary: '2 ungelesen · 42 diese Woche',
+        archiveRead: 'Gelesenes archivieren',
+        internalNotePlaceholder: 'Interne Notiz für das Team hinzufügen',
+        reply: 'Antworten',
+        createIssue: 'Problem erstellen',
+      },
+    },
+    insights: base.insights && {
+      ...base.insights,
+      labels: {
+        ...base.insights.labels,
+        title: 'Feedback-Analysen',
+        description: 'Umfragen, Widgets und E-Mail-Antworten nach Thema gruppiert.',
+        topThemes: 'Wichtigste Themen',
+        weeklyVolume: 'Wöchentliches Volumen',
+      },
+    },
+  }
 }
