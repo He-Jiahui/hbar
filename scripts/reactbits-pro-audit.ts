@@ -4202,6 +4202,8 @@ async function replayInteraction(
     }
   }
   await page.waitForTimeout(120)
+  if (spec.id === 'hbar-app-ui-settings-form-3' && interaction.action === 'click' && interaction.control.index === 10)
+    await root.getByText('Preferences saved', { exact: true }).waitFor({ state: 'visible', timeout: 5_000 })
   if (spec.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed') await page.waitForTimeout(450)
   if (spec.id === 'hbar-app-ui-kanban-4' && interaction.action === 'click' && interaction.control.index === 8)
     await page.waitForTimeout(450)
@@ -4601,6 +4603,12 @@ async function replayReferenceInteraction(
   if (!(interaction.scenario === 'running' && (interaction.action === 'hover' || interaction.action === 'focus'))) {
     await page.waitForTimeout(120)
   }
+  if (
+    reference.id === 'hbar-app-ui-settings-form-3' &&
+    interaction.action === 'click' &&
+    interaction.control.index === 10
+  )
+    await root.getByText('Preferences saved', { exact: true }).waitFor({ state: 'visible', timeout: 5_000 })
   if (reference.id === 'hbar-app-ui-kanban-4' && interaction.scenario === 'detail-closed')
     await page.waitForTimeout(450)
   if (reference.id === 'hbar-app-ui-kanban-4' && interaction.action === 'click' && interaction.control.index === 8)

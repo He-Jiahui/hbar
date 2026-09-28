@@ -561,6 +561,24 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-settings-form-3')
+    return {
+      revision: 1,
+      lumenEntries: ['settings-form.tsx', 'settings-form-3-reference.tsx', 'settings-form-3-reference.css', 'LumenProvider.tsx'],
+      samples: [
+        { viewport: 'desktop', theme: 'light', suffix: '1:toggle', change: 'Change the initially-dirty Dark theme radio' },
+        { viewport: 'desktop', theme: 'dark', suffix: '3:select', change: 'Change Density through its native select control' },
+        { viewport: 'desktop', theme: 'light', suffix: '5:click', change: 'Toggle the Weekly summary switch' },
+        { viewport: 'desktop', theme: 'dark', suffix: '8:toggle', change: 'Toggle the notification-sounds checkbox; value changes without a Changed badge' },
+        { viewport: 'desktop', theme: 'light', suffix: '9:click', change: 'Cancel restores the saved System theme and Comment replies baseline' },
+        { viewport: 'desktop', theme: 'dark', suffix: '10:click', change: 'Save reaches the source-observed settled Preferences saved state' },
+      ],
+      inferences: [
+        {scope: 'Repeated radio/select/switch/checkbox changes and alternate IDs', basis: 'All seven preferences use one typed ID/value transition and finite radio/select IDs. Focused store tests cover each mechanism and invalid IDs; one desktop select sample represents both selects.', verification: 'inferred-not-replayed'},
+        {scope: 'Edits during pending Save', basis: 'A direct source probe changed Mentions while Saving. The switch changed, then the source returned to Unsaved preferences with enabled footer actions; the old timer did not save the edited draft. A focused race test covers the stale completion.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme/action combinations and source 320px lower content', basis: 'Eight static pairs cover four viewports and both themes. The source fixed-height 320px iframe clips its lower switch/checkbox/footer; the host stays normal-flow and reachable by scrolling. State transitions have no theme branch.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-2')
     return {
       revision: 1,
