@@ -502,3 +502,17 @@ page error（0）；类型检查、局部 lint、18 个 Form 1/2/旧契约专项
 构建仍有既有大 chunk 警告，Lumen 旧 `settings-form.tsx` 全文件 lint 有 10 项既有错误；
 本次新增组件及根目录改动的 scoped lint 通过。其他等价按钮/视口/主题组合标为
 `inferred-not-replayed`，不能据此宣称 Settings Form 3–6 来源验收。
+
+Settings Form 3 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-3-final-v2/`：8 组静态对、6 个按主题、
+密度、开关、复选框、取消、保存分别选取的交互样本，缺失 0；语义与控件硬门槛零失败，
+账本 `passed` 且人工复核已签署。来源初始草稿为 Dark/Comment replies 开，而已保存基线
+为 System/Comment replies 关；Cancel 还原后显示 `Preferences saved`。保存中的状态行仍为
+`Unsaved preferences`、按钮为 `Saving`；实时来源补测发现此时修改 Mentions 会使待保存操作
+失效并恢复可编辑的未保存状态，宿主用状态转移与失效计时器避免旧请求覆盖新草稿。
+来源 320px 固定 iframe 会裁掉底部控件，本地让内容自然增长，滚动后 Save 可见且无横向溢出。
+人工审阅接受了 Lumen 暗色填充与 select/button 材质的非结构性残差，不把它记作逐像素复刻。
+整类生产浏览器脚本覆盖 Form 1–3 代表动作、六变体 320px 无横溢与 page error（0）；
+类型检查、局部 lint、6 项 Form 3 专项测试（71 条断言）和生产构建通过，构建仍有既有大
+chunk 警告。等价选项与主题/视口乘积标为 `inferred-not-replayed`；真实远端偏好保存和
+Settings Form 4–6 的来源验收不在此结论内。
