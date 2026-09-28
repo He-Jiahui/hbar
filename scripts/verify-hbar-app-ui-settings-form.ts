@@ -68,21 +68,50 @@ async function run(): Promise<void> {
     await page.goto(previewUrl(1), { waitUntil: 'networkidle' })
     await page.getByLabel('Name', { exact: true }).fill('Northwind Studio')
     await page.getByRole('button', { name: 'Save changes', exact: true }).click()
+    await page.getByText('Saved just now', { exact: true }).waitFor()
     assert(
       (await page.getByText('Unsaved changes in Workspace', { exact: true }).count()) === 0,
       'Workspace save did not clear the unsaved state',
+    )
+    await page.getByRole('button', { name: 'Billing', exact: true }).click()
+    await page.getByLabel('Billing email', { exact: true }).fill('finance@northwind.co')
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert(
+      (await page.getByLabel('Billing email', { exact: true }).inputValue()) === 'accounts-payable@northwind.co',
+      'Billing cancel did not restore the host-owned saved value',
+    )
+    await page.getByRole('button', { name: 'Notifications', exact: true }).click()
+    const productUpdates = page.locator('[data-hbar-app-ui-region="setting-field"]')
+      .filter({ hasText: 'Product updates' }).getByRole('checkbox')
+    await productUpdates.check()
+    assert(
+      await productUpdates.isChecked(),
+      'Notification checkbox did not update the host draft',
+    )
+    await page.getByRole('button', { name: 'Security', exact: true }).click()
+    const deviceApproval = page.locator('[data-hbar-app-ui-region="setting-field"]')
+      .filter({ hasText: 'Device approval' }).getByRole('switch')
+    await deviceApproval.check()
+    assert(
+      await deviceApproval.isChecked(),
+      'Security switch did not update the host draft',
+    )
+    await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+    await page.getByLabel('API rate limit', { exact: true }).selectOption('10000')
+    assert(
+      (await page.getByLabel('API rate limit', { exact: true }).inputValue()) === '10000',
+      'Advanced select did not update the host draft',
     )
 
     await page.goto(previewUrl(3), { waitUntil: 'networkidle' })
     await page.getByRole('switch', { name: 'Weekly summary', exact: true }).click()
     assert(
-      (await page.getByRole('switch', { name: 'Weekly summary', exact: true }).getAttribute('aria-checked')) ===
-        'false',
+      !(await page.getByRole('switch', { name: 'Weekly summary', exact: true }).isChecked()),
       'Preference toggle did not change state',
     )
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     assert(
-      (await page.getByRole('switch', { name: 'Weekly summary', exact: true }).getAttribute('aria-checked')) === 'true',
+      await page.getByRole('switch', { name: 'Weekly summary', exact: true }).isChecked(),
       'Host cancel did not restore saved preferences',
     )
     await page.getByRole('switch', { name: 'Weekly summary', exact: true }).click()
@@ -94,8 +123,7 @@ async function run(): Promise<void> {
     await page.getByRole('switch', { name: 'Weekly summary', exact: true }).click()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     assert(
-      (await page.getByRole('switch', { name: 'Weekly summary', exact: true }).getAttribute('aria-checked')) ===
-        'false',
+      !(await page.getByRole('switch', { name: 'Weekly summary', exact: true }).isChecked()),
       'Cancel reverted to the fixture instead of the saved host value',
     )
 
@@ -115,7 +143,7 @@ async function run(): Promise<void> {
     )
     await page.getByRole('switch', { name: 'Toggle GitHub', exact: true }).click()
     assert(
-      (await page.getByRole('switch', { name: 'Toggle GitHub', exact: true }).getAttribute('aria-checked')) === 'true',
+      await page.getByRole('switch', { name: 'Toggle GitHub', exact: true }).isChecked(),
       'Integration toggle did not change state',
     )
 
