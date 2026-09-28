@@ -40,6 +40,7 @@ export interface HbarComposerPermissionLabels {
   readonly retry: string
   readonly pending: string
   readonly unknown: string
+  readonly recheck: string
   readonly scopeHint: string
   readonly inheritedSnapshotHint: (modeLabel: string | null) => string
   readonly options: Readonly<Record<ComposerPermissionChoice, { readonly label: string; readonly description: string }>>
@@ -85,6 +86,7 @@ export interface HbarComposerPermissionPickerProps {
   readonly labels: HbarComposerPermissionLabels
   readonly onRefresh: () => Promise<void>
   readonly onSelect: (input: ComposerPermissionSelection) => Promise<void>
+  readonly onReconcile?: () => Promise<void>
   readonly plan?: {
     readonly entry: ComposerPlanModeEntry | undefined
     readonly disabled?: boolean
@@ -128,7 +130,7 @@ function errorCode(reason: unknown) {
     : 'EXECUTION_FAILED'
 }
 
-/** A controlled next-send policy picker. The host owns drafts, default reads, and submission receipts. */
+/** A controlled session policy picker. The Host owns settings, drafts, and submission receipts. */
 export function HbarComposerPermissionPicker(props: HbarComposerPermissionPickerProps) {
   const { sessionId, sessionLabel, hostDefault, connected, disabled, labels, onRefresh, onSelect } = props
   const entry = props.entry?.sessionId === sessionId ? props.entry : undefined
@@ -138,7 +140,8 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const revision = entry?.revision ?? 0
   const locked = entry?.locked ?? false
   const unavailable = !connected || disabled || locked
-  const preparationUnavailable = unavailable || props.canPrepare === false
+  const preparationUnavailable =
+    unavailable || props.canPrepare === false || entry?.status === 'loading' || entry?.status === 'failed'
   const anchor = useRef<HTMLButtonElement>(null)
   const wasConnected = useRef(connected)
   const popup = useRef<HTMLDivElement>(null)
@@ -462,22 +465,51 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         <LumenText as="span" role="alert">
           {labels.unknown}
         </LumenText>
-      ) : locked ? (
+      ) : locked || entry?.status === 'loading' ? (
         <LumenText as="span" role="status">
-          {labels.pending}
+          {entry?.status === 'loading' ? labels.loading : labels.pending}
         </LumenText>
       ) : null}
-      {error && entry?.status !== 'unknown' && (
-        <LumenText as="span" role="alert">
-          {labels.error(error)}
-        </LumenText>
+      {entry?.writeUnknown && props.onReconcile && (
+        <LumenButton
+          type="button"
+          size="s"
+          disabled={!connected || busy}
+          loading={actionBusy}
+          onClick={() => {
+            if (inFlight.current) return
+            const generation = actionGeneration.current
+            inFlight.current = true
+            setBusy(true)
+            setLocalError(null)
+            void props
+              .onReconcile?.()
+              .catch((reason: unknown) => {
+                if (actionGeneration.current === generation && owner.current.sessionId === sessionId)
+                  setLocalError({ sessionId, revision, code: errorCode(reason) })
+              })
+              .finally(() => {
+                if (actionGeneration.current !== generation) return
+                inFlight.current = false
+                setBusy(false)
+              })
+          }}
+        >
+          {labels.recheck}
+        </LumenButton>
       )}
+      {error &&
+        (entry?.status !== 'unknown' || (localError?.sessionId === sessionId && localError.revision === revision)) && (
+          <LumenText as="span" role="alert">
+            {labels.error(error)}
+          </LumenText>
+        )}
       {hostDefault.status === 'loading' && open && (
         <LumenText as="span" role="status">
           {labels.loading}
         </LumenText>
       )}
-      {hostDefault.status === 'error' && !locked && choice === 'inherit' && (
+      {((hostDefault.status === 'error' && choice === 'inherit') || entry?.status === 'failed') && !locked && (
         <LumenButton type="button" size="s" disabled={!connected || busy} onClick={refresh}>
           {labels.retry}
         </LumenButton>
@@ -593,7 +625,6 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
               popup.current?.querySelector<HTMLButtonElement>('[data-execution-recovery]:not(:disabled)') ??
               popup.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')
             )?.focus()
-            if (!executionUnresolved && hostDefault.status !== 'loading') refresh()
           }
         }}
         onKeyDown={(event) => {

@@ -1350,6 +1350,9 @@ function SessionWorkspaceContent({
                   onSelect={async (input) => {
                     await runtime.commands.execute('composerPermission.setChoice', input)
                   }}
+                  onReconcile={async () => {
+                    await runtime.commands.execute('composerPermission.reconcile', { sessionId })
+                  }}
                   {...(composerPlanMode.available
                     ? {
                         plan: {

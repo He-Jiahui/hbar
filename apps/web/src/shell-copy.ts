@@ -1062,8 +1062,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           'Read-only across sends; the Host blocks write tools.',
         ),
         scope: choose(
-          '批准计划不会自动退出 Plan；其他审批选择仅对下一次发送生效。',
-          'Approving a proposal does not exit Plan. Other approval choices apply only to the next send.',
+          '批准计划不会自动退出 Plan；其他审批选择会保留在本会话。',
+          'Approving a proposal does not exit Plan. Other approval choices persist for this session.',
         ),
         pending: choose('正在保存会话计划模式…', 'Saving this session’s Plan mode…'),
         unknown: choose(
@@ -1073,7 +1073,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         loading: choose('正在读取会话计划模式…', 'Loading this session’s Plan mode…'),
         selected: choose('当前会话持续只读规划。', 'Read-only planning remains active for this session.'),
         exit: choose('退出计划模式', 'Exit Plan mode'),
-        exitDescription: choose('保留当前草稿与下次发送的审批选择。', 'Keep the draft and next-send approval choice.'),
+        exitDescription: choose('保留当前草稿与会话审批选择。', 'Keep the draft and session approval choice.'),
         retry: choose('重新读取会话模式', 'Reload session mode'),
         recheck: choose('核对计划模式', 'Recheck Plan mode'),
         goalPrepared: choose(
@@ -1088,14 +1088,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       close: choose('关闭执行选项', 'Close execution options'),
       loading: choose('正在读取服务端默认策略…', 'Loading the Host default policy…'),
       retry: choose('重新读取默认策略', 'Reload the default policy'),
-      pending: choose('正在准备本次发送…', 'Preparing this send…'),
+      pending: choose('正在保存审批或准备发送…', 'Saving approval or preparing this send…'),
       unknown: choose(
-        '本次发送结果未确认，策略已锁定；请核对提交结果。',
-        'This send is not confirmed. Its policy is locked; check the submission result.',
+        '操作结果未确认；请核对原提交或设置回执。',
+        'The outcome is unconfirmed. Check the original submission or settings receipt.',
       ),
+      recheck: choose('核对审批设置', 'Check approval setting'),
       scopeHint: choose(
-        '工具审批仅用于下一次发送，不更改服务端默认值。',
-        'Tool approval is for the next send; the Host default stays unchanged.',
+        '工具审批会保留在本会话，不更改服务端默认值。',
+        'Tool approval persists for this session; the Host default stays unchanged.',
       ),
       inheritedSnapshotHint: (mode) =>
         mode
@@ -1131,11 +1132,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           ),
         },
       },
-      confirmTitle: choose('确认本次自动批准？', 'Auto-approve this send?'),
+      confirmTitle: choose('确认本会话自动批准？', 'Auto-approve this session?'),
       confirmBody: (title) =>
         choose(
-          `会话“${title}”的下一次发送将自动批准需要审批的工具，可能写入文件或运行命令。服务端拒绝规则仍生效。`,
-          `The next send in “${title}” will automatically approve tools that may write files or execute commands. Host deny rules still apply.`,
+          `会话“${title}”将持续自动批准需要审批的工具，可能写入文件或运行命令，直到你再次更改。服务端拒绝规则仍生效。`,
+          `“${title}” will continue to auto-approve tools that may write files or execute commands until you change this choice. Host deny rules still apply.`,
         ),
       confirmAllow: choose('确认自动批准', 'Confirm auto-approval'),
       cancel: choose('取消', 'Cancel'),

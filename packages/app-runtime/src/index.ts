@@ -499,6 +499,8 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
+    ...(options.settings ? { settings: options.settings } : {}),
+    ...(options.permissionEvents ? { events: options.permissionEvents } : {}),
     navigation: navigation.reader,
     isSubmissionLocked: (sessionId) => {
       const draft = drafts.reader.getSnapshot()[sessionId]

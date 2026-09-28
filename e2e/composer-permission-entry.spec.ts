@@ -15,7 +15,7 @@ async function selectSession(page: Page, title: string, locale: ShellLocale) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`next-send approval uses real Host policy without changing its default: ${locale}`, async ({
+  test(`session approval uses real Host settings without changing its default: ${locale}`, async ({
     browser,
   }, testInfo) => {
     test.setTimeout(120_000)
@@ -47,7 +47,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await trigger.focus()
       await page.keyboard.press('Enter')
       await expect(popup).toBeVisible()
-      await expect(popup.getByRole('menuitemradio')).toHaveCount(4)
+      await expect(popup.getByRole('menuitemradio')).toHaveCount(5)
       await expect(popup.getByRole('menuitemradio', { checked: true })).toBeFocused()
       await expect(popup).toContainText(labels.scopeHint)
       await page.keyboard.press('ArrowUp')
@@ -67,7 +67,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize({ width, height: 900 })
         await trigger.click()
         await expect(popup).toBeVisible()
-        await expect(popup.getByRole('menuitemradio')).toHaveCount(4)
+        await expect(popup.getByRole('menuitemradio')).toHaveCount(5)
         await expect(popup).not.toContainText(labels.plan.scope)
         if (width === 320) await expect(popup.locator('[data-choice="plan"]')).toBeInViewport({ ratio: 1 })
         expect(await popup.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
@@ -119,7 +119,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .toBe(1)
         return text
       }
-      const waitCompleted = async (text: string, approval: 'ask' | 'deny' | 'allow') => {
+      const waitCompleted = async (
+        text: string,
+        approval: 'ask' | 'deny' | 'allow',
+        choice: 'ask' | 'deny' | 'allow' | 'inherit',
+      ) => {
         await expect
           .poll(
             async () =>
@@ -130,18 +134,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const snapshot = await target.client.call('session.snapshot', { sessionId })
         const run = snapshot.runs.find((run) => run.input.text === text)
         expect(run?.input.approval).toBe(approval)
-        await expect(trigger).toHaveAttribute('data-choice', 'inherit')
+        await expect(trigger).toHaveAttribute('data-choice', choice)
         return { run, snapshot }
       }
 
       await choose('deny')
-      const denied = await waitCompleted(await sendTool('denied.txt'), 'deny')
+      const denied = await waitCompleted(await sendTool('denied.txt'), 'deny', 'deny')
       expect(denied.snapshot.approvals.filter((item) => item.runId === denied.run?.id)).toHaveLength(0)
       await expect(access(join(root, 'denied.txt'))).rejects.toThrow()
       expect(await configuration.execute('permission.get', {})).toEqual(baseline)
 
       await choose('allow')
-      const allowed = await waitCompleted(await sendTool('allowed.txt'), 'allow')
+      const allowed = await waitCompleted(await sendTool('allowed.txt'), 'allow', 'allow')
       expect(allowed.snapshot.approvals.filter((item) => item.runId === allowed.run?.id)).toHaveLength(0)
       expect(await readFile(join(root, 'allowed.txt'), 'utf8')).toBe('Verified allowed.txt')
       expect(await configuration.execute('permission.get', {})).toEqual(baseline)
@@ -156,16 +160,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(waiting.approvals.find((item) => item.runId === asked?.id)?.status).toBe('pending')
       await expect(access(join(root, 'asked.txt'))).rejects.toThrow()
       await approvalCard.getByRole('button', { name: copy.session.decisions.allow, exact: true }).click()
-      await waitCompleted(askedText, 'ask')
+      await waitCompleted(askedText, 'ask', 'ask')
       expect(await readFile(join(root, 'asked.txt'), 'utf8')).toBe('Verified asked.txt')
       expect(await configuration.execute('permission.get', {})).toEqual(baseline)
 
       // Only this fixture setup changes the Host default. The product picker never writes it.
+      await choose('inherit')
       await configuration.execute('permission.set', { mode: 'deny' })
       await trigger.click()
       await expect(popup).toContainText(labels.inheritedSnapshotHint(labels.options.deny.label))
       await page.keyboard.press('Escape')
-      const inherited = await waitCompleted(await sendTool('inherited-denied.txt'), 'deny')
+      const inherited = await waitCompleted(await sendTool('inherited-denied.txt'), 'deny', 'inherit')
       expect(inherited.snapshot.approvals.filter((item) => item.runId === inherited.run?.id)).toHaveLength(0)
       await expect(access(join(root, 'inherited-denied.txt'))).rejects.toThrow()
       expect(await configuration.execute('permission.get', {})).toEqual({ mode: 'deny' })

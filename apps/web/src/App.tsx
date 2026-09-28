@@ -224,6 +224,19 @@ function createRuntime(
     usage: createUsageCommandClient(client),
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
+    permissionEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (event.method === 'host.changed' && ['settings', 'permissions', 'resync'].includes(event.params.kind))
+            listener()
+        })
+      },
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     settingsLanding,
     configuration: createConfigurationCommandClient(client),
     planMode: createConfigurationCommandClient(client),

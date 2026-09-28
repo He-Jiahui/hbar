@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
 import { approvalModeSchema, idSchema } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { createSessionComposerPermission } from './composer-session-permission'
 import { createState, type StateReader } from './state'
 import type { NavigationState } from './types'
 
@@ -12,9 +13,11 @@ export interface ComposerPermissionEntry {
   readonly sessionId: string
   readonly choice: ComposerPermissionChoice
   readonly revision: number
-  readonly status: 'idle' | 'preparing' | 'prepared' | 'unknown' | 'failed'
+  readonly status: 'idle' | 'loading' | 'preparing' | 'prepared' | 'unknown' | 'failed'
   readonly locked: boolean
   readonly error: string | null
+  /** A Host settings write is unresolved; distinct from an unresolved Run submission. */
+  readonly writeUnknown?: boolean
 }
 
 export interface ComposerPermissionState {
@@ -28,7 +31,7 @@ export interface ComposerPermissionState {
   readonly entries: Readonly<Record<string, ComposerPermissionEntry>>
 }
 
-/** Ownership token only; this is not a new Run idempotency key or Host permission setting. */
+/** Run ownership token only; the Host session approval setting has separate write receipts. */
 export interface ComposerPermissionSubmission {
   readonly token: string
   readonly sessionId: string
@@ -39,6 +42,11 @@ export interface ComposerPermissionSubmission {
 
 export interface ComposerPermissionOptions {
   readonly configuration?: CommandExecutor | undefined
+  readonly settings?: CommandExecutor | undefined
+  readonly events?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly navigation: StateReader<NavigationState>
   /** Existing Draft/Composer submission ownership remains authoritative, including detached Plan runs. */
   readonly isSubmissionLocked: (sessionId: string) => boolean
@@ -80,6 +88,11 @@ export const composerPermissionCommands = {
     }),
     z.strictObject({ sessionId: idSchema, revision: z.number().int().nonnegative() }),
   ),
+  'composerPermission.reconcile': defineCommand(
+    metadata('composerPermission.reconcile'),
+    z.strictObject({ sessionId: idSchema }),
+    z.strictObject({ sessionId: idSchema, revision: z.number().int().nonnegative() }),
+  ),
 }
 
 function initial(sessionId: string): ComposerPermissionEntry {
@@ -92,8 +105,9 @@ function code(reason: unknown): string {
     : 'EXECUTION_FAILED'
 }
 
-/** One-shot composer policy. The Host's permission.set command is intentionally never invoked. */
+/** Use Host session settings when available; legacy runtimes retain the one-shot local fallback. */
 export function createComposerPermission(local: CommandRegistry, options: ComposerPermissionOptions) {
+  if (options.settings) return createSessionComposerPermission(local, options)
   const state = createState<ComposerPermissionState>(
     { available: !!options.configuration, hostDefault: { status: 'idle', mode: null, error: null }, entries: {} },
     options.onSubscriberError,

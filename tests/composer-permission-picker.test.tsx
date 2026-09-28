@@ -10,7 +10,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const labels: HbarComposerPermissionLabels = {
   execution: composerExecutionCopy('zh-CN'),
-  title: '下一次发送的工具审批',
+  title: '会话工具审批',
   plan: {
     label: '计划模式',
     description: '服务端拒绝写入',
@@ -32,9 +32,10 @@ const labels: HbarComposerPermissionLabels = {
   close: '关闭权限选择',
   loading: '正在读取服务端默认值',
   retry: '重新读取默认值',
-  pending: '正在准备这次发送的权限',
+  pending: '正在保存审批或准备发送',
   unknown: '提交结果尚未确认，保留这次发送的原审批策略',
-  scopeHint: '仅下一次发送；不会更改服务端默认值',
+  recheck: '核对审批设置',
+  scopeHint: '本会话持续生效；不会更改服务端默认值',
   inheritedSnapshotHint: (mode) => `发送时读取服务端默认值并保留用于该次运行；最近读取：${mode ?? '尚未读取'}`,
   options: {
     inherit: {
@@ -45,9 +46,9 @@ const labels: HbarComposerPermissionLabels = {
     deny: { label: '拒绝需审批工具', description: '拒绝需要审批的工具，不影响策略直接允许的工具。' },
     allow: { label: '自动批准需审批工具', description: '无需逐次确认；服务端拒绝规则仍生效。' },
   },
-  confirmTitle: '确认本次发送自动批准',
-  confirmBody: (session) => `仅会话“${session}”的下一次发送；需要审批的写入或命令将自动批准。服务端拒绝规则仍生效。`,
-  confirmAllow: '仅本次自动批准',
+  confirmTitle: '确认本会话自动批准',
+  confirmBody: (session) => `会话“${session}”持续自动批准需要审批的写入或命令，直到再次更改。服务端拒绝规则仍生效。`,
+  confirmAllow: '确认自动批准',
   cancel: '保留原选择',
   error: (code) => `读取或选择失败：${code}`,
 }
@@ -67,7 +68,7 @@ function props(): HbarComposerPermissionPickerProps {
   }
 }
 
-test('permission picker shows four real options with localized names and next-send scope', () => {
+test('permission picker shows four real options with localized names and session scope', () => {
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...props()} />)
   expect(html).toContain('aria-label="工具审批：继承服务端默认"')
   expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
@@ -105,7 +106,7 @@ test('an inherited trigger names the confirmed effective default, but never gues
   }
 })
 
-test('session Plan is a distinct fifth entry, while four approval choices retain their one-send semantics', () => {
+test('session Plan is a distinct fifth entry beside four Host-owned approval choices', () => {
   const input = props()
   const plan = {
     entry: { sessionId: 'a', mode: 'plan' as const, status: 'ready' as const, error: null, revision: 3 },
@@ -221,6 +222,27 @@ test('unknown freezes the trigger and every new choice with nearby original-poli
   expect(html).toContain(labels.unknown)
   expect(html.match(/<button[^>]*disabled=""/g)).toHaveLength(5)
   expect(html).not.toContain(labels.retry)
+})
+
+test('unconfirmed session setting exposes original-receipt recovery without re-enabling choices', () => {
+  const html = renderToStaticMarkup(
+    <HbarComposerPermissionPicker
+      {...props()}
+      entry={{
+        sessionId: 'a',
+        choice: 'allow',
+        revision: 1,
+        status: 'unknown',
+        locked: true,
+        error: 'RESULT_UNKNOWN',
+        writeUnknown: true,
+      }}
+      onReconcile={async () => {}}
+    />,
+  )
+  expect(html).toContain(labels.unknown)
+  expect(html).toContain(labels.recheck)
+  expect(html.match(/role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
 })
 
 test('failed inherited read exposes local retry while retaining inherit; explicit choice does not claim failed default', () => {

@@ -124,6 +124,11 @@ export interface RuntimeOptions {
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
+  /** Session approval settings invalidation; notifications are hints, never write acknowledgements. */
+  readonly permissionEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly initialGlobalSettings?: GlobalSettingsStartup | undefined
   /** Host-owned global Settings entry preference; scoped settings keep their own explicit targets. */
   readonly settingsLanding?: {

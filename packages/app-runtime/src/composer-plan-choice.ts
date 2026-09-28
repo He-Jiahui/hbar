@@ -36,7 +36,7 @@ export const composerPlanChoiceCommands = {
   ),
 }
 
-/** One user choice: confirm leaving durable Plan before changing the next-send approval draft. */
+/** One user choice: confirm leaving durable Plan before changing the session approval setting. */
 export function registerComposerPlanChoice(
   local: CommandRegistry,
   navigation: StateReader<NavigationState>,
@@ -53,8 +53,10 @@ export function registerComposerPlanChoice(
       throw new CommandError('VERSION_CONFLICT', 'The session mode changed')
     const selected = permission.getSnapshot().entries[request.sessionId]
     if (selected?.revision !== undefined && selected.revision !== request.expectedPermissionRevision)
-      throw new CommandError('VERSION_CONFLICT', 'The next-send approval choice changed')
+      throw new CommandError('VERSION_CONFLICT', 'The session approval choice changed')
     if (selected?.locked) throw new CommandError('SUBMISSION_PENDING', 'The original submission owns its approval')
+    if (selected && selected.status !== 'idle')
+      throw new CommandError('BUSY', 'Confirm the session approval setting before leaving Plan')
     if (request.choice === 'allow' && !request.confirmAllow)
       throw new CommandError('CONFIRMATION_REQUIRED', 'Auto-approval requires explicit confirmation')
 
