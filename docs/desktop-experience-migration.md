@@ -31,6 +31,7 @@
 | 文件草稿              | 跨导航保存、共享文件事实、冲突/丢回执后保留原稿与核对                                                        | `05d8030`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
 | 用量入口              | 模型旁的小入口、真实预算含义与未知状态、告警仍可见                                                           | `2af5d12`                                                        | [用量记录](desktop-usage-interaction-reference.md)    |
 | Plan 提案             | 原消息旁执行或反馈继续讨论，绑定原提案版本，不消费普通草稿                                                   | `e3b27a1`                                                        | [提案记录](desktop-proposed-plan-integration.md)      |
+| Plan 提案退出会话模式 | 开始实施前先向 Host 确认退出 Plan；丢失回执时停在核查状态，不提前或重复提交实施 Run                          | `7bb8d46`                                                        | [会话级 Plan 契约](desktop-durable-plan-mode.md)      |
 | 行内重命名            | Enter 保存、Escape 取消、标题原子比较、冲突与未知恢复                                                        | `11d93f5`                                                        | [导航审计](desktop-navigation-interaction-audit.md)   |
 | 本次权限              | 输入区四种真实策略、自动批准确认、捕获到原 Run、失联核对                                                     | `8329581`                                                        | [权限记录](desktop-composer-permission-reference.md)  |
 | 会话工具栏            | 五个直接可达的具名图标入口，标题缩短，保留键盘与选中状态                                                     | `a65825e`                                                        | [标题栏记录](desktop-session-header-reference.md)     |
@@ -108,7 +109,7 @@ Files 加入原会话提交 `37ce66e` 的真实 Host 中英文 2 项与既有 `@
 
 上述更新后的完整 `bun run check` 再次通过原生查询构建、严格 ESLint、TypeScript 与 **1,552 tests / 11,563 assertions**（306 个文件，0 失败）。最新 Windows x64 release 应用及 NSIS 安装包构建成功；隔离数据目录的原生 WebView2 回归确认 `Ctrl+N`、深页已选模型、思考预览/确认、Plan/Goal、实际 Git 分支、置顶刷新持久化，以及 Composer 无装饰横梁且聚焦轮廓可见。原生截图 `artifacts/desktop-experience/session-entry/native-composer-boundary.png` 已人工检查；没有安装或重启用户正在使用的窗口。通用 `scripts/desktop-smoke.ts` 本次没有运行，不能把定向原生回归当成全套 smoke。
 
-随后 `3ee3fe9`、`8766f29`、`b441617`、`a40a6ce` 分别完成模型搜索识别、外观主题直选、外观表单焦点和会话级 Plan 模式，各有独立的定向单测、隔离生产构建与真实临时 Host 中英文 E2E。Plan 不再是先前 `2789e51` 的“下条仅规划”按钮；它由 Host `mode.get/set` 保存并出现在左侧执行菜单，连续发送、刷新、会话切换及断线重读遵从原会话模式。Plan 中写入工具由 Host 拒绝，审批策略保持本次发送语义。旧一次性方案只作为历史记录，不能描述当前入口。提案的“按此计划执行”目前仍是一次显式默认模式 Run，不会自动退出会话 Plan；未知 `mode.set` 回执跨进程不可证明从未到达，这些边界见 [会话级 Plan 契约](desktop-durable-plan-mode.md)。
+随后 `3ee3fe9`、`8766f29`、`b441617`、`a40a6ce` 分别完成模型搜索识别、外观主题直选、外观表单焦点和会话级 Plan 模式，各有独立的定向单测、隔离生产构建与真实临时 Host 中英文 E2E。Plan 不再是先前 `2789e51` 的“下条仅规划”按钮；它由 Host `mode.get/set` 保存并出现在左侧执行菜单，连续发送、刷新、会话切换及断线重读遵从原会话模式。Plan 中写入工具由 Host 拒绝，审批策略保持本次发送语义。旧一次性方案只作为历史记录，不能描述当前入口。当时提案的“按此计划执行”仍只提交一次显式默认模式 Run，未退出会话 Plan；`7bb8d46` 已改为先确认 Host 退出 Plan，未知写入结果需核查后才提交原实施 Run。该提案分支仍不同于执行中的 ExitPlanMode 审批返回原 Run；未知 `mode.set` 回执也不能跨进程证明从未到达。这些边界见 [会话级 Plan 契约](desktop-durable-plan-mode.md)。
 
 四项更新后的完整 `bun run check` 通过原生查询构建、严格 ESLint、TypeScript 与 **1,566 tests / 11,658 assertions**（307 个文件，0 失败；测试阶段 339.62s）。Windows x64 release 应用和 NSIS 安装包重新构建成功。隔离数据目录中的原生 WebView2 实际点击 Plan 菜单，读取 Host 模式并刷新核对持久选中；截图 `artifacts/desktop-experience/native-durable-plan-menu.png` 已人工查看。它不是完整原生交互套件：该原生 demo 未配置可发送模型，连续发送及写入工具拒绝由真实临时 Host 浏览器 E2E 验证。没有安装或重启用户正在使用的桌面窗口。外部未提交的 `e2e/web-shell.spec.ts` 仍含旧外观下拉框断言，本轮未运行这份综合 E2E，也未替其他任务修改该文件。
 
