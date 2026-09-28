@@ -489,3 +489,16 @@ Settings Form 1 于 2026-09-28 的证据位于
 320px 溢出/本地化/page error 检查。等价字段、手势及视口/主题乘积标为
 `inferred-not-replayed`；真实远端保存不在预览验证范围。类型检查、局部 lint、专项测试与
 生产构建通过，构建仍有既有大 chunk 警告；此结论不扩展到 Settings Form 2–6 的来源验收。
+
+Settings Form 2 于 2026-09-28 的最终证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-2-audit-v13/`：8 组静态来源/本地对、
+2 个分别覆盖用户名可用性与 Bio 超限的实时来源交互对均 `matched`，缺失 0；AX 语义、
+控件形状/状态、溢出硬门槛均无失败，人工复核及严格比较通过。静态来源复用已授权缓存，
+两项交互为实时回放。宿主掌管五个资料字段、初始被占用的用户名、160 字边界、取消还原及
+照片/保存回调；Bio 第 161 字保留输入值并以错误提示取代计数，不虚构上传或远端保存成功。
+来源 320px iframe 会裁切底部，本地正常滚动可触达 Cancel/Save；截图与判断记录在审计的
+`manual/` 下。生产浏览器总脚本覆盖 Form 1/2 代表动作、六变体 320px 无横向溢出与
+page error（0）；类型检查、局部 lint、18 个 Form 1/2/旧契约专项测试和生产构建通过。
+构建仍有既有大 chunk 警告，Lumen 旧 `settings-form.tsx` 全文件 lint 有 10 项既有错误；
+本次新增组件及根目录改动的 scoped lint 通过。其他等价按钮/视口/主题组合标为
+`inferred-not-replayed`，不能据此宣称 Settings Form 3–6 来源验收。
