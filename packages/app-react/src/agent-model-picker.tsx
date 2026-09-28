@@ -26,18 +26,17 @@ function placePopover(popover: HTMLDivElement, trigger: HTMLButtonElement) {
   const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
   const margin = rem
   const gap = rem / 2
-  const width = Math.min(22.5 * rem, innerWidth - margin * 2)
-  const above = bounds.bottom + 18.75 * rem > innerHeight && bounds.top > innerHeight - bounds.bottom
+  const width = Math.min(22.5 * rem, Math.max(0, innerWidth - margin * 2))
+  const below = innerHeight - bounds.bottom - gap - margin
+  const above = bounds.top - gap - margin
+  const placeBelow = below >= 11.25 * rem || below >= above
   popover.style.setProperty(
     '--agent-model-left',
-    `${Math.max(margin, Math.min(bounds.left, innerWidth - width - margin))}px`,
+    `${Math.min(Math.max(margin, bounds.right - width), Math.max(margin, innerWidth - width - margin))}px`,
   )
-  popover.style.setProperty('--agent-model-top', above ? 'auto' : `${bounds.bottom + gap}px`)
-  popover.style.setProperty('--agent-model-bottom', above ? `${innerHeight - bounds.top + gap}px` : 'auto')
-  popover.style.setProperty(
-    '--agent-model-limit',
-    `${Math.max(0, (above ? bounds.top : innerHeight - bounds.bottom) - margin - gap)}px`,
-  )
+  popover.style.setProperty('--agent-model-top', placeBelow ? `${bounds.bottom + gap}px` : 'auto')
+  popover.style.setProperty('--agent-model-bottom', placeBelow ? 'auto' : `${innerHeight - bounds.top + gap}px`)
+  popover.style.setProperty('--agent-model-limit', `${Math.max(0, placeBelow ? below : above)}px`)
 }
 
 export function AgentModelPicker({

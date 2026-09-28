@@ -35,7 +35,7 @@
   position: fixed;
   inset: auto;
   inline-size: min(22.5rem, calc(100vw - 1.5rem));
-  max-block-size: min(28rem, var(--agent-model-limit));
+  max-block-size: min(26.25rem, var(--agent-model-limit));
   display: flex;
   min-block-size: 0;
   flex-direction: column;

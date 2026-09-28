@@ -134,6 +134,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const picker = page.getByRole('dialog', { name: copy.agents.modelPicker.title, exact: true })
       await expect(picker).toBeVisible()
       await expect(picker.getByRole('option')).toHaveCount(60)
+      const triggerBounds = await trigger.boundingBox()
+      const pickerBounds = await picker.boundingBox()
+      if (!triggerBounds || !pickerBounds) throw new Error('Agent model picker geometry is not measurable')
+      expect(pickerBounds.height).toBeLessThanOrEqual(421)
+      expect(pickerBounds.x + pickerBounds.width).toBeCloseTo(
+        Math.min(triggerBounds.x + triggerBounds.width, 1440 - 16),
+        0,
+      )
       await page.screenshot({ path: testInfo.outputPath(`agent-model-${locale}-1440.png`) })
       const list = picker.locator('.hbar-agent-model-list')
       expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
