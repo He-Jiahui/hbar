@@ -93,6 +93,7 @@ export interface HbarWorkspaceShellLabels {
   readonly createSessionInWorkspace: (name: string) => string
   readonly commands: string
   readonly commandShortcut: string
+  readonly settingsShortcut: string
   readonly searchChats: string
   readonly searchShortcut: string
   readonly roster: SessionRosterRefreshLabels
@@ -203,7 +204,7 @@ export function workspaceShellShortcut(
     'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'isComposing' | 'keyCode' | 'repeat' | 'defaultPrevented'
   >,
   topLayerOpen: boolean,
-): 'chat-search' | 'commands' | null {
+): 'chat-search' | 'commands' | 'settings' | null {
   if (
     topLayerOpen ||
     event.defaultPrevented ||
@@ -217,6 +218,7 @@ export function workspaceShellShortcut(
   const key = event.key.toLowerCase()
   if (key === 'k' && !event.shiftKey) return 'chat-search'
   if (key === 'p' && event.shiftKey) return 'commands'
+  if (key === ',' && !event.shiftKey) return 'settings'
   return null
 }
 
@@ -515,13 +517,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const panelId = workspaceShellShortcut(
+      const shortcut = workspaceShellShortcut(
         event,
         Boolean(document.querySelector('dialog:modal, [popover]:popover-open')),
       )
-      if (!panelId) return
+      if (!shortcut) return
       event.preventDefault()
-      void execute('app.openPanel', { panelId })
+      void (shortcut === 'settings'
+        ? execute('app.openSettings', { scope: 'global' })
+        : execute('app.openPanel', { panelId: shortcut }))
         .then(() => {
           if (window.matchMedia('(max-width: 63.9375rem)').matches)
             return execute('app.setSidebarVisible', { visible: false })
@@ -1070,6 +1074,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               <WorkspaceSidebarAction
                 icon="settings"
                 label={props.labels.settings}
+                detail={props.labels.settingsShortcut}
+                aria-label={props.labels.settings}
                 selected={presentation.page.kind === 'settings' && !extensionsSelected}
                 onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
               />

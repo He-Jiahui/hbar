@@ -45,6 +45,7 @@ const labels: HbarWorkspaceShellLabels = {
   createSessionInWorkspace: (name) => `在 ${name} 中创建新会话`,
   commands: '打开命令目录',
   commandShortcut: 'Ctrl Shift P',
+  settingsShortcut: 'Ctrl ,',
   searchChats: '搜索全部聊天记录中的内容',
   searchShortcut: 'Ctrl K',
   roster: {

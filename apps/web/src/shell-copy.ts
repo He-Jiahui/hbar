@@ -2699,6 +2699,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       createSessionInWorkspace: (name) => `在项目“${name}”中新建会话`,
       commands: '命令',
       commandShortcut: 'Ctrl Shift P',
+      settingsShortcut: 'Ctrl ,',
       searchChats: '搜索聊天',
       searchShortcut: 'Ctrl K',
       roster: {
@@ -2833,6 +2834,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       createSessionInWorkspace: (name) => `Create a session in project ${name}`,
       commands: 'Commands',
       commandShortcut: 'Ctrl Shift P',
+      settingsShortcut: 'Ctrl ,',
       searchChats: 'Search chats',
       searchShortcut: 'Ctrl K',
       roster: {
@@ -2956,7 +2958,7 @@ export function getShellCopy(
   if (cached) return cached
   const copy: ShellCopy = {
     ...base,
-    shell: { ...base.shell, searchShortcut: '⌘K', commandShortcut: '⌘⇧P' },
+    shell: { ...base.shell, searchShortcut: '⌘K', commandShortcut: '⌘⇧P', settingsShortcut: '⌘,' },
     session: { ...base.session, prompt: { ...base.session.prompt, stop } },
   }
   macCopies.set(locale, copy)

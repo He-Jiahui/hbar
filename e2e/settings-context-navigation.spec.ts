@@ -24,6 +24,39 @@ async function selectGroup(page: Page, locale: ShellLocale, id: string, label: s
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`global Settings shortcut keeps the conversation and focus: ${locale}`, async ({ browser }, testInfo) => {
+    const root = await mkdtemp(join(tmpdir(), 'hbar-settings-shortcut-'))
+    const context = await browser.newContext({ locale })
+    const copy = getShellCopy(locale)
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      await page.goto(base)
+      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const draft = `Settings shortcut draft — ${locale}`
+      await prompt.fill(draft)
+      for (const width of [1440, 320]) {
+        await page.setViewportSize({ width, height: 900 })
+        await prompt.focus()
+        await page.keyboard.press('Control+Comma')
+        const pageBoundary = page.locator('.hbar-settings-page-focus')
+        await expect(pageBoundary).toBeFocused()
+        await expect(pageBoundary).toHaveAccessibleName(copy.settings.pageTitle)
+        await expect(page.getByRole('heading', { name: copy.settings.pageTitle, exact: true })).toBeVisible()
+        await page.screenshot({ path: testInfo.outputPath(`settings-shortcut-${locale}-${width}.png`) })
+        await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+        await expectComposerText(prompt, draft)
+      }
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   test(`settings groups keep real scope, drafts and page keyboard focus: ${locale}`, async ({ browser }) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-settings-context-'))
