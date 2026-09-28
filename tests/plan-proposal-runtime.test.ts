@@ -15,6 +15,7 @@ import {
   createPlanProposalActions,
   planProposalActionKey,
   planProposalCommands,
+  type PlanProposalOptions,
 } from '../packages/app-runtime/src/plan-proposal-actions'
 import {
   MAX_PROPOSED_PLAN_CHARACTERS,
@@ -84,7 +85,7 @@ function controls(): SessionControlsState {
     errors: { model: null, usage: null, budget: null },
   }
 }
-function fixture(preparation?: SessionExecutionPreparationPort) {
+function fixture(preparation?: SessionExecutionPreparationPort, modePort?: PlanProposalOptions['mode']) {
   const local = new CommandRegistry()
   const feed = createState(timeline(), () => {})
   const configuration = createState(controls(), () => {})
@@ -98,6 +99,15 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
   const receiptErrors: unknown[] = []
   const run: RunCommandPort = {
     async execute(name, input, options) {
+      if (name === 'session.queuedUserRuns')
+        return {
+          sessionId: (input as { sessionId: string }).sessionId,
+          sessionSeq: 0,
+          totalQueued: 0,
+          items: [],
+          nextCursor: null,
+        }
+      if (name !== 'run.submit') throw new CommandError('COMMAND_NOT_FOUND', `Unexpected Run command: ${name}`)
       const request = input as SubmitRunInput
       const key = options?.idempotencyKey ?? ''
       calls.push({ name, input: request, key })
@@ -141,6 +151,7 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
     ...(preparation ? { preparation } : {}),
     timeline: feed.reader,
     controls: configuration.reader,
+    ...(modePort ? { mode: modePort } : {}),
     executeDetachedRun: drafts.executeDetachedRun,
     reconcileRun: (sessionId) => draftClient.execute('draft.reconcileSubmission', { sessionId }),
     getSettledReceipt: drafts.getSettledReceipt,
@@ -192,6 +203,122 @@ function fixture(preparation?: SessionExecutionPreparationPort) {
     },
   }
 }
+
+test('implement confirms Host Plan exit before the Run while continuing planning leaves mode unchanged', async () => {
+  let hostMode: 'default' | 'plan' = 'plan'
+  const transitions: string[] = []
+  const modePort: NonNullable<PlanProposalOptions['mode']> = {
+    async read() {
+      transitions.push('read')
+      return hostMode
+    },
+    async setDefault() {
+      transitions.push('exit')
+      hostMode = 'default'
+      return hostMode
+    },
+    async reconcile() {
+      transitions.push('reconcile')
+      return hostMode
+    },
+    isUnknown: () => false,
+  }
+  const f = fixture(undefined, modePort)
+  try {
+    const target = await f.target()
+    await f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })
+    expect(transitions).toEqual(['read', 'exit'])
+    expect(await modePort.read('one')).toBe('default')
+    expect(f.calls).toHaveLength(1)
+    expect(f.calls[0]?.input.input.mode).toBe('default')
+    expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(target)]).toMatchObject({
+      phase: 'run',
+      status: 'accepted',
+    })
+  } finally {
+    f.dispose()
+  }
+  hostMode = 'plan'
+  transitions.length = 0
+  const continuing = fixture(undefined, modePort)
+  try {
+    const target = await continuing.target()
+    await continuing.commands.execute('proposedPlan.submit', { ...target, action: 'continue', feedback: 'Refine' })
+    expect(transitions).toEqual([])
+    expect(hostMode).toBe('plan')
+    expect(continuing.calls[0]?.input.input.mode).toBe('plan')
+  } finally {
+    continuing.dispose()
+  }
+  hostMode = 'default'
+  transitions.length = 0
+  const alreadyDefault = fixture(undefined, modePort)
+  try {
+    const target = await alreadyDefault.target()
+    await alreadyDefault.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })
+    expect(transitions).toEqual(['read'])
+    expect(alreadyDefault.calls).toHaveLength(1)
+    expect(alreadyDefault.calls[0]?.input.input.mode).toBe('default')
+  } finally {
+    alreadyDefault.dispose()
+  }
+})
+
+test('unknown Host Plan exit blocks Run admission and confirmation continues once without another mode write', async () => {
+  let hostMode: 'default' | 'plan' = 'plan'
+  let unknown = false
+  let confirmed = false
+  let modeWrites = 0
+  const modePort: NonNullable<PlanProposalOptions['mode']> = {
+    async read() {
+      return hostMode
+    },
+    async setDefault() {
+      modeWrites += 1
+      hostMode = 'default'
+      unknown = true
+      throw new CommandError('RESULT_UNKNOWN', 'Host reply lost after mode write')
+    },
+    async reconcile() {
+      if (!confirmed) return 'plan'
+      unknown = false
+      return hostMode
+    },
+    isUnknown: () => unknown,
+  }
+  const f = fixture(undefined, modePort)
+  try {
+    const target = await f.target()
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    expect(f.calls).toHaveLength(0)
+    expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(target)]).toMatchObject({
+      phase: 'mode',
+      status: 'unknown',
+    })
+    await expect(f.commands.execute('proposedPlan.submit', { ...target, action: 'implement' })).rejects.toMatchObject({
+      code: 'BUSY',
+    })
+    await expect(f.commands.execute('proposedPlan.reconcile', target)).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    expect(f.calls).toHaveLength(0)
+    expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(target)]?.status).toBe('unknown')
+    confirmed = true
+    const receipt = await f.commands.execute('proposedPlan.reconcile', target)
+    expect(receipt?.sessionId).toBe('one')
+    expect(modeWrites).toBe(1)
+    expect(f.calls).toHaveLength(1)
+    expect(f.calls[0]?.input.input.mode).toBe('default')
+    expect(f.proposal.reader.getSnapshot().actions[planProposalActionKey(target)]).toMatchObject({
+      phase: 'run',
+      status: 'accepted',
+    })
+  } finally {
+    f.dispose()
+  }
+})
 
 test('detached proposal rechecks captured preparation after an await; read failure cannot invent an unknown Run', async () => {
   for (const failure of ['ARCHIVED', 'RESULT_UNKNOWN']) {
@@ -908,7 +1035,7 @@ test('public runtime commands and reader honor the optional host-owned proposal 
         await expect(
           runtime.view.commands.execute('proposedPlan.submit', { ...target, action: 'implement' }),
         ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
-        expect(f.calls).toHaveLength(0)
+        expect(f.calls.map((call) => call.name)).toEqual([])
       }
     } finally {
       runtime.dispose()

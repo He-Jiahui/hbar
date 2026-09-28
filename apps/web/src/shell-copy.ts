@@ -1062,8 +1062,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           'Read-only across sends; the Host blocks write tools.',
         ),
         scope: choose(
-          '批准计划不会自动退出 Plan；其他审批选择会保留在本会话。',
-          'Approving a proposal does not exit Plan. Other approval choices persist for this session.',
+          '从计划提案开始实施会先退出 Plan；其他审批选择仍保留在本会话。',
+          'Starting implementation from a proposal exits Plan first. Other approval choices persist for this session.',
         ),
         pending: choose('正在保存会话计划模式…', 'Saving this session’s Plan mode…'),
         unknown: choose(
@@ -1241,16 +1241,23 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       implement: choose('新一轮执行', 'Start implementation turn'),
       continuePlanning: choose('新一轮规划', 'Start planning turn'),
       scope: choose(
-        '以下操作开启新一轮：执行使用普通模式，规划使用计划模式。会话模式不变，输入区草稿和附件不会发送。',
-        'These actions start a new turn: Default mode for implementation, Plan mode for planning. The session mode stays unchanged; your composer draft and attachments are not sent.',
+        '以下操作开启新一轮：实施前先退出本会话的 Plan 模式；继续规划不更改会话模式。输入区草稿和附件不会发送。',
+        'These actions start a new turn. Implementation exits this session’s Plan mode first; further planning leaves the session mode unchanged. Your composer draft and attachments are not sent.',
       ),
       feedback: choose('规划反馈（用于继续规划）', 'Feedback for further planning'),
       feedbackPlaceholder: choose('说明需要完善的内容', 'Describe what should change'),
       submitting: choose('正在提交请求…', 'Submitting request…'),
+      exitingPlan: choose('正在退出计划模式…', 'Exiting Plan mode…'),
       accepted: choose('请求已受理', 'Request accepted'),
       unknown: choose('提交结果尚未确认，请先核对。', 'The result is unknown. Check it before retrying.'),
+      unknownPlanExit: choose(
+        '退出计划模式的结果尚未确认；实施尚未开始。请核对后继续。',
+        'Plan exit is unconfirmed; implementation has not started. Confirm the mode to continue.',
+      ),
       checking: choose('正在核对原提交，请稍候…', 'Checking the original submission…'),
+      checkingPlanExit: choose('正在核对计划模式并继续实施…', 'Confirming Plan mode and continuing implementation…'),
       reconcile: choose('核对提交结果', 'Check request result'),
+      reconcilePlanExit: choose('核对并继续实施', 'Confirm and continue implementation'),
       error: (code) => {
         if (code === 'RESULT_UNKNOWN')
           return choose(

@@ -233,6 +233,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         goal: await host.client.call('goal.get', { sessionId }),
         progress: await host.client.call('plan.get', { sessionId }),
       }
+      expect(baseline.mode).toEqual({ mode: 'plan' })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -274,7 +275,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const preserve = async () => {
         await expectComposerText(prompt, draft)
         await expect(attachment).toBeVisible()
-        expect(await ownedHost.client.call('mode.get', { sessionId })).toEqual(baseline.mode)
+        expect(await ownedHost.client.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
       }
       const stateBounds = async (target: Locator) => {
         await expect(target).toBeInViewport({ timeout: 500 })
@@ -290,10 +291,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           }
           return { box: { left: box.left, top: box.top, right: box.right, bottom: box.bottom }, clip }
         })
-        expect(measured.box.left).toBeGreaterThanOrEqual(measured.clip.left - 1)
-        expect(measured.box.top).toBeGreaterThanOrEqual(measured.clip.top - 1)
-        expect(measured.box.right).toBeLessThanOrEqual(measured.clip.right + 1)
-        expect(measured.box.bottom).toBeLessThanOrEqual(measured.clip.bottom + 1)
+        const geometry = JSON.stringify(measured)
+        // Scroll snapping and fractional pane borders may leave a sub-2px edge
+        // outside the clip without hiding the control or its text.
+        expect(measured.box.left, geometry).toBeGreaterThanOrEqual(measured.clip.left - 2)
+        expect(measured.box.top, geometry).toBeGreaterThanOrEqual(measured.clip.top - 2)
+        expect(measured.box.right, geometry).toBeLessThanOrEqual(measured.clip.right + 1)
+        expect(measured.box.bottom, geometry).toBeLessThanOrEqual(measured.clip.bottom + 1)
         return measured
       }
       const capture = async (phase: string) => {
@@ -421,11 +425,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await host.client.call('permission.get', {})).toEqual(baseline.permission)
       expect(await host.client.call('goal.get', { sessionId })).toEqual(baseline.goal)
       expect(await host.client.call('plan.get', { sessionId })).toEqual(baseline.progress)
+      expect(boundary.commands.filter((command) => command === 'mode.set')).toHaveLength(1)
       expect((await host.client.call('session.snapshot', { sessionId: other.id })).runs).toHaveLength(0)
       expect(
-        boundary.commands.filter((command) =>
-          ['run.retry', 'mode.set', 'goal.create', 'goal.set', 'goal.clear'].includes(command),
-        ),
+        boundary.commands.filter((command) => ['run.retry', 'goal.create', 'goal.set', 'goal.clear'].includes(command)),
       ).toEqual([])
       expect(errors).toEqual([])
       expect(boundary.transportErrors).toEqual([])

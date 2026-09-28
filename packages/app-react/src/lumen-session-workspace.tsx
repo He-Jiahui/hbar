@@ -826,6 +826,7 @@ function SessionWorkspaceContent({
               labels: labels.proposedPlan,
               state: {
                 status: proposalAction?.status ?? 'idle',
+                phase: proposalAction?.phase,
                 canSubmit: connected && !proposalBlocked && planProposal.availability === 'ready',
                 connected,
                 reconciling: proposalAction?.reconciling ?? false,

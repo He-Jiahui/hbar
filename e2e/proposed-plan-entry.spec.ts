@@ -271,7 +271,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(implementationRuns[0]?.input.text).toContain(initial.markdown)
       await expectComposerText(prompt, draft)
       await expect(attachment).toBeVisible()
-      expect(await unchangedHostFacts(host)).toEqual(baseline)
+      const afterImplementationFacts = await unchangedHostFacts(host)
+      expect(afterImplementationFacts).toEqual({ ...baseline, mode: { mode: 'default' } })
       await page.screenshot({ path: testInfo.outputPath(`proposal-implemented-${locale}-320.png`) })
 
       // A second, genuinely completed assistant Plan provides an independent refinement target.
@@ -333,7 +334,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(refinementRuns[0]?.input.text).toContain(feedback)
       await expectComposerText(prompt, draft)
       await expect(attachment).toBeVisible()
-      expect(await unchangedHostFacts(host)).toEqual(baseline)
+      expect(await unchangedHostFacts(host)).toEqual(afterImplementationFacts)
       expect(errors).toEqual([])
     } finally {
       await context.close()

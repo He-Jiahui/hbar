@@ -20,10 +20,14 @@ export interface HbarProposedPlanLabels {
   readonly feedback: string
   readonly feedbackPlaceholder: string
   readonly submitting: string
+  readonly exitingPlan: string
   readonly accepted: string
   readonly unknown: string
+  readonly unknownPlanExit: string
   readonly checking: string
+  readonly checkingPlanExit: string
   readonly reconcile: string
+  readonly reconcilePlanExit: string
   readonly error: (code: string) => string
 }
 export interface HbarProposedPlanProps {
@@ -34,6 +38,7 @@ export interface HbarProposedPlanProps {
   readonly labels: HbarProposedPlanLabels
   readonly state: {
     readonly status: 'idle' | 'submitting' | 'unknown' | 'accepted' | 'failed'
+    readonly phase?: 'mode' | 'run' | undefined
     readonly canSubmit: boolean
     readonly connected: boolean
     readonly reconciling: boolean
@@ -197,7 +202,7 @@ function ProposedPlanContent({
               }}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />
-              {labels.reconcile}
+              {state.phase === 'mode' ? labels.reconcilePlanExit : labels.reconcile}
             </LumenButton>
           ) : null}
         </LumenFrame>
@@ -205,12 +210,18 @@ function ProposedPlanContent({
       {state.status === 'submitting' || state.status === 'accepted' || state.status === 'unknown' ? (
         <LumenText id={statusId} className="hbar-proposed-plan-status" as="p" role="status">
           {state.status === 'submitting'
-            ? labels.submitting
+            ? state.phase === 'mode'
+              ? labels.exitingPlan
+              : labels.submitting
             : state.status === 'accepted'
               ? labels.accepted
               : state.reconciling
-                ? labels.checking
-                : labels.unknown}
+                ? state.phase === 'mode'
+                  ? labels.checkingPlanExit
+                  : labels.checking
+                : state.phase === 'mode'
+                  ? labels.unknownPlanExit
+                  : labels.unknown}
         </LumenText>
       ) : null}
       {state.error ? (

@@ -3,10 +3,10 @@
 Reference: `D:/Git/cc-haha/docs/images/app/zh-CN/permission-modes.webp` and
 `D:/Git/cc-haha/desktop/src/components/controls/PermissionModeSelector.tsx` show Plan in the
 composer-left execution menu. The hbar menu now places the session-scoped Plan entry beside
-the existing next-send tool-approval choices. These are **different Host contracts**:
-`mode.get/set(sessionId)` stores Plan/default for the session; approval choices are captured
-for one Run and do not call `permission.set`. While Plan is active, the approval rows cannot
-be changed until the user exits Plan, and their existing one-send choice is retained. The
+the existing session tool-approval choices. These are **different Host contracts**:
+`mode.get/set(sessionId)` stores Plan/default for the session; approval choices persist as
+session settings and are captured for each Run without changing the Host default. While Plan is active, the approval rows cannot
+be changed until the user exits Plan, and their existing session choice is retained. The
 Host still rejects write-effect tools in Plan mode regardless of that approval choice.
 
 The menu's Plan row reports confirmed Host state, never an optimistic local toggle. The
@@ -21,9 +21,12 @@ existing `mode.set` does not expose a durable per-key receipt, so this slice doe
 claim to prove that a lost write was never delivered, especially across a client restart.
 
 Two ordinary sends remain Plan until explicit Exit Plan mode persists default. Proposal
-“Implement” is a separate, one-time Run with explicit default input: it does **not** change
-the durable session mode or imply that cc-haha's ExitPlanMode permission-choice workflow
-has been implemented. The menu states this next to the action.
+“Implement” now confirms that same Host mode transition before admitting a separate
+implementation Run with explicit default input. A lost mode-write reply is reconciled by
+reading Host state; the implementation Run is not admitted while that result is unknown.
+This is still not cc-haha's in-flight ExitPlanMode permission-choice workflow: Hbar starts
+a new Run after the user acts on a completed proposal. “Continue planning” leaves the
+session mode unchanged.
 
 Production Host visual evidence:
 

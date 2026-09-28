@@ -588,6 +588,37 @@ export function createAppRuntime(options: RuntimeOptions) {
     preparation: executionPreparation,
     timeline: timeline.reader,
     controls: controls.reader,
+    ...(options.planMode
+      ? {
+          mode: {
+            read: composerPlanMode.captureFresh,
+            async setDefault(sessionId: string) {
+              const entry = composerPlanMode.reader.getSnapshot().entries[sessionId]
+              if (entry?.status !== 'ready' || entry.mode === null)
+                throw new CommandError('BUSY', 'Confirm Host Plan mode before implementing')
+              const result = composerPlanModeCommands['composerPlanMode.setMode'].output.parse(
+                await local.execute('composerPlanMode.setMode', {
+                  sessionId,
+                  mode: 'default',
+                  expectedRevision: entry.revision,
+                }),
+              )
+              if (result.mode !== 'default')
+                throw new CommandError('RESULT_UNKNOWN', 'Host Plan exit was not confirmed')
+              return result.mode
+            },
+            async reconcile(sessionId: string) {
+              const result = composerPlanModeCommands['composerPlanMode.reconcile'].output.parse(
+                await local.execute('composerPlanMode.reconcile', { sessionId }),
+              )
+              if (!result.mode) throw new CommandError('RESULT_UNKNOWN', 'Host mode was not confirmed')
+              return result.mode
+            },
+            isUnknown: (sessionId: string) =>
+              composerPlanMode.reader.getSnapshot().entries[sessionId]?.status === 'unknown',
+          },
+        }
+      : {}),
     executeDetachedRun: (input, execution) => {
       if (
         composerIntent.isSubmissionPending(input.sessionId) ||

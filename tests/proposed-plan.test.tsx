@@ -12,14 +12,18 @@ const labels: HbarProposedPlanLabels = {
   document: '计划文档',
   implement: '按此计划执行',
   continuePlanning: '继续规划',
-  scope: '开启新一轮，会话模式不变，不发送输入区草稿或附件。',
+  scope: '实施前退出计划模式；继续规划不更改会话模式。草稿与附件不会发送。',
   feedback: '规划反馈（用于继续规划）',
   feedbackPlaceholder: '说明需要完善的内容',
   submitting: '正在提交请求',
+  exitingPlan: '正在退出计划模式',
   accepted: '请求已受理',
   unknown: '提交结果尚未确认，请先核对',
+  unknownPlanExit: '退出计划模式的结果尚未确认',
   checking: '正在核对原提交',
+  checkingPlanExit: '正在核对计划模式并继续实施',
   reconcile: '核对提交结果',
+  reconcilePlanExit: '核对并继续实施',
   error: () => '操作尚未确认',
 }
 function props(): HbarProposedPlanProps {
@@ -75,6 +79,11 @@ test('unknown offers receipt reconciliation while failures and unavailable sourc
   const unknown = renderToStaticMarkup(<HbarProposedPlan {...input} state={{ ...input.state, status: 'unknown' }} />)
   expect(unknown).toContain(labels.reconcile)
   expect(unknown.match(/<button[^>]*disabled=""/g)).toHaveLength(2)
+  const unknownMode = renderToStaticMarkup(
+    <HbarProposedPlan {...input} state={{ ...input.state, status: 'unknown', phase: 'mode' }} />,
+  )
+  expect(unknownMode).toContain(labels.unknownPlanExit)
+  expect(unknownMode).toContain(labels.reconcilePlanExit)
   const failed = renderToStaticMarkup(
     <HbarProposedPlan
       {...input}

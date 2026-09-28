@@ -59,6 +59,7 @@ export interface PlanProposalDocument {
 export interface PlanProposalActionState {
   readonly target: PlanProposalTarget
   readonly action: PlanProposalSubmit['action']
+  readonly phase: 'mode' | 'run'
   readonly status: 'submitting' | 'unknown' | 'failed' | 'accepted'
   readonly reconciling: boolean
   readonly error: string | null
@@ -79,6 +80,13 @@ export interface PlanProposalOptions {
   readonly executeDetachedRun: (input: SubmitRunInput, options?: ExecuteOptions) => Promise<RunAccepted>
   readonly reconcileRun: (sessionId: string) => Promise<RunAccepted | null>
   readonly getSettledReceipt: (sessionId: string, key: string) => RunAccepted | null
+  readonly mode?: {
+    /** Read the current Host session mode, not a cached composer projection. */
+    read(sessionId: string): Promise<'default' | 'plan'>
+    setDefault(sessionId: string): Promise<'default'>
+    reconcile(sessionId: string): Promise<'default' | 'plan'>
+    isUnknown(sessionId: string): boolean
+  }
   readonly onSubscriberError: (error: unknown) => void
   /** Host-owned user-visible request text; no demo prose in runtime or component. */
   readonly requestText?: PlanProposalRequestText
@@ -157,7 +165,7 @@ function availability(
   return 'ready'
 }
 
-/** One explicit per-run request; no persistent mode change, Goal or update_plan mutation. */
+/** One explicit per-run request; implementing exits an active Host Plan mode before admission. */
 export function createPlanProposalActions(local: CommandRegistry, options: PlanProposalOptions) {
   let disposed = false
   let generation = 0
@@ -169,10 +177,14 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
     { sessionId: null, status: 'idle', proposal: null, error: null, availability: 'none', actions: {} },
     options.onSubscriberError,
   )
-  const pending = new Map<
-    string,
-    { readonly target: PlanProposalTarget; readonly action: PlanProposalSubmit['action']; readonly key: string }
-  >()
+  type PendingRequest = {
+    readonly target: PlanProposalTarget
+    readonly action: PlanProposalSubmit['action']
+    readonly key: string
+    phase: 'preparing' | 'mode' | 'run'
+    runInput: SubmitRunInput | null
+  }
+  const pending = new Map<string, PendingRequest>()
   const reconciling = new Set<string>()
   const setAction = (value: PlanProposalActionState) => {
     if (disposed) return
@@ -278,6 +290,49 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       throw new CommandError('MODEL_UNAVAILABLE', 'The proposal session has no confirmed model')
     return { candidate, modelId: controls.model.modelId, thinkingLevel: controls.model.thinkingLevel }
   }
+  const submitRun = async (request: PendingRequest, execution?: ExecuteOptions): Promise<RunAccepted> => {
+    if (!request.runInput) throw new CommandError('INVALID_STATE', 'The proposal Run was not prepared')
+    request.phase = 'run'
+    setAction({
+      target: request.target,
+      action: request.action,
+      phase: 'run',
+      status: 'submitting',
+      reconciling: false,
+      error: null,
+      operationId: null,
+    })
+    try {
+      const accepted = await options.executeDetachedRun(request.runInput, {
+        ...execution,
+        idempotencyKey: request.key,
+      })
+      pending.delete(request.target.sessionId)
+      setAction({
+        target: request.target,
+        action: request.action,
+        phase: 'run',
+        status: 'accepted',
+        reconciling: false,
+        error: null,
+        operationId: accepted.operationId,
+      })
+      return accepted
+    } catch (error) {
+      const unknown = code(error) === 'RESULT_UNKNOWN'
+      if (!unknown) pending.delete(request.target.sessionId)
+      setAction({
+        target: request.target,
+        action: request.action,
+        phase: 'run',
+        status: unknown ? 'unknown' : 'failed',
+        reconciling: false,
+        error: code(error),
+        operationId: null,
+      })
+      throw error
+    }
+  }
   local.register(planProposalCommands['proposedPlan.submit'], async (input, execution) => {
     if (disposed) throw new CommandError('CANCELLED', 'Proposal actions have been disposed')
     const requestText = options.requestText
@@ -289,13 +344,14 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
     if (existing?.status === 'accepted')
       throw new CommandError('ALREADY_SUBMITTED', 'This proposal action has already been accepted')
     const { sessionId, messageId, sourceRunId, sourceSeq, fingerprint } = input
-    const request = {
+    const request: PendingRequest = {
       target: { sessionId, messageId, sourceRunId, sourceSeq, fingerprint },
       action: input.action,
       key: crypto.randomUUID(),
+      phase: 'preparing',
+      runInput: null,
     }
     pending.set(input.sessionId, request)
-    let dispatched = false
     try {
       const executionTarget = await options.preparation?.capture(input.sessionId, execution.signal)
       const { candidate, modelId, thinkingLevel } = await validate(request.target)
@@ -312,46 +368,53 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       setAction({
         target: request.target,
         action: input.action,
+        phase: 'run',
         status: 'submitting',
         reconciling: false,
         error: null,
         operationId: null,
       })
-      dispatched = true
-      const accepted = await options.executeDetachedRun(
-        {
-          sessionId: input.sessionId,
-          modelId,
-          input: {
-            text,
-            images: [],
-            files: [],
-            mode: input.action === 'implement' ? 'default' : 'plan',
-            source: 'user',
-            ...(thinkingLevel ? { thinking: thinkingLevel } : {}),
-          },
+      request.runInput = {
+        sessionId: input.sessionId,
+        modelId,
+        input: {
+          text,
+          images: [],
+          files: [],
+          mode: input.action === 'implement' ? 'default' : 'plan',
+          source: 'user',
+          ...(thinkingLevel ? { thinking: thinkingLevel } : {}),
         },
-        { ...execution, idempotencyKey: request.key },
-      )
-      pending.delete(input.sessionId)
-      setAction({
-        target: request.target,
-        action: input.action,
-        status: 'accepted',
-        reconciling: false,
-        error: null,
-        operationId: accepted.operationId,
-      })
-      return accepted
+      }
+      if (input.action === 'implement' && options.mode) {
+        const mode = await options.mode.read(input.sessionId)
+        if (mode === 'plan') {
+          request.phase = 'mode'
+          setAction({
+            target: request.target,
+            action: input.action,
+            phase: 'mode',
+            status: 'submitting',
+            reconciling: false,
+            error: null,
+            operationId: null,
+          })
+          await options.mode.setDefault(input.sessionId)
+        }
+        if (executionTarget) options.preparation?.assertCanPrepare(executionTarget)
+      }
+      return await submitRun(request, execution)
     } catch (error) {
-      const unknown = dispatched && code(error) === 'RESULT_UNKNOWN'
+      if (request.phase === 'run') throw error
+      const unknown = request.phase === 'mode' && Boolean(options.mode?.isUnknown(input.sessionId))
       if (!unknown) pending.delete(input.sessionId)
       setAction({
         target: request.target,
         action: input.action,
+        phase: request.phase === 'mode' ? 'mode' : 'run',
         status: unknown ? 'unknown' : 'failed',
         reconciling: false,
-        error: code(error),
+        error: unknown ? null : code(error),
         operationId: null,
       })
       throw error
@@ -376,6 +439,14 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
     try {
       setAction({ ...original, reconciling: true, error: null })
       if (disposed) throw new CommandError('CANCELLED', 'Proposal actions have been disposed')
+      if (request.phase === 'mode') {
+        const mode = await options.mode?.reconcile(target.sessionId)
+        if (mode !== 'default') throw new CommandError('RESULT_UNKNOWN', 'Host Plan exit is not confirmed')
+        const { modelId } = await validate(request.target)
+        if (!request.runInput || request.runInput.modelId !== modelId)
+          throw new CommandError('MODEL_UNAVAILABLE', 'The original proposal model changed during mode recovery')
+        return await submitRun(request)
+      }
       let receipt = options.getSettledReceipt(target.sessionId, request.key)
       if (!receipt) {
         try {
@@ -393,6 +464,7 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
         setAction({
           target: request.target,
           action: request.action,
+          phase: 'run',
           status: 'accepted',
           reconciling: false,
           error: null,
@@ -402,6 +474,16 @@ export function createPlanProposalActions(local: CommandRegistry, options: PlanP
       return receipt
     } catch (error) {
       const current = state.reader.getSnapshot().actions[actionKey]
+      if (
+        request.phase === 'mode' &&
+        current?.status === 'unknown' &&
+        !options.mode?.isUnknown(target.sessionId) &&
+        code(error) !== 'RESULT_UNKNOWN'
+      ) {
+        pending.delete(target.sessionId)
+        setAction({ ...current, status: 'failed', reconciling: false, error: code(error) })
+        throw error
+      }
       // A failed read says nothing about the original write. Keep its key and
       // target locked, including when that proposal is no longer selected.
       if (pending.get(target.sessionId) === request && current?.status === 'unknown')
