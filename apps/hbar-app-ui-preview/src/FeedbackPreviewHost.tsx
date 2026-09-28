@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import { HbarAppUiFeedbackProvider, type HbarAppUiFeedbackContent } from 'hbar-app-ui/catalog'
 import { createFeedbackWidgetPreviewStore } from './feedbackWidgetPreviewStore'
+import { createFeedbackSurveyPreviewStore } from './feedbackSurveyPreviewStore'
 
 export function FeedbackPreviewHost({
   content,
@@ -12,7 +13,10 @@ export function FeedbackPreviewHost({
 }) {
   const [store] = useState(() => createFeedbackWidgetPreviewStore(content.referenceWidget))
   const state = useStore(store)
+  const [surveyStore] = useState(() => createFeedbackSurveyPreviewStore(content.referenceSurvey))
+  const surveyState = useStore(surveyStore)
   useEffect(() => store.getState().reset(content.referenceWidget), [store, content.referenceWidget])
+  useEffect(() => surveyStore.getState().reset(content.referenceSurvey), [surveyStore, content.referenceSurvey])
   return (
     <HbarAppUiFeedbackProvider
       content={{
@@ -29,6 +33,19 @@ export function FeedbackPreviewHost({
           onToggleScreenshot: state.toggleScreenshot,
           onSubmit: state.submit,
           onSendAnother: state.sendAnother,
+        },
+        referenceSurvey: content.referenceSurvey && {
+          ...content.referenceSurvey,
+          scores: surveyState.scores,
+          reasons: surveyState.reasons,
+          selectedScore: surveyState.selectedScore,
+          selectedReasonIds: surveyState.selectedReasonIds,
+          comment: surveyState.comment,
+          phase: surveyState.phase,
+          onSelectScore: surveyState.selectScore,
+          onToggleReason: surveyState.toggleReason,
+          onCommentChange: surveyState.changeComment,
+          onSubmit: surveyState.submit,
         },
       }}
     >

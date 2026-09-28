@@ -371,6 +371,7 @@ export type InteractionCase = Readonly<{
     | 'reader-outline-closed'
     | 'feedback-draft'
     | 'feedback-sent'
+    | 'survey-middle'
     | 'editor-edited'
     | 'editorial-navigation-closed'
     | 'editorial-schedule'
@@ -1760,6 +1761,9 @@ export function schedulingDeadlineInteractionCases(
 
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
 const feedbackScenarios = ['feedback-draft', 'feedback-sent'] as const
+async function prepareSurveyMiddle(root: Locator): Promise<void> {
+  await root.getByRole('radio', {name: '8', exact: true}).click()
+}
 async function prepareFeedbackScenario(root: Locator, scenario: (typeof feedbackScenarios)[number]): Promise<void> {
   await root.locator('textarea').fill('Please make exports easier to review.')
   if (scenario === 'feedback-sent') await root.getByRole('button', { name: 'Send feedback' }).click()
@@ -4063,6 +4067,7 @@ async function replayInteraction(
     await prepareReaderOutlineClosed(root)
   if (spec.id === 'hbar-app-ui-feedback-1' && feedbackScenarios.some((value) => value === interaction.scenario))
     await prepareFeedbackScenario(root, interaction.scenario as (typeof feedbackScenarios)[number])
+  if (spec.id === 'hbar-app-ui-feedback-2' && interaction.scenario === 'survey-middle') await prepareSurveyMiddle(root)
   if (spec.id === 'hbar-app-ui-editor-1' && richEditorScenario)
     await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
@@ -4279,6 +4284,7 @@ async function replayReferenceInteraction(
     await prepareReaderOutlineClosed(root)
   if (reference.id === 'hbar-app-ui-feedback-1' && feedbackScenarios.some((value) => value === interaction.scenario))
     await prepareFeedbackScenario(root, interaction.scenario as (typeof feedbackScenarios)[number])
+  if (reference.id === 'hbar-app-ui-feedback-2' && interaction.scenario === 'survey-middle') await prepareSurveyMiddle(root)
   if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario)
     await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
@@ -5050,6 +5056,10 @@ async function runInteractionsParallel(
                 await prepareFeedbackScenario(sourceRoot, scenario)
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
+            }
+            if (spec.id === 'hbar-app-ui-feedback-2' && sampleIds?.some((id) => id.startsWith(`${spec.id}:survey-middle:`))) {
+              await prepareSurveyMiddle(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'survey-middle'))
             }
             if (spec.id === 'hbar-app-ui-editor-1') {
               for (const scenario of richEditorScenarios) {

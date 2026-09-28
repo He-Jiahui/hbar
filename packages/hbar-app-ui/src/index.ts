@@ -118,9 +118,13 @@ export {
   selectHbarAppUiFeedbackItem,
   uniqueHbarAppUiFeedbackItems,
   uniqueHbarAppUiFeedbackReferenceTypes,
+  uniqueHbarAppUiFeedbackSurveyReasons,
+  uniqueHbarAppUiFeedbackSurveyScores,
 } from './components/Feedback'
 export type {
   HbarAppUiFeedbackWidgetReferenceContent,
+  HbarAppUiFeedbackSurveyReferenceContent,
+  HbarAppUiFeedbackSurveyReferenceReason,
   HbarAppUiFeedbackReferenceType,
   HbarAppUiFeedbackContent,
   HbarAppUiFeedbackProps,

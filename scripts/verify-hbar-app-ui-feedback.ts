@@ -61,12 +61,67 @@ async function noHorizontalOverflow(
 
 async function run(): Promise<void> {
   const widgetOnly = process.argv.includes('--widget-only')
+  const surveyOnly = process.argv.includes('--survey-only')
   const server = await ensurePreview()
   const browser = await chromium.launch({ headless: true, executablePath })
   const page = await browser.newPage({ viewport: { width: 1192, height: 800 } })
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   try {
+    if (surveyOnly) {
+      await page.goto(previewUrl(2), { waitUntil: 'networkidle' })
+      assert(
+        (await page.getByRole('button', { name: 'It is fast' }).count()) === 0,
+        'Unselected reasons should remain inert',
+      )
+      await page.getByRole('radio', { name: '3', exact: true }).click()
+      assert((await page.getByText('What let you down most?').count()) === 1, 'Low score follow-up missing')
+      await page.getByRole('radio', { name: '8', exact: true }).click()
+      assert(
+        (await page.getByText('What would move you to a nine or ten?').count()) === 1,
+        'Middle score follow-up missing',
+      )
+      await page.getByRole('button', { name: 'It is fast' }).click()
+      assert(
+        (await page.getByRole('button', { name: 'It is fast' }).getAttribute('aria-pressed')) === 'true',
+        'Reason did not toggle',
+      )
+      await page.getByRole('textbox', { name: 'Anything else' }).fill('The product helped me onboard quickly.')
+      await page.getByRole('radio', { name: '10', exact: true }).focus()
+      await page.keyboard.press('Space')
+      assert((await page.getByText('What made it worth recommending?').count()) === 1, 'High score follow-up missing')
+      await page.getByRole('button', { name: 'Submit' }).click()
+      assert((await page.getByText('Recorded, thank you').count()) === 1, 'Survey acknowledgement missing')
+      assert(
+        (await page.getByText(/Your score of 10 goes to the product team/).count()) === 1,
+        'Survey score was not retained',
+      )
+      await page.goto(previewUrl(2, 'localized'), { waitUntil: 'networkidle' })
+      assert(
+        (await page.getByRole('heading', { name: /Wie wahrscheinlich empfehlen Sie/ }).count()) === 1,
+        'Localized survey heading missing',
+      )
+      await page.setViewportSize({ width: 320, height: 560 })
+      await page.goto(previewUrl(2, 'localized'), { waitUntil: 'networkidle' })
+      const stage = page.locator('.lumen-feedback-survey-reference')
+      const scroll = await inspectScroll(stage)
+      assert(scroll.scrollable && scroll.moved, 'Narrow survey did not expose the full normal-flow form')
+      assert(await page.getByRole('button', { name: 'Absenden' }).isVisible(), 'Narrow survey footer is unreachable')
+      assert(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+        'Narrow survey overflowed horizontally',
+      )
+      assert(pageErrors.length === 0, `Survey preview reported page errors: ${pageErrors.join(' | ')}`)
+      console.log(
+        JSON.stringify({
+          surveyOnly: true,
+          localizedHostCopy: true,
+          narrowScroll: scroll,
+          pageErrors: pageErrors.length,
+        }),
+      )
+      return
+    }
     await page.goto(previewUrl(1), { waitUntil: 'networkidle' })
     await page.getByRole('radio', { name: 'Issue' }).click()
     assert(

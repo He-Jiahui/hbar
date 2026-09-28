@@ -13,9 +13,15 @@ export type HbarAppUiFeedbackProps = HbarAppUiVariantProps & {
 
 export { HbarAppUiFeedbackProvider, selectHbarAppUiFeedbackItem, uniqueHbarAppUiFeedbackItems }
 export { uniqueLumenFeedbackReferenceTypes as uniqueHbarAppUiFeedbackReferenceTypes } from '@lumen/app-ui'
+export {
+  uniqueLumenFeedbackSurveyReasons as uniqueHbarAppUiFeedbackSurveyReasons,
+  uniqueLumenFeedbackSurveyScores as uniqueHbarAppUiFeedbackSurveyScores,
+} from '@lumen/app-ui'
 
 export type {
   LumenFeedbackWidgetReferenceContent as HbarAppUiFeedbackWidgetReferenceContent,
+  LumenFeedbackSurveyReferenceContent as HbarAppUiFeedbackSurveyReferenceContent,
+  LumenFeedbackSurveyReferenceReason as HbarAppUiFeedbackSurveyReferenceReason,
   LumenFeedbackReferenceType as HbarAppUiFeedbackReferenceType,
   LumenFeedbackAttachment as HbarAppUiFeedbackAttachment,
   LumenFeedbackContent as HbarAppUiFeedbackContent,

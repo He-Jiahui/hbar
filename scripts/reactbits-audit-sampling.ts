@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-feedback-2')
+    return {
+      revision: 1,
+      lumenEntries: ['feedback-workflows.tsx', 'feedback-survey-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '4:click', change: 'Low score reveals detractor follow-up, reasons and comment'},
+        {viewport: 'desktop', theme: 'dark', suffix: '9:click', change: 'Middle score reveals distinct improvement follow-up'},
+        {viewport: 'desktop', theme: 'light', suffix: '11:click', change: 'High score reveals recommendation follow-up'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'survey-middle:12:click', change: 'Reason toggles pressed state within selected score'},
+        {viewport: 'desktop', theme: 'light', suffix: 'survey-middle:18:fill', change: 'Optional comment accepts a draft independently of reason choice'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'survey-middle:20:click', change: 'Submission replaces form with score-specific acknowledgement'},
+        {viewport: 'desktop', theme: 'light', suffix: '19:click', change: 'Ask me later is a source demo no-op'},
+        {viewport: 'desktop', theme: 'light', suffix: '0:click', change: 'Dismiss is a source demo no-op'},
+        {viewport: 'stress', theme: 'light', suffix: '9:click', change: 'Narrow six-column score flow and long form respond to selection'},
+      ],
+      inferences: [
+        {scope: 'Other score numerals, repeated reason chips, reverse toggles and keyboard button gestures', basis: 'Three score bands each select one host-owned follow-up. All score IDs use one radio renderer and all reasons one stable-ID toggle; focused state/browser tests exercise reverse and stale guards. Equivalent controls are inferred, not individually replayed.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme/score combinations and dismissal permutations', basis: 'Eight static pairs cover responsive layout and both themes. Desktop state transitions and one 286px change cover distinct mechanisms; close/later/Escape in the live preview have no content result.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-feedback-1')
     return {
       revision: 1,

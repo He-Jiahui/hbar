@@ -5,6 +5,7 @@ import type {
   HbarAppUiFeedbackRequest,
   HbarAppUiFeedbackVolumePoint,
   HbarAppUiFeedbackWidgetReferenceContent,
+  HbarAppUiFeedbackSurveyReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const requests: readonly HbarAppUiFeedbackRequest[] = [
@@ -151,16 +152,14 @@ const inboxDetails: readonly HbarAppUiFeedbackInboxDetail[] = [
       { id: 'related-2', text: 'Export ran twice and produced different totals.', author: 'L. Fontaine' },
     ],
   },
-  ...inboxThreads
-    .slice(1)
-    .map((thread) => ({
-      threadId: thread.id,
-      sentiment: 'Neutral',
-      body: thread.subject,
-      tags: [],
-      metrics: [],
-      related: [],
-    })),
+  ...inboxThreads.slice(1).map((thread) => ({
+    threadId: thread.id,
+    sentiment: 'Neutral',
+    body: thread.subject,
+    tags: [],
+    metrics: [],
+    related: [],
+  })),
 ]
 
 const volume: readonly HbarAppUiFeedbackVolumePoint[] = Array.from({ length: 20 }, (_, index) => ({
@@ -385,6 +384,39 @@ const widgetReference: HbarAppUiFeedbackWidgetReferenceContent = {
 export const HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
   ...BASE_HBAR_APP_UI_FEEDBACK_FIXTURES,
   referenceWidget: widgetReference,
+  referenceSurvey: {
+    surveyId: 'feedback-survey',
+    labels: {
+      eyebrow: 'Quarterly survey',
+      question: 'How likely are you to recommend Northwind to a colleague?',
+      dismiss: 'Dismiss survey',
+      scoreGroup: 'Score from 0 to 10',
+      scoreLow: 'Not at all likely',
+      scoreHigh: 'Extremely likely',
+      scorePrompt: 'Pick a score to continue',
+      lowFollowUp: 'What let you down most?',
+      middleFollowUp: 'What would move you to a nine or ten?',
+      highFollowUp: 'What made it worth recommending?',
+      comment: 'Anything else',
+      commentPlaceholder: 'Anything else worth adding (optional)',
+      note: 'One question, and we will not ask again for 90 days.',
+      later: 'Ask me later',
+      submit: 'Submit',
+      sentTitle: 'Recorded, thank you',
+      sentDescription: (score) =>
+        `Your score of ${score} goes to the product team with this quarter's results. We will not ask again for 90 days.`,
+      emptyScores: 'No survey scores available',
+      scoreAccessible: (score) => `${score}`,
+    },
+    scores: Array.from({ length: 11 }, (_, score) => score),
+    reasons: BASE_HBAR_APP_UI_FEEDBACK_FIXTURES.survey?.reasons ?? [],
+    selectedScore: undefined,
+    selectedReasonIds: [],
+    comment: '',
+    phase: 'editing',
+    scoreStrategy: { kind: 'content-grown', expectedMaximum: 11 },
+    reasonStrategy: { kind: 'content-grown', expectedMaximum: 6 },
+  } satisfies HbarAppUiFeedbackSurveyReferenceContent,
 }
 
 export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackContent {
@@ -411,6 +443,16 @@ export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackCont
   return {
     ...base,
     referenceWidget: { ...widgetReference, draft: 'x'.repeat(widgetReference.maximumCharacters) },
+    referenceSurvey: base.referenceSurvey && {
+      ...base.referenceSurvey,
+      reasons: [
+        ...base.referenceSurvey.reasons,
+        ...Array.from({ length: 12 }, (_, index) => ({
+          id: `extra-reason-${index}`,
+          label: `Additional survey reason ${index + 1}`,
+        })),
+      ],
+    },
     featureBoard: base.featureBoard && {
       ...base.featureBoard,
       requests: [...base.featureBoard.requests, ...moreRequests],
@@ -450,6 +492,29 @@ export function createHbarAppUiFeedbackLocalizedFixtures(): HbarAppUiFeedbackCon
   const base = HBAR_APP_UI_FEEDBACK_FIXTURES
   return {
     ...base,
+    referenceSurvey: base.referenceSurvey && {
+      ...base.referenceSurvey,
+      labels: {
+        ...base.referenceSurvey.labels,
+        eyebrow: 'Vierteljährliche Umfrage',
+        question: 'Wie wahrscheinlich empfehlen Sie Northwind einer Kollegin oder einem Kollegen?',
+        dismiss: 'Umfrage schließen',
+        scoreGroup: 'Bewertung von null bis zehn',
+        scorePrompt: 'Wählen Sie eine Bewertung aus',
+        lowFollowUp: 'Was hat Sie am meisten enttäuscht?',
+        middleFollowUp: 'Was würde Ihre Bewertung verbessern?',
+        highFollowUp: 'Was macht das Produkt empfehlenswert?',
+        comment: 'Weitere Anmerkungen',
+        commentPlaceholder: 'Weitere Anmerkungen für das Produktteam (optional)',
+        note: 'Nur eine Frage; wir fragen in den nächsten neunzig Tagen nicht erneut.',
+        later: 'Später erinnern',
+        submit: 'Absenden',
+        sentTitle: 'Erfasst, vielen Dank',
+        sentDescription: (score) =>
+          `Ihre Bewertung ${score} wird mit den Quartalsergebnissen an das Produktteam gesendet.`,
+      },
+      reasons: base.referenceSurvey.reasons.map((reason) => ({ ...reason, label: `Grund: ${reason.label}` })),
+    },
     referenceWidget: {
       ...widgetReference,
       labels: {
