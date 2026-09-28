@@ -561,6 +561,26 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-feedback-5')
+    return {
+      revision: 1,
+      lumenEntries: ['feedback-workflows.tsx', 'feedback-inbox-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Selecting the second unread thread replaces the entire detail while preserving the list'},
+        {viewport: 'desktop', theme: 'dark', suffix: '3:click', change: 'A later neutral thread swaps sentiment, body, tags and account metrics'},
+        {viewport: 'desktop', theme: 'light', suffix: '9:fill', change: 'The internal note accepts a draft inside the independent detail pane'},
+        {viewport: 'desktop', theme: 'dark', suffix: '0:click', change: 'Archive read has no visible source result'},
+        {viewport: 'desktop', theme: 'light', suffix: '8:click', change: 'Add tag has no visible source result'},
+        {viewport: 'desktop', theme: 'dark', suffix: '10:click', change: 'Reply has no visible source result'},
+        {viewport: 'desktop', theme: 'light', suffix: '11:click', change: 'Create issue has no visible source result'},
+        {viewport: 'mobile', theme: 'light', suffix: '2:click', change: 'Narrow stacked panes retain selection and readable detail'},
+        {viewport: 'stress', theme: 'dark', suffix: '6:click', change: 'Longer list scroll reaches a late thread without moving the detail footer'},
+      ],
+      inferences: [
+        {scope: 'Other thread IDs, note text and repeated native gestures', basis: 'Seven host-provided details share one stable-ID selection path and one shared note draft. Unit tests cover stale IDs, duplicate IDs, empty/over-capacity lists, and draft persistence. Representative early, middle and late selections exercise the distinct pane flow.', verification: 'inferred-not-replayed'},
+        {scope: 'Other viewport/theme/action combinations, including Archive', basis: 'Eight static pairs cover all four widths and both themes. The live source leaves Archive read, Add tag, Reply, Create issue and Archive visibly unchanged; each distinct control is observed, while their Cartesian combinations are not replayed.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-feedback-4')
     return {
       revision: 1,

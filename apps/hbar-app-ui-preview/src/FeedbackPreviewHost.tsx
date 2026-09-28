@@ -5,6 +5,7 @@ import { createFeedbackWidgetPreviewStore } from './feedbackWidgetPreviewStore'
 import { createFeedbackSurveyPreviewStore } from './feedbackSurveyPreviewStore'
 import { createFeedbackRatingPreviewStore } from './feedbackRatingPreviewStore'
 import { createFeedbackBoardPreviewStore } from './feedbackBoardPreviewStore'
+import { createFeedbackInboxPreviewStore } from './feedbackInboxPreviewStore'
 
 export function FeedbackPreviewHost({
   content,
@@ -21,10 +22,13 @@ export function FeedbackPreviewHost({
   const ratingState = useStore(ratingStore)
   const [boardStore] = useState(() => createFeedbackBoardPreviewStore(content.referenceBoard))
   const boardState = useStore(boardStore)
+  const [inboxStore] = useState(() => createFeedbackInboxPreviewStore(content.referenceInbox))
+  const inboxState = useStore(inboxStore)
   useEffect(() => store.getState().reset(content.referenceWidget), [store, content.referenceWidget])
   useEffect(() => surveyStore.getState().reset(content.referenceSurvey), [surveyStore, content.referenceSurvey])
   useEffect(() => ratingStore.getState().reset(content.referenceRating), [ratingStore, content.referenceRating])
   useEffect(() => boardStore.getState().reset(content.referenceBoard), [boardStore, content.referenceBoard])
+  useEffect(() => inboxStore.getState().reset(content.referenceInbox), [inboxStore, content.referenceInbox])
   return (
     <HbarAppUiFeedbackProvider
       content={{
@@ -77,6 +81,15 @@ export function FeedbackPreviewHost({
           onSort: boardState.sort,
           onSearch: boardState.search,
           onVote: boardState.vote,
+        },
+        referenceInbox: content.referenceInbox && {
+          ...content.referenceInbox,
+          threads: inboxState.threads,
+          details: inboxState.details,
+          selectedThreadId: inboxState.selectedThreadId,
+          noteDraft: inboxState.noteDraft,
+          onSelectThread: inboxState.selectThread,
+          onNoteChange: inboxState.changeNote,
         },
       }}
     >

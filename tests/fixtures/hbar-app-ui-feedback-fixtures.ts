@@ -8,6 +8,7 @@ import type {
   HbarAppUiFeedbackSurveyReferenceContent,
   HbarAppUiFeedbackRatingReferenceContent,
   HbarAppUiFeedbackBoardReferenceContent,
+  HbarAppUiFeedbackInboxReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const requests: readonly HbarAppUiFeedbackRequest[] = [
@@ -89,6 +90,7 @@ const inboxThreads: readonly HbarAppUiFeedbackInboxThread[] = [
     subject: 'Saved views replaced our spreadsheet',
     account: 'Meridian',
     channel: 'email',
+    unread: true,
   },
   {
     id: 'sso-plan',
@@ -477,6 +479,31 @@ export const HBAR_APP_UI_FEEDBACK_FIXTURES: HbarAppUiFeedbackContent = {
     votedIds: requests.filter(request => request.votedByDefault).map(request => request.id),
     listStrategy: {kind: 'pane-scroll', expectedMaximum: 5},
   } satisfies HbarAppUiFeedbackBoardReferenceContent,
+  referenceInbox: {
+    inboxId: 'feedback-inbox',
+    labels: {
+      title: 'Feedback inbox', summary: '2 unread · 42 this week', archiveRead: 'Archive read', unread: 'Unread',
+      addTag: 'Add tag', related: 'Others said the same thing', note: 'Internal note',
+      notePlaceholder: 'Add an internal note for the team', reply: 'Reply', createIssue: 'Create issue', archive: 'Archive',
+      emptyThreads: 'No feedback threads are available.', emptyDetail: 'Select a feedback thread.',
+      openThread: (sender, time, subject, account, unread) => `${unread ? 'Unread ' : ''}${sender} ${time} ${subject} ${account}`,
+    },
+    threads: inboxThreads.map(thread => ({...thread,
+      channel: ({'export-column':'chat', 'saved-views':'web', 'sso-plan':'email', 'filter-tabs':'chat', 'board-speed':'chat', 'invite-spam':'email', 'onboarding-tour':'web'} as Record<string, 'chat' | 'web' | 'email'>)[thread.id] ?? 'email',
+      unread: Boolean(thread.unread),
+    })),
+    details: [
+      {threadId:'export-column', sentiment:'Negative', meta:'Halcyon Pay · /reports/revenue · 12m ago', body: inboxDetails[0]?.body ?? '', tags:[{id:'exports',label:'Exports'},{id:'data-loss',label:'Data loss'}], metrics:inboxDetails[0]?.metrics ?? [], related:inboxDetails[0]?.related ?? []},
+      {threadId:'saved-views', sentiment:'Positive', meta:'Meridian · NPS survey · 1h ago', body:'We retired a 40 tab spreadsheet last month. The team stopped asking me to rebuild charts, which is the first time that has happened in two years.', tags:[{id:'saved-views',label:'Saved views'}], metrics:[{id:'plan',label:'Plan',value:'Scale'},{id:'seats',label:'Seats',value:'118 of 150'},{id:'age',label:'Account age',value:'1y 1m'},{id:'past',label:'Past feedback',value:'3 notes'}], related:[{id:'related-1',text:'Saved views finally let us delete the master sheet.',author:'K. Osei'},{id:'related-2',text:'Shared a view with finance and they stopped emailing me.',author:'D. Ferreira'}]},
+      {threadId:'sso-plan', sentiment:'Neutral', meta:'Acme · Reply to onboarding email · 3h ago', body:'Security will not sign off without SAML. We do not need the rest of the Scale tier, so paying triple for one control is a hard sell internally.', tags:[{id:'billing',label:'Billing'},{id:'sso',label:'SSO'}], metrics:[{id:'plan',label:'Plan',value:'Pro'},{id:'seats',label:'Seats',value:'64 of 80'},{id:'age',label:'Account age',value:'8m'},{id:'past',label:'Past feedback',value:'5 notes'}], related:[{id:'related-1',text:'SAML is the only thing blocking our rollout.',author:'H. Lindqvist'},{id:'related-2',text:'We need SSO before legal will renew.',author:'M. Rahimi'}]},
+      {threadId:'filter-tabs', sentiment:'Negative', meta:'Lumendesk · /dashboards/ops · Yesterday ago', body:'Every time I move between the two dashboards my date range goes back to the last 7 days. I have started keeping the range in a note so I can retype it.', tags:[{id:'filters',label:'Filters'}], metrics:[{id:'plan',label:'Plan',value:'Starter'},{id:'seats',label:'Seats',value:'6 of 10'},{id:'age',label:'Account age',value:'4m'},{id:'past',label:'Past feedback',value:'2 notes'}], related:[{id:'related-1',text:'My date range resets every single visit.',author:'A. Nowak'},{id:'related-2',text:'Filters do not survive a page reload.',author:'P. Sandoval'}]},
+      {threadId:'board-speed', sentiment:'Neutral', meta:'Northwind · /projects/board · Yesterday ago', body:'Scrolling gets choppy somewhere around two hundred rows and the whole tab locks up for a second or two when I drag a card. Table view on the same data is fine.', tags:[{id:'performance',label:'Performance'},{id:'board-view',label:'Board view'}], metrics:[{id:'plan',label:'Plan',value:'Scale'},{id:'seats',label:'Seats',value:'203 of 250'},{id:'age',label:'Account age',value:'3y 7m'},{id:'past',label:'Past feedback',value:'14 notes'}], related:[{id:'related-1',text:'Board view is unusable past 200 rows.',author:'S. Adeyemi'},{id:'related-2',text:'Scrolling the board pins my laptop fan.',author:'N. Petrov'}]},
+      {threadId:'invite-spam', sentiment:'Negative', meta:'Meridian · Reply to invite email · 2d ago', body:'Roughly half our invites end up in junk. New starters assume the account was never created and open a ticket with our own helpdesk instead.', tags:[{id:'invites',label:'Invites'},{id:'deliverability',label:'Deliverability'}], metrics:[{id:'plan',label:'Plan',value:'Pro'},{id:'seats',label:'Seats',value:'18 of 25'},{id:'age',label:'Account age',value:'11m'},{id:'past',label:'Past feedback',value:'4 notes'}], related:[{id:'related-1',text:'Invite emails land in spam for us too.',author:'C. Bianchi'},{id:'related-2',text:'Had to resend three invites this week.',author:'T. Iwu'}]},
+      {threadId:'onboarding-tour', sentiment:'Neutral', meta:'Orbital · Activation survey · 3d ago', body:'The tour walked me through sharing before I had any data in the account. By the time I had something worth sharing the tour was gone and I could not replay it.', tags:[{id:'onboarding',label:'Onboarding'}], metrics:[{id:'plan',label:'Plan',value:'Starter'},{id:'seats',label:'Seats',value:'3 of 10'},{id:'age',label:'Account age',value:'2m'},{id:'past',label:'Past feedback',value:'1 note'}], related:[{id:'related-1',text:'The tour covers things I will never use.',author:'V. Marchand'},{id:'related-2',text:'I skipped onboarding and got lost.',author:'E. Haddad'}]},
+    ],
+    selectedThreadId: 'export-column', noteDraft: '',
+    listStrategy: {kind:'pane-scroll', expectedMaximum:7}, detailStrategy: {kind:'pane-scroll', expectedMaximum:7},
+  } satisfies HbarAppUiFeedbackInboxReferenceContent,
 }
 
 export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackContent {
@@ -519,6 +546,14 @@ export function createHbarAppUiFeedbackOverflowFixtures(): HbarAppUiFeedbackCont
     referenceBoard: base.referenceBoard && {...base.referenceBoard,
       requests: [...base.referenceBoard.requests, ...moreRequests.map((request, index) => ({...request, initiallyVoted: false, newRank: index + 5}))],
     },
+    referenceInbox: base.referenceInbox && {...base.referenceInbox,
+      threads: [...base.referenceInbox.threads, ...moreThreads.map(thread => ({...thread, channel: 'email' as const, unread: false}))],
+      details: [...base.referenceInbox.details, ...moreThreads.map(thread => ({
+        threadId: thread.id, sentiment: 'Neutral', meta: `${thread.account} · Email · ${thread.relativeTime} ago`,
+        body: `${thread.subject} remains readable inside the bounded detail pane.`, tags: [],
+        metrics: [{id: 'plan', label: 'Plan', value: 'Pro'}], related: [],
+      }))],
+    },
     featureBoard: base.featureBoard && {
       ...base.featureBoard,
       requests: [...base.featureBoard.requests, ...moreRequests],
@@ -558,6 +593,25 @@ export function createHbarAppUiFeedbackLocalizedFixtures(): HbarAppUiFeedbackCon
   const base = HBAR_APP_UI_FEEDBACK_FIXTURES
   return {
     ...base,
+    referenceInbox: base.referenceInbox && {...base.referenceInbox,
+      labels: {...base.referenceInbox.labels,
+        title: 'Feedback-Posteingang', summary: '2 ungelesen · 42 diese Woche',
+        archiveRead: 'Gelesenes archivieren', unread: 'Ungelesen', addTag: 'Schlagwort hinzufügen',
+        related: 'Andere Personen haben dasselbe berichtet', note: 'Interne Notiz',
+        notePlaceholder: 'Interne Notiz für das Team hinzufügen', reply: 'Antworten',
+        createIssue: 'Problem erstellen', archive: 'Archivieren',
+        emptyThreads: 'Keine Rückmeldungen vorhanden.', emptyDetail: 'Wählen Sie eine Rückmeldung.',
+        openThread: (sender, time, subject, account, unread) => `${unread ? 'Ungelesen ' : ''}${sender} ${time} ${subject} ${account}`,
+      },
+      threads: base.referenceInbox.threads.map(thread => ({...thread,
+        subject: `${thread.subject} für international verteilte Arbeitsgruppen`,
+        account: `${thread.account} Unternehmensbereich`,
+      })),
+      details: base.referenceInbox.details.map(detail => ({...detail,
+        body: `${detail.body} Diese zusätzliche Beschreibung prüft den Textfluss in engen Ansichten.`,
+        related: detail.related.map(item => ({...item, text: `${item.text} Weitere Einzelheiten für das Team.`})),
+      })),
+    },
     referenceBoard: base.referenceBoard && {
       ...base.referenceBoard,
       labels: {...base.referenceBoard.labels,

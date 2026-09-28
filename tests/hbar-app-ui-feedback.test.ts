@@ -28,7 +28,7 @@ describe('hbar-app-ui feedback surfaces', () => {
     expect(markup[1]).toContain('lumen-feedback-survey-reference')
     expect(markup[2]).toContain('lumen-feedback-rating-reference')
     expect(markup[3]).toContain('lumen-feedback-board-reference')
-    expect(markup[4]).toContain('hbar-app-ui-feedback-thread-detail')
+    expect(markup[4]).toContain('lumen-feedback-inbox-reference')
     expect(markup[5]).toContain('hbar-app-ui-feedback-volume-chart')
     for (const value of markup) {
       expect(value.toLocaleLowerCase()).not.toContain('react-bits')
@@ -68,7 +68,7 @@ describe('hbar-app-ui feedback surfaces', () => {
     expect(renderFeedback(4, { ...base, referenceBoard: undefined, featureBoard: { ...featureBoard, requests: [] } })).toContain(
       'No feature requests match this search.',
     )
-    expect(renderFeedback(5, { ...base, inbox: { ...inbox, threads: [], details: [] } })).toContain(
+    expect(renderFeedback(5, { ...base, referenceInbox: undefined, inbox: { ...inbox, threads: [], details: [] } })).toContain(
       'No feedback threads are available.',
     )
     const boundary = Array.from({ length: featureBoard.listStrategy.expectedMaximum }, (_, index) => ({

@@ -446,3 +446,16 @@ wrapper、fixture、测试和审计证据。
 
 变体清单中的“注册”与“完整视觉/交互审计通过”必须分开记录。只有 `review-ledger.json`
 中静态矩阵、真实交互、page/console error、溢出、结构硬门禁全部通过，才允许标记为已验收。
+
+Feedback 5 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-5-final-v7/`：8 组静态对、9 个按线程选择、
+备注草稿及来源无结果动作选取的真实交互样本（5 `matched`、4 `source-no-op`），缺失 0；
+语义树、13 个控件名称/状态、独立列表与详情滚动、窄屏截断、视觉人工复核和严格比较通过。
+归一化像素 MAE 0.038602 仅作辅助诊断。`referenceInbox` 保留旧 `inbox` API，
+七条线程及各自正文、标签、指标和相关意见由宿主提供；稳定 ID 控制选中线程，备注草稿
+按来源行为跨线程保留。Archive read、Add tag、Reply、Create issue、Archive 在来源演示均无
+可见结果，本地只发回调而不虚构远端操作。专项测试覆盖空/重复/失效线程、25 条溢出与
+长德语文案；生产浏览器验证选择、备注、演示无结果、本地化和双滚动区域。
+其余线程 ID、等价按钮手势以及主题/视口乘积标为 `inferred-not-replayed`，未逐项回放。
+根目录及 Lumen 类型检查、完整 lint、生产构建与内容/图标/流式 guard 通过；构建仍有
+既有大 chunk 警告。此结论不表示反馈已远端存储，也不表示 Feedback 6 或整类完成。
