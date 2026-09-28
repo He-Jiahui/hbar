@@ -131,11 +131,20 @@ async function run(): Promise<void> {
       await page.getByRole('switch', { name: 'Weekly summary', exact: true }).isChecked(),
       'Host cancel did not restore saved preferences',
     )
+    assert(
+      await page.getByRole('radio', { name: 'System', exact: true }).isChecked(),
+      'Preference cancel did not restore the source saved theme',
+    )
+    assert(
+      !(await page.getByRole('switch', { name: 'Comment replies', exact: true }).isChecked()),
+      'Preference cancel did not restore the source saved reply toggle',
+    )
     await page.getByRole('switch', { name: 'Weekly summary', exact: true }).click()
     await page.getByRole('button', { name: 'Save changes', exact: true }).click()
+    await page.getByText('Preferences saved', { exact: true }).waitFor()
     assert(
       await page.getByRole('button', { name: 'Save changes', exact: true }).isDisabled(),
-      'Host save did not acknowledge preferences',
+      'Host save did not settle and acknowledge preferences',
     )
     await page.getByRole('switch', { name: 'Weekly summary', exact: true }).click()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
