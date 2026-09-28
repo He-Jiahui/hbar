@@ -84,6 +84,7 @@ export type ControlSnapshot = Readonly<{
   expanded: string | null
   pressed: string | null
   selected: string | null
+  current?: string | null
   state: string | null
   value?: string | null | undefined
   stablePath: string
@@ -367,6 +368,7 @@ export type InteractionCase = Readonly<{
     | 'editor-block-open'
     | 'markdown-preview'
     | 'suggestions-complete'
+    | 'reader-outline-closed'
     | 'editor-edited'
     | 'editorial-navigation-closed'
     | 'editorial-schedule'
@@ -1450,6 +1452,7 @@ export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): 
         expanded: control.getAttribute('aria-expanded'),
         pressed: control.getAttribute('aria-pressed'),
         selected: control.getAttribute('aria-selected'),
+        current: control.getAttribute('aria-current'),
         state: control.getAttribute('data-state'),
         value: (() => {
           if (!('value' in control) || typeof control.value !== 'string') return null
@@ -2313,6 +2316,11 @@ async function prepareMarkdownPreview(root: Locator): Promise<void> {
 async function prepareSuggestionsComplete(root: Locator): Promise<void> {
   await root.getByRole('button', {name: 'Accept all', exact: true}).click()
   await root.getByRole('button', {name: 'Restore', exact: true}).waitFor()
+}
+async function prepareReaderOutlineClosed(root: Locator): Promise<void> {
+  const toggle = root.getByRole('button', {name: 'Toggle outline'})
+  await toggle.click()
+  await toggle.waitFor({state: 'visible'})
 }
 async function prepareRichEditorScenario(root: Locator, scenario: (typeof richEditorScenarios)[number]): Promise<void> {
   if (scenario === 'editor-block-open') await root.getByRole('button', {name: 'Paragraph', exact: true}).press('Space')
@@ -3466,6 +3474,7 @@ export function semanticInteractionDelta(
       expanded: control.expanded,
       pressed: control.pressed,
       selected: control.selected,
+      current: control.current ?? null,
       state: control.state,
       value: control.value ?? null,
     })),
@@ -3712,6 +3721,7 @@ async function replayInteraction(
   const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview') await prepareMarkdownPreview(root)
   if (spec.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete') await prepareSuggestionsComplete(root)
+  if (spec.id === 'hbar-app-ui-editor-5' && interaction.scenario === 'reader-outline-closed') await prepareReaderOutlineClosed(root)
   if (spec.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (spec.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
@@ -3916,6 +3926,7 @@ async function replayReferenceInteraction(
   const richEditorScenario = richEditorScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-editor-2' && interaction.scenario === 'markdown-preview') await prepareMarkdownPreview(root)
   if (reference.id === 'hbar-app-ui-editor-4' && interaction.scenario === 'suggestions-complete') await prepareSuggestionsComplete(root)
+  if (reference.id === 'hbar-app-ui-editor-5' && interaction.scenario === 'reader-outline-closed') await prepareReaderOutlineClosed(root)
   if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario) await prepareRichEditorScenario(root, richEditorScenario)
   const inboxScenario = inboxScenarios.find((scenario) => scenario === interaction.scenario)
   if (reference.id === 'hbar-app-ui-app-shell-5' && inboxScenario) await prepareInboxScenario(root, inboxScenario)
@@ -4562,6 +4573,10 @@ async function runInteractionsParallel(
             if (spec.id === 'hbar-app-ui-editor-4' && sampleIds?.some((id) => id.startsWith(`${spec.id}:suggestions-complete:`))) {
               await prepareSuggestionsComplete(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'suggestions-complete'))
+            }
+            if (spec.id === 'hbar-app-ui-editor-5' && sampleIds?.some((id) => id.startsWith(`${spec.id}:reader-outline-closed:`))) {
+              await prepareReaderOutlineClosed(sourceRoot)
+              discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'reader-outline-closed'))
             }
             if (spec.id === 'hbar-app-ui-editor-1') {
               for (const scenario of richEditorScenarios) {
@@ -5548,6 +5563,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
             localControl?.disabled === control.disabled &&
             localControl.expanded === control.expanded &&
             localControl.pressed === control.pressed &&
+            (localControl.current ?? null) === (control.current ?? null) &&
             localControl.selected === control.selected
           )
         }),

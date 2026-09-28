@@ -8,6 +8,7 @@ const richOnly = process.argv.includes('--rich-only')
 const markdownOnly = process.argv.includes('--markdown-only')
 const codeOnly = process.argv.includes('--code-only')
 const suggestionsOnly = process.argv.includes('--suggestions-only')
+const readerOnly = process.argv.includes('--reader-only')
 
 function previewUrl(variant: number, options: { readonly fixture?: EditorFixture } = {}): string {
   const parameters = new URLSearchParams({ variant: `hbar-app-ui-editor-${variant}`, mode: 'isolated' })
@@ -54,6 +55,63 @@ async function run(): Promise<void> {
   page.on('pageerror', (error) => pageErrors.push(error.message))
 
   try {
+    if (readerOnly) {
+      await page.goto(previewUrl(5), {waitUntil: 'networkidle'})
+      const root = page.locator('.lumen-reader-reference')
+      const outline = root.locator('.lumen-reader-reference-outline')
+      const content = root.locator('.lumen-reader-reference-content')
+      assert((await root.getByRole('navigation', {name: 'Document outline'}).getByRole('button').count()) === 7, 'Reader outline did not render seven host sections')
+      assert(await outline.evaluate(element => Math.round(element.getBoundingClientRect().width) === 232), 'Desktop outline did not use the source rail width')
+      assert(await root.getByRole('button', {name: 'Immutability', exact: true}).getAttribute('aria-current') === 'true', 'Initial section was not selected')
+      assert(await root.getByRole('button', {name: 'Focus', exact: true}).getAttribute('aria-pressed') === 'true', 'Initial focus state was not active')
+      await root.getByRole('button', {name: 'Retention', exact: true}).click()
+      assert(await root.getByRole('button', {name: 'Retention', exact: true}).getAttribute('aria-current') === 'true', 'Outline did not select the original ID')
+      assert(await content.evaluate(element => element.scrollTop === 0), 'Selecting an outline item invented an automatic scroll')
+      assert(await root.locator('article section').nth(2).evaluate(element => getComputedStyle(element).opacity === '1'), 'Selected section remained dimmed')
+      await root.getByRole('button', {name: 'Focus', exact: true}).click()
+      assert(await root.locator('article section').first().evaluate(element => getComputedStyle(element).opacity === '1'), 'Turning Focus off did not restore all sections')
+      await root.getByRole('button', {name: 'Focus', exact: true}).click()
+      assert(await root.locator('article section').first().evaluate(element => getComputedStyle(element).opacity === '0.32'), 'Turning Focus back on did not dim other sections')
+      const toggle = root.getByRole('button', {name: 'Toggle outline'})
+      await toggle.click()
+      assert(await outline.evaluate(element => Math.round(element.getBoundingClientRect().width) === 1), 'Desktop outline did not collapse')
+      assert(await toggle.getAttribute('aria-pressed') === 'false', 'Collapsed outline control did not report its state')
+      await toggle.click()
+      assert(await outline.evaluate(element => Math.round(element.getBoundingClientRect().width) === 232), 'Outline could not reopen')
+      assert(await root.getByRole('button', {name: 'Retention', exact: true}).getAttribute('aria-current') === 'true', 'Reopening outline reset selection')
+      await content.evaluate(element => {element.scrollTop = element.scrollHeight})
+      const scroll = await content.evaluate(element => ({scrollable: element.scrollHeight > element.clientHeight, moved: element.scrollTop > 0}))
+      assert(scroll.scrollable && scroll.moved, 'Reader content did not reach later sections')
+      assert(await root.getByRole('button', {name: 'Retention', exact: true}).getAttribute('aria-current') === 'true', 'Manual scroll rewrote the selected section')
+      await root.getByRole('button', {name: 'Rate limits', exact: true}).click()
+      assert(await root.getByRole('button', {name: 'Rate limits', exact: true}).getAttribute('aria-current') === 'true', 'Late section selection did not work')
+      assert(await content.evaluate(element => element.scrollTop > 0), 'Late section selection reset scroll position')
+      const narrow: Array<{width: number; outlineHidden: boolean; scrollable: boolean}> = []
+      for (const width of [670, 356, 286]) {
+        await page.setViewportSize({width, height: 360})
+        const state = await page.evaluate(() => {
+          const rail = document.querySelector('.lumen-reader-reference-outline')!
+          const toggleButton = document.querySelector('.lumen-reader-reference-toggle')!
+          const pane = document.querySelector('.lumen-reader-reference-content')!
+          return {outlineHidden: getComputedStyle(rail).display === 'none' && getComputedStyle(toggleButton).display === 'none',
+            scrollable: pane.scrollHeight > pane.clientHeight, overflow: document.documentElement.scrollWidth > innerWidth + 1}
+        })
+        assert(state.outlineHidden && state.scrollable && !state.overflow, `Reader narrow flow failed at ${width}`)
+        assert(await root.getByRole('button', {name: 'Focus', exact: true}).isVisible(), `Focus was clipped at ${width}`)
+        narrow.push({width, outlineHidden: state.outlineHidden, scrollable: state.scrollable})
+      }
+      await page.goto(previewUrl(5, {fixture: 'overflow'}), {waitUntil: 'networkidle'})
+      const overflow = page.locator('.lumen-reader-reference-content')
+      assert((await page.locator('.lumen-reader-reference-content article section').count()) === 28, 'Over-bound reader lost sections')
+      await overflow.evaluate(element => {element.scrollTop = element.scrollHeight})
+      assert(await overflow.evaluate(element => element.scrollTop > 0), 'Over-bound reader could not reach the last section')
+      await page.goto(previewUrl(5, {fixture: 'localized'}), {waitUntil: 'networkidle'})
+      assert((await page.getByRole('button', {name: 'Fokusmodus mit langer Bezeichnung'}).count()) === 1, 'Localized Focus label was missing')
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Long localized reader labels overflowed')
+      assert(pageErrors.length === 0, `Reader preview reported page errors: ${pageErrors.join(' | ')}`)
+      console.log(JSON.stringify({selection: true, focus: true, outlineRecovery: true, scroll, narrow, overflow: true, localized: true, pageErrors: pageErrors.length}))
+      return
+    }
     if (suggestionsOnly) {
       await page.goto(previewUrl(4), {waitUntil: 'networkidle'})
       const cards = page.locator('.lumen-suggestions-reference-card')

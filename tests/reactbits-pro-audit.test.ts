@@ -4,6 +4,14 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('reader sampling separates navigation, Focus, collapse and recovery without a button-layout product', () => {
+  const id = 'hbar-app-ui-editor-5'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(5)
+  expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([`${id}:8:click`])
+  expect(plan.inferences.every(entry => entry.verification === 'inferred-not-replayed')).toBe(true)
+})
+
 test('review sampling separates accept, resolve, dismiss, selection, completion and Restore', () => {
   const id = 'hbar-app-ui-editor-4'
   const plan = auditSamplingPlan(id)!
@@ -448,6 +456,7 @@ function control(index: number, overrides: Partial<ControlSnapshot> = {}): Contr
     expanded: null,
     pressed: null,
     selected: null,
+    current: null,
     state: null,
     stablePath: `button:nth-of-type(${index + 1})`,
     labelFor: null,
@@ -590,6 +599,14 @@ describe('React Bits Pro visual audit contract', () => {
     expect(semanticInteractionDelta(before, filled).signature).not.toBe(
       semanticInteractionDelta(before, snapshot([{ ...input, value: 'different' }])).signature,
     )
+  })
+  test('counts aria-current navigation selection as feedback even without a text change', () => {
+    const before = snapshot([control(0, {current: 'true'}), control(1)])
+    const after = snapshot([control(0), control(1, {current: 'true'})])
+    const delta = semanticInteractionDelta(before, after)
+    expect(delta.changed).toBe(true)
+    expect(delta.signature).toContain('"current":"true"')
+    expect(semanticInteractionDelta(before, before).changed).toBe(false)
   })
   test('board sampling replays native scroll owners rather than passive card gestures', () => {
     const id = 'hbar-app-ui-agent-plan-5'

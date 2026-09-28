@@ -13,7 +13,10 @@ export {uniqueLumenRichEditorBlocks as uniqueHbarAppUiRichEditorBlocks} from '@l
 export {countLumenMarkdownWords as countHbarAppUiMarkdownWords, parseLumenReferenceMarkdown as parseHbarAppUiReferenceMarkdown} from '@lumen/app-ui'
 export {tokenizeLumenCodeLine as tokenizeHbarAppUiCodeLine, uniqueLumenCodeFiles as uniqueHbarAppUiCodeFiles} from '@lumen/app-ui'
 export {uniqueLumenReferenceSuggestions as uniqueHbarAppUiReferenceSuggestions} from '@lumen/app-ui'
+export {uniqueLumenReaderReferenceSections as uniqueHbarAppUiReaderReferenceSections} from '@lumen/app-ui'
 export type {
+  LumenReaderReferenceContent as HbarAppUiReaderReferenceContent,
+  LumenReaderReferenceSection as HbarAppUiReaderReferenceSection,
   LumenSuggestionsReferenceContent as HbarAppUiSuggestionsReferenceContent,
   LumenCodeReferenceContent as HbarAppUiCodeReferenceContent,
   LumenCodeToken as HbarAppUiCodeToken,

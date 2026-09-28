@@ -6,6 +6,7 @@ import type {
     HbarAppUiMarkdownReferenceContent,
     HbarAppUiCodeReferenceContent,
     HbarAppUiSuggestionsReferenceContent,
+    HbarAppUiReaderReferenceContent,
 } from '../../packages/hbar-app-ui/src/index'
 
 const formattingLabels: Readonly<Record<HbarAppUiEditorFormattingAction, string>> = {
@@ -282,9 +283,26 @@ const suggestionsReference: HbarAppUiSuggestionsReferenceContent = {
     selectedSuggestionId: 'rollout', decisions: {},
     paneStrategy: {kind: 'pane-scroll', expectedMaximum: 3},
 }
+const baseReferenceReader = BASE_HBAR_APP_UI_EDITOR_FIXTURES.reader
+if (!baseReferenceReader) throw new Error('Expected reader fixture')
+function readerHeadingLevel(id: string): 2 | 3 {
+    return id === 'access' || id === 'reading' ? 2 : 3
+}
+const readerReference: HbarAppUiReaderReferenceContent = {
+    documentId: 'access-ledger',
+    labels: {...baseReferenceReader.labels, outlineLabel: 'Outline', breadcrumbSeparator: ' /'},
+    workspaceLabel: baseReferenceReader.workspaceLabel,
+    documentLabel: baseReferenceReader.documentLabel,
+    sections: baseReferenceReader.sections.map(section => ({...section, headingLevel: readerHeadingLevel(section.id)})),
+    selectedSectionId: baseReferenceReader.initialFocusSectionId,
+    focusMode: baseReferenceReader.initialFocusMode,
+    outlineOpen: baseReferenceReader.initialOutlineOpen,
+    listStrategy: baseReferenceReader.listStrategy,
+}
 export const HBAR_APP_UI_EDITOR_FIXTURES: HbarAppUiEditorContent = {
     ...BASE_HBAR_APP_UI_EDITOR_FIXTURES,
     referenceSuggestions: suggestionsReference,
+    referenceReader: readerReference,
 }
 
 function requiredFixture<T>(value: T | undefined): T {
@@ -302,11 +320,17 @@ export function createHbarAppUiEditorOverflowFixtures(): HbarAppUiEditorContent 
         if (!source) throw new Error('Expected suggestion source')
         return {...source, id: `overflow-suggestion-${index}`, author: `${source.author} ${index}`}
     })
+    const overflowSections = Array.from({length: 28}, (_, index) => {
+        const source = baseReader.sections[index % baseReader.sections.length]
+        if (!source) throw new Error('Expected reader section source')
+        return {...source, id: `overflow-section-${index}`, label: `${source.label} ${index}`, title: `${source.title} ${index}`, headingLevel: readerHeadingLevel(source.id)}
+    })
     return {
         ...HBAR_APP_UI_EDITOR_FIXTURES,
         referenceMarkdown: {...markdownReference, document: {...markdownReference.document, source: `${markdownReference.document.source}\n\n`.repeat(60) + 'Final editable paragraph'}},
         referenceCode: {...codeReference, files: [...codeReference.files, {id: 'long', name: 'long.ts', source: `${codeReference.files[0]!.source}\n`.repeat(70) + 'export const finalLine = true;'}], activeFileId: 'long'},
         referenceSuggestions: {...suggestionsReference, suggestions: overflowSuggestions, selectedSuggestionId: overflowSuggestions[0]?.id},
+        referenceReader: {...readerReference, sections: overflowSections, selectedSectionId: overflowSections[0]?.id},
         referenceRichText: {...richEditorReference,
             document: {...richEditorReference.document, body: `${richEditorReference.document.body}\n\n`.repeat(60) + 'Last editable paragraph'},
             blocks: [...richEditorReference.blocks, ...Array.from({length: 34}, (_, index) => ({id: `extra-${index}`, label: `Additional block style ${index + 1}`}))],
@@ -317,16 +341,7 @@ export function createHbarAppUiEditorOverflowFixtures(): HbarAppUiEditorContent 
         },
         reader: {
             ...baseReader,
-            sections: Array.from({length: 28}, (_, index) => {
-                const source = baseReader.sections[index % baseReader.sections.length]
-                if (!source) throw new Error('Expected reader section source')
-                return {
-                    ...source,
-                    id: `overflow-section-${index}`,
-                    label: `${source.label} ${index}`,
-                    title: `${source.title} ${index}`,
-                }
-            }),
+            sections: overflowSections,
         },
     }
 }
@@ -353,6 +368,11 @@ export function createHbarAppUiEditorLocalizedFixtures(): HbarAppUiEditorContent
         referenceSuggestions: {...suggestionsReference,
             labels: {panel: 'Vorschlaege', acceptAll: 'Alle annehmen', accept: 'Annehmen', resolve: 'Klaeren', dismiss: 'Verwerfen', openCount: (count) => `${count} offen`, remainingCount: (count) => `${count} Vorschlaege verbleiben`, completeTitle: 'Pruefung abgeschlossen', completeBody: 'Alle Vorschlaege fuer diesen Entwurf wurden bearbeitet.', restore: 'Wiederherstellen'},
             document: {...suggestionsReference.document, title: 'Ausfuehrlicher Entwurf zur Streaming-Zaehler-Migration', summary: 'In Pruefung · drei Mitwirkende'},
+        },
+        referenceReader: {...readerReference,
+            labels: {outlineLabel: 'GLIEDERUNG', documentOutlineLabel: 'Dokumentgliederung', sectionCountLabel: (count) => `${count} Abschnitte`, toggleOutlineLabel: 'Gliederung umschalten', focusLabel: 'Fokusmodus mit langer Bezeichnung', emptyOutlineLabel: 'Keine Abschnitte', breadcrumbSeparator: '/'},
+            workspaceLabel: 'Ausfuehrliches Handbuch fuer Arbeitsbereiche', documentLabel: 'Unveraenderliches Zugriffsprotokoll',
+            sections: readerReference.sections.map(section => ({...section, label: `Abschnitt ${section.label} mit erweiterter Bezeichnung`})),
         },
         referenceRichText: {...richEditorReference,
             labels: {...richEditorReference.labels,

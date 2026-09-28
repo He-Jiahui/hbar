@@ -5,6 +5,7 @@ import { createRichEditorPreviewStore } from './richEditorPreviewStore'
 import { createMarkdownEditorPreviewStore } from './markdownEditorPreviewStore'
 import { createCodeEditorPreviewStore } from './codeEditorPreviewStore'
 import { createSuggestionsEditorPreviewStore } from './suggestionsEditorPreviewStore'
+import { createReaderEditorPreviewStore } from './readerEditorPreviewStore'
 
 export function EditorPreviewHost({
   content,
@@ -21,6 +22,9 @@ export function EditorPreviewHost({
   const code = useStore(codeStore)
   const [suggestionsStore] = useState(() => createSuggestionsEditorPreviewStore(content.referenceSuggestions))
   const suggestions = useStore(suggestionsStore)
+  const [readerStore] = useState(() => createReaderEditorPreviewStore(content.referenceReader))
+  const reader = useStore(readerStore)
+  useEffect(() => readerStore.getState().reset(content.referenceReader), [readerStore, content.referenceReader])
   useEffect(() => suggestionsStore.getState().reset(content.referenceSuggestions), [suggestionsStore, content.referenceSuggestions])
   useEffect(() => codeStore.getState().reset(content.referenceCode), [codeStore, content.referenceCode])
   useEffect(() => markdownStore.getState().reset(content.referenceMarkdown), [markdownStore, content.referenceMarkdown])
@@ -41,6 +45,16 @@ export function EditorPreviewHost({
     <HbarAppUiEditorProvider
       content={{
         ...content,
+        referenceReader: content.referenceReader && {
+          ...content.referenceReader,
+          sections: reader.sections,
+          selectedSectionId: reader.selectedSectionId,
+          focusMode: reader.focusMode,
+          outlineOpen: reader.outlineOpen,
+          onSelectSection: reader.selectSection,
+          onFocusModeChange: reader.setFocusMode,
+          onOutlineOpenChange: reader.setOutlineOpen,
+        },
         referenceSuggestions: content.referenceSuggestions && {
           ...content.referenceSuggestions,
           suggestions: suggestions.suggestions,

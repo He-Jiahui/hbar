@@ -561,6 +561,22 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-editor-5')
+    return {
+      revision: 1,
+      lumenEntries: ['editor.tsx', 'editor-reader-reference.tsx', 'LumenProvider.tsx'],
+      samples: [
+        {viewport: 'desktop', theme: 'light', suffix: '2:click', change: 'Outline selection changes the current section and focus dimming without scrolling the document'},
+        {viewport: 'desktop', theme: 'dark', suffix: '7:click', change: 'Toggle outline collapses the desktop rail while keeping a reopen control'},
+        {viewport: 'desktop', theme: 'light', suffix: '8:click', change: 'Focus turns off section dimming without changing selection'},
+        {viewport: 'desktop', theme: 'dark', suffix: 'reader-outline-closed:7:click', change: 'The collapsed rail reopens without resetting the selected section'},
+        {viewport: 'stress', theme: 'dark', suffix: '8:click', change: 'Focus remains reachable when the source hides outline and toggle on a narrow viewport'},
+      ],
+      inferences: [
+        {scope: 'Other section IDs, heading levels, nav order and repeated clicks', basis: 'One stable-ID Host transition selects a section without scrolling, while native buttons expose keyboard activation. Empty/one/duplicate/bound/overflow/stale ID cases and late-section selection are checked separately.', verification: 'inferred-not-replayed'},
+        {scope: 'Remaining theme, viewport and action products or manual scroll positions', basis: 'Eight static pairs establish desktop outline and narrow hidden-rail flow. Independent Focus and outline state mechanisms are replayed; production checks verify pane-owned scroll preserves selection and reaches the last section.', verification: 'inferred-not-replayed'},
+      ],
+    }
   if (variantId === 'hbar-app-ui-editor-4')
     return {
       revision: 1,
