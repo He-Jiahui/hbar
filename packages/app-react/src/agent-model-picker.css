@@ -126,3 +126,17 @@
   color: var(--lumen-danger);
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 40rem) {
+  .hbar-agent-model-popover:popover-open {
+    inset: auto 0 0;
+    inline-size: 100%;
+    max-block-size: min(78dvh, 40rem);
+    border-radius: 1rem 1rem 0 0;
+    padding: 1rem;
+  }
+
+  .hbar-agent-model-popover::backdrop {
+    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
+  }
+}

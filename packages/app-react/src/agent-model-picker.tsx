@@ -157,9 +157,13 @@ export function AgentModelPicker({
         }}
         onToggle={(event) => {
           setOpen(event.newState === 'open')
-          if (event.newState === 'open') search.current?.focus()
-          else if (document.activeElement === document.body || popup.current?.contains(document.activeElement))
+          // A narrow touch viewport shows a bottom sheet. Let users inspect
+          // choices before explicitly opening the on-screen keyboard.
+          if (event.newState === 'open') {
+            if (!window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches) search.current?.focus()
+          } else if (document.activeElement === document.body || popup.current?.contains(document.activeElement)) {
             trigger.current?.focus()
+          }
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {

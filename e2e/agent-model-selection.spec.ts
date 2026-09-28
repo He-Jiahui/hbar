@@ -7,6 +7,77 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`Agent model chooser becomes a touch sheet without opening the keyboard first: ${locale}`, async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(90_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-agent-model-touch-'))
+    const context = await browser.newContext({
+      locale,
+      viewport: { width: 320, height: 720 },
+      hasTouch: true,
+      isMobile: true,
+    })
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      await createConfigurationCommandClient(host.client).execute('provider.save', {
+        provider: {
+          id: 'touch-models',
+          name: 'Touch models',
+          protocol: 'mock',
+          baseUrl: 'http://127.0.0.1',
+          model: 'model-0',
+          models: Array.from({ length: 70 }, (_, index) => ({ id: `model-${index}`, name: `Touch model ${index}` })),
+          thinkingLevels: ['low', 'high'],
+          defaultThinkingLevel: 'low',
+        },
+      })
+      const copy = getShellCopy(locale)
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      await page.goto(base)
+      expect(await page.evaluate(() => matchMedia('(max-width: 40rem) and (pointer: coarse)').matches)).toBe(true)
+      await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+      await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
+      const trigger = page.locator('.hbar-agent-model-trigger')
+      await trigger.click()
+      const picker = page.getByRole('dialog', { name: copy.agents.modelPicker.title, exact: true })
+      const search = picker.getByRole('searchbox', { name: copy.agents.modelPicker.search })
+      await expect(picker).toBeVisible()
+      await expect(search).not.toBeFocused()
+      await expect(picker.getByRole('option')).toHaveCount(60)
+      const bounds = await picker.boundingBox()
+      if (!bounds) throw new Error('Agent model sheet is not measurable')
+      expect(bounds.x).toBeLessThanOrEqual(1)
+      expect(bounds.width).toBeGreaterThanOrEqual(319)
+      expect(bounds.y).toBeGreaterThanOrEqual(150)
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(721)
+      const list = picker.locator('.hbar-agent-model-list')
+      expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: testInfo.outputPath(`agent-model-touch-${locale}-320.png`) })
+      await search.focus()
+      await expect(search).toBeFocused()
+      await search.fill('Touch model 69')
+      await expect(picker.getByRole('option')).toHaveCount(1)
+      await picker.getByRole('option').click()
+      await expect(picker).not.toBeVisible()
+      await expect(trigger).toContainText('Touch model 69')
+      await trigger.click()
+      await expect(search).not.toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(picker).not.toBeVisible()
+      await expect(trigger).toBeFocused()
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
   test(`Agent creation chooses a Host model and supported thinking level: ${locale}`, async ({ browser }, testInfo) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-agent-model-'))
