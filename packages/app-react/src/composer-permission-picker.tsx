@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   CircleAlert,
@@ -55,6 +56,8 @@ export interface HbarComposerPermissionLabels {
     readonly unknown: string
     readonly loading: string
     readonly selected: string
+    readonly exit: string
+    readonly exitDescription: string
     readonly retry: string
     readonly recheck: string
     readonly goalPrepared: string
@@ -580,9 +583,11 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           setOpen(opening)
           setConfirmation(null)
           if (opening) {
-            const selected = popup.current?.querySelector<HTMLButtonElement>(
-              '[role="menuitemradio"][aria-checked="true"]:not(:disabled)',
-            )
+            const selected = planSelected
+              ? popup.current?.querySelector<HTMLButtonElement>('[data-plan-exit]:not(:disabled)')
+              : popup.current?.querySelector<HTMLButtonElement>(
+                  '[role="menuitemradio"][aria-checked="true"]:not(:disabled)',
+                )
             ;(
               selected ??
               popup.current?.querySelector<HTMLButtonElement>('[data-execution-recovery]:not(:disabled)') ??
@@ -652,6 +657,24 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     </LumenButton>
                   )}
                 </LumenFrame>
+              )}
+              {planSelected && (
+                <LumenButton
+                  type="button"
+                  variant="text"
+                  indicator="none"
+                  data-plan-exit
+                  className="hbar-composer-permission-option hbar-composer-plan-exit"
+                  aria-label={labels.plan.exit}
+                  disabled={planBlocked}
+                  onClick={() => changePlan('default')}
+                >
+                  <LumenIcon icon={ArrowLeft} tier="md" />
+                  <LumenFrame className="hbar-composer-permission-description">
+                    <LumenText as="span">{labels.plan.exit}</LumenText>
+                    <LumenText as="span">{labels.plan.exitDescription}</LumenText>
+                  </LumenFrame>
+                </LumenButton>
               )}
               {!planSelected && (
                 <LumenText as="p" id={bodyId} className="hbar-composer-permission-hint">

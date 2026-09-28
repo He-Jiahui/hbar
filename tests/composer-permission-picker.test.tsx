@@ -19,6 +19,8 @@ const labels: HbarComposerPermissionLabels = {
     unknown: '尚未确认',
     loading: '读取中',
     selected: '当前会话正在规划；选择其他审批档位以退出',
+    exit: '退出计划模式',
+    exitDescription: '保留当前草稿与审批选择',
     retry: '重试读取',
     recheck: '核对',
     goalPrepared: '先取消目标准备，才能进入计划模式；保留文字与附件',
@@ -115,6 +117,9 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} />)
   expect(html).toContain('aria-label="工具审批：计划模式"')
   expect(html).toContain(labels.plan.selected)
+  expect(html).toContain(`aria-label="${labels.plan.exit}"`)
+  expect(html).toContain(labels.plan.exitDescription)
+  expect(html.indexOf('data-plan-exit')).toBeLessThan(html.indexOf('role="menu"'))
   expect(html).toContain('此会话持续生效，不修改审批策略')
   expect(html).toContain(labels.plan.scope)
   expect(html).not.toContain(labels.scopeHint)
@@ -130,6 +135,7 @@ test('session Plan is a distinct fifth entry, while four approval choices retain
   )
   expect(uncertain).toContain(labels.plan.unknown)
   expect(uncertain).toContain(labels.plan.recheck)
+  expect(uncertain).not.toContain('data-plan-exit')
   expect(uncertain).not.toContain('aria-label="工具审批：计划模式"')
   expect(uncertain).toContain(`aria-label="工具审批：${labels.execution.unknown}"`)
   expect(uncertain).not.toContain('aria-checked="true"')
