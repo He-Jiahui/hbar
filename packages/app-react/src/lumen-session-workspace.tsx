@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { CommandError } from '@hbar/commands'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -399,11 +400,37 @@ function SessionWorkspaceContent({
     localSlashInFlight.current = true
     setSlashFailure(null)
     try {
-      await execute('composerIntent.commandGoal', {
+      const modelState = runtime.state.controls.getSnapshot()
+      const currentModel = modelState.sessionId === target.sessionId ? modelState.model : null
+      if (command.action === 'set' && (!currentModel || currentModel.status !== 'configured' || !currentModel.modelId))
+        throw new CommandError('MODEL_NOT_CONFIGURED', 'Configure a model before starting the Goal')
+      const permissionState = runtime.state.composerPermission.getSnapshot()
+      const permission = permissionState.entries[target.sessionId]
+      if (command.action === 'set' && permission?.locked)
+        throw new CommandError('SUBMISSION_PENDING', 'The composer permission choice is locked')
+      const result = await execute('composerIntent.commandGoal', {
         sessionId: target.sessionId,
         ...command,
         ...(expectedGoalId ? { expectedGoalId } : {}),
       })
+      if (command.action === 'set') {
+        const goalId =
+          result && typeof result === 'object' && 'goalId' in result && typeof result.goalId === 'string'
+            ? result.goalId
+            : null
+        if (!goalId || !currentModel?.modelId)
+          throw new CommandError('INVALID_OUTPUT', 'The Goal identity was not confirmed')
+        await execute('composerIntent.startGoalRun', {
+          sessionId: target.sessionId,
+          objective: command.objective,
+          expectedGoalId: goalId,
+          modelId: currentModel.modelId,
+          ...(currentModel.thinkingLevel ? { thinking: currentModel.thinkingLevel } : {}),
+          ...(permissionState.available ? { expectedPermissionRevision: permission?.revision ?? 0 } : {}),
+          expectedDraftRevision: target.revision,
+          draftText: target.text,
+        })
+      }
       await clearLocalSlash(target)
     } catch (reason) {
       const code =

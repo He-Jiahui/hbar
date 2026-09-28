@@ -531,6 +531,22 @@ export function createAppRuntime(options: RuntimeOptions) {
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,
+    consumeGoalSlashDraft: (sessionId, revision, text) => {
+      const current = drafts.reader.getSnapshot()[sessionId]
+      if (
+        current?.revision !== revision ||
+        current.text !== text ||
+        current.mentions.length ||
+        current.attachments.length ||
+        current.attachmentTransfers.length ||
+        current.status === 'unknown' ||
+        current.status === 'submitting'
+      )
+        return
+      void local
+        .execute('draft.setContent', { sessionId, text: '', mentions: [], expectedRevision: revision })
+        .catch(onSubscriberError)
+    },
     permissions: composerPermission,
     ...(options.planMode ? { captureMode: composerPlanMode.capture } : {}),
     ...(options.planMode ? { refreshMode: composerPlanMode.captureFresh } : {}),

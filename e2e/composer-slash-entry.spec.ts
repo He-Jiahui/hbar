@@ -139,7 +139,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`Goal slash changes Host state immediately with explicit replacement and clear: ${locale}`, async ({
+  test(`Goal slash starts a model turn after Host setup, then supports replacement and clear: ${locale}`, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -182,9 +182,34 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const first = (await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal
       if (!first?.goalId) throw new Error('Goal slash did not create an identified Goal')
       await expectComposerText(prompt, '')
+      await expect
+        .poll(
+          async () =>
+            (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs.filter(
+              (run) => run.input.source === 'user' && run.input.text === 'First objective',
+            ).length,
+        )
+        .toBe(1)
+      expect(
+        (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.find(
+          (run) => run.input.text === 'First objective',
+        )?.input.continuation,
+      ).toBeUndefined()
+      await expect
+        .poll(async () =>
+          (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs
+            .filter((run) => run.input.text === 'First objective')
+            .every((run) => ['completed', 'failed', 'cancelled'].includes(run.status)),
+        )
+        .toBe(true)
       await expect(page.locator('.hbar-session-current-goal .hbar-composer-goal-strip')).toContainText(
         'First objective',
       )
+      await page.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-kickoff-${locale}-1440.png` })
+      await page.setViewportSize({ width: 320, height: 800 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-kickoff-${locale}-320.png` })
+      await page.setViewportSize({ width: 1440, height: 900 })
 
       for (const unsupported of ['status', 'pause', 'resume', 'complete', '--tokens 1000']) {
         const rejected = `/goal ${unsupported}`
@@ -229,6 +254,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const second = (await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal
       expect(second?.goalId).not.toBe(first.goalId)
       await expectComposerText(prompt, '')
+      await expect
+        .poll(
+          async () =>
+            (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs.filter(
+              (run) => run.input.source === 'user' && run.input.text === 'Second objective',
+            ).length,
+        )
+        .toBe(1)
       await prompt.fill('/goal clear')
       await send.click()
       const clearing = page.getByRole('group', { name: copy.session.slash.goalConfirmClear('Second objective') })
@@ -239,7 +272,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBeNull()
       await expectComposerText(prompt, '')
       await expect(page.locator('[data-goal-event-id]')).toHaveCount(3)
-      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toEqual([])
+      expect(
+        (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.filter(
+          (run) => run.input.source === 'user' && ['First objective', 'Second objective'].includes(run.input.text),
+        ),
+      ).toHaveLength(2)
       const longObjective = `Long Goal ${'容量Capacity目标'.repeat(280)}`
       expect(longObjective.length).toBeLessThanOrEqual(4000)
       await goals.execute('goal.create', { sessionId: host.ready.sessionId, objective: longObjective })

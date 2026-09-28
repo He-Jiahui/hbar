@@ -6,7 +6,7 @@ import {
   type CommandRegistry,
   type ExecuteOptions,
 } from '@hbar/commands'
-import { idSchema, MAX_GOAL_OBJECTIVE_LENGTH } from '@hbar/contracts'
+import { idSchema, MAX_GOAL_OBJECTIVE_LENGTH, thinkingLevelSchema } from '@hbar/contracts'
 import { goalPlanCommands, goalPlanSnapshotSchema, type GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import {
   runAcceptedSchema,
@@ -80,6 +80,7 @@ export interface ComposerIntentOptions {
   readonly captureMode?: (sessionId: string) => 'default' | 'plan'
   readonly refreshMode?: (sessionId: string) => Promise<'default' | 'plan'>
   readonly isRunActive?: (sessionId: string) => boolean
+  readonly consumeGoalSlashDraft?: (sessionId: string, revision: number, text: string) => void
   readonly onSubscriberError: (error: unknown) => void
 }
 
@@ -114,6 +115,16 @@ const goalCommandInput = sessionInput.extend({
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH).optional(),
   expectedGoalId: idSchema.optional(),
 })
+const goalCommandResult = result.extend({ goalId: idSchema.optional() })
+const goalRunInput = sessionInput.extend({
+  objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
+  expectedGoalId: idSchema,
+  modelId: idSchema,
+  thinking: thinkingLevelSchema.optional(),
+  expectedPermissionRevision: z.number().int().nonnegative().optional(),
+  expectedDraftRevision: z.number().int().nonnegative(),
+  draftText: z.string().min(1).max(200_000),
+})
 export const composerIntentCommands = {
   'composerIntent.setIntent': defineCommand(
     metadata('composerIntent.setIntent'),
@@ -127,13 +138,22 @@ export const composerIntentCommands = {
   'composerIntent.reconcile': defineCommand(metadata('composerIntent.reconcile'), sessionInput, result),
   'composerIntent.refresh': defineCommand(metadata('composerIntent.refresh'), sessionInput, result),
   'composerIntent.controlGoal': defineCommand(metadata('composerIntent.controlGoal'), controlInput, result),
-  'composerIntent.commandGoal': defineCommand(metadata('composerIntent.commandGoal'), goalCommandInput, result),
+  'composerIntent.commandGoal': defineCommand(
+    metadata('composerIntent.commandGoal'),
+    goalCommandInput,
+    goalCommandResult,
+  ),
+  'composerIntent.startGoalRun': defineCommand(
+    metadata('composerIntent.startGoalRun'),
+    goalRunInput,
+    runAcceptedSchema,
+  ),
 }
 
 type Submission = {
   readonly key: string
   readonly revision: number
-  readonly intent: ComposerIntent
+  readonly intent: ComposerIntent | 'goalSlash'
   readonly fingerprint: string
   readonly request: SubmitRunInput
   readonly tokenBudget: number | undefined
@@ -143,6 +163,7 @@ type Submission = {
   preparedGoalId: string | null
   phase: 'goal' | 'run'
   status: 'submitting' | 'failed' | 'partial' | 'unknown'
+  readonly slashDraft?: { readonly revision: number; readonly text: string }
 }
 type GoalControl = z.output<typeof controlInput> | (z.output<typeof goalCommandInput> & { baselineGoalSeq: number })
 const UNKNOWN_CODES = new Set([
@@ -442,11 +463,21 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     const current = entry(sessionId)
     submissions.delete(sessionId)
     if (pending.permission) options.permissions?.settleSubmission(pending.permission, 'accepted')
+    if (pending.intent === 'goalSlash' && pending.slashDraft)
+      options.consumeGoalSlashDraft?.(sessionId, pending.slashDraft.revision, pending.slashDraft.text)
     replace({
       ...current,
-      ...(current.revision === pending.revision ? { intent: 'default' as const, revision: current.revision + 1 } : {}),
+      ...(pending.intent !== 'goalSlash' && current.revision === pending.revision
+        ? { intent: 'default' as const, revision: current.revision + 1 }
+        : {}),
       submission: initial(sessionId).submission,
     })
+  }
+  const abandonReplacedGoalSlash = (sessionId: string, goalId: string | undefined) => {
+    const pending = submissions.get(sessionId)
+    if (pending?.intent !== 'goalSlash' || pending.status !== 'partial' || pending.preparedGoalId === goalId) return
+    submissions.delete(sessionId)
+    replace({ ...entry(sessionId), submission: initial(sessionId).submission })
   }
   const assertFree = (sessionId: string) => {
     const current = entry(sessionId)
@@ -735,6 +766,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     if (input.action === 'clear' && input.objective !== undefined)
       throw new CommandError('INVALID_INPUT', 'Clear does not accept an objective')
     assertFree(sessionId)
+    if (submissions.get(sessionId)?.status === 'partial' && submissions.get(sessionId)?.intent !== 'goalSlash')
+      throw new CommandError('GOAL_SUBMISSION_CHANGED', 'Resolve the prepared Goal draft before using a slash command')
     const control: GoalControl = { ...input, baselineGoalSeq: -1 }
     controls.set(sessionId, control)
     replace({ ...entry(sessionId), goalAction: { status: 'submitting', error: null } })
@@ -762,18 +795,20 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       if (input.expectedGoalId && before.goal?.goalId !== input.expectedGoalId)
         throw new CommandError('GOAL_CONFLICT', 'The confirmed Goal changed')
       control.baselineGoalSeq = before.goalSeq
-      if (input.action === 'set' && before.goal?.status !== 'complete' && before.goal?.objective === input.objective) {
+      if (input.action === 'set' && before.goal?.status === 'active' && before.goal.objective === input.objective) {
         controls.delete(sessionId)
         replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
-        return { sessionId }
+        return { sessionId, goalId: before.goal.goalId }
       }
       if (input.action === 'clear' && !before.goal) {
         controls.delete(sessionId)
+        abandonReplacedGoalSlash(sessionId, undefined)
         replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
         return { sessionId }
       }
       invalidateRead(sessionId)
       dispatched = true
+      let goalId: string | undefined
       if (input.action === 'clear') {
         const cleared = await requireGoals().execute('goal.clear', { sessionId, expectedGoalId: input.expectedGoalId })
         if (!cleared.cleared) throw new CommandError('INVALID_OUTPUT', 'Goal clear was not confirmed')
@@ -784,13 +819,15 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           expectedGoalId: before.goal.goalId,
           status: 'active',
         })
+        const replacing = before.goal.objective !== input.objective
         if (
           changed.goal?.threadId !== sessionId ||
           changed.goal.objective !== input.objective ||
           changed.goal.status !== 'active' ||
-          changed.goal.goalId === before.goal.goalId
+          (replacing ? changed.goal.goalId === before.goal.goalId : changed.goal.goalId !== before.goal.goalId)
         )
-          throw new CommandError('INVALID_OUTPUT', 'Goal replacement response did not match the request')
+          throw new CommandError('INVALID_OUTPUT', 'Goal update response did not match the request')
+        goalId = changed.goal.goalId
       } else {
         const created = await requireGoals().execute('goal.create', { sessionId, objective: input.objective! })
         if (
@@ -800,16 +837,127 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           created.goal.goalId === before.goal?.goalId
         )
           throw new CommandError('INVALID_OUTPUT', 'Goal creation response did not match the request')
+        goalId = created.goal.goalId
       }
       controls.delete(sessionId)
+      abandonReplacedGoalSlash(sessionId, goalId)
       replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
       refreshSelected(sessionId)
-      return { sessionId }
+      return { sessionId, ...(goalId ? { goalId } : {}) }
     } catch (error) {
       const unknown = dispatched && UNKNOWN_CODES.has(code(error))
       if (!unknown) controls.delete(sessionId)
       replace({ ...entry(sessionId), goalAction: { status: unknown ? 'unknown' : 'failed', error: code(error) } })
       throw error
+    }
+  })
+
+  local.register(composerIntentCommands['composerIntent.startGoalRun'], async (input, execution) => {
+    const { sessionId } = input
+    if (disposed) throw new CommandError('DISPOSED', 'Composer intent is disposed')
+    if (!connected) throw new CommandError('DISCONNECTED', 'Goal execution is unavailable while disconnected')
+    assertFree(sessionId)
+    const selected = options.navigation.getSnapshot()
+    if (selected.sessionId !== sessionId || !selected.workspaceId || !options.serializeDraft)
+      throw new CommandError('STALE_TARGET', 'Goal command draft target changed')
+    if (
+      options.serializeDraft(sessionId, input.expectedDraftRevision, selected.workspaceId, input.draftText) !==
+      input.draftText
+    )
+      throw new CommandError('VERSION_CONFLICT', 'Goal command draft changed')
+    const previous = submissions.get(sessionId)
+    if (previous?.status === 'partial' && previous.intent !== 'goalSlash')
+      throw new CommandError('GOAL_SUBMISSION_CHANGED', 'Resolve the prepared Goal draft before starting another Run')
+    if (
+      previous?.intent === 'goalSlash' &&
+      (previous.preparedGoalId !== input.expectedGoalId ||
+        previous.slashDraft?.revision !== input.expectedDraftRevision ||
+        previous.slashDraft.text !== input.draftText)
+    )
+      throw new CommandError('GOAL_SUBMISSION_CHANGED', 'Repair the original Goal command before starting another')
+    preparations.add(sessionId)
+    let permission: ComposerPermissionSubmission | null = null
+    let pending: Submission | null = null
+    let dispatched = false
+    try {
+      const target = await options.preparation?.capture(sessionId, execution.signal)
+      if (target) options.preparation?.assertCanPrepare(target)
+      const mode = options.refreshMode ? await options.refreshMode(sessionId) : options.captureMode?.(sessionId)
+      if (mode === 'plan') throw new CommandError('BUSY', 'Exit Host Plan mode before starting the Goal')
+      if (input.expectedPermissionRevision !== undefined && !options.permissions)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer approval choices are unavailable')
+      permission =
+        (await options.permissions?.prepareComposerSubmission(
+          sessionId,
+          input.expectedPermissionRevision,
+          execution.signal,
+        )) ?? null
+      if (target) options.preparation?.assertCanPrepare(target)
+      if (
+        disposed ||
+        execution.signal.aborted ||
+        options.navigation.getSnapshot().sessionId !== sessionId ||
+        options.navigation.getSnapshot().workspaceId !== selected.workspaceId
+      )
+        throw new CommandError('STALE_TARGET', 'Goal execution target changed during preparation')
+      if (options.isRunActive?.(sessionId)) throw new CommandError('RUN_ACTIVE', 'Wait for the current Run')
+      const facts = await snapshot(sessionId)
+      if (
+        facts.goal?.goalId !== input.expectedGoalId ||
+        facts.goal.objective !== input.objective ||
+        facts.goal.status !== 'active'
+      )
+        throw new CommandError('GOAL_CONFLICT', 'The confirmed Goal changed before execution')
+      if (target) options.preparation?.assertCanPrepare(target)
+      const request: SubmitRunInput = {
+        sessionId,
+        modelId: input.modelId,
+        input: {
+          text: input.objective,
+          images: [],
+          files: [],
+          source: 'user',
+          mode: 'default',
+          ...(input.thinking ? { thinking: input.thinking } : {}),
+          ...(permission ? { approval: permission.approval } : {}),
+        },
+      }
+      pending = {
+        key: crypto.randomUUID(),
+        revision: entry(sessionId).revision,
+        intent: 'goalSlash',
+        fingerprint: JSON.stringify([input.expectedGoalId, input.objective, input.draftText]),
+        request,
+        tokenBudget: undefined,
+        permission,
+        baselineGoalId: input.expectedGoalId,
+        baselineGoalSeq: facts.goalSeq,
+        preparedGoalId: input.expectedGoalId,
+        phase: 'run',
+        status: 'submitting',
+        slashDraft: { revision: input.expectedDraftRevision, text: input.draftText },
+      }
+      submissions.set(sessionId, pending)
+      setSubmission(sessionId, pending)
+      dispatched = true
+      const accepted = runAcceptedSchema.parse(
+        await options.executeRun('run.submit', request, { ...execution, idempotencyKey: pending.key }),
+      )
+      if (accepted.sessionId !== sessionId || accepted.idempotencyKey !== pending.key)
+        throw new CommandError('RESULT_UNKNOWN', 'Goal Run receipt target mismatch')
+      settle(sessionId, pending)
+      return accepted
+    } catch (error) {
+      if (pending) {
+        const unknown = dispatched && (code(error) === 'RESULT_UNKNOWN' || code(error) === 'INVALID_OUTPUT')
+        pending.status = unknown ? 'unknown' : 'partial'
+        setSubmission(sessionId, pending, code(error))
+        if (pending.permission)
+          options.permissions?.settleSubmission(pending.permission, unknown ? 'unknown' : 'failed', code(error))
+      } else if (permission) options.permissions?.settleSubmission(permission, 'failed', code(error))
+      throw error
+    } finally {
+      preparations.delete(sessionId)
     }
   })
 
@@ -866,6 +1014,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
                 value.goal.status === (control.action === 'pause' ? 'paused' : 'active')
         if (!confirmed) throw new CommandError('RESULT_UNKNOWN', 'Goal control has not been confirmed')
         controls.delete(sessionId)
+        abandonReplacedGoalSlash(sessionId, value.goal?.goalId)
         replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
       } catch (error) {
         const errorCode = reconciliationCode(error)

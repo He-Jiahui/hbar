@@ -148,6 +148,12 @@ function fixture() {
     isRunActive: () => goalRunActive,
     onSubscriberError: () => {},
     executeRun: drafts.executeRun,
+    serializeDraft: drafts.serializeSubmission,
+    consumeGoalSlashDraft: (sessionId, revision, text) => {
+      const current = drafts.reader.getSnapshot()[sessionId]
+      if (current?.revision === revision && current.text === text)
+        void local.execute('draft.setContent', { sessionId, text: '', mentions: [], expectedRevision: revision })
+    },
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
   })
@@ -382,6 +388,155 @@ test('Goal slash command creates, replaces and clears Host facts without submitt
   }
 })
 
+test('confirmed Goal slash starts one Goal Run with its objective and consumes only its captured draft', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text: '/goal First' })
+    const revision = f.drafts.reader.getSnapshot().one!.revision
+    const created = await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+    })
+    const goalId = (created as { goalId: string }).goalId
+    await f.local.execute('composerIntent.startGoalRun', {
+      sessionId: 'one',
+      objective: 'First',
+      expectedGoalId: goalId,
+      modelId: 'provider/model',
+      expectedDraftRevision: revision,
+      draftText: '/goal First',
+    })
+    const run = f.calls.find((call) => call.name === 'run.submit')
+    expect(submitRunInputSchema.parse(run?.input).input).toMatchObject({
+      text: 'First',
+      images: [],
+      source: 'user',
+      mode: 'default',
+    })
+    expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
+    expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('failed Goal kickoff retains the saved Goal and slash draft for an explicit Run retry', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text: '/goal First' })
+    const revision = f.drafts.reader.getSnapshot().one!.revision
+    const input = {
+      sessionId: 'one',
+      objective: 'First',
+      modelId: 'provider/model',
+      expectedDraftRevision: revision,
+      draftText: '/goal First',
+    }
+    const created = (await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+    })) as { goalId: string }
+    f.failures({ run: 'known' })
+    await expect(
+      f.local.execute('composerIntent.startGoalRun', { ...input, expectedGoalId: created.goalId }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({ status: 'partial', phase: 'run' })
+    expect(f.drafts.reader.getSnapshot().one?.text).toBe('/goal First')
+    f.failures({ run: null })
+    const repeated = (await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+      expectedGoalId: created.goalId,
+    })) as { goalId: string }
+    expect(repeated.goalId).toBe(created.goalId)
+    await f.local.execute('composerIntent.startGoalRun', { ...input, expectedGoalId: repeated.goalId })
+    expect(f.calls.filter((call) => call.name === 'goal.create')).toHaveLength(1)
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(2)
+    expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('uncertain Goal kickoff reconciles the original Run receipt without a duplicate Goal or Run', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text: '/goal First' })
+    const revision = f.drafts.reader.getSnapshot().one!.revision
+    const created = (await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+    })) as { goalId: string }
+    const input = {
+      sessionId: 'one',
+      objective: 'First',
+      expectedGoalId: created.goalId,
+      modelId: 'provider/model',
+      expectedDraftRevision: revision,
+      draftText: '/goal First',
+    }
+    f.failures({ run: 'unknown' })
+    await expect(f.local.execute('composerIntent.startGoalRun', input)).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    await expect(f.local.execute('composerIntent.startGoalRun', input)).rejects.toMatchObject({ code: 'BUSY' })
+    await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
+    expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
+    expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal kickoff rejects stale identity and draft before a Run, and clear abandons a failed kickoff', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text: '/goal First' })
+    const revision = f.drafts.reader.getSnapshot().one!.revision
+    const created = (await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+    })) as { goalId: string }
+    const input = {
+      sessionId: 'one',
+      objective: 'First',
+      expectedGoalId: created.goalId,
+      modelId: 'provider/model',
+      expectedDraftRevision: revision,
+      draftText: '/goal First',
+    }
+    await expect(
+      f.local.execute('composerIntent.startGoalRun', { ...input, expectedGoalId: 'stale' }),
+    ).rejects.toMatchObject({ code: 'GOAL_CONFLICT' })
+    await expect(
+      f.local.execute('composerIntent.startGoalRun', { ...input, expectedDraftRevision: revision + 1 }),
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(0)
+    f.failures({ run: 'known' })
+    await expect(f.local.execute('composerIntent.startGoalRun', input)).rejects.toMatchObject({
+      code: 'MODEL_NOT_FOUND',
+    })
+    await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'clear',
+      expectedGoalId: created.goalId,
+    })
+    expect(f.composer.reader.getSnapshot().entries.one?.submission.status).toBe('idle')
+    expect(f.drafts.reader.getSnapshot().one?.text).toBe('/goal First')
+  } finally {
+    f.dispose()
+  }
+})
+
 test('Goal slash command refuses unconfirmed replacement and stale session before a write', async () => {
   const f = fixture()
   try {
@@ -412,6 +567,37 @@ test('Goal slash command refuses unconfirmed replacement and stale session befor
       }),
     ).rejects.toMatchObject({ code: 'STALE_TARGET' })
     expect(f.calls).toHaveLength(0)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal slash resumes a paused matching objective before its user Run', async () => {
+  const f = fixture()
+  try {
+    const paused = { ...f.makeGoal('one', 'First'), status: 'paused' as const }
+    if (!paused.goalId) throw new Error('Fixture Goal has no identity')
+    f.setGoal('one', paused)
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text: '/goal First' })
+    const revision = f.drafts.reader.getSnapshot().one!.revision
+    const resumed = (await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+      expectedGoalId: paused.goalId,
+    })) as { goalId: string }
+    expect(resumed.goalId).toBe(paused.goalId)
+    expect(f.value('one').goal?.status).toBe('active')
+    await f.local.execute('composerIntent.startGoalRun', {
+      sessionId: 'one',
+      objective: 'First',
+      expectedGoalId: paused.goalId,
+      modelId: 'provider/model',
+      expectedDraftRevision: revision,
+      draftText: '/goal First',
+    })
+    expect(f.calls.map((call) => call.name)).toEqual(['goal.set', 'run.submit'])
   } finally {
     f.dispose()
   }
