@@ -1909,6 +1909,15 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     currentSession: () => choose('当前会话', 'Current session'),
     createdAt: choose('创建时间', 'Created'),
     model: choose('模型', 'Model'),
+    profile: choose('Agent 类型', 'Agent type'),
+    profileOptions: {
+      general: choose('通用', 'General'),
+      explore: choose('探索（只读）', 'Explore (read-only)'),
+    },
+    exploreHint: choose(
+      '探索类型仅可读取和搜索；即使工具审批设为“允许”，也不能写入文件或执行命令。',
+      'Explore can read and search only. Even with tool approval set to Allow, it cannot write files or run commands.',
+    ),
     modelPicker: {
       title: choose('选择子 Agent 模型', 'Choose child agent model'),
       choose: choose('选择模型', 'Choose a model'),
@@ -1978,7 +1987,8 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
       choose(`${number.format(count)} 个子 Agent`, `${number.format(count)} child ${count === 1 ? 'agent' : 'agents'}`),
     status: (status) => statuses[status],
     budget,
-    summary: (modelId, tokens) => `${modelId} · ${budget(tokens)}`,
+    summary: (modelId, tokens, profileId) =>
+      `${profileId ? `${choose('探索（只读）', 'Explore (read-only)')} · ` : ''}${modelId} · ${budget(tokens)}`,
     modelValue: (modelId) => modelId,
     timestamp: (value) => date.format(value),
     issue: () => choose('请填写符合约束的值。', 'Enter a value that satisfies the field constraints.'),

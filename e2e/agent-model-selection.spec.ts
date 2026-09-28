@@ -78,7 +78,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await rm(root, { recursive: true, force: true })
     }
   })
-  test(`Agent creation chooses a Host model and supported thinking level: ${locale}`, async ({ browser }, testInfo) => {
+  test(`Agent creation chooses a Host model, thinking level and read-only profile: ${locale}`, async ({
+    browser,
+  }, testInfo) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-agent-model-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
@@ -176,6 +178,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: testInfo.outputPath(`agent-model-${locale}-320.png`) })
       await page.keyboard.press('Escape')
       await page.setViewportSize({ width: 1440, height: 900 })
+      const profile = page.getByRole('combobox', { name: copy.agents.profile, exact: true })
+      await profile.selectOption('explore')
+      await expect(page.getByText(copy.agents.exploreHint)).toBeVisible()
+      await page.setViewportSize({ width: 320, height: 720 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: testInfo.outputPath(`agent-explore-form-${locale}-320.png`) })
+      await page.setViewportSize({ width: 1440, height: 900 })
       await page.getByRole('textbox', { name: copy.agents.objective, exact: true }).fill('Verify the selected model')
       await page.getByRole('button', { name: copy.agents.create, exact: true }).click()
       await expect(page.getByText(copy.agents.created)).toBeVisible()
@@ -184,6 +193,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         limit: 50,
       })
       expect(records.items[0]?.modelId).toBe(review.id)
+      expect(records.items[0]?.profileId).toBe('explore')
+      await expect(page.getByText(copy.agents.profileOptions.explore, { exact: true })).toBeVisible()
       expect(errors).toEqual([])
     } finally {
       await context.close()

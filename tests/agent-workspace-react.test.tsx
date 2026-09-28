@@ -24,6 +24,7 @@ const agent: AgentRecord = {
   runId: 'child-run',
   requestId: 'child-request',
   objective: 'Verify the release candidate',
+  profileId: 'explore',
   modelId: 'provider:model',
   tokenBudget: 12_000,
   status: 'running',
@@ -94,6 +95,7 @@ test('child agent panel renders Host records and a command-owned creation draft'
     expect(listHtml).toContain('Verify the release candidate')
     expect(listHtml).toContain('provider:model')
     expect(listHtml).toContain('12,000 tokens')
+    expect(listHtml).toContain('Explore (read-only)')
     expect(listHtml).toContain('View details for Verify the release candidate')
 
     await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: panel.instanceId })
@@ -108,6 +110,11 @@ test('child agent panel renders Host records and a command-owned creation draft'
       field: 'objective',
       value: 'Draft child task',
     })
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: panel.instanceId,
+      field: 'profileId',
+      value: 'explore',
+    })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
         <HbarAgentWorkspace labels={getShellCopy('en-US').agents} connected />
@@ -117,6 +124,8 @@ test('child agent panel renders Host records and a command-owned creation draft'
     expect(html).toContain('Draft child task')
     expect(html).toContain('Named model')
     expect(html).toContain('Model default (Low)')
+    expect(html).toContain('Explore can read and search only.')
+    expect(html).toContain('value="explore" selected=""')
     expect(html).toContain('Back to child agents')
     expect(html).not.toContain('Verify the release candidate')
     const chineseCreate = renderToStaticMarkup(
@@ -125,6 +134,7 @@ test('child agent panel renders Host records and a command-owned creation draft'
       </HbarRuntimeProvider>,
     )
     expect(chineseCreate).toContain('模型默认（低）')
+    expect(chineseCreate).toContain('探索类型仅可读取和搜索')
 
     await runtime.view.commands.execute('agentWorkspace.showAgent', {
       instanceId: panel.instanceId,
@@ -137,6 +147,7 @@ test('child agent panel renders Host records and a command-owned creation draft'
     )
     expect(detailHtml).toContain('Child agent details')
     expect(detailHtml).toContain('Current session')
+    expect(detailHtml).toContain('Explore (read-only)')
     expect(detailHtml).toContain('Open child session')
     expect(detailHtml).toContain('Cancel agent')
     const chineseDetail = renderToStaticMarkup(
@@ -145,6 +156,7 @@ test('child agent panel renders Host records and a command-owned creation draft'
       </HbarRuntimeProvider>,
     )
     expect(chineseDetail).toContain('打开子会话')
+    expect(chineseDetail).toContain('探索（只读）')
     for (const locale of ['en-US', 'zh-CN'] as const) {
       const labels = getShellCopy(locale).agents
       expect(labels.openSessionError('CONNECTION_CLOSED')).toBe(labels.openSessionError('DISCONNECTED'))

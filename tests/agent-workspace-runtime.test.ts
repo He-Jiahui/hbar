@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { CommandError, type ExecuteOptions } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
-import type { AgentRecord } from '@hbar/contracts/commands/agents'
+import { agentCreateInputSchema, type AgentRecord } from '@hbar/contracts/commands/agents'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
@@ -65,6 +65,7 @@ async function waitFor(check: () => boolean) {
 
 test('agent workspace owns paged drafts and retries unknown create and cancel commands safely', async () => {
   const createKeys: string[] = []
+  const createProfiles: Array<string | undefined> = []
   let createAttempts = 0
   let cancelAttempts = 0
   let records: AgentRecord[] = []
@@ -95,13 +96,15 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
       },
     },
     agents: {
-      async execute(name: string, _input: unknown, options?: ExecuteOptions) {
+      async execute(name: string, input: unknown, options?: ExecuteOptions) {
         if (name === 'agent.list') return { items: records, nextCursor: null }
         if (name === 'agent.create') {
+          const createInput = agentCreateInputSchema.parse(input)
+          createProfiles.push(createInput.profileId)
           createKeys.push(options?.idempotencyKey ?? '')
           createAttempts += 1
           if (createAttempts === 1) throw new CommandError('DISCONNECTED', 'response lost')
-          records = [child('running')]
+          records = [{ ...child('running'), profileId: createInput.profileId }]
           return records[0]
         }
         if (name === 'agent.cancel') {
@@ -132,6 +135,19 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
     ).rejects.toMatchObject({ code: 'COMMAND_NOT_FOUND' })
     await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: opened.instanceId })
     expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.view).toBe('create')
+    await expect(
+      runtime.view.commands.execute('agentWorkspace.setField', {
+        instanceId: opened.instanceId,
+        field: 'profileId',
+        value: 'unrecognized',
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.draft.profileId).toBe('')
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: opened.instanceId,
+      field: 'profileId',
+      value: 'explore',
+    })
     await waitFor(() => runtime.view.state.agents.getSnapshot().catalog.status === 'ready')
     expect(runtime.view.state.agents.getSnapshot().catalog.models).toEqual([primaryModel, alternateModel])
     await runtime.view.commands.execute('agentWorkspace.setField', {
@@ -175,9 +191,11 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
     await runtime.view.commands.execute('agentWorkspace.create', { instanceId: opened.instanceId })
     expect(createKeys).toHaveLength(2)
     expect(createKeys[0]).toBe(createKeys[1])
+    expect(createProfiles).toEqual(['explore', 'explore'])
     expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!.items[0]).toMatchObject({
       sessionId: 'child-session',
       status: 'running',
+      profileId: 'explore',
     })
     expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]).toMatchObject({
       view: 'detail',

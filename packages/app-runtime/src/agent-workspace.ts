@@ -1,6 +1,11 @@
 import { CommandError, createCommandClient, type CommandRegistry } from '@hbar/commands'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
-import { agentCommands, agentCreateInputSchema, type AgentRecord } from '@hbar/contracts/commands/agents'
+import {
+  agentCommands,
+  agentCreateInputSchema,
+  agentProfileIdSchema,
+  type AgentRecord,
+} from '@hbar/contracts/commands/agents'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
@@ -32,6 +37,7 @@ function commandFailure(reason: unknown): CommandError {
 function initialDraft(modelId = ''): AgentWorkspaceDraftState {
   return {
     objective: '',
+    profileId: '',
     modelId,
     title: '',
     tokenBudget: '',
@@ -47,6 +53,7 @@ function createInput(draft: AgentWorkspaceDraftState, parentSessionId: string) {
   return agentCreateInputSchema.parse({
     parentSessionId,
     objective: draft.objective,
+    ...(draft.profileId ? { profileId: draft.profileId } : {}),
     modelId: draft.modelId,
     ...(draft.title.trim() ? { title: draft.title } : {}),
     ...(tokenBudget ? { tokenBudget: Number(tokenBudget) } : {}),
@@ -320,6 +327,8 @@ export function createAgentWorkspace(
     if (entry.view !== 'create') throw new CommandError('INVALID_INPUT', 'Open the creation form before editing it')
     if (entry.creation.status === 'submitting' || entry.creation.status === 'unknown')
       throw new CommandError('BUSY', 'Resolve the pending agent creation before editing its fields')
+    if (field === 'profileId' && value && !agentProfileIdSchema.safeParse(value).success)
+      throw new CommandError('INVALID_INPUT', 'Unknown agent profile')
     const issues = { ...entry.draft.issues }
     delete issues[field]
     const selectedModel =

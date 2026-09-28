@@ -24,6 +24,7 @@ import './lumen-agent-workspace.css'
 
 type Agent = AgentWorkspaceEntryState['items'][number]
 type AgentStatus = Agent['status']
+type AgentProfileId = NonNullable<Agent['profileId']>
 
 export interface HbarAgentWorkspaceLabels {
   readonly title: string
@@ -46,6 +47,9 @@ export interface HbarAgentWorkspaceLabels {
   readonly currentSession: (sessionId: string) => string
   readonly createdAt: string
   readonly model: string
+  readonly profile: string
+  readonly profileOptions: Readonly<Record<'general' | AgentProfileId, string>>
+  readonly exploreHint: string
   readonly modelPicker: AgentModelPickerLabels
   readonly tokenBudget: string
   readonly thinkingLevel: string
@@ -70,7 +74,7 @@ export interface HbarAgentWorkspaceLabels {
   readonly count: (count: number) => string
   readonly status: (status: AgentStatus) => string
   readonly budget: (tokens: number | null) => string
-  readonly summary: (modelId: string, tokens: number | null) => string
+  readonly summary: (modelId: string, tokens: number | null, profileId?: AgentProfileId) => string
   readonly modelValue: (modelId: string) => string
   readonly timestamp: (value: number) => string
   readonly issue: (field: string) => string
@@ -244,6 +248,17 @@ export function HbarAgentWorkspace({
                   onChange={(event) => setField('title', event.currentTarget.value)}
                 />
               </LumenFormField>
+              <LumenFormField controlId={`${instanceId}-agent-profile`} label={labels.profile}>
+                <LumenSelect
+                  id={`${instanceId}-agent-profile`}
+                  value={entry.draft.profileId}
+                  onChange={(event) => setField('profileId', event.currentTarget.value)}
+                >
+                  <LumenOption value="">{labels.profileOptions.general}</LumenOption>
+                  <LumenOption value="explore">{labels.profileOptions.explore}</LumenOption>
+                </LumenSelect>
+              </LumenFormField>
+              {entry.draft.profileId === 'explore' && <LumenText as="p">{labels.exploreHint}</LumenText>}
               <LumenFormField
                 controlId={`${instanceId}-agent-model`}
                 label={labels.model}
@@ -351,6 +366,11 @@ export function HbarAgentWorkspace({
                 value: labels.currentSession(selectedAgent.parentSessionId),
               },
               { id: 'model', label: labels.model, value: labels.modelValue(selectedAgent.modelId) },
+              {
+                id: 'profile',
+                label: labels.profile,
+                value: labels.profileOptions[selectedAgent.profileId ?? 'general'],
+              },
               { id: 'budget', label: labels.tokenBudget, value: labels.budget(selectedAgent.tokenBudget) },
               { id: 'created', label: labels.createdAt, value: labels.timestamp(selectedAgent.createdAt) },
             ]}
@@ -427,7 +447,9 @@ export function HbarAgentWorkspace({
                       <LumenText as="strong">{agent.objective}</LumenText>
                       <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
                     </LumenText>
-                    <LumenText as="small">{labels.summary(agent.modelId, agent.tokenBudget)}</LumenText>
+                    <LumenText as="small">
+                      {labels.summary(agent.modelId, agent.tokenBudget, agent.profileId)}
+                    </LumenText>
                     <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>
                       {labels.timestamp(agent.createdAt)}
                     </LumenText>

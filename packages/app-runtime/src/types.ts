@@ -213,6 +213,7 @@ export interface ClientExportPort {
 
 export interface AgentWorkspaceDraftState {
   readonly objective: string
+  readonly profileId: '' | import('@hbar/contracts/commands/agents').AgentProfileId
   readonly modelId: string
   readonly title: string
   readonly tokenBudget: string
