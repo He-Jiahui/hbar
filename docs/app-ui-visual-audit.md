@@ -542,3 +542,14 @@ Rotate/Revoke 不伪造完成或远端变更。桌面/平板审计说明在首�
 320px 溢出及 page error（0）；类型检查、局部 lint、5 项专项测试（32 条断言）和构建通过，
 构建仍有既有大 chunk 警告。其他相同开关手势及主题/视口乘积标为
 `inferred-not-replayed`；真实密钥值、远端写入和 Settings Form 6 的来源验收不在此结论内。
+
+Settings Form 6 于 2026-09-28 的**受限**证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-6-integrated-r3/`：8 组静态结构/控件对
+和 1 个确认文本安全填入交互对匹配，缺失 0；本地 320px 正常文档流可滚到危险区底栏，
+整类浏览器脚本的六变体窄屏/页面错误检查通过。宿主掌管确认草稿，Transfer、Archive、
+Cancel、Delete 仅发送类型化回调；不会自行删除、归档、重置或显示成功。来源按钮初始启用，
+不凭确认框空值臆造禁用规则。公开来源中安全填入并点击 Cancel 后出现 `Review deletion`，
+该后续语义未证；来源 Transfer/Archive/Delete 均未触发，iframe 滚动归属亦未核实。
+因此账本刻意保持 `needs-review`，没有人工签署全变体通过；本地对 Cancel 的 callback-only
+处理不宣称与来源后续相符。类型检查、6 项 F6 专项测试（29 条断言）、局部 lint 和构建
+通过，构建仍有既有大 chunk 警告。此静态/安全输入实现可用，但完整来源动作验收仍待证。
