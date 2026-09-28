@@ -62,6 +62,7 @@ async function run(): Promise<void> {
   const server = await ensurePreview()
   const browser = await chromium.launch({ headless: true, executablePath })
   const page = await browser.newPage({ viewport: { width: 1192, height: 800 } })
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(baseUrl).origin })
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   try {
@@ -154,11 +155,45 @@ async function run(): Promise<void> {
     )
 
     await page.goto(previewUrl(4), { waitUntil: 'networkidle' })
+    assert(
+      (await page.locator('.lumen-settings-form-4-member-list > li').count()) === 6,
+      'Team access should start with the six host-owned source members',
+    )
+    assert(
+      (await page.getByLabel('Role for Mara Whitfield', { exact: true }).count()) === 0,
+      'Owner should not receive an assignable role select',
+    )
+    assert(
+      (await page.locator('.lumen-settings-form-4-member-list select').count()) === 5,
+      'Each non-owner member should receive an independent role select',
+    )
+    await page.getByLabel('Role for Devan Rao', { exact: true }).selectOption('billing')
+    assert(
+      (await page.getByLabel('Role for Devan Rao', { exact: true }).inputValue()) === 'billing',
+      'Member role select did not update its addressed row',
+    )
+    const devanActions = page.getByRole('button', { name: 'Actions for Devan Rao', exact: true })
+    await devanActions.click()
+    const devanMenu = page.getByRole('menu', { name: 'Actions for Devan Rao', exact: true })
+    await devanMenu.getByRole('menuitem', { name: 'Copy email address', exact: true }).click()
+    await page.getByText('Email address copied', { exact: true }).waitFor()
+    assert(
+      (await page.evaluate(() => navigator.clipboard.readText())) === 'devan@northwind.co',
+      'Copy email should copy the selected member address',
+    )
+    await devanActions.click()
+    await page.getByRole('menu', { name: 'Actions for Devan Rao', exact: true })
+      .getByRole('menuitem', { name: 'Remove from team', exact: true }).click()
+    assert(
+      (await page.locator('.lumen-settings-form-4-member-list > li').count()) === 6,
+      'Remove is a host callback only and must not delete a member in the preview',
+    )
     await page.getByLabel('Email address', { exact: true }).fill('new.member@example.test')
     await page.getByRole('button', { name: 'Send invite', exact: true }).click()
     assert(
-      (await page.getByText('new.member@example.test', { exact: true }).count()) >= 1,
-      'Member invite did not append the pending member',
+      (await page.getByText('New Member', { exact: true }).count()) === 1 &&
+        (await page.getByText('Invitation sent', { exact: true }).count()) >= 1,
+      'Preview-local invite did not append the observed pending member feedback',
     )
 
     await page.goto(previewUrl(5), { waitUntil: 'networkidle' })
@@ -184,12 +219,15 @@ async function run(): Promise<void> {
       'Danger action did not expose its resulting status',
     )
 
-    await page.goto(previewUrl(4, 'overflow'), { waitUntil: 'networkidle' })
-    const memberList = page.locator(
-      '.hbar-app-ui-settings-members-surface .hbar-app-ui-settings-list[data-hbar-app-ui-list-strategy="pane-scroll"]',
-    )
+    await page.setViewportSize({ width: 320, height: 740 })
+    await page.goto(previewUrl(4), { waitUntil: 'networkidle' })
+    const memberList = page.locator('.lumen-settings-form-4-content-scroll')
     const overflowCheck = await inspectScroll(memberList)
-    assert(overflowCheck.scrollable && overflowCheck.moved, 'Members list did not honor its pane-owned scroll strategy')
+    assert(overflowCheck.scrollable && overflowCheck.moved, '320px content pane did not scroll its member rows')
+    assert(
+      await page.getByText('6 of 10 seats used', { exact: true }).isVisible(),
+      'Seat summary should remain reachable at the end of the 320px content pane',
+    )
 
     await page.goto(previewUrl(1, 'localized'), { waitUntil: 'networkidle' })
     assert(
