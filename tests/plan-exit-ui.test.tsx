@@ -69,7 +69,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     for (const plan of ['', 'x'.repeat(20_001), null]) {
       const invalid = render({ ...approval, args: { plan } })
       expect(invalid).toContain(labels.planExit.invalidPlan)
-      expect(invalid.match(/disabled=""/g)?.length).toBe(3)
+      expect(invalid.match(/disabled=""/g)?.length).toBe(1)
+      expect(invalid).toContain(labels.planExit.continuePlanning)
+      expect(invalid).toContain('<textarea')
     }
   })
 }

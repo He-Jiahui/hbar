@@ -72,7 +72,7 @@ export function HbarPlanExitDecision({
   const busy = !complete && (scoped?.status === 'submitting' || scoped?.status === 'succeeded')
   const raw = decision.approval.args.plan
   const plan = typeof raw === 'string' && raw.trim() && raw.length <= 20_000 ? raw : null
-  const blocked = !connected || complete || unknown || busy || !plan
+  const blocked = !connected || complete || unknown || busy
   const target = {
     sessionId: decision.sessionId,
     approvalId: decision.id,
@@ -161,7 +161,7 @@ export function HbarPlanExitDecision({
             size="s"
             tone="primary"
             indicator="none"
-            disabled={blocked}
+            disabled={blocked || !plan}
             onClick={() => onDecision({ ...target, decision: 'implement' })}
           >
             <LumenIcon icon={Check} tier="sm" />
