@@ -166,7 +166,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill(draft)
       const chooser = page.waitForEvent('filechooser')
       const upload = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/artifacts')
-      await page.getByRole('button', { name: copy.session.prompt.addAttachment, exact: true }).click()
+      await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
+      await page
+        .getByRole('group', { name: copy.session.addMenu.menu })
+        .getByRole('button', { name: copy.session.addMenu.files, exact: true })
+        .click()
       await (
         await chooser
       ).setFiles({ name: attachmentName, mimeType: 'text/plain', buffer: Buffer.from(attachmentText) })
@@ -263,7 +267,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const implementationRuns = afterImplementation.runs.filter((run) => !previousRunIds.has(run.id))
       expect(implementationRuns).toHaveLength(1)
       expect(implementationRuns[0]?.input).toMatchObject({ mode: 'default', source: 'user', images: [], files: [] })
-      expect(implementationRuns[0]?.input.approval).toBeUndefined()
+      expect(implementationRuns[0]?.input.approval).toBe(baseline.permission.mode)
       expect(implementationRuns[0]?.input.text).toContain(initial.markdown)
       await expectComposerText(prompt, draft)
       await expect(attachment).toBeVisible()
@@ -324,7 +328,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const refinementRuns = afterRefinement.runs.filter((run) => !beforeRefinementIds.has(run.id))
       expect(refinementRuns).toHaveLength(1)
       expect(refinementRuns[0]?.input).toMatchObject({ mode: 'plan', source: 'user', images: [], files: [] })
-      expect(refinementRuns[0]?.input.approval).toBeUndefined()
+      expect(refinementRuns[0]?.input.approval).toBe(baseline.permission.mode)
       expect(refinementRuns[0]?.input.text).toContain(revision.markdown)
       expect(refinementRuns[0]?.input.text).toContain(feedback)
       await expectComposerText(prompt, draft)
