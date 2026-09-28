@@ -5,6 +5,29 @@ type ModelDescriptor = ComposerModelState['models'][number]
 // The Host model list is bounded at 4,096; each picker renders at most one 60-row page.
 export const MODEL_CATALOG_PAGE_SIZE = 60
 
+/** Reveal the Host model ID when a visible name is ambiguous or an ID-only search found the row. */
+export function modelIdsRequiringDisclosure(models: readonly ModelDescriptor[], query: string): ReadonlySet<string> {
+  const byName = new Map<string, string[]>()
+  const unique = new Map(models.map((model) => [model.id, model]))
+  for (const model of unique.values()) {
+    const key = `${model.providerId}\u0000${model.modelName.trim().toLocaleLowerCase()}`
+    const ids = byName.get(key) ?? []
+    ids.push(model.id)
+    byName.set(key, ids)
+  }
+  const disclosed = new Set<string>()
+  for (const ids of byName.values()) if (ids.length > 1) for (const id of ids) disclosed.add(id)
+  const needle = query.trim().toLocaleLowerCase()
+  if (needle)
+    for (const model of unique.values())
+      if (
+        (model.id.toLocaleLowerCase().includes(needle) || model.modelId.toLocaleLowerCase().includes(needle)) &&
+        !model.modelName.toLocaleLowerCase().includes(needle)
+      )
+        disclosed.add(model.id)
+  return disclosed
+}
+
 export function filterCatalogModels(
   models: readonly ModelDescriptor[],
   query: string,

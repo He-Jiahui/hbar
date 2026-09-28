@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -13,7 +14,7 @@ import { ArrowRight, Check, ChevronDown, Search, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenText } from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
-import { filterCatalogModels, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
+import { filterCatalogModels, modelIdsRequiringDisclosure, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
 import './composer-model-picker.css'
 
 type ModelDescriptor = ComposerModelState['models'][number]
@@ -23,6 +24,7 @@ type ModelConfiguration = Pick<
   'modelId' | 'model' | 'thinkingLevel' | 'revisions'
 >
 type ThinkingPreview = { readonly identity: string; readonly index: number }
+const NO_MODELS: readonly ModelDescriptor[] = []
 
 /** A local slider draft is valid only for the exact confirmed configuration it began with. */
 export function thinkingPreviewIdentity(sessionId: string, model: ModelConfiguration): string {
@@ -335,7 +337,8 @@ export function HbarComposerModelPicker({
     window.addEventListener('resize', reposition)
     return () => window.removeEventListener('resize', reposition)
   }, [open])
-  const models = catalog.sessionId === sessionId ? catalog.models : []
+  const models = catalog.sessionId === sessionId ? catalog.models : NO_MODELS
+  const disclosedModelIds = useMemo(() => modelIdsRequiringDisclosure(models, query), [models, query])
   const { groups, remaining } = filterComposerModels(models, query, limit, model?.modelId)
   const levels = current?.thinkingLevels ?? []
   const thinkingIdentity = model ? thinkingPreviewIdentity(sessionId, model) : null
@@ -560,7 +563,11 @@ export function HbarComposerModelPicker({
         ? labels.loading
         : presentation.state === 'error'
           ? labels.choose
-          : (current?.modelName ?? labels.choose)
+          : current
+            ? disclosedModelIds.has(current.id)
+              ? current.modelId
+              : current.modelName
+            : labels.choose
   const explanation =
     presentation.state === 'offline'
       ? labels.offline
@@ -734,7 +741,16 @@ export function HbarComposerModelPicker({
                     onClick={() => selectModel(option.id)}
                   >
                     <LumenFrame className="hbar-composer-model-description">
-                      <LumenText as="span">{option.modelName}</LumenText>
+                      <LumenFrame className="hbar-composer-model-name-row">
+                        <LumenText as="span" className="hbar-composer-model-name">
+                          {option.modelName}
+                        </LumenText>
+                        {disclosedModelIds.has(option.id) && option.modelId !== option.modelName && (
+                          <LumenText as="small" className="hbar-composer-model-identifier">
+                            {option.modelId}
+                          </LumenText>
+                        )}
+                      </LumenFrame>
                       {option.description && (
                         <LumenText as="span" className="hbar-composer-model-purpose">
                           {option.description}

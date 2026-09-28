@@ -28,6 +28,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           model: 'alternate',
           models: [
             { id: 'alternate', name: longModelName, description: 'Fast focused edits and review' },
+            { id: 'twin-a', name: 'Shared model', description: 'Same display text' },
+            { id: 'twin-b', name: 'Shared model', description: 'Same display text' },
             ...Array.from({ length: 64 }, (_, index) => ({
               id: `fixture-${index}`,
               name: `Catalog fixture ${index}`,
@@ -120,7 +122,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const firstCatalogOption = await popup
         .getByRole('option')
         .first()
-        .locator('.hbar-composer-model-description > span')
+        .locator('.hbar-composer-model-name')
         .first()
         .textContent()
       expect(firstCatalogOption).not.toContain(longModelName)
@@ -148,9 +150,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, draft)
       await expect(model).toBeFocused()
       await model.click()
-      await expect(
-        popup.getByRole('option').first().locator('.hbar-composer-model-description > span').first(),
-      ).toHaveText(firstCatalogOption ?? '')
+      await expect(popup.getByRole('option').first().locator('.hbar-composer-model-name')).toHaveText(
+        firstCatalogOption ?? '',
+      )
       await popup.getByRole('button', { name: labels.close, exact: true }).click()
 
       const thinking = page.locator('.hbar-composer-thinking-trigger')
@@ -377,9 +379,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(popup.getByRole('option').first()).toBeInViewport()
       await popup.locator('.hbar-composer-model-list > button').click()
       await expect(lateModel).toHaveCount(1)
-      await expect(
-        popup.getByRole('option').first().locator('.hbar-composer-model-description > span').first(),
-      ).toHaveText(firstCatalogOption ?? '')
+      await expect(popup.getByRole('option').first().locator('.hbar-composer-model-name')).toHaveText(
+        firstCatalogOption ?? '',
+      )
       await expect(lateModel).toHaveAttribute('aria-selected', 'true')
       await popup.getByRole('button', { name: labels.close, exact: true }).click()
       await page.setViewportSize({ width: 320, height: 720 })
@@ -388,6 +390,27 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(popup.getByRole('option').first()).toBeInViewport()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-selected-late-${locale}-320.png` })
+      await popup.getByRole('button', { name: labels.close, exact: true }).click()
+      await page.setViewportSize({ width: 1440, height: 960 })
+      await model.click()
+      await search.fill('twin-a')
+      await expect(popup.getByRole('option')).toHaveCount(1)
+      await expect(popup.locator('.hbar-composer-model-identifier')).toHaveText('twin-a')
+      await search.fill('Shared model')
+      await expect(popup.getByRole('option')).toHaveCount(2)
+      await expect(popup.locator('.hbar-composer-model-identifier')).toHaveText(['twin-a', 'twin-b'])
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-disambiguated-${locale}-1440.png` })
+      await popup.getByRole('option').filter({ hasText: 'twin-b' }).click()
+      await expect(model).toContainText('twin-b')
+      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).modelId).toBe(
+        'composer-fixture/twin-b',
+      )
+      await page.setViewportSize({ width: 320, height: 720 })
+      await model.click()
+      await search.fill('Shared model')
+      await expect(popup.locator('.hbar-composer-model-identifier')).toHaveText(['twin-a', 'twin-b'])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-disambiguated-${locale}-320.png` })
       await popup.getByRole('button', { name: labels.close, exact: true }).click()
       await expectComposerText(prompt, draft)
       expect(errors).toEqual([])

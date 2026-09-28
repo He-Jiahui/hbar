@@ -8,6 +8,7 @@ import {
   thinkingPreviewIdentity,
   visibleThinkingIndex,
 } from '../packages/app-react/src/composer-model-picker'
+import { modelIdsRequiringDisclosure } from '../packages/app-react/src/model-choice-filter'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 
 function fixture(index: number): ModelDescriptor {
@@ -44,6 +45,20 @@ test('catalog search covers hidden pages, provider names and empty results witho
   const described = { ...models[60]!, description: '适合复杂规划 — Strategic planning and review' }
   const results = filterComposerModels([...models.slice(0, 60), described], 'strategic planning', 60)
   expect(results.groups.flatMap(([, group]) => group.models)).toEqual([described])
+})
+
+test('the chooser reveals real IDs only for same-provider name collisions or ID-only searches', () => {
+  const first = { ...fixture(0), modelName: 'Shared model' }
+  const second = { ...fixture(1), modelName: 'Shared model' }
+  const otherProvider = { ...fixture(2), providerId: 'other', modelName: 'Shared model' }
+  const distinct = fixture(3)
+  const models = [first, second, otherProvider, distinct]
+  expect([...modelIdsRequiringDisclosure([], '')]).toEqual([])
+  expect([...modelIdsRequiringDisclosure([first], '')]).toEqual([])
+  expect([...modelIdsRequiringDisclosure(models, '')]).toEqual([first.id, second.id])
+  expect([...modelIdsRequiringDisclosure(models, 'model-3')]).toEqual([first.id, second.id, distinct.id])
+  expect([...modelIdsRequiringDisclosure(models, 'Shared model')]).toEqual([first.id, second.id])
+  expect([...modelIdsRequiringDisclosure([first, first, distinct], '')]).toEqual([])
 })
 
 test('thinking fill follows the exact number of Host-provided discrete stops', () => {
