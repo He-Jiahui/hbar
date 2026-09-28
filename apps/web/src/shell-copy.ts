@@ -1358,8 +1358,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         'Change models after the current run finishes; your draft is preserved.',
       ),
       goalRequired: choose(
-        '请输入 /goal 后的目标，或使用 /goal clear。',
-        'Enter an objective after /goal, or use /goal clear.',
+        '用法：/goal <目标> 或 /goal clear；不支持状态或预算参数。',
+        'Use /goal <objective> or /goal clear; status and budget arguments are unsupported.',
       ),
       goalBusy: choose(
         '当前任务结束后再更改目标；命令草稿已保留。',

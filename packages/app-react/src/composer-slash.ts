@@ -1,4 +1,5 @@
 export type LocalSlashCommand = 'model' | 'settings' | 'goal'
+const unsupportedGoalArguments = new Set(['status', 'pause', 'resume', 'complete'])
 
 /** Only an entire standalone composer command is a local action. */
 export function localSlashCommand(text: string, available: readonly LocalSlashCommand[]): LocalSlashCommand | null {
@@ -15,6 +16,7 @@ export function localGoalSlash(text: string): { action: 'set'; objective: string
   if (!match) return null
   const objective = match[1]!.trim()
   if (objective === 'clear') return { action: 'clear' }
+  if (unsupportedGoalArguments.has(objective) || objective.startsWith('--tokens')) return null
   return objective ? { action: 'set', objective } : null
 }
 

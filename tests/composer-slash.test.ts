@@ -22,7 +22,18 @@ test('only entire supported local command is intercepted, preserving ordinary Ru
 test('Goal slash arguments are explicit and never mistaken for ordinary text', () => {
   expect(localGoalSlash('/goal Verify navigation')).toEqual({ action: 'set', objective: 'Verify navigation' })
   expect(localGoalSlash(' /goal clear ')).toEqual({ action: 'clear' })
-  for (const text of ['/goal', '/goal ', '/goalclear', 'Explain /goal clear']) expect(localGoalSlash(text)).toBeNull()
+  for (const text of [
+    '/goal',
+    '/goal ',
+    '/goalclear',
+    'Explain /goal clear',
+    '/goal status',
+    '/goal pause',
+    '/goal resume',
+    '/goal complete',
+    '/goal --tokens 1000',
+  ])
+    expect(localGoalSlash(text)).toBeNull()
 })
 
 test('local entry is unavailable while draft, intent, model or approval is pending or unknown', () => {

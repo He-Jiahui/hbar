@@ -186,6 +186,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         'First objective',
       )
 
+      for (const unsupported of ['status', 'pause', 'resume', 'complete', '--tokens 1000']) {
+        const rejected = `/goal ${unsupported}`
+        await prompt.fill(rejected)
+        await send.click()
+        await expect(page.getByText(copy.session.slash.goalRequired, { exact: true })).toBeVisible()
+        await expectComposerText(prompt, rejected)
+        expect((await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal?.goalId).toBe(
+          first.goalId,
+        )
+        if (unsupported === '--tokens 1000') {
+          await page.setViewportSize({ width: 320, height: 800 })
+          await page.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-usage-${locale}-320.png` })
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+          await page.setViewportSize({ width: 1440, height: 900 })
+        }
+      }
+
       await prompt.fill('/goal Second objective')
       await send.click()
       const desktopConfirmation = page.getByRole('group', {
