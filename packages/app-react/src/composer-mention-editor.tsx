@@ -65,6 +65,8 @@ export interface HbarComposerMentionEditorProps {
   readonly onSubmit: () => void
   /** Monotonic request from the composer plus menu; only a standalone local command is inserted. */
   readonly slashOpenRequest?: number | undefined
+  /** Monotonic focus request after a nearby composer action is confirmed. */
+  readonly focusRequest?: number | undefined
   /** Null keeps editing available while the Host-owned shortcut is unresolved, but never submits from a key. */
   readonly sendBehavior?: 'enter' | 'modifierEnter' | null | undefined
 }
@@ -149,6 +151,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   const propsRef = useRef(props)
   propsRef.current = props
   const consumedSlashOpenRequest = useRef(props.slashOpenRequest ?? 0)
+  const consumedFocusRequest = useRef(props.focusRequest ?? 0)
   const [trigger, setTrigger] = useState<Trigger | null>(null)
   const [slashTrigger, setSlashTrigger] = useState<Trigger | null>(null)
   const [slashSelected, setSlashSelected] = useState(0)
@@ -535,6 +538,13 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
     view.dispatch({ changes: { from: end, insert: '/' }, selection: { anchor: end + 1 } })
     view.focus()
   }, [props.slashOpenRequest, props.disabled, props.connected])
+
+  useEffect(() => {
+    const request = props.focusRequest ?? 0
+    if (request <= consumedFocusRequest.current) return
+    consumedFocusRequest.current = request
+    if (!props.disabled && props.connected) viewRef.current?.focus()
+  }, [props.focusRequest, props.disabled, props.connected])
 
   useEffect(() => {
     const editor = viewRef.current?.contentDOM

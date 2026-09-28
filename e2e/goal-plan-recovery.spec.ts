@@ -20,7 +20,11 @@ function summary(f: GoalPlanRecoveryFixture) {
   return f.page.locator('.hbar-session-current-goal')
 }
 async function goalHelp(f: GoalPlanRecoveryFixture) {
-  await f.page.getByRole('button', { name: f.copy.session.intent.goal, exact: true }).click()
+  await f.page.getByRole('button', { name: f.copy.session.addMenu.open, exact: true }).click()
+  await f.page
+    .getByRole('group', { name: f.copy.session.addMenu.menu })
+    .getByRole('button', { name: f.copy.session.intent.goalMenu, exact: true })
+    .click()
   const popup = f.page.getByRole('dialog', { name: f.copy.session.intent.blocked.title, exact: true })
   await expect(popup).toBeVisible()
   return popup

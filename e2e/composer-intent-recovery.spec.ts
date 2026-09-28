@@ -132,8 +132,13 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
     const mode = await observeMode(page)
     const copy = getShellCopy(locale)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-    const goal = () =>
-      page.locator('.hbar-composer-intents').getByRole('button', { name: copy.session.intent.goal, exact: true })
+    const plus = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+    const addMenu = page.getByRole('group', { name: copy.session.addMenu.menu })
+    const goal = () => page.locator('.hbar-composer-intents > button')
+    const clickGoal = async () => {
+      if (!(await addMenu.isVisible())) await plus.click()
+      await addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true }).click()
+    }
     const help = page.getByRole('dialog', { name: copy.session.intent.blocked.title, exact: true })
     const permission = page.locator('.hbar-composer-permission-picker')
     const planOption = permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })
@@ -164,7 +169,9 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
     })
     const attachment = page.locator('.lumen-attachment-chip').filter({ hasText: filename })
     await expect(attachment).toBeVisible()
+    await plus.click()
     await expect(goal()).toHaveAttribute('title', copy.session.intent.goalHint)
+    await page.keyboard.press('Escape')
     const checkDraft = async () => {
       await expectComposerText(prompt, text)
       await expect(attachment).toBeVisible()
@@ -181,6 +188,7 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
       errors,
       prompt,
       goal,
+      clickGoal,
       help,
       permission,
       planOption,
@@ -234,7 +242,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       const f = await fixture(browser, locale, width)
       try {
         const { copy, page } = f
-        await f.goal().click()
+        await f.clickGoal()
         const cancelGoal = page.getByRole('button', { name: copy.session.intent.cancelGoal, exact: true })
         await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
         await f.openPermission()
@@ -257,7 +265,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         await f.planOption.click()
         await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
         expect(f.mode.writes).toEqual([{ sessionId: f.a.id, mode: 'plan' }])
-        await f.goal().click()
+        await f.clickGoal()
         await expect(f.help).toContainText(copy.session.intent.blocked.reasons.plan)
         const exit = f.help.getByRole('button', { name: copy.session.intent.blocked.exitPlan, exact: true })
         await visibleHit(exit)
@@ -272,7 +280,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         ])
         await f.help.getByRole('button', { name: copy.session.intent.blocked.close, exact: true }).click()
         await expect(f.goal()).toBeFocused()
-        await f.goal().click()
+        await f.clickGoal()
         await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
         // Switching away preserves the prepared intent and text/materials only for A.
         await f.selectSession(f.b.title)
@@ -304,7 +312,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await f.openPermission()
       await f.planOption.click()
       await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
-      await f.goal().click()
+      await f.clickGoal()
       f.mode.fault('hold')
       await f.help.getByRole('button', { name: labels.exitPlan, exact: true }).click()
       await expect.poll(f.mode.held).toBe(true)
@@ -327,7 +335,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await f.openPermission()
       await f.planOption.click()
       await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
-      await f.goal().click()
+      await f.clickGoal()
       f.mode.fault('unknown')
       await f.help.getByRole('button', { name: labels.exitPlan, exact: true }).click()
       await expect(f.help).toContainText(labels.reasons.planUnknown)
@@ -345,7 +353,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(f.mode.commands.slice(commandsBefore)).not.toContain('mode.set')
       await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
       await f.help.getByRole('button', { name: labels.close, exact: true }).click()
-      await f.goal().click()
+      await f.clickGoal()
       await expect(f.page.getByRole('button', { name: f.copy.session.intent.cancelGoal, exact: true })).toHaveAttribute(
         'aria-pressed',
         'true',

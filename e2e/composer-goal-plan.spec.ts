@@ -29,6 +29,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const modes = page.locator('.hbar-composer-intents')
+      const plus = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      const addMenu = page.getByRole('group', { name: copy.session.addMenu.menu })
+      const prepareGoal = async () => {
+        await plus.click()
+        await addMenu.getByRole('button', { name: labels.goalMenu, exact: true }).click()
+        await expect(addMenu).toBeHidden()
+      }
       const permission = page.locator('.hbar-composer-permission-picker')
       const planEntry = permission.getByRole('menuitemradio', {
         name: copy.session.permissionPicker.plan.label,
@@ -44,7 +51,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .click()
       const objective = 'Verify the composer goal controls — 检查目标操作与当前会话绑定'
       await prompt.fill(objective)
-      await modes.getByRole('button', { name: labels.goal, exact: true }).click()
+      await prepareGoal()
       await expect(prompt).toHaveAttribute('placeholder', labels.goalPlaceholder)
       await expect(modes.getByRole('button', { name: labels.cancelGoal })).toHaveAttribute('aria-pressed', 'true')
       await expect(modes.getByRole('button', { name: labels.cancelGoal })).toContainText(labels.goalPrepared)
@@ -91,6 +98,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(
         permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
       ).toBeVisible()
+      await permission.getByRole('menuitemradio').first().focus()
       await page.keyboard.press('End')
       await expect(
         permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
@@ -115,7 +123,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
       await expectComposerText(prompt, objective)
 
-      await modes.getByRole('button', { name: labels.goal, exact: true }).click()
+      await prepareGoal()
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       const strip = page.locator('.hbar-composer-goal-strip')
       await expect(strip).toContainText(objective)

@@ -314,7 +314,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await assertNoticeFirstLine(narrow)
       await expect(page.getByRole('button', { name: copy.session.intent.resume, exact: true })).toBeDisabled()
       // The readonly Goal entry explains its blocker, but cannot prepare or change mode.
-      const goalEntry = page.getByRole('button', { name: copy.session.intent.goal, exact: true })
+      const plus = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await plus.click()
+      const goalEntry = page
+        .getByRole('group', { name: copy.session.addMenu.menu })
+        .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
       await goalEntry.click()
       const goalHelp = page.getByRole('dialog', { name: copy.session.intent.blocked.title, exact: true })
       await expect(goalHelp).toContainText(copy.session.intent.blocked.reasons.readonly)
@@ -322,7 +326,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await goalHelp.getByRole('button', { name: copy.session.intent.blocked.close, exact: true }).click()
       await expect(goalEntry).toBeFocused()
       await expect(page.getByRole('button', { name: copy.session.intent.clear, exact: true })).toBeEnabled()
-      await expect(page.getByRole('button', { name: copy.session.addMenu.open, exact: true })).toBeDisabled()
+      await expect(plus).toBeEnabled()
       await expect(page.locator('.hbar-composer-add-root input[type="file"]')).toBeDisabled()
       await narrowPrompt.press('Enter')
       await dropFile(narrow, 'must-not-upload-after-archive.txt')

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { Target, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
@@ -32,6 +33,7 @@ export interface HbarComposerIntentBlockedLabels {
 
 export interface HbarComposerIntentControlLabels {
   readonly goal: string
+  readonly goalMenu: string
   readonly goalHint: string
   readonly goalPrepared: string
   readonly goalPreparedHint: string
@@ -67,6 +69,9 @@ export function HbarComposerIntentControl({
   canPrepare = true,
   labels,
   triggerRef,
+  preferMenu = false,
+  menuSlot,
+  onPrepared,
 }: {
   readonly sessionId: string
   readonly connected: boolean
@@ -74,6 +79,9 @@ export function HbarComposerIntentControl({
   readonly canPrepare?: boolean
   readonly labels: HbarComposerIntentControlLabels
   readonly triggerRef?: RefObject<HTMLButtonElement | null>
+  readonly preferMenu?: boolean
+  readonly menuSlot?: HTMLDivElement | null
+  readonly onPrepared?: (() => void) | undefined
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
@@ -234,6 +242,10 @@ export function HbarComposerIntentControl({
       try {
         await execute()
         if (!sameComposerIntentInteraction(captured, owner.current)) return
+        if (!recovery && intent === 'default') {
+          const confirmed = runtime.state.composerIntent.getSnapshot().entries[sessionId]
+          if (confirmed?.sessionId === sessionId && confirmed.intent === 'goal') onPrepared?.()
+        }
         const confirmed = runtime.state.composerPlanMode.getSnapshot().entries[sessionId]
         if (
           recovery === 'exitPlan' &&
@@ -275,7 +287,7 @@ export function HbarComposerIntentControl({
     entry?.goalAction.reconciliation?.status === 'checking'
   const sharedPlanReading = plan?.sessionId === sessionId && plan.reading === true
   const recoveryBusy = busy || goalChecking || sharedPlanReading
-  return (
+  const control = (
     <LumenFrame className="hbar-composer-intents">
       <LumenButton
         ref={setAnchor}
@@ -284,7 +296,7 @@ export function HbarComposerIntentControl({
         variant="text"
         indicator="none"
         aria-pressed={intent === 'goal'}
-        aria-label={intent === 'goal' ? labels.cancelGoal : labels.goal}
+        aria-label={intent === 'goal' ? labels.cancelGoal : preferMenu ? labels.goalMenu : labels.goal}
         title={reason}
         aria-haspopup={blocked || open ? 'dialog' : undefined}
         aria-expanded={blocked || open ? open : undefined}
@@ -298,7 +310,7 @@ export function HbarComposerIntentControl({
         }}
       >
         <LumenIcon icon={Target} tier="sm" />
-        {intent === 'goal' ? labels.goalPrepared : labels.goal}
+        {intent === 'goal' ? labels.goalPrepared : preferMenu ? labels.goalMenu : labels.goal}
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
       {feedback && !open && !goalUnknown && (
@@ -392,6 +404,8 @@ export function HbarComposerIntentControl({
       </LumenFrame>
     </LumenFrame>
   )
+  if (preferMenu && intent !== 'goal') return menuSlot ? createPortal(control, menuSlot) : null
+  return control
 }
 
 /** Only this native popover container is positioned; its explanation/actions stay in normal flow. */

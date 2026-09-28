@@ -36,9 +36,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const markers = page.locator('[data-goal-continuation-run]')
       await expect(markers).toHaveCount(0)
       await prompt.fill('Continue checking this bounded fixture goal.')
+      await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
       await page
-        .locator('.hbar-composer-intents')
-        .getByRole('button', { name: copy.session.intent.goal, exact: true })
+        .getByRole('group', { name: copy.session.addMenu.menu })
+        .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
         .click()
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await expect
@@ -80,6 +81,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       }
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })
+        await page.locator('.lumen-conversation-messages').hover()
+        await page.mouse.wheel(0, -1)
         await markers.first().scrollIntoViewIfNeeded()
         await expect(markers.first()).toBeInViewport()
         expect(

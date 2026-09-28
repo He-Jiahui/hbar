@@ -1396,8 +1396,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
     },
     addMenu: {
-      open: choose('添加内容', 'Add content'),
-      menu: choose('添加到消息', 'Add to message'),
+      open: choose('更多操作', 'More actions'),
+      menu: choose('输入区操作', 'Composer actions'),
       files: choose('添加文件或照片', 'Add files or photos'),
       filesUnavailable: choose('当前无法添加附件。', 'Attachments are unavailable right now.'),
       slash: choose('斜杠命令', 'Slash commands'),
@@ -1477,6 +1477,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       blocked: composerIntentBlockedCopy(locale),
       recovery: composerGoalRecoveryCopy(locale),
       goal: choose('目标', 'Goal'),
+      goalMenu: choose('将下一条设为目标', 'Make next message a Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
       goalHint: choose(
         '将下一条消息设为持续目标，发送后才会保存。',

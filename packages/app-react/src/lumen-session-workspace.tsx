@@ -311,6 +311,9 @@ function SessionWorkspaceContent({
     runtime.getSessionExecutionAccess({ sessionId: targetSessionId, workspaceId: targetWorkspaceId }).kind === 'ready'
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
   const composerGoalTrigger = useRef<HTMLButtonElement>(null)
+  const [goalMenuSlot, setGoalMenuSlot] = useState<HTMLDivElement | null>(null)
+  const [goalPreparedRequest, setGoalPreparedRequest] = useState(0)
+  const [editorFocusRequest, setEditorFocusRequest] = useState(0)
   const composerWriteError = useRef<{ sessionId: string; error: unknown } | null>(null)
   const localSlashInFlight = useRef(false)
   const pendingModelSlash = useRef<{ sessionId: string; workspaceId: string; revision: number } | null>(null)
@@ -1237,6 +1240,7 @@ function SessionWorkspaceContent({
                     labels={labels.mentions}
                     slashLabels={labels.slash}
                     slashOpenRequest={slashOpenRequest}
+                    focusRequest={editorFocusRequest}
                     sendBehavior={sendBehavior}
                     files={files}
                     onContent={(text, mentions, expectedRevision) =>
@@ -1346,6 +1350,10 @@ function SessionWorkspaceContent({
                 canOpenSlash={canOpenSlash}
                 onFiles={prepareAttachment ? addAttachments : undefined}
                 onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
+                goalSlotRef={intent === 'goal' ? undefined : setGoalMenuSlot}
+                triggerRef={composerGoalTrigger}
+                goalPreparedRequest={goalPreparedRequest}
+                onGoalPrepared={() => setEditorFocusRequest((request) => request + 1)}
               />
               {(composerPermission.available || composerPlanMode.available) && (
                 <HbarComposerPermissionPicker
@@ -1416,7 +1424,9 @@ function SessionWorkspaceContent({
               )}
               <HbarComposerIntentControls
                 key={sessionId}
-                triggerRef={composerGoalTrigger}
+                preferMenu
+                menuSlot={goalMenuSlot}
+                onPrepared={() => setGoalPreparedRequest((request) => request + 1)}
                 sessionId={sessionId}
                 connected={connected}
                 disabled={

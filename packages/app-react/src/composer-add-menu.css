@@ -20,9 +20,28 @@
   box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.12);
 }
 
+.hbar-composer-add-popover[hidden],
+.hbar-composer-add-goal-slot:empty {
+  display: none;
+}
+
 .hbar-composer-add-choice {
   inline-size: 100%;
   min-inline-size: 0;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-composer-add-goal-slot,
+.hbar-composer-add-goal-slot .hbar-composer-intents,
+.hbar-composer-add-goal-slot .hbar-composer-intents > button {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-composer-add-goal-slot .hbar-composer-intents > button {
   justify-content: flex-start;
   gap: 0.75rem;
   text-align: start;

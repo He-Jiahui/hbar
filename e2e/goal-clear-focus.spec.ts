@@ -27,7 +27,7 @@ function controls(f: GoalPlanRecoveryFixture) {
     group,
     confirm: group.getByRole('button', { name: labels.clear, exact: true }),
     cancel: group.getByRole('button', { name: labels.cancel, exact: true }),
-    goal: f.page.locator('.hbar-composer-intents').getByRole('button', { name: labels.goal, exact: true }),
+    goalEntry: f.page.getByRole('button', { name: f.copy.session.addMenu.open, exact: true }),
   }
 }
 async function finish(f: GoalPlanRecoveryFixture, name: string, completed: boolean) {
@@ -59,7 +59,7 @@ for (const [locale, width] of [
       await c.clear.click()
       await c.confirm.click()
       await expect(c.group).toHaveCount(0)
-      await expect(c.goal).toBeFocused()
+      await expect(c.goalEntry).toBeFocused()
       expect((await f.goals.execute('goal.snapshot', { sessionId: f.ready.firstSession.id })).goal).toBeNull()
       expect(f.faults.count('goal.clear')).toBe(1)
       await expectComposerText(composer(f), draft)
@@ -102,7 +102,7 @@ for (const [locale, width] of [
         f.faults.release(held)
         await expect(f.page.getByText(f.copy.session.intent.pending, { exact: true })).toHaveCount(0)
         if (change === 'replacement') {
-          await expect(c.goal).not.toBeFocused()
+          await expect(c.goalEntry).not.toBeFocused()
           await expect(c.summary).toContainText(`Replacement ${name}`)
         } else await expect(composer(f)).toBeFocused()
         expect(f.faults.count('goal.clear')).toBe(1)
@@ -129,11 +129,11 @@ for (const [locale, width] of [
       const recovery = c.summary.getByTestId('composer-goal-recovery')
       await expect(recovery).toBeVisible()
       f.faults.assertMatched(lost)
-      await expect(c.goal).not.toBeFocused()
+      await expect(c.goalEntry).not.toBeFocused()
       await composer(f).click()
       await recovery.getByRole('button', { name: f.copy.session.intent.recovery.reconcile, exact: true }).click()
       await expect(recovery).toHaveCount(0)
-      await expect(c.goal).not.toBeFocused()
+      await expect(c.goalEntry).not.toBeFocused()
       expect(f.faults.count('goal.clear')).toBe(1)
       expect((await f.goals.execute('goal.snapshot', { sessionId: id })).goal).toBeNull()
       await assertNoExecution(f)
