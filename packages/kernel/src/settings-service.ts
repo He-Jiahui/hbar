@@ -20,6 +20,8 @@ import type { SettingsCommitReceipt, StoredSettingsLayer, StoragePort } from '@h
 
 export const HBAR_SETTINGS_SCHEMA_VERSION = 1
 const path = (name: string): SchemaPath => [{ kind: 'field', name }]
+/** A missing local value inherits the legacy Host-wide permission.mode default. */
+export const SESSION_APPROVAL_SETTING_PATH: SchemaPath = path('session.approval')
 function freeze<Value>(value: Value): Value {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
     for (const child of Object.values(value)) freeze(child)
@@ -111,6 +113,21 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         component: 'NumberField',
         multiple: false,
       },
+      {
+        path: SESSION_APPROVAL_SETTING_PATH,
+        type: 'string',
+        nullable: true,
+        defaultValue: null,
+        choices: ['ask', 'deny', 'allow'],
+        allowedScopes: ['session'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.session.approval.label',
+        helpKey: 'i18n:settings.session.approval.help',
+        group: 'session',
+        order: 20,
+        component: 'ComboBox',
+        multiple: false,
+      },
     ],
   }),
 )
@@ -198,6 +215,7 @@ export class SettingsService {
   constructor(
     private readonly storage: StoragePort,
     private readonly validateCandidate?: SettingsCandidateValidator,
+    private readonly onCommitted?: (scope: SettingsScope) => void,
   ) {}
 
   describe(): SettingsDescription {
@@ -338,6 +356,13 @@ export class SettingsService {
         resolution,
       },
     })
+    // The receipt is authoritative. Notification is a best-effort invalidation hint;
+    // readers recover by querying the selected scope after reconnect or a missed hint.
+    try {
+      this.onCommitted?.(input.scope)
+    } catch (error) {
+      console.error('Settings change notification failed:', error)
+    }
     return receipt as ApplySettingsReceipt
   }
 }

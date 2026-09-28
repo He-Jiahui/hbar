@@ -144,7 +144,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     kernel.storage,
   )
   const interactionCommands = createInteractionCommands(kernel)
-  const settingsService = new SettingsService(kernel.storage, createModelSettingsValidator(kernel))
+  const settingsService = new SettingsService(kernel.storage, createModelSettingsValidator(kernel), () =>
+    kernel.changed('settings'),
+  )
   const modelCommands = createModelCommands(kernel, settingsService)
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(settingsService)

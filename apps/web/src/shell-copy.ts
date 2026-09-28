@@ -498,6 +498,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.thinkingLevel.help': '可用等级会随当前模型变化。',
         'i18n:settings.session.defaultBudget.label': '默认 Token 预算',
         'i18n:settings.session.defaultBudget.help': '设置新会话运行采用的默认 Token 上限。',
+        'i18n:settings.session.approval.label': '会话工具审批',
+        'i18n:settings.session.approval.help': '仅作用于此会话的新运行；不设置时继承宿主默认值。',
       }
     : {
         'i18n:settings.groups.model': 'Model',
@@ -512,6 +514,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.thinkingLevel.help': 'Available levels follow the selected model.',
         'i18n:settings.session.defaultBudget.label': 'Default token budget',
         'i18n:settings.session.defaultBudget.help': 'Set the default token limit for new session runs.',
+        'i18n:settings.session.approval.label': 'Session tool approval',
+        'i18n:settings.session.approval.help': 'Applies to new runs in this session; unset inherits the Host default.',
       }
   const option = (value: unknown) => thinkingLevelLabel(locale, value)
   const source = (value: string) => {

@@ -92,6 +92,7 @@ import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
+import { SettingsService, SESSION_APPROVAL_SETTING_PATH } from './settings-service'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -234,6 +235,7 @@ export class Kernel {
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private maintenance = false
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
+  private readonly permissionSettings: SettingsService
   private admissions = 0
   private closing = false
   private readyForRuns = false
@@ -243,6 +245,7 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.permissionSettings = new SettingsService(this.storage)
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
       sessionPage: (input) => this.storage.call('sessionPage', input),
@@ -636,6 +639,15 @@ export class Kernel {
   permissionMode() {
     return this.permissionModeValue
   }
+  /** The session setting is an override; its absence retains the existing Host-wide default. */
+  async sessionPermissionMode(sessionId: string): Promise<'deny' | 'allow' | 'ask'> {
+    const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
+    const report = snapshot.resolution.reports[encodePath(SESSION_APPROVAL_SETTING_PATH)]
+    if (!report) throw new HbarError('SETTING_NOT_FOUND', 'Session approval setting is unavailable')
+    const override = approvalModeSchema.nullable().safeParse(report.effectiveValue)
+    if (!override.success) throw new HbarError('INVALID_SETTING', 'Session approval setting is invalid')
+    return override.data ?? this.permissionModeValue
+  }
   async setPermissionMode(mode: 'deny' | 'allow' | 'ask') {
     const next = approvalModeSchema.parse(mode)
     await this.storage.call('setSetting', 'permission.mode', next)
@@ -691,6 +703,7 @@ export class Kernel {
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
+      input = { ...input, approval: input.approval ?? (await this.sessionPermissionMode(sessionId)) }
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
       const imageArtifacts = await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id)))
