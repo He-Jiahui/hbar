@@ -1340,6 +1340,12 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           label: '/settings',
           description: choose('打开此会话的设置', 'Open settings for this session'),
         },
+        {
+          id: 'goal',
+          label: '/goal',
+          argumentHint: choose('[<目标> | clear]', '[<objective> | clear]'),
+          description: choose('设置或清除此会话的目标', 'Set or clear this session’s Goal'),
+        },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
       hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),
@@ -1351,6 +1357,30 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '当前任务结束后才能更改模型；草稿已保留。',
         'Change models after the current run finishes; your draft is preserved.',
       ),
+      goalRequired: choose(
+        '请输入 /goal 后的目标，或使用 /goal clear。',
+        'Enter an objective after /goal, or use /goal clear.',
+      ),
+      goalBusy: choose(
+        '当前任务结束后再更改目标；命令草稿已保留。',
+        'Change the Goal after the current run finishes; the command draft is preserved.',
+      ),
+      goalSnapshotUnavailable: choose(
+        '正在读取当前目标，请稍后重试。',
+        'The current Goal is loading. Try again shortly.',
+      ),
+      goalConfirmReplace: (objective) =>
+        choose(
+          `替换当前目标“${objective}”？这会重置目标进度，并可能清除关联计划。`,
+          `Replace the current Goal “${objective}”? This resets Goal progress and may clear its Plan.`,
+        ),
+      goalConfirmClear: (objective) =>
+        choose(
+          `清除当前目标“${objective}”？关联计划和继续执行也会停止。`,
+          `Clear the current Goal “${objective}”? Its Plan and continuation will also stop.`,
+        ),
+      goalConfirm: choose('确认', 'Confirm'),
+      goalCancel: choose('取消', 'Cancel'),
       error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
     },
     addMenu: {

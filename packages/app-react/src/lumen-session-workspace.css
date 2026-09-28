@@ -251,6 +251,33 @@
   gap: 4px;
 }
 
+.hbar-composer-goal-confirmation {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: var(--lumen-reading);
+}
+
+.hbar-composer-goal-confirmation > span {
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+  max-block-size: 5.5rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.hbar-composer-goal-confirmation-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+
 .hbar-session-composer-options > .hbar-composer-model-picker {
   min-inline-size: 0;
   flex: 0 1 auto;

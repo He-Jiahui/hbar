@@ -12,6 +12,13 @@ const labels: HbarComposerSlashLabels = {
   hint: '↑↓ 选择 · Enter/Tab 补全 · Esc 关闭',
   attachmentsBlocked: '先移除附件',
   modelBusy: '当前任务结束后才能更改模型',
+  goalRequired: '请输入目标',
+  goalBusy: '当前任务结束后再更改目标',
+  goalSnapshotUnavailable: '正在读取目标',
+  goalConfirmReplace: (objective) => `替换 ${objective}`,
+  goalConfirmClear: (objective) => `清除 ${objective}`,
+  goalConfirm: '确认',
+  goalCancel: '取消',
   error: (code) => code,
 }
 

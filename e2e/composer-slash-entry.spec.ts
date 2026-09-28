@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { createGoalPlanCommandClient } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -31,7 +32,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
-      await expect(menu.getByRole('option')).toHaveCount(2)
+      await expect(menu.getByRole('option')).toHaveCount(3)
       await prompt.dispatchEvent('compositionstart', { data: '中' })
       await prompt.dispatchEvent('keydown', {
         key: 'Enter',
@@ -128,6 +129,115 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBe(true)
       await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveCount(0)
       await expect(page.getByRole('dialog', { name: copy.session.modelPicker.title, exact: true })).toHaveCount(0)
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+}
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`Goal slash changes Host state immediately with explicit replacement and clear: ${locale}`, async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-goal-slash-'))
+    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
+    const copy = getShellCopy(locale)
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+      })
+      const goals = createGoalPlanCommandClient(host.client)
+      expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
+        true,
+      )
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.goto(base())
+      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const send = page.getByRole('button', { name: copy.session.prompt.send, exact: true })
+      for (const width of [1440, 320]) {
+        await page.setViewportSize({ width, height: 800 })
+        await prompt.fill('/g')
+        const option = page.getByRole('option', { name: copy.session.slash.select('/goal') })
+        await expect(option).toBeInViewport()
+        await page.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-${locale}-${width}.png` })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        await prompt.fill('')
+      }
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await prompt.fill('/goal First objective')
+      await send.click()
+      await expect
+        .poll(async () => (await goals.execute('goal.snapshot', { sessionId: host!.ready.sessionId })).goal?.objective)
+        .toBe('First objective')
+      const first = (await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal
+      if (!first?.goalId) throw new Error('Goal slash did not create an identified Goal')
+      await expectComposerText(prompt, '')
+      await expect(page.locator('.hbar-session-current-goal .hbar-composer-goal-strip')).toContainText(
+        'First objective',
+      )
+
+      await prompt.fill('/goal Second objective')
+      await send.click()
+      const desktopConfirmation = page.getByRole('group', {
+        name: copy.session.slash.goalConfirmReplace('First objective'),
+      })
+      await expect(desktopConfirmation).toBeVisible()
+      await page.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-confirm-${locale}-1440.png` })
+      await desktopConfirmation.getByRole('button', { name: copy.session.slash.goalCancel }).click()
+      await expectComposerText(prompt, '/goal Second objective')
+      expect((await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal?.goalId).toBe(
+        first.goalId,
+      )
+      await page.setViewportSize({ width: 320, height: 800 })
+      await send.click()
+      const replacement = page.getByRole('group', { name: copy.session.slash.goalConfirmReplace('First objective') })
+      await expect(replacement).toBeVisible()
+      await expectComposerText(prompt, '/goal Second objective')
+      await replacement.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-confirm-${locale}-320.png` })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await replacement.getByRole('button', { name: copy.session.slash.goalConfirm }).click()
+      await expect
+        .poll(async () => (await goals.execute('goal.snapshot', { sessionId: host!.ready.sessionId })).goal?.objective)
+        .toBe('Second objective')
+      const second = (await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal
+      expect(second?.goalId).not.toBe(first.goalId)
+      await expectComposerText(prompt, '')
+      await prompt.fill('/goal clear')
+      await send.click()
+      const clearing = page.getByRole('group', { name: copy.session.slash.goalConfirmClear('Second objective') })
+      await expect(clearing).toBeVisible()
+      await clearing.getByRole('button', { name: copy.session.slash.goalConfirm }).click()
+      await expect
+        .poll(async () => (await goals.execute('goal.snapshot', { sessionId: host!.ready.sessionId })).goal)
+        .toBeNull()
+      await expectComposerText(prompt, '')
+      await expect(page.locator('[data-goal-event-id]')).toHaveCount(3)
+      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toEqual([])
+      const longObjective = `Long Goal ${'容量Capacity目标'.repeat(280)}`
+      expect(longObjective.length).toBeLessThanOrEqual(4000)
+      await goals.execute('goal.create', { sessionId: host.ready.sessionId, objective: longObjective })
+      await expect(page.locator('.hbar-session-current-goal .hbar-composer-goal-strip')).toContainText(longObjective)
+      await prompt.fill('/goal clear')
+      await send.click()
+      const longConfirmation = page.locator('.hbar-composer-goal-confirmation')
+      await expect(longConfirmation).toBeVisible()
+      expect((await longConfirmation.boundingBox())!.height).toBeLessThan(200)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await longConfirmation.getByRole('button', { name: copy.session.slash.goalCancel }).click()
+      await expectComposerText(prompt, '/goal clear')
+      expect((await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal?.objective).toBe(
+        longObjective,
+      )
       expect(errors).toEqual([])
     } finally {
       await context.close()

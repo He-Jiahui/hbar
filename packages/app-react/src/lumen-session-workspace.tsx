@@ -53,7 +53,7 @@ import {
   useHbarSessionProjectContext,
   type HbarSessionProjectContextLabels,
 } from './session-project-context'
-import { localSlashCanSubmit, localSlashCommand } from './composer-slash'
+import { localGoalSlash, localSlashCanSubmit, localSlashCommand } from './composer-slash'
 import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
@@ -316,10 +316,21 @@ function SessionWorkspaceContent({
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string } | null>(null)
+  const [goalConfirmation, setGoalConfirmation] = useState<{
+    sessionId: string
+    workspaceId: string
+    revision: number
+    text: string
+    expectedGoalId: string
+    previousObjective: string
+    action: 'set' | 'clear'
+    objective?: string
+  } | null>(null)
   const slashIds = labels.slash.commands.map((item) => item.id)
   useEffect(() => {
     pendingModelSlash.current = null
     localSlashInFlight.current = false
+    setGoalConfirmation(null)
   }, [sessionId])
   const saveComposerContent = (
     targetSessionId: string,
@@ -366,6 +377,47 @@ function SessionWorkspaceContent({
       expectedRevision: target.revision,
     })
   }
+  const runGoalSlash = async (
+    target: { sessionId: string; workspaceId: string; revision: number; text: string },
+    command: { action: 'set'; objective: string } | { action: 'clear' },
+    expectedGoalId?: string,
+  ) => {
+    if (localSlashInFlight.current) return
+    const selected = runtime.state.navigation.getSnapshot()
+    const latest = runtime.state.drafts.getSnapshot()[target.sessionId]
+    if (
+      selected.sessionId !== target.sessionId ||
+      selected.workspaceId !== target.workspaceId ||
+      latest?.revision !== target.revision ||
+      latest.text !== target.text ||
+      latest.mentions.length ||
+      latest.attachments.length ||
+      latest.attachmentTransfers.length ||
+      activeRun
+    )
+      return
+    localSlashInFlight.current = true
+    setSlashFailure(null)
+    try {
+      await execute('composerIntent.commandGoal', {
+        sessionId: target.sessionId,
+        ...command,
+        ...(expectedGoalId ? { expectedGoalId } : {}),
+      })
+      await clearLocalSlash(target)
+    } catch (reason) {
+      const code =
+        reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+          ? reason.code
+          : 'EXECUTION_FAILED'
+      setSlashFailure({
+        sessionId: target.sessionId,
+        code: code === 'RUN_ACTIVE' ? 'GOAL_RUN_ACTIVE' : code,
+      })
+    } finally {
+      localSlashInFlight.current = false
+    }
+  }
   const submitLatest = async (targetSessionId: string, targetWorkspaceId: string) => {
     const pending = composerWrite.current
     if (pending?.sessionId === targetSessionId) {
@@ -410,6 +462,41 @@ function SessionWorkspaceContent({
       }
       if (slash === 'model' && !canPrepareTarget(targetSessionId, targetWorkspaceId)) return
       const target = { sessionId: targetSessionId, workspaceId: targetWorkspaceId, revision: latest.revision }
+      if (slash === 'goal') {
+        if (['submitting', 'unknown'].includes(currentIntent?.goalAction.status ?? '')) return
+        const command = localGoalSlash(latest.text)
+        if (!command) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'GOAL_REQUIRED' })
+          return
+        }
+        if (activeRun) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'GOAL_RUN_ACTIVE' })
+          return
+        }
+        const facts = runtime.state.composerIntent.getSnapshot().facts
+        if (facts.sessionId !== targetSessionId || facts.status !== 'ready' || !facts.snapshot) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'GOAL_SNAPSHOT_UNAVAILABLE' })
+          return
+        }
+        const previous = facts.snapshot.goal
+        if (previous && !previous.goalId) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'GOAL_SNAPSHOT_UNAVAILABLE' })
+          return
+        }
+        if (previous && (command.action === 'clear' || previous.objective !== command.objective)) {
+          setGoalConfirmation({
+            ...target,
+            text: latest.text,
+            expectedGoalId: previous.goalId!,
+            previousObjective: previous.objective,
+            ...command,
+          })
+          setSlashFailure(null)
+          return
+        }
+        await runGoalSlash({ ...target, text: latest.text }, command, previous?.goalId)
+        return
+      }
       localSlashInFlight.current = true
       setSlashFailure(null)
       try {
@@ -1045,6 +1132,49 @@ function SessionWorkspaceContent({
         label={labels.attachments.drop}
         onAdd={addAttachments}
       >
+        {goalConfirmation?.sessionId === sessionId &&
+          goalConfirmation.workspaceId === navigation.workspaceId &&
+          goalConfirmation.revision === draft?.revision &&
+          goalConfirmation.text === draft.text && (
+            <LumenFrame
+              className="hbar-composer-goal-confirmation"
+              role="group"
+              aria-label={
+                goalConfirmation.action === 'clear'
+                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
+                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
+              }
+            >
+              <LumenText as="span">
+                {goalConfirmation.action === 'clear'
+                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
+                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
+              </LumenText>
+              <LumenFrame className="hbar-composer-goal-confirmation-actions">
+                <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
+                  {labels.slash.goalCancel}
+                </LumenButton>
+                <LumenButton
+                  type="button"
+                  size="s"
+                  tone="danger"
+                  onClick={() => {
+                    const confirmation = goalConfirmation
+                    setGoalConfirmation(null)
+                    void runGoalSlash(
+                      confirmation,
+                      confirmation.action === 'clear'
+                        ? { action: 'clear' }
+                        : { action: 'set', objective: confirmation.objective! },
+                      confirmation.expectedGoalId,
+                    )
+                  }}
+                >
+                  {labels.slash.goalConfirm}
+                </LumenButton>
+              </LumenFrame>
+            </LumenFrame>
+          )}
         <LumenPromptComposer
           boundary="none"
           value={draft?.text ?? ''}
@@ -1124,7 +1254,9 @@ function SessionWorkspaceContent({
                   modelPending,
                   intentPending: Boolean(intentPending),
                   permissionLocked: Boolean(permissionEntry?.locked),
-                })
+                }) &&
+                (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
+                  !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))
               : configured &&
                 (!composerPlanMode.available || planModeEntry?.status === 'ready') &&
                 !modelPending &&
@@ -1148,12 +1280,19 @@ function SessionWorkspaceContent({
                 : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
                   ? labels.modelPicker.unknown
                   : slashFailure?.sessionId === sessionId &&
+                      !(slashFailure.code === 'RESULT_UNKNOWN' && intentEntry?.goalAction.status === 'succeeded') &&
                       (slashFailure.code !== 'ATTACHMENTS' || draft?.attachments.length || attachmentTransfers.length)
                     ? slashFailure.code === 'ATTACHMENTS'
                       ? labels.slash.attachmentsBlocked
                       : slashFailure.code === 'RUN_ACTIVE'
                         ? labels.slash.modelBusy
-                        : labels.slash.error(slashFailure.code)
+                        : slashFailure.code === 'GOAL_REQUIRED'
+                          ? labels.slash.goalRequired
+                          : slashFailure.code === 'GOAL_RUN_ACTIVE'
+                            ? labels.slash.goalBusy
+                            : slashFailure.code === 'GOAL_SNAPSHOT_UNAVAILABLE'
+                              ? labels.slash.goalSnapshotUnavailable
+                              : labels.slash.error(slashFailure.code)
                     : undefined
           }
           controls={

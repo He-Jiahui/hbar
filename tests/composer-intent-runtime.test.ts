@@ -24,6 +24,7 @@ function fixture() {
   let runGate: Promise<void> | null = null
   let readGate: Promise<void> | null = null
   let goalNumber = 0
+  let goalRunActive = false
   const value = (sessionId: string): GoalPlanSnapshot =>
     values.get(sessionId) ?? {
       sessionId,
@@ -89,7 +90,12 @@ function fixture() {
         const input = goalPlanCommands['goal.set'].input.parse(raw)
         const before = value(input.sessionId).goal
         if (!before || before.goalId !== input.expectedGoalId) throw new CommandError('GOAL_CONFLICT', 'Stale goal')
-        setGoal(input.sessionId, { ...before, status: input.status ?? before.status })
+        setGoal(
+          input.sessionId,
+          input.objective && input.objective !== before.objective
+            ? { ...makeGoal(input.sessionId, input.objective), status: input.status ?? 'active' }
+            : { ...before, status: input.status ?? before.status },
+        )
         if (controlFailure) throw new CommandError('RESULT_UNKNOWN', 'Lost goal control')
         const snapshot = value(input.sessionId)
         return { goal: snapshot.goal, remainingTokens: snapshot.remainingTokens }
@@ -139,6 +145,7 @@ function fixture() {
   const composer = createComposerIntent(local, {
     goals,
     navigation: navigation.reader,
+    isRunActive: () => goalRunActive,
     onSubscriberError: () => {},
     executeRun: drafts.executeRun,
     reconcileRun: async (sessionId) =>
@@ -174,6 +181,9 @@ function fixture() {
     gates(next: { run?: Promise<void> | null; read?: Promise<void> | null }) {
       if (next.run !== undefined) runGate = next.run
       if (next.read !== undefined) readGate = next.read
+    },
+    runActive(value: boolean) {
+      goalRunActive = value
     },
     dispose() {
       composer.dispose()
@@ -329,6 +339,129 @@ test('Goal strip controls use exact identity and resume never submits a duplicat
     await f.local.execute('composerIntent.controlGoal', { ...base, action: 'clear' })
     expect(f.value('one').goal).toBeNull()
     expect(f.calls.map((call) => call.name)).toEqual(['goal.set', 'goal.set', 'goal.clear'])
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal slash command creates, replaces and clears Host facts without submitting a Run', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    await f.local.execute('composerIntent.commandGoal', { sessionId: 'one', action: 'set', objective: 'First' })
+    const first = f.value('one').goal!
+    expect(first.objective).toBe('First')
+    await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'Second',
+      expectedGoalId: first.goalId,
+    })
+    const second = f.value('one').goal!
+    expect(second.objective).toBe('Second')
+    expect(second.goalId).not.toBe(first.goalId)
+    await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'Second',
+      expectedGoalId: second.goalId,
+    })
+    await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'clear',
+      expectedGoalId: second.goalId,
+    })
+    expect(f.value('one').goal).toBeNull()
+    expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'goal.set', 'goal.clear'])
+    f.setGoal('one', { ...f.makeGoal('one', 'First'), status: 'complete' })
+    await f.local.execute('composerIntent.commandGoal', { sessionId: 'one', action: 'set', objective: 'First' })
+    expect(f.value('one').goal?.status).toBe('active')
+    expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'goal.set', 'goal.clear', 'goal.create'])
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal slash command refuses unconfirmed replacement and stale session before a write', async () => {
+  const f = fixture()
+  try {
+    const first = f.makeGoal('one')
+    f.setGoal('one', first)
+    f.select('one')
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'set',
+        objective: 'Replacement',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_CONFLICT' })
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'clear',
+        expectedGoalId: 'stale',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_CONFLICT' })
+    f.select('two')
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'set',
+        objective: 'Replacement',
+        expectedGoalId: first.goalId,
+      }),
+    ).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    expect(f.calls).toHaveLength(0)
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal slash does not invalidate a running task', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    f.runActive(true)
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'set',
+        objective: 'Later',
+      }),
+    ).rejects.toMatchObject({ code: 'RUN_ACTIVE' })
+    expect(f.calls).toHaveLength(0)
+    f.runActive(false)
+    await f.local.execute('composerIntent.commandGoal', { sessionId: 'one', action: 'set', objective: 'Later' })
+    expect(f.value('one').goal?.objective).toBe('Later')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('uncertain Goal slash write freezes repeat writes until current Host facts are reconciled', async () => {
+  const f = fixture()
+  try {
+    f.select('one')
+    f.failures({ create: 'after' })
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'set',
+        objective: 'First',
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(f.composer.reader.getSnapshot().entries.one?.goalAction.status).toBe('unknown')
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'set',
+        objective: 'First',
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
+    expect(f.composer.reader.getSnapshot().entries.one?.goalAction.status).toBe('succeeded')
+    expect(f.calls.filter((call) => call.name === 'goal.create')).toHaveLength(1)
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(0)
   } finally {
     f.dispose()
   }

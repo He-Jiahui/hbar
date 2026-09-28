@@ -534,6 +534,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     permissions: composerPermission,
     ...(options.planMode ? { captureMode: composerPlanMode.capture } : {}),
     ...(options.planMode ? { refreshMode: composerPlanMode.captureFresh } : {}),
+    isRunActive: (sessionId) => {
+      const current = timeline.reader.getSnapshot()
+      return (
+        current.sessionId === sessionId &&
+        current.runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+      )
+    },
     getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),

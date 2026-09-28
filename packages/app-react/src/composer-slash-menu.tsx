@@ -1,4 +1,4 @@
-import { Box, Settings } from 'lucide-react'
+import { Box, Settings, Target } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import './composer-slash-menu.css'
@@ -8,12 +8,20 @@ export interface HbarComposerSlashLabels {
   readonly commands: readonly {
     readonly id: LocalSlashCommand
     readonly label: string
+    readonly argumentHint?: string
     readonly description: string
   }[]
   readonly select: (name: string) => string
   readonly hint: string
   readonly attachmentsBlocked: string
   readonly modelBusy: string
+  readonly goalRequired: string
+  readonly goalBusy: string
+  readonly goalSnapshotUnavailable: string
+  readonly goalConfirmReplace: (objective: string) => string
+  readonly goalConfirmClear: (objective: string) => string
+  readonly goalConfirm: string
+  readonly goalCancel: string
   readonly error: (code: string) => string
 }
 
@@ -64,9 +72,9 @@ export function HbarComposerSlashMenu({
               onMouseEnter={() => onHover(index)}
               onClick={() => onSelect(command)}
             >
-              <LumenIcon icon={command === 'model' ? Box : Settings} tier="sm" />
+              <LumenIcon icon={command === 'model' ? Box : command === 'goal' ? Target : Settings} tier="sm" />
               <LumenText as="span" className="hbar-composer-slash-name">
-                {item.label}
+                {item.label} {item.argumentHint}
               </LumenText>
               <LumenText as="span" className="hbar-composer-slash-description">
                 {item.description}

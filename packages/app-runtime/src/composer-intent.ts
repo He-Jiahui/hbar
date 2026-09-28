@@ -29,8 +29,9 @@ export interface ComposerGoalReconciliation {
   readonly requestInFlight: boolean
   readonly operation: {
     readonly sessionId: string
-    readonly expectedGoalId: string
-    readonly action: 'pause' | 'resume' | 'clear'
+    readonly expectedGoalId?: string | undefined
+    readonly action: 'pause' | 'resume' | 'clear' | 'set'
+    readonly objective?: string | undefined
   }
 }
 export interface ComposerIntentEntry {
@@ -78,6 +79,7 @@ export interface ComposerIntentOptions {
   >
   readonly captureMode?: (sessionId: string) => 'default' | 'plan'
   readonly refreshMode?: (sessionId: string) => Promise<'default' | 'plan'>
+  readonly isRunActive?: (sessionId: string) => boolean
   readonly onSubscriberError: (error: unknown) => void
 }
 
@@ -107,6 +109,11 @@ const controlInput = sessionInput.extend({
   expectedGoalId: idSchema,
   action: z.enum(['pause', 'resume', 'clear']),
 })
+const goalCommandInput = sessionInput.extend({
+  action: z.enum(['set', 'clear']),
+  objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH).optional(),
+  expectedGoalId: idSchema.optional(),
+})
 export const composerIntentCommands = {
   'composerIntent.setIntent': defineCommand(
     metadata('composerIntent.setIntent'),
@@ -120,6 +127,7 @@ export const composerIntentCommands = {
   'composerIntent.reconcile': defineCommand(metadata('composerIntent.reconcile'), sessionInput, result),
   'composerIntent.refresh': defineCommand(metadata('composerIntent.refresh'), sessionInput, result),
   'composerIntent.controlGoal': defineCommand(metadata('composerIntent.controlGoal'), controlInput, result),
+  'composerIntent.commandGoal': defineCommand(metadata('composerIntent.commandGoal'), goalCommandInput, result),
 }
 
 type Submission = {
@@ -136,7 +144,7 @@ type Submission = {
   phase: 'goal' | 'run'
   status: 'submitting' | 'failed' | 'partial' | 'unknown'
 }
-type GoalControl = z.output<typeof controlInput>
+type GoalControl = z.output<typeof controlInput> | (z.output<typeof goalCommandInput> & { baselineGoalSeq: number })
 const UNKNOWN_CODES = new Set([
   'RESULT_UNKNOWN',
   'TIMEOUT',
@@ -714,6 +722,97 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     return { sessionId }
   })
 
+  local.register(composerIntentCommands['composerIntent.commandGoal'], async (input, execution) => {
+    const { sessionId } = input
+    if (disposed) throw new CommandError('DISPOSED', 'Composer intent is disposed')
+    if (!connected) throw new CommandError('DISCONNECTED', 'Goal command is unavailable while disconnected')
+    if (options.navigation.getSnapshot().sessionId !== sessionId)
+      throw new CommandError('STALE_TARGET', 'Goal command target changed')
+    const capturedNavigation = options.navigation.getSnapshot()
+    const capturedSelection = selectionGeneration
+    if (input.action === 'set' && !input.objective)
+      throw new CommandError('GOAL_INVALID', 'A Goal requires a bounded non-empty objective')
+    if (input.action === 'clear' && input.objective !== undefined)
+      throw new CommandError('INVALID_INPUT', 'Clear does not accept an objective')
+    assertFree(sessionId)
+    const control: GoalControl = { ...input, baselineGoalSeq: -1 }
+    controls.set(sessionId, control)
+    replace({ ...entry(sessionId), goalAction: { status: 'submitting', error: null } })
+    let dispatched = false
+    try {
+      const target = await options.preparation?.capture(sessionId, execution.signal)
+      if (target) options.preparation?.assertCanPrepare(target)
+      const mode = options.refreshMode ? await options.refreshMode(sessionId) : options.captureMode?.(sessionId)
+      if (mode === 'plan') throw new CommandError('BUSY', 'Exit Host Plan mode before changing the Goal')
+      if (target) options.preparation?.assertCanPrepare(target)
+      const before = await snapshot(sessionId)
+      const selected = options.navigation.getSnapshot()
+      if (
+        disposed ||
+        execution.signal.aborted ||
+        capturedSelection !== selectionGeneration ||
+        selected.sessionId !== sessionId ||
+        selected.workspaceId !== capturedNavigation.workspaceId
+      )
+        throw new CommandError('STALE_TARGET', 'Goal command target changed before dispatch')
+      if (options.isRunActive?.(sessionId))
+        throw new CommandError('RUN_ACTIVE', 'Wait for the current Run before changing its Goal')
+      if (before.goal && before.goal.status !== 'complete' && before.goal.goalId !== input.expectedGoalId)
+        throw new CommandError('GOAL_CONFLICT', 'Confirm the current Goal before changing it')
+      if (input.expectedGoalId && before.goal?.goalId !== input.expectedGoalId)
+        throw new CommandError('GOAL_CONFLICT', 'The confirmed Goal changed')
+      control.baselineGoalSeq = before.goalSeq
+      if (input.action === 'set' && before.goal?.status !== 'complete' && before.goal?.objective === input.objective) {
+        controls.delete(sessionId)
+        replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
+        return { sessionId }
+      }
+      if (input.action === 'clear' && !before.goal) {
+        controls.delete(sessionId)
+        replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
+        return { sessionId }
+      }
+      invalidateRead(sessionId)
+      dispatched = true
+      if (input.action === 'clear') {
+        const cleared = await requireGoals().execute('goal.clear', { sessionId, expectedGoalId: input.expectedGoalId })
+        if (!cleared.cleared) throw new CommandError('INVALID_OUTPUT', 'Goal clear was not confirmed')
+      } else if (before.goal && before.goal.status !== 'complete') {
+        const changed = await requireGoals().execute('goal.set', {
+          sessionId,
+          objective: input.objective,
+          expectedGoalId: before.goal.goalId,
+          status: 'active',
+        })
+        if (
+          changed.goal?.threadId !== sessionId ||
+          changed.goal.objective !== input.objective ||
+          changed.goal.status !== 'active' ||
+          changed.goal.goalId === before.goal.goalId
+        )
+          throw new CommandError('INVALID_OUTPUT', 'Goal replacement response did not match the request')
+      } else {
+        const created = await requireGoals().execute('goal.create', { sessionId, objective: input.objective! })
+        if (
+          created.goal?.threadId !== sessionId ||
+          created.goal.objective !== input.objective ||
+          created.goal.status !== 'active' ||
+          created.goal.goalId === before.goal?.goalId
+        )
+          throw new CommandError('INVALID_OUTPUT', 'Goal creation response did not match the request')
+      }
+      controls.delete(sessionId)
+      replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
+      refreshSelected(sessionId)
+      return { sessionId }
+    } catch (error) {
+      const unknown = dispatched && UNKNOWN_CODES.has(code(error))
+      if (!unknown) controls.delete(sessionId)
+      replace({ ...entry(sessionId), goalAction: { status: unknown ? 'unknown' : 'failed', error: code(error) } })
+      throw error
+    }
+  })
+
   const reconcileControl = (control: GoalControl): Promise<void> => {
     const { sessionId } = control
     const currentTask = reconciliations.get(sessionId)
@@ -740,16 +839,31 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           controls.get(sessionId) !== control
         )
           throw new CommandError('STALE_TARGET', 'The original Goal reconciliation scope changed')
-        if (value.goal && value.goal.goalId !== control.expectedGoalId) {
+        if (control.action !== 'set' && value.goal && value.goal.goalId !== control.expectedGoalId) {
           controls.delete(sessionId)
           replace({ ...entry(sessionId), goalAction: { status: 'failed', error: 'GOAL_CONFLICT' } })
           throw new CommandError('GOAL_CONFLICT', 'The original Goal was replaced during reconciliation')
         }
+        if (
+          control.action === 'set' &&
+          value.goalSeq > control.baselineGoalSeq &&
+          value.goal?.objective !== control.objective
+        ) {
+          controls.delete(sessionId)
+          replace({ ...entry(sessionId), goalAction: { status: 'failed', error: 'GOAL_CONFLICT' } })
+          throw new CommandError('GOAL_CONFLICT', 'A different Goal replaced the uncertain command')
+        }
         const confirmed =
-          control.action === 'clear'
-            ? value.goal === null
-            : value.goal?.goalId === control.expectedGoalId &&
-              value.goal.status === (control.action === 'pause' ? 'paused' : 'active')
+          control.action === 'set'
+            ? value.goal !== null &&
+              value.goal.objective === control.objective &&
+              value.goal.goalId !== control.expectedGoalId &&
+              value.goalSeq > control.baselineGoalSeq
+            : control.action === 'clear'
+              ? value.goal === null && (!('baselineGoalSeq' in control) || value.goalSeq > control.baselineGoalSeq)
+              : value.goal !== null &&
+                value.goal.goalId === control.expectedGoalId &&
+                value.goal.status === (control.action === 'pause' ? 'paused' : 'active')
         if (!confirmed) throw new CommandError('RESULT_UNKNOWN', 'Goal control has not been confirmed')
         controls.delete(sessionId)
         replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })

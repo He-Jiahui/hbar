@@ -2,17 +2,27 @@ import { expect, test } from 'bun:test'
 import {
   localSlashCanSubmit,
   localSlashCommand,
+  localGoalSlash,
   slashMatches,
   slashTokenAt,
 } from '../packages/app-react/src/composer-slash'
 
 test('only entire supported local command is intercepted, preserving ordinary Run text', () => {
-  const available = ['model', 'settings'] as const
+  const available = ['model', 'settings', 'goal'] as const
   expect(localSlashCommand('/model', available)).toBe('model')
   expect(localSlashCommand(' \n/settings ', available)).toBe('settings')
+  expect(localSlashCommand('/goal Review the navigation', available)).toBe('goal')
+  expect(localSlashCommand('/goal clear', available)).toBe('goal')
+  expect(localSlashCommand('/goal', available)).toBe('goal')
   for (const text of ['/compact', '/skills', '/MODEL', 'Review /model', '/model then review', '/settings more'])
     expect(localSlashCommand(text, available)).toBeNull()
   expect(localSlashCommand('/model', [])).toBeNull()
+})
+
+test('Goal slash arguments are explicit and never mistaken for ordinary text', () => {
+  expect(localGoalSlash('/goal Verify navigation')).toEqual({ action: 'set', objective: 'Verify navigation' })
+  expect(localGoalSlash(' /goal clear ')).toEqual({ action: 'clear' })
+  for (const text of ['/goal', '/goal ', '/goalclear', 'Explain /goal clear']) expect(localGoalSlash(text)).toBeNull()
 })
 
 test('local entry is unavailable while draft, intent, model or approval is pending or unknown', () => {
@@ -28,8 +38,8 @@ test('local entry is unavailable while draft, intent, model or approval is pendi
 })
 
 test('slash suggestions are bounded to real local destinations and only token positions', () => {
-  const available = ['model', 'settings', 'model'] as const
-  expect(slashMatches('', available)).toEqual(['model', 'settings'])
+  const available = ['model', 'settings', 'goal', 'model'] as const
+  expect(slashMatches('', available)).toEqual(['model', 'settings', 'goal'])
   expect(slashMatches('s', available)).toEqual(['settings'])
   expect(slashMatches('unknown', available)).toEqual([])
   expect(slashMatches('', [])).toEqual([])
