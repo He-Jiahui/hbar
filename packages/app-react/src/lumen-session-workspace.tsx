@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CommandError } from '@hbar/commands'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -407,12 +406,19 @@ function SessionWorkspaceContent({
     try {
       const modelState = runtime.state.controls.getSnapshot()
       const currentModel = modelState.sessionId === target.sessionId ? modelState.model : null
-      if (command.action === 'set' && (!currentModel || currentModel.status !== 'configured' || !currentModel.modelId))
-        throw new CommandError('MODEL_NOT_CONFIGURED', 'Configure a model before starting the Goal')
+      if (
+        command.action === 'set' &&
+        (!currentModel || currentModel.status !== 'configured' || !currentModel.modelId)
+      ) {
+        setSlashFailure({ sessionId: target.sessionId, code: 'MODEL_NOT_CONFIGURED' })
+        return
+      }
       const permissionState = runtime.state.composerPermission.getSnapshot()
       const permission = permissionState.entries[target.sessionId]
-      if (command.action === 'set' && permission?.locked)
-        throw new CommandError('SUBMISSION_PENDING', 'The composer permission choice is locked')
+      if (command.action === 'set' && permission?.locked) {
+        setSlashFailure({ sessionId: target.sessionId, code: 'SUBMISSION_PENDING' })
+        return
+      }
       const result = await execute('composerIntent.commandGoal', {
         sessionId: target.sessionId,
         ...command,
@@ -423,8 +429,10 @@ function SessionWorkspaceContent({
           result && typeof result === 'object' && 'goalId' in result && typeof result.goalId === 'string'
             ? result.goalId
             : null
-        if (!goalId || !currentModel?.modelId)
-          throw new CommandError('INVALID_OUTPUT', 'The Goal identity was not confirmed')
+        if (!goalId || !currentModel?.modelId) {
+          setSlashFailure({ sessionId: target.sessionId, code: 'INVALID_OUTPUT' })
+          return
+        }
         await execute('composerIntent.startGoalRun', {
           sessionId: target.sessionId,
           objective: command.objective,
