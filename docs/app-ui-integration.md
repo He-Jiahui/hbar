@@ -333,6 +333,34 @@ script was blocked by the installed pnpm version; its Vite and declaration
 steps were run directly. Existing other-variant flow rules remain outside this
 change, and the child task could not run Stylelint.
 
+### Paywall 4 integration status
+
+`hbar-app-ui-paywall-4` now presents three host-owned passive quota rows,
+segmented used/limit text and ornamental fill tracks. The source has no meter
+or progressbar roles; accessible text carries the values. A decorative alert
+uses the shared `md` icon tier. Top-up and Upgrade emit typed requests without
+resetting quota values, resuming ingestion or claiming checkout success.
+Empty, one-item, six-item boundary and 17-item overflow fixtures distinguish
+host capacity policy from the source's three observed records. The overflow
+region is keyboard-scrollable and all rows remain present.
+
+The [official Paywall 4 iframe](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-4)
+was readable on 2026-09-29. The desktop content column is 620×426.25; the 320px
+styles show a padded overflow-auto preview stage and stacked narrow actions. One
+safe prototype Top-up click has no visible in-frame result; Upgrade was not
+sampled. These observations supplement the authorized old static cache but
+do not constitute current-protocol paired strict acceptance. The local desktop
+content matches 620×426.25 with full-width list/card; the verifier additionally
+checks stretch widths after inherited generic centering was found and fixed.
+At 320×420 a real document scroll of 159 reaches Upgrade with no horizontal
+overflow. The host owns preview-stage versus document scrolling; the local flow
+keeps long content readable rather than reproducing centered overflow clipping.
+
+Eight focused tests/53 assertions, root/Lumen typechecks, targeted new-file
+lint/style/flow/content/icon checks, preview build and direct Lumen Vite plus
+declaration builds pass. Shared `paywall.tsx` lint still has 15 existing errors,
+down from 16 before; the overall file is not reported lint-clean.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

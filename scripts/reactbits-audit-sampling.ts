@@ -840,6 +840,37 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-4')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall-4-reference.tsx', 'paywall-4-reference.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [{
+        viewport: 'desktop',
+        theme: 'light',
+        suffix: '0:click',
+        change: 'Top-up prototype remains a host request without quota or ingestion state mutation',
+      }],
+      inferences: [
+        {
+          scope: 'Current strict evidence and billing outcomes',
+          basis:
+            'The public iframe was readable on 2026-09-29 and a safe top-up prototype click showed no in-frame AX result. This visible observation is not a current-protocol paired capture; upgrade, checkout, quota updates and ingestion resume remain unverified host requests.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Passive quotas and over-capacity host data',
+          basis:
+            'All three source rows are passive paragraphs with ornamental fill tracks and no progress roles. They share one stable-ID renderer; empty/one/six/17-row fixtures and one focused keyboard-scroll case cover host capacity without clicking every bar. Six is a host boundary, not a discovered source maximum.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Responsive flow and preview scroll ownership',
+          basis:
+            'Live desktop and 320px source preview styles show a padded overflow-auto stage and stacked narrow actions. Local static/long-copy checks and one 320x420 document scroll verify readable flow; a targeted width assertion catches inherited centering of the quota list and upgrade card. Preview-stage scrolling is host-owned, not an extra action per row or theme.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-2')
     return {
       revision: 1,

@@ -27,6 +27,17 @@ test('feature gate samples a request clue and does not promote unchanged legacy 
   expect(plan.inferences.some((entry) => entry.basis.includes('356px'))).toBe(true)
 })
 
+test('quota notice samples request feedback instead of passive bars and distinguishes host capacity', () => {
+  const id = 'hbar-app-ui-paywall-4'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(1)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:click`])
+  expect(sampledInteractionIds(id, 'stress', 'dark')).toEqual([])
+  expect(plan.lumenEntries).toContain('paywall-4-reference.css')
+  expect(plan.inferences.some((entry) => entry.basis.includes('Six is a host boundary'))).toBe(true)
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
+})
+
 test('reader sampling separates navigation, Focus, collapse and recovery without a button-layout product', () => {
   const id = 'hbar-app-ui-editor-5'
   const plan = auditSamplingPlan(id)!
