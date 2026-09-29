@@ -46,7 +46,13 @@ export function showSessionEmptyHero(facts: SessionEmptyHeroFacts): boolean {
   )
 }
 
-export function HbarSessionEmptyHero({ labels }: { readonly labels: HbarSessionEmptyHeroLabels }) {
+export function HbarSessionEmptyHero({
+  labels,
+  headingAs = 'h2',
+}: {
+  readonly labels: HbarSessionEmptyHeroLabels
+  readonly headingAs?: 'h1' | 'h2'
+}) {
   return (
     <LumenFrame className="hbar-app-react-session-empty-hero">
       <LumenFrame
@@ -54,7 +60,7 @@ export function HbarSessionEmptyHero({ labels }: { readonly labels: HbarSessionE
         style={{ backgroundImage: `url(${labels.markUrl})` }}
         aria-hidden="true"
       />
-      <LumenText as="h2" className="hbar-app-react-session-empty-title">
+      <LumenText as={headingAs} className="hbar-app-react-session-empty-title">
         {labels.title}
       </LumenText>
       <LumenText as="p" className="hbar-app-react-session-empty-description">

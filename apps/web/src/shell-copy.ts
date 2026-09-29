@@ -11,6 +11,7 @@ import type {
   HbarGoalPlanWorkspaceLabels,
   HbarProviderDialogLabels,
   HbarProviderSettingsLabels,
+  HbarPreSessionLandingLabels,
   HbarSessionMonitoringLabels,
   HbarSessionActivityLabels,
   HbarSessionWorkspaceLabels,
@@ -70,6 +71,7 @@ interface ShellCopy {
     readonly close: string
   }
   readonly empty: { readonly title: string; readonly description: string }
+  readonly preSession: HbarPreSessionLandingLabels
   readonly session: HbarSessionWorkspaceLabels
   readonly planProposal: { readonly requestText: PlanProposalRequestText }
   readonly settings: HbarSettingsWorkspaceLabels
@@ -2920,6 +2922,14 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       close: '关闭窗口',
     },
     empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
+    preSession: {
+      hero: {
+        markUrl: '/favicon.png',
+        title: '新建会话',
+        description: '选择一个项目，告诉助手你想构建、调试或探索什么。',
+      },
+      prompt: { ...createSessionLabels('zh-CN').prompt, placeholder: '从这里开始提问…' },
+    },
     session: createSessionLabels('zh-CN'),
     planProposal: {
       requestText: ({ action, markdown, feedback }) =>
@@ -3056,6 +3066,14 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       close: 'Close window',
     },
     empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
+    preSession: {
+      hero: {
+        markUrl: '/favicon.png',
+        title: 'New session',
+        description: 'Choose a project and tell the assistant what you want to build, debug, or explore.',
+      },
+      prompt: { ...createSessionLabels('en-US').prompt, placeholder: 'Ask anything…' },
+    },
     session: createSessionLabels('en-US'),
     planProposal: {
       requestText: ({ action, markdown, feedback }) =>

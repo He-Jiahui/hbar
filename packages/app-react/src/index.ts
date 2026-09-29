@@ -57,6 +57,19 @@ export {
   type SessionEmptyHeroFacts,
 } from './session-empty-hero'
 export {
+  HbarPreSessionLanding,
+  type HbarPreSessionLandingLabels,
+  type HbarPreSessionLandingProps,
+} from './pre-session-landing'
+export {
+  HbarPreSessionChoicePicker,
+  visiblePreSessionChoices,
+  PRE_SESSION_CHOICE_PAGE_SIZE,
+  type HbarPreSessionChoice,
+  type HbarPreSessionChoiceLabels,
+  type HbarPreSessionChoicePickerProps,
+} from './pre-session-choice-picker'
+export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
   type HbarSettingsGroupIcon,
