@@ -102,6 +102,10 @@ function isOverlaySelector(path, selector) {
   // listbox container overlays; the options and questionnaire remain in flow.
   if (/packages\/lumen-app-ui\/src\/forms-10-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.lumen-forms-10-property-options') return true
+  // Forms 11: the observed Region combobox menu overlays the dialog body;
+  // only this anchored listbox container floats above the flowing fields.
+  if (/packages\/lumen-app-ui\/src\/forms-11-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-forms-11-region-options') return true
   // Settings Form 4: the observed member action menu overlays its trigger row.
   // Only the anchored menu container floats; member content and menu choices flow.
   if (/packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
