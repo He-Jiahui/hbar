@@ -268,7 +268,9 @@ export function HbarExtensionWorkspace({
         )}
         <>
           <LumenFrame className="hbar-app-react-extension-filter">
-            <label htmlFor={filterId}>{navigation.filter}</label>
+            <LumenFrame as="label" htmlFor={filterId}>
+              {navigation.filter}
+            </LumenFrame>
             <LumenFrame className="hbar-app-react-extension-filter-control">
               <LumenInput
                 ref={filterInput}
@@ -334,15 +336,14 @@ export function HbarExtensionWorkspace({
                 heading={collection ? heading : pluginsHeading}
               />
               {!plugins?.hasSnapshot || !entry || !page ? null : !page.plugins.length ? (
-                plugins.status === 'ready' && (
-                  entry.plugins.length && collection === 'plugins' ? (
-                    <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
-                  ) : (
-                    <LumenText as="p" className="hbar-app-react-extension-empty">
-                      {entry.plugins.length ? labels.noMatches : labels.noPlugins}
-                    </LumenText>
-                  )
-                )
+                plugins.status === 'ready' &&
+                (entry.plugins.length && collection === 'plugins' ? (
+                  <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
+                ) : (
+                  <LumenText as="p" className="hbar-app-react-extension-empty">
+                    {entry.plugins.length ? labels.noMatches : labels.noPlugins}
+                  </LumenText>
+                ))
               ) : (
                 <LumenCollection as="ul" className="hbar-app-react-extension-list">
                   {page.plugins.map((plugin) => {
@@ -481,15 +482,14 @@ export function HbarExtensionWorkspace({
                 heading={collection ? heading : skillsHeading}
               />
               {!skills?.hasSnapshot || !entry || !page ? null : !page.skills.length ? (
-                skills.status === 'ready' && (
-                  entry.skills.length && collection === 'skills' ? (
-                    <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
-                  ) : (
-                    <LumenText as="p" className="hbar-app-react-extension-empty">
-                      {entry.skills.length ? labels.noMatches : labels.noSkills}
-                    </LumenText>
-                  )
-                )
+                skills.status === 'ready' &&
+                (entry.skills.length && collection === 'skills' ? (
+                  <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
+                ) : (
+                  <LumenText as="p" className="hbar-app-react-extension-empty">
+                    {entry.skills.length ? labels.noMatches : labels.noSkills}
+                  </LumenText>
+                ))
               ) : (
                 <LumenCollection as="ul" className="hbar-app-react-extension-list hbar-app-react-extension-skill-list">
                   {page.skills.map((skill) => (
