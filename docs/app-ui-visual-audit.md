@@ -690,3 +690,26 @@ Lumen 类型检查、flow/content/icon guards 和预览构建通过；构建仍�
 自然增长到底栏。人工复核读序和可见内容接近授权源图，剩余控件材质与弹层选项
 仍有未证差异。**严格 live ledger 为来源受限、未签核**；本地图、旧缓存和不完整
 实时图不互相冒充，也不逐一重放等价日期行与布局的笛卡尔组合。
+
+Forms 10（Guest survey）的宿主草稿提供类型化双语文案、partial Property 目录、
+11 档 NPS、4×5 评分矩阵、六项亮点和派生进度，预约编号可选。初始 `0 / 7`、
+Submit 禁用；本地选 NPS 0 后出现旧缓存旁证的必填追问与 `1 / 8`，选择一个矩阵格
+到 `2 / 8`、一个亮点到 `3 / 8`。独立
+`scripts/verify-hbar-app-ui-forms-10.ts` 验证这些代表性机制、320px 底栏可达、
+文档无横溢、德语长文案与 page error（0），从未点击 Submit。提交启用条件是宿主
+本地必答模型的推导，成功/失败仍由真实宿主决定，不模拟远端响应。8 项专项 store
+测试（97 条断言）、根与 Lumen 类型检查、scoped ESLint、flow/content/icon guards
+和预览构建通过；构建仍有非阻断大 chunk 提示。
+
+授权 `full-static-v10` 缓存的来源 hash 为 `5336fea7…c49ed45ef3`，有八张静态源图；
+同 hash 的 `full-interactions-v4` 无有效状态变化。Property 四项选项、低分追问、
+动态分母和评分/勾选变化只见于**不同 hash** 的旧 `full-interactions-v3`，
+不能写成当前版本的 fresh matched。最终本地八图/指标位于
+`artifacts/reactbits-pro-visual-audit/forms-10-local-review-r1/`：面板桌面 760×953.6、
+平板 590×1041.2、移动 356×1174、320 压力视口 320×1210.4；八组均无
+page error/文档横溢。来源窄屏矩阵滚动 owner 未捕获，本地把五列留在独立横滚区
+（356px 可滚 158px、320px 可滚 194px），页脚正常文档流可达。来源截图顶部受
+站点导航遮挡但语义树仍有标题，本地保留标题；桌面亮点的孤项保持半宽、末项全宽。
+Property 锚定菜单仅用旧缓存的覆盖层几何作局部实现/guard 例外，目录仍 partial。
+**没有同轮严格交互账本或人工签核**；八张本地图不冒充八组实时来源对，
+不把矩阵 20 格、NPS 11 档、六项亮点与四种布局做笛卡尔回放。

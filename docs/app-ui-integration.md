@@ -69,6 +69,30 @@ Monday closed (49 h → 40 h), holiday toggling and 320px footer reachability. T
 local results do not constitute fresh live source pairs; Forms 9 remains pending
 strict source acceptance.
 
+### Forms 10 integration status
+
+`hbar-app-ui-forms-10` uses a host-owned guest-survey draft and a dedicated Lumen
+reference view. Typed localized copy, a partial property catalog, eleven NPS scores,
+four five-point matrix criteria, six highlights and derived question progress come
+from the host. An optional reservation reference does not count toward completion.
+The low-score follow-up and 300-character counter are explicitly based on an older,
+different-hash source interaction cache; their local draft behavior is not presented
+as a current-source match. Submit only emits a typed host request and never displays
+an unconfirmed remote result.
+
+The authorized [Forms 10 guest survey](https://pro.reactbits.dev/docs/app-ui/forms/forms-10)
+static cache (`full-static-v10`, hash `5336fea7…c49ed45ef3`) covers eight viewport/theme
+screenshots. Its same-hash `full-interactions-v4` cache has no useful state-change
+sample; the v3 property menu, low-score branch and rating changes have a different
+source hash. No fresh source interaction ledger or strict sign-off is claimed.
+`forms-10-local-review-r1/` contains eight final local screenshots and panel/document/
+matrix-scroll metrics. A scoped anchored property overlay uses the older-cache
+geometry evidence; the rest of the survey stays in flow. On narrow screens the
+matrix has an accessible local horizontal scroll owner because the source owner
+was not captured, and the footer remains reachable through document scrolling.
+The independent browser verifier samples one low-score, one matrix cell and one
+highlight, plus 320px reachability and localized copy, without submitting.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
