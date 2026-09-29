@@ -100,6 +100,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ).toBeVisible()
       await permission.getByRole('menuitemradio').first().focus()
       await page.keyboard.press('End')
+      await expect(permission.locator('[role="menuitemradio"][data-choice="inherit"]')).toBeFocused()
+      await page.keyboard.press('ArrowUp')
       await expect(
         permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
       ).toBeFocused()
