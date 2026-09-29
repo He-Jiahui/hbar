@@ -2052,7 +2052,29 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     modelValue: (modelId) => modelId,
     timestamp: (value) => date.format(value),
     issue: () => choose('请填写符合约束的值。', 'Enter a value that satisfies the field constraints.'),
-    error: (code) => choose(`子 Agent 操作失败：${code}`, `Child agent operation failed: ${code}`),
+    error: (code) => {
+      if (code === 'PERSISTENCE_UNAVAILABLE')
+        return choose(
+          '安全重试所需的本地存储不可用。请先检查子 Agent 列表与本地存储，再尝试重试。',
+          'Recovery storage is unavailable. Check the child-agent list and local storage before retrying.',
+        )
+      if (code === 'INVALID_PERSISTED_STATE')
+        return choose(
+          '无法核对上次子 Agent 请求。请先检查原会话，不要提交新的请求。',
+          'Could not verify the previous child-agent request. Check the original session before submitting another.',
+        )
+      if (code === 'PERSISTENCE_LIMIT')
+        return choose(
+          '子 Agent 请求过长，无法保存安全重试信息。请缩短目标后重试。',
+          'This child-agent request is too long to save for a safe retry. Shorten the objective and try again.',
+        )
+      if (code === 'IDEMPOTENCY_CONFLICT')
+        return choose(
+          '上次创建结果尚未确认。已恢复原始任务，请勿修改后再重试。',
+          'The previous creation is unresolved. The original task was restored; retry it without editing.',
+        )
+      return choose(`子 Agent 操作失败：${code}`, `Child agent operation failed: ${code}`)
+    },
   }
 }
 

@@ -4,6 +4,7 @@ import {
   agentCommands,
   agentCreateInputSchema,
   agentProfileIdSchema,
+  type AgentCreateInput,
   type AgentRecord,
 } from '@hbar/contracts/commands/agents'
 import { modelCommands } from '@hbar/contracts/commands/models'
@@ -13,6 +14,7 @@ import type {
   AgentWorkspaceDraftState,
   AgentWorkspaceEntryState,
   AgentWorkspaceState,
+  ClientJsonObject,
   RuntimeOptions,
   SessionControlsState,
   SurfaceState,
@@ -21,7 +23,16 @@ import type {
 const PAGE_SIZE = 50
 const MAX_AGENTS = 500
 const MAX_PANELS = 8
+const MAX_PENDING_CREATE_BYTES = 16 * 1024
 const UNKNOWN_CODES = new Set(['RESULT_UNKNOWN', 'DISCONNECTED', 'TIMEOUT'])
+const pendingCreateSchema = z.strictObject({
+  version: z.literal(1),
+  hostId: z.string().min(1).max(160),
+  parentSessionId: z.string().min(1).max(160),
+  operationKey: z.string().min(1).max(128),
+  input: agentCreateInputSchema.refine((value) => !value.patchTask && !value.reviewTask),
+})
+type PendingCreate = z.output<typeof pendingCreateSchema>
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -46,6 +57,55 @@ function initialDraft(modelId = ''): AgentWorkspaceDraftState {
     revision: 0,
     issues: {},
   }
+}
+
+function draftFromCreateInput(input: AgentCreateInput, revision: number): AgentWorkspaceDraftState {
+  return {
+    objective: input.objective,
+    profileId: input.profileId ?? '',
+    modelId: input.modelId,
+    title: input.title ?? '',
+    tokenBudget: input.tokenBudget === undefined ? '' : String(input.tokenBudget),
+    thinkingLevel: input.thinkingLevel ?? '',
+    approval: input.approval,
+    revision,
+    issues: {},
+  }
+}
+
+function createInputMatches(left: AgentCreateInput, right: AgentCreateInput): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function pendingCreateJson(pending: PendingCreate): ClientJsonObject {
+  return {
+    version: pending.version,
+    hostId: pending.hostId,
+    parentSessionId: pending.parentSessionId,
+    operationKey: pending.operationKey,
+    input: {
+      parentSessionId: pending.input.parentSessionId,
+      objective: pending.input.objective,
+      ...(pending.input.profileId ? { profileId: pending.input.profileId } : {}),
+      modelId: pending.input.modelId,
+      ...(pending.input.title ? { title: pending.input.title } : {}),
+      ...(pending.input.tokenBudget === undefined ? {} : { tokenBudget: pending.input.tokenBudget }),
+      ...(pending.input.thinkingLevel ? { thinkingLevel: pending.input.thinkingLevel } : {}),
+      approval: pending.input.approval,
+    },
+  }
+}
+
+function serializedBytes(value: unknown): number {
+  let serialized: string | undefined
+  try {
+    serialized = JSON.stringify(value)
+  } catch {
+    throw new CommandError('INVALID_PERSISTED_STATE', 'Pending agent creation is not serializable')
+  }
+  if (serialized === undefined)
+    throw new CommandError('INVALID_PERSISTED_STATE', 'Pending agent creation is not serializable')
+  return new TextEncoder().encode(serialized).byteLength
 }
 
 function createInput(draft: AgentWorkspaceDraftState, parentSessionId: string) {
@@ -97,7 +157,62 @@ export function createAgentWorkspace(
     readonly promise: Promise<AgentWorkspaceState['catalog']>
   } | null = null
   const generations = new Map<string, number>()
-  const pendingCreateKeys = new Map<string, string>()
+  const inFlightCreateSessions = new Set<string>()
+  const pendingCreateStorageKey = (parentSessionId: string) =>
+    `hbar:agent-workspace:pending-create:${encodeURIComponent(options.hostId)}:${encodeURIComponent(parentSessionId)}`
+  const persistenceUnavailable = () =>
+    new CommandError('PERSISTENCE_UNAVAILABLE', 'Agent creation recovery storage is unavailable')
+  const readPendingCreate = async (parentSessionId: string): Promise<PendingCreate | null> => {
+    const persistence = options.persistence
+    if (!persistence) throw persistenceUnavailable()
+    let value: unknown
+    try {
+      value = await persistence.read(pendingCreateStorageKey(parentSessionId))
+    } catch {
+      throw persistenceUnavailable()
+    }
+    if (value === null || value === undefined) return null
+    const parsed = pendingCreateSchema.safeParse(value)
+    if (
+      !parsed.success ||
+      parsed.data.hostId !== options.hostId ||
+      parsed.data.parentSessionId !== parentSessionId ||
+      parsed.data.input.parentSessionId !== parentSessionId
+    )
+      throw new CommandError('INVALID_PERSISTED_STATE', 'Pending agent creation does not match this Host session')
+    if (serializedBytes(pendingCreateJson(parsed.data)) > MAX_PENDING_CREATE_BYTES)
+      throw new CommandError('INVALID_PERSISTED_STATE', 'Pending agent creation exceeds its storage limit')
+    return parsed.data
+  }
+  const writePendingCreate = async (pending: PendingCreate) => {
+    const persistence = options.persistence
+    if (!persistence) throw persistenceUnavailable()
+    const value = pendingCreateJson(pending)
+    if (serializedBytes(value) > MAX_PENDING_CREATE_BYTES)
+      throw new CommandError('PERSISTENCE_LIMIT', 'Pending agent creation exceeds its storage limit')
+    try {
+      await persistence.write(pendingCreateStorageKey(pending.parentSessionId), value)
+    } catch {
+      throw persistenceUnavailable()
+    }
+  }
+  const removePendingCreate = async (parentSessionId: string, operationKey: string) => {
+    const persistence = options.persistence
+    if (!persistence) throw persistenceUnavailable()
+    const pending = await readPendingCreate(parentSessionId)
+    if (!pending) return
+    if (pending.operationKey !== operationKey)
+      throw new CommandError('IDEMPOTENCY_CONFLICT', 'Pending agent creation changed before it could be cleared')
+    try {
+      await persistence.remove(pendingCreateStorageKey(parentSessionId))
+    } catch {
+      throw persistenceUnavailable()
+    }
+  }
+  const replaceForTarget = (entry: AgentWorkspaceEntryState) => {
+    const current = surfaces.getSnapshot().panels[entry.instanceId]
+    if (current?.panelId === 'agents' && current.sessionId === entry.parentSessionId) replace(entry)
+  }
   let previousPanels = surfaces.getSnapshot().panels
   const offSurfaces = surfaces.subscribe(() => {
     const panels = surfaces.getSnapshot().panels
@@ -105,10 +220,7 @@ export function createAgentWorkspace(
     previousPanels = panels
     if (!removed.length) return
     const ids = new Set(removed.map(([id]) => id))
-    for (const id of ids) {
-      generations.delete(id)
-      pendingCreateKeys.delete(id)
-    }
+    for (const id of ids) generations.delete(id)
     const snapshot = state.reader.getSnapshot()
     const noAgentPanels = !Object.values(panels).some((value) => value.panelId === 'agents')
     if (noAgentPanels) {
@@ -141,11 +253,31 @@ export function createAgentWorkspace(
       for (const id of ids) {
         if (id !== entry.instanceId && !surfaces.getSnapshot().panels[id]) {
           delete entries[id]
-          pendingCreateKeys.delete(id)
           break
         }
       }
     state.replace({ ...current, entries })
+  }
+  const updateSessionEntries = (
+    parentSessionId: string,
+    update: (entry: AgentWorkspaceEntryState) => AgentWorkspaceEntryState,
+  ) => {
+    if (isDisposed()) return
+    const current = state.reader.getSnapshot()
+    const entries = { ...current.entries }
+    let changed = false
+    for (const [instanceId, entry] of Object.entries(current.entries)) {
+      const target = surfaces.getSnapshot().panels[instanceId]
+      if (
+        entry.parentSessionId !== parentSessionId ||
+        target?.panelId !== 'agents' ||
+        target.sessionId !== parentSessionId
+      )
+        continue
+      entries[instanceId] = update(entry)
+      changed = true
+    }
+    if (changed) state.replace({ ...current, entries })
   }
   const refreshModels = (instanceId: string) => {
     panel(instanceId)
@@ -229,9 +361,9 @@ export function createAgentWorkspace(
       actions: sameTarget ? previous.actions : {},
       error: null,
     }
-    if (!sameTarget) pendingCreateKeys.delete(instanceId)
     replace(loading)
     try {
+      const pending = options.persistence ? await readPendingCreate(target.sessionId) : null
       const page = await requireClient().execute('agent.list', {
         parentSessionId: target.sessionId,
         limit: PAGE_SIZE,
@@ -246,12 +378,27 @@ export function createAgentWorkspace(
         : null
       const ready = {
         ...loading,
-        view: loading.view === 'detail' && selectedAgentId === null ? ('list' as const) : loading.view,
-        selectedAgentId,
+        view: pending
+          ? ('create' as const)
+          : loading.view === 'detail' && selectedAgentId === null
+            ? ('list' as const)
+            : loading.view,
+        selectedAgentId: pending ? null : selectedAgentId,
         status: 'ready' as const,
         items: page.items,
         nextCursor: page.nextCursor,
         actions,
+        ...(pending
+          ? {
+              draft: draftFromCreateInput(pending.input, loading.draft.revision),
+              creation: {
+                status: inFlightCreateSessions.has(target.sessionId) ? ('submitting' as const) : ('unknown' as const),
+                error: inFlightCreateSessions.has(target.sessionId) ? null : 'RESULT_UNKNOWN',
+              },
+            }
+          : loading.creation.status === 'unknown'
+            ? { creation: { status: 'unknown' as const, error: 'PERSISTENCE_UNAVAILABLE' } }
+            : {}),
       }
       replace(ready)
       return summary(ready)
@@ -347,14 +494,20 @@ export function createAgentWorkspace(
     replace(next)
     return summary(next)
   }
-  const create = async (instanceId: string) => {
-    const entry = state.reader.getSnapshot().entries[instanceId]
+  const createForPanel = async (instanceId: string) => {
     const target = panel(instanceId)
+    const panelAtStart = surfaces.getSnapshot().panels[instanceId]
+    const entry = state.reader.getSnapshot().entries[instanceId]
     if (!entry || entry.parentSessionId !== target.sessionId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh agent panel target')
     if (entry.view !== 'create') throw new CommandError('INVALID_INPUT', 'Open the creation form before submitting it')
     if (entry.creation.status === 'submitting') throw new CommandError('BUSY', 'Agent creation is already in progress')
-    let input
+    if (!options.persistence) {
+      const failed = { ...entry, creation: { status: 'failed' as const, error: 'PERSISTENCE_UNAVAILABLE' } }
+      replaceForTarget(failed)
+      throw persistenceUnavailable()
+    }
+    let input: AgentCreateInput
     try {
       input = createInput(entry.draft, entry.parentSessionId)
     } catch (reason) {
@@ -366,51 +519,216 @@ export function createAgentWorkspace(
       replace(failed)
       throw new CommandError('INVALID_INPUT', 'Agent creation fields are invalid')
     }
-    const submittedRevision = entry.draft.revision
-    const operationKey = pendingCreateKeys.get(instanceId) ?? crypto.randomUUID()
-    pendingCreateKeys.set(instanceId, operationKey)
-    replace({ ...entry, creation: { status: 'submitting', error: null } })
+    let pending: PendingCreate | null
     try {
-      const created = await requireClient().execute('agent.create', input, {
-        idempotencyKey: operationKey,
-        requestId: operationKey,
+      pending = await readPendingCreate(target.sessionId)
+    } catch (reason) {
+      const failed = {
+        ...entry,
+        creation: {
+          status: entry.creation.status === 'unknown' ? ('unknown' as const) : ('failed' as const),
+          error: code(reason),
+        },
+      }
+      replaceForTarget(failed)
+      throw commandFailure(reason)
+    }
+    const isSubmissionTargetCurrent = (revision: number, expectedInput: AgentCreateInput) => {
+      const currentPanel = surfaces.getSnapshot().panels[instanceId]
+      const currentEntry = state.reader.getSnapshot().entries[instanceId]
+      if (
+        isDisposed() ||
+        currentPanel !== panelAtStart ||
+        currentPanel?.panelId !== 'agents' ||
+        currentPanel.sessionId !== target.sessionId ||
+        !currentEntry ||
+        currentEntry.parentSessionId !== target.sessionId ||
+        currentEntry.view !== 'create' ||
+        currentEntry.draft.revision !== revision
+      )
+        return false
+      try {
+        return createInputMatches(createInput(currentEntry.draft, target.sessionId), expectedInput)
+      } catch {
+        return false
+      }
+    }
+    if (!isSubmissionTargetCurrent(entry.draft.revision, input))
+      throw new CommandError('VERSION_CONFLICT', 'Agent creation target changed before submission')
+    const latestEntry = state.reader.getSnapshot().entries[instanceId]!
+    if (pending && entry.creation.status !== 'unknown') {
+      const restored = {
+        ...latestEntry,
+        view: 'create' as const,
+        selectedAgentId: null,
+        draft: draftFromCreateInput(pending.input, latestEntry.draft.revision),
+        creation: { status: 'unknown' as const, error: 'RESULT_UNKNOWN' },
+      }
+      replaceForTarget(restored)
+      throw new CommandError('BUSY', 'Review the unresolved agent creation before retrying it')
+    }
+    if (pending && !createInputMatches(input, pending.input)) {
+      const failed = {
+        ...latestEntry,
+        creation: { status: 'unknown' as const, error: 'IDEMPOTENCY_CONFLICT' },
+      }
+      replaceForTarget(failed)
+      throw new CommandError('IDEMPOTENCY_CONFLICT', 'An unresolved agent creation cannot be changed or replayed')
+    }
+    if (!pending && entry.creation.status === 'unknown') {
+      const failed = { ...latestEntry, creation: { status: 'unknown' as const, error: 'PERSISTENCE_UNAVAILABLE' } }
+      replaceForTarget(failed)
+      throw persistenceUnavailable()
+    }
+    const submittedRevision = latestEntry.draft.revision
+    replaceForTarget({ ...latestEntry, creation: { status: 'submitting', error: null } })
+    if (!pending) {
+      const createdPending = pendingCreateSchema.parse({
+        version: 1,
+        hostId: options.hostId,
+        parentSessionId: target.sessionId,
+        operationKey: crypto.randomUUID(),
+        input,
       })
-      const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
-      const items = [...new Map([created, ...latest.items].map((item) => [item.agentId, item])).values()]
-      const draft =
-        latest.draft.revision === submittedRevision
+      try {
+        await writePendingCreate(createdPending)
+      } catch (reason) {
+        updateSessionEntries(target.sessionId, (current) => ({
+          ...current,
+          creation: { status: 'failed', error: code(reason) },
+        }))
+        throw commandFailure(reason)
+      }
+      pending = createdPending
+      if (!isSubmissionTargetCurrent(submittedRevision, createdPending.input)) {
+        try {
+          await removePendingCreate(target.sessionId, createdPending.operationKey)
+        } catch (reason) {
+          updateSessionEntries(target.sessionId, (current) => ({
+            ...current,
+            view: 'create',
+            selectedAgentId: null,
+            draft: draftFromCreateInput(createdPending.input, current.draft.revision),
+            creation: { status: 'unknown', error: code(reason) },
+          }))
+          throw commandFailure(reason)
+        }
+        throw new CommandError('CANCELLED', 'Agent creation target closed or changed before dispatch')
+      }
+    }
+    const dispatchPending = pending
+    if (!dispatchPending) throw persistenceUnavailable()
+    let created: AgentRecord
+    try {
+      created = await requireClient().execute('agent.create', dispatchPending.input, {
+        idempotencyKey: dispatchPending.operationKey,
+        requestId: dispatchPending.operationKey,
+      })
+    } catch (reason) {
+      const error = code(reason)
+      if (UNKNOWN_CODES.has(error)) {
+        updateSessionEntries(target.sessionId, (current) => ({
+          ...current,
+          view: 'create',
+          selectedAgentId: null,
+          draft: draftFromCreateInput(dispatchPending.input, current.draft.revision),
+          creation: { status: 'unknown', error },
+        }))
+        throw commandFailure(reason)
+      }
+      try {
+        await removePendingCreate(target.sessionId, dispatchPending.operationKey)
+      } catch (persistenceError) {
+        updateSessionEntries(target.sessionId, (current) => ({
+          ...current,
+          view: 'create',
+          selectedAgentId: null,
+          draft: draftFromCreateInput(dispatchPending.input, current.draft.revision),
+          creation: { status: 'unknown', error: code(persistenceError) },
+        }))
+        throw commandFailure(persistenceError)
+      }
+      updateSessionEntries(target.sessionId, (current) => ({
+        ...current,
+        creation: { status: 'failed', error },
+      }))
+      throw commandFailure(reason)
+    }
+    try {
+      await removePendingCreate(target.sessionId, dispatchPending.operationKey)
+    } catch (reason) {
+      updateSessionEntries(target.sessionId, (entry) => ({
+        ...entry,
+        view: 'create',
+        selectedAgentId: null,
+        status: 'ready',
+        items: [...new Map([created, ...entry.items].map((item) => [item.agentId, item])).values()],
+        draft: draftFromCreateInput(dispatchPending.input, entry.draft.revision),
+        creation: { status: 'unknown', error: code(reason) },
+        error: null,
+      }))
+      throw commandFailure(reason)
+    }
+    const latest = state.reader.getSnapshot().entries[instanceId]
+    const current = latest?.parentSessionId === target.sessionId ? latest : latestEntry
+    const items = [...new Map([created, ...current.items].map((item) => [item.agentId, item])).values()]
+    const draft =
+      current.draft.revision === submittedRevision
+        ? {
+            ...current.draft,
+            objective: '',
+            title: '',
+            tokenBudget: '',
+            issues: {},
+            revision: current.draft.revision + 1,
+          }
+        : current.draft
+    const succeeded: AgentWorkspaceEntryState = {
+      ...current,
+      view: 'detail',
+      selectedAgentId: created.agentId,
+      status: 'ready',
+      items,
+      draft,
+      creation: { status: 'succeeded', error: null },
+      error: null,
+    }
+    updateSessionEntries(target.sessionId, (entry) => {
+      if (entry.instanceId === instanceId) return succeeded
+      const sessionItems = [...new Map([created, ...entry.items].map((item) => [item.agentId, item])).values()]
+      const sessionDraft =
+        entry.draft.revision === submittedRevision
           ? {
-              ...latest.draft,
+              ...entry.draft,
               objective: '',
               title: '',
               tokenBudget: '',
               issues: {},
-              revision: latest.draft.revision + 1,
+              revision: entry.draft.revision + 1,
             }
-          : latest.draft
-      const succeeded = {
-        ...latest,
-        view: 'detail' as const,
-        selectedAgentId: created.agentId,
-        status: 'ready' as const,
-        items,
-        draft,
-        creation: { status: 'succeeded' as const, error: null },
+          : entry.draft
+      return {
+        ...entry,
+        view: 'list',
+        selectedAgentId: null,
+        status: 'ready',
+        items: sessionItems,
+        draft: sessionDraft,
+        creation: { status: 'succeeded', error: null },
         error: null,
       }
-      pendingCreateKeys.delete(instanceId)
-      replace(succeeded)
-      return summary(succeeded)
-    } catch (reason) {
-      const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
-      const error = code(reason)
-      const failed = {
-        ...latest,
-        creation: { status: UNKNOWN_CODES.has(error) ? ('unknown' as const) : ('failed' as const), error },
-      }
-      if (!UNKNOWN_CODES.has(error)) pendingCreateKeys.delete(instanceId)
-      replace(failed)
-      throw commandFailure(reason)
+    })
+    return summary(succeeded)
+  }
+  const create = async (instanceId: string) => {
+    const target = panel(instanceId)
+    if (inFlightCreateSessions.has(target.sessionId))
+      throw new CommandError('BUSY', 'Agent creation is already in progress for this session')
+    inFlightCreateSessions.add(target.sessionId)
+    try {
+      return await createForPanel(instanceId)
+    } finally {
+      inFlightCreateSessions.delete(target.sessionId)
     }
   }
   const cancel = async (instanceId: string, agentId: string) => {
@@ -487,7 +805,7 @@ export function createAgentWorkspace(
       catalogRead?.controller.abort()
       catalogRead = null
       generations.clear()
-      pendingCreateKeys.clear()
+      inFlightCreateSessions.clear()
       state.dispose()
     },
   }
