@@ -3,13 +3,17 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   LumenPaywall3Reference,
+  LumenPaywall03,
+  LumenPaywallProvider,
+  useLumenPaywallContent,
   type LumenPaywall3ReferenceContent,
   type LumenPaywall3ReferenceViewModel,
-} from '../hbar-ui/packages/lumen-app-ui/src/paywall-3-reference'
+} from '@lumen/app-ui'
 import { Paywall3PreviewHost } from '../apps/hbar-app-ui-preview/src/Paywall3PreviewHost'
 import { createPaywall3PreviewFixture } from '../apps/hbar-app-ui-preview/src/paywall3PreviewFixtures'
 import { createPaywall3PreviewStore } from '../apps/hbar-app-ui-preview/src/paywall3PreviewStore'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/index'
+import { HBAR_APP_UI_PAYWALL_FIXTURES } from './fixtures/hbar-app-ui-paywall-fixtures'
 
 function referenceModel(
   period: 'monthly' | 'yearly' = 'yearly',
@@ -144,24 +148,26 @@ describe('Paywall 3 source reference', () => {
     expect(overflow).toContain('Additional plan 12')
   })
 
-  test('host swaps only Paywall 3 and leaves other variants to the existing child', () => {
+  test('host provides Paywall 3 through the public component contract and preserves children', () => {
     const paywall3 = getHbarAppUiVariant('paywall', 3)
     const children = createElement('output', null, 'existing child')
     const rendered = renderToStaticMarkup(
       createElement(Paywall3PreviewHost, {
+        content: HBAR_APP_UI_PAYWALL_FIXTURES,
         spec: paywall3.spec,
         referenceFixture: createPaywall3PreviewFixture(),
-        children,
+        children: createElement('div', null, children, createElement(paywall3.component, {})),
       }),
     )
     expect(rendered).toContain('data-hbar-app-ui-component="hbar-app-ui-paywall-3"')
     expect(rendered).toContain(`hbar-app-ui-density-${paywall3.spec.density}`)
     expect(rendered).toContain(`hbar-app-ui-surface-${paywall3.spec.profile.surface}`)
-    expect(rendered).not.toContain('existing child')
+    expect(rendered).toContain('existing child')
 
     const other = getHbarAppUiVariant('paywall', 2)
     const fallback = renderToStaticMarkup(
       createElement(Paywall3PreviewHost, {
+        content: HBAR_APP_UI_PAYWALL_FIXTURES,
         spec: other.spec,
         referenceFixture: createPaywall3PreviewFixture(),
         children,
@@ -169,5 +175,40 @@ describe('Paywall 3 source reference', () => {
     )
     expect(fallback).toContain('existing child')
     expect(fallback).not.toContain('data-hbar-app-ui-component="hbar-app-ui-paywall-3"')
+  })
+
+  test('provider integration preserves parent content and generic plans without a reference model', () => {
+    function ParentProbe() {
+      const parent = useLumenPaywallContent()
+      return createElement('output', null, parent?.article?.labels.title, '|', parent?.plansReference?.content.period)
+    }
+    const variant = getHbarAppUiVariant('paywall', 3)
+    const inherited = renderToStaticMarkup(
+      createElement(LumenPaywallProvider, {
+        content: {
+          ...HBAR_APP_UI_PAYWALL_FIXTURES,
+          article: {
+            ...HBAR_APP_UI_PAYWALL_FIXTURES.article!,
+            labels: { ...HBAR_APP_UI_PAYWALL_FIXTURES.article!.labels, title: 'Parent article remains available' },
+          },
+        },
+        children: createElement(Paywall3PreviewHost, {
+          content: HBAR_APP_UI_PAYWALL_FIXTURES,
+          spec: variant.spec,
+          referenceFixture: createPaywall3PreviewFixture(),
+          children: createElement(ParentProbe),
+        }),
+      }),
+    )
+    expect(inherited).toContain('Parent article remains available|yearly')
+
+    const generic = renderToStaticMarkup(
+      createElement(LumenPaywallProvider, {
+        content: HBAR_APP_UI_PAYWALL_FIXTURES,
+        children: createElement(LumenPaywall03, {}),
+      }),
+    )
+    expect(generic).toContain('data-lumen-variant="3"')
+    expect(generic).not.toContain('data-paywall3-plan-id=')
   })
 })

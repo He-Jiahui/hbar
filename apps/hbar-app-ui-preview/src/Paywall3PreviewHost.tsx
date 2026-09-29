@@ -1,23 +1,27 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import {
-  LumenPaywall3Reference,
+  LumenPaywallProvider,
+  useLumenPaywallContent,
   type LumenPaywall3ReferenceViewModel,
-} from '../../../hbar-ui/packages/lumen-app-ui/src/paywall-3-reference'
+  type LumenPaywallContent,
+} from '@lumen/app-ui'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Paywall3PreviewFixture } from './paywall3PreviewFixtures'
 import { createPaywall3PreviewStore } from './paywall3PreviewStore'
 
 export function Paywall3PreviewHost({
-  className,
+  content,
   spec,
   onAction,
   referenceFixture,
   children,
 }: HbarAppUiVariantProps & {
+  readonly content: LumenPaywallContent
   readonly referenceFixture: Paywall3PreviewFixture
   readonly children: ReactNode
 }) {
+  const parentContent = useLumenPaywallContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createPaywall3PreviewStore(referenceFixture.seed), [referenceFixture.seed])
@@ -74,14 +78,8 @@ export function Paywall3PreviewHost({
   }
 
   return (
-    <LumenPaywall3Reference
-      variantId={spec.id}
-      density={spec.density}
-      surface={spec.profile.surface}
-      state={spec.profile.initialState}
-      visualMode={spec.profile.visualMode}
-      className={className}
-      viewModel={planReference}
-    />
+    <LumenPaywallProvider content={{ ...(parentContent ?? content), plansReference: planReference }}>
+      {children}
+    </LumenPaywallProvider>
   )
 }
