@@ -91,6 +91,7 @@ import './onboarding7-preview.css'
 import './paywall4-preview.css'
 import './paywall5-preview.css'
 import './paywall3-preview.css'
+import './paywall6-preview.css'
 import './wizard-preview.css'
 import './comments-preview.css'
 import { CommentsPreviewHost } from './CommentsPreviewHost'
@@ -254,6 +255,8 @@ import { Paywall5PreviewHost } from './Paywall5PreviewHost'
 import { createPaywall5PreviewFixture } from './paywall5PreviewFixtures'
 import { Paywall3PreviewHost } from './Paywall3PreviewHost'
 import { createPaywall3PreviewFixture } from './paywall3PreviewFixtures'
+import { Paywall6PreviewHost } from './Paywall6PreviewHost'
+import { createPaywall6PreviewFixture } from './paywall6PreviewFixtures'
 import { Onboarding1PreviewHost } from './Onboarding1PreviewHost'
 import { createOnboarding1PreviewFixture } from './onboarding1PreviewFixtures'
 import { HBAR_APP_UI_LIST_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-list-fixtures'
@@ -730,6 +733,13 @@ function PreviewApp() {
     return createPaywall3PreviewFixture(requested === 'localized' ? 'de' : requested === 'long' ? 'de-long' : 'en',
       capacity === 'empty' || capacity === 'one' || capacity === 'boundary' || capacity === 'overflow' ? capacity : 'source')
   }, [])
+  const paywall6ReferenceFixture = useMemo(() => {
+    const parameters = new URLSearchParams(window.location.search)
+    const requested = parameters.get('paywall6Fixture')
+    const capacity = parameters.get('paywall6Capacity')
+    return createPaywall6PreviewFixture(requested === 'localized' ? 'de' : requested === 'long' ? 'de-long' : 'en',
+      capacity === 'empty' || capacity === 'one' || capacity === 'boundary' || capacity === 'overflow' ? capacity : 'source')
+  }, [])
   const listContent = useMemo(() => HBAR_APP_UI_LIST_FIXTURES, [])
   const filteringContent = useMemo(() => HBAR_APP_UI_FILTERING_FIXTURES, [])
   const monitoringContent = useMemo(() => HBAR_APP_UI_MONITORING_FIXTURES, [])
@@ -862,6 +872,8 @@ function PreviewApp() {
                                                                           onAction={handleAction} referenceFixture={paywall5ReferenceFixture}>
                                                                           <Paywall3PreviewHost content={paywallContent} spec={selected.spec}
                                                                             onAction={handleAction} referenceFixture={paywall3ReferenceFixture}>
+                                                                            <Paywall6PreviewHost content={paywallContent} spec={selected.spec}
+                                                                              onAction={handleAction} referenceFixture={paywall6ReferenceFixture}>
                                                                       <PlanPreviewHost content={agentPlanContent}>
                                                                         <ApprovalPreviewHost
                                                                           content={agentApprovalContent}
@@ -1081,6 +1093,7 @@ function PreviewApp() {
                                                                           </HbarAppUiAgentActivityProvider>
                                                                         </ApprovalPreviewHost>
                                                                       </PlanPreviewHost>
+                                                                            </Paywall6PreviewHost>
                                                                           </Paywall3PreviewHost>
                                                                         </Paywall5PreviewHost>
                                                                       </Paywall4PreviewHost>
@@ -1300,6 +1313,8 @@ function PreviewApp() {
                                                                                     onAction={handleAction} referenceFixture={paywall5ReferenceFixture}>
                                                                                     <Paywall3PreviewHost content={paywallContent} spec={selected.spec}
                                                                                       onAction={handleAction} referenceFixture={paywall3ReferenceFixture}>
+                                                                                      <Paywall6PreviewHost content={paywallContent} spec={selected.spec}
+                                                                                        onAction={handleAction} referenceFixture={paywall6ReferenceFixture}>
                                                                                 <PlanPreviewHost
                                                                                   content={agentPlanContent}
                                                                                 >
@@ -1537,6 +1552,7 @@ function PreviewApp() {
                                                                                     </HbarAppUiAgentActivityProvider>
                                                                                   </ApprovalPreviewHost>
                                                                                 </PlanPreviewHost>
+                                                                                      </Paywall6PreviewHost>
                                                                                     </Paywall3PreviewHost>
                                                                                   </Paywall5PreviewHost>
                                                                                 </Paywall4PreviewHost>
