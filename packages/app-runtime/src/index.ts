@@ -691,6 +691,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     controls: controls.reader,
     permissions: composerPermission.reader,
     sessionApprovalSettingsAvailable: Boolean(options.settings),
+    planModes: composerPlanMode.reader,
+    sessionPlanModeAvailable: Boolean(options.planMode),
     drafts: drafts.reader,
     queries: directory.queries,
     tabs: workspaceTabs.hooks,

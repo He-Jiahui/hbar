@@ -69,7 +69,11 @@ function gate() {
   return { promise, release: open, entered: started, markEntered: entered }
 }
 
-function fixture(options: { readonly sessionSettings?: boolean; readonly invalidateApprovalOnWrite?: boolean } = {}) {
+function fixture(options: {
+  readonly sessionSettings?: boolean
+  readonly invalidateApprovalOnWrite?: boolean
+  readonly planMode?: boolean
+} = {}) {
   const workspaces = new Map([workspace('workspace-a'), workspace('workspace-b')].map((value) => [value.id, value]))
   const sessions = new Map<string, Session>()
   const models = new Map<string, ModelConfiguration>()
@@ -79,21 +83,30 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
   const permissionChoices = new Map<string, 'ask' | 'deny' | 'allow'>()
   const permissionRevisions = new Map<string, number>()
   const permissionReceipts = new Map<string, SettingsReceipt>()
+  const hostPlanModes = new Map<string, 'default' | 'plan'>()
+  const planModeReceipts = new Map<string, { readonly mode: 'default' | 'plan' }>()
   const createCalls: { key: string; workspaceId: string }[] = []
   const permissionWrites: { key: string; sessionId: string; choice: 'ask' | 'deny' | 'allow' | 'inherit' }[] = []
+  const planModeWrites: { key: string; sessionId: string; mode: 'default' | 'plan' }[] = []
   const runCalls: {
     sessionId: string
     key: string
     text: string
     approval: 'ask' | 'deny' | 'allow' | undefined
+    mode: 'default' | 'plan' | undefined
   }[] = []
   let createGate: ReturnType<typeof gate> | null = null
   let permissionWriteGate: ReturnType<typeof gate> | null = null
   let permissionReadGateAfterWrite: ReturnType<typeof gate> | null = null
+  let planModeWriteGate: ReturnType<typeof gate> | null = null
+  let planModeReadGate: ReturnType<typeof gate> | null = null
   let blockNextPermissionRead = false
+  let blockNextPlanModeReadOnGet = false
   let permissionInvalidationListener: (() => void) | null = null
+  let planModeEventListener: ((sessionId: string) => void) | null = null
   let loseNextCreateReply = false
   let loseNextPermissionWriteReply = false
+  let loseNextPlanModeWriteReply = false
   let failModelReads = false
   let unknownNextRun = false
   let nextSession = 0
@@ -209,7 +222,13 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
       const input = runCommands['run.submit'].input.parse(raw)
       const key = options.idempotencyKey
       if (!key) throw new Error('First Run requires its stable idempotency key')
-      runCalls.push({ sessionId: input.sessionId, key, text: input.input.text, approval: input.input.approval })
+      runCalls.push({
+        sessionId: input.sessionId,
+        key,
+        text: input.input.text,
+        approval: input.input.approval,
+        mode: input.input.mode,
+      })
       const accepted: RunAccepted = {
         status: 'accepted',
         commandId: 'run.submit',
@@ -356,10 +375,47 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
   }
 
   const configuration: CommandExecutor = {
-    async execute(name, raw) {
-      if (name !== 'permission.get') throw new Error(`Unexpected configuration command: ${name}`)
-      configurationCommands[name].input.parse(raw)
-      return { mode: 'ask' }
+    async execute(name, raw, execution: ExecuteOptions = {}) {
+      if (name === 'permission.get') {
+        configurationCommands[name].input.parse(raw)
+        return { mode: 'ask' }
+      }
+      if (name === 'mode.get') {
+        const input = configurationCommands[name].input.parse(raw)
+        if (blockNextPlanModeReadOnGet) {
+          blockNextPlanModeReadOnGet = false
+          const held = planModeReadGate
+          planModeReadGate = null
+          if (held) {
+            held.markEntered()
+            await held.promise
+          }
+        }
+        return configurationCommands[name].output.parse({ mode: hostPlanModes.get(input.sessionId) ?? 'default' })
+      }
+      if (name === 'mode.set') {
+        const input = configurationCommands[name].input.parse(raw)
+        const key = execution.idempotencyKey
+        if (!key) throw new Error('Session Plan mode writes require an idempotency key')
+        const existing = planModeReceipts.get(key)
+        if (existing) return existing
+        hostPlanModes.set(input.sessionId, input.mode)
+        const receipt = configurationCommands[name].output.parse({ mode: input.mode })
+        planModeReceipts.set(key, receipt)
+        planModeWrites.push({ key, sessionId: input.sessionId, mode: input.mode })
+        const held = planModeWriteGate
+        if (held) {
+          planModeWriteGate = null
+          held.markEntered()
+          await held.promise
+        }
+        if (loseNextPlanModeWriteReply) {
+          loseNextPlanModeWriteReply = false
+          throw new CommandError('RESULT_UNKNOWN', 'Host Plan mode was written but its reply was lost')
+        }
+        return receipt
+      }
+      throw new Error(`Unexpected configuration command: ${name}`)
     },
   }
 
@@ -371,6 +427,7 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
     models: modelCommandsPort,
     run,
     ...(options.sessionSettings ? { settings: sessionSettings, configuration } : {}),
+    ...(options.planMode ? { planMode: configuration } : {}),
     ...(options.invalidateApprovalOnWrite
       ? {
           permissionEvents: {
@@ -383,12 +440,26 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
           },
         }
       : {}),
+    ...(options.planMode
+      ? {
+          planModeEvents: {
+            subscribe(listener: (sessionId: string) => void) {
+              planModeEventListener = listener
+              return () => {
+                if (planModeEventListener === listener) planModeEventListener = null
+              }
+            },
+          },
+        }
+      : {}),
   })
   return {
     runtime,
     createCalls,
     runCalls,
     permissionWrites,
+    planModeWrites,
+    hostPlanModes,
     sessions,
     holdNextCreate() {
       const held = gate()
@@ -401,6 +472,9 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
     losePermissionWriteReply() {
       loseNextPermissionWriteReply = true
     },
+    losePlanModeWriteReply() {
+      loseNextPlanModeWriteReply = true
+    },
     holdNextPermissionWrite() {
       const held = gate()
       permissionWriteGate = held
@@ -410,6 +484,22 @@ function fixture(options: { readonly sessionSettings?: boolean; readonly invalid
       const held = gate()
       permissionReadGateAfterWrite = held
       return held
+    },
+    holdNextPlanModeWrite() {
+      const held = gate()
+      planModeWriteGate = held
+      return held
+    },
+    holdNextPlanModeRead() {
+      const held = gate()
+      planModeReadGate = held
+      return held
+    },
+    blockNextPlanModeRead() {
+      blockNextPlanModeReadOnGet = true
+    },
+    emitPlanModeEvent(sessionId: string) {
+      planModeEventListener?.(sessionId)
     },
     failModelReads(value: boolean) {
       failModelReads = value
@@ -427,6 +517,7 @@ async function createDraft(
     readonly text: string
     readonly modelId?: string
     readonly approvalChoice?: 'inherit' | 'ask' | 'deny' | 'allow'
+    readonly planMode?: 'default' | 'plan'
   },
 ) {
   const draftId = crypto.randomUUID()
@@ -450,6 +541,14 @@ async function createDraft(
       draftId,
       choice: options.approvalChoice,
       ...(options.approvalChoice === 'allow' ? { confirmAllow: true as const } : {}),
+      expectedRevision: revision,
+    })
+    revision++
+  }
+  if (options.planMode) {
+    await runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId,
+      mode: options.planMode,
       expectedRevision: revision,
     })
     revision++
@@ -515,6 +614,40 @@ test('approval choice is revisioned and auto-approval requires explicit confirma
   }
 })
 
+test('Plan mode is an independent revisioned draft choice', async () => {
+  const f = fixture()
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+    expect(opened.planMode).toBe('default')
+    const plan = await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId,
+      mode: 'plan',
+      expectedRevision: 0,
+    })
+    expect(plan).toEqual({ draftId, revision: 1 })
+    const unchanged = await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId,
+      mode: 'plan',
+      expectedRevision: 1,
+    })
+    expect(unchanged).toEqual({ draftId, revision: 1 })
+    const defaultMode = await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId,
+      mode: 'default',
+      expectedRevision: 1,
+    })
+    expect(defaultMode).toEqual({ draftId, revision: 2 })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      approvalChoice: 'inherit',
+      planMode: 'default',
+      revision: 2,
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 test('an explicit approval choice fails before Host creation when session settings are unavailable', async () => {
   const f = fixture()
   try {
@@ -542,6 +675,33 @@ test('an explicit approval choice fails before Host creation when session settin
   }
 })
 
+test('Plan mode fails before Host creation when the Host mode capability is unavailable', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this for a Host with Plan mode',
+      modelId: model.id,
+      planMode: 'plan',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      planMode: 'plan',
+      text: 'keep this for a Host with Plan mode',
+      sessionId: null,
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 test('inherit leaves the new Session unoverridden and captures the Host default for the Run', async () => {
   const f = fixture({ sessionSettings: true })
   try {
@@ -559,6 +719,151 @@ test('inherit leaves the new Session unoverridden and captures the Host default 
     expect(f.runCalls[0]?.approval).toBe('ask')
     expect(result.accepted.sessionId).toBe(result.sessionId)
   } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('Plan first-send sets durable Host mode without changing inherited approval', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'start this Session in durable Plan mode',
+      modelId: model.id,
+      planMode: 'plan',
+    })
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(f.planModeWrites).toHaveLength(1)
+    expect(f.planModeWrites[0]).toMatchObject({ sessionId: result.sessionId, mode: 'plan' })
+    expect(f.hostPlanModes.get(result.sessionId)).toBe('plan')
+    expect(f.permissionWrites).toEqual([])
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ mode: 'plan', approval: 'ask' })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a Plan-mode event refresh settles before the first Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  const read = f.holdNextPlanModeRead()
+  let eventSent = false
+  let unsubscribe = () => {}
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'wait for the Host Plan mode projection',
+      modelId: model.id,
+      planMode: 'plan',
+    })
+    unsubscribe = f.runtime.view.state.composerPlanMode.subscribe(() => {
+      const entry = f.runtime.view.state.composerPlanMode.getSnapshot().entries['session-1']
+      if (!eventSent && entry?.status === 'ready' && entry.mode === 'plan') {
+        eventSent = true
+        queueMicrotask(() => {
+          f.blockNextPlanModeRead()
+          f.emitPlanModeEvent('session-1')
+        })
+      }
+    })
+    const submit = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await read.entered
+    expect(f.runtime.view.state.composerPlanMode.getSnapshot().entries['session-1']).toMatchObject({
+      mode: null,
+      status: 'loading',
+    })
+    expect(f.runCalls).toEqual([])
+    read.release()
+    const result = await submit
+    expect(result.sessionId).toBe('session-1')
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ mode: 'plan', approval: 'ask' })
+  } finally {
+    unsubscribe()
+    read.release()
+    f.runtime.dispose()
+  }
+})
+
+test('an unknown Host Plan-mode write reconciles by read without repeating the write or Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  f.losePlanModeWriteReply()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'recover the same durable Plan mode and first Run',
+      modelId: model.id,
+      planMode: 'plan',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'unknown',
+      unknownStage: 'planMode',
+      sessionId: 'session-1',
+      planMode: 'plan',
+    })
+    expect(f.planModeWrites).toHaveLength(1)
+    expect(f.runCalls).toEqual([])
+
+    await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(f.planModeWrites).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ mode: 'plan', approval: 'ask' })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      planMode: 'plan',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a target switch during Host Plan-mode setup preserves the Session draft and skips Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  const held = f.holdNextPlanModeWrite()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep visible if navigation changes during Plan setup',
+      modelId: model.id,
+      planMode: 'plan',
+    })
+    const submit = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await held.entered
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    held.release()
+    await expect(submit).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    expect(f.hostPlanModes.get('session-1')).toBe('plan')
+    expect(f.planModeWrites).toHaveLength(1)
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.navigation.getSnapshot()).toMatchObject({ workspaceId: 'workspace-b', sessionId: null })
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe(
+      'keep visible if navigation changes during Plan setup',
+    )
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'STALE_TARGET',
+      sessionId: 'session-1',
+      planMode: 'plan',
+      text: 'keep visible if navigation changes during Plan setup',
+    })
+  } finally {
+    held.release()
     f.runtime.dispose()
   }
 })

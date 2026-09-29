@@ -12,6 +12,7 @@ import type { DraftsState, NavigationState, RunCommandPort, SessionControlsState
 import type { DirectoryQueries } from './directory'
 import type { WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
 import type { ComposerPermissionEntry, ComposerPermissionState } from './composer-permission'
+import type { ComposerPlanModeEntry, ComposerPlanModeState } from './composer-plan-mode'
 
 const MAX_DRAFTS = 100
 const MAX_PENDING = 32
@@ -28,6 +29,7 @@ const UNKNOWN_CREATE_CODES = new Set([
 ])
 const UNKNOWN_OPERATION_CODES = new Set(UNKNOWN_CREATE_CODES)
 const PERMISSION_READ_TIMEOUT_MS = 15_000
+const PLAN_MODE_READ_TIMEOUT_MS = 15_000
 
 interface PendingSubmission {
   readonly draftId: string
@@ -38,8 +40,9 @@ interface PendingSubmission {
   readonly text: string
   readonly requestedModelId: string | null
   readonly approvalChoice: PreSessionDraftState['approvalChoice']
+  readonly planMode: PreSessionDraftState['planMode']
   navigationFence: Readonly<NavigationState>
-  stage: 'create' | 'model' | 'approval' | 'run'
+  stage: 'create' | 'model' | 'approval' | 'planMode' | 'run'
   sessionId: string | null
   modelId: string | null
   approvalWriteStarted: boolean
@@ -52,6 +55,8 @@ interface PreSessionDraftOptions {
   readonly controls: StateReader<SessionControlsState>
   readonly permissions: StateReader<ComposerPermissionState>
   readonly sessionApprovalSettingsAvailable: boolean
+  readonly planModes: StateReader<ComposerPlanModeState>
+  readonly sessionPlanModeAvailable: boolean
   readonly drafts: StateReader<DraftsState>
   readonly queries: DirectoryQueries
   readonly tabs: WorkspaceTabNavigationHooks
@@ -79,6 +84,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     text: '',
     modelId: null,
     approvalChoice: 'inherit',
+    planMode: 'default',
     revision: 0,
     phase: 'idle',
     unknownStage: null,
@@ -138,12 +144,17 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       throw new CommandError('BUSY', 'Reconcile the pending first submission before editing')
     if (current.phase === 'accepted') throw new CommandError('STALE_TARGET', 'This pre-session draft was already sent')
   }
-  const requireCapabilities = (approvalChoice: PreSessionDraftState['approvalChoice']): void => {
+  const requireCapabilities = (
+    approvalChoice: PreSessionDraftState['approvalChoice'],
+    planMode: PreSessionDraftState['planMode'],
+  ): void => {
     if (!options.workspaces) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session creation is unavailable')
     if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model configuration is unavailable')
     if (!options.run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable')
     if (approvalChoice !== 'inherit' && !options.sessionApprovalSettingsAvailable)
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host session approval settings are unavailable')
+    if (planMode === 'plan' && !options.sessionPlanModeAvailable)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host session Plan mode is unavailable')
   }
   const requireModels = (): CommandExecutor => {
     if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model configuration is unavailable')
@@ -276,6 +287,46 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     })
   }
 
+  const waitForPlanModeEntry = async (sessionId: string): Promise<ComposerPlanModeEntry> => {
+    const entry = () => options.planModes.getSnapshot().entries[sessionId]
+    const current = entry()
+    if (current?.status === 'unknown')
+      throw new CommandError('RESULT_UNKNOWN', 'Reconcile the original Host Plan mode write before continuing')
+    if (!current || current.status === 'failed') {
+      void local.execute('composerPlanMode.refresh', { sessionId }).catch(() => undefined)
+    }
+
+    return new Promise<ComposerPlanModeEntry>((resolve, reject) => {
+      let complete = false
+      let unsubscribe = () => {}
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      const finish = (settle: () => void) => {
+        if (complete) return
+        complete = true
+        if (timeout !== undefined) clearTimeout(timeout)
+        unsubscribe()
+        settle()
+      }
+      const check = () => {
+        const value = entry()
+        if (disposed || options.isDisposed()) {
+          finish(() => reject(new CommandError('DISPOSED', 'Pre-session drafts were disposed')))
+        } else if (value?.status === 'ready' && value.mode !== null) {
+          finish(() => resolve(value))
+        } else if (value?.status === 'unknown') {
+          finish(() => reject(new CommandError('RESULT_UNKNOWN', 'Reconcile the original Host Plan mode write')))
+        } else if (value?.status === 'failed') {
+          finish(() => reject(new CommandError(value.error ?? 'EXECUTION_FAILED', 'Host Plan mode read failed')))
+        }
+      }
+      unsubscribe = options.planModes.subscribe(check)
+      timeout = setTimeout(() => {
+        finish(() => reject(new CommandError('TIMEOUT', 'Host Plan mode could not be confirmed')))
+      }, PLAN_MODE_READ_TIMEOUT_MS)
+      check()
+    })
+  }
+
   const applyApprovalChoice = async (operation: PendingSubmission): Promise<void> => {
     if (operation.approvalChoice === 'inherit') return
     const sessionId = operation.sessionId
@@ -307,11 +358,33 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     assertSelectionFence(operation)
   }
 
+  const applyPlanMode = async (operation: PendingSubmission): Promise<void> => {
+    if (operation.planMode === 'default') return
+    const sessionId = operation.sessionId
+    if (!sessionId) throw new CommandError('INVALID_STATE', 'The Session must be created before Plan mode setup')
+    await ensureSelected(operation)
+    const current = await waitForPlanModeEntry(sessionId)
+    assertSelectionFence(operation)
+    if (current.mode !== operation.planMode) {
+      await local.execute('composerPlanMode.setMode', {
+        sessionId,
+        mode: operation.planMode,
+        expectedRevision: current.revision,
+      })
+    }
+    // mode.changed can invalidate the projection as the Host write settles.
+    // The Run is allowed only after the durable Host mode is again confirmed.
+    const confirmed = await waitForPlanModeEntry(sessionId)
+    if (confirmed.mode !== operation.planMode)
+      throw new CommandError('VERSION_CONFLICT', 'Host Plan mode changed before the first Run')
+    assertSelectionFence(operation)
+  }
+
   const continueSubmission = async (
     operation: PendingSubmission,
     reconcilingUnknownCreate = false,
   ): Promise<RunAccepted> => {
-    requireCapabilities(operation.approvalChoice)
+    requireCapabilities(operation.approvalChoice, operation.planMode)
     if (operation.stage === 'create') {
       if (!reconcilingUnknownCreate) assertSelectionFence(operation)
       options.tabs.reserveCreation(operation.createKey, operation.workspaceId)
@@ -334,7 +407,10 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       operation.modelId = await confirmModel(operation)
       assertSelectionFence(operation)
       if (disposed || options.isDisposed()) throw new CommandError('DISPOSED', 'Pre-session drafts were disposed')
-      if (operation.approvalChoice === 'inherit') {
+      if (operation.planMode === 'plan') {
+        operation.stage = 'planMode'
+        setPhase(operation, 'configuring')
+      } else if (operation.approvalChoice === 'inherit') {
         // A new Host Session already inherits approval. Leave it unoverridden;
         // composerIntent captures the effective Host default before submitting.
         operation.stage = 'run'
@@ -342,6 +418,12 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         operation.stage = 'approval'
         setPhase(operation, 'configuring')
       }
+    }
+
+    if (operation.stage === 'planMode') {
+      await applyPlanMode(operation)
+      operation.stage = operation.approvalChoice === 'inherit' ? 'run' : 'approval'
+      setPhase(operation, 'configuring')
     }
 
     if (operation.stage === 'approval') {
@@ -419,6 +501,14 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
           throw new CommandError('RESULT_UNKNOWN', 'The original first Run receipt is not confirmed')
         settle(operation, receipt)
         return receipt
+      } else if (reconcile && operation.stage === 'planMode') {
+        if (!operation.sessionId)
+          throw new CommandError('INVALID_STATE', 'Unknown Host Plan mode write has no Session target')
+        await ensureSelected(operation)
+        const planMode = options.planModes.getSnapshot().entries[operation.sessionId]
+        if (planMode?.status === 'unknown') {
+          await local.execute('composerPlanMode.reconcile', { sessionId: operation.sessionId })
+        }
       } else if (reconcile && operation.stage === 'approval') {
         if (!operation.sessionId)
           throw new CommandError('INVALID_STATE', 'Unknown Host approval write has no Session target')
@@ -444,6 +534,9 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       const permission = operation.sessionId
         ? options.permissions.getSnapshot().entries[operation.sessionId]
         : undefined
+      const planMode = operation.sessionId
+        ? options.planModes.getSnapshot().entries[operation.sessionId]
+        : undefined
       const uncertain =
         operation.stage === 'create'
           ? UNKNOWN_CREATE_CODES.has(code)
@@ -452,6 +545,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
                 permission?.writeUnknown ||
                   (operation.approvalWriteStarted && UNKNOWN_OPERATION_CODES.has(code)),
               )
+            : operation.stage === 'planMode'
+              ? planMode?.status === 'unknown'
             : UNKNOWN_OPERATION_CODES.has(code)
       if (pending.get(operation.draftId) === operation) {
         if (uncertain) setPhase(operation, 'unknown', code, operation.stage)
@@ -572,6 +667,24 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     },
   )
 
+  local.register(preSessionDraftCommands['preSessionDraft.setPlanMode'], ({ draftId, mode, expectedRevision }) => {
+    const current = entry(draftId)
+    requireEditable(draftId, current)
+    checkRevision(current, expectedRevision)
+    if (current.planMode === mode) return { draftId, revision: current.revision }
+    const value = {
+      ...current,
+      planMode: mode,
+      revision: current.revision + 1,
+      phase: current.phase === 'failed' ? ('idle' as const) : current.phase,
+      unknownStage: null,
+      error: null,
+      accepted: null,
+    }
+    publish(value)
+    return { draftId, revision: value.revision }
+  })
+
   local.register(preSessionDraftCommands['preSessionDraft.submit'], async (input) => {
     const current = entry(input.draftId)
     if (current.phase === 'accepted' && current.accepted && current.sessionId)
@@ -583,7 +696,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const workspaceId = current.workspaceId
     if (!workspaceId) throw new CommandError('WORKSPACE_REQUIRED', 'Choose a Workspace before sending')
     if (!current.text.trim()) throw new CommandError('INVALID_INPUT', 'A first message must contain text')
-    requireCapabilities(current.approvalChoice)
+    requireCapabilities(current.approvalChoice, current.planMode)
     if (pending.size >= MAX_PENDING) throw new CommandError('BUSY', 'Too many first submissions are pending')
     const requestedModelId = input.modelId ?? current.modelId
     const operation: PendingSubmission = {
@@ -595,6 +708,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       text: current.text,
       requestedModelId,
       approvalChoice: current.approvalChoice,
+      planMode: current.planMode,
       navigationFence: options.navigation.getSnapshot(),
       stage: current.sessionId ? 'model' : 'create',
       sessionId: current.sessionId,
