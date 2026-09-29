@@ -800,7 +800,33 @@ y347–387 可达，无水平溢出。初次 wheel 检查若在动画首帧读�
 断言）、根与 Lumen 类型检查、限定文件 lint、O2 CSS stylelint、图标守卫、预览构建
 和浏览器脚本通过；构建有大 chunk 提示。整个 `onboarding.tsx` 的 ESLint 仍有 9 个
 已有错误（HEAD 有 10 个），本增量未增加错误，不能称全文件 lint 通过。
-交付时出现并行根仓 Git 提交竞争：O2 根接线五个精确路径在暂存后被另一任务的
-`6953a14` 一并提交，混入其桌面模型菜单变更。已核对该提交包含 O2 host、CSS、
-main 路由、测试和 Lumen gitlink；此处不能宣称根接线拥有独立提交。未改写并行历史，
-O2 Lumen 与验证台账仍各自独立提交，其它任务文件未被本任务清理。
+交付时出现并行根仓 Git 提交竞争：O2 根接线五个精确路径在暂存后曾被另一任务的
+`6953a14` 一并提交，混入其桌面模型菜单变更。另一任务随后用 `de2e098` 将这五个
+路径从自己的提交中移除并保留工作树内容；本任务将 O2 的精确 main 补丁与其余四个
+路径独立提交为 `1493bd8`。没有改写历史，也没有清理其它任务文件。
+
+Onboarding 3（getting-started checklist）六行任务由宿主提供稳定 ID、英文/德语标题、
+说明、逐项 action link 与初始完成集合；初态 Profile、Workspace 两项 checked，
+progressbar 为 2/6。旧同目标 hash 的 dark/mobile Profile checkbox 点击，来源
+`before.json`/`after.json` 与图片实际显示 checked→unchecked、2/6→1/6、进度填充
+75.95→39.13px。旧 `comparison.json` 却写 `source-no-op`，原因是其签名只比较
+bodyTextLength、overflow 和若干控件字段，没有 checkbox `checked` 或 AX 进度文案。
+初始模型提交 `0292f77` 因信任该摘要而误作 no-op；独立修复 `5c2e72d` 用原始
+前后证据改为唯一已证的本地状态转移并加回归测试。其它勾选/链接没有可靠结果，
+宿主只发类型化请求，不伪造远端进度或导航。
+
+授权 `full-static-v10` 与 `full-interactions-v4` 目标 sourceHash 同为
+`396e5c679645f9d54792a317e5899cb5b94205d54f9836d25f9f4313b2b3f0ba`，
+但旧 schemaVersion 1 无当前协议，**未签 fresh strict**。独立浏览器脚本仅抽 Profile
+一次取消勾选，验证 2/6→1/6、六个 checkbox/六链接、进度条 aria-valuenow、德语
+及 page errors=0；mobile356 无文档横溢，320×420 真实滚轮使文档 scrollTop=495，
+底部说明 y383.55–419.92 可达。来源窄屏静态缓存有 17/18 处文本截断，本地选择
+正常流保全文案，此为已记录的可读性差异而非严格像素配对。
+
+O3 宿主模型的误判修复为 `5c2e72d`，Lumen 实现为 `e50aac0`，根接线为
+`988feef`，抽样计划及浏览器脚本为 `b2e0f4e`。本地双主题 desktop/tablet/mobile/
+stress 八图及 Profile 取消勾选在 `artifacts/onboarding3-local-review/`；桌面内容
+高度约 549.4px，对照来源约 553px，但这些并非 fresh source/local 同轮配对。
+9 项专项测试（59 条断言）、根与 Lumen 类型检查、预览构建、限定文件 lint、
+stylelint、内容/图标/流式布局守卫和浏览器脚本通过。共享 `onboarding.tsx` 的
+全文件 lint 仍有既存错误，不宣称全文件通过。

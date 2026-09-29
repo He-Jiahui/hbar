@@ -193,6 +193,28 @@ The final local desktop/mobile light/dark views, Role state and short-height
 capture are in `artifacts/onboarding2-local-review/`; they are not same-round
 source/local pairs.
 
+### Onboarding 3 integration status
+
+`hbar-app-ui-onboarding-3` uses a host-owned six-task checklist, initially
+2 of 6 complete. Each row has a checkbox, title/detail and a separate task
+action link; the host supplies all copy and stable IDs. The one reliable
+same-target-hash before/after sample clicks the completed Profile checkbox:
+it becomes unchecked and progress falls to 1 of 6. Other completion changes
+and link outcomes remain typed requests, without invented navigation or
+progress persistence. The narrow local flow keeps content readable rather
+than reproducing source text truncation.
+
+The authorized [Onboarding 3 checklist](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-3)
+`full-static-v10` and `full-interactions-v4` entries share source hash
+`396e5c679645f9d54792a317e5899cb5b94205d54f9836d25f9f4313b2b3f0ba`,
+but the interaction cache lacks the current capture protocol, so this is not
+fresh strict acceptance. Its old comparator labels the Profile click a
+`source-no-op` because its delta signature omits checkbox checked and AX
+progress text. The raw before/after AX and image show the actual 2/6→1/6
+transition, now covered by the host store and browser verifier. At 320×420 a
+real wheel scroll reaches the local footer (`documentScrollTop=495`) without
+horizontal overflow; source scroll ownership was not captured.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
