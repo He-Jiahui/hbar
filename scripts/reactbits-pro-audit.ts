@@ -1771,6 +1771,10 @@ export function interactionCases(
               ? 'A'.repeat(120)
               : undefined
           : undefined
+      const forms5FillValue =
+        variantId === 'hbar-app-ui-forms-5' && capability === 'fill' && control.index === 1
+          ? 'riverside'
+          : undefined
       cases.push({
         id: `${prefix}:${capability}`,
         action: capability,
@@ -1781,6 +1785,7 @@ export function interactionCases(
         ...(settingsForm6FillValue === undefined ? {} : { fillValue: settingsForm6FillValue }),
         ...(formsForm1FillValue === undefined ? {} : { fillValue: formsForm1FillValue }),
         ...(forms2FillValue === undefined ? {} : { fillValue: forms2FillValue }),
+        ...(forms5FillValue === undefined ? {} : { fillValue: forms5FillValue }),
       })
       if (capability === 'expand' || capability === 'menu')
         cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })

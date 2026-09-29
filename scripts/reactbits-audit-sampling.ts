@@ -565,6 +565,69 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-forms-5')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-5-reference.tsx',
+        'forms-5-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:fill',
+          change: 'Enter the source-observed demo workspace address and wait for its availability feedback',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '4:click',
+          change: 'Toggle Show password and inspect masking state without submitting the workspace',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '6:expand',
+          change: 'Open Data region and expose the observed region choices',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '7:toggle',
+          change: 'Choose Solo clinic while preserving the form’s disabled creation state',
+        },
+        {
+          viewport: 'stress',
+          theme: 'dark',
+          suffix: '10:toggle',
+          change: 'Toggle the protected-health-information consent checkbox',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Create disabled-to-enabled transition after completing all required fields',
+          basis:
+            'A source-safe live probe filled the organization, the observed available `riverside` address, admin email, password and confirmation, chose a data region and plan, and accepted consent; the source status changed to ready and Create became enabled. The local typed store and preview are checked for the corresponding derived state, without clicking Create.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Remote workspace provisioning result',
+          basis:
+            'Create was never clicked in the source. The local control is a callback-only request and does not create a workspace or display a successful provisioning result.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Equivalent control mechanisms across other viewports and themes',
+          basis:
+            'Eight static pairs cover all four viewport sizes and both themes; the five live interaction samples exercise distinct address, password visibility, region, plan, and consent mechanisms without multiplying those actions by layout.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-4')
     return {
       revision: 2,

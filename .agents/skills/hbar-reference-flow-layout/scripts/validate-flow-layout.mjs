@@ -89,6 +89,10 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Forms 5: the observed data-region options list overlays the plan cards.
+  // Only the listbox container floats; the options and surrounding form stay in flow.
+  if (/packages\/lumen-app-ui\/src\/forms-5-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-forms-5-region-options') return true
   // Settings Form 4: the observed member action menu overlays its trigger row.
   // Only the anchored menu container floats; member content and menu choices flow.
   if (/packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
