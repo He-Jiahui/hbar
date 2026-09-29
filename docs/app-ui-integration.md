@@ -144,6 +144,32 @@ mouse wheel scroll reaches Request (`documentScrollTop=698`) with no horizontal
 overflow. The independent browser verifier samples Business Edit and one consent,
 then checks localization and narrow reachability without Save or Request.
 
+### Onboarding 1 integration status
+
+`hbar-app-ui-onboarding-1` uses a dedicated profile form and a host-owned Zustand
+draft rather than the generic onboarding fixture. The host supplies all labels,
+the four native timezone options, initial Sam Rivera/Product Engineer/Berlin and
+updates opt-in, plus a directory-preview projection. Desktop presents form and
+preview in two flow columns; tablet and narrower widths hide the preview and
+keep the form in normal flow. Upload photo and Continue emit typed requests only:
+the source cache does not show upload, validation or a later navigation result.
+The preview's post-edit projection is a local inference, not a matched source
+desktop after-state.
+
+The authorized [Onboarding 1 profile](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-1)
+`full-static-v10` and `full-interactions-v4` caches share source hash
+`2d34fb8f19ec4c1e4934800f987b1f426aea8446c744372cc4b4a1ef1b665a4a`,
+but the old schema has no current capture protocol. The official page was
+unavailable this round; no fresh strict visual or interaction sign-off is claimed.
+The useful dark/mobile samples show a name fill, selecting the timezone
+placeholder and opting out of updates; the preview is hidden there. The local
+browser verifier samples those distinct mechanisms, default desktop content and
+localized copy. At 286×640 Continue is visible without horizontal overflow; a
+real mouse wheel at 320×420 scrolls the document 176px to reveal Continue.
+The eight final local light/dark viewport images, edited-name desktop sample and
+short-height reachability capture are in `artifacts/onboarding1-local-review/`.
+They support a local geometry review, not a fresh source/local pair.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

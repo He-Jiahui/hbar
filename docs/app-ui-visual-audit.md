@@ -756,3 +756,24 @@ tablet 670×1142、mobile 356×1400、320 为 320×1418；八组无横溢，
 根与 Lumen 类型检查、scoped lint、flow/content/icon guards、预览构建通过，构建
 仍有大 chunk 提示。design-system-boundaries 全局检查另有六项不在 Forms 12 文件中
 的既有失败，不记为通过；静态图不冒充实时来源对，四个 Edit×四布局不逐一回放。
+
+Onboarding 1（Set up your profile）改为宿主提供英文/德语类型化文案、四个时区选项、
+Sam Rivera / Product Engineer / Berlin 初值和更新订阅草稿；Lumen 专用表单保留原生
+textbox、select、checkbox、Upload photo 与 Continue，右侧 Directory preview 只在桌面
+显示。Photo/Continue 只发类型化请求，不模拟文件选择、校验、上传或导航。缓存只有暗色
+mobile 下姓名填入、时区选到 placeholder、更新订阅 checked→unchecked；mobile 预览被
+隐藏，因此桌面编辑后预览联动只是宿主投影推导，不能宣称来源前后态匹配。
+
+授权 `full-static-v10` 与 `full-interactions-v4` 的 sourceHash 同为
+`2d34fb8f19ec4c1e4934800f987b1f426aea8446c744372cc4b4a1ef1b665a4a`，
+但二者为旧 schemaVersion 1，缺当前采集协议；本轮官方页不可达，**未签 fresh strict**。
+独立 `scripts/verify-hbar-app-ui-onboarding-1.ts` 抽桌面默认与一次姓名投影、mobile
+checkbox 与原生 timezone placeholder，德语和页面错误 0；286×640 Continue 在
+y532–572 可见、无横溢，320×420 的真实鼠标滚轮使 documentScrollTop=176，Continue
+在 y356–396 可达。其它城市、Upload、Continue 不逐项跨布局点击。来源缓存无窄屏
+scroll owner 数据，短高的文档滚动只是本地可达性保证。
+`artifacts/onboarding1-local-review/` 留有最终双主题四视口八张本地图，另有桌面姓名
+草稿投影与 320×420 滚动截图。桌面 1086×640 分栏约 x500、右预览标题 x633/y210；
+手机 356×640 的 Continue y532–572。它们只作本地结构/主题复核，不冒充同轮原版配对。
+8 项专项测试（60 条断言）、根与 Lumen 类型检查、scoped lint、内容/图标/流布局
+守卫、预览构建与浏览器脚本通过；构建仍报告大 chunk 提示。
