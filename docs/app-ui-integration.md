@@ -117,6 +117,33 @@ dialog uses the available viewport width rather than mimicking the source site's
 overflow. The independent browser verifier samples each change mechanism once,
 plus German copy and narrow reachability, without clicking Create.
 
+### Forms 12 integration status
+
+`hbar-app-ui-forms-12` is a host-owned, four-step quote review. The Lumen view
+renders the four typed summary sections and a GBP Premium snapshot with two
+consents. Business details is the only editor shape observed in the authorized
+interaction cache: entering it exposes name, industry and employee controls,
+Cancel/Save section, hides its own Edit and disables the other three Edit
+buttons. Draft changes do not silently mutate the review summary or recalculate
+Premium. Cancel, Save and Request bound quote only produce typed host requests;
+the Request button remains disabled because its post-consent enabled state and
+remote result were not observed.
+
+The authorized [Forms 12 quote review](https://pro.reactbits.dev/docs/app-ui/forms/forms-12)
+static cache and legacy `full-interactions-v4` share hash
+`4434587bef024bb8048a3da8db49fbdf684e151e82fc4b1f4985a62a3ab1d863`
+only as a source-version reference. The official page was inaccessible this round,
+and the legacy interaction report has no current capture protocol. It shows
+Business Edit via keyboard, but a pointer click capture failed; the first consent
+appears checked in source-after while the old comparator recorded no source
+change. No fresh strict ledger or matched consent delta is claimed.
+`forms-12-local-review-r3/` contains eight final local screenshots and layout
+metrics. The 1022px desktop two-column review is 775px tall; on narrow screens
+the sections, Premium, consents and Request flow vertically. At 320px a real
+mouse wheel scroll reaches Request (`documentScrollTop=698`) with no horizontal
+overflow. The independent browser verifier samples Business Edit and one consent,
+then checks localization and narrow reachability without Save or Request.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

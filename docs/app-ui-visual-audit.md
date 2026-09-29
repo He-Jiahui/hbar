@@ -734,3 +734,25 @@ Create/Cancel/Close 只发类型化请求，不显示未经确认的远端成功
 类型检查、scoped lint/format、flow/content/icon guards 和预览构建通过（仍有既有
 大 chunk 提示）；根类型检查被并行 `apps/web/src/PreSessionLanding.tsx` 的缺失
 导出阻断，不能记为通过。等价按钮与布局不逐一回放。
+
+Forms 12（Multi-step quote review）由宿主提供四步列表、四个 Review section 与
+GBP Premium 静态快照（初始年费 £4,088.50），两项 consent 初始未选，
+`Request bound quote` 禁用。旧同 hash 缓存的 Business Edit 键盘激活可见三个编辑控件、
+Cancel/Save，自己的 Edit 隐藏、其他三项 Edit 禁用；本地草稿与汇总/保费隔离。
+其他 section 的编辑形状、Save/Cancel 后果、保费重算及 Request 启用/远端结果
+均未证，宿主只产生类型化请求。独立 `scripts/verify-hbar-app-ui-forms-12.ts`
+仅抽 Business Edit 和首项 consent，确认 Premium 不变、德语与 page error（0）；
+没有点击 Save/Request。320px 用真实鼠标滚轮使文档 `scrollTop=698`，Request
+位于视口底部可达、无文档横溢；可见判断只容许 1px 子像素舍入。
+
+授权 `full-static-v9` 与 `full-interactions-v4` 的 Forms 12 sourceHash 同为
+`4434587bef024bb8048a3da8db49fbdf684e151e82fc4b1f4985a62a3ab1d863`，
+但交互缓存为旧 schemaVersion 1、无当前协议，本轮官方页面不可用，**未签 fresh strict**。
+其中 consent 的 source-after 显示 checked，旧比较器却记 `sourceChanged=false` 且
+本地控件索引不符，不能把该机制写成严格匹配。终版八张本地双主题/四视口图在
+`artifacts/reactbits-pro-visual-audit/forms-12-local-review-r3/`：desktop 1022×775、
+tablet 670×1142、mobile 356×1400、320 为 320×1418；八组无横溢，
+窄屏采用正常文档流，源窄屏的纵向滚动 owner 未证。7 项专项测试（71 条断言）、
+根与 Lumen 类型检查、scoped lint、flow/content/icon guards、预览构建通过，构建
+仍有大 chunk 提示。design-system-boundaries 全局检查另有六项不在 Forms 12 文件中
+的既有失败，不记为通过；静态图不冒充实时来源对，四个 Edit×四布局不逐一回放。
