@@ -91,6 +91,15 @@ export type SessionLaunchTargetPrepareInput = z.infer<typeof sessionLaunchTarget
 export type SessionLaunchTargetReconcileInput = z.infer<typeof sessionLaunchTargetReconcileInputSchema>
 export type SessionLaunchTargetCancelInput = z.infer<typeof sessionLaunchTargetCancelInputSchema>
 
+/** A read-only capability; callers cannot choose a filesystem root or mutate a target. */
+export interface SessionLaunchTargetReadOptions {
+  readonly signal?: AbortSignal
+  readonly requestId?: string
+}
+export interface SessionLaunchTargetReader {
+  read(sessionId: string, options?: SessionLaunchTargetReadOptions): Promise<SessionLaunchTarget>
+}
+
 const metadata = (id: string, kind: 'query' | 'command') => ({
   id,
   version: 1,

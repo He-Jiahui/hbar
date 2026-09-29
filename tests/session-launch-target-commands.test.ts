@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describeCommand } from '@hbar/commands'
-import { HbarClient } from '@hbar/client'
+import { HbarClient, createSessionLaunchTargetReader } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { sessionLaunchTargetCommands } from '@hbar/contracts/commands/session-launch-target'
 import { startServer } from '../apps/host/src/server.ts'
@@ -64,7 +64,8 @@ test('public Host command validates a revisioned selection, supports receipt rec
     })
   }
 
-  expect(await execute(f.client, 'sessionLaunchTarget.get', { sessionId: f.session.id })).toMatchObject({
+  const targetReader = createSessionLaunchTargetReader(f.client)
+  expect(await targetReader.read(f.session.id)).toMatchObject({
     sessionId: f.session.id,
     workspaceId: f.workspace.id,
     revision: 0,
@@ -82,7 +83,7 @@ test('public Host command validates a revisioned selection, supports receipt rec
     sessionId: f.session.id,
     idempotencyKey: 'select-launch-target',
   })).toEqual(receipt)
-  expect(await execute(f.client, 'sessionLaunchTarget.get', { sessionId: f.session.id })).toMatchObject({
+  expect(await targetReader.read(f.session.id)).toMatchObject({
     revision: 1,
     selection: request.selection,
     locked: false,

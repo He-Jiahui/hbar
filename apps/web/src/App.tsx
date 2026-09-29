@@ -53,6 +53,7 @@ import {
   createWorkflowCommandClient,
   createGitCommandClient,
   createRunCommandClient,
+  createSessionLaunchTargetReader,
   createSessionSearchCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
@@ -253,6 +254,7 @@ function createRuntime(
       },
     },
     files: createFileCommandClient(client),
+    sessionLaunchTargets: createSessionLaunchTargetReader(client),
     agents: createAgentCommandClient(client),
     goals,
     goalEvents: {

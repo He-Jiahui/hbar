@@ -32,6 +32,11 @@ export { createComputerCommandClient } from './computer'
 export { createConnectionCommands, type ConnectionCommandPort } from './connection'
 export { createConfigurationCommandClient } from './configuration'
 export { createGitCommandClient } from './git'
+export { createSessionLaunchTargetReader, type SessionLaunchTargetReadTransport } from './session-launch-target'
+export type {
+  SessionLaunchTargetReader,
+  SessionLaunchTargetReadOptions,
+} from '@hbar/contracts/commands/session-launch-target'
 export { createExtensionCommandClient } from './extensions'
 export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
 export {

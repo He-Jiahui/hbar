@@ -46,6 +46,8 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 ## Files 公共契约
 
+运行时的读取接缝采用 `SessionLaunchTargetReader.read(sessionId, { signal?, requestId? })`：Client 只调用 `sessionLaunchTarget.get`，校验严格响应及原请求的 session identity，每次从当前认证 Host 获取 revision，不缓存或猜测零版本。Web 组合根已注入此只读能力；它不提供 set／prepare，也不授权客户端选择文件系统路径。取消只停止观察并消费迟到的传输终态，现有 authenticated transport 仍负责请求 deadline；没有远程 query-cancel RPC，不能宣称它停止了 Host 工作。Reader 的 standalone／paired Host 验证为 8 tests／38 assertions，覆盖非法和错会话响应、预取消、dispatch 期间取消、迟到失败、并发乱序及 typed query 错误。注入 reader 本身不等于 Files cache／draft 已迁移。
+
 文件命令保留普通项目操作，并提供可选的 `sessionTarget: { sessionId, expectedRevision }`：
 
 | 调用目标                                | Host 行为                                                                     |
