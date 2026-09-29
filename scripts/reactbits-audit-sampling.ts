@@ -693,6 +693,69 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-11')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-11-reference.tsx',
+        'forms-11-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '5:fill',
+          change: 'Fill the required name and inspect its derived deploy target and Create enabled state',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '6:click',
+          change: 'Open the Region combobox and inspect its four visible options',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '8:toggle',
+          change: 'Toggle Auto-deploy on push from checked to unchecked',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '9:fill',
+          change: 'Fill Description and inspect its 160-character counter',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source/static interaction acceptance',
+          basis:
+            'The full-static-v10 and full-interactions-v4 caches share the Forms 11 source hash, but both use the older unversioned capture protocol and were recorded on 2026-09-23. The official page was not reachable in this round. These four source control indices identify distinct cached mechanisms, not fresh strict pairs with the current implementation.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Alternate environment-kind descriptions and copy-variable sources',
+          basis:
+            'The cache shows the three kind names and the default Preview description, but no reliable alternate-kind state or variable-source menu. The host keeps those catalogs partial and does not invent their selection effects.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Slug availability, Create, Cancel and Close outcomes',
+          basis:
+            'One cached name sample shows a local slug and enabled Create; no asynchronous availability result or remote action outcome was observed. The host only emits typed requests and does not show unconfirmed success.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated controls across all viewport and theme combinations',
+          basis:
+            'Eight final local stills cover four sizes and two themes; safe local checks sample name, region, switch and description once by mechanism. The authorized source narrow capture has an unmeasured scroll owner, while the local dialog body has independent scrolling and a reachable footer.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-10')
     return {
       revision: 1,
