@@ -39,6 +39,7 @@
     "./commands/client-persistence": "./src/commands/client-persistence.ts",
     "./commands/terminal-application": "./src/commands/terminal-application.ts",
     "./commands/session-timeline": "./src/commands/session-timeline.ts",
+    "./commands/session-launch-target": "./src/commands/session-launch-target.ts",
     "./commands/session-search": "./src/commands/session-search.ts",
     "./commands/settings-editor": "./src/commands/settings-editor.ts",
     "./commands/system": "./src/commands/system.ts",

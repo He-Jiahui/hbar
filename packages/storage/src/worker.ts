@@ -52,6 +52,7 @@ import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
+import { createSessionLaunchTargetStorage, SESSION_LAUNCH_TARGET_SQL } from './session-launch-target.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -62,7 +63,7 @@ const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 9) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 10) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -160,12 +161,23 @@ if (schemaVersion < 9)
     }
   }).immediate()
 
+if (schemaVersion < 10)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current !== 10) {
+      if (current !== 9) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+      db.exec(SESSION_LAUNCH_TARGET_SQL)
+      db.exec('PRAGMA user_version=10;')
+    }
+  }).immediate()
+
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
 const sessionSearch = createSessionSearchStorage(
   db,
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
+const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 db.exec(GOAL_HISTORY_INDEX_SQL)
@@ -462,7 +474,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 9 }),
+  ready: () => ({ version: 10 }),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,
@@ -580,6 +592,9 @@ const methods: StorageMethods = {
     ).map(sessionRow)
   },
   session: (id) => sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null),
+  sessionLaunchTarget: sessionLaunchTarget.read,
+  setSessionLaunchTarget: sessionLaunchTarget.set,
+  sessionLaunchTargetReceipt: sessionLaunchTarget.receipt,
   updateSession(id, update) {
     return db.transaction(() => {
       const prior = methods.session(id)

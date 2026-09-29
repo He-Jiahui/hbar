@@ -33,6 +33,7 @@ import { statusWorkspaceCommands } from './status-workspace'
 import { clientPersistenceCommands } from './client-persistence'
 import { terminalApplicationCommands } from './terminal-application'
 import { sessionTimelineCommands } from './session-timeline'
+import { sessionLaunchTargetCommands } from './session-launch-target'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -250,6 +251,15 @@ export { statusWorkspaceCommands } from './status-workspace'
 export { clientPersistenceCommands } from './client-persistence'
 export { terminalApplicationCommands } from './terminal-application'
 export { sessionTimelineCommands } from './session-timeline'
+export { sessionLaunchTargetCommands } from './session-launch-target'
+export type {
+  SessionLaunchSelection,
+  SessionLaunchTarget,
+  SessionLaunchTargetGetInput,
+  SessionLaunchTargetSetInput,
+  SessionLaunchTargetSetReceipt,
+  SessionLaunchTargetReceiptInput,
+} from './session-launch-target'
 export { workflowCommands } from './workflows'
 export const applicationCommands = {
   ...directoryCommands,
@@ -277,4 +287,5 @@ export const applicationCommands = {
   ...clientPersistenceCommands,
   ...terminalApplicationCommands,
   ...sessionTimelineCommands,
+  ...sessionLaunchTargetCommands,
 }

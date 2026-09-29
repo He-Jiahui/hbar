@@ -14,6 +14,8 @@ export type {
   StorageMethods,
   WorkspaceOrganizationMutationInput,
   WorkspaceDisplayNamesMutationInput,
+  SessionLaunchTargetMutationInput,
+  SessionLaunchTargetReceiptLookup,
 } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'

@@ -49,6 +49,11 @@ import type {
   WorkspaceDisplayNamesReceipt,
   WorkspaceDisplayNamesSnapshot,
 } from '@hbar/contracts/commands/workspace-display-names'
+import type {
+  SessionLaunchTarget,
+  SessionLaunchTargetSetInput,
+  SessionLaunchTargetSetReceipt,
+} from '@hbar/contracts/commands/session-launch-target'
 
 export interface WorkspaceOrganizationMutationInput {
   actorId: string
@@ -60,6 +65,17 @@ export interface WorkspaceDisplayNamesMutationInput {
   actorId: string
   idempotencyKey: string
   request: WorkspaceDisplayNamesApplyInput
+}
+
+export interface SessionLaunchTargetMutationInput extends SessionLaunchTargetSetInput {
+  actorId: string
+  idempotencyKey: string
+}
+
+export interface SessionLaunchTargetReceiptLookup {
+  actorId: string
+  idempotencyKey: string
+  sessionId: string
 }
 
 export interface StoredSettingsLayer {
@@ -147,6 +163,9 @@ export interface StorageMethods {
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
+  sessionLaunchTarget(sessionId: string): SessionLaunchTarget
+  setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
+  sessionLaunchTargetReceipt(input: SessionLaunchTargetReceiptLookup): SessionLaunchTargetSetReceipt | null
   updateSession(
     id: string,
     update: { title?: string; archived?: boolean; expectedTitle?: string },
