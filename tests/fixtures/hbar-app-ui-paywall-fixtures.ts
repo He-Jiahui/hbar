@@ -37,7 +37,7 @@ export const HBAR_APP_UI_PAYWALL_FIXTURES: HbarAppUiPaywallContent = {
         listStrategy: {kind: 'content-grown', expectedMaximum: 12},
     },
     featureGate: {
-        labels: {title: 'Scheduled exports are a Pro feature', description: 'Your workspace is on Starter. Upgrading applies immediately and is prorated.', dismiss: 'Dismiss', seeIncluded: "See what's included", price: '$24 per seat, per month', defer: 'Not now', upgrade: 'Upgrade workspace'},
+        labels: {title: 'Scheduled exports are a Pro feature', description: 'Your workspace is on Starter. Upgrading applies immediately and is prorated.', dismiss: 'Dismiss', seeIncluded: "See what's included", emptyFeatures: 'No Pro features are available.', priceAmount: '$24', priceDetails: 'per seat, per month', defer: 'Not now', upgrade: 'Upgrade workspace'},
         features: featureRows,
         listStrategy: {kind: 'content-grown', expectedMaximum: 8},
     },
@@ -91,7 +91,11 @@ export function createHbarAppUiPaywallLocalizedFixtures(): HbarAppUiPaywallConte
     return {
         ...base,
         article: base.article && {...base.article, labels: {...base.article.labels, eyebrow: 'AUSGABE 84 · INFRASTRUKTUR', title: 'Was eine Datenbankmigration wirklich kostet', memberTitle: 'Mit Mitgliedschaft weiterlesen', memberAction: 'Mitglied werden: 9 $/Monat', alreadyAction: 'Ich habe bereits ein Konto'}},
-        featureGate: base.featureGate && {...base.featureGate, labels: {...base.featureGate.labels, title: 'Geplante Exporte sind eine Pro-Funktion', description: 'Dein Arbeitsbereich nutzt Starter. Das Upgrade gilt sofort und wird anteilig berechnet.', dismiss: 'Schließen', defer: 'Später', upgrade: 'Arbeitsbereich upgraden'}},
+        featureGate: base.featureGate && {...base.featureGate, labels: {...base.featureGate.labels, title: 'Geplante Exporte sind eine Pro-Funktion', description: 'Dein Arbeitsbereich nutzt Starter. Das Upgrade gilt sofort und wird anteilig berechnet.', dismiss: 'Schließen', seeIncluded: 'Enthaltene Pro-Funktionen', emptyFeatures: 'Keine Pro-Funktionen verfügbar.', priceAmount: '24 $', priceDetails: 'pro Sitzplatz und Monat', defer: 'Später', upgrade: 'Arbeitsbereich upgraden'}, features: [
+            {id: 'scheduled-exports', title: 'Geplante Exporte', description: 'Senden Sie jede gespeicherte Ansicht nach einem von Ihnen festgelegten Zeitplan an S3 oder ein Data Warehouse.'},
+            {id: 'unlimited-history', title: 'Unbegrenzter Verlauf', description: 'Fragen Sie mehr als die 30 Tage ab, die Starter speichert – ohne Stichproben.'},
+            {id: 'shared-workspaces', title: 'Geteilte Arbeitsbereiche', description: 'Laden Sie das ganze Team ein und verwalten Sie den Zugriff nach Rolle.'},
+        ]},
         plans: base.plans && {...base.plans, labels: {...base.plans.labels, title: 'Wähle einen Plan', description: 'Deine Testphase ist beendet. Wähle einen Plan, um den Zugriff wiederherzustellen.', yearlyNote: 'Jährliche Abrechnung spart 20 Prozent.', monthly: 'Monatlich', yearly: 'Jährlich', current: 'Aktuell', choose: 'Wählen', compare: 'Alle Funktionen vergleichen'}},
         usage: base.usage && {...base.usage, labels: {...base.usage.labels, title: 'Starter-Limit erreicht', description: 'Die Aufnahme ist pausiert, bis du das Limit erhöhst.', topUp: 'Einmalig aufladen', upgrade: 'Auf Pro upgraden'}},
         trial: base.trial && {...base.trial, labels: {...base.trial.labels, eyebrow: 'TESTPHASE BEENDET', title: 'Deine 14 Pro-Tage sind vorbei', description: 'Northwind Analytics ist schreibgeschützt.', reactivate: 'Pro reaktivieren'}},
