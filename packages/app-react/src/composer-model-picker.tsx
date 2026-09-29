@@ -191,19 +191,21 @@ function PickerPopover({
         }
       }}
     >
-      <LumenFrame className="hbar-composer-picker-heading">
-        <LumenText as="span">{title}</LumenText>
-        <LumenButton
-          type="button"
-          size="s"
-          variant="text"
-          indicator="none"
-          aria-label={close}
-          onClick={() => popupRef.current?.hidePopover()}
-        >
-          <LumenIcon icon={X} tier="sm" />
-        </LumenButton>
-      </LumenFrame>
+      {kind === 'model' && (
+        <LumenFrame className="hbar-composer-picker-heading">
+          <LumenText as="span">{title}</LumenText>
+          <LumenButton
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            aria-label={close}
+            onClick={() => popupRef.current?.hidePopover()}
+          >
+            <LumenIcon icon={X} tier="sm" />
+          </LumenButton>
+        </LumenFrame>
+      )}
       {children}
     </LumenFrame>
   )
@@ -335,7 +337,11 @@ export function HbarComposerModelPicker({
       if (popup && groupRef.current) placePopover(popup, groupRef.current)
     }
     window.addEventListener('resize', reposition)
-    return () => window.removeEventListener('resize', reposition)
+    window.addEventListener('scroll', reposition, true)
+    return () => {
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
+    }
   }, [open])
   const models = catalog.sessionId === sessionId ? catalog.models : NO_MODELS
   const disclosedModelIds = useMemo(() => modelIdsRequiringDisclosure(models, query), [models, query])
@@ -798,9 +804,14 @@ export function HbarComposerModelPicker({
           resetThinkingPreview()
         }}
       >
-        <LumenText as="strong" className="hbar-composer-thinking-value">
-          {selectedLevel ? labels.thinkingLevel(selectedLevel) : null}
-        </LumenText>
+        <LumenFrame className="hbar-composer-thinking-heading">
+          <LumenText as="strong" className="hbar-composer-thinking-value">
+            {selectedLevel ? labels.thinkingLevel(selectedLevel) : null}
+          </LumenText>
+          <LumenText as="span" className="hbar-composer-thinking-context">
+            {labels.thinking}
+          </LumenText>
+        </LumenFrame>
         <LumenFrame
           className="hbar-composer-thinking-scale"
           style={

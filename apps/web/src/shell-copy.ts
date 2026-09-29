@@ -1501,7 +1501,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           `${number.format(model.contextWindow)} 上下文${model.imageInput ? ' · 图像' : ''}${model.reasoning ? ' · 推理' : ''}`,
           `${number.format(model.contextWindow)} context${model.imageInput ? ' · Images' : ''}${model.reasoning ? ' · Reasoning' : ''}`,
         ),
-      thinking: choose('推理强度', 'Reasoning effort'),
+      thinking: choose('推理强度', 'Effort'),
       thinkingTrigger: (level) => choose(`推理强度：${level}`, `Reasoning effort: ${level}`),
       thinkingLevel: (level) => thinkingLevelLabel(locale, level),
       error: (code) => {

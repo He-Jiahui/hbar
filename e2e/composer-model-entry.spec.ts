@@ -158,9 +158,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const thinking = page.locator('.hbar-composer-thinking-trigger')
       await thinking.click()
       const effort = page.getByRole('dialog', { name: labels.thinking, exact: true })
+      const closeEffort = async () => {
+        await page.keyboard.press('Escape')
+        await expect(effort).not.toBeVisible()
+      }
       const slider = effort.getByRole('slider', { name: labels.thinking })
       const scale = effort.locator('.hbar-composer-thinking-scale')
       const stops = scale.locator('.hbar-composer-thinking-stop')
+      await expect(effort.getByRole('button', { name: labels.close, exact: true })).toHaveCount(0)
+      await expect(effort.locator('.hbar-composer-thinking-heading')).toContainText(labels.thinking)
       await expect(stops).toHaveCount(5)
       await expect(scale).toHaveAttribute('style', /--hbar-thinking-progress: 50%/)
       await expect(scale.locator('.hbar-composer-thinking-stop[data-reached="true"]')).toHaveCount(3)
@@ -184,6 +190,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       await page.keyboard.press('Escape')
       await expect(effort).not.toBeVisible()
+      await expect(thinking).toBeFocused()
       await expect(thinking).toHaveText(labels.thinkingLevel('high'))
       expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
         beforeThinking.revisions,
@@ -207,6 +214,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       await page.setViewportSize({ width: 320, height: 720 })
       await thinking.click()
+      const triggerBounds = await thinking.boundingBox()
+      const popoverBounds = await effort.boundingBox()
+      expect(triggerBounds).not.toBeNull()
+      expect(popoverBounds).not.toBeNull()
+      expect(popoverBounds!.width).toBeLessThanOrEqual(320 - 32)
+      expect(popoverBounds!.y + popoverBounds!.height).toBeLessThan(triggerBounds!.y)
       const bounds = await slider.boundingBox()
       expect(bounds).not.toBeNull()
       const y = bounds!.y + bounds!.height / 2
@@ -242,7 +255,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
         afterDrag.revisions,
       )
-      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await closeEffort()
       await thinking.click()
       await slider.focus()
       await page.keyboard.press('Home')
@@ -252,7 +265,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(Object.values(afterBlur.revisions).reduce((sum, revision) => sum + revision, 0)).toBe(
         Object.values(afterDrag.revisions).reduce((sum, revision) => sum + revision, 0) + 1,
       )
-      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await closeEffort()
       await thinking.click()
       await slider.focus()
       await page.keyboard.press('End')
@@ -278,7 +291,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).revisions).toEqual(
         acceptedUnknown.revisions,
       )
-      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await closeEffort()
       await page.setViewportSize({ width: 1440, height: 960 })
 
       await page.setViewportSize({ width: 390, height: 844 })
@@ -297,7 +310,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await valueLabel.evaluate((element, value) => {
         element.textContent = value
       }, originalLabel)
-      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await closeEffort()
       await thinking.click()
       await slider.focus()
       await page.emulateMedia({ forcedColors: 'active' })
@@ -309,7 +322,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await slider.evaluate((element) => getComputedStyle(element).forcedColorAdjust)).toBe('none')
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-effort-scale-high-contrast-${locale}-390.png` })
       await page.emulateMedia({ forcedColors: 'none' })
-      await effort.getByRole('button', { name: labels.close, exact: true }).click()
+      await closeEffort()
       await page.setViewportSize({ width: 1440, height: 960 })
 
       for (const viewport of [
