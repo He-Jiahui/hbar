@@ -93,6 +93,30 @@ was not captured, and the footer remains reachable through document scrolling.
 The independent browser verifier samples one low-score, one matrix cell and one
 highlight, plus 320px reachability and localized copy, without submitting.
 
+### Forms 11 integration status
+
+`hbar-app-ui-forms-11` now renders a host-owned new-environment dialog. The preview
+store owns the kind, name, Region, variable source, auto-deploy and description
+draft; the Lumen component receives typed localized copy and option catalogs.
+The cached name sample projects `audit sample` to `audit-sample.yourapp.dev` and
+enables Create; the four Region options, switch transition and `12 / 160`
+description count are sampled as distinct mechanisms. Kind descriptions beyond
+Preview and variable-source choices beyond the default remain unobserved/partial.
+Create, Cancel and Close only emit typed host requests, with no invented remote
+result or slug-availability response.
+
+The authorized [Forms 11 new-environment dialog](https://pro.reactbits.dev/docs/app-ui/forms/forms-11)
+has matching source hashes in `full-static-v10` and `full-interactions-v4`
+(`8293f152…1db0e34a0023d2`), but both are 2026-09-23
+legacy unversioned captures. The official URL was inaccessible this round, so
+there is no fresh strict source/local ledger. Eight final local-only screenshots
+and scroll metrics are in `forms11-local-only-r2/`; the 560×574 desktop/tablet
+dialog has a bounded scrolling body and reachable footer. At 320px, the local
+dialog uses the available viewport width rather than mimicking the source site's
+222px iframe crop; Description and footer remain reachable with no horizontal
+overflow. The independent browser verifier samples each change mechanism once,
+plus German copy and narrow reachability, without clicking Create.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

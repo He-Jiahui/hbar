@@ -713,3 +713,24 @@ page error/文档横溢。来源窄屏矩阵滚动 owner 未捕获，本地把�
 Property 锚定菜单仅用旧缓存的覆盖层几何作局部实现/guard 例外，目录仍 partial。
 **没有同轮严格交互账本或人工签核**；八张本地图不冒充八组实时来源对，
 不把矩阵 20 格、NPS 11 档、六项亮点与四种布局做笛卡尔回放。
+
+Forms 11（New environment）的宿主提供类型化草稿、双语文案与 Region 四项；
+初始 Preview、Auto-deploy 开启、Create 禁用。授权同 hash 旧缓存可见填写
+`audit sample` 后派生 `audit-sample.yourapp.dev` 并启用 Create，Region 展开四项，
+Auto-deploy 从勾选到关闭，Description 的 12 字符计数为 `12 / 160`。
+`scripts/verify-hbar-app-ui-forms-11.ts` 独立验证上述四种本地机制、德语、320px
+底栏可达、无横溢与 page error（0）；从未点击 Create。Store 的 slug 规则和必填
+门槛只由有限样本推导，slug 可用性、其他 kind 描述、变量来源菜单/选中结果均未证；
+Create/Cancel/Close 只发类型化请求，不显示未经确认的远端成功。
+
+源缓存 `full-static-v10` 与 `full-interactions-v4` 的 Forms 11 hash 同为
+`8293f152…1db0e34a0023d2`，但两者均无当前 protocolVersion，
+源站本轮也不可访问；**没有 fresh strict 账本或人工签核**。最终八张本地双主题/四视口图和
+`capture-summary.json` 在 `artifacts/reactbits-pro-visual-audit/forms11-local-only-r2/`：
+桌面/平板面板 560×574、390 和 320 视口下分别 390×574/320×574；表单正文独立
+滚动，320px `clientHeight 415`、`scrollHeight 717`，Description 与页脚均可达，
+八组无 page error/横向溢出。缓存来源窄屏 iframe 仅 292/222px，滚动 owner 未捕获；
+本地使用完整可用视口，未复刻站点外层裁切。9 项专项测试（63 条断言）、Lumen
+类型检查、scoped lint/format、flow/content/icon guards 和预览构建通过（仍有既有
+大 chunk 提示）；根类型检查被并行 `apps/web/src/PreSessionLanding.tsx` 的缺失
+导出阻断，不能记为通过。等价按钮与布局不逐一回放。
