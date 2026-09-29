@@ -1,6 +1,6 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
-import { agentCommands } from '@hbar/contracts/commands/agents'
+import { agentCommands, agentProfileIdSchema } from '@hbar/contracts/commands/agents'
 import type { AgentService } from '@hbar/plugin-sdk'
 
 export function createAgentCommands(service: AgentService) {
@@ -13,6 +13,7 @@ export function createAgentCommands(service: AgentService) {
       throw error
     }
   }
+  registry.register(agentCommands['agent.profiles.list'], () => [...agentProfileIdSchema.options])
   registry.register(
     agentCommands['agent.create'],
     (input, context) =>

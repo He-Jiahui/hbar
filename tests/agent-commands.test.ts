@@ -91,6 +91,7 @@ test('agent commands create one budgeted child session per actor key and recover
     'agent.create',
     'agent.list',
     'agent.patch.apply',
+    'agent.profiles.list',
     'agent.result.get',
     'goal.clear',
     'goal.create',
@@ -115,6 +116,7 @@ test('agent commands create one budgeted child session per actor key and recover
     'workflow.plan.save',
     'workflow.start',
   ])
+  expect(await commands.execute('agent.profiles.list', {})).toEqual(['explore'])
   const input = {
     parentSessionId: parent.id,
     objective: 'Inspect the child task',

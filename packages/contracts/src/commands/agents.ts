@@ -16,6 +16,8 @@ export const agentStatusSchema = z.enum([
 ])
 export const agentProfileIdSchema = z.enum(['explore'])
 export type AgentProfileId = z.output<typeof agentProfileIdSchema>
+/** Host-advertised invocation types; the bare Agent form also supports an unprofiled general child. */
+export const agentProfileCatalogSchema = z.array(agentProfileIdSchema).max(32)
 export const agentRecordSchema = z.strictObject({
   agentId: idSchema,
   parentSessionId: idSchema,
@@ -91,6 +93,11 @@ const metadata = (id: string, kind: 'command' | 'query') => ({
 })
 
 export const agentCommands = {
+  'agent.profiles.list': defineCommand(
+    metadata('agent.profiles.list', 'query'),
+    z.strictObject({}),
+    agentProfileCatalogSchema,
+  ),
   'agent.create': defineCommand(
     {
       ...metadata('agent.create', 'command'),
