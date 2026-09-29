@@ -840,6 +840,39 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-2')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '0:click',
+          change: 'Dismiss emits a host request without assuming a source close outcome',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Fresh strict source/local acceptance',
+          basis:
+            'The official page was reachable but its preview iframe was blank. Authorized full-static-v10 hash fde353858cd991100f3c72c61865bac42df24b113d416876df68315c70a1187e provides the dialog reference; legacy before/after Dismiss is unchanged but lacks the current protocol. No fresh strict pair exists.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Dismiss, Not now and Upgrade intended outcomes',
+          basis:
+            'Legacy Dismiss click/Enter/Space has no visible close; that does not establish intended behavior. All three local actions emit independently named host requests without closing the dialog or inventing a remote upgrade.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Passive features, capacity and responsive footer',
+          basis:
+            'Three source rows share one passive feature template. Focused empty/one/eight/overflow tests, one keyboard-scroll overflow case and 320x420 pane scrolling cover capacity. A 356px screenshot exposed footer wrapping outside the card; the corrected footer stacks in normal flow instead of replaying every action at each layout.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-1')
     return {
       revision: 1,

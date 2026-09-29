@@ -17,6 +17,16 @@ test('workspace form samples three raw-observed mechanisms and restricts legacy 
   expect(plan.inferences.some((entry) => entry.basis.includes('outside the form AX root'))).toBe(true)
 })
 
+test('feature gate samples a request clue and does not promote unchanged legacy close to strict proof', () => {
+  const id = 'hbar-app-ui-paywall-2'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(1)
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([`${id}:0:click`])
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([])
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(2)
+  expect(plan.inferences.some((entry) => entry.basis.includes('356px'))).toBe(true)
+})
+
 test('reader sampling separates navigation, Focus, collapse and recovery without a button-layout product', () => {
   const id = 'hbar-app-ui-editor-5'
   const plan = auditSamplingPlan(id)!

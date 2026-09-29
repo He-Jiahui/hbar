@@ -310,6 +310,29 @@ button probes were missing (`control-index-not-found`), and the captured mobile
 first-button sample has no reliable visible outcome. The second action is not
 covered, so this is not fresh strict interaction acceptance.
 
+### Paywall 2 integration status
+
+`hbar-app-ui-paywall-2` renders the host-owned feature-gate dialog with a
+heading, three passive feature rows, separate price amount/details and three
+independently named requests. Dismiss, Not now and Upgrade do not locally close
+the dialog or invent billing success. Empty, one-item, eight-item boundary and
+over-capacity fixtures preserve all content; an opt-in overflow list is
+keyboard-scrollable. The short-height pane scroll reaches Upgrade at 320×420.
+A 356px review exposed a wrapping footer that placed Upgrade outside the card;
+the Paywall2-only flow correction keeps the stacked CTA within the card.
+
+The [official Paywall 2 page](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-2)
+was reachable but its preview iframe was blank. The authorized `full-static-v10`
+reference has source hash
+`fde353858cd991100f3c72c61865bac42df24b113d416876df68315c70a1187e`.
+Legacy Dismiss click/Enter/Space captures show no visible close, which does not
+establish its intended outcome; the interaction cache lacks the current
+protocol. Nine focused tests/92 assertions and local browser mechanisms pass,
+but no fresh strict source/local acceptance is claimed. The Lumen package build
+script was blocked by the installed pnpm version; its Vite and declaration
+steps were run directly. Existing other-variant flow rules remain outside this
+change, and the child task could not run Stylelint.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
