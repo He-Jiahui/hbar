@@ -9,6 +9,10 @@ export interface WebPreSessionCopy {
   readonly addWorkspace: string
   readonly openingWorkspace: string
   readonly checking: string
+  readonly goalPlanConflict: string
+  readonly planGoalConflict: string
+  readonly goalAlreadyPrepared: string
+  readonly goalError: (code: string) => string
   readonly error: (code: string) => string
   readonly modelName: (provider: string, model: string) => string
 }
@@ -50,6 +54,16 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
     addWorkspace: choose('添加项目', 'Add project'),
     openingWorkspace: choose('正在打开项目…', 'Opening project…'),
     checking: choose('核对首次发送结果', 'Check first-send result'),
+    goalPlanConflict: choose(
+      '先在执行选项中退出计划模式，再准备目标。',
+      'Exit Plan mode in Execution options before preparing a Goal.',
+    ),
+    planGoalConflict: choose(
+      '先取消下一条目标准备，再进入计划模式。',
+      'Cancel the prepared Goal before entering Plan mode.',
+    ),
+    goalAlreadyPrepared: choose('下一条消息已准备为目标。', 'The next message is already prepared as a Goal.'),
+    goalError: (code) => choose(`无法准备目标：${code}`, `Could not prepare Goal: ${code}`),
     error: (code) => choose(`无法开始会话：${code}`, `Could not start session: ${code}`),
     modelName: (provider, model) => `${provider} · ${model}`,
   }

@@ -6,6 +6,29 @@
   gap: 0.375rem;
 }
 
+.hbar-web-pre-session-goal-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-web-pre-session-goal-chip {
+  display: inline-flex;
+  min-inline-size: 0;
+  max-inline-size: 12rem;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-web-pre-session-goal-chip span:not(.lumen-icon) {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hbar-web-pre-session-path {
   display: flex;
   min-inline-size: 0;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react'
-import { Paperclip, Plus, Slash } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenInput } from '@lumen/app-ui'
+import { Paperclip, Plus, Slash, Target } from 'lucide-react'
+import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenInput, LumenText } from '@lumen/app-ui'
 import './composer-add-menu.css'
 
 export interface HbarComposerAddMenuLabels {
@@ -19,6 +19,8 @@ export function HbarComposerAddMenu({
   canOpenSlash,
   onFiles,
   onOpenSlash,
+  showSlash = true,
+  goalAction,
   goalSlotRef,
   triggerRef,
   goalPreparedRequest = 0,
@@ -29,6 +31,13 @@ export function HbarComposerAddMenu({
   readonly canOpenSlash: boolean
   readonly onFiles?: ((files: readonly File[]) => void) | undefined
   readonly onOpenSlash: () => void
+  readonly showSlash?: boolean
+  readonly goalAction?: {
+    readonly label: string
+    readonly disabled?: boolean
+    readonly disabledHint?: string
+    readonly onChoose: () => void
+  }
   readonly goalSlotRef?: ((element: HTMLDivElement | null) => void) | undefined
   readonly triggerRef?: RefObject<HTMLButtonElement | null>
   readonly goalPreparedRequest?: number
@@ -36,7 +45,7 @@ export function HbarComposerAddMenu({
 }) {
   const [open, setOpen] = useState(false)
   const hasFiles = Boolean(onFiles)
-  const hasGoal = Boolean(goalSlotRef)
+  const hasGoal = Boolean(goalSlotRef || goalAction)
   const id = useId()
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -49,6 +58,7 @@ export function HbarComposerAddMenu({
   )
   const fileChoice = useRef<HTMLButtonElement>(null)
   const slashChoice = useRef<HTMLButtonElement>(null)
+  const goalChoice = useRef<HTMLButtonElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const consumedGoalPreparedRequest = useRef(goalPreparedRequest)
 
@@ -78,20 +88,23 @@ export function HbarComposerAddMenu({
     document.addEventListener('pointerdown', outside, true)
     document.addEventListener('keydown', escape, true)
     if (hasFiles && canAddFiles) fileChoice.current?.focus()
-    else if (canOpenSlash) slashChoice.current?.focus()
-    else root.current?.querySelector<HTMLButtonElement>('.hbar-composer-add-goal-slot button')?.focus()
+    else if (showSlash && canOpenSlash) slashChoice.current?.focus()
+    else
+      (
+        goalChoice.current ?? root.current?.querySelector<HTMLButtonElement>('.hbar-composer-add-goal-slot button')
+      )?.focus()
     return () => {
       document.removeEventListener('pointerdown', outside, true)
       document.removeEventListener('keydown', escape, true)
     }
-  }, [open, hasFiles, canAddFiles, canOpenSlash])
+  }, [open, hasFiles, canAddFiles, canOpenSlash, showSlash])
 
   return (
     <LumenFrame ref={root} className="hbar-composer-add-root">
       <LumenIconButton
         ref={setTrigger}
         label={labels.open}
-        disabled={!canAddFiles && !canOpenSlash && !hasGoal}
+        disabled={!canAddFiles && !(showSlash && canOpenSlash) && !hasGoal}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((value) => !value)}
@@ -119,23 +132,51 @@ export function HbarComposerAddMenu({
             {labels.files}
           </LumenButton>
         )}
-        <LumenButton
-          ref={slashChoice}
-          type="button"
-          variant="text"
-          indicator="none"
-          className="hbar-composer-add-choice"
-          disabled={!canOpenSlash}
-          title={!canOpenSlash ? labels.slashUnavailable : undefined}
-          aria-description={!canOpenSlash ? labels.slashUnavailable : undefined}
-          onClick={() => {
-            setOpen(false)
-            onOpenSlash()
-          }}
-        >
-          <LumenIcon icon={Slash} tier="sm" />
-          {labels.slash}
-        </LumenButton>
+        {showSlash && (
+          <LumenButton
+            ref={slashChoice}
+            type="button"
+            variant="text"
+            indicator="none"
+            className="hbar-composer-add-choice"
+            disabled={!canOpenSlash}
+            title={!canOpenSlash ? labels.slashUnavailable : undefined}
+            aria-description={!canOpenSlash ? labels.slashUnavailable : undefined}
+            onClick={() => {
+              setOpen(false)
+              onOpenSlash()
+            }}
+          >
+            <LumenIcon icon={Slash} tier="sm" />
+            {labels.slash}
+          </LumenButton>
+        )}
+        {goalAction && (
+          <>
+            <LumenButton
+              ref={goalChoice}
+              type="button"
+              variant="text"
+              indicator="none"
+              className="hbar-composer-add-choice"
+              disabled={goalAction.disabled}
+              title={goalAction.disabled ? goalAction.disabledHint : undefined}
+              aria-description={goalAction.disabled ? goalAction.disabledHint : undefined}
+              onClick={() => {
+                setOpen(false)
+                goalAction.onChoose()
+              }}
+            >
+              <LumenIcon icon={Target} tier="sm" />
+              {goalAction.label}
+            </LumenButton>
+            {goalAction.disabled && goalAction.disabledHint && (
+              <LumenText as="p" className="hbar-composer-add-hint">
+                {goalAction.disabledHint}
+              </LumenText>
+            )}
+          </>
+        )}
         {hasGoal && <LumenFrame ref={goalSlotRef} className="hbar-composer-add-goal-slot" />}
       </LumenFrame>
       {onFiles && (

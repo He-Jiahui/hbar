@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   createConfigurationCommandClient,
+  createGoalPlanCommandClient,
   createModelCommandClient,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
@@ -55,6 +56,24 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/desktop-experience/pre-session-${locale}-${viewport.width}.png` })
       }
+
+      const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await add.click()
+      const addMenu = landing.getByRole('group', { name: copy.session.addMenu.menu })
+      const goalAction = addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
+      await expect(goalAction).toBeVisible()
+      await expect(goalAction).toBeInViewport()
+      expect(
+        await goalAction.evaluate((element) => {
+          const box = element.getBoundingClientRect()
+          const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+          return hit !== null && element.contains(hit)
+        }),
+      ).toBe(true)
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-add-${locale}-320.png` })
+      await page.keyboard.press('Escape')
+      await expect(addMenu).toBeHidden()
+      await expect(add).toBeFocused()
 
       await prompt.fill('First message from the no-tab landing.')
       await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
@@ -241,6 +260,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-plan-${locale}-320.png` })
       await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
+      const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await add.click()
+      const addMenu = landing.getByRole('group', { name: copy.session.addMenu.menu })
+      await expect(addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })).toBeDisabled()
+      await expect(addMenu.getByText(labels.goalPlanConflict, { exact: true })).toBeVisible()
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-blocked-plan-${locale}-320.png` })
+      await page.keyboard.press('Escape')
       expect(
         (await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })).items,
       ).toHaveLength(1)
@@ -280,6 +306,108 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
         .toBe('deny')
       await expect(page.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test(`no-tab Goal prepares one Goal and one first Run: ${locale}`, async ({ browser }) => {
+    test.setTimeout(120_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-pre-session-goal-'))
+    const context = await browser.newContext({ locale, viewport: { width: 320, height: 720 } })
+    const copy = getShellCopy(locale)
+    const labels = preSessionCopy(locale)
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      const sessions = createWorkspaceSessionCommandClient(host.client)
+      const goals = createGoalPlanCommandClient(host.client)
+      const fixtureModel = (await createModelCommandClient(host.client).execute('model.list', {})).find(
+        (model) => model.id === 'local-fixture',
+      )
+      expect(fixtureModel).toBeDefined()
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      await page.goto(base)
+      const landing = page.locator('.hbar-pre-session-landing')
+      const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
+      const objective = `Keep improving the desktop experience ${locale}`
+      await prompt.fill(objective)
+      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
+      await page
+        .getByRole('dialog', { name: labels.workspace.title })
+        .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
+        .click()
+      await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
+      await page
+        .getByRole('dialog', { name: labels.model.title })
+        .getByRole('button', { name: new RegExp(fixtureModel!.modelName) })
+        .click()
+      const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      const goalAction = landing.getByRole('group', { name: copy.session.addMenu.menu }).getByRole('button', {
+        name: copy.session.intent.goalMenu,
+        exact: true,
+      })
+      await add.click()
+      await goalAction.click()
+      await expect(prompt).toHaveAttribute('placeholder', copy.session.intent.goalPlaceholder)
+      await expect(prompt).toBeFocused()
+      const cancelGoal = landing.getByRole('button', { name: copy.session.intent.cancelGoal })
+      await expect(cancelGoal).toBeVisible()
+      await expect(cancelGoal).toBeInViewport()
+      await add.click()
+      await expect(goalAction).toBeDisabled()
+      await expect(landing.getByText(labels.goalAlreadyPrepared, { exact: true })).toBeVisible()
+      await page.keyboard.press('Escape')
+      const execution = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+      await execution.click()
+      const picker = page.locator('.hbar-pre-session-approval-popover')
+      await expect(picker.locator('[data-choice="plan"]')).toBeDisabled()
+      await expect(picker.getByText(labels.planGoalConflict, { exact: true })).toBeVisible()
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-${locale}-320.png` })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
+      await expect(cancelGoal).toBeInViewport()
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-chip-${locale}-320.png` })
+      await cancelGoal.click()
+      await expect(prompt).toHaveAttribute('placeholder', copy.preSession.prompt.placeholder)
+      await expect(cancelGoal).toHaveCount(0)
+      await add.click()
+      await goalAction.click()
+      await expect(cancelGoal).toBeVisible()
+      expect(
+        (await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })).items,
+      ).toHaveLength(1)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-${locale}-1440.png` })
+      await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
+      await expect(page.getByRole('tab')).toHaveCount(1)
+      await expect
+        .poll(async () => {
+          const created = (
+            await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })
+          ).items.find((item) => item.id !== host!.ready.sessionId)
+          if (!created) return null
+          const goal = (await goals.execute('goal.get', { sessionId: created.id })).goal
+          return goal?.objective ?? null
+        })
+        .toBe(objective)
+      const created = (
+        await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
+      ).items.find((item) => item.id !== host!.ready.sessionId)!
+      await expect
+        .poll(async () => {
+          const snapshot = await host!.client.call('session.snapshot', { sessionId: created.id, limit: 60 })
+          return snapshot.runs.filter((run) => run.input.source === 'user' && run.input.text === objective).length
+        })
+        .toBe(1)
+      expect(
+        (await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })).items,
+      ).toHaveLength(2)
+      await expect(page.locator('.hbar-composer-goal-strip')).toContainText(objective)
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)

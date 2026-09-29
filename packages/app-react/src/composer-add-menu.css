@@ -34,6 +34,14 @@
   white-space: normal;
 }
 
+.hbar-composer-add-hint {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
 .hbar-composer-add-goal-slot,
 .hbar-composer-add-goal-slot .hbar-composer-intents,
 .hbar-composer-add-goal-slot .hbar-composer-intents > button {

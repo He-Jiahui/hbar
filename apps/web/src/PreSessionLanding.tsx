@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Folder, Sparkles } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenInput, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { Folder, Sparkles, Target, X } from 'lucide-react'
+import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText, LumenTextarea } from '@lumen/app-ui'
 import {
+  HbarComposerAddMenu,
   HbarPreSessionApprovalPicker,
   HbarPreSessionChoicePicker,
   HbarPreSessionLanding,
@@ -47,11 +48,13 @@ export function WebPreSessionLanding({
   const [submitting, setSubmitting] = useState(false)
   const [reconciling, setReconciling] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
+  const [goalError, setGoalError] = useState<string | null>(null)
   const openPromise = useRef<Promise<unknown> | null>(null)
   const writes = useRef<Promise<unknown>>(Promise.resolve())
   const alive = useRef(true)
   const initialized = useRef(false)
   const mountLease = useRef(0)
+  const editor = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     const lease = ++mountLease.current
@@ -202,6 +205,25 @@ export function WebPreSessionLanding({
       })
     })
 
+  const chooseGoalIntent = (intent: 'default' | 'goal') => {
+    setGoalError(null)
+    void queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setIntent', {
+        draftId,
+        intent,
+        expectedRevision: current.revision,
+      })
+    })
+      .then(() => {
+        if (alive.current) editor.current?.focus()
+      })
+      .catch((reason: unknown) => {
+        if (alive.current) setGoalError(code(reason))
+      })
+  }
+
   const loadMoreWorkspaces = () => {
     if (!workspaceCursor || loadingWorkspaces) return
     const cursor = workspaceCursor
@@ -341,6 +363,7 @@ export function WebPreSessionLanding({
       choice={draft?.approvalChoice ?? 'inherit'}
       planMode={draft?.planMode ?? 'default'}
       planAvailable={composerPlanMode.available}
+      {...(draft?.intent === 'goal' ? { planBlockedReason: labels.planGoalConflict } : {})}
       hostDefault={composerPermission.hostDefault.status === 'ready' ? composerPermission.hostDefault.mode : null}
       sessionLabel={shell.preSession.hero.title}
       labels={shell.session.permissionPicker}
@@ -349,6 +372,52 @@ export function WebPreSessionLanding({
       onPlanMode={choosePlanMode}
     />
   )
+  const goalControl = (
+    <LumenFrame className="hbar-web-pre-session-goal-controls">
+      <HbarComposerAddMenu
+        labels={shell.session.addMenu}
+        canAddFiles={false}
+        canOpenSlash={false}
+        showSlash={false}
+        onOpenSlash={() => undefined}
+        goalAction={{
+          label: shell.session.intent.goalMenu,
+          disabled:
+            !connected ||
+            !draft ||
+            busy ||
+            draft.phase === 'unknown' ||
+            draft.intent === 'goal' ||
+            draft.planMode === 'plan',
+          ...(draft?.planMode === 'plan'
+            ? { disabledHint: labels.goalPlanConflict }
+            : draft?.intent === 'goal'
+              ? { disabledHint: labels.goalAlreadyPrepared }
+              : {}),
+          onChoose: () => chooseGoalIntent('goal'),
+        }}
+      />
+    </LumenFrame>
+  )
+  const preparedGoal =
+    draft?.intent === 'goal' ? (
+      <LumenButton
+        type="button"
+        size="s"
+        variant="text"
+        indicator="none"
+        className="hbar-web-pre-session-goal-chip"
+        aria-label={shell.session.intent.cancelGoal}
+        aria-pressed="true"
+        title={shell.session.intent.goalPreparedHint}
+        disabled={!connected || busy || draft.phase === 'unknown'}
+        onClick={() => chooseGoalIntent('default')}
+      >
+        <LumenIcon icon={Target} tier="sm" />
+        <LumenText as="span">{shell.session.intent.goalPrepared}</LumenText>
+        <LumenIcon icon={X} tier="sm" />
+      </LumenButton>
+    ) : null
   const editorKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.shiftKey) return
     if (sendBehavior === null) return
@@ -361,12 +430,17 @@ export function WebPreSessionLanding({
   return (
     <HbarPreSessionLanding
       labels={
-        draft?.planMode === 'plan'
+        draft?.intent === 'goal'
           ? {
               ...shell.preSession,
-              prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },
+              prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.goalPlaceholder },
             }
-          : shell.preSession
+          : draft?.planMode === 'plan'
+            ? {
+                ...shell.preSession,
+                prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },
+              }
+            : shell.preSession
       }
       composer={{
         value: text,
@@ -375,24 +449,32 @@ export function WebPreSessionLanding({
         submitting: busy,
         uploading: false,
         canSubmit: Boolean(draft?.workspaceId && text.trim() && !busy && draft.phase !== 'unknown'),
-        error: openError
-          ? labels.error(openError)
-          : draft?.phase !== 'unknown' && draft?.error
-            ? labels.error(draft.error)
-            : undefined,
+        error: goalError
+          ? labels.goalError(goalError)
+          : openError
+            ? labels.error(openError)
+            : draft?.phase !== 'unknown' && draft?.error
+              ? labels.error(draft.error)
+              : undefined,
         context:
-          draft?.phase === 'unknown' ? (
-            <LumenFrame className="hbar-web-pre-session-recovery">
-              <LumenText as="p" role="alert">
-                {labels.error(draft.error ?? 'RESULT_UNKNOWN')}
-              </LumenText>
-              <LumenButton type="button" size="s" disabled={!connected || reconciling} onClick={reconcile}>
-                {labels.checking}
-              </LumenButton>
-            </LumenFrame>
+          preparedGoal || draft?.phase === 'unknown' ? (
+            <>
+              {preparedGoal}
+              {draft?.phase === 'unknown' && (
+                <LumenFrame className="hbar-web-pre-session-recovery">
+                  <LumenText as="p" role="alert">
+                    {labels.error(draft.error ?? 'RESULT_UNKNOWN')}
+                  </LumenText>
+                  <LumenButton type="button" size="s" disabled={!connected || reconciling} onClick={reconcile}>
+                    {labels.checking}
+                  </LumenButton>
+                </LumenFrame>
+              )}
+            </>
           ) : undefined,
         controls: (
           <LumenFrame className="hbar-web-pre-session-controls">
+            {goalControl}
             {workspaceControl}
             {approvalControl}
           </LumenFrame>
@@ -400,6 +482,7 @@ export function WebPreSessionLanding({
         modelPicker: modelControl,
         editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
           <LumenTextarea
+            ref={editor}
             variant="plain"
             aria-label={inputLabel}
             placeholder={placeholder}

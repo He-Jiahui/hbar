@@ -61,6 +61,7 @@ export {
   type HbarPreSessionLandingLabels,
   type HbarPreSessionLandingProps,
 } from './pre-session-landing'
+export { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 export {
   HbarPreSessionChoicePicker,
   visiblePreSessionChoices,

@@ -14,6 +14,7 @@ export interface HbarPreSessionApprovalPickerProps {
   readonly choice: ComposerPermissionChoice
   readonly planMode: ComposerPlanMode
   readonly planAvailable: boolean
+  readonly planBlockedReason?: string
   readonly hostDefault: ComposerPermissionMode | null
   readonly sessionLabel: string
   readonly labels: HbarComposerPermissionLabels
@@ -27,6 +28,7 @@ export function HbarPreSessionApprovalPicker({
   choice,
   planMode,
   planAvailable,
+  planBlockedReason,
   hostDefault,
   sessionLabel,
   labels,
@@ -84,7 +86,7 @@ export function HbarPreSessionApprovalPicker({
     }
   }
   const selectPlan = async (mode: ComposerPlanMode) => {
-    if (busy || disabled || (mode === 'plan' && !planAvailable)) return
+    if (busy || disabled || (mode === 'plan' && (!planAvailable || planBlockedReason))) return
     if (mode === planMode) {
       close(true)
       return
@@ -274,7 +276,7 @@ export function HbarPreSessionApprovalPicker({
                       indicator="none"
                       role="menuitemradio"
                       aria-checked={planSelected}
-                      disabled={busy || disabled}
+                      disabled={busy || disabled || Boolean(planBlockedReason)}
                       className="hbar-composer-permission-option hbar-composer-plan-option"
                       data-choice="plan"
                       onClick={() => void selectPlan('plan')}
@@ -282,7 +284,9 @@ export function HbarPreSessionApprovalPicker({
                       <LumenIcon icon={Lightbulb} tier="md" />
                       <LumenFrame className="hbar-composer-permission-description">
                         <LumenText as="span">{labels.plan.label}</LumenText>
-                        <LumenText as="span">{planSelected ? labels.plan.selected : labels.plan.description}</LumenText>
+                        <LumenText as="span">
+                          {planBlockedReason ?? (planSelected ? labels.plan.selected : labels.plan.description)}
+                        </LumenText>
                       </LumenFrame>
                       {planSelected && <LumenIcon icon={Check} tier="sm" />}
                     </LumenButton>
