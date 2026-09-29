@@ -606,3 +606,19 @@ listbox，本地为原生 select，展开形态与审计原始 delta 不等。
 德语文案、320px 末行可达且 page error 0；专项 store/audit 测试 95 项、类型检查、
 局部 lint 和构建通过，构建仍有既有大 chunk 提示。Save 与 Add note 来源结果未点验，
 宿主只转发类型化请求，不虚构保存或笔记；等价行与布局乘积不逐一回放。
+
+Forms 5（Provision a workspace）的实时证据位于
+`artifacts/reactbits-pro-visual-audit/forms5-integration-20260928-r3/`：8 组静态来源/本地对，
+5 个按地址填入、密码显隐、Region 展开、Plan 选择与 consent 切换的安全机制样本。
+修正来源可证的 plan/consent/Region 标注与 Region 锚定覆盖层后，静态语义、控件形状、
+标签和溢出硬门槛无失败；其中四种机制的语义差量对齐。来源安全填入可见地址
+`Available`，补齐字段和同意后 Create 可启用，但未点击 Create。宿主异步可用反馈
+按当前地址拒绝过期回写；有效创建仅发类型化请求，不模拟远端结果。
+**严格账本仍为 `needs-fix`，未人工签署通过**：采样时来源地址已经显示 Available，
+本地延时反馈还在检查阶段；Region 展开和 consent 的视觉反馈阈值亦有残差。
+未把本地计时器缩到迎合某一截帧，也未修改比较阈值。独立浏览器脚本
+`scripts/verify-hbar-app-ui-forms-5.ts` 验证默认禁用、密码显隐、Plan、德语文案、
+320px 表单区独立滚动与 page error（0）；7 项 store 测试（60 条断言）、Lumen 类型检查、
+局部 lint/flow/content/icon guards 和构建通过，构建仍有既有大 chunk 提示。
+根类型检查本轮被无关的 `packages/app-runtime/src/agent-composer.ts:663` 类型错误阻断，
+不得记为通过；真实创建结果与其他按钮/布局乘积仍待证。
