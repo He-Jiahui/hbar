@@ -693,6 +693,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-9')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-9-reference.tsx',
+        'forms-9-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Copy Monday to weekdays and inspect the source-visible unsaved state',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '2:click',
+          change: 'Close Monday and verify its draft intervals are retained while the weekly total becomes 40 h',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '48:click',
+          change: 'Toggle public-holiday bookings and inspect the checkbox state without saving',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Add hours, Remove time range, and Save hours results',
+          basis:
+            'Those remote or mutable source outcomes are not part of the safe sample. The host emits typed callback requests only for Add/Remove/Save; no new interval or persistence success is claimed.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Reset result and time-zone/time option catalogs',
+          basis:
+            'Reset is locally modeled as returning to the preview baseline, not as an observed remote source result. Time-zone and interval time menus remain explicitly partial, using only values visible in the authorized source baseline.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated day, interval, and holiday changes across viewport/theme combinations',
+          basis:
+            'Eight local captures cover the four viewport sizes and two themes; the authorized source cache is visual reference only. Copy, open-day switch, and holiday checkbox are distinct planned mechanisms, not fresh same-hash source/local pairs.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Current-round source static and interaction pairing',
+          basis:
+            'The 2026-09-29 live capture timed out navigating to the verified Forms 9 URL after only three source/local pairs and produced no manifest. The complete authorized full-static-v9 cache uses an older audit protocol, so it is not imported into a current strict run; no same-hash source interaction is claimed.',
+          verification: 'restricted-unverified',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-5')
     return {
       revision: 1,
