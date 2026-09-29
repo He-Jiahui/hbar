@@ -6,6 +6,7 @@ body { background: var(--hbar-app-ui-bg); }
 .hbar-app-ui-preview { min-height: 100vh; background: var(--hbar-app-ui-bg); color: var(--hbar-app-ui-text); }
 .hbar-app-ui-isolated-canvas { width: 100%; height: 100vh; min-height: 100vh; overflow: hidden; background: var(--hbar-app-ui-bg); }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-1']) { block-size: auto; overflow: visible; }
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-2']) { block-size: auto; overflow: visible; }
 .hbar-app-ui-isolated-canvas > .hbar-app-ui-variant { min-height: 100vh; }
 .hbar-app-ui-isolated-canvas > .hbar-app-ui-variant.hbar-app-ui-usage-catalog { block-size: 100%; min-block-size: 0; }
 .hbar-app-ui-preview-frame:has(.hbar-app-ui-usage-catalog .hbar-app-ui-virtual-list) { block-size: var(--hbar-app-ui-preview-pane-block-size); }

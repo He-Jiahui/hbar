@@ -9,7 +9,11 @@ export interface AuditSamplingPlan {
   readonly revision: number
   readonly lumenEntries: readonly string[]
   readonly samples: readonly AuditInteractionSample[]
-  readonly inferences: readonly Readonly<{ scope: string; basis: string; verification: 'inferred-not-replayed' }>[]
+  readonly inferences: readonly Readonly<{
+    scope: string
+    basis: string
+    verification: 'inferred-not-replayed' | 'restricted-unverified'
+  }>[]
 }
 
 /** Reviewed behavioral groups, not a Cartesian product of every input gesture. */
@@ -808,6 +812,68 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
           scope: 'Other viewport/theme/action combinations and repeated gestures',
           basis:
             'Eight static pairs cover all four viewports and both themes. The four interaction samples cover completion, remove/revert, combobox expansion and switch toggling without multiplying equivalent mechanisms across layouts.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
+  if (variantId === 'hbar-app-ui-forms-2')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-2-reference.tsx',
+        'forms-2-reference.css',
+        'index.ts',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '0:fill',
+          change: 'Enter a source-valid session title and verify readiness moves from 0/4 to 1/4',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '1:fill',
+          change: 'Enter a source-valid 120-character abstract and verify the 480-left counter and second readiness item',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '15:click',
+          change: 'Submit the empty preview form to expose the four source-observed validation messages; do not submit valid data',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '3:click',
+          change: 'Choose Hands-on workshop and verify its source-observed 90-minute duration note',
+        },
+        {
+          viewport: 'stress',
+          theme: 'dark',
+          suffix: '5:expand',
+          change: 'Expand Track and expose the source-provided listbox choices',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other editable fields, format durations, and readiness transitions',
+          basis:
+            'Each field and choice uses the same typed host-owned store. Focused tests cover the 8/120-character readiness rules, email validation, dynamic 600-character count, 30/90/10-minute format durations, and bounded choice updates; safe source samples cover title and abstract readiness, format duration, and Track expansion.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Recording-consent click and valid proposal submission outcomes',
+          basis:
+            'The source consent checkbox was not safely operable because a floating navigation layer intercepted the pointer. No valid proposal was submitted. The local valid path only emits a typed host callback and does not claim remote completion.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other viewport/theme/action combinations and 320px flow',
+          basis:
+            'Eight static pairs cover four viewports and both themes. The host keeps the three sections and readiness aside in normal document flow at 320px; source scroll ownership at the stress viewport was not established, so no source scroll behavior is claimed.',
           verification: 'inferred-not-replayed',
         },
       ],

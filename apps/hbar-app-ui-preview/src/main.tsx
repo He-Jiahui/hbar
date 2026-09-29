@@ -20,6 +20,7 @@ import { SettingsForm4PreviewHost } from './SettingsForm4PreviewHost'
 import { SettingsForm5PreviewHost } from './SettingsForm5PreviewHost'
 import { SettingsForm6PreviewHost } from './SettingsForm6PreviewHost'
 import { FormsForm1PreviewHost } from './FormsForm1PreviewHost'
+import { Forms2PreviewHost } from './Forms2PreviewHost'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
@@ -170,6 +171,7 @@ import { HBAR_APP_UI_DASHBOARD_FIXTURES } from '../../../tests/fixtures/hbar-app
 import { HBAR_APP_UI_ANALYTICS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-analytics-fixtures'
 import { HBAR_APP_UI_FORMS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-forms-fixtures'
 import { createFormsForm1PreviewFixture } from './formsForm1PreviewFixtures'
+import { createForms2PreviewFixture } from './forms2PreviewFixtures'
 import { appDialogFixture } from '../../../tests/fixtures/hbar-app-ui-app-dialog-fixtures'
 import {
   createHbarAppUiNotificationActivityFixture,
@@ -465,6 +467,13 @@ function PreviewApp() {
       ),
     [],
   )
+  const forms2ReferenceFixture = useMemo(
+    () =>
+      createForms2PreviewFixture(
+        new URLSearchParams(window.location.search).get('forms2Fixture') === 'localized' ? 'de' : 'en',
+      ),
+    [],
+  )
   const appDialogContent = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
     return appDialogFixture(
@@ -739,12 +748,17 @@ function PreviewApp() {
                                                                                                     onAction={handleAction}
                                                                                                     referenceFixture={formsForm1ReferenceFixture}
                                                                                                   >
-                                                                                                    <SelectedComponent
+                                                                                                    <Forms2PreviewHost
+                                                                                                      content={formsContent}
                                                                                                       spec={selected.spec}
-                                                                                                      onAction={
-                                                                                                        handleAction
-                                                                                                      }
-                                                                                                    />
+                                                                                                      onAction={handleAction}
+                                                                                                      referenceFixture={forms2ReferenceFixture}
+                                                                                                    >
+                                                                                                      <SelectedComponent
+                                                                                                        spec={selected.spec}
+                                                                                                        onAction={handleAction}
+                                                                                                      />
+                                                                                                    </Forms2PreviewHost>
                                                                                                   </FormsForm1PreviewHost>
                                                                                                 </SettingsForm6PreviewHost>
                                                                                               </SettingsForm5PreviewHost>
@@ -1062,14 +1076,17 @@ function PreviewApp() {
                                                                                                               onAction={handleAction}
                                                                                                               referenceFixture={formsForm1ReferenceFixture}
                                                                                                             >
-                                                                                                              <SelectedComponent
-                                                                                                                spec={
-                                                                                                                  selected.spec
-                                                                                                                }
-                                                                                                                onAction={
-                                                                                                                  handleAction
-                                                                                                                }
-                                                                                                              />
+                                                                                                              <Forms2PreviewHost
+                                                                                                                content={formsContent}
+                                                                                                                spec={selected.spec}
+                                                                                                                onAction={handleAction}
+                                                                                                                referenceFixture={forms2ReferenceFixture}
+                                                                                                              >
+                                                                                                                <SelectedComponent
+                                                                                                                  spec={selected.spec}
+                                                                                                                  onAction={handleAction}
+                                                                                                                />
+                                                                                                              </Forms2PreviewHost>
                                                                                                             </FormsForm1PreviewHost>
                                                                                                           </SettingsForm6PreviewHost>
                                                                                                         </SettingsForm5PreviewHost>

@@ -1761,6 +1761,14 @@ export function interactionCases(
           : undefined
       const formsForm1FillValue =
         variantId === 'hbar-app-ui-forms-1' && capability === 'fill' && control.index === 1 ? '' : undefined
+      const forms2FillValue =
+        variantId === 'hbar-app-ui-forms-2' && capability === 'fill'
+          ? control.index === 0
+            ? 'Calibrating field sensors'
+            : control.index === 1
+              ? 'A'.repeat(120)
+              : undefined
+          : undefined
       cases.push({
         id: `${prefix}:${capability}`,
         action: capability,
@@ -1770,6 +1778,7 @@ export function interactionCases(
         ...(settingsForm4FillValue === undefined ? {} : { fillValue: settingsForm4FillValue }),
         ...(settingsForm6FillValue === undefined ? {} : { fillValue: settingsForm6FillValue }),
         ...(formsForm1FillValue === undefined ? {} : { fillValue: formsForm1FillValue }),
+        ...(forms2FillValue === undefined ? {} : { fillValue: forms2FillValue }),
       })
       if (capability === 'expand' || capability === 'menu')
         cases.push({ id: `${prefix}:${capability}-escape`, action: 'press', key: 'Escape', control, scenario })
