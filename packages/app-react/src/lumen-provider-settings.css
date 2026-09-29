@@ -22,6 +22,22 @@
   text-align: center;
 }
 
+.hbar-provider-catalog-recovery {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-provider-catalog-recovery p {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
 .hbar-app-react-provider-dialog {
   display: flex;
   inline-size: min(100%, 58rem);

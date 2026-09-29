@@ -6,7 +6,7 @@ import type { CommandExecutor } from '@hbar/commands'
 import { providerSchema } from '@hbar/contracts'
 import { HBAR_PROVIDER_EDITOR_DESCRIPTION } from '@hbar/kernel'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { HbarProviderEditorView } from '../packages/app-react/src/lumen-provider-editor'
+import { HbarProviderEditorView, type HbarProviderCatalogRead } from '../packages/app-react/src/lumen-provider-editor'
 
 const configured = providerSchema.parse({
   id: 'visible-provider',
@@ -32,7 +32,11 @@ test('advanced provider parameters are collapsed, retain saved values, and discl
     })
     const editor = await waitForEditor(runtime)
     const labels = getShellCopy('zh-CN').providers.dialog
-    const render = (input = editor) =>
+    expect(labels.preset.readError('DISCONNECTED')).toContain('重新连接')
+    expect(labels.preset.readError('DISCONNECTED')).not.toBe(labels.preset.readError('CAPABILITY_UNAVAILABLE'))
+    expect(labels.models.catalogReadError('TIMEOUT')).toContain('重新连接')
+    expect(labels.models.catalogReadError('TIMEOUT')).not.toBe(labels.models.catalogReadError('CAPABILITY_UNAVAILABLE'))
+    const render = (input = editor, catalogRead: HbarProviderCatalogRead | null = null) =>
       renderToStaticMarkup(
         <HbarProviderEditorView
           editor={input}
@@ -42,9 +46,11 @@ test('advanced provider parameters are collapsed, retain saved values, and discl
           }}
           connected
           actionError={null}
+          catalogRead={catalogRead}
           onBack={() => {}}
           onSave={() => {}}
           onReconcile={() => {}}
+          onRetryCatalog={async () => false}
           onIntent={() => {}}
         />,
       )
@@ -60,6 +66,35 @@ test('advanced provider parameters are collapsed, retain saved values, and discl
     expect(invalid).toContain(labels.validation('models.0.contextWindow', 'too_small'))
     expect(invalid).toContain(labels.modelIssues(editor.draft.models[0]?.name ?? '', 1))
     expect(invalid).toContain(labels.issues(1))
+
+    const presetRead: HbarProviderCatalogRead = {
+      editorId: editor.editorId,
+      intent: { kind: 'load-presets', query: 'OpenAI', append: false },
+      status: 'error',
+      errorCode: 'CAPABILITY_UNAVAILABLE',
+    }
+    const presetFailure = render({ ...editor, providerId: null }, presetRead)
+    expect(presetFailure).toContain(labels.preset.readError('CAPABILITY_UNAVAILABLE'))
+    expect(presetFailure).not.toContain('CAPABILITY_UNAVAILABLE')
+    expect(presetFailure).toContain(labels.preset.retry)
+    expect(presetFailure).toContain('id="provider-preset"')
+    expect(presetFailure).not.toContain('class="hbar-app-react-provider-error"')
+
+    const modelRead: HbarProviderCatalogRead = {
+      editorId: editor.editorId,
+      intent: { kind: 'apply-preset', presetId: 'openai' },
+      status: 'error',
+      errorCode: 'CAPABILITY_UNAVAILABLE',
+    }
+    const modelFailure = render(
+      { ...editor, presets: { ...editor.presets, selectedPresetId: 'openai', status: 'error' } },
+      modelRead,
+    )
+    expect(modelFailure).toContain(labels.models.catalogReadError('CAPABILITY_UNAVAILABLE'))
+    expect(modelFailure).not.toContain('CAPABILITY_UNAVAILABLE')
+    expect(modelFailure).toContain(labels.models.catalogRetry)
+    expect(modelFailure).toContain('id="provider-model-catalog"')
+    expect(modelFailure).not.toContain('class="hbar-app-react-provider-error"')
   } finally {
     runtime.dispose()
   }
@@ -97,6 +132,12 @@ test('provider list and dialog render Host descriptions without exposing a crede
     surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
   })
   const copy = getShellCopy('en-US')
+  expect(copy.providers.dialog.preset.readError('DISCONNECTED')).toContain('Reconnect')
+  expect(copy.providers.dialog.preset.readError('CAPABILITY_UNAVAILABLE').toLowerCase()).toContain('continue manually')
+  expect(copy.providers.dialog.models.catalogReadError('TIMEOUT')).toContain('Reconnect')
+  expect(copy.providers.dialog.models.catalogReadError('CAPABILITY_UNAVAILABLE').toLowerCase()).toContain(
+    'add a model manually',
+  )
   try {
     await runtime.view.commands.execute('providerEditor.refresh', {})
     const list = renderToStaticMarkup(

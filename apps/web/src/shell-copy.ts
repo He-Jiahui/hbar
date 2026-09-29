@@ -754,6 +754,19 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       open: choose('打开供应商预设', 'Open provider presets'),
       empty: choose('没有匹配的供应商预设', 'No provider presets match'),
       loading: choose('正在加载供应商预设…', 'Loading provider presets…'),
+      readError: (code) =>
+        ['DISCONNECTED', 'CONNECTION_CLOSED', 'HOST_DISCONNECTED', 'TIMEOUT', 'TIMED_OUT'].includes(code)
+          ? choose('Host 连接已中断。重新连接后可重试。', 'The Host connection was interrupted. Reconnect, then retry.')
+          : code === 'CAPABILITY_UNAVAILABLE'
+            ? choose(
+                '供应商预设目录暂不可用。你可以重试，或手动填写。',
+                'Provider preset catalog is unavailable. Retry or continue manually.',
+              )
+            : choose(
+                '无法加载供应商预设。你可以重试，或手动填写。',
+                'Could not load provider presets. Retry or continue manually.',
+              ),
+      retry: choose('重试加载预设', 'Retry preset loading'),
       loadMore: choose('加载更多供应商', 'Load more providers'),
       detail: (protocol, baseUrl, modelCount) =>
         choose(
@@ -797,6 +810,19 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       catalogOpen: choose('打开模型目录', 'Open model catalog'),
       catalogEmpty: choose('没有匹配的模型', 'No models match'),
       catalogLoading: choose('正在加载模型…', 'Loading models…'),
+      catalogReadError: (code) =>
+        ['DISCONNECTED', 'CONNECTION_CLOSED', 'HOST_DISCONNECTED', 'TIMEOUT', 'TIMED_OUT'].includes(code)
+          ? choose('Host 连接已中断。重新连接后可重试。', 'The Host connection was interrupted. Reconnect, then retry.')
+          : code === 'CAPABILITY_UNAVAILABLE'
+            ? choose(
+                '预设模型目录暂不可用。你可以重试，或手动添加模型。',
+                'Preset model catalog is unavailable. Retry or add a model manually.',
+              )
+            : choose(
+                '无法加载预设模型。你可以重试，或手动添加模型。',
+                'Could not load preset models. Retry or add a model manually.',
+              ),
+      catalogRetry: choose('重试加载模型', 'Retry model loading'),
       catalogLoadMore: choose('加载更多模型', 'Load more models'),
       catalogDetail: (contextWindow, maxOutput) =>
         choose(

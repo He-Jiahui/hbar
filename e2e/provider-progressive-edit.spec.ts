@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { createConfigurationCommandClient } from '@hbar/client'
 import { z } from 'zod'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -20,6 +20,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   }, info) => {
     test.setTimeout(120_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-provider-progressive-'))
+    const evidenceDir = join(process.cwd(), 'artifacts', 'settings-provider-catalog-retry', 'evidence')
+    await mkdir(evidenceDir, { recursive: true })
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
@@ -35,6 +37,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       let responseMode: 'normal' | 'failure' | 'unknown' = 'normal'
+      let catalogFailureMode: 'none' | 'preset-list-once' | 'preset-list-stale-once' | 'preset-models-once' = 'none'
+      let presetListReads = 0
+      let presetModelReads = 0
+      let releaseStalePresetFailure: (() => void) | undefined
+      let signalStalePresetRead: () => void = () => undefined
+      const stalePresetRead = new Promise<void>((resolve) => {
+        signalStalePresetRead = resolve
+      })
       let saveRequestId: string | number | undefined
       let saveWrites = 0
       await page.routeWebSocket('**/rpc', (socket) => {
@@ -42,7 +52,61 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         socket.onMessage((message) => {
           if (typeof message === 'string') {
             const parsed = rpcShape.safeParse(JSON.parse(message))
-            if (parsed.success && parsed.data.params?.commandId === 'provider.save') {
+            const commandId = parsed.success ? parsed.data.params?.commandId : undefined
+            if (parsed.success && commandId === 'provider.preset.list') {
+              presetListReads += 1
+              if (catalogFailureMode === 'preset-list-stale-once') {
+                catalogFailureMode = 'none'
+                releaseStalePresetFailure = () =>
+                  socket.send(
+                    JSON.stringify({
+                      jsonrpc: '2.0',
+                      id: parsed.data.id,
+                      error: {
+                        code: -32603,
+                        message: 'Fixture delivers a superseded preset failure late',
+                        data: 'INVALID_INPUT',
+                      },
+                    }),
+                  )
+                signalStalePresetRead()
+                return
+              }
+              if (catalogFailureMode === 'preset-list-once') {
+                catalogFailureMode = 'none'
+                socket.send(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.data.id,
+                    error: {
+                      code: -32603,
+                      message: 'Fixture fails the first preset read',
+                      data: 'CAPABILITY_UNAVAILABLE',
+                    },
+                  }),
+                )
+                return
+              }
+            }
+            if (parsed.success && commandId === 'provider.preset.models') {
+              presetModelReads += 1
+              if (catalogFailureMode === 'preset-models-once') {
+                catalogFailureMode = 'none'
+                socket.send(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.data.id,
+                    error: {
+                      code: -32603,
+                      message: 'Fixture fails the first preset model read',
+                      data: 'CAPABILITY_UNAVAILABLE',
+                    },
+                  }),
+                )
+                return
+              }
+            }
+            if (parsed.success && commandId === 'provider.save') {
               if (responseMode === 'failure') {
                 socket.send(
                   JSON.stringify({
@@ -98,11 +162,83 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(dialog.locator('#provider-id')).toBeFocused()
       await expect(dialog.getByRole('button', { name: labels.save, exact: true })).toBeDisabled()
       const preset = dialog.getByRole('combobox', { name: labels.preset.label, exact: true })
+      const presetRecovery = dialog.locator('.hbar-provider-catalog-recovery')
+      catalogFailureMode = 'preset-list-stale-once'
+      await preset.fill('stale')
+      await stalePresetRead
+      catalogFailureMode = 'preset-list-once'
       await preset.fill('OpenAI')
+      const presetRetry = presetRecovery.getByRole('button', { name: labels.preset.retry, exact: true })
+      await expect(presetRecovery.getByRole('alert')).toHaveText(labels.preset.readError('CAPABILITY_UNAVAILABLE'))
+      await expect(presetRecovery.getByRole('alert')).not.toContainText('CAPABILITY_UNAVAILABLE')
+      await expect(dialog.locator('.hbar-app-react-provider-error')).toHaveCount(0)
+      await expect(preset).toHaveValue('OpenAI')
+      await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeEnabled()
+      releaseStalePresetFailure?.()
+      await expect(presetRecovery.getByRole('alert')).toHaveText(labels.preset.readError('CAPABILITY_UNAVAILABLE'))
+      await page.screenshot({ path: join(evidenceDir, `provider-presets-failed-${locale}-1440.png`) })
+      await page.setViewportSize({ width: 320, height: 900 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321)
+      await expect(presetRetry).toBeVisible()
+      await page.screenshot({ path: join(evidenceDir, `provider-presets-failed-${locale}-320.png`) })
+      await presetRetry.focus()
+      await presetRetry.press('Enter')
+      await expect(preset).toBeFocused()
+      await expect(presetRecovery).toHaveCount(0)
+      await expect(dialog.locator('.hbar-app-react-provider-error')).toHaveCount(0)
+      expect(presetListReads).toBeGreaterThanOrEqual(4)
+      await page.setViewportSize({ width: 1440, height: 960 })
+      catalogFailureMode = 'preset-models-once'
       await page
         .getByRole('option')
         .filter({ has: page.getByText('OpenAI', { exact: true }) })
         .click()
+      const modelCatalog = dialog.getByRole('combobox', { name: labels.models.catalog, exact: true })
+      const modelRecovery = dialog.locator('.hbar-provider-catalog-recovery')
+      const modelRetry = modelRecovery.getByRole('button', { name: labels.models.catalogRetry, exact: true })
+      await expect(modelRecovery.getByRole('alert')).toHaveText(
+        labels.models.catalogReadError('CAPABILITY_UNAVAILABLE'),
+      )
+      await expect(dialog.locator('.hbar-app-react-provider-error')).toHaveCount(0)
+      await expect(dialog.locator('#provider-id')).toHaveValue('')
+      await expect(modelCatalog).toBeVisible()
+      await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeEnabled()
+      await modelRecovery.scrollIntoViewIfNeeded()
+      await expect(modelRecovery).toBeInViewport()
+      await page.screenshot({ path: join(evidenceDir, `provider-model-apply-failed-${locale}-1440.png`) })
+      await page.setViewportSize({ width: 320, height: 900 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321)
+      await expect(modelRetry).toBeVisible()
+      await page.screenshot({ path: join(evidenceDir, `provider-model-apply-failed-${locale}-320.png`) })
+      await modelRetry.focus()
+      await modelRetry.press('Enter')
+      await expect(modelCatalog).toBeFocused()
+      await expect(dialog.locator('#provider-id')).toHaveValue('openai')
+      await expect(modelRecovery).toHaveCount(0)
+      await expect(dialog.locator('.hbar-app-react-provider-error')).toHaveCount(0)
+      expect(presetModelReads).toBeGreaterThanOrEqual(2)
+      await page.setViewportSize({ width: 1440, height: 960 })
+      catalogFailureMode = 'preset-models-once'
+      await modelCatalog.fill('gpt')
+      await expect(modelRecovery.getByRole('alert')).toHaveText(
+        labels.models.catalogReadError('CAPABILITY_UNAVAILABLE'),
+      )
+      await expect(dialog.locator('.hbar-app-react-provider-error')).toHaveCount(0)
+      await expect(dialog.locator('#provider-id')).toHaveValue('openai')
+      await expect(modelCatalog).toHaveValue('gpt')
+      await page.screenshot({ path: join(evidenceDir, `provider-model-query-failed-${locale}-1440.png`) })
+      await page.setViewportSize({ width: 320, height: 900 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321)
+      await expect(modelRetry).toBeVisible()
+      await page.screenshot({ path: join(evidenceDir, `provider-model-query-failed-${locale}-320.png`) })
+      await modelRetry.focus()
+      await modelRetry.press('Enter')
+      await expect(modelCatalog).toBeFocused()
+      await expect(modelRecovery).toHaveCount(0)
+      await expect(dialog.locator('.hbar-app-react-provider-error')).toHaveCount(0)
+      await expect(modelCatalog).toHaveValue('gpt')
+      expect(presetModelReads).toBeGreaterThanOrEqual(4)
+      await page.setViewportSize({ width: 1440, height: 960 })
       await dialog.locator('#provider-id').fill('progressive-provider')
       await dialog.locator('#provider-name').fill(name)
       await dialog.locator('#provider-protocol').selectOption('openai-responses')

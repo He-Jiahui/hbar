@@ -3,6 +3,8 @@ import { LumenFrame, LumenText, LumenButton, LumenDialog, LumenSettingsList } fr
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   HbarProviderEditorView,
+  type HbarProviderCatalogRead,
+  type HbarProviderCatalogReadIntent,
   type HbarProviderDialogLabels,
   type HbarProviderEditorIntent,
 } from './lumen-provider-editor'
@@ -14,6 +16,10 @@ function reasonCode(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
     ? reason.code
     : 'EXECUTION_FAILED'
+}
+
+function isCatalogReadIntent(value: HbarProviderEditorIntent): value is HbarProviderCatalogReadIntent {
+  return value.kind === 'load-presets' || value.kind === 'apply-preset' || value.kind === 'load-preset-models'
 }
 
 export interface HbarProviderSettingsLabels {
@@ -179,6 +185,8 @@ export function HbarProviderDialog({
   const providers = useHbarRuntimeState(runtime.state.providers)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [catalogRead, setCatalogRead] = useState<HbarProviderCatalogRead | null>(null)
+  const catalogGeneration = useRef(0)
   const [discarding, setDiscarding] = useState<{ readonly editorId: string; readonly name: string } | null>(null)
   const alive = useRef(true)
   const opening = useRef(typeof document === 'undefined' ? null : document.activeElement)
@@ -249,8 +257,8 @@ export function HbarProviderDialog({
     else discard(id)
   }, [close, discard, labels.addTitle, runtime])
   const intent = useCallback(
-    (value: HbarProviderEditorIntent) => {
-      if (!editorId) return
+    (value: HbarProviderEditorIntent): Promise<boolean | void> => {
+      if (!editorId) return Promise.resolve(false)
       setActionError(null)
       let request: Promise<unknown>
       switch (value.kind) {
@@ -344,11 +352,55 @@ export function HbarProviderDialog({
           })
           break
       }
-      void request.catch((reason) => {
-        if (isCurrent(editorId)) setActionError(reasonCode(reason))
-      })
+      if (isCatalogReadIntent(value)) {
+        const attempt = ++catalogGeneration.current
+        const readIntent = value
+        setCatalogRead({ editorId, intent: readIntent, status: 'loading' })
+        return request.then(
+          () => {
+            if (attempt !== catalogGeneration.current || !isCurrent(editorId)) return false
+            setCatalogRead(null)
+            return true
+          },
+          (reason) => {
+            if (attempt !== catalogGeneration.current || !isCurrent(editorId)) return false
+            const code = reasonCode(reason)
+            if (code === 'CONTENT_SUPERSEDED') {
+              setCatalogRead(null)
+              return false
+            }
+            setCatalogRead({ editorId, intent: readIntent, status: 'error', errorCode: code })
+            return false
+          },
+        )
+      }
+      return request
+        .catch((reason) => {
+          if (isCurrent(editorId)) setActionError(reasonCode(reason))
+          return undefined
+        })
+        .then(() => undefined)
     },
     [editorId, isCurrent, runtime.commands],
+  )
+  const retryCatalog = useCallback(
+    async (ownerId: string, readIntent: HbarProviderCatalogReadIntent): Promise<boolean> => {
+      if (
+        !editorId ||
+        ownerId !== editorId ||
+        !isCurrent(ownerId) ||
+        catalogRead?.editorId !== ownerId ||
+        catalogRead.status !== 'error' ||
+        catalogRead.intent !== readIntent
+      )
+        return false
+      try {
+        return (await intent(readIntent)) === true
+      } catch {
+        return false
+      }
+    },
+    [catalogRead, editorId, intent, isCurrent],
   )
   const wrap = (content: ReactNode) => (
     <>
@@ -426,10 +478,14 @@ export function HbarProviderDialog({
       labels={labels}
       connected={connected}
       actionError={actionError}
+      catalogRead={catalogRead?.editorId === editor.editorId ? catalogRead : null}
       onBack={back}
       onSave={() => save(false)}
       onReconcile={() => save(true)}
-      onIntent={intent}
+      onRetryCatalog={retryCatalog}
+      onIntent={(value) => {
+        void intent(value)
+      }}
     />,
   )
 }

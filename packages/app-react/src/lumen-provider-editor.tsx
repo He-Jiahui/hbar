@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ProviderEditorState } from '@hbar/app-runtime'
 import {
   LumenFrame,
@@ -105,12 +105,15 @@ export interface HbarProviderDialogLabels {
     readonly modelDetails: string
     readonly modelDetailsDescription: string
   }
+
   readonly preset: {
     readonly label: string
     readonly placeholder: string
     readonly open: string
     readonly empty: string
     readonly loading: string
+    readonly readError: (code: string) => string
+    readonly retry: string
     readonly loadMore: string
     readonly detail: (protocol: string, baseUrl: string, modelCount: number) => string
   }
@@ -138,6 +141,8 @@ export interface HbarProviderDialogLabels {
     readonly catalogOpen: string
     readonly catalogEmpty: string
     readonly catalogLoading: string
+    readonly catalogReadError: (code: string) => string
+    readonly catalogRetry: string
     readonly catalogLoadMore: string
     readonly catalogDetail: (contextWindow: number, maxOutput: number) => string
     readonly setDefault: string
@@ -165,6 +170,18 @@ export interface HbarProviderDialogLabels {
   readonly validation: (path: string, code: string) => string
   readonly deleteConfirmTitle: (name: string) => string
   readonly deleteConfirmDescription: (name: string) => string
+}
+
+export type HbarProviderCatalogReadIntent = Extract<
+  HbarProviderEditorIntent,
+  { readonly kind: 'load-presets' | 'apply-preset' | 'load-preset-models' }
+>
+
+export interface HbarProviderCatalogRead {
+  readonly editorId: string
+  readonly intent: HbarProviderCatalogReadIntent
+  readonly status: 'loading' | 'error'
+  readonly errorCode?: string
 }
 
 const thinkingLevels: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -217,6 +234,49 @@ function SectionHeading({ title, description }: { readonly title: string; readon
     <LumenFrame as="header" className="hbar-app-react-provider-section-heading">
       <LumenText as="h2">{title}</LumenText>
       <LumenText as="p">{description}</LumenText>
+    </LumenFrame>
+  )
+}
+
+function CatalogReadFeedback({
+  read,
+  targetId,
+  labels,
+  onRetry,
+  focusTarget,
+}: {
+  readonly read: HbarProviderCatalogRead | null
+  readonly targetId: string
+  readonly labels: {
+    readonly error: (code: string) => string
+    readonly retry: string
+    readonly loading: string
+  }
+  readonly onRetry: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
+  readonly focusTarget: (targetId: string) => void
+}) {
+  if (!read) return null
+  const loading = read.status === 'loading'
+  return (
+    <LumenFrame className="hbar-provider-catalog-recovery" aria-busy={loading}>
+      <LumenText as="p" role={loading ? 'status' : 'alert'}>
+        {loading ? labels.loading : labels.error(read.errorCode ?? 'EXECUTION_FAILED')}
+      </LumenText>
+      <LumenButton
+        type="button"
+        variant="outlined"
+        aria-disabled={loading}
+        onClick={() => {
+          if (loading) return
+          void onRetry(read.editorId, read.intent)
+            .then((recovered) => {
+              if (recovered) focusTarget(targetId)
+            })
+            .catch(() => undefined)
+        }}
+      >
+        {labels.retry}
+      </LumenButton>
     </LumenFrame>
   )
 }
@@ -301,11 +361,17 @@ function ProviderPresetPicker({
   editor,
   labels,
   disabled,
+  catalogRead,
+  onRetryCatalog,
+  focusCatalogTarget,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
   readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
+  readonly catalogRead: HbarProviderCatalogRead | null
+  readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
+  readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   const [query, setQuery] = useState('')
@@ -328,6 +394,11 @@ function ProviderPresetPicker({
       label: preset.name,
       detail: labels.preset.detail(preset.protocol, preset.baseUrl, preset.modelCount),
     }))
+  const fieldRead =
+    catalogRead?.editorId === editor.editorId && catalogRead.intent.kind === 'load-presets' ? catalogRead : null
+  useEffect(() => {
+    if (fieldRead?.status === 'error') setOpen(false)
+  }, [fieldRead?.status])
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.preset} description={labels.sections.presetDescription} />
@@ -360,6 +431,13 @@ function ProviderPresetPicker({
           }}
           onOpenChange={setOpen}
           onValueChange={(presetId) => onIntent({ kind: 'apply-preset', presetId })}
+        />
+        <CatalogReadFeedback
+          read={fieldRead}
+          targetId="provider-preset"
+          labels={{ error: labels.preset.readError, retry: labels.preset.retry, loading: labels.preset.loading }}
+          onRetry={onRetryCatalog}
+          focusTarget={focusCatalogTarget}
         />
       </LumenFormField>
     </LumenFrame>
@@ -513,16 +591,32 @@ function ModelCatalogPicker({
   editor,
   labels,
   disabled,
+  catalogRead,
+  onRetryCatalog,
+  focusCatalogTarget,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
   readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
+  readonly catalogRead: HbarProviderCatalogRead | null
+  readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
+  readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const presetId = editor.presets.selectedPresetId
+  const fieldRead =
+    presetId &&
+    catalogRead?.editorId === editor.editorId &&
+    ((catalogRead.intent.kind === 'apply-preset' && catalogRead.intent.presetId === presetId) ||
+      (catalogRead.intent.kind === 'load-preset-models' && catalogRead.intent.presetId === presetId))
+      ? catalogRead
+      : null
+  useEffect(() => {
+    if (fieldRead?.status === 'error') setOpen(false)
+  }, [fieldRead?.status])
   if (!presetId) return null
   const existing = new Set(editor.draft.models.map((model) => model.id))
   const options: readonly LumenControlOption[] = editor.presets.models.map((model) => ({
@@ -570,6 +664,17 @@ function ModelCatalogPicker({
           onIntent({ kind: 'add-preset-model', presetId, modelId })
         }}
       />
+      <CatalogReadFeedback
+        read={fieldRead}
+        targetId="provider-model-catalog"
+        labels={{
+          error: labels.models.catalogReadError,
+          retry: labels.models.catalogRetry,
+          loading: labels.models.catalogLoading,
+        }}
+        onRetry={onRetryCatalog}
+        focusTarget={focusCatalogTarget}
+      />
     </LumenFormField>
   )
 }
@@ -578,11 +683,17 @@ function ModelList({
   editor,
   labels,
   disabled,
+  catalogRead,
+  onRetryCatalog,
+  focusCatalogTarget,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
   readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
+  readonly catalogRead: HbarProviderCatalogRead | null
+  readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
+  readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   const [customModelId, setCustomModelId] = useState('')
@@ -635,7 +746,15 @@ function ModelList({
           ))
         )}
       </LumenFrame>
-      <ModelCatalogPicker editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+      <ModelCatalogPicker
+        editor={editor}
+        labels={labels}
+        disabled={disabled}
+        catalogRead={catalogRead}
+        onRetryCatalog={onRetryCatalog}
+        focusCatalogTarget={focusCatalogTarget}
+        onIntent={onIntent}
+      />
       <LumenFormField controlId="provider-custom-model" label={labels.models.customId}>
         <LumenFrame className="hbar-app-react-provider-inline-action">
           <LumenInput
@@ -893,18 +1012,32 @@ function ProviderModels({
   editor,
   labels,
   disabled,
+  catalogRead,
+  onRetryCatalog,
+  focusCatalogTarget,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
   readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
+  readonly catalogRead: HbarProviderCatalogRead | null
+  readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
+  readonly focusCatalogTarget: (targetId: string) => void
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section hbar-app-react-provider-model-section">
       <SectionHeading title={labels.sections.models} description={labels.sections.modelsDescription} />
       <LumenFrame className="hbar-app-react-provider-model-workspace">
-        <ModelList editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+        <ModelList
+          editor={editor}
+          labels={labels}
+          disabled={disabled}
+          catalogRead={catalogRead}
+          onRetryCatalog={onRetryCatalog}
+          focusCatalogTarget={focusCatalogTarget}
+          onIntent={onIntent}
+        />
         <LumenFrame
           as="section"
           className="hbar-app-react-provider-model-details"
@@ -934,21 +1067,33 @@ export function HbarProviderEditorView({
   labels,
   connected,
   actionError,
+  catalogRead,
   onBack,
   onSave,
   onReconcile,
+  onRetryCatalog,
   onIntent,
 }: {
   readonly editor: ProviderEditorState
   readonly labels: HbarProviderDialogLabels
   readonly connected: boolean
   readonly actionError: string | null
+  readonly catalogRead: HbarProviderCatalogRead | null
   readonly onBack: () => void
   readonly onSave: () => void
   readonly onReconcile: () => void
+  readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
   const container = useRef<HTMLElement>(null)
+  const focusCatalogTarget = useCallback(
+    (targetId: string) => {
+      const root = container.current
+      if (root?.dataset.providerEditorId !== editor.editorId) return
+      root.querySelector<HTMLElement>(`#${targetId}`)?.focus()
+    },
+    [editor.editorId],
+  )
   const [checked, setChecked] = useState(false)
   const focusPath = useRef<string | null>(null)
   const [focusRequest, setFocusRequest] = useState(0)
@@ -1025,6 +1170,7 @@ export function HbarProviderEditorView({
   return (
     <LumenFrame
       ref={container}
+      data-provider-editor-id={editor.editorId}
       as="section"
       className="hbar-app-react-provider-dialog"
       aria-label={title}
@@ -1050,12 +1196,28 @@ export function HbarProviderEditorView({
       <LumenFrame as="main">
         <LumenFrame className="hbar-app-react-provider-primary-column">
           {!editor.providerId && (
-            <ProviderPresetPicker editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
+            <ProviderPresetPicker
+              editor={editor}
+              labels={labels}
+              disabled={disabled}
+              catalogRead={catalogRead}
+              onRetryCatalog={onRetryCatalog}
+              focusCatalogTarget={focusCatalogTarget}
+              onIntent={onIntent}
+            />
           )}
           <ProviderConnectionForm editor={validatedEditor} labels={labels} disabled={disabled} onIntent={onIntent} />
           <ProviderCredentials editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
         </LumenFrame>
-        <ProviderModels editor={validatedEditor} labels={labels} disabled={disabled} onIntent={onIntent} />
+        <ProviderModels
+          editor={validatedEditor}
+          labels={labels}
+          disabled={disabled}
+          catalogRead={catalogRead}
+          onRetryCatalog={onRetryCatalog}
+          focusCatalogTarget={focusCatalogTarget}
+          onIntent={onIntent}
+        />
       </LumenFrame>
       {displayedError && !(unknown && ['RESULT_UNKNOWN', 'CREDENTIAL_RESULT_UNKNOWN'].includes(displayedError)) && (
         <LumenText as="p" className="hbar-app-react-provider-error" role="alert">
