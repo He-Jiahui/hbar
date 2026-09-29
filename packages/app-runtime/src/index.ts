@@ -689,6 +689,8 @@ export function createAppRuntime(options: RuntimeOptions) {
   const preSessionDrafts = createPreSessionDrafts(local, {
     navigation: navigation.reader,
     controls: controls.reader,
+    permissions: composerPermission.reader,
+    sessionApprovalSettingsAvailable: Boolean(options.settings),
     drafts: drafts.reader,
     queries: directory.queries,
     tabs: workspaceTabs.hooks,

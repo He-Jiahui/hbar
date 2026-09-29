@@ -21,6 +21,7 @@ const metadata = (id: string, kind: 'command' | 'query' = 'command') => ({
 const draftId = z.string().uuid()
 const revision = z.number().int().nonnegative()
 const workspaceId = idSchema.nullable()
+export const preSessionApprovalChoiceSchema = z.enum(['inherit', 'ask', 'deny', 'allow'])
 const result = z.strictObject({ draftId, revision })
 
 export const preSessionDraftStateSchema = z.strictObject({
@@ -28,9 +29,10 @@ export const preSessionDraftStateSchema = z.strictObject({
   workspaceId,
   text: z.string().max(200_000),
   modelId: idSchema.nullable(),
+  approvalChoice: preSessionApprovalChoiceSchema,
   revision,
   phase: z.enum(['idle', 'preparing', 'creating', 'configuring', 'submitting', 'unknown', 'failed', 'accepted']),
-  unknownStage: z.enum(['create', 'model', 'run']).nullable(),
+  unknownStage: z.enum(['create', 'model', 'approval', 'run']).nullable(),
   error: z.string().nullable(),
   sessionId: idSchema.nullable(),
   capturedWorkspaceId: idSchema.nullable(),
@@ -53,6 +55,16 @@ export const preSessionDraftCommands = {
   'preSessionDraft.setModel': defineCommand(
     metadata('preSessionDraft.setModel'),
     z.strictObject({ draftId, modelId: idSchema.nullable(), expectedRevision: revision }),
+    result,
+  ),
+  'preSessionDraft.setApprovalChoice': defineCommand(
+    metadata('preSessionDraft.setApprovalChoice'),
+    z.strictObject({
+      draftId,
+      choice: preSessionApprovalChoiceSchema,
+      expectedRevision: revision,
+      confirmAllow: z.literal(true).optional(),
+    }),
     result,
   ),
   'preSessionDraft.setWorkspace': defineCommand(
@@ -82,3 +94,4 @@ export const preSessionDraftCommands = {
 }
 
 export type PreSessionDraftState = z.output<typeof preSessionDraftStateSchema>
+export type PreSessionApprovalChoice = z.output<typeof preSessionApprovalChoiceSchema>

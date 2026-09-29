@@ -286,7 +286,9 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
       const receipt = settingsCommands[operation.commandId].output.parse(
         await settings.execute(operation.commandId, operation.input, { idempotencyKey: operation.key }),
       )
-      selected(input.sessionId)
+      // The receipt is scoped to this explicit Session. Selection may have
+      // changed while the Host write was in flight; do not discard a confirmed
+      // write receipt merely because the user focused another tab.
       return settleWrite(input.sessionId, operation, receipt)
     } catch (reason) {
       const unknown = dispatched && unknownCodes.has(errorCode(reason))
