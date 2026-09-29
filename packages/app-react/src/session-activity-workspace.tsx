@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { ListChecks, RefreshCw } from 'lucide-react'
 import {
   LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
   LumenFrame,
   LumenIcon,
   LumenIconButton,
@@ -88,9 +90,9 @@ export function HbarSessionActivityView({
           <LumenText as="p" className="hbar-session-activity-count">
             {labels.count(visible.length, entry?.totalActive ?? visible.length)}
           </LumenText>
-          <ol className="hbar-session-activity-list">
+          <LumenCollection as="ol" className="hbar-session-activity-list">
             {visible.map((item) => (
-              <li key={item.operationId} data-operation-id={item.operationId}>
+              <LumenCollectionItem key={item.operationId} data-operation-id={item.operationId}>
                 <LumenFrame className="hbar-session-activity-row-heading">
                   <LumenText as="strong">{labels.runAt(item.createdAt)}</LumenText>
                   <LumenStatus value={labels.status(item.status)} tone={tone(item.status)} />
@@ -98,9 +100,9 @@ export function HbarSessionActivityView({
                 <LumenText as="time" dateTime={new Date(item.startedAt ?? item.createdAt).toISOString()}>
                   {item.startedAt === null ? labels.queuedAt(item.createdAt) : labels.startedAt(item.startedAt)}
                 </LumenText>
-              </li>
+              </LumenCollectionItem>
             ))}
-          </ol>
+          </LumenCollection>
           {loadingMore && (
             <LumenText as="p" role="status" className="hbar-session-activity-notice">
               {labels.loadingMore}
