@@ -76,7 +76,8 @@ export interface ComposerIntentOptions {
   readonly permissions?: Pick<
     ReturnType<typeof createComposerPermission>,
     'prepareComposerSubmission' | 'settleSubmission'
-  >
+  > &
+    Partial<Pick<ReturnType<typeof createComposerPermission>, 'refreshSession'>>
   readonly captureMode?: (sessionId: string) => 'default' | 'plan'
   readonly refreshMode?: (sessionId: string) => Promise<'default' | 'plan'>
   readonly isRunActive?: (sessionId: string) => boolean
@@ -105,6 +106,8 @@ const submitInput = submitRunInputSchema.extend({
   expectedIntentRevision: z.number().int().nonnegative().optional(),
   expectedPermissionRevision: z.number().int().nonnegative().optional(),
   goalTokenBudget: z.number().int().positive().optional(),
+  /** Internal workflows can require the originally selected Session to remain selected until its first Run starts. */
+  requireSelectedSession: z.boolean().optional(),
 })
 const controlInput = sessionInput.extend({
   expectedGoalId: idSchema,
@@ -527,6 +530,14 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     const { sessionId } = input
     assertFree(sessionId)
     const navigation = options.navigation.getSnapshot()
+    const assertSelectedNavigation = () => {
+      if (!input.requireSelectedSession) return
+      const current = options.navigation.getSnapshot()
+      if (current !== navigation || current.status !== 'idle' || current.sessionId !== sessionId)
+        throw new CommandError('STALE_TARGET', 'The selected Session changed during Goal preparation')
+    }
+    if (input.requireSelectedSession && (navigation.sessionId !== sessionId || navigation.status !== 'idle'))
+      throw new CommandError('STALE_TARGET', 'The Goal submission must target the selected Session')
     if (input.expectedDraftRevision !== undefined) {
       if (navigation.sessionId !== sessionId || !navigation.workspaceId || !options.serializeDraft)
         throw new CommandError('VERSION_CONFLICT', 'Composer draft target changed')
@@ -593,6 +604,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       if (target) options.preparation?.assertCanPrepare(target)
       if (disposed || execution.signal.aborted)
         throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
+      assertSelectedNavigation()
       if (entry(sessionId).revision !== current.revision)
         throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during permission preparation')
       if (options.captureMode && options.captureMode(sessionId) !== capturedMode)
@@ -654,6 +666,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     try {
       if (pending.intent === 'goal') {
         const before = await snapshot(sessionId)
+        assertSelectedNavigation()
         if (target) options.preparation?.assertCanPrepare(target)
         if (pending.preparedGoalId) {
           if (before.goal?.goalId !== pending.preparedGoalId || before.goal.status !== 'active')
@@ -684,6 +697,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           refreshSelected(sessionId)
         }
       }
+      assertSelectedNavigation()
       if (disposed || execution.signal.aborted) throw new CommandError('CANCELLED', 'Composer submission was cancelled')
       pending.phase = 'run'
       if (target) options.preparation?.assertCanPrepare(target)
@@ -1067,10 +1081,12 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           pending.phase = 'run'
           pending.status = 'partial'
           // Goal acceptance is now known but no Run was sent. The next explicit retry may choose a new policy.
+          const refreshPermission = pending.permission !== null
           if (pending.permission) options.permissions?.settleSubmission(pending.permission, 'failed')
           pending.permission = null
           // Do not automatically send after an uncertain write. The user explicitly retries the prepared draft.
           setSubmission(sessionId, pending)
+          if (refreshPermission) await options.permissions?.refreshSession?.(sessionId)
         } else throw new CommandError('RESULT_UNKNOWN', 'Goal creation has not been confirmed')
       }
     } else throw new CommandError('INVALID_INPUT', 'No uncertain composer operation to reconcile')

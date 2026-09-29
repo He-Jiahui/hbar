@@ -352,6 +352,9 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
   })
   const view = {
     reader: state.reader,
+    async refreshSession(sessionId: string): Promise<void> {
+      await readSetting(sessionId)
+    },
     async prepareSubmission(
       sessionId: string,
       expectedRevision: number,

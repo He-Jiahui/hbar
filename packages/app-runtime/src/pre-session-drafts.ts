@@ -13,6 +13,7 @@ import type { DirectoryQueries } from './directory'
 import type { WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
 import type { ComposerPermissionEntry, ComposerPermissionState } from './composer-permission'
 import type { ComposerPlanModeEntry, ComposerPlanModeState } from './composer-plan-mode'
+import type { ComposerIntentState } from './composer-intent'
 
 const MAX_DRAFTS = 100
 const MAX_PENDING = 32
@@ -41,8 +42,9 @@ interface PendingSubmission {
   readonly requestedModelId: string | null
   readonly approvalChoice: PreSessionDraftState['approvalChoice']
   readonly planMode: PreSessionDraftState['planMode']
+  readonly intent: PreSessionDraftState['intent']
   navigationFence: Readonly<NavigationState>
-  stage: 'create' | 'model' | 'approval' | 'planMode' | 'run'
+  stage: 'create' | 'model' | 'approval' | 'planMode' | 'goal' | 'run'
   sessionId: string | null
   modelId: string | null
   approvalWriteStarted: boolean
@@ -57,6 +59,8 @@ interface PreSessionDraftOptions {
   readonly sessionApprovalSettingsAvailable: boolean
   readonly planModes: StateReader<ComposerPlanModeState>
   readonly sessionPlanModeAvailable: boolean
+  readonly composerIntents: StateReader<ComposerIntentState>
+  readonly sessionGoalsAvailable: boolean
   readonly drafts: StateReader<DraftsState>
   readonly queries: DirectoryQueries
   readonly tabs: WorkspaceTabNavigationHooks
@@ -85,6 +89,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     modelId: null,
     approvalChoice: 'inherit',
     planMode: 'default',
+    intent: 'default',
     revision: 0,
     phase: 'idle',
     unknownStage: null,
@@ -143,10 +148,13 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     if (pending.has(draftId) || current.phase === 'unknown')
       throw new CommandError('BUSY', 'Reconcile the pending first submission before editing')
     if (current.phase === 'accepted') throw new CommandError('STALE_TARGET', 'This pre-session draft was already sent')
+    if (current.error === 'GOAL_PREPARED')
+      throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
   }
   const requireCapabilities = (
     approvalChoice: PreSessionDraftState['approvalChoice'],
     planMode: PreSessionDraftState['planMode'],
+    intent: PreSessionDraftState['intent'],
   ): void => {
     if (!options.workspaces) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session creation is unavailable')
     if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model configuration is unavailable')
@@ -155,6 +163,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host session approval settings are unavailable')
     if (planMode === 'plan' && !options.sessionPlanModeAvailable)
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host session Plan mode is unavailable')
+    if (intent === 'goal' && !options.sessionGoalsAvailable)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Goal commands are unavailable')
   }
   const requireModels = (): CommandExecutor => {
     if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model configuration is unavailable')
@@ -380,11 +390,84 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     assertSelectionFence(operation)
   }
 
+  const ensureComposerGoalIntent = async (operation: PendingSubmission) => {
+    const sessionId = operation.sessionId
+    if (!sessionId) throw new CommandError('INVALID_STATE', 'The Session identity is missing')
+    await ensureSelected(operation)
+    let composer = options.composerIntents.getSnapshot().entries[sessionId]
+    if (composer?.submission.status === 'partial' && composer.submission.preparedGoalId)
+      throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
+    if (composer?.submission.status === 'unknown')
+      throw new CommandError('RESULT_UNKNOWN', 'Reconcile the original Goal preparation before retrying')
+    if (composer?.intent !== 'goal') {
+      await local.execute('composerIntent.setIntent', {
+        sessionId,
+        intent: 'goal',
+        expectedRevision: composer?.revision ?? 0,
+      })
+      assertSelectionFence(operation)
+      composer = options.composerIntents.getSnapshot().entries[sessionId]
+    }
+    if (!composer || composer.intent !== 'goal')
+      throw new CommandError('INVALID_OUTPUT', 'Goal intent was not confirmed for the created Session')
+    return composer
+  }
+
+  const submitGoalFirstRun = async (operation: PendingSubmission): Promise<RunAccepted> => {
+    const sessionId = operation.sessionId
+    const modelId = operation.modelId
+    if (!sessionId || !modelId) throw new CommandError('INVALID_STATE', 'Goal first-send setup is incomplete')
+    await ensureSelected(operation)
+    if (options.sessionPlanModeAvailable) {
+      const mode = await waitForPlanModeEntry(sessionId)
+      if (mode.mode !== 'default')
+        throw new CommandError('PLAN_INTENT_CONFLICT', 'Exit Host Plan mode before preparing a Goal')
+      assertSelectionFence(operation)
+    }
+
+    const composer = await ensureComposerGoalIntent(operation)
+
+    assertSelectionFence(operation)
+    setPhase(operation, 'submitting')
+    const accepted = runAcceptedSchema.parse(
+      await local.execute(
+        'composerIntent.submit',
+        {
+          sessionId,
+          modelId,
+          expectedIntentRevision: composer.revision,
+          requireSelectedSession: true,
+          input: { text: operation.text, images: [], files: [] },
+        },
+        { idempotencyKey: operation.runKey },
+      ),
+    )
+    if (accepted.sessionId !== sessionId || accepted.idempotencyKey !== operation.runKey)
+      throw new CommandError('RESULT_UNKNOWN', 'Goal first Run receipt does not match its captured request')
+    return accepted
+  }
+
+  const finishGoalPrepared = (operation: PendingSubmission): PreSessionDraftState => {
+    if (pending.get(operation.draftId) === operation) pending.delete(operation.draftId)
+    const current = state.reader.getSnapshot()[operation.draftId]
+    if (!current)
+      return operationState(initial(operation.draftId, operation.workspaceId), operation, 'failed', 'GOAL_PREPARED')
+    if (operation.closeRequested) {
+      const next = { ...state.reader.getSnapshot() }
+      delete next[operation.draftId]
+      state.replace(next)
+      return operationState(current, operation, 'failed', 'GOAL_PREPARED')
+    }
+    const prepared = operationState(current, operation, 'failed', 'GOAL_PREPARED')
+    publish(prepared)
+    return prepared
+  }
+
   const continueSubmission = async (
     operation: PendingSubmission,
     reconcilingUnknownCreate = false,
   ): Promise<RunAccepted> => {
-    requireCapabilities(operation.approvalChoice, operation.planMode)
+    requireCapabilities(operation.approvalChoice, operation.planMode, operation.intent)
     if (operation.stage === 'create') {
       if (!reconcilingUnknownCreate) assertSelectionFence(operation)
       options.tabs.reserveCreation(operation.createKey, operation.workspaceId)
@@ -410,27 +493,33 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       if (operation.planMode === 'plan') {
         operation.stage = 'planMode'
         setPhase(operation, 'configuring')
-      } else if (operation.approvalChoice === 'inherit') {
+      } else if (operation.approvalChoice !== 'inherit') {
+        operation.stage = 'approval'
+        setPhase(operation, 'configuring')
+      } else if (operation.intent === 'goal') {
+        operation.stage = 'goal'
+        setPhase(operation, 'configuring')
+      } else {
         // A new Host Session already inherits approval. Leave it unoverridden;
         // composerIntent captures the effective Host default before submitting.
         operation.stage = 'run'
-      } else {
-        operation.stage = 'approval'
-        setPhase(operation, 'configuring')
       }
     }
 
     if (operation.stage === 'planMode') {
       await applyPlanMode(operation)
-      operation.stage = operation.approvalChoice === 'inherit' ? 'run' : 'approval'
+      operation.stage =
+        operation.approvalChoice !== 'inherit' ? 'approval' : operation.intent === 'goal' ? 'goal' : 'run'
       setPhase(operation, 'configuring')
     }
 
     if (operation.stage === 'approval') {
       await applyApprovalChoice(operation)
-      operation.stage = 'run'
+      operation.stage = operation.intent === 'goal' ? 'goal' : 'run'
       setPhase(operation, 'configuring')
     }
+
+    if (operation.stage === 'goal') return submitGoalFirstRun(operation)
 
     if (operation.stage === 'run') {
       const sessionId = operation.sessionId
@@ -471,6 +560,47 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       modelId: operation.modelId ?? current.modelId,
     })
     pending.delete(operation.draftId)
+  }
+
+  const reconcileGoalPreparation = async (operation: PendingSubmission): Promise<PreSessionDraftState> => {
+    if (operation.inFlight) throw new CommandError('BUSY', 'The original Goal reconciliation is still in flight')
+    const sessionId = operation.sessionId
+    if (!sessionId) throw new CommandError('INVALID_STATE', 'Unknown Goal creation has no Session target')
+    operation.inFlight = true
+    try {
+      await ensureSelected(operation)
+      let composer = options.composerIntents.getSnapshot().entries[sessionId]
+      if (composer?.submission.status === 'partial' && composer.submission.preparedGoalId)
+        return finishGoalPrepared(operation)
+      if (
+        composer?.intent !== 'goal' ||
+        composer.submission.status !== 'unknown' ||
+        composer.submission.phase !== 'goal'
+      )
+        throw new CommandError('INVALID_STATE', 'The composer no longer owns this uncertain Goal creation')
+      await local.execute('composerIntent.reconcile', { sessionId })
+      composer = options.composerIntents.getSnapshot().entries[sessionId]
+      if (composer?.submission.status === 'partial' && composer.submission.preparedGoalId)
+        return finishGoalPrepared(operation)
+      throw new CommandError('RESULT_UNKNOWN', 'The original Goal creation has not been confirmed')
+    } catch (error) {
+      const composer = options.composerIntents.getSnapshot().entries[sessionId]
+      if (composer?.submission.status === 'partial' && composer.submission.preparedGoalId)
+        return finishGoalPrepared(operation)
+      if (!(composer?.intent === 'goal' && composer.submission.status === 'unknown')) {
+        if (pending.get(operation.draftId) === operation) {
+          if (operation.closeRequested) {
+            const next = { ...state.reader.getSnapshot() }
+            delete next[operation.draftId]
+            state.replace(next)
+          } else setPhase(operation, 'failed', errorCode(error))
+          pending.delete(operation.draftId)
+        }
+      }
+      throw error
+    } finally {
+      operation.inFlight = false
+    }
   }
 
   const run = async (operation: PendingSubmission, reconcile: boolean): Promise<RunAccepted> => {
@@ -537,7 +667,10 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       const planMode = operation.sessionId
         ? options.planModes.getSnapshot().entries[operation.sessionId]
         : undefined
-      const uncertain =
+      const composerIntent = operation.sessionId
+        ? options.composerIntents.getSnapshot().entries[operation.sessionId]
+        : undefined
+      let uncertain =
         operation.stage === 'create'
           ? UNKNOWN_CREATE_CODES.has(code)
           : operation.stage === 'approval'
@@ -547,9 +680,20 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
               )
             : operation.stage === 'planMode'
               ? planMode?.status === 'unknown'
-            : UNKNOWN_OPERATION_CODES.has(code)
+              : UNKNOWN_OPERATION_CODES.has(code)
+      if (operation.stage === 'goal') {
+        const unknownGoalOperation = composerIntent?.intent === 'goal' && composerIntent.submission.status === 'unknown'
+        if (unknownGoalOperation && composerIntent.submission.phase === 'run') operation.stage = 'run'
+        uncertain = unknownGoalOperation
+      }
       if (pending.get(operation.draftId) === operation) {
         if (uncertain) setPhase(operation, 'unknown', code, operation.stage)
+        else if (
+          operation.stage === 'goal' &&
+          composerIntent?.submission.status === 'partial' &&
+          composerIntent.submission.preparedGoalId
+        )
+          finishGoalPrepared(operation)
         else {
           if (operation.stage === 'create') options.tabs.settleCreation(operation.createKey, false)
           if (operation.closeRequested) {
@@ -671,10 +815,34 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const current = entry(draftId)
     requireEditable(draftId, current)
     checkRevision(current, expectedRevision)
+    if (mode === 'plan' && current.intent === 'goal')
+      throw new CommandError('GOAL_PLAN_CONFLICT', 'Goal intent cannot be combined with Host Plan mode')
     if (current.planMode === mode) return { draftId, revision: current.revision }
     const value = {
       ...current,
       planMode: mode,
+      revision: current.revision + 1,
+      phase: current.phase === 'failed' ? ('idle' as const) : current.phase,
+      unknownStage: null,
+      error: null,
+      accepted: null,
+    }
+    publish(value)
+    return { draftId, revision: value.revision }
+  })
+
+  local.register(preSessionDraftCommands['preSessionDraft.setIntent'], ({ draftId, intent, expectedRevision }) => {
+    const current = entry(draftId)
+    requireEditable(draftId, current)
+    checkRevision(current, expectedRevision)
+    if (intent === 'goal' && !options.sessionGoalsAvailable)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Goal commands are unavailable')
+    if (intent === 'goal' && current.planMode === 'plan')
+      throw new CommandError('GOAL_PLAN_CONFLICT', 'Goal intent cannot be combined with Host Plan mode')
+    if (current.intent === intent) return { draftId, revision: current.revision }
+    const value = {
+      ...current,
+      intent,
       revision: current.revision + 1,
       phase: current.phase === 'failed' ? ('idle' as const) : current.phase,
       unknownStage: null,
@@ -696,7 +864,9 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const workspaceId = current.workspaceId
     if (!workspaceId) throw new CommandError('WORKSPACE_REQUIRED', 'Choose a Workspace before sending')
     if (!current.text.trim()) throw new CommandError('INVALID_INPUT', 'A first message must contain text')
-    requireCapabilities(current.approvalChoice, current.planMode)
+    if (current.error === 'GOAL_PREPARED')
+      throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
+    requireCapabilities(current.approvalChoice, current.planMode, current.intent)
     if (pending.size >= MAX_PENDING) throw new CommandError('BUSY', 'Too many first submissions are pending')
     const requestedModelId = input.modelId ?? current.modelId
     const operation: PendingSubmission = {
@@ -709,6 +879,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       requestedModelId,
       approvalChoice: current.approvalChoice,
       planMode: current.planMode,
+      intent: current.intent,
       navigationFence: options.navigation.getSnapshot(),
       stage: current.sessionId ? 'model' : 'create',
       sessionId: current.sessionId,
@@ -738,9 +909,11 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
   local.register(preSessionDraftCommands['preSessionDraft.reconcile'], async ({ draftId }) => {
     const current = entry(draftId)
     if (current.phase === 'accepted') return current
+    if (current.error === 'GOAL_PREPARED') return current
     const operation = pending.get(draftId)
     if (!operation) throw new CommandError('INVALID_STATE', 'No first submission is available to reconcile')
     if (operation.inFlight) throw new CommandError('BUSY', 'The original first submission is still in flight')
+    if (operation.stage === 'goal') return reconcileGoalPreparation(operation)
     const accepted = await run(operation, true)
     const settled = state.reader.getSnapshot()[draftId]
     return (
@@ -764,10 +937,23 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     return { draftId, closed: true }
   })
 
+  const unsubscribeComposerIntents = options.composerIntents.subscribe(() => {
+    const entries = options.composerIntents.getSnapshot().entries
+    for (const operation of pending.values()) {
+      const current = state.reader.getSnapshot()[operation.draftId]
+      if (operation.stage !== 'goal' || current?.phase !== 'unknown' || current.unknownStage !== 'goal') continue
+      const sessionId = operation.sessionId
+      const composer = sessionId ? entries[sessionId] : undefined
+      if (composer?.intent === 'goal' && composer.submission.status === 'partial' && composer.submission.preparedGoalId)
+        finishGoalPrepared(operation)
+    }
+  })
+
   return {
     reader: state.reader,
     dispose() {
       disposed = true
+      unsubscribeComposerIntents()
       pending.clear()
       state.dispose()
     },

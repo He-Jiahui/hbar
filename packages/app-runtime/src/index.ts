@@ -693,6 +693,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     sessionApprovalSettingsAvailable: Boolean(options.settings),
     planModes: composerPlanMode.reader,
     sessionPlanModeAvailable: Boolean(options.planMode),
+    composerIntents: composerIntent.reader,
+    sessionGoalsAvailable: Boolean(options.goals),
     drafts: drafts.reader,
     queries: directory.queries,
     tabs: workspaceTabs.hooks,

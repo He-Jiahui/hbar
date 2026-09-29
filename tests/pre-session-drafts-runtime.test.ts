@@ -1,8 +1,14 @@
 import { expect, test } from 'bun:test'
 import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/commands'
-import { createAppRuntime, type RunCommandPort } from '@hbar/app-runtime'
+import { createAppRuntime, type GoalPlanWorkspacePort, type RunCommandPort } from '@hbar/app-runtime'
 import { directoryCommands } from '@hbar/contracts/commands'
-import { modelCommands, type ModelConfiguration, type ModelDescriptor, type ModelWriteResult } from '@hbar/contracts/commands/models'
+import { goalPlanCommands, type GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
+import {
+  modelCommands,
+  type ModelConfiguration,
+  type ModelDescriptor,
+  type ModelWriteResult,
+} from '@hbar/contracts/commands/models'
 import { runCommands, type RunAccepted } from '@hbar/contracts/commands/run'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { settingsCommands, type SettingsReceipt, type SettingsSnapshot } from '@hbar/contracts/commands/settings'
@@ -69,11 +75,14 @@ function gate() {
   return { promise, release: open, entered: started, markEntered: entered }
 }
 
-function fixture(options: {
-  readonly sessionSettings?: boolean
-  readonly invalidateApprovalOnWrite?: boolean
-  readonly planMode?: boolean
-} = {}) {
+function fixture(
+  options: {
+    readonly sessionSettings?: boolean
+    readonly invalidateApprovalOnWrite?: boolean
+    readonly planMode?: boolean
+    readonly goals?: boolean
+  } = {},
+) {
   const workspaces = new Map([workspace('workspace-a'), workspace('workspace-b')].map((value) => [value.id, value]))
   const sessions = new Map<string, Session>()
   const models = new Map<string, ModelConfiguration>()
@@ -84,10 +93,12 @@ function fixture(options: {
   const permissionRevisions = new Map<string, number>()
   const permissionReceipts = new Map<string, SettingsReceipt>()
   const hostPlanModes = new Map<string, 'default' | 'plan'>()
+  const goalSnapshots = new Map<string, GoalPlanSnapshot>()
   const planModeReceipts = new Map<string, { readonly mode: 'default' | 'plan' }>()
   const createCalls: { key: string; workspaceId: string }[] = []
   const permissionWrites: { key: string; sessionId: string; choice: 'ask' | 'deny' | 'allow' | 'inherit' }[] = []
   const planModeWrites: { key: string; sessionId: string; mode: 'default' | 'plan' }[] = []
+  const goalCalls: { sessionId: string; objective: string }[] = []
   const runCalls: {
     sessionId: string
     key: string
@@ -100,6 +111,7 @@ function fixture(options: {
   let permissionReadGateAfterWrite: ReturnType<typeof gate> | null = null
   let planModeWriteGate: ReturnType<typeof gate> | null = null
   let planModeReadGate: ReturnType<typeof gate> | null = null
+  let goalCreateGate: ReturnType<typeof gate> | null = null
   let blockNextPermissionRead = false
   let blockNextPlanModeReadOnGet = false
   let permissionInvalidationListener: (() => void) | null = null
@@ -107,6 +119,7 @@ function fixture(options: {
   let loseNextCreateReply = false
   let loseNextPermissionWriteReply = false
   let loseNextPlanModeWriteReply = false
+  let loseNextGoalCreateReply = false
   let failModelReads = false
   let unknownNextRun = false
   let nextSession = 0
@@ -419,6 +432,69 @@ function fixture(options: {
     },
   }
 
+  const getGoalSnapshot = (sessionId: string): GoalPlanSnapshot => {
+    const existing = goalSnapshots.get(sessionId)
+    if (existing) return existing
+    return goalPlanCommands['goal.snapshot'].output.parse({
+      sessionId,
+      goal: null,
+      remainingTokens: null,
+      goalSeq: 0,
+      planSeq: 0,
+      plan: null,
+    })
+  }
+  const goalPort: GoalPlanWorkspacePort = {
+    async snapshot(sessionId) {
+      return getGoalSnapshot(sessionId)
+    },
+    async execute(name, raw) {
+      if (name === 'goal.snapshot') {
+        const input = goalPlanCommands[name].input.parse(raw)
+        return getGoalSnapshot(input.sessionId)
+      }
+      if (name === 'goal.get') {
+        const input = goalPlanCommands[name].input.parse(raw)
+        const snapshot = getGoalSnapshot(input.sessionId)
+        return { goal: snapshot.goal, remainingTokens: snapshot.remainingTokens }
+      }
+      if (name !== 'goal.create') throw new Error(`Unexpected Goal command: ${name}`)
+      const input = goalPlanCommands[name].input.parse(raw)
+      goalCalls.push({ sessionId: input.sessionId, objective: input.objective })
+      const current = getGoalSnapshot(input.sessionId)
+      if (current.goal && current.goal.status !== 'complete')
+        throw new CommandError('GOAL_EXISTS', 'Fixture has an unfinished Goal')
+      const goal = {
+        threadId: input.sessionId,
+        goalId: crypto.randomUUID(),
+        objective: input.objective,
+        status: 'active' as const,
+        tokenBudget: input.tokenBudget ?? null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      }
+      const next = goalPlanCommands['goal.snapshot'].output.parse({
+        ...current,
+        goal,
+        goalSeq: current.goalSeq + 1,
+      })
+      goalSnapshots.set(input.sessionId, next)
+      const held = goalCreateGate
+      if (held) {
+        goalCreateGate = null
+        held.markEntered()
+        await held.promise
+      }
+      if (loseNextGoalCreateReply) {
+        loseNextGoalCreateReply = false
+        throw new CommandError('RESULT_UNKNOWN', 'Goal was created but its reply was lost')
+      }
+      return goalPlanCommands[name].output.parse({ goal, remainingTokens: null })
+    },
+  }
+
   const runtime = createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId: 'host',
@@ -428,6 +504,7 @@ function fixture(options: {
     run,
     ...(options.sessionSettings ? { settings: sessionSettings, configuration } : {}),
     ...(options.planMode ? { planMode: configuration } : {}),
+    ...(options.goals ? { goals: goalPort } : {}),
     ...(options.invalidateApprovalOnWrite
       ? {
           permissionEvents: {
@@ -459,6 +536,8 @@ function fixture(options: {
     runCalls,
     permissionWrites,
     planModeWrites,
+    goalCalls,
+    goalSnapshots,
     hostPlanModes,
     sessions,
     holdNextCreate() {
@@ -474,6 +553,14 @@ function fixture(options: {
     },
     losePlanModeWriteReply() {
       loseNextPlanModeWriteReply = true
+    },
+    loseGoalCreateReply() {
+      loseNextGoalCreateReply = true
+    },
+    holdNextGoalCreate() {
+      const held = gate()
+      goalCreateGate = held
+      return held
     },
     holdNextPermissionWrite() {
       const held = gate()
@@ -518,6 +605,7 @@ async function createDraft(
     readonly modelId?: string
     readonly approvalChoice?: 'inherit' | 'ask' | 'deny' | 'allow'
     readonly planMode?: 'default' | 'plan'
+    readonly intent?: 'default' | 'goal'
   },
 ) {
   const draftId = crypto.randomUUID()
@@ -549,6 +637,14 @@ async function createDraft(
     await runtime.view.commands.execute('preSessionDraft.setPlanMode', {
       draftId,
       mode: options.planMode,
+      expectedRevision: revision,
+    })
+    revision++
+  }
+  if (options.intent) {
+    await runtime.view.commands.execute('preSessionDraft.setIntent', {
+      draftId,
+      intent: options.intent,
       expectedRevision: revision,
     })
     revision++
@@ -1279,6 +1375,257 @@ test('Run unknown is reconciled by its original key and the Session composer own
     expect(recovered).toMatchObject({ phase: 'accepted', sessionId, accepted: { idempotencyKey: f.runCalls[0]?.key } })
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]).toMatchObject({ text: '', status: 'idle' })
   } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('Goal intent is capability-gated and mutually exclusive with pre-session Plan mode', async () => {
+  const unavailable = fixture()
+  const draftId = crypto.randomUUID()
+  try {
+    await unavailable.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: 'workspace-a' })
+    await expect(
+      unavailable.runtime.view.commands.execute('preSessionDraft.setIntent', {
+        draftId,
+        intent: 'goal',
+        expectedRevision: 0,
+      }),
+    ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
+    expect(unavailable.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      revision: 0,
+      intent: 'default',
+    })
+    expect(unavailable.createCalls).toEqual([])
+  } finally {
+    unavailable.runtime.dispose()
+  }
+
+  const f = fixture({ planMode: true, goals: true })
+  const goalDraftId = crypto.randomUUID()
+  try {
+    await f.runtime.view.commands.execute('preSessionDraft.open', {
+      draftId: goalDraftId,
+      workspaceId: 'workspace-a',
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId: goalDraftId,
+      mode: 'plan',
+      expectedRevision: 0,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setIntent', {
+        draftId: goalDraftId,
+        intent: 'goal',
+        expectedRevision: 1,
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PLAN_CONFLICT' })
+    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId: goalDraftId,
+      mode: 'default',
+      expectedRevision: 1,
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.setIntent', {
+      draftId: goalDraftId,
+      intent: 'goal',
+      expectedRevision: 2,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+        draftId: goalDraftId,
+        mode: 'plan',
+        expectedRevision: 3,
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PLAN_CONFLICT' })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[goalDraftId]).toMatchObject({
+      revision: 3,
+      planMode: 'default',
+      intent: 'goal',
+    })
+    expect(f.createCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('pre-session Goal creates one Goal and submits one ordinary Run with inherited Host policy', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Create the onboarding checklist',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+
+    expect(result).toMatchObject({ sessionId: 'session-1' })
+    expect(f.goalCalls).toEqual([{ sessionId: 'session-1', objective: 'Create the onboarding checklist' }])
+    expect(f.goalSnapshots.get('session-1')?.goal).toMatchObject({
+      threadId: 'session-1',
+      objective: 'Create the onboarding checklist',
+      status: 'active',
+    })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({
+      sessionId: 'session-1',
+      text: 'Create the onboarding checklist',
+      approval: 'ask',
+      mode: 'default',
+    })
+    expect(f.permissionWrites).toEqual([])
+    expect(f.planModeWrites).toEqual([])
+    expect(f.runtime.view.state.composerIntent.getSnapshot().entries['session-1']).toMatchObject({
+      intent: 'default',
+      submission: { status: 'idle' },
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('unknown Goal creation reconciles to explicit active-composer retry without an automatic Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  f.loseGoalCreateReply()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Recover the original Goal objective',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+
+    const unknown = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    const sessionId = unknown?.sessionId
+    if (!sessionId) throw new Error('Unknown Goal creation should expose its real Session identity')
+    expect(unknown).toMatchObject({ phase: 'unknown', unknownStage: 'goal', sessionId })
+    expect(f.runtime.view.state.drafts.getSnapshot()[sessionId]?.text).toBe('Recover the original Goal objective')
+    expect(f.runtime.view.state.composerIntent.getSnapshot().entries[sessionId]?.submission).toMatchObject({
+      status: 'unknown',
+      phase: 'goal',
+    })
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toEqual([])
+
+    await f.runtime.view.commands.execute('composerIntent.reconcile', { sessionId })
+    const prepared = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    const composer = f.runtime.view.state.composerIntent.getSnapshot().entries[sessionId]
+    expect(prepared).toMatchObject({ phase: 'failed', error: 'GOAL_PREPARED', sessionId })
+    expect(composer?.submission).toMatchObject({ status: 'partial', phase: 'run' })
+    expect(composer?.submission.preparedGoalId).toBe(f.goalSnapshots.get(sessionId)?.goal?.goalId)
+    expect(f.runtime.view.state.drafts.getSnapshot()[sessionId]?.text).toBe('Recover the original Goal objective')
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toEqual([])
+    expect(
+      await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId }),
+    ).toMatchObject({ phase: 'failed', error: 'GOAL_PREPARED' })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setText', {
+        draftId: target.draftId,
+        text: 'changed objective',
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_PREPARED' })
+
+    await f.runtime.view.commands.execute('composerIntent.submit', {
+      sessionId,
+      modelId: model.id,
+      expectedIntentRevision: composer?.revision,
+      input: { text: 'Recover the original Goal objective', images: [], files: [] },
+    })
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({
+      sessionId,
+      text: 'Recover the original Goal objective',
+      approval: 'ask',
+      mode: 'default',
+    })
+    expect(f.runtime.view.state.composerIntent.getSnapshot().entries[sessionId]?.submission.status).toBe('idle')
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('unknown first Goal Run reconciles by the original receipt without recreating the Goal or Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  f.unknownRun(true)
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Run once after creating this Goal',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const unknown = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    expect(unknown).toMatchObject({ phase: 'unknown', unknownStage: 'run', sessionId: 'session-1' })
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+
+    const recovered = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(recovered).toMatchObject({ phase: 'accepted', sessionId: 'session-1' })
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(recovered.accepted?.idempotencyKey).toBe(f.runCalls[0]?.key)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('switching Workspace while Goal creation is pending does not steal navigation or auto-run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  const held = f.holdNextGoalCreate()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep this prepared Goal in its original Session',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    const submitting = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await held.entered
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    held.release()
+    await expect(submitting).rejects.toMatchObject({ code: 'STALE_TARGET' })
+
+    expect(f.runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: 'workspace-b',
+      sessionId: null,
+      status: 'idle',
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'GOAL_PREPARED',
+      sessionId: 'session-1',
+    })
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe(
+      'Keep this prepared Goal in its original Session',
+    )
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toEqual([])
+  } finally {
+    held.release()
     f.runtime.dispose()
   }
 })

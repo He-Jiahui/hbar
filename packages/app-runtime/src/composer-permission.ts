@@ -237,6 +237,11 @@ export function createComposerPermission(local: CommandRegistry, options: Compos
 
   const view = {
     reader: state.reader,
+    async refreshSession(sessionId: string): Promise<void> {
+      assertSelected(sessionId)
+      if (pending.has(sessionId)) throw new CommandError('BUSY', 'Session approval preparation is still in flight')
+      replaceEntry({ ...entry(sessionId), status: 'idle', locked: false, error: null })
+    },
     /** Call only for ordinary composer submissions; detached Plan execution has separate approval ownership. */
     prepareSubmission(
       sessionId: string,
