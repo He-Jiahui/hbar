@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -10,13 +10,16 @@ import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`composer plus presents files and local commands without changing the draft: ${locale}`, async ({ browser }) => {
+  test(`composer plus opens slash commands in an existing draft without losing content: ${locale}`, async ({
+    browser,
+  }) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-composer-add-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     const copy = getShellCopy(locale)
     let host: WebSessionHost | undefined
     try {
+      await writeFile(join(root, 'slash-target.txt'), 'slash target\n')
       host = await startWebSessionHost({
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
@@ -49,21 +52,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(plus).toBeFocused()
       }
 
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await prompt.fill('Keep')
+      await prompt.press('End')
       await plus.click()
       await expect(menu.getByRole('button', { name: copy.session.addMenu.slash })).toBeEnabled()
       await menu.getByRole('button', { name: copy.session.addMenu.slash }).click()
-      await expectComposerText(prompt, '/')
+      await expectComposerText(prompt, 'Keep /')
       await expect(prompt).toBeFocused()
-      await expect(page.getByRole('listbox', { name: copy.session.slash.menu }).getByRole('option')).toHaveCount(
-        copy.session.slash.commands.length,
-      )
+      const slashMenu = page.getByRole('listbox', { name: copy.session.slash.menu })
+      const slashOptions = slashMenu.getByRole('option')
+      const slashOptionCount = await slashOptions.count()
+      expect(slashOptionCount).toBeGreaterThanOrEqual(copy.session.slash.commands.length)
+      expect(slashOptionCount).toBeLessThanOrEqual(24)
+      for (const command of copy.session.slash.commands)
+        await expect(slashOptions.filter({ hasText: command.label }).first()).toBeVisible()
+      await expect(page.locator('.hbar-composer-slash-hint')).toBeVisible()
       await prompt.press('Escape')
-      await prompt.fill('Keep this draft')
-      await plus.click()
-      await expect(menu.getByRole('button', { name: copy.session.addMenu.slash })).toBeDisabled()
-      await page.getByRole('heading', { name: host.ready.sessionTitle, exact: true, level: 1 }).click()
-      await expect(menu).toBeHidden()
-      await expectComposerText(prompt, 'Keep this draft')
+      await expect(slashMenu).toBeHidden()
+      await expectComposerText(prompt, 'Keep /')
+      await expect(prompt).toBeFocused()
+
+      await prompt.fill('Keep @slash-target')
+      const mentionMenu = page.getByRole('listbox', { name: copy.session.mentions.menu })
+      await expect(mentionMenu.getByRole('option').filter({ hasText: 'slash-target.txt' })).toBeVisible()
+      await mentionMenu.getByRole('option').filter({ hasText: 'slash-target.txt' }).click()
+      await expectComposerText(prompt, 'Keep @slash-target.txt')
+      await expect(page.locator('.hbar-composer-mention-pill')).toHaveText('@slash-target.txt')
 
       await plus.click()
       const chooserPromise = page.waitForEvent('filechooser')
@@ -71,7 +86,38 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const chooser = await chooserPromise
       await chooser.setFiles({ name: 'add-menu.txt', mimeType: 'text/plain', buffer: Buffer.from('test attachment') })
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: 'add-menu.txt' })).toBeVisible()
+
+      await page.setViewportSize({ width: 320, height: 900 })
+      await prompt.press('Home')
+      for (let index = 0; index < 'Keep '.length; index += 1) await prompt.press('ArrowRight')
+      await plus.click()
+      await expect(menu.getByRole('button', { name: copy.session.addMenu.slash })).toBeEnabled()
+      await menu.getByRole('button', { name: copy.session.addMenu.slash }).click()
+      await expect(slashMenu).toBeVisible()
+      await expect(prompt).toBeFocused()
+      await expectComposerText(prompt, 'Keep /@slash-target.txt')
+      await expect(page.locator('.hbar-composer-mention-pill')).toHaveText('@slash-target.txt')
+      await expect(page.locator('.lumen-attachment-chip').filter({ hasText: 'add-menu.txt' })).toBeVisible()
+      await expect(page.locator('.hbar-composer-slash-hint')).toBeHidden()
+      await page.screenshot({ path: `artifacts/desktop-composer-add/inline-slash-${locale}-320.png` })
+      await prompt.press('Escape')
+      await expect(slashMenu).toBeHidden()
+      await expect(prompt).toBeFocused()
+      await expectComposerText(prompt, 'Keep /@slash-target.txt')
+      await expect(page.locator('.hbar-composer-mention-pill')).toHaveText('@slash-target.txt')
+      const attachmentChip = page.locator('.lumen-attachment-chip').filter({ hasText: 'add-menu.txt' })
+      await expect(attachmentChip).toBeVisible()
+      const attachmentBounds = await attachmentChip.boundingBox()
+      expect(attachmentBounds).not.toBeNull()
+      expect(attachmentBounds!.x).toBeGreaterThanOrEqual(-1)
+      expect(attachmentBounds!.x + attachmentBounds!.width).toBeLessThanOrEqual(321)
+      await page.screenshot({ path: `artifacts/desktop-composer-add/inline-slash-escaped-${locale}-320.png` })
+      const beforeGoal = await host.client.call('session.snapshot', { sessionId: host.ready.sessionId, limit: 20 })
+      expect(beforeGoal.runs).toHaveLength(0)
+
+      await prompt.fill('Keep this draft')
       await expectComposerText(prompt, 'Keep this draft')
+      await expect(page.locator('.hbar-composer-mention-pill')).toHaveCount(0)
       await plus.click()
       await menu.getByRole('button', { name: copy.session.intent.goalMenu }).focus()
       await page.keyboard.press('Enter')

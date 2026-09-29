@@ -10,7 +10,7 @@ import {
   parseComposerPathSearch,
   type PromptMention,
 } from '@hbar/app-runtime'
-import { mapMentionSpans } from './composer-mention-model'
+import { mapMentionSpans, nearestMentionBoundary } from './composer-mention-model'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
 import { slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
 import './composer-mention-editor.css'
@@ -63,7 +63,7 @@ export interface HbarComposerMentionEditorProps {
   readonly files: { execute(name: string, input: unknown): Promise<unknown> }
   readonly onContent: (text: string, mentions: readonly PromptMention[], revision: number) => Promise<unknown>
   readonly onSubmit: () => void
-  /** Monotonic request from the composer plus menu; only a standalone local command is inserted. */
+  /** Monotonic request from the composer plus menu; local commands remain standalone-only. */
   readonly slashOpenRequest?: number | undefined
   /** Monotonic focus request after a nearby composer action is confirmed. */
   readonly focusRequest?: number | undefined
@@ -532,10 +532,27 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
     if (request <= consumedSlashOpenRequest.current) return
     consumedSlashOpenRequest.current = request
     const view = viewRef.current
-    if (!view || props.disabled || !props.connected || view.state.doc.toString().trim()) return
-    const end = view.state.doc.length
+    if (!view || props.disabled || !props.connected) return
+    const selection = view.state.selection.main
+    const mentions = view.state.field(mentionField)
+    const position = nearestMentionBoundary(selection.head, mentions)
+    const currentToken = selection.empty ? slashTokenAt(view.state.doc.toString(), position) : null
+    const insideMention =
+      currentToken && mentions.some((item) => currentToken.from >= item.start && currentToken.from < item.end)
     slashDismissedRef.current = null
-    view.dispatch({ changes: { from: end, insert: '/' }, selection: { anchor: end + 1 } })
+    if (currentToken && !insideMention && slashMatches(currentToken.term, availableSlash()).length) {
+      setSlashSelected(0)
+      setSlashTrigger({ ...currentToken, revision: revisionRef.current })
+      view.focus()
+      return
+    }
+    const previousCharacter = position > 0 ? view.state.doc.sliceString(position - 1, position) : ''
+    const separator = previousCharacter && !/\s/.test(previousCharacter) ? ' ' : ''
+    const insertion = `${separator}/`
+    view.dispatch({
+      changes: { from: position, insert: insertion },
+      selection: { anchor: position + insertion.length },
+    })
     view.focus()
   }, [props.slashOpenRequest, props.disabled, props.connected])
 

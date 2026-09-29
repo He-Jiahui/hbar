@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { EditorState } from '@codemirror/state'
-import { mapMentionSpans } from '../packages/app-react/src/composer-mention-model'
+import { mapMentionSpans, nearestMentionBoundary } from '../packages/app-react/src/composer-mention-model'
 
 const mention = { start: 7, end: 15, label: 'file.ts', path: 'src/file.ts', workspaceId: 'w1', directory: false }
 const state = EditorState.create({ doc: 'Review @file.ts' })
@@ -10,6 +10,14 @@ test('prefix typing and paste move true mention ranges using UTF-16 offsets', ()
   expect(mapMentionSpans([mention], before.changes)).toEqual([{ ...mention, start: 17, end: 25 }])
   const after = state.update({ changes: { from: 15, insert: ' suffix' } })
   expect(mapMentionSpans([mention], after.changes)).toEqual([mention])
+})
+
+test('direct caret positions inside an atomic mention resolve to its nearest boundary', () => {
+  expect(nearestMentionBoundary(6, [mention])).toBe(6)
+  expect(nearestMentionBoundary(7, [mention])).toBe(7)
+  expect(nearestMentionBoundary(8, [mention])).toBe(7)
+  expect(nearestMentionBoundary(14, [mention])).toBe(15)
+  expect(nearestMentionBoundary(15, [mention])).toBe(15)
 })
 
 test('editing within or across a pill removes authority; equivalent plain text does not restore it', () => {

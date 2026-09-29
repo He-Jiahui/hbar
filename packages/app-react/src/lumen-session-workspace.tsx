@@ -724,11 +724,7 @@ function SessionWorkspaceContent({
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
     draft?.status !== 'submitting' &&
-    draft?.status !== 'unknown' &&
-    !draft?.text.trim() &&
-    !draft?.mentions.length &&
-    !draft?.attachments.length &&
-    !attachmentTransfers.length
+    draft?.status !== 'unknown'
   const addAttachments = (files: readonly File[]) => {
     if (!sessionId || !prepareAttachment || !attachmentIntakeEnabled) return
     void addComposerAttachments(runtime, { sessionId, revision: draft?.revision ?? 0 }, files, prepareAttachment).catch(

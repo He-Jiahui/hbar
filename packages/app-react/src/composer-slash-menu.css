@@ -39,6 +39,10 @@
 }
 
 @media (max-width: 28rem) {
+  .hbar-composer-slash-hint {
+    display: none;
+  }
+
   .hbar-composer-slash-item {
     align-items: flex-start;
     flex-wrap: wrap;

@@ -1,6 +1,13 @@
 import type { ChangeDesc } from '@codemirror/state'
 import type { PromptMention } from '@hbar/app-runtime'
 
+/** Keep direct programmatic caret moves outside the text backing an atomic mention pill. */
+export function nearestMentionBoundary(position: number, mentions: readonly PromptMention[]): number {
+  const mention = mentions.find((item) => position > item.start && position < item.end)
+  if (!mention) return position
+  return position - mention.start <= mention.end - position ? mention.start : mention.end
+}
+
 /** CodeMirror offsets are UTF-16, the same coordinate system as JS string slices. */
 export function mapMentionSpans(mentions: readonly PromptMention[], changes: ChangeDesc): PromptMention[] {
   const mapped: PromptMention[] = []
