@@ -830,3 +830,23 @@ stress 八图及 Profile 取消勾选在 `artifacts/onboarding3-local-review/`�
 9 项专项测试（59 条断言）、根与 Lumen 类型检查、预览构建、限定文件 lint、
 stylelint、内容/图标/流式布局守卫和浏览器脚本通过。共享 `onboarding.tsx` 的
 全文件 lint 仍有既存错误，不宣称全文件通过。
+
+Onboarding 4（use-case picker）来源 `full-static-v10` 与 `full-interactions-v4`
+同目标 hash `b59ffe4e0ac59409bfbbd7e84a374f348d61f9536b4168ac63c4d8c8c64c543c`。
+来源是六个 radio 卡片、四个人数分段按钮，初态 Run sprints / 2–10。
+旧比较器把 dark/mobile Plan a roadmap 点击/Enter 误判为 `source-no-op`，但原始
+`before.json`/`after.json` 的 AX 都显示 Run sprints 由 checked 变未选、Plan a
+roadmap 由未选变 checked；Just me Space 使人数从 2–10 切换。模型初始提交
+`4234b0b` 的 request-only 假设由 `a078405` 独立修复。六 radio / 四人数同组复用
+互斥选中机制，其他选项不逐个 × 布局重播；Back、Continue、模板应用、持久化仍仅
+宿主 typed request，无可靠结果不伪造导航。
+
+Lumen `201f3a0`、根接线 `d390c4e`、浏览器抽样 `dc9125e`。本地八张 light/dark ×
+desktop/tablet/mobile/stress 图及 320×420 短高图在
+`artifacts/onboarding4-local-review-v3/`；来源 desktop 根框 720×567、卡片区
+y102/高305.5、单卡356×96.5、人数段 y459、footer y527 与本地基本对齐。
+独立浏览器检查两种状态机制、356px 六项/四项无横溢、320×420 真滚动后 Continue
+可见、德语文案及 page errors=0。10 项专项测试（76 断言）、根/Lumen 类型检查、
+预览和 Lumen Vite/declaration 直接构建、限定文件 ESLint/Prettier 通过；常规
+Lumen package build 别名因本机 pnpm 版本低于仓库要求失败，不能称它通过。
+旧交互缓存无当前协议，静态图不是同轮严格来源/本地配对，**未签 fresh strict**。

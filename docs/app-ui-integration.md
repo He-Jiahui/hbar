@@ -215,6 +215,26 @@ transition, now covered by the host store and browser verifier. At 320×420 a
 real wheel scroll reaches the local footer (`documentScrollTop=495`) without
 horizontal overflow; source scroll ownership was not captured.
 
+### Onboarding 4 integration status
+
+`hbar-app-ui-onboarding-4` renders six host-owned use-case radio cards and four
+team-size buttons from stable IDs and localized copy. The initial selection is
+Run sprints and 2–10. Raw same-hash source AX before/after shows a Plan a roadmap
+click or Enter changes the checked radio; a Just me Space press changes the
+team-size pressed state. The legacy comparison summary missed the radio checked
+transition and incorrectly called it a no-op. The host store now models both
+mutually exclusive choice mechanisms; other choices in each group use the same
+mechanism by inference, not one replay per button and layout.
+
+Back and Continue remain typed requests because their outcome, template
+application and persistence are not reliably captured. The authorized
+[Onboarding 4 reference](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-4)
+`full-static-v10` and `full-interactions-v4` entries share source hash
+`b59ffe4e0ac59409bfbbd7e84a374f348d61f9536b4168ac63c4d8c8c64c543c`.
+The interaction cache has no current capture protocol, so this is not fresh
+strict acceptance. Local narrow flow exposes the controls by natural scrolling,
+without assuming the source scroll owner.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

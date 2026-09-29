@@ -693,6 +693,57 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-4')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-4-reference.tsx',
+        'onboarding-4-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Select Plan a roadmap instead of Run sprints within the six-choice radio group',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '7:press-space',
+          change: 'Press Just me instead of 2–10 in the four-choice team-size segment',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source interaction acceptance',
+          basis:
+            'full-static-v10 and full-interactions-v4 have the same source hash, but the interaction cache is legacy schemaVersion 1 without the current capture protocol. The static eight views and two raw transitions are restricted evidence, not a fresh strict pair.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Legacy comparator false negative for the use-case radio',
+          basis:
+            'Raw dark/mobile AX before/after for both Plan a roadmap click and Enter change checked from Run sprints to Plan a roadmap. The old comparison says source-no-op because its signature omits radio checked. Local state follows the raw AX evidence.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other choices in the same two mutually exclusive groups',
+          basis:
+            'The six use cases share one radio mechanism, and four sizes share one pressed-state mechanism. Remaining labels use stable IDs and the same state model; they are inferred rather than independently replayed at every viewport/theme.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Back, Continue, template application, persistence and source scroll owner',
+          basis:
+            'No reliable outcome or source scroll ownership is captured. Navigation remains typed host requests; local narrow flow uses a reachable document scroll instead of inventing a source result.',
+          verification: 'restricted-unverified',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-onboarding-3')
     return {
       revision: 1,
