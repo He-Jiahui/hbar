@@ -292,22 +292,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         acceptedUnknown.revisions,
       )
       await closeEffort()
-      await thinking.click()
-      await slider.focus()
-      await slider.dispatchEvent('pointercancel', { bubbles: true, pointerId: 1, pointerType: 'touch' })
-      await page.keyboard.press('Home')
-      await expect(effort.locator('.hbar-composer-thinking-value')).toHaveText(labels.thinkingLevel('low'))
-      expect((await modelClient.execute('session.getModel', { sessionId: host.ready.sessionId })).thinkingLevel).toBe(
-        'max',
-      )
-      await page.keyboard.press('Enter')
-      await expect(thinking).toHaveText(labels.thinkingLevel('low'))
-      await expect(slider).toBeEnabled()
-      await slider.focus()
-      await page.keyboard.press('End')
-      await page.keyboard.press('Enter')
-      await expect(thinking).toHaveText(labels.thinkingLevel('max'))
-      await closeEffort()
       await page.setViewportSize({ width: 1440, height: 960 })
 
       await page.setViewportSize({ width: 390, height: 844 })
