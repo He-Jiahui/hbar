@@ -636,6 +636,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-8')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-8-reference.tsx',
+        'forms-8-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '1:click',
+          change: 'Switch the condition matcher to Match any and inspect the updated summary',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '2:click',
+          change: 'Open the first condition field menu without selecting an unverified field value',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '15:click',
+          change: 'Add one draft condition and inspect the new source row and summary count',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Save rule and Test rule outcomes',
+          basis:
+            'Neither action is triggered by this safe sample. The local host emits typed callback requests only; no saved state, test result, or remote persistence is claimed.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Action-picker option selection',
+          basis:
+            'The live Route to zone target menu exposes Bay 1–4, Cold store and Overflow, but this round does not select an action option. The local action picker remains callback-only; no chosen target or remote outcome is claimed.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Unobserved options and field profiles outside the sampled menu',
+          basis:
+            'The initial Frozen choice is source-observed, while incomplete option catalogs are marked partial or unobserved in the host fixture. Eight static pairs verify the default controls; no unobserved field options are promoted to complete catalogs.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Repeated condition edits at other viewport/theme combinations',
+          basis:
+            'The eight static captures cover four viewports and both themes. Match mode, field-menu disclosure, and one Add action sample distinct mechanisms without a control-by-viewport Cartesian replay.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-5')
     return {
       revision: 1,

@@ -93,6 +93,10 @@ function isOverlaySelector(path, selector) {
   // Only the listbox container floats; the options and surrounding form stay in flow.
   if (/packages\/lumen-app-ui\/src\/forms-5-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.lumen-forms-5-region-options') return true
+  // Forms 8: the live rule editor's condition/operator option list overlays
+  // sibling condition rows beneath its picker trigger; option content itself flows.
+  if (/packages\/lumen-app-ui\/src\/forms-8-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-forms-8-options') return true
   // Settings Form 4: the observed member action menu overlays its trigger row.
   // Only the anchored menu container floats; member content and menu choices flow.
   if (/packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
