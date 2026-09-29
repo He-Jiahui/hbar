@@ -840,6 +840,33 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-5')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall-5-reference.tsx', 'paywall-5-reference.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [{ viewport: 'desktop', theme: 'light', suffix: '0:click',
+        change: 'Payment Change stays a typed host request without fabricating an editor or card update' }],
+      inferences: [
+        {
+          scope: 'Current strict evidence and billing/access outcomes',
+          basis:
+            'The public trial iframe was readable on 2026-09-29. Change produced no visible in-frame editor; Reactivate was not triggered. These visible clues are not a current-protocol paired capture. Card update, charge and access restoration remain request-only and unverified.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Retained rows and host capacity',
+          basis:
+            'Four passive source pairs share one stable-ID row. Empty/one/eight/18-row tests and one keyboard-scroll overflow sample cover host capacity; eight is not a discovered source cap. Requests preserve every retained value.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Narrow readability and localized copy',
+          basis:
+            'Eight static local views, long German and one 320x420 real document scroll cover flow. Below 20rem the local pairs stack to preserve complete labels/values instead of the source narrow clipping; desktop remains 560x517.75. Equivalent passive rows and action/layout combinations are not replayed individually.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-4')
     return {
       revision: 1,

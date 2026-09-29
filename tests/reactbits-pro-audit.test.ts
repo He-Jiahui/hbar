@@ -38,6 +38,17 @@ test('quota notice samples request feedback instead of passive bars and distingu
   expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
 })
 
+test('trial expiry samples payment request and infers passive retained rows without invented reactivation', () => {
+  const id = 'hbar-app-ui-paywall-5'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(1)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:click`])
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+  expect(plan.lumenEntries).toContain('paywall-5-reference.tsx')
+  expect(plan.inferences.some((entry) => entry.basis.includes('Reactivate was not triggered'))).toBe(true)
+  expect(plan.inferences.some((entry) => entry.basis.includes('eight is not a discovered source cap'))).toBe(true)
+})
+
 test('reader sampling separates navigation, Focus, collapse and recovery without a button-layout product', () => {
   const id = 'hbar-app-ui-editor-5'
   const plan = auditSamplingPlan(id)!

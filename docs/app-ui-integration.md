@@ -361,6 +361,31 @@ lint/style/flow/content/icon checks, preview build and direct Lumen Vite plus
 declaration builds pass. Shared `paywall.tsx` lint still has 15 existing errors,
 down from 16 before; the overall file is not reported lint-clean.
 
+### Paywall 5 integration status
+
+`hbar-app-ui-paywall-5` presents host-owned trial-expiry copy, four passive
+retained-data pairs, a payment-method hint with the shared `md` card icon,
+Change, Reactivate and renewal copy in source reading order. Both actions
+emit different typed requests; neither changes the retained values, payment
+method, billing status or access. Empty, one-item, eight-item boundary and
+18-item overflow fixtures exercise host policy, not an asserted source maximum.
+The overflow region retains all records and supports keyboard scrolling.
+
+The [official Paywall 5 iframe](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-5)
+was readable on 2026-09-29. The source desktop card is 560×517.75 with 24px
+content padding and four normal-flow rows. A safe Change prototype click
+shows no visible editor; Reactivate was not triggered. This is not a current-
+protocol paired strict capture. The local desktop card matches 560×517.75,
+including the 188px passive summary, 63.5px payment row and 40px action.
+At 320×420 a real document scroll of 376 reaches the action. Below 20rem,
+local summary labels and values stack to remain fully readable instead of
+reproducing source narrow clipping. German long copy remains present.
+
+Seven focused tests/54 assertions, root/Lumen typechecks, new-file lint,
+style/format/content/icon/flow guards, preview build and direct Lumen Vite/
+declaration builds pass. Shared `paywall.tsx` still reports 14 existing lint
+errors, down from 15 before; the entire shared file is not lint-clean.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
