@@ -94,6 +94,15 @@ export type ControlSnapshot = Readonly<{
   options: readonly string[]
 }>
 
+export type ProgressSemanticState = Readonly<{
+  role: 'progressbar' | 'meter'
+  accessibleName: string | null
+  valueNow: string | null
+  valueMin: string | null
+  valueMax: string | null
+  valueText: string | null
+}>
+
 export type SemanticSnapshot = Readonly<{
   rootTag: string
   rootRect: Readonly<{ width: number; height: number }>
@@ -102,6 +111,7 @@ export type SemanticSnapshot = Readonly<{
   truncatedTextCount: number
   horizontalOverflow: boolean
   axSnapshot: string
+  progressStates?: readonly ProgressSemanticState[] | undefined
   observedScroll?: Readonly<{ top: number; left: number; maximum: number }> | undefined
   tree: readonly Readonly<{
     tag: string
@@ -493,8 +503,8 @@ export function manualReviewGate(
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
-const captureProtocolVersion = 15
-const interactionProtocolVersion = 36
+const captureProtocolVersion = 16
+const interactionProtocolVersion = 37
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1349,7 +1359,18 @@ export async function waitForLocalStyles(page: Page, timeout = 15_000): Promise<
   )
 }
 
-type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot'>
+type ProgressValueProbe = Readonly<{
+  role: ProgressSemanticState['role']
+  fallbackAccessibleName: string | null
+  valueNow: string | null
+  valueMin: string | null
+  valueMax: string | null
+  valueText: string | null
+}>
+
+type SnapshotWithoutAx = Omit<SemanticSnapshot, 'axSnapshot' | 'progressStates'> & {
+  readonly progressValueProbes: readonly ProgressValueProbe[]
+}
 
 export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): Promise<SnapshotWithoutAx> {
   return locator.evaluate(
@@ -1500,6 +1521,63 @@ export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): 
           [...value.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()))
         return textBearing && value.scrollWidth > value.clientWidth + 1
       }).length
+      const progressValueProbes = [
+        ...(element.matches('progress,meter,[role="progressbar"],[role="meter"]') ? [element] : []),
+        ...element.querySelectorAll('progress,meter,[role="progressbar"],[role="meter"]'),
+      ]
+        .filter((value) => {
+          const style = getComputedStyle(value)
+          return style.display !== 'none' && style.visibility !== 'hidden' && !value.closest('[aria-hidden="true"]')
+        })
+        .map((value) => {
+          const explicitRole = value.getAttribute('role')
+          const role: ProgressSemanticState['role'] =
+            explicitRole === 'meter' || (explicitRole !== 'progressbar' && value.tagName === 'METER')
+              ? 'meter'
+              : 'progressbar'
+          const nativeValue =
+            value instanceof HTMLProgressElement
+              ? String(value.value)
+              : value instanceof HTMLMeterElement
+                ? String(value.value)
+                : null
+          const nativeMin =
+            value instanceof HTMLProgressElement ? '0' : value instanceof HTMLMeterElement ? String(value.min) : null
+          const nativeMax =
+            value instanceof HTMLProgressElement || value instanceof HTMLMeterElement ? String(value.max) : null
+          const labelledBy = value
+            .getAttribute('aria-labelledby')
+            ?.split(/\s+/)
+            .filter(Boolean)
+            .map((id) => value.ownerDocument.getElementById(id)?.textContent?.trim() ?? '')
+            .filter(Boolean)
+            .join(' ')
+          const nativeLabels =
+            value instanceof HTMLProgressElement
+              ? [...value.labels]
+                  .map((label) => label.textContent?.trim() ?? '')
+                  .filter(Boolean)
+                  .join(' ')
+              : value instanceof HTMLMeterElement
+                ? [...value.labels]
+                    .map((label) => label.textContent?.trim() ?? '')
+                    .filter(Boolean)
+                    .join(' ')
+                : ''
+          return {
+            role,
+            fallbackAccessibleName:
+              value.getAttribute('aria-label')?.trim() ||
+              labelledBy ||
+              nativeLabels ||
+              value.getAttribute('title')?.trim() ||
+              null,
+            valueNow: value.getAttribute('aria-valuenow') ?? nativeValue,
+            valueMin: value.getAttribute('aria-valuemin') ?? nativeMin,
+            valueMax: value.getAttribute('aria-valuemax') ?? nativeMax,
+            valueText: value.getAttribute('aria-valuetext'),
+          }
+        })
       return {
         rootTag: element.tagName.toLowerCase(),
         rootRect: { width: Math.round(rootRect.width), height: Math.round(rootRect.height) },
@@ -1518,6 +1596,7 @@ export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): 
           : element.scrollWidth > element.clientWidth + 1,
         tree,
         controls,
+        progressValueProbes,
       }
     },
     { shouldCheckBody: bodyOverflow, controlSelector: interactiveControlSelector },
@@ -1526,17 +1605,102 @@ export async function snapshotLocator(locator: Locator, bodyOverflow: boolean): 
 
 async function snapshotRoot(frame: Frame, selector: string): Promise<SemanticSnapshot> {
   const locator = frame.locator(selector).first()
-  return {
-    ...(await snapshotLocator(locator, true)),
-    axSnapshot: await locator.ariaSnapshot(),
-  }
+  return snapshotLocatorWithSemantics(locator, true)
 }
 
 async function localSnapshot(page: Page, selector: string): Promise<SemanticSnapshot> {
   const locator = page.locator(selector).first()
+  return snapshotLocatorWithSemantics(locator, false)
+}
+
+type AxProgressEntry = Readonly<{
+  role: ProgressSemanticState['role']
+  accessibleName: string | null
+  valueText: string | null
+}>
+
+function isProgressValueText(value: string): boolean {
+  return /^\d+(?:\.\d+)?\s*(?:of|\/)\s*\d+(?:\.\d+)?(?:\s+\w+)*$/i.test(value) || /^\d+(?:\.\d+)?\s*%$/.test(value)
+}
+
+function progressValueTextFromAxLine(lines: readonly string[], index: number, line: string): string | null {
+  const suffix = line.replace(/^\s*-\s+(?:progressbar|meter)(?:\s+"(?:\\.|[^"\\])*")?/, '').trim()
+  const inlineValue = /\[(?:value|valuetext)=([^\]]+)\]/i.exec(suffix)?.[1]?.trim()
+  if (inlineValue && isProgressValueText(inlineValue)) return inlineValue
+  const inlineText = /^:\s*(.+)$/.exec(suffix)?.[1]?.trim()
+  if (inlineText && isProgressValueText(inlineText)) return inlineText
+
+  const following = lines[index + 1]
+  const followingText = following ? /^\s*-\s+(?:paragraph|generic|text):\s*(.+)$/.exec(following)?.[1]?.trim() : null
+  return followingText && isProgressValueText(followingText) ? followingText : null
+}
+
+function axProgressEntries(axSnapshot: string): readonly AxProgressEntry[] {
+  const lines = axSnapshot.split(/\r?\n/)
+  const entries: AxProgressEntry[] = []
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (!line) continue
+    const match = /^\s*-\s+(progressbar|meter)(?:\s+"((?:\\.|[^"\\])*)")?/.exec(line)
+    if (!match) continue
+    const role = match[1]
+    if (role !== 'progressbar' && role !== 'meter') continue
+    entries.push({
+      role,
+      accessibleName: match[2] ?? null,
+      valueText: progressValueTextFromAxLine(lines, index, line),
+    })
+  }
+  return entries
+}
+
+function projectProgressSemanticStates(
+  axSnapshot: string,
+  probes: readonly ProgressValueProbe[],
+): readonly ProgressSemanticState[] {
+  const axByRole: Record<ProgressSemanticState['role'], AxProgressEntry[]> = {
+    progressbar: [],
+    meter: [],
+  }
+  for (const entry of axProgressEntries(axSnapshot)) axByRole[entry.role].push(entry)
+
+  const consumed: Record<ProgressSemanticState['role'], number> = { progressbar: 0, meter: 0 }
+  const states = probes.map((probe) => {
+    const roleEntries = axByRole[probe.role]
+    const axEntry = roleEntries[consumed[probe.role]]
+    consumed[probe.role] += 1
+    return {
+      role: probe.role,
+      accessibleName: axEntry?.accessibleName ?? probe.fallbackAccessibleName,
+      valueNow: probe.valueNow,
+      valueMin: probe.valueMin,
+      valueMax: probe.valueMax,
+      valueText: probe.valueText ?? axEntry?.valueText ?? null,
+    }
+  })
+
+  for (const role of ['progressbar', 'meter'] as const) {
+    for (const axEntry of axByRole[role].slice(consumed[role])) {
+      states.push({
+        role,
+        accessibleName: axEntry.accessibleName,
+        valueNow: null,
+        valueMin: null,
+        valueMax: null,
+        valueText: axEntry.valueText,
+      })
+    }
+  }
+  return states
+}
+
+export async function snapshotLocatorWithSemantics(locator: Locator, bodyOverflow: boolean): Promise<SemanticSnapshot> {
+  const [snapshot, axSnapshot] = await Promise.all([snapshotLocator(locator, bodyOverflow), locator.ariaSnapshot()])
+  const { progressValueProbes, ...snapshotData } = snapshot
   return {
-    ...(await snapshotLocator(locator, false)),
-    axSnapshot: await locator.ariaSnapshot(),
+    ...snapshotData,
+    axSnapshot,
+    progressStates: projectProgressSemanticStates(axSnapshot, progressValueProbes),
   }
 }
 
@@ -3831,6 +3995,7 @@ export function semanticInteractionDelta(
 ): Readonly<{ changed: boolean; signature: string }> {
   const state = (snapshot: SemanticSnapshot) => ({
     checkableStates: checkableStates(snapshot.axSnapshot),
+    progressStates: snapshot.progressStates ?? [],
     bodyTextLength: snapshot.bodyTextLength,
     horizontalOverflow: snapshot.horizontalOverflow,
     controls: snapshot.controls.map((control) => ({
@@ -3849,6 +4014,7 @@ export function semanticInteractionDelta(
   const afterState = state(after)
   const changes = {
     checkableStates: { before: beforeState.checkableStates, after: afterState.checkableStates },
+    progressStates: { before: beforeState.progressStates, after: afterState.progressStates },
     bodyTextLengthDelta: afterState.bodyTextLength - beforeState.bodyTextLength,
     horizontalOverflowChanged: afterState.horizontalOverflow !== beforeState.horizontalOverflow,
     controls: afterState.controls.map((control, index) => ({
