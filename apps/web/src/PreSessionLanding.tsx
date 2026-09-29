@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Folder, Sparkles, Target, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
   HbarPreSessionApprovalPicker,
   HbarPreSessionChoicePicker,
   HbarPreSessionLanding,
+  HbarPreSessionSlashEditor,
   HbarPreSessionThinkingPicker,
+  localSlashCommand,
   useHbarRuntime,
   useHbarRuntimeState,
+  type PreSessionLocalSlashCommand,
 } from '@hbar/app-react'
 import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanMode } from '@hbar/app-runtime'
 import { modelCommands } from '@hbar/contracts/commands/models'
@@ -49,6 +52,9 @@ export function WebPreSessionLanding({
   const [modelRefresh, setModelRefresh] = useState(0)
   const [openingProviders, setOpeningProviders] = useState(false)
   const [providerRouteError, setProviderRouteError] = useState<string | null>(null)
+  const [slashRouteError, setSlashRouteError] = useState<string | null>(null)
+  const [slashOpenRequest, setSlashOpenRequest] = useState(0)
+  const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [workspaceCursor, setWorkspaceCursor] = useState<string | null>(null)
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -152,6 +158,7 @@ export function WebPreSessionLanding({
 
   const writeText = (value: string) => {
     setText(value)
+    setSlashRouteError(null)
     void queue(async () => {
       const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
       if (!current) return
@@ -294,34 +301,73 @@ export function WebPreSessionLanding({
     setModelRefresh((current) => current + 1)
   }
 
-  const openProviderSettings = (closePicker?: () => void) => {
+  const openSettings = (section: 'providers' | null, closePicker?: () => void) => {
     if (!connected || openingProviders) return
     const presentation = runtime.state.presentation.getSnapshot()
     const navigation = runtime.state.navigation.getSnapshot()
     if (presentation.page.kind !== 'session' || navigation.sessionId !== null) return
     closePicker?.()
-    setProviderRouteError(null)
+    if (section === 'providers') setProviderRouteError(null)
+    else setSlashRouteError(null)
     setOpeningProviders(true)
     void queue(async () => {
       if (
         runtime.state.presentation.getSnapshot() !== presentation ||
         runtime.state.navigation.getSnapshot() !== navigation
       ) {
-        if (alive.current) setProviderRouteError('STALE_TARGET')
+        if (alive.current) {
+          if (section === 'providers') setProviderRouteError('STALE_TARGET')
+          else setSlashRouteError('STALE_TARGET')
+        }
         return
       }
-      await runtime.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
+      await runtime.commands.execute('app.openSettings', {
+        scope: 'global',
+        ...(section ? { section } : {}),
+      })
     })
       .catch((reason: unknown) => {
-        if (alive.current) setProviderRouteError(code(reason))
+        if (alive.current) {
+          if (section === 'providers') setProviderRouteError(code(reason))
+          else setSlashRouteError(code(reason))
+        }
       })
       .finally(() => {
         if (alive.current) setOpeningProviders(false)
       })
   }
+  const openProviderSettings = (closePicker?: () => void) => openSettings('providers', closePicker)
+
+  const executeLocalSlash = (command: PreSessionLocalSlashCommand) => {
+    if (
+      !connected ||
+      !draft ||
+      openingProviders ||
+      submitting ||
+      reconciling ||
+      ['preparing', 'creating', 'configuring', 'submitting', 'unknown'].includes(draft.phase)
+    )
+      return
+    if (localSlashCommand(text, ['model', 'settings']) !== command) return
+    writeText('')
+    if (command === 'model') setModelOpenRequest((request) => request + 1)
+    else openSettings(null)
+  }
 
   const submit = () => {
     if (!draft || !connected || submitting) return
+    const localCommand = localSlashCommand(text, ['model', 'settings'])
+    if (localCommand === 'model' || localCommand === 'settings') {
+      executeLocalSlash(localCommand)
+      return
+    }
+    if (
+      localSlashCommand(
+        text,
+        shell.session.slash.commands.map((item) => item.id),
+      )
+    )
+      return
     setSubmitting(true)
     void queue(async () => {
       const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
@@ -347,6 +393,22 @@ export function WebPreSessionLanding({
 
   const busy =
     submitting || reconciling || ['preparing', 'creating', 'configuring', 'submitting'].includes(draft?.phase ?? '')
+  const localSlash = localSlashCommand(text, ['model', 'settings'])
+  const unsupportedSlash =
+    !localSlash &&
+    localSlashCommand(
+      text,
+      shell.session.slash.commands.map((item) => item.id),
+    )
+  const slashLabels = {
+    ...shell.session.slash,
+    commands: shell.session.slash.commands
+      .filter((item) => item.id === 'model' || item.id === 'settings')
+      .map((item) => ({
+        ...item,
+        description: item.id === 'model' ? labels.slashModelDescription : labels.slashSettingsDescription,
+      })),
+  }
   const workspaceChoices = Object.values(directory.workspaces).map((workspace) => ({
     id: workspace.id,
     label: workspaceDisplayName(workspace, displayNames),
@@ -408,6 +470,7 @@ export function WebPreSessionLanding({
     <HbarPreSessionChoicePicker
       icon={Sparkles}
       placement="composer"
+      openRequest={modelOpenRequest}
       labels={modelLabels}
       items={modelChoices}
       selectedId={draft?.modelId ?? null}
@@ -471,11 +534,10 @@ export function WebPreSessionLanding({
   const goalControl = (
     <LumenFrame className="hbar-web-pre-session-goal-controls">
       <HbarComposerAddMenu
-        labels={shell.session.addMenu}
+        labels={{ ...shell.session.addMenu, slashUnavailable: labels.slashUnavailable }}
         canAddFiles={false}
-        canOpenSlash={false}
-        showSlash={false}
-        onOpenSlash={() => undefined}
+        canOpenSlash={connected && Boolean(draft) && !busy && draft?.phase !== 'unknown'}
+        onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
         goalAction={{
           label: shell.session.intent.goalMenu,
           disabled:
@@ -536,15 +598,6 @@ export function WebPreSessionLanding({
         ) : null}
       </LumenFrame>
     ) : null
-  const editorKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
-    if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.shiftKey) return
-    if (sendBehavior === null) return
-    const modifier = event.ctrlKey || event.metaKey
-    if ((sendBehavior === 'enter' && !modifier) || (sendBehavior === 'modifierEnter' && modifier)) {
-      event.preventDefault()
-      onSubmit()
-    }
-  }
   return (
     <HbarPreSessionLanding
       labels={
@@ -566,27 +619,31 @@ export function WebPreSessionLanding({
         disabled: !connected || !draft,
         submitting: busy,
         uploading: false,
-        canSubmit: Boolean(
-          draft?.workspaceId &&
-          text.trim() &&
-          !busy &&
-          draft.phase !== 'unknown' &&
-          !modelsLoading &&
-          !modelError &&
-          models.length > 0,
-        ),
-        error: goalError
-          ? labels.goalError(goalError)
-          : openError
-            ? labels.error(openError)
-            : draft?.phase !== 'unknown' && draft?.error
-              ? labels.error(draft.error)
-              : undefined,
+        canSubmit:
+          Boolean(
+            !busy &&
+            draft?.phase !== 'unknown' &&
+            (localSlash || (draft?.workspaceId && text.trim() && !modelsLoading && !modelError && models.length > 0)),
+          ) && !unsupportedSlash,
+        error: slashRouteError
+          ? labels.slashActionFailed
+          : goalError
+            ? labels.goalError(goalError)
+            : openError
+              ? labels.error(openError)
+              : draft?.phase !== 'unknown' && draft?.error
+                ? labels.error(draft.error)
+                : undefined,
         context:
-          preparedGoal || modelGuidance || draft?.phase === 'unknown' ? (
+          preparedGoal || modelGuidance || unsupportedSlash || draft?.phase === 'unknown' ? (
             <>
               {preparedGoal}
               {modelGuidance}
+              {unsupportedSlash && (
+                <LumenText as="p" role="status">
+                  {labels.slashRequiresSession}
+                </LumenText>
+              )}
               {draft?.phase === 'unknown' && (
                 <LumenFrame className="hbar-web-pre-session-recovery">
                   <LumenText as="p" role="alert">
@@ -608,16 +665,18 @@ export function WebPreSessionLanding({
         ),
         modelPicker: modelControls,
         editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
-          <LumenTextarea
-            ref={editor}
-            variant="plain"
-            aria-label={inputLabel}
-            placeholder={placeholder}
-            rows={3}
-            disabled={disabled}
+          <HbarPreSessionSlashEditor
+            editorRef={editor}
             value={text}
-            onChange={(event) => writeText(event.currentTarget.value)}
-            onKeyDown={(event) => editorKeyDown(event, onSubmit)}
+            inputLabel={inputLabel}
+            placeholder={placeholder}
+            disabled={disabled || busy || draft?.phase === 'unknown'}
+            sendBehavior={sendBehavior}
+            labels={slashLabels}
+            slashOpenRequest={slashOpenRequest}
+            onChange={writeText}
+            onSubmit={onSubmit}
+            onLocalCommand={executeLocalSlash}
           />
         ),
         onChange: writeText,

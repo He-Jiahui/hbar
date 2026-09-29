@@ -30,6 +30,11 @@
   overflow: auto;
 }
 
+/* The slash list is an overlay above the composer; keep normal footer scrolling otherwise. */
+.hbar-pre-session-landing-footer:has(.hbar-pre-session-slash-editor .hbar-composer-slash-menu) {
+  overflow: visible;
+}
+
 .hbar-pre-session-landing-footer .lumen-prompt-composer-surface {
   outline: 0.0625rem solid var(--lumen-edge);
   outline-offset: -0.0625rem;

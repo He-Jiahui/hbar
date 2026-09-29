@@ -13,6 +13,11 @@ export interface WebPreSessionCopy {
   readonly configureProviders: string
   readonly modelReadFailed: string
   readonly modelActionFailed: string
+  readonly slashActionFailed: string
+  readonly slashRequiresSession: string
+  readonly slashUnavailable: string
+  readonly slashModelDescription: string
+  readonly slashSettingsDescription: string
   readonly checking: string
   readonly goalPlanConflict: string
   readonly planGoalConflict: string
@@ -63,6 +68,17 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
     configureProviders: choose('配置模型提供商', 'Configure providers'),
     modelReadFailed: choose('模型暂时无法加载，请重试。', 'Models could not be loaded. Try again.'),
     modelActionFailed: choose('无法打开提供商设置，请重试。', 'Could not open provider settings. Try again.'),
+    slashActionFailed: choose('无法打开此入口，请重试。', 'Could not open this action. Try again.'),
+    slashRequiresSession: choose(
+      '此命令需要先进入会话。首条消息可使用输入区的现有选项。',
+      'This command needs an open session. Use the available composer options for the first message.',
+    ),
+    slashUnavailable: choose(
+      '正在准备首次发送，暂时无法打开斜杠命令。',
+      'Slash commands are unavailable while preparing the first send.',
+    ),
+    slashModelDescription: choose('选择首条消息使用的模型', 'Choose the model for the first message'),
+    slashSettingsDescription: choose('打开全局设置', 'Open global settings'),
     checking: choose('核对首次发送结果', 'Check first-send result'),
     goalPlanConflict: choose(
       '先在执行选项中退出计划模式，再准备目标。',
