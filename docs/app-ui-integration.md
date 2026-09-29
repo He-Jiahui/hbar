@@ -27,6 +27,23 @@ entry in the generated `review-ledger.json`. The audit commands are
 `bun run app-ui:reactbits:discover`, `bun run app-ui:reactbits:audit`, and the
 development filters documented in that guide.
 
+### Forms 8 audit status
+
+`hbar-app-ui-forms-8` was captured from the live [Forms 8 rule builder](https://pro.reactbits.dev/docs/app-ui/forms/forms-8)
+for eight viewport/theme pairs in `artifacts/reactbits-pro-visual-audit/forms-8-final-v4/`.
+Static semantic structure passes all eight pairs. Two of the three mechanism samples
+(Match any and the condition-field menu) match; the Add-condition sample remains
+strict `needs-fix`: the source icon-only Remove buttons contain visually hidden
+`Remove condition` text nodes, while the local buttons use equivalent `aria-label`
+attributes without those text nodes. This leaves visible copy, AX names, the new
+blank condition, disabled Test/Save buttons and validation text aligned, but the
+captured `textContent` delta differs by 16 characters (source +66, local +50).
+The difference is not treated as a visual or remote-action success. The 320px
+preview verifier separately confirms a reachable footer, no horizontal overflow,
+German host copy and zero page errors. The source Route-to-zone target menu was
+observed, but target selection remains callback-only and is explicitly restricted;
+Save/Test outcomes were not triggered or invented.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

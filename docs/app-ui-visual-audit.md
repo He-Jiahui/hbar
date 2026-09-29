@@ -653,3 +653,20 @@ Submit 禁用、德语文案和 320px 底栏可达且 page error 0。
 来源证据，宿主只发类型化请求，不伪造上传/保存/提交成功。8 项 focused store 测试
 （59 条断言）、audit 合约测试 90 项、根与 Lumen 类型检查、局部 lint/guards、构建均通过，
 构建仍有既有大 chunk 提示。等价按钮/布局不作笛卡尔回放。
+
+Forms 8（Inbound pallet routing rule）的实时证据位于
+`artifacts/reactbits-pro-visual-audit/forms-8-final-v4/`：8 组双主题/四视口静态对和
+3 种安全机制（Match any、条件字段菜单、Add condition）同一实现/来源 hash，缺失 0。
+静态语义、控件与溢出硬门槛无差异；前两项交互 `matched`。Add 后来源/本地均出现
+空条件、`Fill in every condition value`，Test/Save 变为禁用；严格 `needs-fix` 仍来自
+来源每个图标 Remove 按钮含隐藏 `Remove condition` 文本节点，而本地用等价
+`aria-label`：新行的 body text 增量为源 +66、本地 +50，虽 AX 名与可见状态一致，
+机器差量与视觉阈值未过。未为隐藏节点额外重抓或修改比较器，也**未签署通过**。
+宿主提供类型化条件/动作与稳定 ID，字段/运算符决定值控件；部分来源未证目录明确标为
+partial/unobserved。Route-to-zone 菜单虽观察到 Bay 1–4、Cold store、Overflow，
+本轮未选其结果，本地仍回调请求；Save/Test 没有触发，不声称远端结果。
+独立 `scripts/verify-hbar-app-ui-forms-8.ts` 验证默认 3 条件/2 动作、模式/新增/字段形状、
+德语、320px 底栏可达且无横溢/page error（0）；7 项 focused tests、Lumen 类型检查、
+局部 lint/guards 和构建通过，仍有大 chunk 提示。根类型检查在此轮被并行
+`tests/pre-session-drafts-runtime.test.ts:296` 的 TS2339 阻断，不能记为通过。
+其他按钮×布局组合不逐项回放，推理边界见采样计划。
