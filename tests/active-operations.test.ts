@@ -30,14 +30,15 @@ async function fixture() {
   await store.call('ready')
   const workspace = await store.call('createWorkspace', root, 'test')
   const session = await store.call('createSession', workspace.id)
-  const enqueue = (index: number, sessionId = session.id) =>
-    store.call('enqueue', sessionId, `request-${index}`, { text: 'private prompt', images: [] }, 'test')
+  const enqueue = (index: number, sessionId = session.id, text = 'private prompt') =>
+    store.call('enqueue', sessionId, `request-${index}`, { text, images: [] }, 'test')
   return { store, workspace, session, enqueue }
 }
 
 test('activity pages find an older running operation hidden by the 40-run timeline window', async () => {
   const { store, session, enqueue } = await fixture()
-  const original = await enqueue(0)
+  const oldPrompt = `Old run identity: ${'older work '.repeat(30)} PRIVATE_PROMPT_TAIL`
+  const original = await enqueue(0, session.id, oldPrompt)
   await store.call('claim', session.id)
   const expected = [original.id]
   for (let index = 1; index < 105; index++) expected.push((await enqueue(index)).id)
@@ -48,6 +49,11 @@ test('activity pages find an older running operation hidden by the 40-run timeli
   expect(page.items).toHaveLength(40)
   expect(page.totalActive).toBe(105)
   expect(page.items.find((item) => item.operationId === original.id)?.status).toBe('running')
+  const oldRun = page.items.find((item) => item.operationId === original.id)
+  expect(oldRun?.intentPreview).toStartWith('Old run identity:')
+  expect(oldRun?.intentPreview).toEndWith('…')
+  expect(JSON.stringify(page)).not.toContain(oldPrompt)
+  expect(JSON.stringify(page)).not.toContain('PRIVATE_PROMPT_TAIL')
   const ids = page.items.map((item) => item.operationId)
   while (page.nextCursor) {
     page = await store.call('activeOperations', { sessionId: session.id, cursor: page.nextCursor })
@@ -57,9 +63,11 @@ test('activity pages find an older running operation hidden by the 40-run timeli
   }
   expect(new Set(ids).size).toBe(105)
   expect(ids.toSorted()).toEqual(expected.toSorted())
-  expect(JSON.stringify(page)).not.toContain('private prompt')
   expect(
-    page.items.every((item) => Object.keys(item).toSorted().join(',') === 'createdAt,operationId,startedAt,status'),
+    page.items.every(
+      (item) =>
+        Object.keys(item).toSorted().join(',') === 'createdAt,intentPreview,operationId,startedAt,status',
+    ),
   ).toBe(true)
   const durations: number[] = []
   for (let sample = 0; sample < 20; sample++) {
@@ -178,4 +186,25 @@ test('the authenticated command and Client expose bounded activity without repla
     await kernel.close()
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('active-operation intent previews are bounded, Unicode-safe, blank-safe, and session-scoped', async () => {
+  const { store, workspace, session, enqueue } = await fixture()
+  const otherSession = await store.call('createSession', workspace.id)
+  const unicodePrompt = `Inspect 🧭 ${'界😀'.repeat(100)} PRIVATE_UNICODE_TAIL`
+  const own = await enqueue(0, session.id, unicodePrompt)
+  const blank = await enqueue(1, session.id, ' \n\t ')
+  const foreign = await enqueue(2, otherSession.id, 'Foreign session intent must stay private')
+
+  const page = await store.call('activeOperations', { sessionId: session.id })
+  const ownItem = page.items.find((item) => item.operationId === own.id)
+  const blankItem = page.items.find((item) => item.operationId === blank.id)
+  const preview = ownItem?.intentPreview
+
+  expect(preview).toBe(`${Array.from(unicodePrompt.trim().replace(/\s+/gu, ' ')).slice(0, 159).join('')}…`)
+  expect(Array.from(preview ?? '')).toHaveLength(160)
+  expect(blankItem?.intentPreview).toBeNull()
+  expect(JSON.stringify(page)).not.toContain('PRIVATE_UNICODE_TAIL')
+  expect(JSON.stringify(page)).not.toContain('Foreign session intent must stay private')
+  expect(page.items.some((item) => item.operationId === foreign.id)).toBe(false)
 })

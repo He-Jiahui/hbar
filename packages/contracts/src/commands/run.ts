@@ -3,7 +3,11 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, inputSchema, runFailureSchema, sessionEventSchema } from '../index'
 import type { SessionEvent } from '../index'
 import { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
-export { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
+export {
+  ACTIVE_OPERATION_INTENT_PREVIEW_MAX_CODE_POINTS,
+  activeOperationsInputSchema,
+  activeOperationsPageSchema,
+} from './active-operations'
 export type { ActiveOperationsInput, ActiveOperationsPage } from './active-operations'
 import {
   queuedRunEditableInputSchema,

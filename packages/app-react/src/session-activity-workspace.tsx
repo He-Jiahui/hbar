@@ -31,6 +31,7 @@ export interface HbarSessionActivityLabels {
   readonly limitReached: string
   readonly count: (loaded: number, total: number) => string
   readonly runAt: (createdAt: number) => string
+  readonly intentPreview: (preview: string) => string
   readonly startedAt: (startedAt: number) => string
   readonly queuedAt: (createdAt: number) => string
   readonly status: (status: Operation['status']) => string
@@ -94,7 +95,9 @@ export function HbarSessionActivityView({
             {visible.map((item) => (
               <LumenCollectionItem key={item.operationId} data-operation-id={item.operationId}>
                 <LumenFrame className="hbar-session-activity-row-heading">
-                  <LumenText as="strong">{labels.runAt(item.createdAt)}</LumenText>
+                  <LumenText as="strong" className="hbar-session-activity-intent">
+                    {item.intentPreview ? labels.intentPreview(item.intentPreview) : labels.runAt(item.createdAt)}
+                  </LumenText>
                   <LumenStatus value={labels.status(item.status)} tone={tone(item.status)} />
                 </LumenFrame>
                 <LumenText as="time" dateTime={new Date(item.startedAt ?? item.createdAt).toISOString()}>

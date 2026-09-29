@@ -44,6 +44,11 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-session-activity-intent {
+  min-inline-size: 0;
+  flex: 1 1 12rem;
+}
+
 .hbar-session-activity-list time,
 .hbar-session-activity-count,
 .hbar-session-activity-notice {

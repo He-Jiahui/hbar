@@ -17,7 +17,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`session Activity shows Host active runs and preserves their source: ${locale}`, async ({
     browser,
   }, testInfo) => {
-    test.setTimeout(90_000)
+    test.setTimeout(120_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-session-activity-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
@@ -41,6 +41,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(pane.getByRole('listitem')).toHaveCount(0)
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
 
+      const millisecondsLeftInMinute = 60_000 - (Date.now() % 60_000)
+      if (millisecondsLeftInMinute < 20_000) await page.waitForTimeout(millisecondsLeftInMinute + 100)
       const text = `/tool write_file ${JSON.stringify({ path: 'activity-confirmed.txt', text: 'confirmed' })}`
       const runs = createRunCommandClient(host.client)
       const accepted = await runs.execute(
@@ -51,21 +53,42 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
         .toBe('waiting_approval')
-      await activity.click()
-      await expect(pane.getByRole('listitem')).toHaveCount(1)
-      await expect(pane.getByRole('listitem')).toContainText(copy.activity.status('waiting_approval'))
-      expect((await runs.execute('session.activeOperations', { sessionId })).items[0]?.operationId).toBe(
-        accepted.operationId,
+      const queuedText = 'Inspect the retry queue identity while approval is pending.'
+      const queued = await runs.execute(
+        'run.submit',
+        { sessionId, modelId: 'local-fixture', input: { text: queuedText, images: [], approval: 'ask' } },
+        { idempotencyKey: crypto.randomUUID() },
       )
+      await expect
+        .poll(async () => (await runs.execute('operation.get', { operationId: queued.operationId })).status)
+        .toBe('queued')
+      await activity.click()
+      await expect(pane.getByRole('listitem')).toHaveCount(2)
+      const approvedRun = pane.locator(`[data-operation-id="${accepted.operationId}"]`)
+      const queuedRun = pane.locator(`[data-operation-id="${queued.operationId}"]`)
+      await expect(approvedRun).toContainText(copy.activity.intentPreview(text))
+      await expect(approvedRun).toContainText(copy.activity.status('waiting_approval'))
+      await expect(queuedRun).toContainText(copy.activity.intentPreview(queuedText))
+      await expect(queuedRun).toContainText(copy.activity.status('queued'))
+      const activePage = await runs.execute('session.activeOperations', { sessionId })
+      const approvedOperation = activePage.items.find((item) => item.operationId === accepted.operationId)
+      const queuedOperation = activePage.items.find((item) => item.operationId === queued.operationId)
+      if (!approvedOperation || !queuedOperation) throw new Error('Activity page omitted one of its active runs')
+      expect(Math.floor(approvedOperation.createdAt / 60_000)).toBe(Math.floor(queuedOperation.createdAt / 60_000))
       await page.screenshot({ path: testInfo.outputPath(`activity-${locale}-1440.png`) })
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(pane).toBeVisible()
       await expect(pane.getByRole('button', { name: copy.activity.close, exact: true })).toBeInViewport()
-      await expect(pane.getByRole('listitem')).toBeInViewport()
+      await expect(approvedRun).toBeInViewport()
+      await expect(queuedRun).toBeInViewport()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`activity-${locale}-320.png`) })
 
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
+      await runs.execute('operation.cancel', { operationId: queued.operationId })
+      await expect
+        .poll(async () => (await runs.execute('operation.get', { operationId: queued.operationId })).status)
+        .toBe('cancelled')
       const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await showSidebar.isVisible()) await showSidebar.click()
       await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()

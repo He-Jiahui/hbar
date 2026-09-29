@@ -20,18 +20,27 @@ const ready = (
   limitReached: false,
   error: null,
 })
-const item = (index: number, status: ActivityWorkspaceEntryState['items'][number]['status'] = 'running') => ({
+const item = (
+  index: number,
+  status: ActivityWorkspaceEntryState['items'][number]['status'] = 'running',
+  intentPreview?: string | null,
+) => ({
   operationId: `operation-${index}`,
   status,
   createdAt: createdAt + index * 1000,
   startedAt: status === 'queued' ? null : createdAt + index * 1000 + 100,
+  ...(intentPreview === undefined ? {} : { intentPreview }),
 })
-const render = (entry: ActivityWorkspaceEntryState | undefined, connected = true) =>
+const render = (
+  entry: ActivityWorkspaceEntryState | undefined,
+  connected = true,
+  activityLabels = labels,
+) =>
   renderToStaticMarkup(
     <HbarSessionActivityView
       entry={entry}
       connected={connected}
-      labels={labels}
+      labels={activityLabels}
       onRefresh={() => undefined}
       onLoadMore={() => undefined}
     />,
@@ -59,6 +68,21 @@ test('Activity renders Host statuses and time for one operation in non-default l
   expect(html).toContain(labels.startedAt(rows[1]!.startedAt!))
   expect(html).toContain(labels.count(3, 3))
   expect(html).not.toContain(labels.loadMore)
+})
+
+test('Activity identifies same-minute runs from bounded input previews and falls back when none is available', () => {
+  const rows = [
+    { ...item(1, 'waiting_approval', 'Inspect upload timeout'), createdAt, startedAt: createdAt + 100 },
+    { ...item(2, 'queued', 'Inspect retry attempt'), createdAt, startedAt: null },
+  ]
+  const english = render(ready(rows), true, getShellCopy('en-US').activity)
+  const chinese = render(ready(rows), true, getShellCopy('zh-CN').activity)
+
+  expect(english).toContain('Input: Inspect upload timeout')
+  expect(english).toContain('Input: Inspect retry attempt')
+  expect(chinese).toContain('输入：Inspect upload timeout')
+  expect(chinese).toContain('输入：Inspect retry attempt')
+  expect(render(ready([item(3)]))).toContain(labels.runAt(createdAt + 3000))
 })
 
 test('Activity keeps a paged 100-row boundary and exposes load-more/limit states', () => {

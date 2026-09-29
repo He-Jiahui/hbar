@@ -1935,6 +1935,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
             `${number.format(loaded)} of ${number.format(total)} active runs loaded`,
           ),
     runAt: (createdAt) => choose(`${at(createdAt)} 创建的 Run`, `Run created at ${at(createdAt)}`),
+    intentPreview: (preview) => choose(`输入：${preview}`, `Input: ${preview}`),
     startedAt: (startedAt) => choose(`${at(startedAt)} 开始`, `Started ${at(startedAt)}`),
     queuedAt: (createdAt) => choose(`${at(createdAt)} 入队`, `Queued ${at(createdAt)}`),
     status: (status) => statuses[status],
