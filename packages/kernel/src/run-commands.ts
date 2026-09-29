@@ -122,6 +122,7 @@ export function createRunCommands(kernel: Kernel) {
             'BRANCH_IN_USE',
             'BRANCH_EXISTS',
             'BRANCH_NOT_FOUND',
+            'BUSY',
             'GIT_INVALID_BRANCH',
             'GIT_REF_NOT_FOUND',
             'GIT_NOT_REPOSITORY',
@@ -132,7 +133,9 @@ export function createRunCommands(kernel: Kernel) {
             'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
             'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
             'SESSION_LAUNCH_TARGET_UNRESOLVED',
+            'SESSION_LAUNCH_TARGET_TIMEOUT',
             'USER_CANCELLED',
+            'HOST_SHUTTING_DOWN',
           ].includes(error.code)
         )
           throw new CommandError(error.code, error.message)

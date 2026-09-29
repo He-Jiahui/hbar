@@ -155,6 +155,34 @@ function isTextArtifact(mime: string, name: string): boolean {
   return dot >= 0 && TEXT_EXTENSIONS.has(name.slice(dot).toLowerCase())
 }
 
+function waitForSessionLaunchTargetLock(previous: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return previous
+  if (signal.aborted)
+    return Promise.reject(
+      signal.reason instanceof HbarError ? signal.reason : new HbarError('USER_CANCELLED', 'Request was cancelled'),
+    )
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(
+        signal.reason instanceof HbarError ? signal.reason : new HbarError('USER_CANCELLED', 'Request was cancelled'),
+      )
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    previous.then(
+      () => {
+        signal.removeEventListener('abort', onAbort)
+        resolve()
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+    if (signal.aborted) onAbort()
+  })
+}
+
 export interface SecretStore {
   get(id: string): Promise<string | null>
   set(id: string, value: string): Promise<void>
@@ -697,19 +725,33 @@ export class Kernel {
       .map(({ request }) => request)
     return snapshot
   }
-  private async withSessionLaunchTargetLock<Value>(sessionId: string, action: () => Promise<Value>): Promise<Value> {
+  private async withSessionLaunchTargetLock<Value>(
+    sessionId: string,
+    action: () => Promise<Value>,
+    signal?: AbortSignal,
+  ): Promise<Value> {
+    signal?.throwIfAborted()
     const previous = this.sessionLaunchTargetLocks.get(sessionId) ?? Promise.resolve()
     let release!: () => void
-    const current = new Promise<void>((resolve) => {
+    const gate = new Promise<void>((resolve) => {
       release = resolve
     })
-    this.sessionLaunchTargetLocks.set(sessionId, current)
-    await previous
+    const tail = previous.then(() => gate)
+    this.sessionLaunchTargetLocks.set(sessionId, tail)
     try {
+      await waitForSessionLaunchTargetLock(previous, signal)
+      signal?.throwIfAborted()
       return await action()
     } finally {
       release()
-      if (this.sessionLaunchTargetLocks.get(sessionId) === current) this.sessionLaunchTargetLocks.delete(sessionId)
+      void tail.then(
+        () => {
+          if (this.sessionLaunchTargetLocks.get(sessionId) === tail) this.sessionLaunchTargetLocks.delete(sessionId)
+        },
+        () => {
+          if (this.sessionLaunchTargetLocks.get(sessionId) === tail) this.sessionLaunchTargetLocks.delete(sessionId)
+        },
+      )
     }
   }
   async getSessionLaunchTarget(sessionId: string) {
@@ -719,13 +761,17 @@ export class Kernel {
     return this.withSessionLaunchTargetLock(input.sessionId, () => this.sessionLaunchTargets.set(input))
   }
   async prepareSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
-    return this.withSessionLaunchTargetLock(sessionId, () =>
-      this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+    return this.withSessionLaunchTargetLock(
+      sessionId,
+      () => this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+      signal,
     )
   }
   async reconcileSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
-    return this.withSessionLaunchTargetLock(sessionId, () =>
-      this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+    return this.withSessionLaunchTargetLock(
+      sessionId,
+      () => this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+      signal,
     )
   }
   async cancelSessionLaunchTarget(sessionId: string, revision: number) {
@@ -772,7 +818,7 @@ export class Kernel {
         const binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal)
         signal?.throwIfAborted()
         return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
-      })
+      }, signal)
       if (run.status === 'queued') {
         if (run.queuedEvent) {
           // Only a newly accepted turn clears unresolved interactive requests.

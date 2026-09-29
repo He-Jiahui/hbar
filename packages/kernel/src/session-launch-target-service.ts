@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { lstat, mkdir, realpath } from 'node:fs/promises'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import { HbarError } from '@hbar/contracts'
 import type { SessionLaunchSelection, SessionLaunchTarget } from '@hbar/contracts/commands/session-launch-target'
@@ -14,6 +14,10 @@ import type {
 const GIT_TIMEOUT_MS = 60_000
 const GIT_OUTPUT_LIMIT = 512 * 1024
 const HEAD_PATTERN = /^[0-9a-f]{40,64}$/i
+const MAX_PREPARATION_MS = 90_000
+const RECONCILIATION_TIMEOUT_MS = 15_000
+const MAX_CONCURRENT_GIT_COMMANDS = 4
+const MAX_QUEUED_GIT_COMMANDS = 64
 
 interface GitResult {
   code: number
@@ -39,6 +43,65 @@ interface PreparedTarget {
   head: string | null
 }
 
+interface GitWaiter {
+  signal: AbortSignal
+  resolve: (release: () => void) => void
+  reject: (error: unknown) => void
+  onAbort: () => void
+}
+
+class GitCommandLimiter {
+  private running = 0
+  private readonly waiters: GitWaiter[] = []
+
+  constructor(private readonly limit: number) {}
+
+  acquire(signal: AbortSignal): Promise<() => void> {
+    signal.throwIfAborted()
+    if (this.running < this.limit && this.waiters.length === 0) {
+      this.running++
+      return Promise.resolve(this.createRelease())
+    }
+    if (this.waiters.length >= MAX_QUEUED_GIT_COMMANDS)
+      throw new HbarError('BUSY', 'Host Git command capacity is full; retry after current work completes')
+    return new Promise((resolveRelease, reject) => {
+      const waiter: GitWaiter = {
+        signal,
+        resolve: resolveRelease,
+        reject,
+        onAbort: () => {
+          const index = this.waiters.indexOf(waiter)
+          if (index < 0) return
+          this.waiters.splice(index, 1)
+          reject(signalFailure(signal))
+        },
+      }
+      this.waiters.push(waiter)
+      signal.addEventListener('abort', waiter.onAbort, { once: true })
+      if (signal.aborted) waiter.onAbort()
+    })
+  }
+
+  private createRelease(): () => void {
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      this.running--
+      while (this.running < this.limit && this.waiters.length) {
+        const waiter = this.waiters.shift()!
+        waiter.signal.removeEventListener('abort', waiter.onAbort)
+        if (waiter.signal.aborted) {
+          waiter.reject(signalFailure(waiter.signal))
+          continue
+        }
+        this.running++
+        waiter.resolve(this.createRelease())
+      }
+    }
+  }
+}
+
 function inside(root: string, candidate: string): boolean {
   const value = relative(root, candidate)
   return value === '' || (!value.startsWith(`..${sep}`) && value !== '..' && !isAbsolute(value))
@@ -52,6 +115,33 @@ function samePath(left: string, right: string): boolean {
 
 function abortError() {
   return new HbarError('USER_CANCELLED', 'Launch-target preparation was cancelled; no worktree was removed')
+}
+
+function signalFailure(signal: AbortSignal): HbarError {
+  return signal.reason instanceof HbarError ? signal.reason : abortError()
+}
+
+function waitForWithSignal<Value>(promise: Promise<Value>, signal?: AbortSignal): Promise<Value> {
+  if (!signal) return promise
+  if (signal.aborted) return Promise.reject(signalFailure(signal))
+  return new Promise((resolveValue, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(signalFailure(signal))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        resolveValue(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+    if (signal.aborted) onAbort()
+  })
 }
 
 function gitEnvironment(): NodeJS.ProcessEnv {
@@ -110,25 +200,25 @@ function output(result: GitResult, code: string, message: string): string {
 
 function parseWorktrees(text: string): GitWorktree[] {
   return text
-    .split(/(?:\r?\n){2,}/)
+    .split('\0')
+    .reduce<string[][]>((blocks, field) => {
+      if (field === '') {
+        if (blocks.at(-1)?.length) blocks.push([])
+      } else {
+        if (blocks.length === 0) blocks.push([])
+        blocks.at(-1)!.push(field)
+      }
+      return blocks
+    }, [])
     .map((block) => {
-      const path = block
-        .split(/\r?\n/)
-        .find((line) => line.startsWith('worktree '))
-        ?.slice('worktree '.length)
+      const path = block.find((field) => field.startsWith('worktree '))?.slice('worktree '.length)
       if (!path) return null
+      const head = block.find((field) => field.startsWith('HEAD '))?.slice(5) ?? null
+      const branch = block.find((field) => field.startsWith('branch '))?.slice(7) ?? null
       return {
         path,
-        head:
-          block
-            .split(/\r?\n/)
-            .find((line) => line.startsWith('HEAD '))
-            ?.slice(5) ?? null,
-        branch:
-          block
-            .split(/\r?\n/)
-            .find((line) => line.startsWith('branch '))
-            ?.slice(7) ?? null,
+        head,
+        branch,
       }
     })
     .filter((entry): entry is GitWorktree => entry !== null)
@@ -145,6 +235,9 @@ function safeGitError(error: unknown): never {
 
 export class SessionLaunchTargetService {
   private readonly active = new Map<string, ActivePreparation>()
+  private readonly trackedOperations = new Set<Promise<unknown>>()
+  private readonly gitLimiter = new GitCommandLimiter(MAX_CONCURRENT_GIT_COMMANDS)
+  private readonly closingController = new AbortController()
   private closing = false
 
   constructor(
@@ -167,31 +260,71 @@ export class SessionLaunchTargetService {
     return this.storage.call('setSessionLaunchTarget', input)
   }
 
+  private trackOperation<Value>(action: () => Promise<Value>): Promise<Value> {
+    if (this.closing) return Promise.reject(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
+    const operation = action()
+    this.trackedOperations.add(operation)
+    void operation.then(
+      () => this.trackedOperations.delete(operation),
+      () => this.trackedOperations.delete(operation),
+    )
+    return operation
+  }
+
+  private async git(cwd: string, args: string[], signal: AbortSignal): Promise<GitResult> {
+    const gitSignal = AbortSignal.any([signal, this.closingController.signal])
+    const release = await this.gitLimiter.acquire(gitSignal)
+    try {
+      gitSignal.throwIfAborted()
+      try {
+        return await this.executeGit(cwd, args, gitSignal)
+      } catch (error) {
+        if (gitSignal.aborted) throw signalFailure(gitSignal)
+        throw error
+      }
+    } finally {
+      release()
+    }
+  }
+
   async prepare(sessionId: string, expectedRevision: number, signal?: AbortSignal): Promise<SessionLaunchTarget> {
     if (this.closing) throw new HbarError('BUSY', 'Host is shutting down')
     const externalSignal = signal
     if (externalSignal?.aborted) throw abortError()
-    const controller = new AbortController()
-    const onAbort = () => controller.abort(externalSignal?.reason ?? abortError())
-    externalSignal?.addEventListener('abort', onAbort, { once: true })
     const prior = this.active.get(sessionId)
     if (prior) {
-      externalSignal?.removeEventListener('abort', onAbort)
       if (prior.revision !== expectedRevision)
         throw new HbarError('BUSY', 'Another launch-target revision is being prepared')
-      return prior.promise
+      return waitForWithSignal(prior.promise, externalSignal)
     }
+    const controller = new AbortController()
+    const onAbort = () => controller.abort(abortError())
+    externalSignal?.addEventListener('abort', onAbort, { once: true })
+    const timeout = setTimeout(
+      () =>
+        controller.abort(new HbarError('SESSION_LAUNCH_TARGET_TIMEOUT', 'Worktree preparation exceeded 90 seconds')),
+      MAX_PREPARATION_MS,
+    )
     const promise = this.prepareInternal(sessionId, expectedRevision, controller.signal)
     this.active.set(sessionId, { revision: expectedRevision, controller, promise })
     try {
       return await promise
     } finally {
+      clearTimeout(timeout)
       externalSignal?.removeEventListener('abort', onAbort)
       if (this.active.get(sessionId)?.promise === promise) this.active.delete(sessionId)
     }
   }
 
-  async reconcile(sessionId: string, expectedRevision: number, signal?: AbortSignal): Promise<SessionLaunchTarget> {
+  reconcile(sessionId: string, expectedRevision: number, signal?: AbortSignal): Promise<SessionLaunchTarget> {
+    return this.trackOperation(() => this.reconcileInternal(sessionId, expectedRevision, signal))
+  }
+
+  private async reconcileInternal(
+    sessionId: string,
+    expectedRevision: number,
+    signal?: AbortSignal,
+  ): Promise<SessionLaunchTarget> {
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
     if (runtime.target.revision !== expectedRevision)
       throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
@@ -200,7 +333,11 @@ export class SessionLaunchTargetService {
     return this.prepare(sessionId, expectedRevision, signal)
   }
 
-  async cancel(sessionId: string, expectedRevision: number): Promise<SessionLaunchTarget> {
+  cancel(sessionId: string, expectedRevision: number): Promise<SessionLaunchTarget> {
+    return this.trackOperation(() => this.cancelInternal(sessionId, expectedRevision))
+  }
+
+  private async cancelInternal(sessionId: string, expectedRevision: number): Promise<SessionLaunchTarget> {
     const active = this.active.get(sessionId)
     if (active && active.revision === expectedRevision) {
       active.controller.abort(abortError())
@@ -224,7 +361,11 @@ export class SessionLaunchTargetService {
     return this.get(sessionId)
   }
 
-  async bindForRun(sessionId: string, signal?: AbortSignal): Promise<SessionLaunchTargetBindingInput> {
+  bindForRun(sessionId: string, signal?: AbortSignal): Promise<SessionLaunchTargetBindingInput> {
+    return this.trackOperation(() => this.bindForRunInternal(sessionId, signal))
+  }
+
+  private async bindForRunInternal(sessionId: string, signal?: AbortSignal): Promise<SessionLaunchTargetBindingInput> {
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
     if (runtime.binding) {
       await this.verifyBoundTarget(runtime, signal)
@@ -249,7 +390,15 @@ export class SessionLaunchTargetService {
     }
   }
 
-  async workspaceForRun(sessionId: string, workspacePath: string, signal?: AbortSignal): Promise<string> {
+  workspaceForRun(sessionId: string, workspacePath: string, signal?: AbortSignal): Promise<string> {
+    return this.trackOperation(() => this.workspaceForRunInternal(sessionId, workspacePath, signal))
+  }
+
+  private async workspaceForRunInternal(
+    sessionId: string,
+    workspacePath: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
     const targetPath = runtime.binding?.targetPath ?? workspacePath
     if (runtime.binding) await this.verifyBoundTarget(runtime, signal)
@@ -258,7 +407,11 @@ export class SessionLaunchTargetService {
     return targetPath
   }
 
-  async isBoundWorktreeExecutionRoot(workspacePath: string): Promise<boolean> {
+  isBoundWorktreeExecutionRoot(workspacePath: string): Promise<boolean> {
+    return this.trackOperation(() => this.isBoundWorktreeExecutionRootInternal(workspacePath))
+  }
+
+  private async isBoundWorktreeExecutionRootInternal(workspacePath: string): Promise<boolean> {
     let canonicalPath: string
     try {
       canonicalPath = await realpath(workspacePath)
@@ -278,10 +431,14 @@ export class SessionLaunchTargetService {
 
   async close(): Promise<void> {
     this.closing = true
+    this.closingController.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
     const active = [...this.active.values()]
     for (const preparation of active)
       preparation.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
-    await Promise.all(active.map((preparation) => preparation.promise.catch(() => undefined)))
+    await Promise.all([
+      ...active.map((preparation) => preparation.promise.catch(() => undefined)),
+      ...[...this.trackedOperations].map((operation) => operation.catch(() => undefined)),
+    ])
   }
 
   private bindingInput(binding: SessionLaunchTargetBinding): SessionLaunchTargetBindingInput {
@@ -378,6 +535,7 @@ export class SessionLaunchTargetService {
       }
       await this.assertTargetPathAvailable(managed, worktrees)
     } catch (error) {
+      if (signal.aborted) throw signalFailure(signal)
       await this.recordPreflightFailure(
         sessionId,
         expectedRevision,
@@ -413,15 +571,30 @@ export class SessionLaunchTargetService {
       return this.get(sessionId)
     }
 
+    let mutationAttempted = false
     try {
+      await this.assertSessionRootSafe(managed.root, managed.sessionRoot)
       await mkdir(managed.sessionRoot, { recursive: true })
       await this.assertSafeManagedRoot(managed.gitRoot, managed.root, managed.targetPath)
       await this.assertTargetPathAbsent(managed.targetPath)
+      const hooksPath = join(managed.sessionRoot, `.hbar-disabled-hooks-${crypto.randomUUID()}`)
+      await this.assertTargetPathAbsent(hooksPath)
       const args =
         selection.branch.kind === 'new' && !partialBranch
-          ? ['worktree', 'add', '-b', selection.branch.name, managed.targetPath, requestedHead!]
-          : ['worktree', 'add', managed.targetPath, selection.branch.name]
-      const result = await this.executeGit(managed.gitRoot, args, signal)
+          ? [
+              '-c',
+              `core.hooksPath=${hooksPath}`,
+              'worktree',
+              'add',
+              '-b',
+              selection.branch.name,
+              managed.targetPath,
+              requestedHead!,
+            ]
+          : ['-c', `core.hooksPath=${hooksPath}`, 'worktree', 'add', managed.targetPath, selection.branch.name]
+      signal.throwIfAborted()
+      mutationAttempted = true
+      const result = await this.git(managed.gitRoot, args, signal)
       if (result.code !== 0)
         throw new HbarError('GIT_OPERATION_FAILED', 'Git could not create the selected managed worktree')
       const inspected = await this.inspectTarget(managed, selection.branch.name, signal)
@@ -440,8 +613,23 @@ export class SessionLaunchTargetService {
       signal.throwIfAborted()
       return this.get(sessionId)
     } catch (error) {
+      if (!mutationAttempted) {
+        if (error instanceof HbarError) {
+          if (error.code === 'USER_CANCELLED' || error.code === 'HOST_SHUTTING_DOWN') {
+            await this.storage.call('updateSessionLaunchTargetPreparation', {
+              sessionId,
+              revision: expectedRevision,
+              targetPath: managed.targetPath,
+              state: 'cancelled',
+              errorCode: error.code,
+              errorMessage: error.message.slice(0, 1_000),
+            })
+          } else await this.storeFailure(intent, error)
+        }
+        throw error
+      }
       const outcome = await this.reconcileAfterMutation(managed, intent, error)
-      if (signal.aborted) throw abortError()
+      if (signal.aborted) throw signalFailure(signal)
       if (outcome === 'ready') return this.get(sessionId)
       if (outcome === 'unknown')
         throw new HbarError(
@@ -469,7 +657,7 @@ export class SessionLaunchTargetService {
     try {
       gitRoot = await realpath(
         output(
-          await this.executeGit(await realpath(workspacePath), ['rev-parse', '--show-toplevel'], signal),
+          await this.git(await realpath(workspacePath), ['rev-parse', '--show-toplevel'], signal),
           'GIT_NOT_REPOSITORY',
           'The selected workspace is not a Git repository',
         ),
@@ -480,14 +668,14 @@ export class SessionLaunchTargetService {
     }
     const rootCandidate = gitRoot!
     const commonRelative = output(
-      await this.executeGit(rootCandidate, ['rev-parse', '--git-common-dir'], signal),
+      await this.git(rootCandidate, ['rev-parse', '--git-common-dir'], signal),
       'GIT_NOT_REPOSITORY',
       'The selected workspace is not a Git repository',
     )
     const repository = await realpath(
       isAbsolute(commonRelative) ? commonRelative : resolve(rootCandidate, commonRelative),
     )
-    const worktreeResult = await this.executeGit(rootCandidate, ['worktree', 'list', '--porcelain'], signal)
+    const worktreeResult = await this.git(rootCandidate, ['worktree', 'list', '--porcelain', '-z'], signal)
     if (worktreeResult.code !== 0)
       throw new HbarError('GIT_OPERATION_FAILED', 'Git could not inspect repository worktrees')
     const worktreePaths = parseWorktrees(worktreeResult.stdout).map((entry) => resolve(entry.path))
@@ -512,10 +700,16 @@ export class SessionLaunchTargetService {
 
   private async assertSafeManagedRoot(gitRoot: string, root: string, targetPath: string) {
     const canonicalRoot = await realpath(root)
+    const canonicalSessionRoot = await realpath(dirname(targetPath))
     if (!inside(canonicalRoot, targetPath) || inside(gitRoot, canonicalRoot) || inside(canonicalRoot, gitRoot))
       throw new HbarError(
         'SESSION_LAUNCH_TARGET_INVALID_ROOT',
         'Managed worktree path is outside its bounded Host root',
+      )
+    if (!inside(canonicalRoot, canonicalSessionRoot) || !samePath(canonicalSessionRoot, dirname(targetPath)))
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_INVALID_ROOT',
+        'Managed session directory resolves outside Host storage',
       )
     try {
       const canonicalTarget = await realpath(targetPath)
@@ -537,6 +731,26 @@ export class SessionLaunchTargetService {
     )
   }
 
+  private async assertSessionRootSafe(root: string, sessionRoot: string): Promise<void> {
+    const canonicalRoot = await realpath(root)
+    try {
+      const info = await lstat(sessionRoot)
+      const canonicalSessionRoot = await realpath(sessionRoot)
+      if (
+        !info.isDirectory() ||
+        info.isSymbolicLink() ||
+        !inside(canonicalRoot, canonicalSessionRoot) ||
+        !samePath(canonicalSessionRoot, sessionRoot)
+      )
+        throw new HbarError(
+          'SESSION_LAUNCH_TARGET_INVALID_ROOT',
+          'Managed session directory is not a safe Host directory',
+        )
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+
   private async assertTargetPathAvailable(managed: { targetPath: string }, worktrees: GitWorktree[]) {
     const entry = worktrees.find((item) => samePath(item.path, managed.targetPath))
     if (entry) return
@@ -555,13 +769,13 @@ export class SessionLaunchTargetService {
   }
 
   private async listWorktrees(repository: string, signal: AbortSignal) {
-    const result = await this.executeGit(repository, ['worktree', 'list', '--porcelain'], signal)
+    const result = await this.git(repository, ['worktree', 'list', '--porcelain', '-z'], signal)
     if (result.code !== 0) throw new HbarError('GIT_OPERATION_FAILED', 'Git could not inspect worktrees')
     return parseWorktrees(result.stdout)
   }
 
   private async resolveCommit(repository: string, reference: string, signal: AbortSignal) {
-    const result = await this.executeGit(
+    const result = await this.git(
       repository,
       ['rev-parse', '--verify', '--end-of-options', `${reference}^{commit}`],
       signal,
@@ -573,9 +787,9 @@ export class SessionLaunchTargetService {
   }
 
   private async resolveBranchHead(repository: string, branch: string, signal: AbortSignal) {
-    const valid = await this.executeGit(repository, ['check-ref-format', `refs/heads/${branch}`], signal)
+    const valid = await this.git(repository, ['check-ref-format', `refs/heads/${branch}`], signal)
     if (valid.code !== 0) throw new HbarError('GIT_INVALID_BRANCH', 'The selected branch name is invalid')
-    const result = await this.executeGit(
+    const result = await this.git(
       repository,
       ['rev-parse', '--verify', '--end-of-options', `refs/heads/${branch}^{commit}`],
       signal,
@@ -587,9 +801,9 @@ export class SessionLaunchTargetService {
   }
 
   private async tryResolveBranchHead(repository: string, branch: string, signal: AbortSignal): Promise<string | null> {
-    const valid = await this.executeGit(repository, ['check-ref-format', `refs/heads/${branch}`], signal)
+    const valid = await this.git(repository, ['check-ref-format', `refs/heads/${branch}`], signal)
     if (valid.code !== 0) throw new HbarError('GIT_INVALID_BRANCH', 'The selected branch name is invalid')
-    const result = await this.executeGit(
+    const result = await this.git(
       repository,
       ['rev-parse', '--verify', '--end-of-options', `refs/heads/${branch}^{commit}`],
       signal,
@@ -611,21 +825,21 @@ export class SessionLaunchTargetService {
     if (!inside(canonicalRoot, canonicalTarget) || !samePath(canonicalTarget, managed.targetPath))
       throw new HbarError('SESSION_LAUNCH_TARGET_INVALID_ROOT', 'Managed worktree resolves outside Host storage')
     const top = output(
-      await this.executeGit(canonicalTarget, ['rev-parse', '--show-toplevel'], signal),
+      await this.git(canonicalTarget, ['rev-parse', '--show-toplevel'], signal),
       'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
       'Managed target is not the selected repository worktree',
     )
     if (!samePath(await realpath(top), canonicalTarget))
       throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Managed target is not a repository root')
     const actualBranch = output(
-      await this.executeGit(canonicalTarget, ['symbolic-ref', '--quiet', '--short', 'HEAD'], signal),
+      await this.git(canonicalTarget, ['symbolic-ref', '--quiet', '--short', 'HEAD'], signal),
       'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
       'Managed worktree is detached from its selected branch',
     )
     if (actualBranch !== branch)
       throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Managed worktree is attached to another branch')
     const commonValue = output(
-      await this.executeGit(canonicalTarget, ['rev-parse', '--git-common-dir'], signal),
+      await this.git(canonicalTarget, ['rev-parse', '--git-common-dir'], signal),
       'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
       'Managed worktree is not linked to the selected repository',
     )
@@ -636,7 +850,7 @@ export class SessionLaunchTargetService {
         'Managed worktree is linked to another repository',
       )
     const head = output(
-      await this.executeGit(canonicalTarget, ['rev-parse', '--verify', 'HEAD^{commit}'], signal),
+      await this.git(canonicalTarget, ['rev-parse', '--verify', 'HEAD^{commit}'], signal),
       'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
       'Managed worktree has no valid HEAD',
     )
@@ -697,7 +911,7 @@ export class SessionLaunchTargetService {
         await this.storeFailure(intent, error)
         throw error
       }
-      if (signal.aborted) throw abortError()
+      if (signal.aborted) throw signalFailure(signal)
       throw new HbarError(
         'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
         'The prior Git result could not be reconciled safely',
@@ -712,11 +926,23 @@ export class SessionLaunchTargetService {
   ): Promise<'ready' | 'unknown' | 'failed'> {
     const selection = intent.selection
     if (selection.mode !== 'isolated-worktree') return 'failed'
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () =>
+        controller.abort(
+          new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED', 'Git reconciliation exceeded 15 seconds'),
+        ),
+      RECONCILIATION_TIMEOUT_MS,
+    )
+    const signal = controller.signal
+    const onShutdown = () => controller.abort(this.closingController.signal.reason)
+    this.closingController.signal.addEventListener('abort', onShutdown, { once: true })
+    if (this.closingController.signal.aborted) onShutdown()
     try {
-      const worktrees = await this.listWorktrees(managed.gitRoot, new AbortController().signal)
+      const worktrees = await this.listWorktrees(managed.gitRoot, signal)
       const entry = worktrees.find((item) => samePath(item.path, intent.targetPath))
       if (entry) {
-        const inspected = await this.inspectTarget(managed, selection.branch.name, new AbortController().signal)
+        const inspected = await this.inspectTarget(managed, selection.branch.name, signal)
         if (
           entry.head?.toLowerCase() === intent.requestedHead?.toLowerCase() &&
           inspected.head === intent.requestedHead?.toLowerCase()
@@ -748,12 +974,8 @@ export class SessionLaunchTargetService {
       } catch (pathError) {
         if ((pathError as NodeJS.ErrnoException).code !== 'ENOENT') throw pathError
       }
-      const branchHead = await this.tryResolveBranchHead(
-        managed.gitRoot,
-        selection.branch.name,
-        new AbortController().signal,
-      )
-      const used = await this.listWorktrees(managed.gitRoot, new AbortController().signal)
+      const branchHead = await this.tryResolveBranchHead(managed.gitRoot, selection.branch.name, signal)
+      const used = await this.listWorktrees(managed.gitRoot, signal)
       if (used.some((item) => item.branch === `refs/heads/${selection.branch.name}`)) {
         const conflict = new HbarError(
           'BRANCH_IN_USE',
@@ -801,6 +1023,9 @@ export class SessionLaunchTargetService {
         })
         .catch(() => undefined)
       return 'unknown'
+    } finally {
+      clearTimeout(timeout)
+      this.closingController.signal.removeEventListener('abort', onShutdown)
     }
   }
 
@@ -892,7 +1117,10 @@ export class SessionLaunchTargetService {
         throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Frozen worktree branch changed')
     } catch (error) {
       const current = await this.storage.call('sessionLaunchTargetRuntime', binding.sessionId)
-      if (current.resolution)
+      const transient =
+        error instanceof HbarError &&
+        ['USER_CANCELLED', 'RUN_TIMEOUT', 'HOST_SHUTTING_DOWN', 'SESSION_LAUNCH_TARGET_TIMEOUT'].includes(error.code)
+      if (!this.closing && !signal?.aborted && !transient && current.resolution)
         await this.storeFailure(
           current.resolution,
           error instanceof HbarError

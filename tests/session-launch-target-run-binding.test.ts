@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { emptyUsage } from '@hbar/contracts'
+import { emptyUsage, HbarError } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { DriverInput, HarnessDriver } from '@hbar/plugin-sdk'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -39,6 +39,41 @@ async function git(cwd: string, args: string[]) {
   ])
   if (code !== 0) throw new Error(`${args.join(' ')} failed: ${stderr || stdout}`)
   return stdout.trim()
+}
+
+async function captureOutcome<Value>(operation: Promise<Value>) {
+  try {
+    return { ok: true as const, value: await operation }
+  } catch (error) {
+    return { ok: false as const, error }
+  }
+}
+
+function waitForGateOrAbort(gate: Promise<void>, signal: AbortSignal): Promise<void> {
+  return new Promise((resolveGate, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(signal.reason)
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    gate.then(
+      () => {
+        signal.removeEventListener('abort', onAbort)
+        resolveGate()
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+    if (signal.aborted) onAbort()
+  })
+}
+
+interface GitResult {
+  code: number
+  stdout: string
+  stderr: string
 }
 
 function recordingDriver(
@@ -126,11 +161,13 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   await writeFile(join(repository, 'shared-only.txt'), 'shared marker\n')
   await git(repository, ['add', 'README.md', 'shared-only.txt'])
   await git(repository, ['commit', '-q', '-m', 'initial'])
+  const repositoryLink = join(root, 'repository-link')
+  await symlink(repository, repositoryLink, process.platform === 'win32' ? 'junction' : 'dir')
 
   const open = () =>
     Kernel.create({
       home: dataRoot,
-      workspace: repository,
+      workspace: repositoryLink,
       demo: true,
       secrets: new MemorySecrets(),
       profile: { replacements: { 'driver.pi': driver } },
@@ -139,6 +176,7 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   const kernels = [kernel]
   resources.push({ root, kernels })
   const workspace = (await kernel.storage.call('workspaces'))[0]!
+  expect(workspace.path).toBe(repository)
   const sessionA = await kernel.createSession(workspace.id, 'isolated session')
   const sessionB = await kernel.createSession(workspace.id, 'shared session')
   const sessionC = await kernel.createSession(workspace.id, 'other isolated session')
@@ -154,6 +192,71 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
       branch: { kind: 'new', name: 'feature/session-a', startPoint: 'main' },
     },
   })
+
+  let startHeldPrepare!: () => void
+  let releaseHeldPrepare!: () => void
+  let markLaterPrepare!: () => void
+  const heldPrepareStarted = new Promise<void>((resolveStarted) => (startHeldPrepare = resolveStarted))
+  const heldPrepareGate = new Promise<void>((resolveGate) => (releaseHeldPrepare = resolveGate))
+  const laterPrepareStarted = new Promise<void>((resolveStarted) => (markLaterPrepare = resolveStarted))
+  const originalPrepare = kernel.sessionLaunchTargets.prepare.bind(kernel.sessionLaunchTargets)
+  let holdNextPrepare = true
+  kernel.sessionLaunchTargets.prepare = async (sessionId, revision, signal) => {
+    if (holdNextPrepare) {
+      holdNextPrepare = false
+      startHeldPrepare()
+      await heldPrepareGate
+    } else markLaterPrepare()
+    return originalPrepare(sessionId, revision, signal)
+  }
+  const ownerPrepare = kernel.prepareSessionLaunchTarget(sessionA.id, 1)
+  await heldPrepareStarted
+  const queuedPrepareController = new AbortController()
+  const queuedPrepare = captureOutcome(
+    kernel.prepareSessionLaunchTarget(sessionA.id, 1, queuedPrepareController.signal),
+  )
+  queuedPrepareController.abort(new HbarError('USER_CANCELLED', 'Queued preparation cancelled in test'))
+  const cancelledBSettledBeforeC = await Promise.race([
+    queuedPrepare.then(() => true),
+    new Promise<boolean>((resolveLater) => setTimeout(() => resolveLater(false), 250)),
+  ])
+  const queuedPrepareResult = await queuedPrepare
+  const laterPrepare = captureOutcome(kernel.prepareSessionLaunchTarget(sessionA.id, 1))
+  const laterActionEnteredBeforeRelease = await Promise.race([
+    laterPrepareStarted.then(() => true),
+    new Promise<boolean>((resolveLater) => setTimeout(() => resolveLater(false), 250)),
+  ])
+  const queuedSubmitController = new AbortController()
+  const queuedSubmit = captureOutcome(
+    kernel.submit(
+      sessionA.id,
+      'cancelled-while-queued',
+      { text: 'must not queue after cancellation', images: [] },
+      'local-fixture',
+      undefined,
+      queuedSubmitController.signal,
+    ),
+  )
+  queuedSubmitController.abort(new HbarError('USER_CANCELLED', 'Queued Run cancelled in test'))
+  const settledBeforeRelease = await Promise.race([
+    queuedSubmit.then(() => true),
+    new Promise<boolean>((resolveLater) => setTimeout(() => resolveLater(false), 250)),
+  ])
+  releaseHeldPrepare()
+  try {
+    await ownerPrepare
+  } finally {
+    kernel.sessionLaunchTargets.prepare = originalPrepare
+  }
+  const [laterPrepareResult, queuedSubmitResult] = await Promise.all([laterPrepare, queuedSubmit])
+  expect(cancelledBSettledBeforeC).toBeTrue()
+  expect(settledBeforeRelease).toBeTrue()
+  expect(queuedPrepareResult).toMatchObject({ ok: false, error: { code: 'USER_CANCELLED' } })
+  expect(laterActionEnteredBeforeRelease).toBeFalse()
+  expect(laterPrepareResult).toMatchObject({ ok: true, value: { resolution: { status: 'ready' } } })
+  expect(queuedSubmitResult).toMatchObject({ ok: false, error: { code: 'USER_CANCELLED' } })
+  expect((await kernel.storage.call('sessionLaunchTargetRuntime', sessionA.id)).binding).toBeNull()
+
   await kernel.prepareSessionLaunchTarget(sessionA.id, 1)
   const runtimeA = await kernel.storage.call('sessionLaunchTargetRuntime', sessionA.id)
   const targetA = runtimeA.resolution?.targetPath
@@ -261,4 +364,37 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
     branch: 'feature/session-a',
   })
   expect((await git(repository, ['worktree', 'list', '--porcelain'])).match(/^worktree /gm)).toHaveLength(3)
+
+  const executableService = kernel.sessionLaunchTargets as unknown as {
+    executeGit: (cwd: string, args: string[], signal: AbortSignal) => Promise<GitResult>
+  }
+  const originalExecuteGit = executableService.executeGit
+  let signalVerificationStarted!: () => void
+  let releaseVerification!: () => void
+  let gitOperationActive = false
+  const verificationStarted = new Promise<void>((resolveStarted) => (signalVerificationStarted = resolveStarted))
+  const verificationGate = new Promise<void>((resolveGate) => (releaseVerification = resolveGate))
+  executableService.executeGit = async (cwd, args, signal) => {
+    if (args.includes('--show-toplevel')) {
+      gitOperationActive = true
+      signalVerificationStarted()
+      try {
+        await waitForGateOrAbort(verificationGate, signal)
+      } finally {
+        gitOperationActive = false
+      }
+    }
+    return originalExecuteGit(cwd, args, signal)
+  }
+  const pendingVerification = captureOutcome(kernel.sessionLaunchTargets.workspaceForRun(sessionA.id, repository))
+  await verificationStarted
+  const closeStartedAt = performance.now()
+  await kernel.sessionLaunchTargets.close()
+  expect(performance.now() - closeStartedAt).toBeLessThan(3_000)
+  expect(await pendingVerification).toMatchObject({ ok: false, error: { code: 'HOST_SHUTTING_DOWN' } })
+  expect(gitOperationActive).toBeFalse()
+  expect((await kernel.storage.call('sessionLaunchTargetRuntime', sessionA.id)).target).toMatchObject({
+    resolution: { status: 'ready' },
+  })
+  releaseVerification()
 })
