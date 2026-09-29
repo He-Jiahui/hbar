@@ -6,6 +6,7 @@ import {
   HbarPreSessionApprovalPicker,
   HbarPreSessionChoicePicker,
   HbarPreSessionLanding,
+  HbarPreSessionThinkingPicker,
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
@@ -13,6 +14,7 @@ import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanM
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { workspacePageSchema } from '@hbar/contracts/directory'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
+import type { ThinkingLevel } from '@hbar/contracts'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { preSessionCopy } from './pre-session-copy'
 import './PreSessionLanding.css'
@@ -182,6 +184,19 @@ export function WebPreSessionLanding({
         expectedRevision: current.revision,
       })
     })
+
+  const chooseThinkingLevel = async (thinkingLevel: ThinkingLevel, expectedModelId: string) => {
+    await queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setThinkingLevel', {
+        draftId,
+        thinkingLevel,
+        expectedModelId,
+        expectedRevision: current.revision,
+      })
+    })
+  }
 
   const chooseApproval = (choice: ComposerPermissionChoice, confirmAllow?: true) =>
     queue(async () => {
@@ -426,6 +441,19 @@ export function WebPreSessionLanding({
       onChoose={chooseModel}
     />
   )
+  const selectedModel = models.find((model) => model.id === draft?.modelId) ?? null
+  const modelControls = (
+    <LumenFrame className="hbar-web-pre-session-model-controls">
+      {modelControl}
+      <HbarPreSessionThinkingPicker
+        model={selectedModel}
+        level={draft?.thinkingLevel ?? null}
+        labels={shell.session.modelPicker}
+        disabled={!connected || !draft || busy || draft.phase === 'unknown'}
+        onChoose={chooseThinkingLevel}
+      />
+    </LumenFrame>
+  )
   const approvalControl = (
     <HbarPreSessionApprovalPicker
       choice={draft?.approvalChoice ?? 'inherit'}
@@ -578,7 +606,7 @@ export function WebPreSessionLanding({
             {approvalControl}
           </LumenFrame>
         ),
-        modelPicker: modelControl,
+        modelPicker: modelControls,
         editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
           <LumenTextarea
             ref={editor}

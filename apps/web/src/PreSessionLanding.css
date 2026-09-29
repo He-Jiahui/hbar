@@ -29,6 +29,17 @@
   white-space: nowrap;
 }
 
+.hbar-web-pre-session-model-controls {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.hbar-web-pre-session-model-controls > .hbar-pre-session-choice-picker {
+  min-inline-size: 0;
+}
+
 .hbar-web-pre-session-path {
   display: flex;
   min-inline-size: 0;

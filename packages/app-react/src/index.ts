@@ -71,6 +71,7 @@ export {
   type HbarPreSessionChoicePickerProps,
 } from './pre-session-choice-picker'
 export { HbarPreSessionApprovalPicker, type HbarPreSessionApprovalPickerProps } from './pre-session-approval-picker'
+export { HbarPreSessionThinkingPicker, type HbarPreSessionThinkingPickerProps } from './pre-session-thinking-picker'
 export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
