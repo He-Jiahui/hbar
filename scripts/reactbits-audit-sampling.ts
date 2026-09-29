@@ -693,6 +693,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-10')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-10-reference.tsx',
+        'forms-10-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '3:click',
+          change: 'Choose NPS 0 and inspect the conditional low-score follow-up and question count',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '15:toggle',
+          change: 'Choose one room-cleanliness matrix rating and inspect its selected state',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '38:toggle',
+          change: 'Choose one highlight and inspect the checkbox and progress state',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-version NPS branch, dynamic denominator, matrix and highlight feedback',
+          basis:
+            'The same-hash full-interactions-v4 cache has no useful Forms 10 state changes. These three source control indices come from the current static control inventory, but only a different-hash v3 cache observed the state transitions. The local mechanism check is not a fresh matched source replay.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Property menu catalog and anchored overlay',
+          basis:
+            'Four property options and non-expanding root geometry were observed only in the older, different-hash v3 interaction cache. The host catalog is partial and the overlay is scoped to this proven menu; current-version options are not claimed complete.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Submit completion and remote result',
+          basis:
+            'The current static source shows Submit disabled. Local enablement is derived from the host-required-answer model; no source enabled state or submit outcome was safely observed, and the host only emits a typed request.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated score, matrix cell, highlight, viewport and theme combinations',
+          basis:
+            'Eight local static captures cover four sizes and two themes, with narrow matrix overflow kept inside an accessible local scroll container. One representative from each distinct change mechanism suffices for local validation; the authorized source cache is static visual reference, not eight fresh live pairs.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-9')
     return {
       revision: 1,
