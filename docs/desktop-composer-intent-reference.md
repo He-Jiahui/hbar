@@ -1,4 +1,4 @@
-# Goal and Plan: composer intent and local goal control
+# Goal and Plan: draft intent and durable Host mode
 
 ## Reference and interpretation
 
@@ -8,9 +8,9 @@ These are untracked reference images, not evidence that the current tracked cc-h
 
 ## Implemented flow
 
-- Goal/Plan are mutually exclusive, per-session **draft intents** beside the attachment entry. Clicking the selected chip's X cancels only that intent; it does not clear a persisted goal, task list or the current prompt.
-- The selected Plan chip visibly reads “下条仅规划 / Next: plan only” even without hover. Its cancel name carries the same one-send scope; after submission it returns to the short “计划 / Plan” entry. This communicates the actual hbar Run mode without portraying it as cc-haha's persistent permission preset.
-- Every submitted composer message carries an explicit `input.mode`: Plan uses `plan`; ordinary and Goal messages use `default`. The UI does not accidentally inherit an invisible persistent planning mode.
+- Goal is a per-session **draft intent** beside the attachment entry. Clicking its selected chip cancels that intent only; it does not clear a persisted goal, task list or the current prompt.
+- Plan is a durable, per-session **Host mode** in the composer permission picker, not a one-send draft chip. Its selected state remains visible after sending and after reload. The user exits it explicitly through the picker. Goal preparation and Plan mode are mutually exclusive.
+- The Host records each submitted message's `input.mode`: messages sent while Plan mode is active use `plan`, including successive sends; messages after explicit exit and ordinary Goal messages use `default`. Plan mode is enforced by the Host, including for tool calls, rather than being only a visual composer flag.
 - Goal submission creates the requested durable goal, then admits the initial run through the existing draft/receipt machinery. It is a recoverable two-stage operation, **not an atomic Goal+Run transaction**. A saved goal plus rejected run is visibly partial. Retrying the unchanged objective reuses the prepared goal, including when repairing a model selection; it does not create another goal.
 - Unknown Goal results are checked against Host facts, never blindly replayed. Unknown Run admission reuses the existing original receipt. Pending actions and stale targets are guarded. Reconciliation does not automatically send a previously uncertain goal draft.
 - An unfinished goal remains visible immediately above the composer. Pause/resume/clear use its exact goal ID; resume relies on the Host continuation mechanism and does not submit an additional UI run. Clear has a local target-specific confirmation and preserves conversation history.
@@ -21,7 +21,7 @@ These are untracked reference images, not evidence that the current tracked cc-h
 
 ## Evidence and verification
 
-`e2e/composer-goal-plan.spec.ts` uses the real temporary Host with a mock provider, in Chinese and English, and checks chip select/cancel, initial Goal+Run acceptance, pause/resume, document edit/discard/save, clear cancel/confirm, actual Plan mode in the persisted Run, and desktop/390/320 geometry. The one-send Plan label is checked both before sending and after it resets, with desktop and 320px screenshots. Screenshots are under `artifacts/reference-ux-v2/hbar-goal-*.png`, `hbar-plan-chip-*.png` and `hbar-goal-document-*.png`. A rebuilt Windows x64 release was also checked in an isolated native WebView2 profile for the visible selected Plan label; the general desktop smoke remains separately subject to its current appearance-marker assertion.
+`e2e/composer-goal-plan.spec.ts` uses the real temporary Host with a mock provider, in Chinese and English, and checks Goal intent selection/cancellation, initial Goal+Run acceptance, pause/resume, document edit/discard/save, clear cancel/confirm, and desktop/390/320 geometry. For Plan, it checks the selected permission entry, the Host's stored mode, two successive `plan` Runs, read-only rejection of a write tool, persistence after reload, and an explicitly exited `default` Run. Screenshots are under `artifacts/reference-ux-v2/hbar-goal-*.png`, `hbar-durable-plan-menu-*.png`, `hbar-plan-chip-*.png` and `hbar-goal-document-*.png`. These browser checks do not claim that the current native binary includes every later UI change.
 
 The Goal geometry check additionally verifies that the complete secondary action group remains inside its strip and that narrow layouts give the objective a readable width before placing metrics/actions on the next flow line. The available `img_preview/goal2.png` is a design preview, while current tracked cc-haha source positions its Goal strip under the session header; this step corrects the observed hbar narrow-screen crowding without claiming those two reference positions are identical.
 
@@ -29,4 +29,4 @@ The real Run snapshot confirmed that the initial user Goal message is admitted o
 
 Focused runtime tests cover partial/unknown recovery, unchanged-original-input retry, delayed completion, per-session isolation, draft preservation, exact Goal identity, subscription release and model repair. The existing Goal-state browser test continues to verify real budgets, live plan projection and guarded completion with the new entry paths.
 
-This unit does not yet claim the complete Plan proposal review/implementation flow, rich message hierarchy, permissions menu, activity relocation or compact usage entry. They are separate remaining interaction units.
+This record covers the Goal entry and durable Plan-mode behavior. It does not by itself establish parity for every other cc-haha desktop entry or interaction; those units require their own current-source and rendered-UI evidence.
