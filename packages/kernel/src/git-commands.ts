@@ -1,10 +1,21 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { gitCommands } from '@hbar/contracts/commands/git'
+import type { SessionGitTarget } from '@hbar/contracts/commands/git'
 import type { GitBranchOperation, GitService, GitWorktreeOperation } from '@hbar/plugin-sdk'
+import type { StoragePort } from '@hbar/storage'
+import { createSessionWorkspaceContext } from './session-workspace-context'
+import type { SessionWorkspaceResolver } from './session-workspace-context'
 
-export function createGitCommands(service: GitService) {
+export interface SessionGitWorkspaceResolver extends SessionWorkspaceResolver {
+  readonly storage: StoragePort
+}
+
+export function createGitCommands(service: GitService, sessionWorkspace?: SessionGitWorkspaceResolver) {
   const registry = new CommandRegistry({ execution: 'host' })
+  const sessionContext = sessionWorkspace
+    ? createSessionWorkspaceContext(sessionWorkspace.storage, sessionWorkspace)
+    : null
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
       return await operation()
@@ -44,6 +55,33 @@ export function createGitCommands(service: GitService) {
       ? { operation: 'add', path: input.path, branch: input.branch, createBranch: input.createBranch }
       : { operation: 'remove', path: input.path, force: input.force }
   }
+  const sessionCwd = async (input: SessionGitTarget, signal: AbortSignal) => {
+    if (!sessionContext) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Git contexts are unavailable')
+    const target = await sessionContext.resolve(
+      {
+        workspaceId: input.workspaceId,
+        sessionTarget: { sessionId: input.sessionId, expectedRevision: input.expectedRevision },
+      },
+      signal,
+    )
+    return target.path
+  }
+
+  registry.register(gitCommands['sessionGit.info'], (input, context) =>
+    translate(async () => service.info(await sessionCwd(input, context.signal), context.signal)),
+  )
+  registry.register(gitCommands['sessionGit.status'], (input, context) =>
+    translate(async () => service.status(await sessionCwd(input, context.signal), context.signal)),
+  )
+  registry.register(gitCommands['sessionGit.diff'], (input, context) =>
+    translate(async () =>
+      service.diff(
+        await sessionCwd(input, context.signal),
+        { cached: input.cached, paths: input.paths },
+        context.signal,
+      ),
+    ),
+  )
 
   registry.register(gitCommands['git.info'], (input, context) =>
     translate(() => service.info(input.cwd, context.signal)),

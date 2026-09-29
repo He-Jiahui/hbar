@@ -8,7 +8,9 @@ import {
   gitStatsReportSchema,
   gitStatusSchema,
   gitWorktreeInfoSchema,
+  idSchema,
 } from '../index'
+import { sessionFileTargetSchema } from './files'
 
 const pathSchema = z.string().min(1).max(4_000)
 const branchNameSchema = z.string().min(1).max(1_000)
@@ -55,6 +57,30 @@ const worktreeInputSchema = z
     if (input.operation !== 'list' && input.path === undefined)
       context.addIssue({ code: 'custom', path: ['path'], message: 'Worktree path is required for mutations' })
   })
+
+/** Read-only Git context resolved from a session; callers cannot choose its cwd. */
+export const sessionGitTargetSchema = sessionFileTargetSchema.extend({ workspaceId: idSchema })
+export type SessionGitTarget = z.infer<typeof sessionGitTargetSchema>
+const sessionMetadata = (id: string) => ({
+  ...metadata(id, 'query', 'none'),
+  scope: 'session' as const,
+  surfaces: ['api'] as 'api'[],
+  visibility: 'internal' as const,
+  timeoutMs: 30_000,
+  maxConcurrent: 8,
+})
+export const sessionGitCommands = {
+  'sessionGit.info': defineCommand(sessionMetadata('sessionGit.info'), sessionGitTargetSchema, gitInfoSchema),
+  'sessionGit.status': defineCommand(sessionMetadata('sessionGit.status'), sessionGitTargetSchema, gitStatusSchema),
+  'sessionGit.diff': defineCommand(
+    sessionMetadata('sessionGit.diff'),
+    sessionGitTargetSchema.extend({
+      cached: z.boolean().default(false),
+      paths: z.array(pathSchema).max(100).default([]),
+    }),
+    gitDiffSchema,
+  ),
+}
 
 export const gitCommands = {
   'git.info': defineCommand(
@@ -111,7 +137,11 @@ export const gitCommands = {
       to: z.number().int().positive().optional(),
       bucketMs: z.number().int().min(60_000).max(2_592_000_000).default(86_400_000),
       maxBuckets: z.number().int().min(1).max(1_000).default(120),
-      sources: z.array(z.enum(['auto', 'manual', 'external'])).min(1).max(3).default(['auto', 'manual', 'external']),
+      sources: z
+        .array(z.enum(['auto', 'manual', 'external']))
+        .min(1)
+        .max(3)
+        .default(['auto', 'manual', 'external']),
     }),
     gitStatsReportSchema,
   ),
@@ -180,4 +210,5 @@ export const gitCommands = {
       })
       .nullable(),
   ),
+  ...sessionGitCommands,
 }

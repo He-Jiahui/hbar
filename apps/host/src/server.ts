@@ -136,7 +136,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         .sort((left, right) => left.id.localeCompare(right.id))
     },
   })
-  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'))
+  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'), {
+    storage: kernel.storage,
+    resolveSessionPath: (sessionId, workspacePath, signal) =>
+      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  })
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),

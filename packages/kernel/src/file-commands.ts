@@ -2,10 +2,11 @@ import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { fileCommands } from '@hbar/contracts/commands/files'
-import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import { workspaceFindInputSchema } from '@hbar/contracts/workspace-query'
 import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
+import { createSessionWorkspaceContext } from './session-workspace-context'
+import type { SessionWorkspaceInput, SessionWorkspaceResolver } from './session-workspace-context'
 
 const digest = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
@@ -17,14 +18,7 @@ function decodeText(bytes: Uint8Array): string {
   }
 }
 
-interface FileTargetInput {
-  readonly workspaceId: string
-  readonly sessionTarget?: SessionFileTarget | undefined
-}
-
-export interface SessionFileWorkspaceResolver {
-  readonly resolveSessionPath: (sessionId: string, workspacePath: string, signal: AbortSignal) => Promise<string>
-}
+export type SessionFileWorkspaceResolver = SessionWorkspaceResolver
 
 export function createFileCommands(
   storage: StoragePort,
@@ -41,27 +35,10 @@ export function createFileCommands(
       throw error
     }
   }
-  const assertSessionTarget = async (input: FileTargetInput) => {
-    if (!input.sessionTarget) return
-    const session = await storage.call('session', input.sessionTarget.sessionId)
-    if (session.workspaceId !== input.workspaceId)
-      throw new HbarError('STALE_TARGET', 'The file context belongs to another workspace')
-    const target = await storage.call('sessionLaunchTarget', session.id)
-    if (target.revision !== input.sessionTarget.expectedRevision)
-      throw new HbarError('COMMAND_CONFLICT', 'The session file context changed; refresh before retrying')
-  }
-  const workspace = async (input: FileTargetInput, signal: AbortSignal) => {
-    signal.throwIfAborted()
-    const target = await storage.call('workspace', input.workspaceId)
-    if (!input.sessionTarget) return target
-    await assertSessionTarget(input)
-    if (!sessionWorkspace) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Session file contexts are unavailable')
-    const path = await sessionWorkspace.resolveSessionPath(input.sessionTarget.sessionId, target.path, signal)
-    signal.throwIfAborted()
-    await assertSessionTarget(input)
-    return { ...target, path }
-  }
-  const read = async (input: FileTargetInput, workspacePath: string, path: string) => {
+  const sessionContext = createSessionWorkspaceContext(storage, sessionWorkspace)
+  const workspace = sessionContext.resolve
+  const assertSessionTarget = sessionContext.assertCurrent
+  const read = async (input: SessionWorkspaceInput, workspacePath: string, path: string) => {
     const bytes = await execution.readBytes(workspacePath, path)
     return {
       workspaceId: input.workspaceId,

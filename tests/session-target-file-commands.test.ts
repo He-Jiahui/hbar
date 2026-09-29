@@ -2,9 +2,10 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { HbarClient, createFileCommandClient } from '@hbar/client'
+import { HbarClient, createFileCommandClient, createGitCommandClient } from '@hbar/client'
 import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import { sessionFileTargetSchema } from '@hbar/contracts/commands/files'
+import { sessionGitTargetSchema } from '@hbar/contracts/commands/git'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server'
 
@@ -72,7 +73,15 @@ async function fixture() {
   })
   await client.pair(host.pairing.code, 'session-target file test')
   const workspace = (await kernel.storage.call('workspaces'))[0]!
-  return { root, repository, workspace, kernel, client, files: createFileCommandClient(client) }
+  return {
+    root,
+    repository,
+    workspace,
+    kernel,
+    client,
+    files: createFileCommandClient(client),
+    git: createGitCommandClient(client),
+  }
 }
 
 async function bindIsolated(kernel: Kernel, sessionId: string) {
@@ -197,4 +206,61 @@ test('different shared session targets still compare-and-write against one physi
   expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
   expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
   expect(results.find((result) => result.status === 'rejected')).toMatchObject({ reason: { code: 'FILE_CONFLICT' } })
+})
+
+test('paired session Git info/status/diff read the same bound checkout as Files, including its separate index', async () => {
+  const f = await fixture()
+  const session = await f.kernel.createSession(f.workspace.id, 'Git isolated')
+  const isolated = await bindIsolated(f.kernel, session.id)
+  const target = { workspaceId: f.workspace.id, ...isolated.sessionTarget }
+  await writeFile(join(isolated.path, 'same.txt'), 'staged isolated only')
+  const info = await f.git.execute('sessionGit.info', target)
+  expect(info.branch).toBe(`codex/test-${session.id}`)
+  const status = await f.git.execute('sessionGit.status', target)
+  expect(resolve(status.cwd)).toBe(resolve(isolated.path))
+  expect(status.entries).toEqual([{ index: ' ', worktree: 'M', path: 'same.txt' }])
+  const working = await f.git.execute('sessionGit.diff', { ...target, paths: ['same.txt'] })
+  expect(working.diff).toContain('+staged isolated only')
+  expect((await f.git.execute('git.diff', { cwd: f.repository })).diff).toBe('')
+
+  await git(isolated.path, ['add', 'same.txt'])
+  await writeFile(join(isolated.path, 'same.txt'), 'unstaged isolated only')
+  const staged = await f.git.execute('sessionGit.diff', { ...target, cached: true, paths: ['same.txt'] })
+  expect(staged.cached).toBeTrue()
+  expect(staged.diff).toContain('+staged isolated only')
+  expect(staged.diff).not.toContain('+unstaged isolated only')
+  expect((await f.git.execute('git.diff', { cwd: f.repository, cached: true })).diff).toBe('')
+  expect(await readFile(join(f.repository, 'same.txt'), 'utf8')).toBe('shared baseline')
+})
+
+test('session Git queries reject root injection, wrong owners, stale versions and unbound targets without fallback', async () => {
+  const f = await fixture()
+  const session = await f.kernel.createSession(f.workspace.id, 'Git unbound')
+  const target = { workspaceId: f.workspace.id, sessionId: session.id, expectedRevision: 0 }
+  expect(sessionGitTargetSchema.safeParse({ ...target, cwd: f.root }).success).toBeFalse()
+  expect((await f.git.execute('sessionGit.info', target)).branch).toBe('main')
+  await mkdir(join(f.root, 'foreign'))
+  const foreign = await f.kernel.createWorkspace(join(f.root, 'foreign'))
+  await expectCode(f.git.execute('sessionGit.status', { ...target, workspaceId: foreign.id }), 'STALE_TARGET')
+  await f.kernel.setSessionLaunchTarget({
+    actorId: 'fixture-actor',
+    idempotencyKey: crypto.randomUUID(),
+    sessionId: session.id,
+    expectedRevision: 0,
+    selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'codex/unbound-git' } },
+  })
+  await expectCode(f.git.execute('sessionGit.info', target), 'COMMAND_CONFLICT')
+  await expectCode(
+    f.git.execute('sessionGit.diff', { ...target, expectedRevision: 1 }),
+    'SESSION_LAUNCH_TARGET_UNRESOLVED',
+  )
+  expect(await git(f.repository, ['branch', '--show-current'])).toBe('main')
+  expect((await f.kernel.storage.call('sessionLaunchTargetRuntime', session.id)).binding).toBeNull()
+  const descriptor = await f.client.call('command.describe', { commandId: 'sessionGit.diff' })
+  expect(descriptor.metadata).toMatchObject({
+    kind: 'query',
+    scope: 'session',
+    stateEffect: 'none',
+    visibility: 'internal',
+  })
 })

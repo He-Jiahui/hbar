@@ -35,6 +35,14 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 对应 paired Client＋真实 Host 回归使用临时 Git 仓库、隔离 Host 数据目录及 mock 模型，不调用付费模型、不操作用户项目。覆盖隔离目录的列表、路径搜索、读写、共享目录保持不变、路径逃逸、原文件冲突、错误项目、旧版本、未绑定目标与共享并发写。测试目录在 cleanup 前验证归属及绝对边界。
 
+## 会话 Git 只读契约
+
+`sessionGit.info/status/diff` 使用严格的 `{ workspaceId, sessionId, expectedRevision }`，diff 另接受原有 bounded paths 与 cached 选项；不接受客户端 cwd。它们与 Files 复用同一 Host context 校验和解析端口，未绑定隔离目标不会回落到项目 checkout。现有 `git.*` 继续表示调用者明确指定的项目／目录，不被悄悄改成当前会话。
+
+三个新命令只读、session scope、内部 API surface，不添加 palette 操作或 Git mutation；不以会话 ID 冒充提交的 provenance。每个 Host 命令有 30s deadline 及 8 个同时调用上限，解析和 Git service 之间传递同一 Host `AbortSignal`。现有 WebSocket Client Git adapter 不提供远程 query-cancel RPC，因此不能把客户端停止观察表述成 Host Git 进程已停止；关闭／timeout 的 Host 中止和前端旧结果丢弃仍要分别验证。
+
+真实 Host 回归核对隔离分支、working changes、staged index／diff 与 Files 的同一目录；共享 checkout 的文件、分支和两个 diff 均保持不变。另外核对 cwd 注入、错误项目、旧版本和未绑定目标明确失败，以及 query/internal metadata。上述接口已具备，并不表示 runtime 的 Git 展示已经切换到它们。
+
 ## UI 上线前仍需闭环
 
 当前 runtime 仍按原 `workspaceId`／`path` 缓存文件草稿，Changed Files 和 session Git context 仍读取注册工作区。因此**不能现在就加入启动目标按钮并宣称参考体验已经实现**。
@@ -43,7 +51,7 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 1. 为分支发现、准备受理／进行中／终态、取消与未知结果核对定义明确的公开状态，不让短读取或取消被慢 Git 阻塞。
 2. Files 的树、搜索、preview、文档草稿和写入回执按工作区＋会话目标版本隔离；切换目标时旧响应不能覆盖新视图，旧草稿不能保存到另一 checkout。固定面板和 Files 工作台页签保留原来源会话。
-3. Session Git info、Changed Files 和 diff 由 Host 解析同一会话目标，不让 UI 自行拼内部路径。项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
+3. 将 Session Git info、Changed Files 和 diff 接到上述会话只读接口，不让 UI 自行拼内部路径。项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
 4. 接入 host-owned 中英文 copy 的单一位置入口，首发后变成可解释的只读 context。准备／失败／重试／取消在原入口附近反馈，保留草稿和阅读位置。
 5. 使用当前参考组件的可见画面确定层级与响应式流；验证桌面、390px、320px、短窗口、键盘与焦点。再以真实 Host E2E 和 native smoke 验证选择、首发、Files 编辑、切换会话和重启，不以隔离组件画面冒充后端验收。
 
