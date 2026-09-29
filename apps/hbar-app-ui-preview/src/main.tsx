@@ -25,6 +25,7 @@ import { FormsForm3PreviewHost } from './FormsForm3PreviewHost'
 import { FormsForm4PreviewHost } from './FormsForm4PreviewHost'
 import { FormsForm5PreviewHost } from './FormsForm5PreviewHost'
 import { FormsForm6PreviewHost } from './FormsForm6PreviewHost'
+import { FormsForm7PreviewHost } from './FormsForm7PreviewHost'
 import './formsForm3-preview.css'
 import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
@@ -181,6 +182,7 @@ import { createForms3PreviewFixture } from './formsForm3PreviewFixtures'
 import { createForms4PreviewFixture } from './forms4PreviewFixtures'
 import { createForms5PreviewFixture } from './forms5PreviewFixtures'
 import { createForms6PreviewFixture } from './forms6PreviewFixtures'
+import { createForms7PreviewFixture } from './forms7PreviewFixtures'
 import { appDialogFixture } from '../../../tests/fixtures/hbar-app-ui-app-dialog-fixtures'
 import {
   createHbarAppUiNotificationActivityFixture,
@@ -511,6 +513,13 @@ function PreviewApp() {
       ),
     [],
   )
+  const forms7ReferenceFixture = useMemo(
+    () =>
+      createForms7PreviewFixture(
+        new URLSearchParams(window.location.search).get('forms7Fixture') === 'localized' ? 'de' : 'en',
+      ),
+    [],
+  )
   const appDialogContent = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
     return appDialogFixture(
@@ -815,10 +824,17 @@ function PreviewApp() {
                                                                                                               onAction={handleAction}
                                                                                                               referenceFixture={forms6ReferenceFixture}
                                                                                                             >
-                                                                                                              <SelectedComponent
+                                                                                                              <FormsForm7PreviewHost
+                                                                                                                content={formsContent}
                                                                                                                 spec={selected.spec}
                                                                                                                 onAction={handleAction}
-                                                                                                              />
+                                                                                                                referenceFixture={forms7ReferenceFixture}
+                                                                                                              >
+                                                                                                                <SelectedComponent
+                                                                                                                  spec={selected.spec}
+                                                                                                                  onAction={handleAction}
+                                                                                                                />
+                                                                                                              </FormsForm7PreviewHost>
                                                                                                             </FormsForm6PreviewHost>
                                                                                                           </FormsForm5PreviewHost>
                                                                                                         </FormsForm4PreviewHost>
@@ -1171,10 +1187,17 @@ function PreviewApp() {
                                                                                                                         onAction={handleAction}
                                                                                                                         referenceFixture={forms6ReferenceFixture}
                                                                                                                       >
-                                                                                                                        <SelectedComponent
+                                                                                                                        <FormsForm7PreviewHost
+                                                                                                                          content={formsContent}
                                                                                                                           spec={selected.spec}
                                                                                                                           onAction={handleAction}
-                                                                                                                        />
+                                                                                                                          referenceFixture={forms7ReferenceFixture}
+                                                                                                                        >
+                                                                                                                          <SelectedComponent
+                                                                                                                            spec={selected.spec}
+                                                                                                                            onAction={handleAction}
+                                                                                                                          />
+                                                                                                                        </FormsForm7PreviewHost>
                                                                                                                       </FormsForm6PreviewHost>
                                                                                                                     </FormsForm5PreviewHost>
                                                                                                                   </FormsForm4PreviewHost>

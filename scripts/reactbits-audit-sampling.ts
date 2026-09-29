@@ -604,6 +604,38 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-7')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-7-reference.tsx',
+        'forms-7-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [],
+      inferences: [
+        {
+          scope: 'Summary character count/progress and consent completion projections',
+          basis:
+            'The authorized full-audit-v1 static source capture and full-interactions-v3 safe interaction cache were produced from different source hashes (24575105…d41d128 and 94c36f7a…04e85). Their evidence is not combined as a fresh paired interaction run; local host tests cover the recorded 12-character summary and consent projections.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Focus-area expansion and all other unpaired or unobserved interactions',
+          basis:
+            'The interaction cache contains a safe focus-area expansion observation but does not share the static baseline hash. Tag, file, Save draft, Submit, funding selection and other dynamic outcomes remain unpaired or unobserved; host actions are callback-only and no remote outcome is claimed.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Equivalent control states across viewport and theme combinations',
+          basis:
+            'Eight static captures are authorized for comparison. The interaction cache is dark/mobile only and was not replayed against the static run, so no viewport/theme interaction Cartesian match is claimed.',
+          verification: 'restricted-unverified',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-5')
     return {
       revision: 1,

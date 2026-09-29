@@ -9,6 +9,8 @@ body { background: var(--hbar-app-ui-bg); }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-2']) { block-size: auto; overflow: visible; }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-4']) { block-size: auto; overflow: visible; }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-6']) { block-size: auto; overflow: visible; }
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-7']) { display: flex; align-items: stretch; }
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-7']) > .lumen-forms-7-surface { block-size: 100%; min-block-size: 0; flex: 1 1 auto; }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-5']) { display: flex; align-items: stretch; }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-5']) > [data-hbar-app-ui-component='hbar-app-ui-forms-5'] { block-size: 100%; min-block-size: 0; flex: 1 1 auto; }
 .hbar-app-ui-isolated-canvas > .hbar-app-ui-variant { min-height: 100vh; }
