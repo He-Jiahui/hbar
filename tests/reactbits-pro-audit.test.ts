@@ -38,6 +38,18 @@ test('quota notice samples request feedback instead of passive bars and distingu
   expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
 })
 
+test('metered reader samples one native draft and separates validation from unverified delivery', () => {
+  const id = 'hbar-app-ui-paywall-6'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(1)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:fill`])
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+  expect(plan.lumenEntries).toContain('paywall-6-reference.tsx')
+  expect(plan.inferences.some((entry) => entry.basis.includes('Keep reading and Sign in were not triggered'))).toBe(true)
+  expect(plan.inferences.some((entry) => entry.basis.includes('not a progressbar'))).toBe(true)
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
+})
+
 test('plan gate samples one period mechanism and distinguishes reverse inference from observed source state', () => {
   const id = 'hbar-app-ui-paywall-3'
   const plan = auditSamplingPlan(id)!

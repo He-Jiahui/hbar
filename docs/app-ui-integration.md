@@ -421,6 +421,41 @@ style/format/content/icon/flow guards, preview build and direct Lumen Vite/
 declaration builds pass. Shared `paywall.tsx` still reports 14 existing lint
 errors, down from 15 before; the entire shared file is not lint-clean.
 
+### Paywall 6 integration status
+
+`hbar-app-ui-paywall-6` preserves the metered-reader counter as an accessible
+image with three ornamental segments, not an interactive progressbar. The host
+owns counter data, copy, the optional email draft and three passive assurances.
+The native email form keeps browser type validation and associated, unique
+accessible labels. Keep reading and Sign in emit different requests without
+resetting reads, sending email, completing a subscription or navigating.
+
+The [official Paywall 6 iframe](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-6)
+was readable on 2026-09-29. A fictional email draft was filled; neither action
+was triggered. The source column is 520×254.25 with a 108×6 counter and 400px
+form. Authorized `full-static-v10` target hash
+`7992dfa3b2f56a97e10f11a924d11b313e9aced897ca099caab27c412752fa2f`
+is an old reference, not current-protocol paired strict evidence. The local
+column is 520×255.73; its 37.5px form is slightly taller than the source's 36px
+controls. That residual is retained rather than claimed as exact geometry.
+
+One invalid local Enter is blocked by native type=email validation; valid Enter
+reaches the host request and preserves the draft. Empty-input optional validity
+and equivalent mouse activation are inferred, not replayed in every theme or
+layout. Empty, one-item, six-item boundary and 17-item assurance fixtures
+exercise host policy, not a source maximum. Extra counter records wrap; only
+explicit pane-scroll assurances receive a bounded, keyboard-scrollable region.
+At 320×420 a real document scroll reaches Sign in with no horizontal overflow;
+long German copy remains readable without duplicated stage padding.
+
+Ten focused tests/82 assertions, root/Lumen typechecks, targeted lint, new-file
+style/format/content/icon/flow checks, preview build and direct Lumen Vite plus
+declaration builds pass. Stylelint initially found a line-height precision
+error in child commit `249fc3c620`; the follow-up fixes that precision without
+changing the layout mechanism. The browser reports zero console/page errors.
+Shared `paywall.tsx` retains 12 existing lint errors, down from 13 before; the
+shared file is not globally lint-clean.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

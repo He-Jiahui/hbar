@@ -840,6 +840,33 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-6')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall-6-reference.tsx', 'paywall-6-reference.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [{ viewport: 'desktop', theme: 'light', suffix: '0:fill',
+        change: 'The optional native email draft changes without resetting read segments or fabricating delivery' }],
+      inferences: [
+        {
+          scope: 'Current strict evidence and remote reader results',
+          basis:
+            'The public iframe was readable on 2026-09-29 and a fictional native email fill was observed. Keep reading and Sign in were not triggered. Authorized full-static-v10 hash 7992dfa3b2f56a97e10f11a924d11b313e9aced897ca099caab27c412752fa2f is an old static clue, not a current-protocol paired capture; email delivery, subscription and sign-in remain unverified requests.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Optional native validation and keyboard submit',
+          basis:
+            'Source DOM exposes an optional type=email field and a native submit button. One local invalid Enter is blocked by browser type validation, then valid Enter reaches the host request without clearing the draft; no custom validator or success message is added. Native empty-input validity and equivalent mouse submission are inferred, not replayed per layout.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Passive counter, assurances and responsive capacity',
+          basis:
+            'The source counter is an image role with three ornamental segments, not a progressbar. Three passive assurance items share one stable-ID renderer. Empty/one/six/17-item fixtures, a keyboard-scroll overflow region, long German and one 320x420 real document scroll cover host policy; six is not a source maximum. Extra counter segments wrap without horizontal overflow, and default assurances remain content-grown.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-3')
     return {
       revision: 1,

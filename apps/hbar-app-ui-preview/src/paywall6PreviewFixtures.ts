@@ -13,7 +13,9 @@ export const PAYWALL6_SOURCE_EVIDENCE = {
     emailDraft: 'native-field-fill-observed-without-submit',
     keepReadingAndSignInResults: 'not-sampled', currentCaptureProtocolEvidence: false,
   },
-  staticCache: { cacheId: 'full-static-v10', schemaVersion: 1, role: 'authorized-visual-reference-not-current-strict-proof' },
+  staticCache: { cacheId: 'full-static-v10', schemaVersion: 1,
+    sourceHash: '7992dfa3b2f56a97e10f11a924d11b313e9aced897ca099caab27c412752fa2f',
+    role: 'authorized-visual-reference-not-current-strict-proof' },
 } as const
 
 export interface Paywall6PreviewLabels {
