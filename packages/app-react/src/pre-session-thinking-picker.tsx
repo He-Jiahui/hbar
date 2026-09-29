@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
-import type { ModelDescriptor } from '@hbar/contracts/commands/models'
-import type { ThinkingLevel } from '@hbar/contracts'
+import type { ComposerModelState } from '@hbar/app-runtime'
 import type { HbarComposerModelLabels } from './composer-model-picker'
 import { thinkingProgressPercent } from './composer-model-picker'
 import './composer-model-picker.css'
+
+type ModelDescriptor = ComposerModelState['models'][number]
+type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
 
 export interface HbarPreSessionThinkingPickerProps {
   readonly model: ModelDescriptor | null

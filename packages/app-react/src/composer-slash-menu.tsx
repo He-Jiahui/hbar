@@ -1,9 +1,11 @@
 import { Bot, Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
-import type { AgentProfileId } from '@hbar/contracts/commands/agents'
+import type { AgentComposerState } from '@hbar/app-runtime'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import type { HbarComposerAgentNoticeLabels } from './composer-agent-notice'
 import './composer-slash-menu.css'
+
+type AgentProfileId = AgentComposerState['profileCatalog']['profiles'][number]
 
 export interface HbarComposerSlashLabels {
   readonly menu: string
