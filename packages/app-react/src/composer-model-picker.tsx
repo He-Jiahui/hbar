@@ -82,8 +82,8 @@ export interface HbarComposerModelLabels {
   readonly error: (code: string) => string
 }
 
-// The catalog is contract-bounded at 4,096. Render an explicit 60-row page,
-// with fixed search/header and a pane-owned list; search always covers the catalog.
+// The catalog is contract-bounded at 4,096. Render 60 rows at a time in a
+// pane-owned list; search covers the whole catalog and scrolling reveals more.
 export const COMPOSER_MODEL_PAGE_SIZE = MODEL_CATALOG_PAGE_SIZE
 
 /** Selection validity comes from the exact configuration, never catalog membership:
@@ -653,12 +653,13 @@ export function HbarComposerModelPicker({
         anchor={groupRef}
         popupRef={modelRef}
         onOpen={() => {
+          modelListRef.current?.scrollTo({ top: 0 })
+          setLimit(COMPOSER_MODEL_PAGE_SIZE)
           setOpen('model')
           // The same popup can be opened from the model trigger or a local /model
           // command while the editor still owns focus. On a narrow touch device,
           // leave the list unobscured until the user deliberately chooses search.
           if (!window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches) searchRef.current?.focus()
-          modelListRef.current?.scrollTo({ top: 0 })
           if (!unresolved && !busy) refresh(true)
           onOpened?.()
         }}
@@ -735,6 +736,16 @@ export function HbarComposerModelPicker({
             role="listbox"
             aria-label={labels.title}
             aria-busy={busy || catalog.status === 'loading'}
+            onScroll={(event) => {
+              if (!modelRef.current?.matches(':popover-open')) return
+              const list = event.currentTarget
+              if (remaining <= 0 || list.scrollTop <= 0 || list.scrollHeight <= list.clientHeight) return
+              if (list.scrollHeight - list.scrollTop - list.clientHeight <= 48) {
+                setLimit((value) =>
+                  value === limit ? Math.min(models.length, value + COMPOSER_MODEL_PAGE_SIZE) : value,
+                )
+              }
+            }}
           >
             {groups.map(([providerId, group]) => (
               <LumenFrame key={providerId} role="group" aria-label={group.name} className="hbar-composer-model-group">

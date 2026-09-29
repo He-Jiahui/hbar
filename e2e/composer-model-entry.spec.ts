@@ -390,6 +390,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           })
           await popup.evaluate((element) => element.setAttribute('data-presentation', 'web'))
         }
+        if (viewport.width === 1440 || viewport.width === 320) {
+          const list = popup.locator('.hbar-composer-model-list')
+          await list.evaluate((element) => {
+            element.scrollTop = element.scrollHeight
+          })
+          const lastFixture = popup.getByRole('option').filter({ hasText: 'Catalog fixture 63' })
+          await expect(lastFixture).toHaveCount(1)
+          await expect(list.locator(':scope > button')).toHaveCount(0)
+          await lastFixture.scrollIntoViewIfNeeded()
+          await expect(lastFixture).toBeInViewport()
+          await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-scroll-${locale}-${viewport.width}.png` })
+        }
         await popup.getByRole('button', { name: labels.close, exact: true }).click()
         await expect(popup).not.toBeVisible()
         await expectComposerText(prompt, draft)
