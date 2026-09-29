@@ -331,17 +331,15 @@ export function HbarGoalPlanWorkspace({
                 {labels.error(entry.goalAction.error)}
               </LumenText>
             )}
-            {entry.goal && (
-              <LumenFrame as="footer">
-                <LumenButton
-                  tone="neutral"
-                  disabled={!connected || !canPrepare}
-                  onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
-                >
-                  {labels.goal.edit}
-                </LumenButton>
-              </LumenFrame>
-            )}
+            <LumenFrame as="footer">
+              <LumenButton
+                tone="neutral"
+                disabled={!connected || !canPrepare || goalBusy}
+                onClick={() => invoke('goalPlanWorkspace.showGoalEditor', { instanceId })}
+              >
+                {entry.goal ? labels.goal.edit : labels.goal.create}
+              </LumenButton>
+            </LumenFrame>
           </LumenFrame>
           <LumenFrame as="section">
             <LumenFrame as="header">

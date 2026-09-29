@@ -40,6 +40,48 @@ const plan: PlanState = {
   updatedAt: 6,
 }
 
+test('empty Goals pane offers the existing localized Goal editor entry', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'empty-goal-react',
+    hostId: 'host',
+    directory: {
+      async execute(name: string) {
+        if (name === 'session.get') return session
+        if (name === 'workspace.get') return workspace
+        if (name === 'session.list') return { items: [session], nextCursor: null }
+        if (name === 'workspace.list') return { items: [workspace], nextCursor: null }
+        throw new Error(`Unsupported query: ${name}`)
+      },
+    },
+    goals: {
+      async execute(name: string) {
+        if (name === 'goal.get') return { goal: null, remainingTokens: null }
+        if (name === 'plan.get') return null
+        throw new Error(`Unsupported goal command: ${name}`)
+      },
+    },
+    surfaces: { canRender: (panelId) => panelId === 'goals' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
+    await runtime.view.commands.execute('goalPlanWorkspace.refresh', { instanceId: panel.instanceId })
+    for (const locale of ['en-US', 'zh-CN'] as const) {
+      const labels = getShellCopy(locale).goals
+      const html = renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarGoalPlanWorkspace labels={labels} connected />
+        </HbarRuntimeProvider>,
+      )
+      expect(html).toContain(labels.goal.composerHint)
+      expect(html).toContain(`>${labels.goal.create}<span`)
+      expect(html).not.toContain(`>${labels.goal.edit}<span`)
+    }
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('goal and plan panel keeps the Agent Plan authoritative and read-only', async () => {
   const runtime = createAppRuntime({
     instanceId: 'goal-plan-react',
