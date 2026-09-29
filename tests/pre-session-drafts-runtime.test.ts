@@ -89,6 +89,8 @@ function fixture(
   const createdByKey = new Map<string, Session>()
   const modelReceipts = new Map<string, ModelWriteResult>()
   const runReceipts = new Map<string, RunAccepted>()
+  let modelCatalog: readonly ModelDescriptor[] = [model]
+  let modelCatalogError: CommandError | null = null
   const permissionChoices = new Map<string, 'ask' | 'deny' | 'allow'>()
   const permissionRevisions = new Map<string, number>()
   const permissionReceipts = new Map<string, SettingsReceipt>()
@@ -107,6 +109,7 @@ function fixture(
     mode: 'default' | 'plan' | undefined
   }[] = []
   let createGate: ReturnType<typeof gate> | null = null
+  let modelCatalogGate: ReturnType<typeof gate> | null = null
   let permissionWriteGate: ReturnType<typeof gate> | null = null
   let permissionReadGateAfterWrite: ReturnType<typeof gate> | null = null
   let planModeWriteGate: ReturnType<typeof gate> | null = null
@@ -179,7 +182,17 @@ function fixture(
 
   const modelCommandsPort: CommandExecutor = {
     async execute(name, raw, options: ExecuteOptions = {}) {
-      if (name === 'model.list') return [model]
+      if (name === 'model.list') {
+        modelCommands[name].input.parse(raw)
+        if (modelCatalogError) throw modelCatalogError
+        const held = modelCatalogGate
+        if (held) {
+          modelCatalogGate = null
+          held.markEntered()
+          await held.promise
+        }
+        return [...modelCatalog]
+      }
       if (name === 'session.getModel') {
         const input = modelCommands[name].input.parse(raw)
         if (failModelReads) throw new CommandError('MODEL_NOT_READY', 'Fixture model read failed')
@@ -590,6 +603,18 @@ function fixture(
     },
     failModelReads(value: boolean) {
       failModelReads = value
+    },
+    setModelCatalog(value: readonly ModelDescriptor[]) {
+      modelCatalog = [...value]
+      modelCatalogError = null
+    },
+    holdNextModelCatalogRead() {
+      const held = gate()
+      modelCatalogGate = held
+      return held
+    },
+    failModelCatalogRead(code: string) {
+      modelCatalogError = new CommandError(code, 'Fixture model catalog read failed')
     },
     unknownRun(value: boolean) {
       unknownNextRun = value
@@ -1341,6 +1366,189 @@ test('model initialization failure keeps the real Session and first message in t
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]?.text).toBe('retain this after model setup fails')
     expect(draft).toMatchObject({ phase: 'failed', error: 'MODEL_NOT_READY', text: 'retain this after model setup fails' })
     expect(f.runCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('an empty model catalog prevents first-send Session creation', async () => {
+  const f = fixture()
+  f.setModelCatalog([])
+  try {
+    const unselected = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this until a model is available',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: unselected.draftId,
+        expectedRevision: unselected.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_READY' })
+
+    const unavailable = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this selected model choice',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: unavailable.draftId,
+        expectedRevision: unavailable.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[unselected.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'MODEL_NOT_READY',
+      sessionId: null,
+      text: 'keep this until a model is available',
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[unavailable.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'MODEL_NOT_FOUND',
+      sessionId: null,
+      modelId: model.id,
+      text: 'keep this selected model choice',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('closing a draft while the read-only model preflight is pending prevents Session creation', async () => {
+  const f = fixture()
+  const held = f.holdNextModelCatalogRead()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'do not create a Session after this draft is closed',
+      modelId: model.id,
+    })
+    const submit = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await held.entered
+
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.close', { draftId: target.draftId }),
+    ).resolves.toEqual({ draftId: target.draftId, closed: false })
+    held.release()
+
+    await expect(submit).rejects.toMatchObject({ code: 'CANCELLED' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toBeUndefined()
+  } finally {
+    held.release()
+    f.runtime.dispose()
+  }
+})
+
+test('a failed model catalog read preserves Plan and approval choices for retry after recovery', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  f.failModelCatalogRead('CONNECTION_CLOSED')
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'retry this Plan message after the catalog recovers',
+      modelId: model.id,
+      approvalChoice: 'deny',
+      planMode: 'plan',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'CONNECTION_CLOSED' })
+
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'CONNECTION_CLOSED',
+      sessionId: null,
+      text: 'retry this Plan message after the catalog recovers',
+      modelId: model.id,
+      approvalChoice: 'deny',
+      planMode: 'plan',
+      intent: 'default',
+    })
+
+    f.setModelCatalog([model])
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(result).toMatchObject({ sessionId: 'session-1', accepted: { status: 'accepted' } })
+    expect(f.permissionWrites).toMatchObject([{ choice: 'deny', sessionId: 'session-1' }])
+    expect(f.planModeWrites).toMatchObject([{ mode: 'plan', sessionId: 'session-1' }])
+    expect(f.runCalls).toMatchObject([
+      {
+        sessionId: 'session-1',
+        text: 'retry this Plan message after the catalog recovers',
+        approval: 'deny',
+        mode: 'plan',
+      },
+    ])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a failed model catalog read preserves Goal and approval choices for retry after recovery', async () => {
+  const f = fixture({ sessionSettings: true, goals: true })
+  f.failModelCatalogRead('DISCONNECTED')
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'retry this Goal message after the catalog recovers',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'DISCONNECTED' })
+
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'DISCONNECTED',
+      sessionId: null,
+      text: 'retry this Goal message after the catalog recovers',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      planMode: 'default',
+      intent: 'goal',
+    })
+
+    f.setModelCatalog([model])
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(result).toMatchObject({ sessionId: 'session-1', accepted: { status: 'accepted' } })
+    expect(f.permissionWrites).toMatchObject([{ choice: 'ask', sessionId: 'session-1' }])
+    expect(f.goalCalls).toMatchObject([
+      { sessionId: 'session-1', objective: 'retry this Goal message after the catalog recovers' },
+    ])
+    expect(f.runCalls).toMatchObject([
+      {
+        sessionId: 'session-1',
+        text: 'retry this Goal message after the catalog recovers',
+        approval: 'ask',
+        mode: 'default',
+      },
+    ])
   } finally {
     f.runtime.dispose()
   }

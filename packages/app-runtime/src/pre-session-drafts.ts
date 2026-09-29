@@ -1,6 +1,6 @@
 import { CommandError, type CommandExecutor, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { sessionSchema, type Session } from '@hbar/contracts/directory'
-import { modelCommands } from '@hbar/contracts/commands/models'
+import { modelCommands, type ModelDescriptor } from '@hbar/contracts/commands/models'
 import {
   preSessionDraftCommands,
   preSessionDraftStateSchema,
@@ -17,6 +17,7 @@ import type { ComposerIntentState } from './composer-intent'
 
 const MAX_DRAFTS = 100
 const MAX_PENDING = 32
+const MODEL_CATALOG_PREFLIGHT_TIMEOUT_MS = 15_000
 const UNKNOWN_CREATE_CODES = new Set([
   'RESULT_UNKNOWN',
   'DISCONNECTED',
@@ -169,6 +170,47 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
   const requireModels = (): CommandExecutor => {
     if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model configuration is unavailable')
     return options.models
+  }
+  const readModelCatalog = async (signal: AbortSignal): Promise<ModelDescriptor[]> => {
+    if (signal.aborted) throw new CommandError('CANCELLED', 'Model catalog preflight was cancelled')
+    const controller = new AbortController()
+    let timedOut = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let stopWaitingForCancellation = () => {}
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      const cancel = () => {
+        controller.abort()
+        reject(new CommandError('CANCELLED', 'Model catalog preflight was cancelled'))
+      }
+      signal.addEventListener('abort', cancel, { once: true })
+      stopWaitingForCancellation = () => signal.removeEventListener('abort', cancel)
+      if (signal.aborted) cancel()
+    })
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        timedOut = true
+        controller.abort()
+        reject(new CommandError('TIMEOUT', 'Model catalog preflight timed out'))
+      }, MODEL_CATALOG_PREFLIGHT_TIMEOUT_MS)
+    })
+    try {
+      const raw = await Promise.race([
+        requireModels().execute('model.list', {}, { signal: controller.signal }),
+        cancelled,
+        timeoutPromise,
+      ])
+      if (signal.aborted) throw new CommandError('CANCELLED', 'Model catalog preflight was cancelled')
+      const parsed = modelCommands['model.list'].output.safeParse(raw)
+      if (!parsed.success || new Set(parsed.data.map((item) => item.id)).size !== parsed.data.length)
+        throw new CommandError('INVALID_OUTPUT', 'Model catalog is invalid')
+      return parsed.data
+    } catch (error) {
+      if (timedOut) throw new CommandError('TIMEOUT', 'Model catalog preflight timed out')
+      throw error
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout)
+      stopWaitingForCancellation()
+    }
   }
   const ensureSelected = async (operation: PendingSubmission): Promise<void> => {
     const sessionId = operation.sessionId
@@ -853,7 +895,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     return { draftId, revision: value.revision }
   })
 
-  local.register(preSessionDraftCommands['preSessionDraft.submit'], async (input) => {
+  local.register(preSessionDraftCommands['preSessionDraft.submit'], async (input, execution) => {
     const current = entry(input.draftId)
     if (current.phase === 'accepted' && current.accepted && current.sessionId)
       return { draftId: current.draftId, sessionId: current.sessionId, accepted: current.accepted }
@@ -890,16 +932,26 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     }
     pending.set(input.draftId, operation)
     setPhase(operation, 'preparing')
-    if (requestedModelId) {
-      try {
-        const catalog = modelCommands['model.list'].output.parse(await requireModels().execute('model.list', {}))
-        if (!catalog.some((model) => model.id === requestedModelId))
-          throw new CommandError('MODEL_NOT_FOUND', 'Selected model is no longer available')
-      } catch (error) {
-        setPhase(operation, 'failed', errorCode(error))
-        pending.delete(input.draftId)
-        throw error
-      }
+    operation.inFlight = true
+    try {
+      const catalog = await readModelCatalog(execution.signal)
+      if (execution.signal.aborted) throw new CommandError('CANCELLED', 'Model catalog preflight was cancelled')
+      if (operation.closeRequested)
+        throw new CommandError('CANCELLED', 'Pre-session draft was closed before Session creation')
+      if (requestedModelId && !catalog.some((model) => model.id === requestedModelId))
+        throw new CommandError('MODEL_NOT_FOUND', 'Selected model is no longer available')
+      if (!requestedModelId && catalog.length === 0)
+        throw new CommandError('MODEL_NOT_READY', 'No model is available for the first Run')
+    } catch (error) {
+      if (operation.closeRequested) {
+        const next = { ...state.reader.getSnapshot() }
+        delete next[input.draftId]
+        state.replace(next)
+      } else setPhase(operation, 'failed', errorCode(error))
+      pending.delete(input.draftId)
+      throw error
+    } finally {
+      operation.inFlight = false
     }
     const accepted = await run(operation, false)
     if (!operation.sessionId) throw new CommandError('INVALID_STATE', 'First submission completed without a Session')
