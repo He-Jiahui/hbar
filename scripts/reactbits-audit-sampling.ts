@@ -693,6 +693,45 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-1')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '0:click',
+          change: 'Membership CTA has no reliable visible result in the captured prototype; keep a typed host action',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Fresh strict source/local interaction acceptance',
+          basis:
+            'full-static-v10 and full-interactions-v4 share target hash 2c7a0feef5f9cfa5e5426b14d1c2d5a48a9c48f74359fb32aa90c6262078c5ed, but the legacy interaction schema lacks the current capture protocol. Five desktop samples failed with control-index-not-found; only mobile first-CTA probes were captured.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Second sign-in action and remote outcomes',
+          basis:
+            'Both source buttons are visible in all static views, but the legacy interaction subset does not establish a sign-in destination or a membership completion result. Both local buttons emit distinct typed host actions without faking navigation.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Fade teaser and responsive inline card',
+          basis:
+            'The source page identifies an article lock with fade-out and inline member card. Eight static views establish a 680px desktop article and stacked narrow card. Local desktop/mobile/short-height snapshots sample the structural flow; the intended teaser mask is the sole bounded visual crop.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Over-capacity benefits',
+          basis:
+            'The three source benefit rows share one static list pattern. The host fixture separately tests 21 items using an opt-in keyboard-scroll list, not twenty-one repeated row interactions.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-onboarding-4')
     return {
       revision: 1,

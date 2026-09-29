@@ -850,3 +850,25 @@ y102/高305.5、单卡356×96.5、人数段 y459、footer y527 与本地基本�
 预览和 Lumen Vite/declaration 直接构建、限定文件 ESLint/Prettier 通过；常规
 Lumen package build 别名因本机 pnpm 版本低于仓库要求失败，不能称它通过。
 旧交互缓存无当前协议，静态图不是同轮严格来源/本地配对，**未签 fresh strict**。
+
+Paywall 1（article content lock）来源文档说明“fade-out preview and an inline
+membership card”，`full-static-v10` 八视图可见 680px 桌面文章、三段淡出预览、
+覆盖在末段上的会员卡、三项权益和并排两按钮；窄屏卡片内按钮上下堆叠。
+旧 `full-interactions-v4` 与静态目标 hash 同为
+`2c7a0feef5f9cfa5e5426b14d1c2d5a48a9c48f74359fb32aa90c6262078c5ed`，
+但五个桌面首按钮探测为 `control-index-not-found`，仅 mobile 首按钮探测记录
+无可见变化，第二按钮及购买/登录目的地没有可靠结果。两个动作仍分别交给宿主，
+不伪造远端页面或成功状态，**未签 fresh strict**。
+
+原先 Lumen 把正文与会员卡分列、放大标题且失去淡出预览；Lumen `9140c58`
+改为正常单栏阅读流、经来源证实的卡片覆盖与有界 teaser mask，并按来源使用
+h2/h3 和语义 sm 锁图标。根仓 `ada2cab` 将宿主权益策略、空列表/21 项超容量测试、
+独立浏览器脚本及 gitlink 一并提交。代表性本地图在
+`artifacts/paywall1-local-review/`：桌面卡 x203、y320.6、宽680（来源 x203、
+y325.4、宽680）；mobile 卡 y192.6、卡标题 y253.6、按钮组 y500.6；
+320×420 真滚动后第二按钮 y354.6–390.6 可见，pane scrollTop=230，
+无横溢。超容量权益 21 项不丢、列表可获焦并通过 End 键滚动；德语和 page
+errors=0。五项专项及既有测试（50 断言）、根/Lumen 类型检查、预览构建、
+CSS stylelint、新改图标/内容守卫及浏览器脚本通过；共享 `paywall.tsx` 全文件
+ESLint 在变更前后均有 16 个既存错误，`paywall.css` flow guard 报告的 grid/
+absolute 项位于未改的其它 Paywall 变体段落。不能称这两个全文件检查通过。

@@ -235,6 +235,25 @@ The interaction cache has no current capture protocol, so this is not fresh
 strict acceptance. Local narrow flow exposes the controls by natural scrolling,
 without assuming the source scroll owner.
 
+### Paywall 1 integration status
+
+`hbar-app-ui-paywall-1` now uses the source's single-column article teaser,
+intentional fade and inline overlapping membership card. The host supplies
+the article, membership copy, benefit data, action labels and list capacity
+policy. The card follows the teaser in reading order; the article/card heading
+levels are h2/h3, with separate upgrade and sign-in requests. No checkout or
+login outcome is fabricated. On narrow screens the buttons stack and remain
+reachable by natural pane scrolling; a host opt-in over-capacity benefit list
+is separately keyboard-scrollable.
+
+The authorized [Paywall 1 reference](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-1)
+`full-static-v10` and `full-interactions-v4` entries share source hash
+`2c7a0feef5f9cfa5e5426b14d1c2d5a48a9c48f74359fb32aa90c6262078c5ed`.
+The legacy interaction cache lacks the current protocol. Five desktop first-
+button probes were missing (`control-index-not-found`), and the captured mobile
+first-button sample has no reliable visible outcome. The second action is not
+covered, so this is not fresh strict interaction acceptance.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
