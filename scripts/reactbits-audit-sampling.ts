@@ -565,6 +565,45 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-forms-6')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-6-reference.tsx',
+        'forms-6-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: '8:toggle',
+          change: 'Uncheck Billing address matches delivery and verify the billing fields enter normal flow',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Country-driven province options and shipping-total updates',
+          basis:
+            'A prior safe live source probe observed Canada switching the region control to Province and Express changing the summary total. This pass pairs the billing checkbox mechanism; the focused local verifier and store tests cover the country and shipping projections without multiplying the browser sample.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Pay and Back to cart outcomes',
+          basis:
+            'Pay remains disabled until required payment data is complete, and Back navigation has no verified source outcome in this safe audit. The preview does not submit payment or claim navigation success; Back remains a host callback intent.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated checkbox and address edits at other viewport/theme combinations',
+          basis:
+            'Eight static captures cover the four responsive sizes and both themes. The checkbox transition uses one host-owned draft boolean with no viewport/theme-specific branch; no Cartesian interaction replay is claimed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-5')
     return {
       revision: 1,
