@@ -622,3 +622,18 @@ Forms 5（Provision a workspace）的实时证据位于
 局部 lint/flow/content/icon guards 和构建通过，构建仍有既有大 chunk 提示。
 根类型检查本轮被无关的 `packages/app-runtime/src/agent-composer.ts:663` 类型错误阻断，
 不得记为通过；真实创建结果与其他按钮/布局乘积仍待证。
+
+Forms 6（Checkout）的实时来源/本地证据位于
+`artifacts/reactbits-pro-visual-audit/forms-6-integrated-r3/`：8 组静态对和 1 次桌面浅色
+Billing address matches delivery 切换配对，缺失 0。来源视觉表明勾选时 Billing 子表单
+隐藏、取消勾选时展开；旧只读观察与此矛盾，以新鲜截图和交互前后图为准。来源勾选态
+的 AX/控件列表却仍包含视觉隐藏的输入；本地隐藏时将其移出可访问树和 Tab 顺序，
+不复刻这项来源缺陷，因此**严格账本保持 `needs-fix` 且无人工签核**。来源自定义
+combobox/本地原生 select 的形状、窄屏源画布裁切/本地正常文档流高度，以及该 checkbox
+的截图差量亦保留在原始报告；细节见同目录 `source-gap-notes.md`。
+宿主掌管三件商品、运费和税费金额，初始总额 $275.59；较早安全来源探测曾确认
+Canada→Province 及 Express→$289.59，本轮仅配对 Billing 机制，不把它们冒称同轮回放。
+独立脚本 `scripts/verify-hbar-app-ui-forms-6.ts` 验证这些本地金额/地址转移、Billing
+显隐、320px 文档滚动到底栏、Pay 禁用、本地化与 page error（0）。8 项专项测试
+（77 条断言）、根与 Lumen 类型检查、局部 lint/guards 和构建通过，构建仍有既有大 chunk
+提示。没有填写或触发支付，Back 也仅为宿主回调；不声称远端付款/导航结果。
