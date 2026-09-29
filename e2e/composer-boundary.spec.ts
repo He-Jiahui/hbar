@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
-const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 48739}`
+const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`composer removes decorative beams but retains focus and send: ${locale}`, async ({ browser }) => {
@@ -13,7 +13,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, colorScheme: 'light', viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 48737) })
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
       expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
         true,
       )
@@ -28,6 +28,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(form.locator(':scope > [data-edge]')).toHaveCount(0)
       const input = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await input.focus()
+      const composerTypography = await input.evaluate((element) => {
+        const editor = element.closest('.cm-scroller')
+        const composer = element.closest('.lumen-prompt-composer')
+        return {
+          editor: editor ? getComputedStyle(editor).fontFamily : null,
+          composer: composer ? getComputedStyle(composer).fontFamily : null,
+        }
+      })
+      expect(composerTypography.editor).toBe(composerTypography.composer)
       const focus = await form.evaluate((element) => {
         const style = getComputedStyle(element)
         return { width: parseFloat(style.outlineWidth), style: style.outlineStyle, color: style.outlineColor }

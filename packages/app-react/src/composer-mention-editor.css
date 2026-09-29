@@ -17,6 +17,10 @@
   font: inherit;
 }
 
+.hbar-composer-mention-editor .cm-scroller {
+  font-family: inherit;
+}
+
 .hbar-composer-mention-editor .cm-content {
   min-block-size: 4.5rem;
   padding: 0.75rem;
