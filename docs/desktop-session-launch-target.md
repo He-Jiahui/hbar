@@ -32,6 +32,22 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 本次采用 Host 自己生成和管理会话目标。第一条已受理 Run 冻结该目标，后续 Run、模型系统上下文及 local tools 使用同一 binding；关闭、归档、取消或错误均不自动删除目录。当前模式只包含共享当前 checkout 与独立工作树（既有分支／新分支），**不包含在共享 checkout 切换分支**。
 
+### 追加核对：选择的分支不等于隔离工作树的执行分支
+
+2026-09-29 再次核对上述 reference revision 的 `src/server/services/repositoryLaunchService.ts`、`sessionService.ts`、`conversationService.ts` 及 `desktop/src/components/chat/RepositoryLaunchControls.tsx`。这一步是源码／提交差异依据，不是新增真实首发或 native capture。`95b181de` 引入 CLI worktree 启动对齐，`dea5d9bc` 明确创建成功后的就近确认及关闭菜单，`38de7069` 修正 parent selection 先于刷新后的分支 context 发布时的新分支丢失；不能只看菜单初始画面而漏掉这些时序。
+
+| 动作                   | cc-haha 当前真实语义                                                                                 | hbar 仍需补齐的差异                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 选择一个已有分支       | 仅更新 parent-owned branch choice，回到 Location 根菜单；不立即 switch                               | 目前分支选择只属于 isolated-worktree，shared-current 不能表达所选的非当前分支                                         |
+| 选择 Current worktree  | 保留所选分支，关闭菜单；首次启动时才核对并 switch 共享 checkout                                      | 需要单独的共享分支选择／准备契约和对其他共享会话、dirty Files 的保护，不能把选项转换回当前 HEAD                       |
+| 选择 Isolated worktree | 所选分支是 baseRef；实际创建会话专属的新分支及工作树，原分支／目录不变                               | 目前 isolated existing 直接检出所选分支，已占用的 main 无法隔离；必须新增派生语义，不能在列表里把 main 禁用后称为一致 |
+| New branch → Create    | 立即创建本地 ref，但不移动 HEAD；用响应携带的新 context 同步选择并关闭菜单，切换／隔离发生在首次启动 | 目前 isolated new 在 prepare 时创建执行分支；它不是参考的立即创建 ref 动作，也不能伪装成创建成功                      |
+| 创建期间更换目录       | 迟到响应不会把旧仓库的 branch/context 填进新目录；spinner 仍会释放                                   | 必须以原 workspace／revision 及 request generation 核对，保留正确归属                                                 |
+
+`SessionService.createSession` 通过 `resolveSessionWorkspaceLaunch` 保存启动计划；`ConversationService.startSession` 对未物化的隔离启动传入 CLI `--worktree` 与 `--worktree-base-ref`，共享模式则在首次启动调用 `prepareSessionWorkspace`。参考 `planIsolatedWorktree`／`createDesktopWorktree` 使用派生的 `worktree-desktop-*` 分支名；因此另一个 worktree 已检出的分支仍可作为隔离起点。分支发现的 availability 需要区分“共享 checkout 能否切换”和“能否作为隔离 base”，不能只用一个 checked-out disabled 标志。
+
+有效参考截图继续支撑 Location 内 Directory、Branch、两张 radio card、branch search／New branch／Cancel／Create 的自然流层级。上表的实际 Git 行为仅有源码及参考既有测试依据；本轮未调用参考创建 API、发送消息或写入参考仓库。底部工具行维持加号 → 权限 → Location → 模型／Send 的阅读顺序，不能为迁就慢准备 API 另加可见 Prepare 按钮。
+
 当前隔离目标只支持登记到 Git repository root 的 workspace。登记的是仓库子目录时，shared-current 仍以该子目录为文件边界；isolated prepare／Run 明确返回 `SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED`，不创建分支／工作树／binding，也不偷偷把 cwd 扩大到整个 repo。完整子目录隔离支持仍需分离 worktree root 与 execution cwd 的持久契约，不能只改一个返回路径。
 
 ## 已提交的底层切片
