@@ -565,6 +565,69 @@ const planBoardPlan: AuditSamplingPlan = {
 }
 
 export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefined {
+  if (variantId === 'hbar-app-ui-forms-4')
+    return {
+      revision: 2,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-4-reference.tsx',
+        'forms-4-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'light',
+          suffix: 'forms4-edit-cancel:3:click',
+          change: 'Open Asset tag inline editor, then Cancel to restore the source value row',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: 'forms4-condition-edit:5:select',
+          change: 'Open Condition editor and select a different observed choice without saving',
+        },
+        {
+          viewport: 'tablet',
+          theme: 'light',
+          suffix: '10:toggle',
+          change: 'Toggle Condition tracking and verify its adjacent status copy',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Other text/date rows, service-interval choices, and repeated edit/cancel paths',
+          basis:
+            'Rows share the typed property-ID edit/cancel host transitions; focused tests cover text, date, choice IDs, stale drafts and cancel restoration. Live source probes separately observed text, date and both choice editor controls. The browser samples pair the cancel path with a choice draft rather than multiplying each row and viewport.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Save and Add note outcomes',
+          basis:
+            'Those source actions were not invoked for outcome verification. The preview forwards typed host requests only and does not invent a saved value, note, or remote confirmation.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Condition picker expansion surface',
+          basis:
+            'A live source probe exposes a custom button/combobox with a listbox; the local Lumen control is a native select. Both sampled transitions select the same visible choice, but the expanded popup structure and keyboard affordance are not like-for-like in this harness.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Narrow source iframe height versus local content flow',
+          basis:
+            'At mobile and 320px the source preview canvas remains 720px high and crops lower rows in its screenshot. The local card retains all rows and footer in normal document flow for reachability; no source inner scroll owner is claimed.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other viewport/theme combinations',
+          basis:
+            'Eight static captures compare four viewports across both themes; the sampled state transitions have no viewport/theme branches. The component keeps the bounded property list in natural flow at narrow widths.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-settings-form-6')
     return {
       revision: 1,

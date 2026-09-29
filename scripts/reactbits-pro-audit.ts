@@ -422,6 +422,8 @@ export type InteractionCase = Readonly<{
     | 'toast-success'
     | 'toast-stack'
     | 'forms1-method-revert'
+    | 'forms4-edit-cancel'
+    | 'forms4-condition-edit'
     | 'preferences-dirty'
     | QueueApprovalScenario
     | PermissionApprovalScenario
@@ -492,7 +494,7 @@ const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
 const captureProtocolVersion = 15
-const interactionProtocolVersion = 34
+const interactionProtocolVersion = 36
 
 export function auditBrowserArguments(http1: boolean): string[] {
   // A reference React update can repaint unchanged prose from LCD to grayscale
@@ -1804,6 +1806,16 @@ function formsForm1MethodRevertCase(snapshot: SemanticSnapshot): InteractionCase
     control,
     scenario: 'forms1-method-revert',
   }
+}
+
+async function prepareForms4AssetTagEdit(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Edit Asset tag', exact: true }).click({ timeout: 10_000 })
+  await root.getByRole('textbox', { name: 'Asset tag', exact: true }).waitFor({ state: 'visible', timeout: 5_000 })
+}
+
+async function prepareForms4ConditionEdit(root: Locator): Promise<void> {
+  await root.getByRole('button', { name: 'Edit Condition', exact: true }).click({ timeout: 10_000 })
+  await root.getByRole('combobox').first().waitFor({ state: 'visible', timeout: 5_000 })
 }
 
 /** Preserve the native focus/scroll evidence separately from keyboard selection. */
@@ -3428,6 +3440,7 @@ export function selectInteractionCases(
 }
 
 async function controlLocator(root: Locator, control: ControlSnapshot, scenario?: InteractionCase['scenario']) {
+  if (scenario === 'forms4-condition-edit') return root.getByRole('combobox').first()
   if (scenario === 'dialog-evidence-scroll') return dialogEvidenceScrollOwner(root)
   if (scenario === 'wizard-invoice-scroll' || scenario === 'wizard-environment-scroll')
     return wizardInvoiceScrollOwner(root)
@@ -3477,7 +3490,7 @@ async function controlLocator(root: Locator, control: ControlSnapshot, scenario?
   return controls.nth(best.index)
 }
 
-async function applyInteraction(control: Locator, interaction: InteractionCase): Promise<void> {
+async function applyInteraction(control: Locator, interaction: InteractionCase, root?: Locator): Promise<void> {
   if (interaction.action === 'scroll') {
     if (
       ![
@@ -3523,6 +3536,27 @@ async function applyInteraction(control: Locator, interaction: InteractionCase):
     // pointer can rest over its first row after iframe alignment, so remove
     // that unrelated hover from both sides of this sampled input feedback.
     if (interaction.id.startsWith('hbar-app-ui-app-sidebar-5:')) await control.page().mouse.move(0, 0)
+  }
+  if (interaction.action === 'select' && interaction.scenario === 'forms4-condition-edit') {
+    const tagName = await control.evaluate((element) => element.tagName)
+    if (tagName === 'SELECT') {
+      const values = await control.locator('option').evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value),
+      )
+      const current = await control.inputValue().catch(() => '')
+      const next = values.find((value) => value !== current)
+      if (next === undefined) throw new Error('Condition editor exposed no alternate observed choice')
+      await control.selectOption(next)
+      return
+    }
+    if ((await control.getAttribute('role')) === 'combobox' && root) {
+      await control.click({ timeout: 10_000 })
+      const nextOption = root.locator('[role="option"]:not([aria-selected="true"])').first()
+      await nextOption.waitFor({ state: 'visible', timeout: 5_000 })
+      await nextOption.click({ timeout: 10_000 })
+      return
+    }
+    throw new Error('Condition editor exposed neither its native select nor source combobox')
   }
   if (interaction.action === 'select') {
     const values = await control
@@ -3943,6 +3977,10 @@ async function replayInteraction(
   if (spec.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   if (spec.id === 'hbar-app-ui-forms-1' && interaction.scenario === 'forms1-method-revert')
     await prepareFormsForm1MethodRevert(root)
+  if (spec.id === 'hbar-app-ui-forms-4' && interaction.scenario === 'forms4-edit-cancel')
+    await prepareForms4AssetTagEdit(root)
+  if (spec.id === 'hbar-app-ui-forms-4' && interaction.scenario === 'forms4-condition-edit')
+    await prepareForms4ConditionEdit(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
   if (spec.id === 'hbar-app-ui-notifications-2' && toastScenario)
     await prepareNotificationToastScenario(root, toastScenario)
@@ -4231,7 +4269,7 @@ async function replayInteraction(
   try {
     if (!(await controlIsDisabled(control))) {
       if (isScrollAwareApproval(spec.id)) await prepareInlineApprovalActivation(root, control, interaction)
-      await applyInteraction(control, interaction)
+      await applyInteraction(control, interaction, root)
     }
   } catch (error) {
     return {
@@ -4291,6 +4329,10 @@ async function replayReferenceInteraction(
   await root.waitFor({ state: 'visible', timeout: 30_000 })
   if (reference.id === 'hbar-app-ui-forms-1' && interaction.scenario === 'forms1-method-revert')
     await prepareFormsForm1MethodRevert(root)
+  if (reference.id === 'hbar-app-ui-forms-4' && interaction.scenario === 'forms4-edit-cancel')
+    await prepareForms4AssetTagEdit(root)
+  if (reference.id === 'hbar-app-ui-forms-4' && interaction.scenario === 'forms4-condition-edit')
+    await prepareForms4ConditionEdit(root)
   if (reference.id === 'hbar-app-ui-editor-3') await waitForReferenceCodeHighlight(root)
   if (reference.id === 'hbar-app-ui-authentication-3') await prepareQuoteInitial(root)
   const toastScenario = notificationToastScenarios.find((value) => value === interaction.scenario)
@@ -4631,7 +4673,7 @@ async function replayReferenceInteraction(
           await page.mouse.move(x, y)
         }
       } else {
-        await applyInteraction(control, interaction)
+        await applyInteraction(control, interaction, root)
       }
     }
   } catch (error) {
@@ -5103,6 +5145,23 @@ async function runInteractionsParallel(
             ) {
               await prepareFormsForm1MethodRevert(sourceRoot)
               discovered.push(formsForm1MethodRevertCase(await snapshotRoot(frame, sourceSelector)))
+            }
+            if (
+              spec.id === 'hbar-app-ui-forms-4' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:forms4-edit-cancel:`))
+            ) {
+              await prepareForms4AssetTagEdit(sourceRoot)
+              discovered.push(
+                ...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'forms4-edit-cancel'),
+              )
+            }
+            if (
+              spec.id === 'hbar-app-ui-forms-4' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:forms4-condition-edit:`))
+            ) {
+              await prepareForms4ConditionEdit(sourceRoot)
+              const conditionSnapshot = await snapshotRoot(frame, sourceSelector)
+              discovered.push(...interactionCases(conditionSnapshot, spec.id, 'forms4-condition-edit'))
             }
             if (
               spec.id === 'hbar-app-ui-editor-2' &&
