@@ -142,7 +142,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     kernel.changed('session-launch-target'),
   )
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
-  const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'))
+  const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'), {
+    resolveSessionPath: (sessionId, workspacePath, signal) =>
+      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  })
   const goalPlanCommands = createGoalPlanCommands(
     kernel.plugins.get<GoalService>('goal'),
     kernel.plugins.get<PlanService>('plan'),
