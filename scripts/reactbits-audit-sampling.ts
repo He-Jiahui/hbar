@@ -693,6 +693,51 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-3')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-3-reference.tsx',
+        'onboarding-3-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '1:click',
+          change: 'Uncheck the completed Profile task and reduce progress from 2/6 to 1/6',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source interaction acceptance',
+          basis:
+            'The full-static-v10 and full-interactions-v4 target hashes match, but the interaction report is legacy schemaVersion 1 without the current capture protocol. It does not constitute a fresh strict source/local pair.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Legacy comparator false negative for Profile uncheck',
+          basis:
+            'The dark/mobile before/after AX snapshots and image show Profile checked→unchecked and 2/6→1/6, with progress fill 75.95→39.13px. The old report says source-no-op because its delta signature omits checkbox checked and AX progress text. The observed transition is modeled despite that summary.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other checkboxes, per-task links and persistence',
+          basis:
+            'No other completion state or link destination is reliably captured. They remain typed host requests rather than inferred progress or navigation.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated rows and responsive combinations',
+          basis:
+            'Six tasks share one row pattern. Static source views show narrow truncation but no horizontal overflow; local flow preserves readable content. One Profile checkbox covers the observed state mechanism, not six tasks times four viewports.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-onboarding-2')
     return {
       revision: 1,
