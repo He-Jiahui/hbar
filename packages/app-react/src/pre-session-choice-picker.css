@@ -24,12 +24,22 @@ dialog.hbar-pre-session-choice-dialog {
   max-block-size: calc(100dvb - 2rem);
 }
 
+dialog.hbar-pre-session-choice-dialog header button > [data-edge] {
+  display: none;
+}
+
+dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
+  overflow: hidden;
+}
+
 .hbar-pre-session-choice-content {
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 0.75rem;
+  padding: 0.75rem;
 }
 
 .hbar-pre-session-choice-list {
@@ -45,6 +55,7 @@ dialog.hbar-pre-session-choice-dialog {
 .hbar-pre-session-choice-row {
   display: flex;
   min-inline-size: 0;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.125rem;

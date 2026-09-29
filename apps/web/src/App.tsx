@@ -68,6 +68,7 @@ import {
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
+import { WebPreSessionLanding } from './PreSessionLanding'
 import type { WebLanguageController } from './language'
 import type { WebZoomController } from './app-zoom'
 import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
@@ -390,7 +391,8 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
         ? copy.shell.status
         : activeTab?.kind === 'workbench'
           ? copy.files.title
-          : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ?? copy.empty.title)
+          : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ??
+            copy.preSession.hero.title)
   return (
     <SettingsPageFocusBoundary
       pageKind={presentation.page.kind}
@@ -510,11 +512,15 @@ function WorkspaceBodyContent({
     busy: false,
     error: null,
   })
+  const landingDraftId = useRef<string | null>(null)
   const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
   useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
   useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   const sessionWorkspace = session ? directory.workspaces[session.workspaceId] : undefined
+  useEffect(() => {
+    if (session) landingDraftId.current = null
+  }, [session])
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
   if (presentation.page.kind === 'settings')
@@ -686,7 +692,15 @@ function WorkspaceBodyContent({
         }
       />
     )
-  return <LumenWorkbenchNotice title={copy.empty.title} description={copy.empty.description} />
+  if (!landingDraftId.current) landingDraftId.current = crypto.randomUUID()
+  return (
+    <WebPreSessionLanding
+      draftId={landingDraftId.current}
+      locale={locale}
+      connected={connected}
+      sendBehavior={selectedSendBehavior}
+    />
+  )
 }
 
 function WorkspaceTool({

@@ -177,7 +177,7 @@ test('workspace-scoped Files can expand without a source conversation and return
     await page.screenshot({ path: 'artifacts/reference-ux-v2/hbar-workbench-all-1440.png' })
     await expanded.getByRole('button', { name: copy.files.returnToWorkspace, exact: true }).click()
     await expect(page.getByRole('tab')).toHaveCount(0)
-    await expect(page.getByText(copy.empty.title, { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: copy.preSession.hero.title, exact: true })).toBeVisible()
     await expect(page.locator('.hbar-settings-page-focus')).toBeFocused()
     await page.reload()
     await expect(page.getByRole('tab')).toHaveCount(0)

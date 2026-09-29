@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PlaywrightUiHarness } from './support/playwright-ui-harness.ts'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
 async function closeCommandCatalog(page: import('@playwright/test').Page): Promise<void> {
@@ -203,7 +204,9 @@ test('executes shell directory writes against the real Host', async ({ browser }
             },
             {
               description: 'archiving current session clears selection',
-              passed: await page.getByRole('heading', { level: 1, name: 'Select a session' }).isVisible(),
+              passed: await page
+                .getByRole('heading', { level: 1, name: getShellCopy('en-US').preSession.hero.title })
+                .isVisible(),
             },
           ],
           host: [{ description: 'Host marks the exact created session archived', passed: archived?.archived === true }],

@@ -70,7 +70,6 @@ interface ShellCopy {
     readonly restore: string
     readonly close: string
   }
-  readonly empty: { readonly title: string; readonly description: string }
   readonly preSession: HbarPreSessionLandingLabels
   readonly session: HbarSessionWorkspaceLabels
   readonly planProposal: { readonly requestText: PlanProposalRequestText }
@@ -2921,7 +2920,6 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       restore: '还原窗口',
       close: '关闭窗口',
     },
-    empty: { title: '选择一个会话', description: '从左侧工程列表选择会话以打开工作区。' },
     preSession: {
       hero: {
         markUrl: '/favicon.png',
@@ -3065,7 +3063,6 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       restore: 'Restore window',
       close: 'Close window',
     },
-    empty: { title: 'Select a session', description: 'Choose a session from the project list to open its workspace.' },
     preSession: {
       hero: {
         markUrl: '/favicon.png',

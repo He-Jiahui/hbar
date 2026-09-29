@@ -1,0 +1,32 @@
+.hbar-web-pre-session-path {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: 0.75rem;
+}
+
+.hbar-web-pre-session-path > label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.hbar-web-pre-session-path > button {
+  align-self: flex-start;
+}
+
+.hbar-web-pre-session-path > p,
+.hbar-web-pre-session-recovery > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-web-pre-session-recovery {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

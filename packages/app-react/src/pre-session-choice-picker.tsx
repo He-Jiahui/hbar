@@ -30,10 +30,10 @@ export interface HbarPreSessionChoicePickerProps {
   readonly hasMore?: boolean
   readonly onMore?: (() => void) | undefined
   readonly onChoose: (id: string) => Promise<void> | void
-  readonly extra?: ReactNode
+  readonly extra?: ReactNode | ((close: () => void) => ReactNode)
 }
 
-/** A page-owned 60-row window over Host-supplied choices, with explicit remote pagination. */
+/** Host-supplied choices reveal in 60-row increments, with explicit remote pagination. */
 export const PRE_SESSION_CHOICE_PAGE_SIZE = 60
 
 export function visiblePreSessionChoices(items: readonly HbarPreSessionChoice[], query: string, limit: number) {
@@ -100,16 +100,23 @@ export function HbarPreSessionChoicePicker({
           closeLabel={labels.close}
           onClose={close}
           className="hbar-pre-session-choice-dialog"
+          appearance="panel"
         >
           <LumenFrame className="hbar-pre-session-choice-content">
             <LumenInput
               type="search"
+              variant="boxed"
               aria-label={labels.search}
               placeholder={labels.search}
               value={query}
               onChange={(event) => {
                 setQuery(event.currentTarget.value)
                 setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                event.preventDefault()
+                event.stopPropagation()
               }}
             />
             <LumenFrame className="hbar-pre-session-choice-list" aria-label={labels.title}>
@@ -168,7 +175,7 @@ export function HbarPreSessionChoicePicker({
                 {labels.error(error)}
               </LumenText>
             )}
-            {extra}
+            {typeof extra === 'function' ? extra(close) : extra}
           </LumenFrame>
         </LumenDialog>
       )}
