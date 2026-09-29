@@ -5,7 +5,7 @@ import { MAX_WORKSPACE_TABS, type WorkspaceTabsState } from './workspace-tabs-ru
 import type { NavigationState, PresentationState, SurfaceState } from './types'
 
 const id = z.string().min(1).max(160)
-const toolKind = z.enum(['files', 'monitoring', 'agents', 'goals'])
+const toolKind = z.enum(['files', 'activity', 'monitoring', 'agents', 'goals'])
 type ToolKind = z.output<typeof toolKind>
 const target = z.strictObject({
   panelId: toolKind,

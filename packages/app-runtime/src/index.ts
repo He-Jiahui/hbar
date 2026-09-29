@@ -59,6 +59,13 @@ import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
+import { activityWorkspaceCommands, createActivityWorkspace } from './activity-workspace'
+export {
+  activityWorkspaceCommands,
+  ACTIVITY_WORKSPACE_MAX_ITEMS,
+  ACTIVITY_WORKSPACE_PAGE_SIZE,
+} from './activity-workspace'
+export type { ActivityWorkspaceEntryState, ActivityWorkspaceState } from './types'
 import { createQueuedUserRuns, queuedUserRunsCommands } from './queued-user-runs'
 export { queuedUserRunsCommands, QUEUED_USER_RUNS_PAGE_SIZE } from './queued-user-runs'
 export type { QueuedUserRunsState } from './queued-user-runs'
@@ -285,6 +292,7 @@ const runtimeCommands = {
   ...sessionGitContextCommands,
   ...sessionRosterRefreshCommands,
   ...settingsUsageCommands,
+  ...activityWorkspaceCommands,
   ...goalHistoryCommands,
   ...queuedUserRunsCommands,
   ...composerIntentCommands,
@@ -469,6 +477,15 @@ export function createAppRuntime(options: RuntimeOptions) {
     surfaces,
     presentation,
     sessionTools,
+  )
+  const activityWorkspace = createActivityWorkspace(
+    local,
+    options.run,
+    surfaces.reader,
+    presentation.reader,
+    navigation.reader,
+    onSubscriberError,
+    () => disposed,
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
@@ -788,6 +805,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionGitContextCommands, name) ||
         Object.hasOwn(sessionRosterRefreshCommands, name) ||
         Object.hasOwn(settingsUsageCommands, name) ||
+        Object.hasOwn(activityWorkspaceCommands, name) ||
         Object.hasOwn(goalHistoryCommands, name) ||
         Object.hasOwn(queuedUserRunsCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
@@ -847,6 +865,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       presentation: presentation.reader,
       timeline: timeline.reader,
       goalHistory: goalHistory.reader,
+      activity: activityWorkspace.reader,
       queuedUserRuns: queuedUserRuns.reader,
       drafts: drafts.reader,
       runActions: drafts.actions,
@@ -905,6 +924,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workspaceOrganization.dispose()
       workspaceDisplayNames.dispose()
 
+      activityWorkspace.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()

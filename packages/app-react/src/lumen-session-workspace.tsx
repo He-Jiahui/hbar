@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Bot, ChartNoAxesColumnIncreasing, Files, ListTodo, Settings, type LucideIcon } from 'lucide-react'
+import { Bot, ChartNoAxesColumnIncreasing, Files, ListChecks, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
   LumenText,
@@ -132,6 +132,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly tools: {
     readonly label: string
     readonly files: string
+    readonly activity: string
     readonly monitoring: string
     readonly agents: string
     readonly goals: string
@@ -666,12 +667,12 @@ function SessionWorkspaceContent({
     code: string
   } | null>(null)
   const activeTool = toolInstanceId ? surfaces.panels[toolInstanceId] : undefined
-  const isToolActive = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') =>
+  const isToolActive = (panelId: 'files' | 'activity' | 'monitoring' | 'agents' | 'goals') =>
     sessionId !== null &&
     activeTool?.panelId === panelId &&
     activeTool.workspaceId === navigation.workspaceId &&
     activeTool.sessionId === sessionId
-  const toggleTool = (panelId: 'files' | 'monitoring' | 'agents' | 'goals') => {
+  const toggleTool = (panelId: 'files' | 'activity' | 'monitoring' | 'agents' | 'goals') => {
     if (!sessionId || !navigation.workspaceId) return
     const target = {
       panelId,
@@ -1612,6 +1613,13 @@ function SessionWorkspaceContent({
                 onClick={() => toggleTool('files')}
               />
             )}
+            <SessionToolButton
+              icon={ListChecks}
+              label={labels.tools.activity}
+              selected={isToolActive('activity')}
+              disabled={!sessionId}
+              onClick={() => toggleTool('activity')}
+            />
             <SessionToolButton
               icon={ChartNoAxesColumnIncreasing}
               label={labels.tools.monitoring}

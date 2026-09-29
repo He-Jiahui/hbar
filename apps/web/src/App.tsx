@@ -10,6 +10,7 @@ import {
   HbarProviderSettings,
   HbarRuntimeProvider,
   HbarSessionMonitoring,
+  HbarSessionActivityWorkspace,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
   HbarSettingsUsage,
@@ -800,6 +801,15 @@ function WorkspaceTool({
     )
   if (panel.panelId === 'monitoring')
     return <HbarSessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
+  if (panel.panelId === 'activity')
+    return (
+      <HbarSessionActivityWorkspace
+        labels={copy.activity}
+        connected={connected}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+      />
+    )
   if (panel.panelId === 'agents')
     return (
       <HbarAgentWorkspace
@@ -1302,11 +1312,13 @@ export default function App({
               ? copy.files.title
               : toolPanel?.panelId === 'monitoring'
                 ? copy.monitoring.title
-                : toolPanel?.panelId === 'agents'
-                  ? copy.agents.title
-                  : toolPanel?.panelId === 'goals'
-                    ? copy.goals.title
-                    : copy.session.tools.label
+                : toolPanel?.panelId === 'activity'
+                  ? copy.activity.title
+                  : toolPanel?.panelId === 'agents'
+                    ? copy.agents.title
+                    : toolPanel?.panelId === 'goals'
+                      ? copy.goals.title
+                      : copy.session.tools.label
           }
           tool={
             presentation.toolInstanceId &&

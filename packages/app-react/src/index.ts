@@ -95,6 +95,11 @@ export {
   type HbarFilePreviewCloseScope,
 } from './file-preview-tabs'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
+export {
+  HbarSessionActivityWorkspace,
+  HbarSessionActivityView,
+  type HbarSessionActivityLabels,
+} from './session-activity-workspace'
 export type { HbarSessionProjectContextLabels } from './session-project-context'
 export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent-workspace'
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'

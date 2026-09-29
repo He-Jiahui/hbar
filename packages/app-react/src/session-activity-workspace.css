@@ -1,0 +1,52 @@
+.hbar-session-activity-body,
+.hbar-session-activity-recovery,
+.hbar-session-activity-list,
+.hbar-session-activity-list > li {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hbar-session-activity-body {
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hbar-session-activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-session-activity-list > li {
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+}
+
+.hbar-session-activity-row-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-session-activity-row-heading strong,
+.hbar-session-activity-list time,
+.hbar-session-activity-notice,
+.hbar-session-activity-count,
+.hbar-session-activity-recovery p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-activity-list time,
+.hbar-session-activity-count,
+.hbar-session-activity-notice {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}

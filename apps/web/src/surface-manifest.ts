@@ -2,6 +2,7 @@ export const webSurfaceOutlets = Object.freeze({
   settings: 'page',
   status: 'page',
   files: 'tool',
+  activity: 'tool',
   monitoring: 'tool',
   agents: 'tool',
   goals: 'tool',

@@ -11,6 +11,7 @@ import type {
   HbarProviderDialogLabels,
   HbarProviderSettingsLabels,
   HbarSessionMonitoringLabels,
+  HbarSessionActivityLabels,
   HbarSessionWorkspaceLabels,
   HbarSettingsWorkspaceLabels,
   HbarSettingsUsageLabels,
@@ -80,6 +81,7 @@ interface ShellCopy {
   readonly commandPalette: HbarCommandPaletteLabels
   readonly files: HbarFileWorkspaceLabels
   readonly monitoring: HbarSessionMonitoringLabels
+  readonly activity: HbarSessionActivityLabels
   readonly agents: HbarAgentWorkspaceLabels
   readonly goals: HbarGoalPlanWorkspaceLabels
   readonly extensions: HbarExtensionWorkspaceLabels
@@ -1569,6 +1571,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     tools: {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),
+      activity: choose('活动运行', 'Active runs'),
       monitoring: choose('用量监控', 'Monitoring'),
       agents: choose('子 Agent', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
@@ -1851,6 +1854,56 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     duration: (value) => `${number.format(value)} ms`,
     rate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
     model: (provider, model) => `${provider} / ${model}`,
+  }
+}
+
+function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const number = new Intl.NumberFormat(locale)
+  const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' })
+  const at = (timestamp: number) => time.format(new Date(timestamp))
+  const statuses: Readonly<Record<Parameters<HbarSessionActivityLabels['status']>[0], string>> = {
+    queued: choose('排队中', 'Queued'),
+    running: choose('运行中', 'Running'),
+    waiting_approval: choose('等待审批', 'Waiting for approval'),
+    cancelRequested: choose('正在取消', 'Cancelling'),
+  }
+  return {
+    title: choose('活动运行', 'Active runs'),
+    description: choose(
+      '仅列出此会话正在排队、执行或等待审批的运行。',
+      'Only runs currently queued, executing, or awaiting approval in this session.',
+    ),
+    close: choose('关闭活动运行', 'Close active runs'),
+    refresh: choose('刷新活动运行', 'Refresh active runs'),
+    loading: choose('正在读取当前运行…', 'Loading active runs…'),
+    empty: choose('此会话目前没有活动运行。', 'This session has no active runs.'),
+    offline: choose('连接已断开；显示的运行状态可能已过时。', 'Disconnected; shown run states may be stale.'),
+    retry: choose('重新读取', 'Try again'),
+    loadMore: choose('加载更多运行', 'Load more runs'),
+    loadingMore: choose('正在加载更多运行…', 'Loading more runs…'),
+    limitReached: choose(
+      '已达到本次查看上限；刷新以查看最新活动。',
+      'This view reached its item limit. Refresh to check the latest activity.',
+    ),
+    count: (loaded, total) =>
+      loaded === total
+        ? choose(`${number.format(total)} 个活动运行`, `${number.format(total)} active runs`)
+        : choose(
+            `已加载 ${number.format(loaded)} / ${number.format(total)} 个活动运行`,
+            `${number.format(loaded)} of ${number.format(total)} active runs loaded`,
+          ),
+    runAt: (createdAt) => choose(`${at(createdAt)} 创建的 Run`, `Run created at ${at(createdAt)}`),
+    startedAt: (startedAt) => choose(`${at(startedAt)} 开始`, `Started ${at(startedAt)}`),
+    queuedAt: (createdAt) => choose(`${at(createdAt)} 入队`, `Queued ${at(createdAt)}`),
+    status: (status) => statuses[status],
+    error: (code) =>
+      code === 'ACTIVITY_CHANGED'
+        ? choose('运行状态已变化，请重新读取。', 'Run activity changed. Refresh to read it again.')
+        : code === 'TIMEOUT'
+          ? choose('读取超时，请重试。', 'The activity read timed out. Try again.')
+          : choose('无法确认当前运行，请重试。', 'Could not confirm active runs. Try again.'),
   }
 }
 
@@ -2821,6 +2874,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     commandPalette: createCommandPaletteLabels('zh-CN'),
     files: createFileLabels('zh-CN'),
     monitoring: createSessionMonitoringLabels('zh-CN'),
+    activity: createSessionActivityLabels('zh-CN'),
     agents: createAgentWorkspaceLabels('zh-CN'),
     goals: createGoalPlanWorkspaceLabels('zh-CN'),
     extensions: createExtensionWorkspaceLabels('zh-CN'),
@@ -2956,6 +3010,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     commandPalette: createCommandPaletteLabels('en-US'),
     files: createFileLabels('en-US'),
     monitoring: createSessionMonitoringLabels('en-US'),
+    activity: createSessionActivityLabels('en-US'),
     agents: createAgentWorkspaceLabels('en-US'),
     goals: createGoalPlanWorkspaceLabels('en-US'),
     extensions: createExtensionWorkspaceLabels('en-US'),
