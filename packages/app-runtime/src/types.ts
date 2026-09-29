@@ -19,7 +19,7 @@ import type {
 import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import type { ModelConfiguration, ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
-import type { AgentRecord } from '@hbar/contracts/commands/agents'
+import type { AgentProfileId, AgentRecord } from '@hbar/contracts/commands/agents'
 import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
 import type { MetricsQueryResult } from '@hbar/contracts/commands/metrics'
 import type { GitCommitInfo, GitCommitSource, GitStatsReport, GitStatus } from '@hbar/contracts'
@@ -257,6 +257,28 @@ export interface AgentWorkspaceState {
     readonly models: readonly ModelDescriptor[]
     readonly error: string | null
   }
+}
+
+export interface AgentComposerActionState {
+  readonly sessionId: string
+  readonly workspaceId: string
+  readonly draftText: string
+  readonly draftRevision: number
+  readonly profileId: AgentProfileId
+  readonly objective: string
+  readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
+  readonly agent: Readonly<AgentRecord> | null
+  readonly draftCleared: boolean
+  readonly error: string | null
+}
+
+export interface AgentComposerState {
+  readonly profileCatalog: {
+    readonly status: 'idle' | 'loading' | 'ready' | 'error'
+    readonly profiles: readonly AgentProfileId[]
+    readonly error: string | null
+  }
+  readonly actions: Readonly<Record<string, Readonly<AgentComposerActionState>>>
 }
 
 export interface GoalPlanActionState {

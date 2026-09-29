@@ -1,6 +1,8 @@
 import { Bot, Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
+import type { HbarComposerAgentNoticeLabels } from './composer-agent-notice'
 import './composer-slash-menu.css'
 
 export interface HbarComposerSlashLabels {
@@ -13,6 +15,12 @@ export interface HbarComposerSlashLabels {
   }[]
   readonly select: (name: string) => string
   readonly hint: string
+  readonly agentProfile: (profileId: AgentProfileId) => { readonly label: string; readonly description: string }
+  readonly agentTaskHint: string
+  readonly agentRequired: string
+  readonly agentCatalogUnavailable: string
+  readonly agentProfileUnavailable: (profileId: string) => string
+  readonly agentNotice: HbarComposerAgentNoticeLabels
   readonly attachmentsBlocked: string
   readonly modelBusy: string
   readonly goalRequired: string
@@ -78,7 +86,7 @@ export function HbarComposerSlashMenu({
                     ? Box
                     : command === 'goal'
                       ? Target
-                      : command === 'agents'
+                      : command === 'agents' || command === 'agent' || command.startsWith('agent ')
                         ? Bot
                         : command === 'cost'
                           ? CircleDollarSign

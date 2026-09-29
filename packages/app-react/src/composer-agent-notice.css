@@ -1,0 +1,17 @@
+.hbar-composer-agent-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding: 0.45rem 0.65rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.375rem;
+  color: var(--lumen-muted);
+}
+
+.hbar-composer-agent-notice-text {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}

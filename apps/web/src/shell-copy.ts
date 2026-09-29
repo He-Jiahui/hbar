@@ -2,6 +2,7 @@ import { extensionDetailCopy } from './extension-detail-copy'
 import { fileWorkspaceCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
+import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import type {
   HbarAgentWorkspaceLabels,
   HbarCommandPaletteLabels,
@@ -865,6 +866,9 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
 function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const agentProfileDescriptions: Readonly<Record<AgentProfileId, string>> = {
+    explore: choose('探索（只读），在独立子会话中运行', 'Explore (read-only) in a separate child session'),
+  }
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
   const currency = new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -1347,8 +1351,14 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ),
     },
     slash: {
-      menu: choose('本地命令', 'Local commands'),
+      menu: choose('斜杠命令', 'Slash commands'),
       commands: [
+        {
+          id: 'agent',
+          label: '/agent',
+          argumentHint: choose('<类型> <任务>', '<agent> <task>'),
+          description: choose('将任务交给选定的子 Agent', 'Run a task with a selected child Agent'),
+        },
         { id: 'model', label: '/model', description: choose('选择本次会话的模型', 'Choose a model for this session') },
         {
           id: 'settings',
@@ -1375,9 +1385,37 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
       hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),
+      agentProfile: (profileId) => ({
+        label: `/agent ${profileId}`,
+        description: agentProfileDescriptions[profileId],
+      }),
+      agentTaskHint: choose('<任务>', '<task>'),
+      agentRequired: choose(
+        '用法：/agent <类型> <任务>。选择一个可用的 Agent 类型并描述任务。',
+        'Use /agent <agent> <task>. Choose an available Agent type and describe the task.',
+      ),
+      agentCatalogUnavailable: choose(
+        '暂时无法读取可用 Agent 类型。请恢复连接后重试；草稿已保留。',
+        'Available Agent types could not be read. Reconnect and retry; your draft is preserved.',
+      ),
+      agentProfileUnavailable: (profileId) =>
+        choose(
+          `Agent 类型“${profileId}”不可用。请选择列表中的类型；草稿已保留。`,
+          `Agent type “${profileId}” is unavailable. Choose a listed type; your draft is preserved.`,
+        ),
+      agentNotice: {
+        creating: choose('正在创建子 Agent…', 'Creating child Agent…'),
+        unknown: choose(
+          '创建结果尚未确认。保留了原命令；核对后可用同一请求重试。',
+          'Creation is unconfirmed. The original command is preserved; check and retry the same request.',
+        ),
+        retry: choose('重试并核对', 'Retry and reconcile'),
+        created: choose('子 Agent 已开始处理任务。', 'Child Agent started the task.'),
+        open: choose('查看子 Agent', 'Open child Agent'),
+      },
       attachmentsBlocked: choose(
-        '此本地命令不能连同附件发送；移除附件后再确认。草稿和附件均已保留。',
-        'This local command cannot be sent with attachments. Remove them before confirming; the draft is preserved.',
+        '此命令不能连同附件发送；移除附件后再确认。草稿和附件均已保留。',
+        'This command cannot be sent with attachments. Remove them before confirming; the draft is preserved.',
       ),
       modelBusy: choose(
         '当前任务结束后才能更改模型；草稿已保留。',
@@ -1416,8 +1454,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       filesUnavailable: choose('当前无法添加附件。', 'Attachments are unavailable right now.'),
       slash: choose('斜杠命令', 'Slash commands'),
       slashUnavailable: choose(
-        '请在空白且可编辑的草稿中使用本地命令。',
-        'Local commands require an empty, editable draft.',
+        '请在空白且可编辑的草稿中打开斜杠命令。',
+        'Open slash commands from an empty, editable draft.',
       ),
     },
     modelPicker: {

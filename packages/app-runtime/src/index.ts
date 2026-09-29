@@ -98,6 +98,8 @@ import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
 export { filteredFileChanges, FILE_CHANGES_PAGE_SIZE } from './file-workspace-changes'
 import { createAgentWorkspace } from './agent-workspace'
+import { agentComposerCommands, createAgentComposer } from './agent-composer'
+export { agentComposerCommands } from './agent-composer'
 import { createGoalPlanWorkspace } from './goal-plan-workspace'
 import { createWorkflowWorkspace } from './workflow-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
@@ -232,6 +234,8 @@ export type {
   AgentWorkspaceActionState,
   AgentWorkspaceEntryState,
   AgentWorkspaceState,
+  AgentComposerActionState,
+  AgentComposerState,
   GoalPlanActionState,
   GoalPlanWorkspacePort,
   GoalPlanGoalDraftState,
@@ -305,6 +309,7 @@ const runtimeCommands = {
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
   ...sessionToolCommands,
+  ...agentComposerCommands,
   ...workspacePinCommands,
   ...workspaceOrganizationClientCommands,
   ...workspaceDisplayNamesClientCommands,
@@ -703,8 +708,26 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const agentComposer = createAgentComposer(local, options, {
+    recovery: agentWorkspace.recovery,
+    acquireCreateLock: agentWorkspace.acquireCreateLock,
+    isCreateInFlight: agentWorkspace.isCreateInFlight,
+    navigation: navigation.reader,
+    presentation: presentation.reader,
+    directory: directory.reader,
+    drafts: drafts.reader,
+    tabs: workspaceTabs.reader,
+    surfaces: surfaces.reader,
+    controls: controls.reader,
+    mergeCreatedRecord: agentWorkspace.mergeCreatedRecord,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const offAgentModelEvents = options.modelEvents?.subscribe(agentWorkspace.invalidateModels)
-  const offAgentModelConnection = options.modelEvents?.onConnection?.(agentWorkspace.setConnected)
+  const offAgentModelConnection = options.modelEvents?.onConnection?.((connected) => {
+    agentWorkspace.setConnected(connected)
+    agentComposer.setConnected(connected)
+  })
   createAgentChildNavigation(local, {
     ...(options.agents ? { agents: options.agents } : {}),
     queries: directory.queries,
@@ -792,6 +815,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(commandPaletteCommands, name) ||
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
+        Object.hasOwn(agentComposerCommands, name) ||
         Object.hasOwn(agentChildNavigationCommands, name) ||
         Object.hasOwn(sessionMessageForkCommands, name) ||
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
@@ -887,6 +911,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       commandPalette: commandPalette.reader,
       files: fileWorkspace.reader,
       agents: agentWorkspace.reader,
+      agentComposer: agentComposer.reader,
       goals: goalPlanWorkspace.reader,
       workflows: workflowWorkspace.reader,
       extensions: extensionWorkspace.reader,
@@ -925,6 +950,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workspaceDisplayNames.dispose()
 
       activityWorkspace.dispose()
+      agentComposer.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()

@@ -48,12 +48,13 @@ import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
+import { HbarComposerAgentNotice } from './composer-agent-notice'
 import {
   HbarSessionProjectContext,
   useHbarSessionProjectContext,
   type HbarSessionProjectContextLabels,
 } from './session-project-context'
-import { localGoalSlash, localSlashCanSubmit, localSlashCommand } from './composer-slash'
+import { localAgentSlash, localGoalSlash, localSlashCanSubmit, localSlashCommand } from './composer-slash'
 import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
@@ -226,6 +227,7 @@ function SessionWorkspaceContent({
   const runActions = useHbarRuntimeState(runtime.state.runActions)
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
+  const agentComposer = useHbarRuntimeState(runtime.state.agentComposer)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
   const goalHistory = useHbarRuntimeState(runtime.state.goalHistory)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
@@ -234,6 +236,30 @@ function SessionWorkspaceContent({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
+  const slashLabels = useMemo<HbarComposerSlashLabels>(() => {
+    const profiles =
+      agentComposer.profileCatalog.status === 'ready'
+        ? agentComposer.profileCatalog.profiles.map((profileId) => {
+            const copy = labels.slash.agentProfile(profileId)
+            return {
+              id: `agent ${profileId}` as const,
+              label: copy.label,
+              argumentHint: labels.slash.agentTaskHint,
+              description: copy.description,
+            }
+          })
+        : []
+    return {
+      ...labels.slash,
+      commands: labels.slash.commands.flatMap((item) => (item.id === 'agent' ? [item, ...profiles] : [item])),
+    }
+  }, [agentComposer.profileCatalog, labels.slash])
+  useEffect(() => {
+    if (!connected || !sessionId || !navigation.workspaceId) return
+    void runtime.commands
+      .execute('agentComposer.refresh', { sessionId, workspaceId: navigation.workspaceId })
+      .catch(() => undefined)
+  }, [connected, navigation.workspaceId, runtime.commands, sessionId])
   const find = useSessionFind(timeline, labels.find)
   const preparationStatus = sessionPreparationStatus(
     executionAccess,
@@ -241,6 +267,7 @@ function SessionWorkspaceContent({
   )
   const canPrepare = preparationStatus === 'ready'
   const draft = sessionId ? drafts[sessionId] : undefined
+  const agentAction = sessionId ? agentComposer.actions[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
   const goalHistoryEntry = sessionId ? goalHistory.sessions[sessionId] : undefined
   const goalHistoryProjection = useMemo(
@@ -321,7 +348,7 @@ function SessionWorkspaceContent({
   const pendingModelSlash = useRef<{ sessionId: string; workspaceId: string; revision: number } | null>(null)
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
-  const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string } | null>(null)
+  const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string; profileId?: string } | null>(null)
   const [goalConfirmation, setGoalConfirmation] = useState<{
     sessionId: string
     workspaceId: string
@@ -332,7 +359,7 @@ function SessionWorkspaceContent({
     action: 'set' | 'clear'
     objective?: string
   } | null>(null)
-  const slashIds = labels.slash.commands.map((item) => item.id)
+  const slashIds = slashLabels.commands.map((item) => item.id)
   useEffect(() => {
     pendingModelSlash.current = null
     localSlashInFlight.current = false
@@ -344,6 +371,7 @@ function SessionWorkspaceContent({
     mentions: readonly PromptMention[],
     expectedRevision: number,
   ) => {
+    setSlashFailure((current) => (current?.sessionId === targetSessionId ? null : current))
     const promise = execute('draft.setContent', { sessionId: targetSessionId, text, mentions, expectedRevision })
     const token = { sessionId: targetSessionId, promise }
     composerWrite.current = token
@@ -536,6 +564,57 @@ function SessionWorkspaceContent({
           return
         }
         await runGoalSlash({ ...target, text: latest.text }, command, previous?.goalId)
+        return
+      }
+      if (slash === 'agent') {
+        const command = localAgentSlash(latest.text)
+        if (!command) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_REQUIRED' })
+          return
+        }
+        localSlashInFlight.current = true
+        setSlashFailure(null)
+        try {
+          let catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
+          if (catalog.status !== 'ready') {
+            await runtime.commands.execute('agentComposer.refresh', {
+              sessionId: targetSessionId,
+              workspaceId: targetWorkspaceId,
+            })
+            catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
+          }
+          if (catalog.status !== 'ready') {
+            setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
+            return
+          }
+          const profileId = catalog.profiles.find((item) => item === command.profileId)
+          if (!profileId) {
+            setSlashFailure({
+              sessionId: targetSessionId,
+              code: 'AGENT_PROFILE_UNAVAILABLE',
+              profileId: command.profileId,
+            })
+            return
+          }
+          await runtime.commands.execute('agentComposer.invoke', {
+            sessionId: targetSessionId,
+            workspaceId: targetWorkspaceId,
+            draftText: latest.text,
+            draftRevision: latest.revision,
+            profileId,
+            objective: command.objective,
+          })
+        } catch (reason) {
+          setSlashFailure({
+            sessionId: targetSessionId,
+            code:
+              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                ? reason.code
+                : 'EXECUTION_FAILED',
+          })
+        } finally {
+          localSlashInFlight.current = false
+        }
         return
       }
       localSlashInFlight.current = true
@@ -1155,6 +1234,43 @@ function SessionWorkspaceContent({
     </LumenFrame>
   )
 
+  const visibleSlashFailure = (() => {
+    if (!slashFailure || slashFailure.sessionId !== sessionId) return undefined
+    if (
+      agentAction?.status === 'unknown' &&
+      ['RESULT_UNKNOWN', 'TIMEOUT', 'DISCONNECTED', 'CONNECTION_CLOSED'].includes(slashFailure.code)
+    )
+      return undefined
+    if (
+      slashFailure.code === 'RESULT_UNKNOWN' &&
+      localSlashCommand(draft?.text ?? '', slashIds) === 'goal' &&
+      intentEntry?.goalAction.status === 'succeeded'
+    )
+      return undefined
+    if (slashFailure.code === 'ATTACHMENTS' && !draft?.attachments.length && !attachmentTransfers.length)
+      return undefined
+    switch (slashFailure.code) {
+      case 'ATTACHMENTS':
+        return labels.slash.attachmentsBlocked
+      case 'RUN_ACTIVE':
+        return labels.slash.modelBusy
+      case 'GOAL_REQUIRED':
+        return labels.slash.goalRequired
+      case 'GOAL_RUN_ACTIVE':
+        return labels.slash.goalBusy
+      case 'GOAL_SNAPSHOT_UNAVAILABLE':
+        return labels.slash.goalSnapshotUnavailable
+      case 'AGENT_REQUIRED':
+        return labels.slash.agentRequired
+      case 'AGENT_CATALOG_UNAVAILABLE':
+        return labels.slash.agentCatalogUnavailable
+      case 'AGENT_PROFILE_UNAVAILABLE':
+        return labels.slash.agentProfileUnavailable(slashFailure.profileId ?? '')
+      default:
+        return labels.slash.error(slashFailure.code)
+    }
+  })()
+
   const composer: ReactNode = sessionId ? (
     <LumenFrame className="hbar-app-react-session-footer" data-git-context-status={projectContext.context.status}>
       <HbarSessionStopNotice region="main" />
@@ -1182,6 +1298,55 @@ function SessionWorkspaceContent({
         labels={labels.intent}
         surface="submission"
         canPrepare={canPrepare}
+      />
+      <HbarComposerAgentNotice
+        status={
+          agentAction?.status === 'succeeded' && agentAction.draftCleared && draft?.text
+            ? undefined
+            : agentAction?.status
+        }
+        agentId={agentAction?.agent?.agentId}
+        labels={labels.slash.agentNotice}
+        connected={connected}
+        onRetry={() => {
+          if (!agentAction || !sessionId || !navigation.workspaceId) return
+          void runtime.commands
+            .execute('agentComposer.invoke', {
+              sessionId: agentAction.sessionId,
+              workspaceId: agentAction.workspaceId,
+              draftText: agentAction.draftText,
+              draftRevision: agentAction.draftRevision,
+              profileId: agentAction.profileId,
+              objective: agentAction.objective,
+            })
+            .catch((reason: unknown) => {
+              setSlashFailure({
+                sessionId,
+                code:
+                  reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                    ? reason.code
+                    : 'EXECUTION_FAILED',
+              })
+            })
+        }}
+        onOpen={() => {
+          if (!agentAction?.agent || !sessionId || !navigation.workspaceId) return
+          void runtime.commands
+            .execute('agentComposer.openResult', {
+              sessionId: agentAction.sessionId,
+              workspaceId: agentAction.workspaceId,
+              agentId: agentAction.agent.agentId,
+            })
+            .catch((reason: unknown) => {
+              setSlashFailure({
+                sessionId,
+                code:
+                  reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                    ? reason.code
+                    : 'EXECUTION_FAILED',
+              })
+            })
+        }}
       />
       <HbarComposerAttachmentDropTarget
         key={sessionId}
@@ -1250,7 +1415,7 @@ function SessionWorkspaceContent({
                     inputLabel={inputLabel}
                     placeholder={placeholder}
                     labels={labels.mentions}
-                    slashLabels={labels.slash}
+                    slashLabels={slashLabels}
                     slashOpenRequest={slashOpenRequest}
                     focusRequest={editorFocusRequest}
                     sendBehavior={sendBehavior}
@@ -1337,21 +1502,7 @@ function SessionWorkspaceContent({
                 ? labels.error(draft.error)
                 : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
                   ? labels.modelPicker.unknown
-                  : slashFailure?.sessionId === sessionId &&
-                      !(slashFailure.code === 'RESULT_UNKNOWN' && intentEntry?.goalAction.status === 'succeeded') &&
-                      (slashFailure.code !== 'ATTACHMENTS' || draft?.attachments.length || attachmentTransfers.length)
-                    ? slashFailure.code === 'ATTACHMENTS'
-                      ? labels.slash.attachmentsBlocked
-                      : slashFailure.code === 'RUN_ACTIVE'
-                        ? labels.slash.modelBusy
-                        : slashFailure.code === 'GOAL_REQUIRED'
-                          ? labels.slash.goalRequired
-                          : slashFailure.code === 'GOAL_RUN_ACTIVE'
-                            ? labels.slash.goalBusy
-                            : slashFailure.code === 'GOAL_SNAPSHOT_UNAVAILABLE'
-                              ? labels.slash.goalSnapshotUnavailable
-                              : labels.slash.error(slashFailure.code)
-                    : undefined
+                  : visibleSlashFailure
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">

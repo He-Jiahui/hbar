@@ -32,7 +32,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
-      await expect(menu.getByRole('option')).toHaveCount(6)
+      await expect(
+        menu.getByRole('option', { name: copy.session.slash.select('/agent explore'), exact: true }),
+      ).toBeVisible()
+      await expect(menu.getByRole('option')).toHaveCount(8)
       await prompt.dispatchEvent('compositionstart', { data: '中' })
       await prompt.dispatchEvent('keydown', {
         key: 'Enter',
@@ -43,6 +46,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       await expectComposerText(prompt, '/')
       await prompt.dispatchEvent('compositionend', { data: '中' })
+      await expect(
+        menu.getByRole('option', { name: copy.session.slash.select('/agent'), exact: true }),
+      ).toHaveAttribute('aria-selected', 'true')
+      await prompt.press('ArrowDown')
+      await expect(
+        menu.getByRole('option', { name: copy.session.slash.select('/agent explore'), exact: true }),
+      ).toHaveAttribute('aria-selected', 'true')
+      await prompt.press('ArrowDown')
       await expect(menu.getByRole('option', { name: copy.session.slash.select('/model') })).toHaveAttribute(
         'aria-selected',
         'true',
@@ -90,7 +101,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 800 })
         await prompt.fill('/')
-        await expect(menu.getByRole('option')).toHaveCount(6)
+        await expect(menu.getByRole('option')).toHaveCount(8)
         await page.screenshot({ path: `artifacts/reference-ux-v2/slash-catalog-${locale}-${width}.png` })
         await prompt.fill('/mo')
         await expect(menu.getByRole('option')).toHaveCount(1)

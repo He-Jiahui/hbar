@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import {
   localSlashCanSubmit,
   localSlashCommand,
+  localAgentSlash,
   localGoalSlash,
   slashMatches,
   slashTokenAt,
@@ -31,6 +32,23 @@ test('only entire supported local command is intercepted, preserving ordinary Ru
   ])
     expect(localSlashCommand(text, available)).toBeNull()
   expect(localSlashCommand('/model', [])).toBeNull()
+  expect(localSlashCommand('/agent explore Review this', [...available, 'agent'])).toBe('agent')
+  expect(localSlashCommand('/agent debugger investigate', [...available, 'agent'])).toBe('agent')
+  expect(localSlashCommand('/agent', [...available, 'agent'])).toBe('agent')
+  expect(localSlashCommand('Explain /agent explore', [...available, 'agent'])).toBeNull()
+})
+
+test('Agent slash requires a type and a nonempty exact objective', () => {
+  expect(localAgentSlash('/agent explore Review the navigation')).toEqual({
+    profileId: 'explore',
+    objective: 'Review the navigation',
+  })
+  expect(localAgentSlash('/agent explore Review\nall panes')).toEqual({
+    profileId: 'explore',
+    objective: 'Review\nall panes',
+  })
+  for (const text of ['/agent', '/agent explore', '/agent explore  ', '/agents explore task', '/agentexplore task'])
+    expect(localAgentSlash(text)).toBeNull()
 })
 
 test('Goal slash arguments are explicit and never mistaken for ordinary text', () => {
@@ -71,6 +89,7 @@ test('slash suggestions are bounded to real local destinations and only token po
   expect(slashMatches('h', available)).toEqual(['help'])
   expect(slashMatches('unknown', available)).toEqual([])
   expect(slashMatches('', [])).toEqual([])
+  expect(slashMatches('ag', ['agent', 'agent explore', 'agents'])).toEqual(['agent', 'agent explore', 'agents'])
   expect(slashTokenAt('Review /mo', 10)).toEqual({ from: 7, to: 10, term: 'mo' })
   expect(slashTokenAt('https://example.test', 8)).toBeNull()
   expect(slashTokenAt('words/model', 11)).toBeNull()
