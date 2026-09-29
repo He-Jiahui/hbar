@@ -22,6 +22,8 @@ body { background: var(--hbar-app-ui-bg); }
 @media (max-width: 20rem) {
   .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-9']) > .lumen-forms-9-surface { block-size: 50rem; max-block-size: 50rem; }
 }
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-10']) { height: auto; block-size: auto; min-height: 100vh; overflow: visible; align-items: flex-start; }
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-10']) > .lumen-forms-10-surface { inline-size: 100%; max-inline-size: 47.5rem; block-size: auto; flex: 0 1 auto; }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-5']) { display: flex; align-items: stretch; }
 .hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-5']) > [data-hbar-app-ui-component='hbar-app-ui-forms-5'] { block-size: 100%; min-block-size: 0; flex: 1 1 auto; }
 .hbar-app-ui-isolated-canvas > .hbar-app-ui-variant { min-height: 100vh; }

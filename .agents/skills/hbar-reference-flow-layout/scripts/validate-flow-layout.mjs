@@ -97,6 +97,11 @@ function isOverlaySelector(path, selector) {
   // sibling condition rows beneath its picker trigger; option content itself flows.
   if (/packages\/lumen-app-ui\/src\/forms-8-reference\.css$/.test(path.replaceAll('\\', '/')) &&
       selector.trim() === '.lumen-forms-8-options') return true
+  // Forms 10: the property combobox's old-hash interaction evidence adds the
+  // option list without changing the owning preview height. Only its anchored
+  // listbox container overlays; the options and questionnaire remain in flow.
+  if (/packages\/lumen-app-ui\/src\/forms-10-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.lumen-forms-10-property-options') return true
   // Settings Form 4: the observed member action menu overlays its trigger row.
   // Only the anchored menu container floats; member content and menu choices flow.
   if (/packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
