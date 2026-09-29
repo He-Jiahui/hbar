@@ -498,6 +498,36 @@ process with isolated contexts and preserves all assertions; the combined
 regression now passes 99/99 tests and 543 assertions in 18.70s. This is a unit
 regression result, not 300-variant source/local acceptance.
 
+### Paywall shared quality closure
+
+The earlier per-variant lint counts above are historical integration snapshots.
+The shared `paywall.tsx` now passes scoped ESLint without suppressions: four
+missing braces, the optional icon tier declaration, nested icon-path selection
+and the synchronous period-reset effect are corrected together.
+History and the `Plans` line diff trace the original effect and glyph branches
+to child commit `fe960fbff0`; the later reference-provider integrations did not
+introduce them.
+
+The generic plan fallback still owns only its ephemeral billing-period choice.
+It is keyed by the host's `initialPeriod`, so a changed initial period resets
+that choice without an effect-driven cascading render. Replacing content or
+localized labels with the same initial period retains the user's choice. The
+host-controlled `plansReference` branch is unchanged. A
+[dedicated browser regression](../tests/hbar-app-ui-paywall-generic-plans.test.tsx)
+passes one scenario with 20 assertions covering these two lifecycle mechanisms
+and stable plan-target requests through the public package API, rather than
+repeating every action at every viewport. It builds an isolated in-memory
+fixture, uses one temporary localhost port and releases page/browser/server
+resources even if a prior cleanup fails; it does not replace the shared preview
+build or install another DOM runtime.
+
+All seven generic renderings have exactly the same static HTML SHA-256 hashes
+before and after this change. No CSS, semantic region, native control, icon
+path or size tier changes; the equality check is regression evidence, not a
+claim of source/local visual acceptance. The focused family regression passes
+55 tests and 442 assertions; root/Lumen typechecks, scoped lint/format/content/icon
+checks, preview build and direct Lumen Vite/declaration builds also pass.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
