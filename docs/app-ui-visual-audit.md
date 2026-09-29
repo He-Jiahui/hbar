@@ -777,3 +777,30 @@ scroll owner 数据，短高的文档滚动只是本地可达性保证。
 手机 356×640 的 Continue y532–572。它们只作本地结构/主题复核，不冒充同轮原版配对。
 8 项专项测试（60 条断言）、根与 Lumen 类型检查、scoped lint、内容/图标/流布局
 守卫、预览构建与浏览器脚本通过；构建仍报告大 chunk 提示。
+
+Onboarding 2（six-step vertical stepper）宿主提供六个稳定步骤 ID、英文/德语 rail 文案、
+Profile 的 Sam Rivera/Product Lead 草稿及 Role 的四个 radio 选项。来源旧同 hash 缓存
+只证实 Profile 的输入草稿和 Continue→Role，进入 Role 时 Product 预选、Profile 标为
+complete、窄屏进度变为 Step 2 of 6。Back、改选角色、点击其他步骤和后四步 body／
+完成结果均无可靠前后态；实现只发类型化请求，不跳到不存在的页面。
+
+授权 `full-static-v10` 与 `full-interactions-v4` 的目标 sourceHash 为
+`e37748d4786df18d23b5ce09479762a71c405d2c007d43bf583b75f984e24747`，
+交互缓存为旧 schemaVersion 1、无当前协议，官方文档页文字可见但 iframe 未暴露，
+**未签 fresh strict**。独立 `scripts/verify-hbar-app-ui-onboarding-2.ts` 用桌面一次
+Profile 填写/Continue 与 mobile 一次 Continue 覆盖状态机制，检查六项 rail、Role 四
+radio/Product checked、德语及 page errors=0；不逐步、逐按钮、逐布局重复点击。静态
+本地对照中桌面卡 x280–1062、Continue y338；356px 手机 Profile Continue y354，
+dark mobile Role 四选择项与 footer 和来源几何仅有约 1–2px 差异。320×420 Profile
+按钮初始可见；Role 按钮初始底部约 y436，真实 wheel 后文档 scrollTop=49、按钮
+y347–387 可达，无水平溢出。初次 wheel 检查若在动画首帧读取会出现 0–1px 的
+暂态误报；脚本现等待目标按钮进入视口。源窄屏滚动 owner 未捕获，本地使用正常
+文档流。最终 desktop/mobile 双主题四图，加 Role 状态和短高滚动图在
+`artifacts/onboarding2-local-review/`，不冒充实时来源配对。10 项专项测试（65 条
+断言）、根与 Lumen 类型检查、限定文件 lint、O2 CSS stylelint、图标守卫、预览构建
+和浏览器脚本通过；构建有大 chunk 提示。整个 `onboarding.tsx` 的 ESLint 仍有 9 个
+已有错误（HEAD 有 10 个），本增量未增加错误，不能称全文件 lint 通过。
+交付时出现并行根仓 Git 提交竞争：O2 根接线五个精确路径在暂存后被另一任务的
+`6953a14` 一并提交，混入其桌面模型菜单变更。已核对该提交包含 O2 host、CSS、
+main 路由、测试和 Lumen gitlink；此处不能宣称根接线拥有独立提交。未改写并行历史，
+O2 Lumen 与验证台账仍各自独立提交，其它任务文件未被本任务清理。

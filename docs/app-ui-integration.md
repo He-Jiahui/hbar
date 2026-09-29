@@ -170,6 +170,29 @@ The eight final local light/dark viewport images, edited-name desktop sample and
 short-height reachability capture are in `artifacts/onboarding1-local-review/`.
 They support a local geometry review, not a fresh source/local pair.
 
+### Onboarding 2 integration status
+
+`hbar-app-ui-onboarding-2` uses a dedicated six-step vertical rail and a
+host-owned Profile/Role draft. The initial Profile has Sam Rivera and Product
+Lead; Continue advances to Role, where Product is selected among four radios.
+At narrow widths the rail is hidden and a `Step N of 6` counter replaces it.
+The source cache only usefully shows this transition. Back, changing a role,
+rail jumps and the Source/Workspace/Goals/Invite bodies remain typed request
+boundaries; the preview does not invent those four forms or navigation results.
+
+The authorized [Onboarding 2 stepper](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-2)
+`full-static-v10` and `full-interactions-v4` entries share source hash
+`e37748d4786df18d23b5ce09479762a71c405d2c007d43bf583b75f984e24747`,
+but use an old schema without the current capture protocol. The documentation
+text was visible, not the interactive iframe, so no fresh strict replay is
+claimed. The local browser verifier samples a Profile draft and Continue→Role
+on desktop/narrow screens, localized copy and natural short-height reachability.
+At 320×420 a real mouse wheel moves the document 49px to make the Role Continue
+button visible at y347–387; no horizontal overflow or page errors were found.
+The final local desktop/mobile light/dark views, Role state and short-height
+capture are in `artifacts/onboarding2-local-review/`; they are not same-round
+source/local pairs.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
