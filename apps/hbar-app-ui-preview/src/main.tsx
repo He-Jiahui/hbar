@@ -81,6 +81,7 @@ import type {
 } from 'hbar-app-ui/catalog'
 import 'hbar-app-ui/theme.css'
 import './preview.css'
+import './onboarding1-preview.css'
 import './wizard-preview.css'
 import './comments-preview.css'
 import { CommentsPreviewHost } from './CommentsPreviewHost'
@@ -226,6 +227,8 @@ import {
   HBAR_APP_UI_KANBAN_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-kanban-fixtures'
 import { HBAR_APP_UI_ONBOARDING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-onboarding-fixtures'
+import { Onboarding1PreviewHost } from './Onboarding1PreviewHost'
+import { createOnboarding1PreviewFixture } from './onboarding1PreviewFixtures'
 import { HBAR_APP_UI_LIST_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-list-fixtures'
 import { HBAR_APP_UI_FILTERING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-filtering-fixtures'
 import { HBAR_APP_UI_MONITORING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-monitoring-fixtures'
@@ -639,6 +642,13 @@ function PreviewApp() {
         : HBAR_APP_UI_KANBAN_FIXTURES
   }, [])
   const onboardingContent = useMemo(() => HBAR_APP_UI_ONBOARDING_FIXTURES, [])
+  const onboarding1ReferenceFixture = useMemo(
+    () =>
+      createOnboarding1PreviewFixture(
+        new URLSearchParams(window.location.search).get('onboarding1Fixture') === 'localized' ? 'de' : 'en',
+      ),
+    [],
+  )
   const listContent = useMemo(() => HBAR_APP_UI_LIST_FIXTURES, [])
   const filteringContent = useMemo(() => HBAR_APP_UI_FILTERING_FIXTURES, [])
   const monitoringContent = useMemo(() => HBAR_APP_UI_MONITORING_FIXTURES, [])
@@ -905,10 +915,17 @@ function PreviewApp() {
                                                                                                                           onAction={handleAction}
                                                                                                                           referenceFixture={forms12ReferenceFixture}
                                                                                                                         >
-                                                                                                                          <SelectedComponent
+                                                                                                                          <Onboarding1PreviewHost
+                                                                                                                            content={onboardingContent}
                                                                                                                             spec={selected.spec}
                                                                                                                             onAction={handleAction}
-                                                                                                                          />
+                                                                                                                            referenceFixture={onboarding1ReferenceFixture}
+                                                                                                                          >
+                                                                                                                            <SelectedComponent
+                                                                                                                              spec={selected.spec}
+                                                                                                                              onAction={handleAction}
+                                                                                                                            />
+                                                                                                                          </Onboarding1PreviewHost>
                                                                                                                         </FormsForm12PreviewHost>
                                                                                                                       </FormsForm11PreviewHost>
                                                                                                                     </FormsForm10PreviewHost>
@@ -1303,10 +1320,17 @@ function PreviewApp() {
                                                                                                                                      onAction={handleAction}
                                                                                                                                      referenceFixture={forms12ReferenceFixture}
                                                                                                                                    >
-                                                                                                                                     <SelectedComponent
+                                                                                                                                     <Onboarding1PreviewHost
+                                                                                                                                       content={onboardingContent}
                                                                                                                                        spec={selected.spec}
                                                                                                                                        onAction={handleAction}
-                                                                                                                                     />
+                                                                                                                                       referenceFixture={onboarding1ReferenceFixture}
+                                                                                                                                     >
+                                                                                                                                       <SelectedComponent
+                                                                                                                                         spec={selected.spec}
+                                                                                                                                         onAction={handleAction}
+                                                                                                                                       />
+                                                                                                                                     </Onboarding1PreviewHost>
                                                                                                                                    </FormsForm12PreviewHost>
                                                                                                                                 </FormsForm11PreviewHost>
                                                                                                                               </FormsForm10PreviewHost>
