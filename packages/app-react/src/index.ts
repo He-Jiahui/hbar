@@ -63,6 +63,13 @@ export {
 } from './pre-session-landing'
 export { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 export {
+  HbarPreSessionSlashEditor,
+  type HbarPreSessionSlashEditorProps,
+  type PreSessionLocalSlashCommand,
+} from './pre-session-slash-editor'
+export type { HbarComposerSlashLabels } from './composer-slash-menu'
+export { localSlashCommand, type LocalSlashCommand } from './composer-slash'
+export {
   HbarPreSessionChoicePicker,
   visiblePreSessionChoices,
   PRE_SESSION_CHOICE_PAGE_SIZE,

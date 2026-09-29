@@ -1,0 +1,13 @@
+.hbar-pre-session-slash-editor {
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.hbar-pre-session-slash-editor-input {
+  display: block;
+  min-inline-size: 0;
+  inline-size: 100%;
+  max-block-size: min(35vh, 16rem);
+  resize: vertical;
+  overflow: auto;
+}
