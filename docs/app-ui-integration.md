@@ -333,6 +333,41 @@ script was blocked by the installed pnpm version; its Vite and declaration
 steps were run directly. Existing other-variant flow rules remain outside this
 change, and the child task could not run Stylelint.
 
+### Paywall 3 integration status
+
+`hbar-app-ui-paywall-3` receives its source-shaped plans through the public
+Lumen provider, preserving existing children and inherited content. The host
+owns period, prices, badges, feature text and stable plan IDs. Monthly updates
+both paid-plan prices and the billing note; both native period buttons remain
+Tab-reachable, and local Enter activation restores Yearly. The current-plan
+action is disabled. Choose and Compare emit requests without switching the
+current plan, opening checkout or inventing a comparison result.
+
+The [official Paywall 3 iframe](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-3)
+was readable on 2026-09-29. Only the default Yearly→Monthly transition was
+observed live: Pro $19→$24, Scale $54→$68 and the monthly note. Yearly restoration
+is a local sample, not a source observation. The authorized `full-static-v10`
+and legacy `full-interactions-v4` target hash is
+`a26e1489398f57fed8f77a7588a91d2123037ebb4e72a2ec4b41c69b49beb527`;
+the old interaction subset only covers the disabled current-plan button. These
+clues do not constitute current-protocol paired strict acceptance.
+
+Empty, one-item, six-item boundary and 15-plan overflow fixtures distinguish
+host policy from a discovered source maximum. Three-column flex-wrap keeps
+over-capacity cards readable; narrow cards stack, and only an explicit host
+pane-scroll policy bounds the list. The flow guard initially rejected CSS Grid
+in child commit `5f3cdf53fe`; the follow-up replaces it with flex flow rather
+than weakening the guard. At 320×420 a real document scroll of 721 reaches
+Compare. The local desktop root is 900×431.03 versus the old 900×436.5 reference;
+this residual is recorded, not reported as exact geometric acceptance.
+
+Ten focused tests/84 assertions, root/Lumen typechecks, targeted integration
+lint, style/format/content/icon/flow checks, preview build and direct Lumen
+Vite/declaration builds pass. Shared `paywall.tsx` still reports 13 existing
+lint errors, down from 14 before; it is not globally lint-clean. Verification
+samples period projection, keyboard restoration, one request, capacity and
+narrow flow instead of every plan-button/layout combination.
+
 ### Paywall 4 integration status
 
 `hbar-app-ui-paywall-4` now presents three host-owned passive quota rows,

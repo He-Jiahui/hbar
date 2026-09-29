@@ -38,6 +38,18 @@ test('quota notice samples request feedback instead of passive bars and distingu
   expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
 })
 
+test('plan gate samples one period mechanism and distinguishes reverse inference from observed source state', () => {
+  const id = 'hbar-app-ui-paywall-3'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(1)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:click`])
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+  expect(plan.lumenEntries).toContain('paywall-3-reference.tsx')
+  expect(plan.inferences.some((entry) => entry.basis.includes('source Yearly restoration was not replayed'))).toBe(true)
+  expect(plan.inferences.some((entry) => entry.basis.includes('900x431.03'))).toBe(true)
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
+})
+
 test('trial expiry samples payment request and infers passive retained rows without invented reactivation', () => {
   const id = 'hbar-app-ui-paywall-5'
   const plan = auditSamplingPlan(id)!

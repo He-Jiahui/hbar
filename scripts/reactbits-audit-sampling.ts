@@ -840,6 +840,33 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-3')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall-3-reference.tsx', 'paywall-3-reference.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [{ viewport: 'desktop', theme: 'light', suffix: '0:click',
+        change: 'Monthly projects both paid-plan prices, the period note and selected tab state' }],
+      inferences: [
+        {
+          scope: 'Current strict evidence and request outcomes',
+          basis:
+            'The public iframe was readable on 2026-09-29: Yearly was initially selected and one Monthly click changed Pro $19→$24, Scale $54→$68 and the note. The legacy same-target-hash interaction cache only sampled a disabled current-plan button and lacks the current protocol. Checkout and feature-comparison results remain unverified requests; no fresh strict pair exists.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Reverse period activation and equivalent plan actions',
+          basis:
+            'The source Monthly change is observed; source Yearly restoration was not replayed. Local Yearly Enter restores the same state machine, both native tab buttons remain Tab-reachable, and one Choose Pro request preserves current-plan and price state. Equivalent paid-plan requests are not clicked per card or layout.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Plan-grid capacity and narrow flow',
+          basis:
+            'Eight static local views, long German and one 320x420 real document scroll cover responsive flow. Empty/one/six/15-plan fixtures exercise host policy; six is not a source maximum. Wide over-capacity cards keep three readable columns in a keyboard-scrollable region instead of squeezing all cards into one row. The local root is 900x431.03 versus the old 900x436.5 reference, so exact geometric acceptance is not claimed.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-5')
     return {
       revision: 1,
