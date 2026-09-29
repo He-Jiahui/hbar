@@ -27,6 +27,8 @@ export interface HbarPreSessionChoicePickerProps {
   readonly selectedId: string | null
   readonly placement?: 'dialog' | 'composer'
   readonly disabled?: boolean
+  /** Increment to open this specific picker from a nearby local command. */
+  readonly openRequest?: number
   readonly loading?: boolean
   readonly hasMore?: boolean
   readonly onMore?: (() => void) | undefined
@@ -55,6 +57,7 @@ export function HbarPreSessionChoicePicker({
   selectedId,
   placement = 'dialog',
   disabled = false,
+  openRequest = 0,
   loading = false,
   hasMore = false,
   onMore,
@@ -71,9 +74,24 @@ export function HbarPreSessionChoicePicker({
   const popupTitleId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
+  const lastOpenRequest = useRef(openRequest)
   const unique = useMemo(() => visiblePreSessionChoices(items, '', items.length).rows, [items])
   const selected = unique.find((item) => item.id === selectedId) ?? null
   const { rows, remaining } = visiblePreSessionChoices(items, query, limit)
+  useEffect(() => {
+    if (lastOpenRequest.current === openRequest) return
+    lastOpenRequest.current = openRequest
+    if (disabled) return
+    if (placement === 'dialog') {
+      setOpen(true)
+      return
+    }
+    try {
+      if (!popup.current?.matches(':popover-open')) popup.current?.showPopover()
+    } catch {
+      // Browsers without the Popover API cannot satisfy this request; keep it a no-op.
+    }
+  }, [disabled, openRequest, placement])
   useEffect(() => {
     if (placement !== 'composer' || !open || !popup.current?.matches(':popover-open')) return
     if (document.activeElement !== document.body) return

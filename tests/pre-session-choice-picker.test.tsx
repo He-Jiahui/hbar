@@ -72,3 +72,22 @@ test('composer placement keeps the same Host choices in a trigger-owned popup', 
   expect(html).toContain(labels.trigger('Provider · Model'))
   expect(html).toContain('data-tier="sm"')
 })
+
+test('open requests preserve the closed initial render for both picker placements', () => {
+  const props = {
+    icon: Folder,
+    labels,
+    items: [{ id: 'model', label: 'Provider · Model', detail: 'Reasoning' }],
+    selectedId: 'model',
+    openRequest: 1,
+    onChoose: () => undefined,
+  }
+  const dialog = renderToStaticMarkup(<HbarPreSessionChoicePicker {...props} />)
+  const composer = renderToStaticMarkup(<HbarPreSessionChoicePicker {...props} placement="composer" />)
+
+  // Requests are transitions observed after mount, not render-time UI state.
+  expect(dialog).toContain('aria-expanded="false"')
+  expect(dialog).not.toContain('data-open="true"')
+  expect(composer).toContain('aria-expanded="false"')
+  expect(composer).toContain('popover="auto"')
+})
