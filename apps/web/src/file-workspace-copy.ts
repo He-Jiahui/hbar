@@ -1,5 +1,32 @@
 import type { HbarFileWorkspaceLabels } from '@hbar/app-react'
 
+export function fileWorkspaceErrorCopy(zh: boolean, code: string): string | null {
+  const choose = (chinese: string, english: string) => (zh ? chinese : english)
+  switch (code) {
+    case 'SESSION_LAUNCH_TARGET_UNRESOLVED':
+      return choose('请先运行此会话，再刷新“文件”面板。', 'Run this session first, then refresh Files.')
+    case 'COMMAND_CONFLICT':
+    case 'TARGET_CHANGED':
+    case 'STALE_TARGET':
+      return choose(
+        '会话文件目标已变化；请先刷新“文件”面板。',
+        'The session file target changed. Refresh Files before continuing.',
+      )
+    case 'INVALID_OUTPUT':
+      return choose(
+        'Host 返回的文件响应无效；请刷新“文件”面板或重新连接。',
+        'Host returned an invalid Files response. Refresh Files or reconnect.',
+      )
+    case 'CAPABILITY_UNAVAILABLE':
+      return choose(
+        '所需的 Host 能力不可用；请重新连接后刷新“文件”面板。',
+        'A required Host capability is unavailable. Reconnect, then refresh Files.',
+      )
+    default:
+      return null
+  }
+}
+
 export function fileWorkspaceCopy(
   zh: boolean,
 ): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview' | 'previews'> {
@@ -60,13 +87,16 @@ export function fileWorkspaceCopy(
                 `No previews closed: the save result for ${path} is unconfirmed. Reconcile it first.`,
               ),
       showBlocked: choose('打开受保护文件', 'Open protected file'),
-      error: (code) =>
-        code === 'BUSY'
+      error: (code) => {
+        const targetError = fileWorkspaceErrorCopy(zh, code)
+        if (targetError) return targetError
+        return code === 'BUSY'
           ? choose(
               '预览容量或读取并发已达上限。请关闭不用的预览，或等待读取完成后重试。',
               'The preview or read limit was reached. Close unused previews, or wait for a read to finish and try again.',
             )
-          : choose(`无法更改文件预览：${code}`, `Could not change file previews: ${code}`),
+          : choose(`无法更改文件预览：${code}`, `Could not change file previews: ${code}`)
+      },
     },
     preview: choose('预览', 'Preview'),
     edit: choose('编辑', 'Edit'),
@@ -100,12 +130,13 @@ export function fileWorkspaceCopy(
       open: (path) => choose(`查看更改：${path}`, `View change: ${path}`),
       openFolder: (path) => choose(`打开未跟踪文件夹：${path}`, `Open untracked folder: ${path}`),
       renamedFrom: (path) => choose(`原路径：${path}`, `Renamed from: ${path}`),
-      error: (code) =>
-        code === 'CAPABILITY_UNAVAILABLE'
-          ? choose('Git 能力不可用；仍可查看所有文件。', 'Git is unavailable; you can still browse all files.')
-          : code === 'CANCELLED'
-            ? choose('读取已取消，请刷新重试。', 'Reading was cancelled. Refresh to try again.')
-            : choose(`读取更改失败：${code}`, `Could not read changes: ${code}`),
+      error: (code) => {
+        const targetError = fileWorkspaceErrorCopy(zh, code)
+        if (targetError) return targetError
+        return code === 'CANCELLED'
+          ? choose('读取已取消，请刷新重试。', 'Reading was cancelled. Refresh to try again.')
+          : choose(`读取更改失败：${code}`, `Could not read changes: ${code}`)
+      },
       workingTree: choose('工作区', 'Working tree'),
       staged: choose('暂存区', 'Staged'),
       readOnlyDiff: choose('只读 Git 差异；编辑请打开文件。', 'Read-only Git diff. Open the file to edit.'),
@@ -134,7 +165,8 @@ export function fileWorkspaceCopy(
       searching: choose('正在搜索文件…', 'Searching files…'),
       noMatches: choose('没有匹配的文件。', 'No matching files.'),
       searchLimit: choose('结果已达到上限；请缩小搜索范围。', 'Results reached the limit; narrow your search.'),
-      searchError: (code) => choose(`搜索失败：${code}`, `Could not search files: ${code}`),
+      searchError: (code) =>
+        fileWorkspaceErrorCopy(zh, code) ?? choose(`搜索失败：${code}`, `Could not search files: ${code}`),
       searchResults: choose('文件搜索结果', 'File search results'),
       clearSearch: choose('清除搜索', 'Clear search'),
       refreshSearch: choose('重新搜索', 'Search again'),
@@ -156,12 +188,15 @@ export function fileWorkspaceCopy(
       ),
       retry: choose('重试读取', 'Retry folder'),
       refresh: choose('刷新所有文件', 'Refresh all files'),
-      error: (code) =>
-        code === 'BUSY'
+      error: (code) => {
+        const targetError = fileWorkspaceErrorCopy(zh, code)
+        if (targetError) return targetError
+        return code === 'BUSY'
           ? choose('树视图容量已满；请收起其他文件夹后重试。', 'The tree is full. Collapse another folder and retry.')
           : code === 'CANCELLED'
             ? choose('读取已取消，请重试。', 'Reading was cancelled. Retry.')
-            : choose(`文件夹读取失败：${code}`, `Could not read folder: ${code}`),
+            : choose(`文件夹读取失败：${code}`, `Could not read folder: ${code}`)
+      },
     },
   }
 }

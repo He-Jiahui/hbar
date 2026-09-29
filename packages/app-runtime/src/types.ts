@@ -10,7 +10,7 @@ import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
-import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import type { AttachmentUploadInput, SessionFileTarget } from '@hbar/contracts/commands/files'
 import type { SessionLaunchTargetReader } from '@hbar/contracts/commands/session-launch-target'
 import type {
   ActiveOperationsPage,
@@ -468,6 +468,7 @@ export interface FileWorkspaceDocumentState {
 
 export interface FileWorkspaceChangesState {
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly isRepository: boolean | null
   readonly cwd: string | null
   readonly root: string | null
   readonly branch: string | null
@@ -526,7 +527,7 @@ export type FileWorkspacePreviewState =
       readonly id: string
       readonly kind: 'diff'
       readonly path: string
-      readonly cwd: string
+      readonly cwd: string | null
       readonly originalPath: string | null
       readonly diff: Readonly<FileWorkspaceDiffState>
     }
@@ -534,6 +535,8 @@ export type FileWorkspacePreviewState =
 export interface FileWorkspaceEntryState {
   readonly instanceId: string
   readonly workspaceId: string
+  readonly sourceSessionId: string | null
+  readonly sessionTarget: SessionFileTarget | null
   readonly path: string
   readonly previews: readonly Readonly<FileWorkspacePreviewState>[]
   readonly activePreviewId: string | null

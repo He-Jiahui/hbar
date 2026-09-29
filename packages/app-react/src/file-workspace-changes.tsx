@@ -69,6 +69,7 @@ export function HbarFileChanges({
   const filtered = filteredFileChanges(changes)
   const start = changes.page * FILE_CHANGES_PAGE_SIZE
   const items = filtered.slice(start, start + FILE_CHANGES_PAGE_SIZE)
+  const isRepository = changes.isRepository ?? Boolean(changes.root)
   const busy = changes.status === 'loading'
   return (
     <LumenFrame className="hbar-file-changes">
@@ -103,8 +104,8 @@ export function HbarFileChanges({
           {labels.error(changes.error)}
         </LumenText>
       )}
-      {changes.status === 'ready' && !changes.root && <LumenText as="p">{labels.notRepository}</LumenText>}
-      {changes.status === 'ready' && changes.root && items.length === 0 && (
+      {changes.status === 'ready' && !isRepository && <LumenText as="p">{labels.notRepository}</LumenText>}
+      {changes.status === 'ready' && isRepository && items.length === 0 && (
         <LumenText as="p">{changes.items.length === 0 ? labels.noChanges : labels.noMatches}</LumenText>
       )}
       {changes.limitReached && (

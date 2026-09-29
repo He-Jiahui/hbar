@@ -1,5 +1,5 @@
 import { extensionDetailCopy } from './extension-detail-copy'
-import { fileWorkspaceCopy } from './file-workspace-copy'
+import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
@@ -1820,6 +1820,8 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
       return choose(`无法添加：${code}；请核对原会话草稿。`, `Could not add: ${code}. Check the original draft.`)
     },
     error: (code) => {
+      const targetError = fileWorkspaceErrorCopy(zh, code)
+      if (targetError) return targetError
       if (code === 'FILE_CONFLICT')
         return choose('源文件已更新；当前草稿仍保留。', 'The source changed; your draft is still preserved.')
       if (code === 'BUSY')
@@ -1829,7 +1831,7 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
         )
       if (code === 'UNSUPPORTED_TYPE')
         return choose('此文件不是可编辑的 UTF-8 文本。', 'This file is not editable UTF-8 text.')
-      if (code === 'INVALID_OUTPUT' || code === 'INPUT_TOO_LARGE')
+      if (code === 'INPUT_TOO_LARGE')
         return choose('此文件过大，无法在工具中打开。', 'This file is too large to open in the tool.')
       if (code === 'ENOENT' || code === 'NOT_FOUND') return choose('此文件已不存在。', 'This file no longer exists.')
       return choose(`文件操作失败：${code}`, `File operation failed: ${code}`)

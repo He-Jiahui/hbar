@@ -82,20 +82,42 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 三个新命令只读、session scope、内部 API surface，不添加 palette 操作或 Git mutation；不以会话 ID 冒充提交的 provenance。每个 Host 命令有 30s deadline 及 8 个同时调用上限，解析和 Git service 之间传递同一 Host `AbortSignal`。现有 WebSocket Client Git adapter 不提供远程 query-cancel RPC，因此不能把客户端停止观察表述成 Host Git 进程已停止；关闭／timeout 的 Host 中止和前端旧结果丢弃仍要分别验证。
 
-真实 Host 回归核对隔离分支、working changes、staged index／diff 与 Files 的同一目录；共享 checkout 的文件、分支和两个 diff 均保持不变。另外核对 cwd 注入、错误项目、旧版本和未绑定目标明确失败，以及 query/internal metadata。新的 DTO／scope 切片聚焦验证为 **30 tests／174 assertions，全部通过**，包含 projector、真实 paired Host 的子目录 rename／copy 边界、outside sentinel、literal paths、暂存／未暂存、未跟踪根、非 Git 目录、查询中目标变更、Git plugin 的 scope 参数和 status 截断失败，以及既有 paired Files／Git 回归。9 个变更路径的 scoped ESLint 零警告、explicit strict TypeScript 和 staged diff 检查通过；contracts／kernel／session tests 格式通过，plugin／SDK 保留无关历史格式，不夹带全文件改写。全仓 typecheck 仍退出 1，包含 preview fixture／契约、`@lumen/app-ui` 解析和并行 Files 测试的诊断，未冒充通过。分支上下文已使用 info；Changed Files／diff 的 runtime／浏览器迁移仍需单独验收。
+真实 Host 回归核对隔离分支、working changes、staged index／diff 与 Files 的同一目录；共享 checkout 的文件、分支和两个 diff 均保持不变。另外核对 cwd 注入、错误项目、旧版本和未绑定目标明确失败，以及 query/internal metadata。新的 DTO／scope 切片聚焦验证为 **30 tests／174 assertions，全部通过**，包含 projector、真实 paired Host 的子目录 rename／copy 边界、outside sentinel、literal paths、暂存／未暂存、未跟踪根、非 Git 目录、查询中目标变更、Git plugin 的 scope 参数和 status 截断失败，以及既有 paired Files／Git 回归。9 个变更路径的 scoped ESLint 零警告、explicit strict TypeScript 和 staged diff 检查通过；contracts／kernel／session tests 格式通过，plugin／SDK 保留无关历史格式，不夹带全文件改写。该阶段全仓 typecheck 退出 1，包含 preview fixture／契约、`@lumen/app-ui` 解析和当时并行 Files 测试的诊断，未冒充通过。随后 Files runtime／Changed／diff 的独立验收如下。
+
+## Files runtime 与浏览器闭环
+
+Files dock、固定面板和展开的工作台从所属 surface／workbench 获取原来源会话，不在异步返回后借用当前导航的 session。显式项目 Files 继续没有 session target；会话 Files 必须经 Host reader 解析正确 workspace／session 的 revision。未提供 reader、未绑定隔离选择、错会话或畸形响应都明确失败，后续树、搜索、打开和 Changed 操作也不回落到项目文件或通用 `git.*`。
+
+文档缓存按工作区、会话、目标 revision 与规范相对路径隔离；read／write／reconcile 校验回执中的目标。每个本地 action 捕获 source session 与目标版本，旧版本动作被拒绝；旧列表、搜索、文档及 diff 返回不能重新填入新目标。未确认写入仍在原缓存中保留 pending 内容，通过原目标核对，不能重放。目标真的改变时旧 preview 被移除，受保护草稿不会迁移到新 checkout；这不等于已经有旧版本草稿的跨目标恢复 UI。未来 Location action 必须阻止带有 dirty／pending／unknown Files 的选择变更，先在原目标保存、放弃或核对。
+
+Changed 使用 `sessionGit.status/diff` 的 execution-root 相对路径与严格目标回显，UI 不拼 Host 的内部 cwd。`isRepository` 是独立状态，不能因 DTO 不携带 root 就误显示非 Git 目录；根本身的未跟踪文件夹 `'.'` 打开目录而不是读取文档或 diff。working／staged diff 保持独立 preview UUID，并保留原会话归属。中英文 Host copy 为未绑定、目标变化、无效响应和能力缺失说明恢复动作；`INVALID_OUTPUT` 不再被错误翻译成“文件过大”，能力缺失也不承诺可回落浏览全部项目文件。
+
+完成后的串行聚焦回归为 **9 文件、62 tests／522 assertions、0 failures，6.62s**，覆盖 runtime、tree、search、Changed、unknown save、preview tabs、session-tool ownership、session target 与 copy。变更 source／tests 的 scoped ESLint 零警告及 full-flag explicit strict TypeScript 通过，包含 `exactOptionalPropertyTypes`；content contract 与 icon scale guard 各检查两个 TSX 并通过。生产 Web build 通过，仍有既有大 chunk 警告，未表述成零警告构建。
+
+最终审查又把两个既有 fixture 的 target 注入收敛为 test-only generic typed adapter，保留实际 command input／output 类型而不双重断言成宽泛 executor；受影响的两文件重跑为 25 tests／247 assertions、0 failures，strict typecheck 和 lint 通过。其余源码与浏览器行为没有因此改变。
+
+`e2e/session-target-files.spec.ts` 通过 production Web 与临时真实 Host／Git 仓库验证 **3 cases，19.6s**：英文／中文未绑定错误、无共享回落请求；实际 local-fixture Run 绑定隔离目标；UI 编辑保存后通过公开 `file.read` 独立核对内容；共享目录同名文件未变；切换到共享会话并重访保留的工作台仍读原内容；共享 Files 读取自己的版本；返回原会话 Files 激活原工作台；Changed、working diff、空 staged diff 与再次 working diff 均使用原 session／revision。测试等待最终非 loading／非 error 的 diff 再取证，而不是把 refresh 期间保留的旧文本当作完成。
+
+截图位于隔离 checkout 的 `artifacts/session-target-files/final/`，包含 saved workbench 和 working diff 的 1440px／320px 四张 PNG，均人工核对；document 没有横向溢出，narrow 的标签栏和代码阅读区仍各自拥有滚动边界，不承诺所有非活动标签标题同时完整可见。此轮没有改 CSS 布局或图标尺寸，也没有解决现有控件下划线／阴影的视觉差异；这些需要独立样式审查。它是 Web 用户流程证据，**不是 native build／smoke、安装或全仓上线验收**。
+
+候选测试与取证存在以下未接受结果：首轮 broad status locator 命中两处合法状态，另存其 trace／PNG／context 至 `artifacts/session-target-files/initial-save-locator-failure/`；后续搜索行的复合可访问名称、错误的相对 `has` locator、非活动工作台卸载及瞬时 loading capture 均由实际画面／源码定位并修正测试，不把它们称为 Files 后端故障。另有一轮 Vite preview 30s 启动超时，以及 Host 20s readiness timeout／目录 EBUSY；不能把所有时长都断言为系统负载。Host helper 原始 `488d1dc0` 没有失败启动子进程的释放路径，已独立以 `10d439d3` 修正：仅终止自有 child，在拒绝前等待终态、释放 timer／readline／listeners；5 lifecycle tests／30 assertions、strict typecheck 与零警告 lint 通过，原启动及产品 deadlines 未扩大。
+
+两个 rendered React suites 仍在执行测试前被 pinned `hbar-ui` 的 `prop-types` 缺失阻断，未安装依赖或将其算作通过。完成迁移后再次运行全仓 typecheck 仍退出 1，包含 preview fixtures／contracts 与根 fixtures 的 `@lumen/app-ui` 解析错误；scoped green 不能替代全仓门禁。参考源码保持只读，夹具使用独立临时数据与 local-fixture 模型，没有操作用户工程或付费 provider；cleanup 前验证自有绝对目录边界，未清理此前被策略拒绝的目录。
 
 ## UI 上线前仍需闭环
 
-会话分支上下文已通过 Host target reader 和 `sessionGit.info` 读取真实目标，同时保持原工程名；对应交付与验证见 [会话工程与分支上下文](desktop-session-project-context.md)。Files 的缓存／草稿／固定面板和 Changed Files／diff 正在独立迁移与验证，尚未作为完整 UI 切片交付。因此**不能现在就加入启动目标按钮并宣称参考体验已经实现**。
+会话分支上下文已通过 Host target reader 和 `sessionGit.info` 读取真实目标，同时保持原工程名；对应交付与验证见 [会话工程与分支上下文](desktop-session-project-context.md)。Files 的缓存／草稿／固定面板和 Changed Files／diff 已完成上面的独立 runtime 与 Web 浏览器验收，但首发准备及可编辑 Location 尚未闭环。因此**不能现在就加入启动目标按钮并宣称参考体验已经实现**。
 
 后续独立验收项：
 
-1. 为分支发现、准备受理／进行中／终态、取消与未知结果核对定义明确的公开状态，不让短读取或取消被慢 Git 阻塞。
-2. Files 的树、搜索、preview、文档草稿和写入回执按工作区＋会话目标版本隔离；切换目标时旧响应不能覆盖新视图，旧草稿不能保存到另一 checkout。固定面板和 Files 工作台页签保留原来源会话。
-3. Session Git info 已接到会话只读接口；继续独立验收 Changed Files 和 diff，不让 UI 自行拼内部路径。项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
+1. 为分支发现、准备受理／进行中／终态、取消与未知结果核对定义明确的公开状态，不让短读取或取消被慢 Git 阻塞。当前 prepare 等待 Git，Run 的隐式 prepare 仍可能超过默认 command deadline；准备受理不能冒充 Run 已受理，必须保留现有原子 binding＋Run transaction。
+2. Files 的树、搜索、preview、草稿、写入和工作台归属已完成版本隔离；继续为可编辑 Location 增加 dirty／pending／unknown 选择变更 guard 和可解释的恢复路径，并验证 native、重启与重连。
+3. Session Git info、Changed 与 diff 已接会话只读接口并通过上述验收；项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
 4. 接入 host-owned 中英文 copy 的单一位置入口，首发后变成可解释的只读 context。准备／失败／重试／取消在原入口附近反馈，保留草稿和阅读位置。
 5. 使用当前参考组件的可见画面确定层级与响应式流；验证桌面、390px、320px、短窗口、键盘与焦点。再以真实 Host E2E 和 native smoke 验证选择、首发、Files 编辑、切换会话和重启，不以隔离组件画面冒充后端验收。
 6. 子 Agent／Fork 的执行位置需要单独闭环。当前普通 Agent child 按 parent 的注册 workspace 创建，patchTask 也从 `sessions.workspace(parent.workspaceId)` 同步源文件，不能据此宣称已经继承隔离父会话的实际目录。另需核对正常 Git branch mutation 与首次 launch selection 的关系；当前绑定核对要求原分支名，不应在 UI 上无说明地承诺任意 branch switch 后可以继续。
 7. 如需支持 monorepo 子目录的隔离会话，应持久保存仓库 root 和受限 execution cwd，并让模型、工具、Files、Git 与子 Agent 使用后者；先验证 scope 不扩大，再解除目前的明确拒绝。
+
+参考的 Location 选择更新 parent-owned choice 后关闭，工作树准备发生在 first Send；不要为适配当前 API 凭空增加一个可见 Prepare 按钮。hbar 的空 composer 是尚无 sessionId 的 pre-session draft，未来应先把 launch choice 纳入其版本化契约，在首次发送时幂等移交给物化会话，再启动可查询、可取消的准备任务。prepare operation、launch revision、request／idempotency key 与 Run receipt 是不同事实；遗失受理回执应核对原键，取消需等 Git 已结算才可标记终态，重启 reconcile 不得重做未知副作用。这是下一切片的设计约束，尚未实现。
 
 隔离分支的全仓 TypeScript 检查尚受根测试 fixture 的 `@lumen/app-ui` 解析基线影响；变更文件的 explicit strict TypeScript 与 targeted lint 另行运行并记录，不能把 scoped gate 表述成全仓通过。主工作区同时存在其他任务的 Kernel、manifest 和 UI 改动，未清除、自动暂存或夹带它们；集成必须单独核对。

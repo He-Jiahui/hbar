@@ -1,5 +1,6 @@
 import { CommandError, createCommandClient, type CommandExecutor } from '@hbar/commands'
 import { fileCommands } from '@hbar/contracts/commands/files'
+import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import type { FileWorkspaceDocumentState } from './types'
 
 export const MAX_CACHED_FILE_DOCUMENTS = 32
@@ -21,6 +22,7 @@ type Document = Readonly<FileWorkspaceDocumentState>
 type CachedDocument = {
   readonly workspaceId: string
   readonly path: string
+  readonly sessionTarget: SessionFileTarget | null
   document: Document
   read: Promise<Document> | null
   /** Correlation only: file.write has no durable idempotency/receipt contract. Never replay an unknown write. */
@@ -47,8 +49,37 @@ export function canonicalFilePath(path: string): string {
   if (!parts.length) throw new CommandError('INVALID_INPUT', 'A document requires a file path')
   return parts.join('/')
 }
-export const fileDocumentKey = (workspaceId: string, path: string): string =>
-  JSON.stringify([workspaceId, canonicalFilePath(path)])
+export const sameSessionFileTarget = (
+  left: SessionFileTarget | null | undefined,
+  right: SessionFileTarget | null | undefined,
+): boolean =>
+  left === right ||
+  (left !== null && left !== undefined &&
+    right !== null &&
+    right !== undefined &&
+    left.sessionId === right.sessionId &&
+    left.expectedRevision === right.expectedRevision)
+
+export function assertResolvedFileTarget(
+  sourceSessionId: string | null,
+  sessionTarget: SessionFileTarget | null,
+  error?: string | null,
+): void {
+  if (sourceSessionId && !sessionTarget)
+    throw new CommandError(error ?? 'SESSION_LAUNCH_TARGET_UNRESOLVED', 'The session Files target is not resolved')
+}
+
+export const fileDocumentKey = (
+  workspaceId: string,
+  path: string,
+  sessionTarget?: SessionFileTarget | null,
+): string =>
+  JSON.stringify([
+    workspaceId,
+    sessionTarget?.sessionId ?? null,
+    sessionTarget?.expectedRevision ?? null,
+    canonicalFilePath(path),
+  ])
 const cost = (document: Document) =>
   document.baseline.length + document.draft.length + (document.pendingText?.length ?? 0)
 const protectedDocument = (document: Document) =>
@@ -71,15 +102,15 @@ export class FileWorkspaceDocuments {
     this.client = port ? createCommandClient(fileCommands, port) : null
   }
 
-  get(workspaceId: string, path: string): Document | undefined {
-    return this.documents.get(fileDocumentKey(workspaceId, path))?.document
+  get(workspaceId: string, path: string, sessionTarget?: SessionFileTarget | null): Document | undefined {
+    return this.documents.get(fileDocumentKey(workspaceId, path, sessionTarget))?.document
   }
   private requireClient() {
     if (!this.client) throw new CommandError('CAPABILITY_UNAVAILABLE', 'File commands are unavailable')
     return this.client
   }
-  private current(workspaceId: string, path: string): CachedDocument {
-    const cached = this.documents.get(fileDocumentKey(workspaceId, path))
+  private current(workspaceId: string, path: string, sessionTarget?: SessionFileTarget | null): CachedDocument {
+    const cached = this.documents.get(fileDocumentKey(workspaceId, path, sessionTarget))
     if (!cached) throw new CommandError('RESULT_UNKNOWN', 'Open the file document first')
     return cached
   }
@@ -103,16 +134,21 @@ export class FileWorkspaceDocuments {
   }
   private publish(cached: CachedDocument, document: Document): Document {
     if (this.disposed) return cached.document
-    const key = fileDocumentKey(cached.workspaceId, cached.path)
+    const key = fileDocumentKey(cached.workspaceId, cached.path, cached.sessionTarget)
     this.reserve(key, document)
     cached.document = Object.freeze(document)
     this.changed(key, cached.document)
     return cached.document
   }
 
-  async open(workspaceId: string, rawPath: string, discard = false): Promise<Document> {
+  async open(
+    workspaceId: string,
+    rawPath: string,
+    discard = false,
+    sessionTarget: SessionFileTarget | null = null,
+  ): Promise<Document> {
     const path = canonicalFilePath(rawPath)
-    const key = fileDocumentKey(workspaceId, path)
+    const key = fileDocumentKey(workspaceId, path, sessionTarget)
     let cached = this.documents.get(key)
     if (cached?.read) return cached.read
     if (cached && protectedDocument(cached.document) && !discard) return cached.document
@@ -127,7 +163,7 @@ export class FileWorkspaceDocuments {
         error: null,
       })
       this.reserve(key, document)
-      cached = { workspaceId, path, document, read: null, requestId: null }
+      cached = { workspaceId, path, sessionTarget, document, read: null, requestId: null }
       this.documents.set(key, cached)
     }
     const target = cached
@@ -135,8 +171,16 @@ export class FileWorkspaceDocuments {
     this.publish(target, { ...previous, status: 'loading', error: null })
     const read = (async () => {
       try {
-        const file = await this.requireClient().execute('file.read', { workspaceId, path })
-        if (file.workspaceId !== workspaceId || canonicalFilePath(file.path) !== path)
+        const file = await this.requireClient().execute('file.read', {
+          workspaceId,
+          ...(sessionTarget ? { sessionTarget } : {}),
+          path,
+        })
+        if (
+          file.workspaceId !== workspaceId ||
+          !sameSessionFileTarget(file.sessionTarget ?? null, sessionTarget) ||
+          canonicalFilePath(file.path) !== path
+        )
           throw new CommandError('INVALID_OUTPUT', 'File response target mismatch')
         return this.publish(target, {
           path,
@@ -158,8 +202,8 @@ export class FileWorkspaceDocuments {
     return read
   }
 
-  edit(workspaceId: string, path: string, text: string): Document {
-    const cached = this.current(workspaceId, path)
+  edit(workspaceId: string, path: string, text: string, sessionTarget?: SessionFileTarget | null): Document {
+    const cached = this.current(workspaceId, path, sessionTarget)
     const document = cached.document
     if (document.status === 'unknown' || document.status === 'loading' || document.sha256 === null)
       throw new CommandError('BUSY', 'File document is not editable')
@@ -171,8 +215,8 @@ export class FileWorkspaceDocuments {
     })
   }
 
-  async save(workspaceId: string, path: string): Promise<Document> {
-    const cached = this.current(workspaceId, path)
+  async save(workspaceId: string, path: string, sessionTarget?: SessionFileTarget | null): Promise<Document> {
+    const cached = this.current(workspaceId, path, sessionTarget)
     const document = cached.document
     if (['submitting', 'unknown', 'loading'].includes(document.status) || document.sha256 === null)
       throw new CommandError('BUSY', 'File document is not ready to save')
@@ -186,13 +230,18 @@ export class FileWorkspaceDocuments {
         'file.write',
         {
           workspaceId,
+          ...(cached.sessionTarget ? { sessionTarget: cached.sessionTarget } : {}),
           path: cached.path,
           text: submitted,
           expectedSha256: document.sha256,
         },
         { requestId },
       )
-      if (receipt.workspaceId !== workspaceId || canonicalFilePath(receipt.path) !== cached.path)
+      if (
+        receipt.workspaceId !== workspaceId ||
+        !sameSessionFileTarget(receipt.sessionTarget ?? null, cached.sessionTarget) ||
+        canonicalFilePath(receipt.path) !== cached.path
+      )
         throw new CommandError('INVALID_OUTPUT', 'File write response target mismatch')
       cached.requestId = null
       return this.publish(cached, {
@@ -217,14 +266,22 @@ export class FileWorkspaceDocuments {
     }
   }
 
-  async reconcile(workspaceId: string, path: string): Promise<Document> {
-    const cached = this.current(workspaceId, path)
+  async reconcile(workspaceId: string, path: string, sessionTarget?: SessionFileTarget | null): Promise<Document> {
+    const cached = this.current(workspaceId, path, sessionTarget)
     const document = cached.document
     if (document.status !== 'unknown' || document.pendingText === null || cached.requestId === null)
       throw new CommandError('INVALID_INPUT', 'File save does not require reconciliation')
     const requestId = cached.requestId
-    const file = await this.requireClient().execute('file.read', { workspaceId, path: cached.path })
-    if (file.workspaceId !== workspaceId || canonicalFilePath(file.path) !== cached.path)
+    const file = await this.requireClient().execute('file.read', {
+      workspaceId,
+      ...(cached.sessionTarget ? { sessionTarget: cached.sessionTarget } : {}),
+      path: cached.path,
+    })
+    if (
+      file.workspaceId !== workspaceId ||
+      !sameSessionFileTarget(file.sessionTarget ?? null, cached.sessionTarget) ||
+      canonicalFilePath(file.path) !== cached.path
+    )
       throw new CommandError('INVALID_OUTPUT', 'File reconciliation target mismatch')
     if (cached.requestId !== requestId || cached.document.status !== 'unknown') return cached.document
     if (file.text !== document.pendingText) {
@@ -251,13 +308,14 @@ export class FileWorkspaceDocuments {
     path: string,
     expectedDraft: string,
     expectedSha256: string | null,
+    sessionTarget?: SessionFileTarget | null,
   ): Promise<Document> {
-    const cached = this.current(workspaceId, path)
+    const cached = this.current(workspaceId, path, sessionTarget)
     if (['submitting', 'unknown', 'loading'].includes(cached.document.status))
       throw new CommandError('BUSY', 'Reconcile the pending file operation before discarding')
     if (cached.document.draft !== expectedDraft || cached.document.sha256 !== expectedSha256)
       throw new CommandError('VERSION_CONFLICT', 'The draft changed after the discard confirmation opened')
-    return this.open(workspaceId, path, true)
+    return this.open(workspaceId, path, true, cached.sessionTarget)
   }
 
   dispose() {

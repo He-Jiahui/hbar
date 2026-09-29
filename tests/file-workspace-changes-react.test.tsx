@@ -7,6 +7,7 @@ test('Changed list renders only the current 100 rows and preserves its localized
   const labels = getShellCopy('zh-CN').files.changes
   const changes = {
     status: 'ready' as const,
+    isRepository: true,
     cwd: '/repo',
     root: '/repo',
     branch: 'main',

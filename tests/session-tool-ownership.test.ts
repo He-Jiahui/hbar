@@ -14,6 +14,7 @@ import { fileCommands } from '@hbar/contracts/commands/files'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { createSessionTools } from '../packages/app-runtime/src/session-tools'
 import { createState } from '../packages/app-runtime/src/state'
+import { fileWorkspaceCommandSnapshots } from './fixtures/file-workspace-command-snapshots'
 
 function fixture() {
   const workspaces: Workspace[] = ['w', 'other'].map((id) => ({ id, name: id, path: `D:/${id}`, createdAt: 1 }))
@@ -68,6 +69,22 @@ function fixture() {
     hostId: 'session-tools',
     directory,
     surfaces: { canRender: () => true },
+    sessionLaunchTargets: {
+      async read(sessionId, options) {
+        options?.signal?.throwIfAborted()
+        const session = sessions.get(sessionId)
+        if (!session) throw new CommandError('SESSION_NOT_FOUND', 'Missing session target')
+        return {
+          sessionId,
+          workspaceId: session.workspaceId,
+          revision: 0,
+          selection: { mode: 'shared-current' as const },
+          locked: true,
+          resolution: { status: 'ready' as const, branch: null },
+          updatedAt: 0,
+        }
+      },
+    },
     workspaces: {
       execute(name, raw) {
         if (name !== 'session.archive') throw new Error(`Unexpected write ${name}`)
@@ -85,7 +102,14 @@ function fixture() {
         if (name === 'file.read') {
           const input = fileCommands['file.read'].input.parse(raw)
           const text = disk.get(input.path) ?? 'baseline'
-          return { workspaceId: input.workspaceId, path: input.path, text, size: text.length, sha256: sha(text) }
+          return {
+            workspaceId: input.workspaceId,
+            ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
+            path: input.path,
+            text,
+            size: text.length,
+            sha256: sha(text),
+          }
         }
         if (name === 'file.write') {
           const input = fileCommands['file.write'].input.parse(raw)
@@ -94,6 +118,7 @@ function fixture() {
           if (writeUnknown) throw new CommandError('RESULT_UNKNOWN', 'Accepted write lost its receipt')
           return {
             workspaceId: input.workspaceId,
+            ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
             path: input.path,
             created: false,
             beforeSha256: input.expectedSha256 ?? null,
@@ -105,7 +130,7 @@ function fixture() {
       },
     },
   })
-  const commands = runtime.view.commands
+  const commands = fileWorkspaceCommandSnapshots(runtime)
   const select = (sessionId: string) =>
     commands.execute('app.setSession', {
       sessionId,

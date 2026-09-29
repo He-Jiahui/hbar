@@ -14,6 +14,7 @@ import {
   LumenToolPane,
   type LumenWorkspaceFileLabels,
 } from '@lumen/app-ui'
+import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './file-workspace-changes'
 import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'
@@ -105,6 +106,8 @@ export function HbarFileWorkspace({
     instanceId: string
     workspaceId: string
     previewId: string
+    sourceSessionId: string | null
+    sessionTarget: SessionFileTarget | null
     path: string
     expectedDraft: string
     expectedSha256: string | null
@@ -117,14 +120,22 @@ export function HbarFileWorkspace({
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const candidate = instanceId ? files.entries[instanceId] : undefined
-  const entry = candidate?.workspaceId === panel?.workspaceId ? candidate : undefined
+  const ownerWorkbench = instanceId
+    ? tabs.items.find((item) => item.kind === 'workbench' && item.panelInstanceId === instanceId)
+    : undefined
+  const sourceSessionId =
+    ownerWorkbench?.kind === 'workbench' ? ownerWorkbench.sourceSessionId : (panel?.sessionId ?? null)
+  const entry =
+    candidate && panel && candidate.workspaceId === panel.workspaceId && candidate.sourceSessionId === sourceSessionId
+      ? candidate
+      : undefined
   const selectedPath =
     entry?.view === 'document'
       ? (entry.document?.path ?? null)
       : entry?.view === 'diff'
         ? (entry.diff?.path ?? null)
         : null
-  const target = `${instanceId}:${panel?.workspaceId}`
+  const target = `${instanceId}:${panel?.workspaceId}:${sourceSessionId ?? ''}:${entry?.sessionTarget?.sessionId ?? ''}:${entry?.sessionTarget?.expectedRevision ?? ''}`
   const activeTarget = useRef(target)
   const previewIntent = useRef(0)
   activeTarget.current = target
@@ -141,6 +152,18 @@ export function HbarFileWorkspace({
   )
   const invoke = useCallback(
     (name: string, input: unknown) => {
+      const payload = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
+      const commandInput = name.startsWith('fileWorkspace.')
+        ? {
+            ...payload,
+            sourceSessionId: Object.prototype.hasOwnProperty.call(payload, 'sourceSessionId')
+              ? payload.sourceSessionId
+              : sourceSessionId,
+            sessionTarget: Object.prototype.hasOwnProperty.call(payload, 'sessionTarget')
+              ? payload.sessionTarget
+              : (entry?.sessionTarget ?? null),
+          }
+        : input
       const previewAction = [
         'fileWorkspace.openEntry',
         'fileWorkspace.openChange',
@@ -149,7 +172,7 @@ export function HbarFileWorkspace({
       ].includes(name)
       const intent = previewAction ? ++previewIntent.current : null
       if (previewAction) setPreviewFeedback(null)
-      void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input).catch(
+      void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, commandInput).catch(
         (reason: unknown) => {
           if (intent === null || intent !== previewIntent.current || activeTarget.current !== target) return
           const code =
@@ -164,12 +187,12 @@ export function HbarFileWorkspace({
         },
       )
     },
-    [runtime.commands, runtime.state.files, instanceId, target, labels.previews],
+    [runtime.commands, runtime.state.files, instanceId, sourceSessionId, entry?.sessionTarget, target, labels.previews],
   )
   useEffect(() => {
     if (instanceId && panel?.panelId === 'files' && panel.workspaceId && entry?.workspaceId !== panel.workspaceId)
       invoke('fileWorkspace.refresh', { instanceId })
-  }, [entry?.workspaceId, instanceId, invoke, panel?.panelId, panel?.workspaceId])
+  }, [candidate?.sourceSessionId, entry?.workspaceId, instanceId, invoke, panel?.panelId, panel?.workspaceId, sourceSessionId])
   useEffect(() => {
     if (
       instanceId &&
@@ -210,7 +233,10 @@ export function HbarFileWorkspace({
     panel?.panelId,
     panel?.workspaceId,
   ])
-  useEffect(() => setReloadTarget(null), [instanceId, panel?.workspaceId])
+  useEffect(
+    () => setReloadTarget(null),
+    [instanceId, panel?.workspaceId, sourceSessionId, entry?.sessionTarget?.expectedRevision],
+  )
   if (!instanceId || panel?.panelId !== 'files') return null
   const document = entry?.view === 'document' ? entry.document : null
   const diff = entry?.view === 'diff' ? entry.diff : null
@@ -243,7 +269,13 @@ export function HbarFileWorkspace({
     const restoreFocus = Boolean(owner?.contains(globalThis.document?.activeElement))
     setPreviewFeedback(null)
     void runtime.commands
-      .execute('fileWorkspace.closePreviews', { instanceId, workspaceId, previewIds: [...ids] })
+      .execute('fileWorkspace.closePreviews', {
+        instanceId,
+        workspaceId,
+        previewIds: [...ids],
+        sourceSessionId,
+        sessionTarget: entry?.sessionTarget ?? null,
+      })
       .then((result) => {
         if (activeTarget.current !== target) return
         const blocked = result.blocked[0]
@@ -288,7 +320,6 @@ export function HbarFileWorkspace({
   const busy = document?.status === 'submitting'
   const unknown = document?.status === 'unknown'
   const dirty = Boolean(document && document.draft !== document.baseline)
-  const sourceSessionId = panel.sessionId
   const sourceTab = tabs.items.find(
     (item) => item.kind === 'session' && item.id === sourceSessionId && item.workspaceId === workspaceId,
   )
@@ -298,7 +329,7 @@ export function HbarFileWorkspace({
           (item) => item.kind === 'workbench' && item.id === tabs.activeId && item.panelInstanceId === instanceId,
         )
       : null
-  const addTarget = `${instanceId}:${workspaceId}:${previewId}:${selectedPath}:${sourceTab?.instanceKey}:${workbenchTab?.instanceKey}`
+  const addTarget = `${target}:${workspaceId}:${previewId}:${selectedPath}:${sourceTab?.instanceKey}:${workbenchTab?.instanceKey}`
   activeAddTarget.current = addTarget
   const blockedFileDraft = Boolean(
     document &&
@@ -343,6 +374,7 @@ export function HbarFileWorkspace({
         ...(previewId ? { previewId } : {}),
         path: selectedPath,
         sourceSessionId,
+        sessionTarget: entry?.sessionTarget ?? null,
         sourceTabInstanceKey: sourceTab.instanceKey,
         ...(workbenchTab ? { workbenchTabId: workbenchTab.id, workbenchTabInstanceKey: workbenchTab.instanceKey } : {}),
         expectedRevision,
@@ -381,6 +413,8 @@ export function HbarFileWorkspace({
         instanceId,
         workspaceId: panel.workspaceId,
         previewId,
+        sourceSessionId,
+        sessionTarget: entry?.sessionTarget ?? null,
         path: document.path,
         expectedDraft: document.draft,
         expectedSha256: document.sha256,
