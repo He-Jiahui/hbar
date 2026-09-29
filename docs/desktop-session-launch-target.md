@@ -76,13 +76,13 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 ## UI 上线前仍需闭环
 
-当前 runtime 仍按原 `workspaceId`／`path` 缓存文件草稿，Changed Files 和 session Git context 仍读取注册工作区。因此**不能现在就加入启动目标按钮并宣称参考体验已经实现**。
+会话分支上下文已通过 Host target reader 和 `sessionGit.info` 读取真实目标，同时保持原工程名；对应交付与验证见 [会话工程与分支上下文](desktop-session-project-context.md)。Files 的缓存／草稿／固定面板和 Changed Files／diff 正在独立迁移与验证，尚未作为完整 UI 切片交付。因此**不能现在就加入启动目标按钮并宣称参考体验已经实现**。
 
 后续独立验收项：
 
 1. 为分支发现、准备受理／进行中／终态、取消与未知结果核对定义明确的公开状态，不让短读取或取消被慢 Git 阻塞。
 2. Files 的树、搜索、preview、文档草稿和写入回执按工作区＋会话目标版本隔离；切换目标时旧响应不能覆盖新视图，旧草稿不能保存到另一 checkout。固定面板和 Files 工作台页签保留原来源会话。
-3. 将 Session Git info、Changed Files 和 diff 接到上述会话只读接口，不让 UI 自行拼内部路径。项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
+3. Session Git info 已接到会话只读接口；继续独立验收 Changed Files 和 diff，不让 UI 自行拼内部路径。项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
 4. 接入 host-owned 中英文 copy 的单一位置入口，首发后变成可解释的只读 context。准备／失败／重试／取消在原入口附近反馈，保留草稿和阅读位置。
 5. 使用当前参考组件的可见画面确定层级与响应式流；验证桌面、390px、320px、短窗口、键盘与焦点。再以真实 Host E2E 和 native smoke 验证选择、首发、Files 编辑、切换会话和重启，不以隔离组件画面冒充后端验收。
 6. 子 Agent／Fork 的执行位置需要单独闭环。当前普通 Agent child 按 parent 的注册 workspace 创建，patchTask 也从 `sessions.workspace(parent.workspaceId)` 同步源文件，不能据此宣称已经继承隔离父会话的实际目录。另需核对正常 Git branch mutation 与首次 launch selection 的关系；当前绑定核对要求原分支名，不应在 UI 上无说明地承诺任意 branch switch 后可以继续。

@@ -384,6 +384,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     directory.reader,
     onSubscriberError,
     () => disposed,
+    options.sessionLaunchTargets,
   )
   const workspacePins = createWorkspacePins(local, {
     preferences: clientPersistence.preferences,
