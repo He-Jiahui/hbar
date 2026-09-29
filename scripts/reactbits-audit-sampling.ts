@@ -693,6 +693,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-1')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-1-reference.tsx',
+        'onboarding-1-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '1:fill',
+          change: 'A single Full name fill changes its native textbox draft',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '3:select',
+          change: 'Timezone select reaches the placeholder, not a different city option',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '4:toggle',
+          change: 'Product updates toggles from checked to unchecked',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source interaction acceptance',
+          basis:
+            'The full-static-v10 and full-interactions-v4 caches share the Onboarding 1 source hash, but use legacy schemaVersion 1 without the current capture protocol. The official page is unavailable in this round. These samples are mechanism clues, not fresh strict source/local pairs.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Desktop directory-preview changes after form edits',
+          basis:
+            'The cached interaction samples were captured only on dark mobile, where the directory preview is hidden. The host projection is locally tested, but there is no paired desktop source after-state.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other timezone choices, photo upload, empty-name validation and Continue result',
+          basis:
+            'The timezone sample selected its placeholder; photo and Continue have no captured workflow outcome. The preview keeps their callbacks as typed requests rather than fabricating upload or navigation.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated controls across desktop, tablet, mobile and stress themes',
+          basis:
+            'Static source pairs cover the responsive form and optional aside in light and dark. The local verifier samples distinct input, select and checkbox mechanisms once, with narrow flow/reachability checks, rather than replaying every control in every layout.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-12')
     return {
       revision: 1,
