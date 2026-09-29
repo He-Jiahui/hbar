@@ -8,6 +8,22 @@
 
 `ChatInput.tsx` 在首次发送前使用可编辑的 launch controls，已有消息后使用只读 `ProjectContextChip`。实际首发提交把位置和 repository 选择绑定到原会话；项目归属不随临时工作树变成新项目。这些是当前源码证据，不能代替专门的当前画面与行为截图。
 
+### 2026-09-29 参考取证的有效范围
+
+只读审查确认 `EmptySession.tsx` 的桌面入口在 composer 工具行中，位于加号／权限模式之后、模型／Run 之前；H5 窄屏把同一入口放到 composer 面板之后。`RepositoryLaunchControls` 用 `useMobileViewport() && !isDesktopRuntime()` 决定是否使用 bottom sheet，不能仅根据窗口变窄就把 native 菜单改成 H5 sheet。
+
+| 交互                        | 当前源码／已有测试所表达的语义                               | 本次证据界限                                                            |
+| --------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Directory／Branch／worktree | 单一 Location pill 内分层进入，不在外部放三个重复入口        | 源码与缺少 utility 样式的组件 DOM；无有效样式几何                       |
+| Current／Isolated worktree  | 选择后更新 parent-owned launch choice 并关闭菜单，不立即运行 | 源码核对；本次未完成真实首发                                            |
+| New branch → Cancel         | 返回分支列表，而不是退出全部选择流程                         | 源码及参考已有行为测试；本次无有效 Cancel-return 截图                   |
+| New branch 空名 → Create    | 按钮仍可点击，处理函数就近显示校验错误，API 请求前返回       | 源码及参考已有测试；最初 capture 的 disabled 断言错误，不是参考产品缺陷 |
+| Files／Changed／Editor      | 使用会话活动 workDir，项目身份仍保留原 repo                  | 源码数据链核对；不是本次 native smoke                                   |
+
+取证产物在主 checkout 的忽略目录 `artifacts/ui-reference/cc-haha-runtime/repository-launch-audit-20260929/`。完整 Host／页面的有界尝试未得到可用画面；组件 harness 曾挂载当前真实组件，但 Tailwind utility 样式缺失，人工检查发现行内容连在一起、面板异常宽，**这些截图不能作为美感、尺寸或布局匹配依据**。最终 `component-reference/captures-final-01/capture-result.json` 记录了 page navigation 10s timeout；没有有效的 390px 或 Cancel-return 样式截图。旧 `current/session-empty-1440x900.png` 的捕获日期为 2026-09-20，且未展示此入口，也不能代替当前参考。
+
+该 lane 使用临时配置／Git fixture 和无网络 provider；`user-state-guard.json` 记录 `realConfigMutations: []`，参考 tracked source 未修改。负责取证的 agent 已停止自己的 Host／Vite／Browser 进程；被 shell policy 拒绝清理的临时目录保留，没有换用另一种删除方式。后续视觉实现仍需重新取得有效的当前样式画面；本次源码／DOM 证据只支撑交互语义和数据归属。
+
 hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示注册工作区与分支。通用 `git.branch`／`git.worktree` 虽能接受目录和文件系统路径，但不能直接接到 composer：切换共享 checkout 会影响其他会话，客户端自由决定工作树路径也无法提供可靠恢复。
 
 本次采用 Host 自己生成和管理会话目标。第一条已受理 Run 冻结该目标，后续 Run、模型系统上下文及 local tools 使用同一 binding；关闭、归档、取消或错误均不自动删除目录。当前模式只包含共享当前 checkout 与独立工作树（既有分支／新分支），**不包含在共享 checkout 切换分支**。
@@ -22,6 +38,7 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 - `3fba187`：可选会话 Files 目标，paired Client／真实 Host 验证 9 tests／52 assertions。
 - `73ef542`：与 Files 共用 context 的会话 Git 只读接口，扩展 Files／Git 回归 14 tests／90 assertions。
 - `9c6bdad`：修正初始提交审查发现的取消、锁链、并发、路径解析、hooks 和关闭边界。加入等待者取消不取消 owner；取消最后一个等待者不会提前清除正在使用的锁；每个 service 最多四条 Git 命令、64 条排队命令，排队可取消；Unicode／空格路径用 NUL porcelain 核对；内部 worktree add 不执行 post-checkout hook；受管会话根的 junction／symlink 逃逸被拒绝；关闭也中止无外部 signal 的已绑定目标核对。确认未受理 Run 后，容量／超时保留 typed 失败，不变成持续的未知结果。
+- `a7221b9`：明确拒绝会扩大操作范围的子目录隔离准备，shared 子目录维持原边界；通过 paired API 保留 typed 拒绝，未创建分支／工作树或受理 Run。
 
 最后独立扩展验证为 **19 文件、106 tests／666 assertions、0 failures，74.72s**。它覆盖上述修正、真实 Files／Git API 和既有共享发送、队列、Goal、Plan、取消及恢复；不是全仓、native smoke 或 UI 上线验收。临时夹具中 get 在 preparing 时仍可读，协作取消／关闭测试使用小于三秒的预算；这不保证所有用户磁盘和 Git 环境均小于三秒。准备仍是同步 RPC，90s preparation 与 15s reconciliation 为配置预算，**尚未实现早受理的后台任务和增量进度通知**。
 
