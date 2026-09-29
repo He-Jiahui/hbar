@@ -233,8 +233,8 @@ function parseStatus(output: string, cwd: string): GitStatus {
     const item = {
       index: token[0] ?? ' ',
       worktree: token[1] ?? ' ',
-      path: token.slice(3).replaceAll('\\', '/'),
-      ...(originalPath ? { originalPath: originalPath.replaceAll('\\', '/') } : {}),
+      path: token.slice(3),
+      ...(originalPath ? { originalPath } : {}),
     }
     if (item.path) entries.push(item)
   }
@@ -637,6 +637,7 @@ export class GitRuntime implements GitService {
     const status = await this.tryRun(path, ['status', '--porcelain=v1', '-z', '--branch'], signal)
     if (!status)
       return gitStatusSchema.parse({ cwd: path, root: null, branch: null, head: null, upstream: null, ahead: 0, behind: 0, dirty: false, entries: [], originUrl: null })
+    if (status.truncated) throw new HbarError('GIT_OUTPUT_LIMIT', 'Git status output exceeded its configured limit')
     const parsed = parseStatus(status.stdout, path)
     const rootResult = await this.tryRun(path, ['rev-parse', '--show-toplevel'], signal)
     const headResult = await this.tryRun(path, ['rev-parse', 'HEAD'], signal)
@@ -652,7 +653,14 @@ export class GitRuntime implements GitService {
 
   async diff(cwd?: string, options: GitDiffOptions = {}, signal?: AbortSignal): Promise<GitDiff> {
     const path = await this.resolveWithinRoot(cwd)
-    const args = ['diff', '--no-ext-diff', ...(options.cached ? ['--cached'] : [])]
+    const scoped = options.scope === 'execution-root'
+    const args = [
+      ...(scoped ? ['--literal-pathspecs'] : []),
+      'diff',
+      '--no-ext-diff',
+      ...(scoped ? ['--relative', '--no-renames', '--no-textconv'] : []),
+      ...(options.cached ? ['--cached'] : []),
+    ]
     const paths = (options.paths ?? []).map(pathSpec)
     if (paths.length) args.push('--', ...paths)
     const result = await this.run(path, args, signal)

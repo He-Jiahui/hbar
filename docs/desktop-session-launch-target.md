@@ -68,11 +68,21 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 ## 会话 Git 只读契约
 
-`sessionGit.info/status/diff` 使用严格的 `{ workspaceId, sessionId, expectedRevision }`，diff 另接受原有 bounded paths 与 cached 选项；不接受客户端 cwd。它们与 Files 复用同一 Host context 校验和解析端口，未绑定隔离目标不会回落到项目 checkout。现有 `git.*` 继续表示调用者明确指定的项目／目录，不被悄悄改成当前会话。
+`sessionGit.info/status/diff` 使用严格的 `{ workspaceId, sessionId, expectedRevision }`，diff 另接受 bounded、slash-relative 的 paths 与 cached 选项；不接受客户端 cwd。它们与 Files 复用同一 Host context 校验和解析端口，未绑定隔离目标不会回落到项目 checkout。三个读取在查询后再次核对目标 revision，status／diff 还核对 Git service 返回的 cwd 与 Host 解析目标一致。现有 `git.*` 继续表示调用者明确指定的项目／目录，不被悄悄改成当前会话。
+
+会话 status／diff 使用独立 DTO：严格回显请求的工作区、会话和目标版本，不返回执行 cwd、repository root 或 origin URL 元数据。status 的路径相对于 execution root，并按路径段判断范围，避免 `pkg` 匹配 `pkg2`；Windows drive／UNC 比较忽略大小写，POSIX 保留大小写。当前会话 DTO 不支持原始 backslash 路径字符，明确拒绝，不把合法 POSIX 文件名偷偷改成另一条 slash 路径。
+
+| 状态条目               | execution root 内的投影                                                          |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| 普通文件／未跟踪文件夹 | 相对 `path`；选中根自身的未跟踪文件夹为 `path: '.', directory: true`             |
+| Rename                 | 保留范围内 `from`／`to`；范围外一端为 null，两端均在外则排除                     |
+| Copy                   | 仅 destination 在范围内时包含；范围外 source 为 null；复制到范围外不算本目录更改 |
+
+`dirty` 表示投影条目是否非空，`repositoryDirty` 单独表示完整 Git repository 是否有更改。diff 明确使用 execution-root scope、literal pathspec 和禁用 rename／textconv 的策略，外部路径与 `..` 不被接受；`[ab].txt`、`*.txt` 和 `:(top)…` 作为字面路径处理，不获得 Git wildcard／magic 的扩大范围语义。Git status 返回截断输出时明确报 `GIT_OUTPUT_LIMIT`，不把不完整 porcelain 当作 clean 或完整列表。diff 则继续携带 `truncated`，UI 必须展示其边界。这是展示／执行目标范围契约，**不是新增权限隔离或对文件正文任意绝对路径字符串的清洗保证**；范围内被删除或移入文件的真实内容仍可在 diff 中出现。
 
 三个新命令只读、session scope、内部 API surface，不添加 palette 操作或 Git mutation；不以会话 ID 冒充提交的 provenance。每个 Host 命令有 30s deadline 及 8 个同时调用上限，解析和 Git service 之间传递同一 Host `AbortSignal`。现有 WebSocket Client Git adapter 不提供远程 query-cancel RPC，因此不能把客户端停止观察表述成 Host Git 进程已停止；关闭／timeout 的 Host 中止和前端旧结果丢弃仍要分别验证。
 
-真实 Host 回归核对隔离分支、working changes、staged index／diff 与 Files 的同一目录；共享 checkout 的文件、分支和两个 diff 均保持不变。另外核对 cwd 注入、错误项目、旧版本和未绑定目标明确失败，以及 query/internal metadata。上述接口已具备，并不表示 runtime 的 Git 展示已经切换到它们。
+真实 Host 回归核对隔离分支、working changes、staged index／diff 与 Files 的同一目录；共享 checkout 的文件、分支和两个 diff 均保持不变。另外核对 cwd 注入、错误项目、旧版本和未绑定目标明确失败，以及 query/internal metadata。新的 DTO／scope 切片聚焦验证为 **30 tests／174 assertions，全部通过**，包含 projector、真实 paired Host 的子目录 rename／copy 边界、outside sentinel、literal paths、暂存／未暂存、未跟踪根、非 Git 目录、查询中目标变更、Git plugin 的 scope 参数和 status 截断失败，以及既有 paired Files／Git 回归。9 个变更路径的 scoped ESLint 零警告、explicit strict TypeScript 和 staged diff 检查通过；contracts／kernel／session tests 格式通过，plugin／SDK 保留无关历史格式，不夹带全文件改写。全仓 typecheck 仍退出 1，包含 preview fixture／契约、`@lumen/app-ui` 解析和并行 Files 测试的诊断，未冒充通过。分支上下文已使用 info；Changed Files／diff 的 runtime／浏览器迁移仍需单独验收。
 
 ## UI 上线前仍需闭环
 

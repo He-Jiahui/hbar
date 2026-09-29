@@ -5,7 +5,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { HbarClient, createFileCommandClient, createGitCommandClient, createRunCommandClient } from '@hbar/client'
 import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import { sessionFileTargetSchema } from '@hbar/contracts/commands/files'
-import { sessionGitTargetSchema } from '@hbar/contracts/commands/git'
+import { sessionGitCommands, sessionGitTargetSchema } from '@hbar/contracts/commands/git'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server'
 
@@ -217,10 +217,22 @@ test('paired session Git info/status/diff read the same bound checkout as Files,
   const info = await f.git.execute('sessionGit.info', target)
   expect(info.branch).toBe(`codex/test-${session.id}`)
   const status = await f.git.execute('sessionGit.status', target)
-  expect(resolve(status.cwd)).toBe(resolve(isolated.path))
-  expect(status.entries).toEqual([{ index: ' ', worktree: 'M', path: 'same.txt' }])
+  expect(status).toMatchObject({
+    target,
+    branch: info.branch,
+    isRepository: true,
+    dirty: true,
+    repositoryDirty: true,
+    entries: [{ kind: 'path', index: ' ', worktree: 'M', path: 'same.txt' }],
+  })
+  expect(status).not.toHaveProperty('cwd')
+  expect(status).not.toHaveProperty('root')
+  expect(status).not.toHaveProperty('originUrl')
   const working = await f.git.execute('sessionGit.diff', { ...target, paths: ['same.txt'] })
+  expect(working).toMatchObject({ target, cached: false, truncated: false })
+  expect(working).not.toHaveProperty('cwd')
   expect(working.diff).toContain('+staged isolated only')
+  expect(working.diff).toContain('b/same.txt')
   expect((await f.git.execute('git.diff', { cwd: f.repository })).diff).toBe('')
 
   await git(isolated.path, ['add', 'same.txt'])
@@ -238,6 +250,14 @@ test('session Git queries reject root injection, wrong owners, stale versions an
   const session = await f.kernel.createSession(f.workspace.id, 'Git unbound')
   const target = { workspaceId: f.workspace.id, sessionId: session.id, expectedRevision: 0 }
   expect(sessionGitTargetSchema.safeParse({ ...target, cwd: f.root }).success).toBeFalse()
+  const diffInput = sessionGitCommands['sessionGit.diff'].input
+  expect(diffInput.safeParse({ ...target, paths: [':()[brackets]*.txt'] })).toMatchObject({
+    success: true,
+    data: { paths: [':()[brackets]*.txt'] },
+  })
+  expect(diffInput.safeParse({ ...target, paths: ['../same.txt'] }).success).toBeFalse()
+  expect(diffInput.safeParse({ ...target, paths: ['D:/outside.txt'] }).success).toBeFalse()
+  expect(diffInput.safeParse({ ...target, paths: ['name\\part.txt'] }).success).toBeFalse()
   expect((await f.git.execute('sessionGit.info', target)).branch).toBe('main')
   await mkdir(join(f.root, 'foreign'))
   const foreign = await f.kernel.createWorkspace(join(f.root, 'foreign'))

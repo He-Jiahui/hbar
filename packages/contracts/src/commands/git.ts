@@ -61,6 +61,79 @@ const worktreeInputSchema = z
 /** Read-only Git context resolved from a session; callers cannot choose its cwd. */
 export const sessionGitTargetSchema = sessionFileTargetSchema.extend({ workspaceId: idSchema })
 export type SessionGitTarget = z.infer<typeof sessionGitTargetSchema>
+
+const sessionGitRelativePathSchema = z
+  .string()
+  .min(1)
+  .max(4_000)
+  .refine((value) => {
+    return (
+      !value.startsWith('/') &&
+      !value.startsWith('\\') &&
+      !/^[a-z]:/i.test(value) &&
+      !value.includes('\\') &&
+      !value.includes('\0') &&
+      value.split('/').every((part) => part !== '..')
+    )
+  }, 'Git paths must stay relative to the session execution root')
+const sessionGitDiffPathSchema = sessionGitRelativePathSchema
+
+export const sessionGitStatusEntrySchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('path'),
+    path: sessionGitRelativePathSchema,
+    index: z.string().length(1),
+    worktree: z.string().length(1),
+    directory: z.literal(true).optional(),
+  }),
+  z
+    .strictObject({
+      kind: z.literal('rename'),
+      from: sessionGitRelativePathSchema.nullable(),
+      to: sessionGitRelativePathSchema.nullable(),
+      index: z.string().length(1),
+      worktree: z.string().length(1),
+    })
+    .refine(
+      (entry) => entry.from !== null || entry.to !== null,
+      'A scoped rename must touch the session execution root',
+    ),
+  z.strictObject({
+    kind: z.literal('copy'),
+    from: sessionGitRelativePathSchema.nullable(),
+    to: sessionGitRelativePathSchema,
+    index: z.string().length(1),
+    worktree: z.string().length(1),
+  }),
+])
+export type SessionGitStatusEntry = z.infer<typeof sessionGitStatusEntrySchema>
+
+/** Session Git projection; all entry paths are relative to the resolved execution root. */
+export const sessionGitStatusSchema = z.strictObject({
+  target: sessionGitTargetSchema,
+  branch: z.string().min(1).max(1_000).nullable(),
+  head: z
+    .string()
+    .regex(/^[0-9a-f]{7,64}$/i)
+    .nullable(),
+  upstream: z.string().min(1).max(1_000).nullable(),
+  ahead: z.number().int().nonnegative(),
+  behind: z.number().int().nonnegative(),
+  isRepository: z.boolean(),
+  dirty: z.boolean(),
+  repositoryDirty: z.boolean(),
+  entries: z.array(sessionGitStatusEntrySchema).max(5_000),
+})
+export type SessionGitStatus = z.infer<typeof sessionGitStatusSchema>
+
+export const sessionGitDiffSchema = z.strictObject({
+  target: sessionGitTargetSchema,
+  diff: z.string().max(512_000),
+  cached: z.boolean(),
+  truncated: z.boolean(),
+})
+export type SessionGitDiff = z.infer<typeof sessionGitDiffSchema>
+
 const sessionMetadata = (id: string) => ({
   ...metadata(id, 'query', 'none'),
   scope: 'session' as const,
@@ -71,14 +144,18 @@ const sessionMetadata = (id: string) => ({
 })
 export const sessionGitCommands = {
   'sessionGit.info': defineCommand(sessionMetadata('sessionGit.info'), sessionGitTargetSchema, gitInfoSchema),
-  'sessionGit.status': defineCommand(sessionMetadata('sessionGit.status'), sessionGitTargetSchema, gitStatusSchema),
+  'sessionGit.status': defineCommand(
+    sessionMetadata('sessionGit.status'),
+    sessionGitTargetSchema,
+    sessionGitStatusSchema,
+  ),
   'sessionGit.diff': defineCommand(
     sessionMetadata('sessionGit.diff'),
     sessionGitTargetSchema.extend({
       cached: z.boolean().default(false),
-      paths: z.array(pathSchema).max(100).default([]),
+      paths: z.array(sessionGitDiffPathSchema).max(100).default([]),
     }),
-    gitDiffSchema,
+    sessionGitDiffSchema,
   ),
 }
 

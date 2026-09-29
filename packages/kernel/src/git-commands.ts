@@ -1,9 +1,10 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
-import { gitCommands } from '@hbar/contracts/commands/git'
+import { gitCommands, sessionGitDiffSchema } from '@hbar/contracts/commands/git'
 import type { SessionGitTarget } from '@hbar/contracts/commands/git'
 import type { GitBranchOperation, GitService, GitWorktreeOperation } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
+import { assertSessionGitExecutionRoot, projectSessionGitStatus } from './session-git-projection'
 import { createSessionWorkspaceContext } from './session-workspace-context'
 import type { SessionWorkspaceResolver } from './session-workspace-context'
 
@@ -55,32 +56,61 @@ export function createGitCommands(service: GitService, sessionWorkspace?: Sessio
       ? { operation: 'add', path: input.path, branch: input.branch, createBranch: input.createBranch }
       : { operation: 'remove', path: input.path, force: input.force }
   }
-  const sessionCwd = async (input: SessionGitTarget, signal: AbortSignal) => {
-    if (!sessionContext) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Git contexts are unavailable')
-    const target = await sessionContext.resolve(
-      {
-        workspaceId: input.workspaceId,
-        sessionTarget: { sessionId: input.sessionId, expectedRevision: input.expectedRevision },
+  const resolveSession = async (input: SessionGitTarget, signal: AbortSignal) => {
+    const context = sessionContext
+    if (!context) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Git contexts are unavailable')
+    const request = {
+      workspaceId: input.workspaceId,
+      sessionTarget: { sessionId: input.sessionId, expectedRevision: input.expectedRevision },
+    }
+    const target = await context.resolve(request, signal)
+    return {
+      path: target.path,
+      async assertCurrent() {
+        signal.throwIfAborted()
+        await context.assertCurrent(request)
+        signal.throwIfAborted()
       },
-      signal,
-    )
-    return target.path
+    }
   }
 
   registry.register(gitCommands['sessionGit.info'], (input, context) =>
-    translate(async () => service.info(await sessionCwd(input, context.signal), context.signal)),
+    translate(async () => {
+      const target = await resolveSession(input, context.signal)
+      const info = await service.info(target.path, context.signal)
+      await target.assertCurrent()
+      return info
+    }),
   )
   registry.register(gitCommands['sessionGit.status'], (input, context) =>
-    translate(async () => service.status(await sessionCwd(input, context.signal), context.signal)),
+    translate(async () => {
+      const target = await resolveSession(input, context.signal)
+      const status = await service.status(target.path, context.signal)
+      await target.assertCurrent()
+      return projectSessionGitStatus(input, status, target.path)
+    }),
   )
   registry.register(gitCommands['sessionGit.diff'], (input, context) =>
-    translate(async () =>
-      service.diff(
-        await sessionCwd(input, context.signal),
-        { cached: input.cached, paths: input.paths },
+    translate(async () => {
+      const target = await resolveSession(input, context.signal)
+      const result = await service.diff(
+        target.path,
+        { cached: input.cached, paths: input.paths, scope: 'execution-root' },
         context.signal,
-      ),
-    ),
+      )
+      await target.assertCurrent()
+      assertSessionGitExecutionRoot(target.path, result.cwd)
+      return sessionGitDiffSchema.parse({
+        target: {
+          workspaceId: input.workspaceId,
+          sessionId: input.sessionId,
+          expectedRevision: input.expectedRevision,
+        },
+        diff: result.diff,
+        cached: result.cached,
+        truncated: result.truncated,
+      })
+    }),
   )
 
   registry.register(gitCommands['git.info'], (input, context) =>

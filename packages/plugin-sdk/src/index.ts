@@ -350,6 +350,8 @@ export interface AgentService {
 export interface GitDiffOptions {
   cached?: boolean | undefined
   paths?: string[] | undefined
+  /** Restrict the diff to the execution cwd, use literal pathspecs, and disable external rename/textconv output. */
+  scope?: 'execution-root' | undefined
 }
 export interface GitCommitOptions {
   message: string
