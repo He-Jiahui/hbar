@@ -12,6 +12,8 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 
 本次采用 Host 自己生成和管理会话目标。第一条已受理 Run 冻结该目标，后续 Run、模型系统上下文及 local tools 使用同一 binding；关闭、归档、取消或错误均不自动删除目录。当前模式只包含共享当前 checkout 与独立工作树（既有分支／新分支），**不包含在共享 checkout 切换分支**。
 
+当前隔离目标只支持登记到 Git repository root 的 workspace。登记的是仓库子目录时，shared-current 仍以该子目录为文件边界；isolated prepare／Run 明确返回 `SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED`，不创建分支／工作树／binding，也不偷偷把 cwd 扩大到整个 repo。完整子目录隔离支持仍需分离 worktree root 与 execution cwd 的持久契约，不能只改一个返回路径。
+
 ## 已提交的底层切片
 
 - `68c3426`：版本化选择、actor／幂等键回执及 storage v10；同一请求恢复不会重新选择目标，首条 Run 后禁止修改。
@@ -22,6 +24,8 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 - `9c6bdad`：修正初始提交审查发现的取消、锁链、并发、路径解析、hooks 和关闭边界。加入等待者取消不取消 owner；取消最后一个等待者不会提前清除正在使用的锁；每个 service 最多四条 Git 命令、64 条排队命令，排队可取消；Unicode／空格路径用 NUL porcelain 核对；内部 worktree add 不执行 post-checkout hook；受管会话根的 junction／symlink 逃逸被拒绝；关闭也中止无外部 signal 的已绑定目标核对。确认未受理 Run 后，容量／超时保留 typed 失败，不变成持续的未知结果。
 
 最后独立扩展验证为 **19 文件、106 tests／666 assertions、0 failures，74.72s**。它覆盖上述修正、真实 Files／Git API 和既有共享发送、队列、Goal、Plan、取消及恢复；不是全仓、native smoke 或 UI 上线验收。临时夹具中 get 在 preparing 时仍可读，协作取消／关闭测试使用小于三秒的预算；这不保证所有用户磁盘和 Git 环境均小于三秒。准备仍是同步 RPC，90s preparation 与 15s reconciliation 为配置预算，**尚未实现早受理的后台任务和增量进度通知**。
+
+随后新增的子目录 scope fence 单独通过真实 Git／paired Host 测试，并再次独立重跑通过（每次 1 test／12 assertions），核对 shared 子目录边界、prepare／direct submit／API submit 的 typed 拒绝，以及无分支、工作树、binding、resolution、Run 和文件副作用。阶段记录为 fixture 11.73s、paired 拒绝 16.75s、完整测试及清理 21.09s；重跑测试自身为 27.97s，因此仅该测试使用 60s 的有界夹具预算，产品 API／Git deadlines 未变。原 20s 预算两次耗尽；随后扩大四文件回归时，未改动的 compaction、retry、cancel、watch 与 Git fixture 也触及 20s 上限，该轮已停止，**不是通过结果**。当前证据不足以把所有超时都归因于系统负载；上述 106 tests 的绿色记录属于之前的 hardening revision，不能冒充 scope fence 后的完整回归。
 
 ## Files 公共契约
 
@@ -59,5 +63,6 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 4. 接入 host-owned 中英文 copy 的单一位置入口，首发后变成可解释的只读 context。准备／失败／重试／取消在原入口附近反馈，保留草稿和阅读位置。
 5. 使用当前参考组件的可见画面确定层级与响应式流；验证桌面、390px、320px、短窗口、键盘与焦点。再以真实 Host E2E 和 native smoke 验证选择、首发、Files 编辑、切换会话和重启，不以隔离组件画面冒充后端验收。
 6. 子 Agent／Fork 的执行位置需要单独闭环。当前普通 Agent child 按 parent 的注册 workspace 创建，patchTask 也从 `sessions.workspace(parent.workspaceId)` 同步源文件，不能据此宣称已经继承隔离父会话的实际目录。另需核对正常 Git branch mutation 与首次 launch selection 的关系；当前绑定核对要求原分支名，不应在 UI 上无说明地承诺任意 branch switch 后可以继续。
+7. 如需支持 monorepo 子目录的隔离会话，应持久保存仓库 root 和受限 execution cwd，并让模型、工具、Files、Git 与子 Agent 使用后者；先验证 scope 不扩大，再解除目前的明确拒绝。
 
 隔离分支的全仓 TypeScript 检查尚受根测试 fixture 的 `@lumen/app-ui` 解析基线影响；变更文件的 explicit strict TypeScript 与 targeted lint 另行运行并记录，不能把 scoped gate 表述成全仓通过。主工作区同时存在其他任务的 Kernel、manifest 和 UI 改动，未清除、自动暂存或夹带它们；集成必须单独核对。

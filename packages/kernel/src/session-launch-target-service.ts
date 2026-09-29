@@ -667,6 +667,11 @@ export class SessionLaunchTargetService {
       safeGitError(error)
     }
     const rootCandidate = gitRoot!
+    if (!samePath(await realpath(workspacePath), rootCandidate))
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED',
+        'Isolated launch currently requires a repository-root workspace; use the shared directory or register the repository root',
+      )
     const commonRelative = output(
       await this.git(rootCandidate, ['rev-parse', '--git-common-dir'], signal),
       'GIT_NOT_REPOSITORY',

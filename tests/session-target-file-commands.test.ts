@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { HbarClient, createFileCommandClient, createGitCommandClient } from '@hbar/client'
+import { HbarClient, createFileCommandClient, createGitCommandClient, createRunCommandClient } from '@hbar/client'
 import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import { sessionFileTargetSchema } from '@hbar/contracts/commands/files'
 import { sessionGitTargetSchema } from '@hbar/contracts/commands/git'
@@ -264,3 +264,50 @@ test('session Git queries reject root injection, wrong owners, stale versions an
     visibility: 'internal',
   })
 })
+
+// This real Git + paired Host fixture took 21s including cleanup on a loaded
+// Windows host. Keep a bounded fixture budget; API and Git deadlines are unchanged.
+test('isolated preparation cannot silently widen a registered repository-subdirectory workspace', async () => {
+  const f = await fixture()
+  const subdirectory = join(f.repository, 'selected-only')
+  await mkdir(subdirectory)
+  await writeFile(join(subdirectory, 'scoped.txt'), 'selected scope')
+  const workspace = await f.kernel.createWorkspace(subdirectory)
+  const session = await f.kernel.createSession(workspace.id, 'subdirectory')
+  const target = { workspaceId: workspace.id, sessionTarget: { sessionId: session.id, expectedRevision: 0 } }
+  expect(await f.files.execute('file.read', { ...target, path: 'scoped.txt' })).toMatchObject({
+    text: 'selected scope',
+  })
+  await expectCode(f.files.execute('file.read', { ...target, path: '../same.txt' }), 'PATH_DENIED')
+  await f.kernel.setSessionLaunchTarget({
+    actorId: 'fixture-actor',
+    idempotencyKey: crypto.randomUUID(),
+    sessionId: session.id,
+    expectedRevision: 0,
+    selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'codex/must-not-expand' } },
+  })
+  const before = await git(f.repository, ['worktree', 'list', '--porcelain', '-z'])
+  await expectCode(f.kernel.prepareSessionLaunchTarget(session.id, 1), 'SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED')
+  await expectCode(
+    f.kernel.submit(session.id, 'subdirectory-rejected', { text: 'must not widen scope', images: [] }, 'local-fixture'),
+    'SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED',
+  )
+  await expectCode(
+    createRunCommandClient(f.client).execute(
+      'run.submit',
+      { sessionId: session.id, modelId: 'local-fixture', input: { text: 'same boundary through API', images: [] } },
+      { idempotencyKey: 'subdirectory-api-rejected' },
+    ),
+    'SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED',
+  )
+  expect(await git(f.repository, ['worktree', 'list', '--porcelain', '-z'])).toBe(before)
+  expect(await git(f.repository, ['branch', '--list', 'codex/must-not-expand'])).toBe('')
+  const runtime = await f.kernel.storage.call('sessionLaunchTargetRuntime', session.id)
+  expect(runtime.binding).toBeNull()
+  expect(runtime.resolution).toBeNull()
+  expect(
+    (await f.kernel.storage.call('events', session.id, 0)).some((event) => event.type === 'run.queued'),
+  ).toBeFalse()
+  expect(await readFile(join(f.repository, 'same.txt'), 'utf8')).toBe('shared baseline')
+  expect(await readFile(join(subdirectory, 'scoped.txt'), 'utf8')).toBe('selected scope')
+}, 60_000)
