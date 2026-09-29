@@ -637,3 +637,19 @@ Canada→Province 及 Express→$289.59，本轮仅配对 Billing 机制，不�
 显隐、320px 文档滚动到底栏、Pay 禁用、本地化与 page error（0）。8 项专项测试
 （77 条断言）、根与 Lumen 类型检查、局部 lint/guards 和构建通过，构建仍有既有大 chunk
 提示。没有填写或触发支付，Back 也仅为宿主回调；不声称远端付款/导航结果。
+
+Forms 7（Community arts fund application）的来源边界为授权静态缓存
+`artifacts/reactbits-pro-visual-audit/full-audit-v1/source/hbar-app-ui-forms-7/`，
+以及**不同 hash** 的安全交互缓存 `full-interactions-v3/interactions/hbar-app-ui-forms-7/`。
+最新实现的 8 张本地视口/主题图位于
+`artifacts/reactbits-pro-visual-audit/forms-7-integrated-manual-cache-r2/`；桌面浅色 AX
+标题/说明/进度顺序与静态缓存一致。缓存可见摘要填入 `audit sample` 后 388 left、
+13%，或只勾确认后 13%；Focus 展开列出五项。本地独立脚本
+`scripts/verify-hbar-app-ui-forms-7.ts` 验证上述两种进度、初始两份附件、Focus 选项、
+Submit 禁用、德语文案和 320px 底栏可达且 page error 0。
+**未生成或签署 fresh strict 通过账本**：两份来源缓存的 hash 不同，旧 capture manifest
+也缺当前协议字段，不能把静态图和旧交互拼接成同轮回放。窄屏来源图有裁切，滚动 owner
+未证；本地保留正文滚动与可见底栏。Tag、附件、Save draft 和 Submit 的远端结果没有
+来源证据，宿主只发类型化请求，不伪造上传/保存/提交成功。8 项 focused store 测试
+（59 条断言）、audit 合约测试 90 项、根与 Lumen 类型检查、局部 lint/guards、构建均通过，
+构建仍有既有大 chunk 提示。等价按钮/布局不作笛卡尔回放。
