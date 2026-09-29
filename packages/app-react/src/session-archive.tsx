@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenText } from '@lumen/app-ui'
 import { SESSION_ARCHIVE_BATCH_MAX_ITEMS } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-archive.css'
@@ -189,11 +189,11 @@ export function SessionArchiveBatchPanel({
         <>
           <LumenText as="strong">{labels.previewTitle(batch.items.length)}</LumenText>
           {singleWorkspaceName && <LumenText as="small">{labels.project(singleWorkspaceName)}</LumenText>}
-          <ol className="hbar-app-react-session-archive-batch-list">
+          <LumenCollection as="ol" className="hbar-app-react-session-archive-batch-list">
             {batch.items.map((item) => {
               const workspace = directory.workspaces[item.target.workspaceId]
               return (
-                <li
+                <LumenCollectionItem
                   key={`${item.target.workspaceId}\u0000${item.target.sessionId}`}
                   data-workspace-id={item.target.workspaceId}
                   data-session-id={item.target.sessionId}
@@ -219,10 +219,10 @@ export function SessionArchiveBatchPanel({
                       {labels.unknown(item.target.title)}
                     </LumenText>
                   )}
-                </li>
+                </LumenCollectionItem>
               )
             })}
-          </ol>
+          </LumenCollection>
           {stateMessage && (
             <LumenText as="p" role={batch.status === 'unknown' || batch.status === 'partial' ? 'alert' : 'status'}>
               {stateMessage}
