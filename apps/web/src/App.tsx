@@ -76,6 +76,7 @@ import { createHostSendBehaviorPort } from './send-behavior-settings'
 import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
 import { createBrowserImageResources } from './browser-image-resources'
 import { sessionImageCopy } from './session-image-copy'
+import { mobileShellNavigationLabel } from './mobile-shell-navigation-copy'
 import type { HbarSessionImagesOptions } from '@hbar/app-react'
 import {
   createWebLumenAppearance,
@@ -1272,6 +1273,7 @@ export default function App({
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
         <HbarWorkspaceShell
           labels={copy.shell}
+          mobileNavigationLabel={mobileShellNavigationLabel(locale)}
           titlebar={
             nativeWindow ? (
               <NativeWindowTitlebar context={nativeWindow} labels={copy.windowControls} title={copy.shell.brand} />

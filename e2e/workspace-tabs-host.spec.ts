@@ -45,8 +45,40 @@ test('real Host session tabs retain independent drafts, close views only, and re
     await expect(page.getByRole('tab', { name: 'Session 001', exact: true })).toHaveCount(0)
     await page.setViewportSize({ width: 320, height: 844 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-    await expect(page.getByRole('tab', { name: 'Session 002', exact: true })).toBeVisible()
+    const mobileNavigation = page.locator('.hbar-mobile-header-menu-trigger')
+    await expect(mobileNavigation).toBeVisible()
+    await mobileNavigation.click()
+    await expect(
+      page
+        .locator('.hbar-mobile-header-menu-content')
+        .getByRole('region', { name: tabCopy.tabs.tabs, exact: true })
+        .getByRole('button', { name: `Session 002 — ${host.ready.workspaceName}`, exact: true }),
+    ).toBeVisible()
     await page.screenshot({ path: 'artifacts/reference-ux-v2/hbar-tabs-host-selected-320.png' })
+    await mobileNavigation.click()
+    const sidebar = page.getByRole('complementary', { name: en.shell.projectsAndSessions, exact: true })
+    if (!(await sidebar.isVisible()))
+      await page.getByRole('button', { name: en.shell.showSidebar, exact: true }).click()
+    await sidebar.getByRole('button', { name: en.shell.openSession('Session 001'), exact: true }).click()
+    const hideSidebar = page.getByRole('button', { name: en.shell.hideSidebar, exact: true })
+    if (await hideSidebar.isVisible()) await hideSidebar.click()
+    await mobileNavigation.click()
+    const mobileTabs = page.locator('.hbar-mobile-header-menu-content').getByRole('region', {
+      name: tabCopy.tabs.tabs,
+      exact: true,
+    })
+    await expect(
+      mobileTabs.getByRole('button', { name: `Session 001 — ${host.ready.workspaceName}`, exact: true }),
+    ).toBeVisible()
+    await mobileTabs.getByRole('button', { name: tabCopy.tabs.close('Session 002'), exact: true }).click()
+    await expect(mobileNavigation).toBeFocused()
+    await mobileNavigation.click()
+    await expect(
+      page
+        .locator('.hbar-mobile-header-menu-content')
+        .getByRole('region', { name: tabCopy.tabs.tabs, exact: true })
+        .getByRole('button', { name: `Session 002 — ${host.ready.workspaceName}`, exact: true }),
+    ).toHaveCount(0)
     const pageOfSessions = await createWorkspaceSessionCommandClient(host.client).execute('session.list', {
       workspaceId: host.ready.workspaceId,
       limit: 100,
@@ -91,7 +123,21 @@ test('the 33rd visible tab is rejected before selecting or creating another Host
     expect(sessions.items).toHaveLength(33)
     await page.setViewportSize({ width: 320, height: 844 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-    await expect(page.getByRole('tab', { name: 'Session 032', exact: true })).toBeVisible()
+    const mobileNavigation = page.locator('.hbar-mobile-header-menu-trigger')
+    await mobileNavigation.click()
+    const mobileTabs = page.locator('.hbar-mobile-header-menu-content').getByRole('region', {
+      name: tabCopy.tabs.tabs,
+      exact: true,
+    })
+    const lastVisibleSession = mobileTabs.getByRole('button', {
+      name: `Session 032 — ${host.ready.workspaceName}`,
+      exact: true,
+    })
+    await lastVisibleSession.scrollIntoViewIfNeeded()
+    await expect(lastVisibleSession).toBeVisible()
+    await expect(
+      mobileTabs.getByRole('button', { name: `Session 033 — ${host.ready.workspaceName}`, exact: true }),
+    ).toHaveCount(0)
     await page.screenshot({ path: 'artifacts/reference-ux-v2/hbar-tabs-host-overflow-320.png' })
     expect(errors).toEqual([])
   } finally {

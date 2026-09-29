@@ -57,8 +57,9 @@ function scopeOf(target: EventTarget | null, root: HTMLElement): SessionFindTarg
 
 function otherOverlayOpen() {
   return (
-    Boolean(document.querySelector('dialog:modal, [popover]:popover-open')) ||
-    [...document.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"]')].some(usable)
+    Boolean(
+      document.querySelector('dialog:modal, [popover]:popover-open, [data-hbar-mobile-header-menu][data-open="true"]'),
+    ) || [...document.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"]')].some(usable)
   )
 }
 
@@ -294,14 +295,18 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
     painter.current?.cancelReveal()
     setFeedback(null)
     if (mayReturn && currentTarget() && !otherOverlayOpen()) {
+      const mobileMenuTrigger = document.querySelector<HTMLElement>(
+        '[data-hbar-mobile-header-menu] .hbar-mobile-header-menu-trigger',
+      )
       if (
         captured &&
         sameSessionFindTarget(captured.target, target) &&
         usable(captured.node) &&
-        workspaceRef.current?.contains(captured.node)
+        (workspaceRef.current?.contains(captured.node) || captured.node.matches('.hbar-mobile-header-menu-trigger'))
       )
         captured.node.focus({ preventScroll: true })
       else if (usable(triggerRef.current)) triggerRef.current.focus({ preventScroll: true })
+      else if (usable(mobileMenuTrigger)) mobileMenuTrigger.focus({ preventScroll: true })
     }
     focusReturn.current = null
   }
@@ -351,6 +356,8 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
   return {
     workspaceRef,
     open,
+    disabled: !target || !model,
+    activate: focusFind,
     scrollTarget,
     onScrollTargetResult,
     trigger: (

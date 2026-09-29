@@ -44,6 +44,11 @@ export {
   type HbarWorkspaceShellLabels,
   type HbarWorkspaceShellProps,
 } from './lumen-workspace-shell'
+export {
+  useHbarMobileHeaderMenuSection,
+  type HbarMobileHeaderMenuItem,
+  type HbarMobileHeaderMenuSection,
+} from './mobile-header-menu'
 export { SessionArchiveBatchPanel } from './session-archive'
 export type { SessionArchiveBatchLabels } from './session-archive'
 export {

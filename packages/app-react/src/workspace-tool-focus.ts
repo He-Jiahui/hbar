@@ -407,6 +407,7 @@ export function useWorkspaceToolFocus(
       const target = event.target instanceof HTMLElement ? event.target : null
       const menuOpen =
         document.querySelector('[popover]:popover-open') !== null ||
+        document.querySelector('[data-hbar-mobile-header-menu][data-open="true"]') !== null ||
         [...document.querySelectorAll<HTMLElement>('[role="menu"]')].some(canFocusWorkspaceElement)
       if (
         !shouldDismissWorkspaceTool({

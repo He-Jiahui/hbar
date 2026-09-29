@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Bot, ChartNoAxesColumnIncreasing, Files, ListChecks, ListTodo, Settings, type LucideIcon } from 'lucide-react'
+import {
+  Bot,
+  ChartNoAxesColumnIncreasing,
+  Files,
+  ListChecks,
+  ListTodo,
+  Search,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
 import {
   LumenFrame,
   LumenText,
@@ -65,6 +74,7 @@ import {
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
 import { useSessionFind } from './session-find'
+import { useHbarMobileHeaderMenuSection, type HbarMobileHeaderMenuItem } from './mobile-header-menu'
 import { HbarSessionStopNotice, useSessionStopAction } from './session-stop'
 import { sessionStopCanCancel } from './session-stop-model'
 import type { HbarSessionFindLabels } from './session-find-view'
@@ -800,6 +810,79 @@ function SessionWorkspaceContent({
     }
   }, [connected, forkCandidateIds, runtime.commands, sessionId, timeline.cursor, timeline.sessionId, timeline.status])
   const sourceTab = tabs.items.find((item) => item.kind === 'session' && item.sessionId === sessionId)
+  const mobileSessionToolItems: readonly HbarMobileHeaderMenuItem[] = [
+    {
+      id: 'find',
+      order: 0,
+      label: labels.find.entry,
+      icon: Search,
+      disabled: find.disabled,
+      pressed: find.open,
+      onActivate: find.activate,
+    },
+    ...(showFilesInHeader
+      ? [
+          {
+            id: 'files',
+            order: 1,
+            label: labels.tools.files,
+            icon: Files,
+            disabled: !sessionId,
+            pressed: isToolActive('files'),
+            onActivate: () => toggleTool('files'),
+          } satisfies HbarMobileHeaderMenuItem,
+        ]
+      : []),
+    {
+      id: 'activity',
+      order: 2,
+      label: labels.tools.activity,
+      icon: ListChecks,
+      disabled: !sessionId,
+      pressed: isToolActive('activity'),
+      onActivate: () => toggleTool('activity'),
+    },
+    {
+      id: 'monitoring',
+      order: 3,
+      label: labels.tools.monitoring,
+      icon: ChartNoAxesColumnIncreasing,
+      disabled: !sessionId,
+      pressed: isToolActive('monitoring'),
+      onActivate: () => toggleTool('monitoring'),
+    },
+    {
+      id: 'agents',
+      order: 4,
+      label: labels.tools.agents,
+      icon: Bot,
+      disabled: !sessionId,
+      pressed: isToolActive('agents'),
+      onActivate: () => toggleTool('agents'),
+    },
+    {
+      id: 'goals',
+      order: 5,
+      label: labels.tools.goals,
+      icon: ListTodo,
+      disabled: !sessionId,
+      pressed: isToolActive('goals'),
+      onActivate: () => toggleTool('goals'),
+    },
+    {
+      id: 'settings',
+      order: 6,
+      label: labels.tools.settings,
+      icon: Settings,
+      disabled: !sessionId,
+      onActivate: () => {
+        if (sessionId) void runtime.commands.execute('app.openSettings', { scope: 'session', targetId: sessionId })
+      },
+    },
+  ]
+  useHbarMobileHeaderMenuSection(
+    sessionId ? { id: 'session-tools', order: 2, label: labels.tools.label, items: mobileSessionToolItems } : null,
+  )
   const eligibilityCurrent =
     messageFork.eligibility.sessionId === sessionId && messageFork.eligibility.cursor === timeline.cursor
   const decisionProjection = useMemo(
@@ -1750,55 +1833,22 @@ function SessionWorkspaceContent({
         }
         actionsLabel={labels.tools.label}
         actions={
-          // Named actions stay directly accessible; narrow headings wrap into
-          // a separate normal-flow row instead of clipping tool hit areas.
           <>
-            {find.trigger}
-            {showFilesInHeader && (
-              <SessionToolButton
-                icon={Files}
-                label={labels.tools.files}
-                selected={isToolActive('files')}
-                disabled={!sessionId}
-                onClick={() => toggleTool('files')}
-              />
-            )}
-            <SessionToolButton
-              icon={ListChecks}
-              label={labels.tools.activity}
-              selected={isToolActive('activity')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('activity')}
-            />
-            <SessionToolButton
-              icon={ChartNoAxesColumnIncreasing}
-              label={labels.tools.monitoring}
-              selected={isToolActive('monitoring')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('monitoring')}
-            />
-            <SessionToolButton
-              icon={Bot}
-              label={labels.tools.agents}
-              selected={isToolActive('agents')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('agents')}
-            />
-            <SessionToolButton
-              icon={ListTodo}
-              label={labels.tools.goals}
-              selected={isToolActive('goals')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('goals')}
-            />
-            <SessionToolButton
-              icon={Settings}
-              label={labels.tools.settings}
-              disabled={!sessionId}
-              onClick={() => {
-                if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })
-              }}
-            />
+            {mobileSessionToolItems.map((item) => {
+              if (item.id === 'find') return find.trigger
+              if (item.id === 'files' && !showFilesInHeader) return null
+              if (!item.icon) return null
+              return (
+                <SessionToolButton
+                  key={item.id}
+                  icon={item.icon}
+                  label={item.label}
+                  {...(item.pressed === undefined ? {} : { selected: item.pressed })}
+                  disabled={item.disabled ?? false}
+                  onClick={item.onActivate}
+                />
+              )
+            })}
           </>
         }
       />

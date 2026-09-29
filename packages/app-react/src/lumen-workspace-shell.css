@@ -41,6 +41,10 @@
   white-space: nowrap;
 }
 
+.hbar-app-react-shell-header-active-title {
+  display: none;
+}
+
 .hbar-app-react-sidebar-primary,
 .hbar-app-react-project-tree,
 .hbar-app-react-project-tree section,
@@ -371,6 +375,33 @@
   .hbar-app-react-project-organization-menu summary {
     inline-size: 2.75rem;
     block-size: 2.75rem;
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .hbar-app-react-shell-header {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .hbar-app-react-shell-header > strong {
+    display: none;
+  }
+
+  .hbar-app-react-shell-header-active-title {
+    display: block;
+    min-inline-size: 0;
+    flex: 1 1 0;
+    margin: 0;
+    color: var(--lumen-ink);
+    font-size: 0.9375rem;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

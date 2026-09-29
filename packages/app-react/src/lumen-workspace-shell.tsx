@@ -74,6 +74,7 @@ import {
   shouldCollapseWorkspaceSidebar,
   useWorkspaceToolFocus,
 } from './workspace-tool-focus'
+import { HbarMobileHeaderMenu, HbarMobileHeaderMenuProvider } from './mobile-header-menu'
 
 export interface HbarWorkspaceShellLabels {
   readonly stop: SessionStopLabels
@@ -151,6 +152,7 @@ export interface HbarWorkspaceShellLabels {
 
 export interface HbarWorkspaceShellProps {
   readonly labels: HbarWorkspaceShellLabels
+  readonly mobileNavigationLabel: string
   readonly sidebarWidthRem: number
   readonly sidebarLayout?: LumenAppShellProps['sidebarLayout']
   readonly sidebarResize?: LumenAppShellProps['sidebarResize']
@@ -814,6 +816,21 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           : props.labels.disconnected
   const serverTone =
     props.connection === 'connected' ? 'success' : props.connection === 'disconnected' ? 'danger' : 'warning'
+  const activeWorkspaceTab = workspaceTabs.items.find((item) => item.id === workspaceTabs.activeId)
+  const mobileHeaderTitle =
+    presentation.page.kind === 'settings'
+      ? props.labels.settings
+      : presentation.page.kind === 'status'
+        ? props.labels.status
+        : presentation.page.kind === 'session'
+          ? activeWorkspaceTab?.kind === 'workbench'
+            ? props.labels.workspaceFiles
+            : activeWorkspaceTab?.kind === 'session'
+              ? (directory.sessions[activeWorkspaceTab.sessionId]?.title ?? props.labels.newSession)
+              : navigation.sessionId
+                ? (directory.sessions[navigation.sessionId]?.title ?? props.labels.newSession)
+                : props.labels.newSession
+          : props.labels.newSession
 
   const shell = (
     <LumenAppShell
@@ -844,6 +861,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             <WorkspaceShellIcon name="menu" />
           </LumenIconButton>
           <LumenText as="strong">{props.labels.brand}</LumenText>
+          <LumenText as="h1" className="hbar-app-react-shell-header-active-title" title={mobileHeaderTitle}>
+            {mobileHeaderTitle}
+          </LumenText>
+          <HbarMobileHeaderMenu label={props.mobileNavigationLabel} />
         </LumenFrame>
       }
       tool={
@@ -1420,14 +1441,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     </LumenAppShell>
   )
   return (
-    <HbarSessionStopProvider
-      labels={props.labels.stop}
-      connected={props.connection === 'connected'}
-      mainRef={mainRef}
-      toolRef={toolRef}
-      toolPresentation={toolPresentation}
-    >
-      {shell}
-    </HbarSessionStopProvider>
+    <HbarMobileHeaderMenuProvider>
+      <HbarSessionStopProvider
+        labels={props.labels.stop}
+        connected={props.connection === 'connected'}
+        mainRef={mainRef}
+        toolRef={toolRef}
+        toolPresentation={toolPresentation}
+      >
+        {shell}
+      </HbarSessionStopProvider>
+    </HbarMobileHeaderMenuProvider>
   )
 }

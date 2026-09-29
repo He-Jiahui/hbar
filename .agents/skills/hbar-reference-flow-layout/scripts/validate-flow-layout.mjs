@@ -91,36 +91,60 @@ function parseRules(source) {
 function isOverlaySelector(path, selector) {
   // Forms 5: the observed data-region options list overlays the plan cards.
   // Only the listbox container floats; the options and surrounding form stay in flow.
-  if (/packages\/lumen-app-ui\/src\/forms-5-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-forms-5-region-options') return true
+  if (
+    /packages\/lumen-app-ui\/src\/forms-5-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-forms-5-region-options'
+  )
+    return true
   // Forms 8: the live rule editor's condition/operator option list overlays
   // sibling condition rows beneath its picker trigger; option content itself flows.
-  if (/packages\/lumen-app-ui\/src\/forms-8-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-forms-8-options') return true
+  if (
+    /packages\/lumen-app-ui\/src\/forms-8-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-forms-8-options'
+  )
+    return true
   // Forms 10: the property combobox's old-hash interaction evidence adds the
   // option list without changing the owning preview height. Only its anchored
   // listbox container overlays; the options and questionnaire remain in flow.
-  if (/packages\/lumen-app-ui\/src\/forms-10-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-forms-10-property-options') return true
+  if (
+    /packages\/lumen-app-ui\/src\/forms-10-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-forms-10-property-options'
+  )
+    return true
   // Forms 11: the observed Region combobox menu overlays the dialog body;
   // only this anchored listbox container floats above the flowing fields.
-  if (/packages\/lumen-app-ui\/src\/forms-11-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-forms-11-region-options') return true
+  if (
+    /packages\/lumen-app-ui\/src\/forms-11-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-forms-11-region-options'
+  )
+    return true
   // Settings Form 4: the observed member action menu overlays its trigger row.
   // Only the anchored menu container floats; member content and menu choices flow.
-  if (/packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-settings-form-4-menu') return true
+  if (
+    /packages\/lumen-app-ui\/src\/settings-form-4-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-settings-form-4-menu'
+  )
+    return true
   // Comments 6: numbered review pins overlay their owning diagram canvas.
   // Only these data-positioned markers float; artwork and comment text use flow.
-  if (/packages\/lumen-app-ui\/src\/comments-canvas-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-comments-canvas-pin') return true
+  if (
+    /packages\/lumen-app-ui\/src\/comments-canvas-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-comments-canvas-pin'
+  )
+    return true
   // Comments 4: the rendered @ suggestion list is anchored to the composer
   // and overlaps earlier messages. Only its container, not option content, floats.
-  if (/packages\/lumen-app-ui\/src\/comments-composer-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-comments-composer-mention-menu') return true
+  if (
+    /packages\/lumen-app-ui\/src\/comments-composer-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-comments-composer-mention-menu'
+  )
+    return true
   // Kanban 4: the narrow detail sheet has a real board-covering close backdrop.
-  if (/packages\/lumen-app-ui\/src\/kanban-detail-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-kanban-detail-backdrop') return true
+  if (
+    /packages\/lumen-app-ui\/src\/kanban-detail-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-kanban-detail-backdrop'
+  )
+    return true
   // cc-haha AttachmentGallery.tsx:235/286: only the sibling remove control
   // overlays the image corner; captions, status and retry remain normal flow.
   if (
@@ -130,24 +154,43 @@ function isOverlaySelector(path, selector) {
     return true
   // cc-haha Files: the five-scope context menu overlays its triggering preview tab.
   // See docs/desktop-file-preview-reference-audit.md; only the container is positioned.
-  if (/packages\/app-react\/src\/file-preview-tabs\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-file-preview-menu-popover') return true
+  if (
+    /packages\/app-react\/src\/file-preview-tabs\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-file-preview-menu-popover'
+  )
+    return true
   // Authentication 1: the reference's password reveal control sits inside the input bounds.
-  if (/packages\/lumen-app-ui\/src\/authentication-sign-in-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button') return true
+  if (
+    /packages\/lumen-app-ui\/src\/authentication-sign-in-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button'
+  )
+    return true
   // Authentication 4: password visibility is the one observed control overlaid within its input.
-  if (/packages\/lumen-app-ui\/src\/authentication-two-step-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-auth-two-step-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button') return true
+  if (
+    /packages\/lumen-app-ui\/src\/authentication-two-step-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() ===
+      '.hbar-app-ui-auth-two-step-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button'
+  )
+    return true
   // Notifications 6: only the observed trigger-anchored popover and its badge overlap the flowing header.
-  if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover') return true
+  if (
+    /packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover'
+  )
+    return true
   // Notifications 6: the observed unread count overlaps only its owning bell trigger.
-  if (/packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge') return true
+  if (
+    /packages\/lumen-app-ui\/src\/notifications-bell-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge'
+  )
+    return true
   // Notifications 4: Snooze opens a trigger-anchored menu over the flowing
   // detail pane. Only its container is positioned; menu choices stay in flex.
-  if (/packages\/lumen-app-ui\/src\/notifications-activity-reference\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-notifications-variant-4 .lumen-activity-menu') return true
+  if (
+    /packages\/lumen-app-ui\/src\/notifications-activity-reference\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-notifications-variant-4 .lumen-activity-menu'
+  )
+    return true
   // App Dialog 7: the scrim, trigger-anchored dialog/submenu and action result
   // demonstrably float above the centered trigger and flowing menu rows.
   if (/packages\/lumen-app-ui\/src\/app-dialog-menu-reference\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -160,8 +203,11 @@ function isOverlaySelector(path, selector) {
     if (selector.split(',').every((part) => overlays.some((name) => part.trim().endsWith(name)))) return true
   }
   // App Dialog 6: only the post-action result toast floats over the edge drawer.
-  if (/packages\/lumen-app-ui\/src\/app-dialog-evidence\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.lumen-app-dialog-evidence-toast') return true
+  if (
+    /packages\/lumen-app-ui\/src\/app-dialog-evidence\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-app-dialog-evidence-toast'
+  )
+    return true
   // App Dialog 5: the reference guards unsaved changes with a modal scrim
   // and shows a result toast after the drawer closes; their contents flow.
   if (/packages\/lumen-app-ui\/src\/app-dialog-alert\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -169,18 +215,30 @@ function isOverlaySelector(path, selector) {
     if (overlays.has(selector.trim())) return true
   }
   // App Dialog 4: completion toast floats over the canvas after the wizard closes.
-  if (/packages\/lumen-app-ui\/src\/app-dialog-wizard\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-dialog-wizard-toast') return true
+  if (
+    /packages\/lumen-app-ui\/src\/app-dialog-wizard\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-dialog-wizard-toast'
+  )
+    return true
   // App Dialog 3: success feedback floats over the empty canvas after submit.
-  if (/packages\/lumen-app-ui\/src\/app-dialog-invite\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-dialog-invite-toast') return true
+  if (
+    /packages\/lumen-app-ui\/src\/app-dialog-invite\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-dialog-invite-toast'
+  )
+    return true
   // App Dialog 2: the observed destructive-action result floats over the
   // canvas after the modal closes; all panel content remains in flex flow.
-  if (/packages\/lumen-app-ui\/src\/app-dialog-delete\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-dialog-delete-toast') return true
+  if (
+    /packages\/lumen-app-ui\/src\/app-dialog-delete\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-dialog-delete-toast'
+  )
+    return true
   // App Dialog 1: confirmation feedback floats over the now-empty canvas.
-  if (/packages\/lumen-app-ui\/src\/app-dialog-plan\.css$/.test(path.replaceAll('\\', '/')) &&
-      selector.trim() === '.hbar-app-ui-dialog-plan-toast') return true
+  if (
+    /packages\/lumen-app-ui\/src\/app-dialog-plan\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-app-ui-dialog-plan-toast'
+  )
+    return true
   // App Sidebar 7: the narrow-only scrim and drawer overlay the blank
   // application canvas; navigation, help, and profile remain in flex flow.
   if (/packages\/lumen-app-ui\/src\/app-sidebar-full\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -314,6 +372,13 @@ function isOverlaySelector(path, selector) {
     /^\.hbar-workspace-tab-menu-popover(?::popover-open)?$/.test(selector.trim())
   )
     return true
+  // Narrow shell navigation: only the trigger-anchored overlay container floats;
+  // its sections and buttons stay in normal flow.
+  if (
+    /packages\/app-react\/src\/mobile-header-menu\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-mobile-header-menu-content'
+  )
+    return true
   // cc-haha PermissionModeSelector: composer-trigger overlay / narrow bottom sheet.
   // Goal/Plan mutual-exclusion recovery uses the same observed trigger-owned
   // dialog relationship; its explanation and actions remain in normal flow.
@@ -338,7 +403,9 @@ function isOverlaySelector(path, selector) {
   // only the Web model menu becomes a bottom sheet on narrow screens.
   if (
     /packages\/app-react\/src\/composer-model-picker\.css$/.test(path.replaceAll('\\', '/')) &&
-    /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\]|\[data-kind='model'\]\[data-presentation='web'\](?:::backdrop)?)?$/.test(selector.trim())
+    /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\]|\[data-kind='model'\]\[data-presentation='web'\](?:::backdrop)?)?$/.test(
+      selector.trim(),
+    )
   )
     return true
   // cc-haha EmptySession model selector: only the no-tab composer's
@@ -487,7 +554,8 @@ function validateCss(path, source) {
           (/packages\/lumen-app-ui\/src\/kanban-swimlanes-reference\.css$/.test(path.replaceAll('\\', '/')) &&
             rule.selector.trim() === '.hbar-app-ui-kanban-swimlane-stages')) &&
         /(?:^|\n)\s*position:\s*sticky;/.test(rule.body) &&
-        property === 'inset-block-start' && value.trim() === '0'
+        property === 'inset-block-start' &&
+        value.trim() === '0'
       if (coordinateProperties.has(property) && !isOverlay && !isObservedStickyColumns) {
         errors.push(`${location}: ${property} is reserved for a real overlay container; use flex flow for content.`)
       }
@@ -534,19 +602,35 @@ inset-inline-end: 0;
   if (
     validateCss(settingsForm4MenuPath, settingsForm4Menu).length ||
     validateCss('hbar-ui/packages/lumen-app-ui/src/other.css', settingsForm4Menu).length === 0 ||
-    validateCss(settingsForm4MenuPath, settingsForm4Menu.replace('lumen-settings-form-4-menu {', 'lumen-settings-form-4-menu > button {')).length === 0
+    validateCss(
+      settingsForm4MenuPath,
+      settingsForm4Menu.replace('lumen-settings-form-4-menu {', 'lumen-settings-form-4-menu > button {'),
+    ).length === 0
   )
     throw new Error('Settings Form 4 menu overlay exception must be exact, path-scoped and exclude its options')
-  const canvasPin = '.lumen-comments-canvas-pin { position: absolute; inset-inline-start: var(--lumen-comment-pin-x); inset-block-start: var(--lumen-comment-pin-y); transform: translate(-50%, -50%); }'
-  if (validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin).length ||
-      validateCss('other.css', canvasPin).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin.replace('pin {', 'pin > span {')).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin.replace('canvas-pin {', 'canvas-card {')).length === 0)
+  const canvasPin =
+    '.lumen-comments-canvas-pin { position: absolute; inset-inline-start: var(--lumen-comment-pin-x); inset-block-start: var(--lumen-comment-pin-y); transform: translate(-50%, -50%); }'
+  if (
+    validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin).length ||
+    validateCss('other.css', canvasPin).length === 0 ||
+    validateCss('packages/lumen-app-ui/src/comments-canvas-reference.css', canvasPin.replace('pin {', 'pin > span {'))
+      .length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/comments-canvas-reference.css',
+      canvasPin.replace('canvas-pin {', 'canvas-card {'),
+    ).length === 0
+  )
     throw new Error('Observed canvas pin overlay exception must remain exact, path-scoped and exclude flowing content')
-  const commentMentions = '.lumen-comments-composer-mention-menu { position: absolute; inset-block-start: calc(100% - 0.375rem); inset-inline-start: 3.25rem; }'
-  if (validateCss('packages/lumen-app-ui/src/comments-composer-reference.css', commentMentions).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', commentMentions).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/comments-composer-reference.css', commentMentions.replace('mention-menu {', 'mention-menu > button {')).length === 0)
+  const commentMentions =
+    '.lumen-comments-composer-mention-menu { position: absolute; inset-block-start: calc(100% - 0.375rem); inset-inline-start: 3.25rem; }'
+  if (
+    validateCss('packages/lumen-app-ui/src/comments-composer-reference.css', commentMentions).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', commentMentions).length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/comments-composer-reference.css',
+      commentMentions.replace('mention-menu {', 'mention-menu > button {'),
+    ).length === 0
+  )
     throw new Error('Observed comment mention menu exception must be exact, path-scoped and exclude option content')
   const imageRemove =
     '.lumen-image-tile > .lumen-image-tile-remove-overlay { position: absolute; inset-block-start: 0; inset-inline-end: 0; }'
@@ -557,62 +641,98 @@ inset-inline-end: 0;
       'hbar-ui/packages/lumen-app-ui/src/image-gallery.css',
       imageRemove.replace('remove-overlay {', 'remove-overlay span {'),
     ).length === 0 ||
-    validateCss(
-      'hbar-ui/packages/lumen-app-ui/src/image-gallery.css',
-      imageRemove.replace('remove-overlay', 'open'),
-    ).length === 0
+    validateCss('hbar-ui/packages/lumen-app-ui/src/image-gallery.css', imageRemove.replace('remove-overlay', 'open'))
+      .length === 0
   )
     throw new Error('Image remove overlay exception must be exact, path-scoped and exclude its content')
-  const authReveal = '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button { position: absolute; inset-inline-end: 0.25rem; }'
-  if (validateCss('packages/lumen-app-ui/src/authentication-sign-in-reference.css', authReveal).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', authReveal).length === 0)
+  const authReveal =
+    '.hbar-app-ui-auth-sign-in-surface .hbar-app-ui-auth-input-wrap > .hbar-app-ui-auth-icon-button { position: absolute; inset-inline-end: 0.25rem; }'
+  if (
+    validateCss('packages/lumen-app-ui/src/authentication-sign-in-reference.css', authReveal).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', authReveal).length === 0
+  )
     throw new Error('Authentication reveal exception must be path-scoped')
-  const bellPopover = '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover { position: absolute; inset-inline-end: 0; }'
-  if (validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellPopover).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', bellPopover).length === 0)
+  const bellPopover =
+    '.hbar-app-ui-notifications-variant-6 .lumen-bell-popover { position: absolute; inset-inline-end: 0; }'
+  if (
+    validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellPopover).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', bellPopover).length === 0
+  )
     throw new Error('Observed bell popover exception must be path-scoped')
-  const bellBadge = '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge { position: absolute; inset-block-start: 0; }'
-  if (validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellBadge).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', bellBadge).length === 0)
+  const bellBadge =
+    '.hbar-app-ui-notifications-variant-6 .lumen-notifications-bell > button > .lumen-bell-badge { position: absolute; inset-block-start: 0; }'
+  if (
+    validateCss('packages/lumen-app-ui/src/notifications-bell-reference.css', bellBadge).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', bellBadge).length === 0
+  )
     throw new Error('Observed bell badge overlay exception must be path-scoped')
   const stickyColumns = `.hbar-app-ui-notifications-variant-3 .lumen-preferences-columns {
   position: sticky;
   inset-block-start: 0;
 }`
-  if (validateCss('packages/lumen-app-ui/src/notifications-preferences-reference.css', stickyColumns).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', stickyColumns).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/notifications-preferences-reference.css', stickyColumns.replace('sticky', 'absolute')).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/notifications-preferences-reference.css', stickyColumns.replace('inset-block-start: 0', 'inset-block-start: 1rem')).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/notifications-preferences-reference.css', stickyColumns).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', stickyColumns).length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/notifications-preferences-reference.css',
+      stickyColumns.replace('sticky', 'absolute'),
+    ).length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/notifications-preferences-reference.css',
+      stickyColumns.replace('inset-block-start: 0', 'inset-block-start: 1rem'),
+    ).length === 0
+  )
     throw new Error('Observed preferences sticky strip exception must remain exact and path-scoped')
   const stickySwimlaneStages = `.hbar-app-ui-kanban-swimlane-stages {
   position: sticky;
   inset-block-start: 0;
 }`
-  if (validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', stickySwimlaneStages).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages.replace('sticky', 'absolute')).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages.replace('inset-block-start: 0', 'inset-block-start: 1rem')).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/kanban-swimlanes-reference.css', stickySwimlaneStages).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', stickySwimlaneStages).length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/kanban-swimlanes-reference.css',
+      stickySwimlaneStages.replace('sticky', 'absolute'),
+    ).length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/kanban-swimlanes-reference.css',
+      stickySwimlaneStages.replace('inset-block-start: 0', 'inset-block-start: 1rem'),
+    ).length === 0
+  )
     throw new Error('Observed swimlane sticky header exception must remain exact and path-scoped')
   const detailBackdrop = '.hbar-app-ui-kanban-detail-backdrop { position: absolute; inset-inline-start: 0; }'
-  if (validateCss('packages/lumen-app-ui/src/kanban-detail-reference.css', detailBackdrop).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', detailBackdrop).length === 0 ||
-      validateCss('packages/lumen-app-ui/src/kanban-detail-reference.css', detailBackdrop.replace('detail-backdrop', 'detail-card')).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/kanban-detail-reference.css', detailBackdrop).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', detailBackdrop).length === 0 ||
+    validateCss(
+      'packages/lumen-app-ui/src/kanban-detail-reference.css',
+      detailBackdrop.replace('detail-backdrop', 'detail-card'),
+    ).length === 0
+  )
     throw new Error('Observed detail backdrop exception must remain exact and path-scoped')
   const wizardToast = '.hbar-app-ui-dialog-wizard-toast { position: absolute; inset-block-end: 1rem; }'
-  if (validateCss('packages/lumen-app-ui/src/app-dialog-wizard.css', wizardToast).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', wizardToast).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/app-dialog-wizard.css', wizardToast).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', wizardToast).length === 0
+  )
     throw new Error('App Dialog wizard toast overlay exception must be path-scoped')
   const inviteToast = '.hbar-app-ui-dialog-invite-toast { position: absolute; inset-block-end: 1rem; }'
-  if (validateCss('packages/lumen-app-ui/src/app-dialog-invite.css', inviteToast).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', inviteToast).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/app-dialog-invite.css', inviteToast).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', inviteToast).length === 0
+  )
     throw new Error('App Dialog invite toast overlay exception must be path-scoped')
   const deleteToast = '.hbar-app-ui-dialog-delete-toast { position: absolute; inset-block-end: 1rem; }'
-  if (validateCss('packages/lumen-app-ui/src/app-dialog-delete.css', deleteToast).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', deleteToast).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/app-dialog-delete.css', deleteToast).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', deleteToast).length === 0
+  )
     throw new Error('App Dialog delete toast overlay exception must be path-scoped')
   const planToast = '.hbar-app-ui-dialog-plan-toast { position: absolute; inset-block-end: 1rem; }'
-  if (validateCss('packages/lumen-app-ui/src/app-dialog-plan.css', planToast).length ||
-      validateCss('packages/lumen-app-ui/src/other.css', planToast).length === 0)
+  if (
+    validateCss('packages/lumen-app-ui/src/app-dialog-plan.css', planToast).length ||
+    validateCss('packages/lumen-app-ui/src/other.css', planToast).length === 0
+  )
     throw new Error('App Dialog plan toast overlay exception must be path-scoped')
   const workspaceMenu = '.lumen-workspace-menu {\nposition: absolute;\ninset-block-start: 0;\n}'
   if (validateCss('packages/lumen-app-ui/src/app-sidebar-workspace.css', workspaceMenu).length)
@@ -961,6 +1081,22 @@ inset-inline-end: 0;
   ]) {
     if (validateCss(path, `${selector} {\nposition: fixed;\ninset: 0;\n}`).length !== 2)
       throw new Error('Workspace tab menu exception leaked to content or another file')
+  }
+  const mobileNavigationPath = 'packages/app-react/src/mobile-header-menu.css'
+  if (
+    validateCss(
+      mobileNavigationPath,
+      '.hbar-mobile-header-menu-content {\nposition: absolute;\ninset-block-start: 100%;\ninset-inline-end: 0;\n}',
+    ).length
+  )
+    throw new Error('Rejected anchored narrow-shell navigation overlay')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-mobile-header-menu-content'],
+    [mobileNavigationPath, '.hbar-mobile-header-menu-content button'],
+    [mobileNavigationPath, '.hbar-mobile-header-menu'],
+  ]) {
+    if (validateCss(path, `${selector} {\nposition: absolute;\ninset: 0;\n}`).length !== 2)
+      throw new Error('Narrow-shell overlay allowance leaked to content or another file')
   }
   if (validateCss(composerPath, '.hbar-composer-picker-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed composer popover container')

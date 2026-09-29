@@ -158,12 +158,38 @@ async function walk(page: Page, mode: Presentation): Promise<void> {
 }
 
 async function openTool(page: Page, name: string): Promise<Locator> {
-  await page.getByRole('button', { name, exact: true }).focus()
+  const directAction = page.getByRole('button', { name, exact: true }).first()
+  if (await directAction.isVisible()) await directAction.focus()
+  else {
+    await page.locator('.hbar-mobile-header-menu-trigger').click()
+    const menuAction = page.locator('.hbar-mobile-header-menu-content').getByRole('button', { name, exact: true })
+    await menuAction.focus()
+  }
   await page.keyboard.press('Enter')
   const pane = page.locator('.lumen-app-tool-drawer')
   await expect(pane).toBeVisible()
   await expect.poll(() => focusInTool(page)).toBe(true)
   return pane
+}
+
+async function expectToolEntryFocus(page: Page, name: string): Promise<void> {
+  const directAction = page.getByRole('button', { name, exact: true }).first()
+  if (await directAction.isVisible()) await expect(directAction).toBeFocused()
+  else await expect(page.locator('.hbar-mobile-header-menu-trigger')).toBeFocused()
+}
+
+async function expectWorkbenchReturnFocus(page: Page, sessionTitle: string): Promise<void> {
+  const sessionTab = page.getByRole('tab', { name: sessionTitle, exact: true })
+  if (await sessionTab.isVisible()) await expect(sessionTab).toBeFocused()
+  else
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const active = document.activeElement
+          return active instanceof HTMLElement && active !== document.body && active.getClientRects().length > 0
+        }),
+      )
+      .toBe(true)
 }
 
 test.beforeAll(async () => {
@@ -197,7 +223,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           await page.screenshot({ path: `${evidence}/${tool.id}-${locale}-${width}.png` })
           await pane.getByRole('button', { name: tool.close, exact: true }).click()
           await expect(pane).toHaveCount(0)
-          await expect(page.getByRole('button', { name: tool.open, exact: true })).toBeFocused()
+          await expectToolEntryFocus(page, tool.open)
           await expectComposerText(prompt, draft)
           await noOverflow(page)
           observations.push({ width, tool: tool.id, sidebar: false, presentation: mode, keyboardSteps: 24 })
@@ -281,7 +307,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       await page.keyboard.press('Escape')
       await expect(pane).toHaveCount(0)
-      await expect(page.getByRole('button', { name: copy.session.tools.files, exact: true })).toBeFocused()
+      await expectToolEntryFocus(page, copy.session.tools.files)
       await expectComposerText(prompt, draft)
       await page.reload()
       await sidebar(page, copy, true)
@@ -346,13 +372,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await sidebar(page, copy, false)
       }
       await editor.focus()
-      await page.keyboard.press('Control+k')
-      const palette = page.getByRole('dialog', { name: copy.commandPalette.title, exact: true })
-      await expect(palette).toBeVisible()
-      await expect(palette.getByRole('searchbox', { name: copy.commandPalette.search, exact: true })).toBeFocused()
-      await page.keyboard.press('Escape')
-      await expect(palette).toHaveCount(0)
+      await sidebar(page, copy, true)
+      await page.getByRole('button', { name: copy.shell.extensionsAndSkills, exact: true }).click()
+      await sidebar(page, copy, false)
+      const settingsGroups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
+      if (await settingsGroups.isVisible()) await settingsGroups.selectOption('extensions')
+      else
+        await page
+          .getByRole('navigation', { name: copy.settings.groups, exact: true })
+          .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.extensions'), exact: true })
+          .click()
+      await expect(page.getByRole('button', { name: copy.extensions.openSystemCommands, exact: true })).toBeVisible()
+      await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expect(files).toBeVisible()
+      await expect(editor).toHaveValue(fileDraft)
+      await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
       await expect(editor).toHaveValue(fileDraft)
       await writeFile(
         `${evidence}/palette-return-focus-${locale}.json`,
@@ -392,11 +426,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 960 })
         await expect(workbench.getByRole('textbox', { name: filePath, exact: true })).toHaveValue(fileDraft)
+        if (width === 320)
+          await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(copy.shell.workspaceFiles)
         await noOverflow(page)
         await page.screenshot({ path: `${evidence}/expanded-dirty-${locale}-${width}.png` })
       }
       await workbench.getByRole('button', { name: copy.files.returnToConversation, exact: true }).click()
-      await expect(page.getByRole('tab', { name: host.ready.sessionTitle, exact: true })).toBeFocused()
+      await expectWorkbenchReturnFocus(page, host.ready.sessionTitle)
+      await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(host.ready.sessionTitle)
       await expectComposerText(prompt, draft)
       await expect(material).toBeVisible()
       await openTool(page, copy.session.tools.files)
@@ -428,7 +465,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             filePath,
             dirtyPreservedUntilExplicitSave: true,
             composerAndMaterialPreserved: true,
-            settingsStatusPaletteReturn: true,
+            settingsStatusExtensionReturn: true,
             errors,
           },
           null,

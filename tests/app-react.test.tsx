@@ -169,6 +169,7 @@ test('app-react renders host-owned workspace and session content from read-only 
       <HbarRuntimeProvider view={runtime.view}>
         <HbarWorkspaceShell
           labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
           sidebarWidthRem={17}
           toolWidthRem={26}
           connection="connected"
@@ -225,7 +226,13 @@ test('separate React runtime providers keep each window selection private', asyn
     const render = (runtime: ReturnType<typeof runtimeFixture>) =>
       renderToStaticMarkup(
         <HbarRuntimeProvider view={runtime.view}>
-          <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <HbarWorkspaceShell
+            labels={labels}
+            mobileNavigationLabel="Session tools and tabs"
+            sidebarWidthRem={17}
+            connection="connected"
+            onReconnect={() => {}}
+          >
             <h1>窗口内容</h1>
           </HbarWorkspaceShell>
         </HbarRuntimeProvider>,
@@ -245,7 +252,13 @@ test('English host copy renders Search, Commands, and workspace Files as separat
     const english = getShellCopy('en-US', 'Win32').shell
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={english} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={english}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>Host content</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -269,7 +282,13 @@ test('project quick-create is a single localized row action and stays disabled f
   const render = (connection: 'connected' | 'disconnected') =>
     renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection={connection} onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection={connection}
+          onReconnect={() => {}}
+        >
           <h1>项目上下文</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -311,7 +330,13 @@ test('new session and project acquisition expose localized disabled controls whi
   try {
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="disconnected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="disconnected"
+          onReconnect={() => {}}
+        >
           <h1>未连接</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -350,7 +375,13 @@ test('settings and status highlight only their page while preserving the selecte
   const currentPageLabels = async () => {
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>当前页面内容</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -460,7 +491,13 @@ test('session rename stays in its row with host-owned long copy, preserved input
     })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>保留原会话内容</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -507,7 +544,13 @@ for (const unavailable of ['archived', 'removed'] as const) {
       await expect(commands.execute('sessionRename.submit', target)).rejects.toMatchObject({ code: 'STALE_TARGET' })
       const html = renderToStaticMarkup(
         <HbarRuntimeProvider view={runtime.view}>
-          <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+          <HbarWorkspaceShell
+            labels={labels}
+            mobileNavigationLabel="Session tools and tabs"
+            sidebarWidthRem={17}
+            connection="connected"
+            onReconnect={() => {}}
+          >
             <h1>其他会话内容</h1>
           </HbarWorkspaceShell>
         </HbarRuntimeProvider>,
@@ -555,7 +598,13 @@ test('an archived unknown rename exposes only original-target reconciliation, no
     await commands.execute('sessionRename.reconcile', target)
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>其他会话内容</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -581,7 +630,13 @@ test('archive confirmation remains in the original session row with reversible h
     await runtime.view.commands.execute('sessionArchive.begin', { workspaceId: workspace.id, sessionId: session.id })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>原会话历史</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,
@@ -615,7 +670,13 @@ test('an inclusive archive page with no archived rows offers next page rather th
     await runtime.view.commands.execute('archivedSessions.open', { workspaceId: workspace.id })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <HbarWorkspaceShell labels={labels} sidebarWidthRem={17} connection="connected" onReconnect={() => {}}>
+        <HbarWorkspaceShell
+          labels={labels}
+          mobileNavigationLabel="Session tools and tabs"
+          sidebarWidthRem={17}
+          connection="connected"
+          onReconnect={() => {}}
+        >
           <h1>不改变原选择</h1>
         </HbarWorkspaceShell>
       </HbarRuntimeProvider>,

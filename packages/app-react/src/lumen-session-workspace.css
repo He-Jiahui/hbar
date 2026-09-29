@@ -414,3 +414,9 @@
     padding: 0.25rem 0.75rem 0.75rem;
   }
 }
+
+@media (max-width: 47.9375rem) {
+  .hbar-app-react-session-workspace > .lumen-page-header {
+    display: none;
+  }
+}

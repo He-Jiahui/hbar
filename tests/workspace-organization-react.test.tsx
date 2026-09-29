@@ -60,6 +60,7 @@ async function shell(hidden: string[], locale: ShellLocale) {
       <HbarRuntimeProvider view={runtime.view}>
         <HbarWorkspaceShell
           labels={getShellCopy(locale).shell}
+          mobileNavigationLabel="Session tools and tabs"
           sidebarWidthRem={17}
           connection="connected"
           onReconnect={() => {}}

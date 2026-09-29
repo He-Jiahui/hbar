@@ -7,7 +7,9 @@ import { createRunCommandClient } from '@hbar/client'
 import {
   HbarWorkspaceTabs,
   HbarWorkspaceTabsCloseDialog,
+  useHbarMobileHeaderMenuSection,
   useHbarRuntimeState,
+  type HbarMobileHeaderMenuItem,
   type HbarWorkspaceTabCloseScope,
   type HbarWorkspaceTabItem,
 } from '@hbar/app-react'
@@ -48,6 +50,7 @@ export function WorkspaceTabsController({
     sourceTabInstanceKey: string
     code: string
   } | null>(null)
+  const closeOrigin = useRef<'tab-bar' | 'mobile-menu' | null>(null)
   const intent = useRef(0)
   const action = (task: Promise<unknown>) => {
     const current = ++intent.current
@@ -126,13 +129,49 @@ export function WorkspaceTabsController({
       setSessionFilesError({ ...target, code: code(reason) })
     })
   }
+  const mobileSessionFilesItem: HbarMobileHeaderMenuItem | null = sessionTab
+    ? {
+        id: 'files',
+        order: 1,
+        label: sessionCopy.tools.files,
+        icon: Files,
+        disabled: busy,
+        pressed: filesSelected,
+        onActivate: toggleSessionFiles,
+      }
+    : null
   const focusAfterClose = () => {
     if (coordinator.reader.getSnapshot().request !== null) return
+    const origin = closeOrigin.current
     requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true })
+      const selectedTab = [...document.querySelectorAll<HTMLElement>('[role="tab"][aria-selected="true"]')].find(
+        (element) => element.getClientRects().length > 0,
+      )
+      const firstVisibleFocusable = (root: HTMLElement | null) =>
+        [
+          ...(root?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+          ) ?? []),
+        ].find(
+          (element) =>
+            element.getClientRects().length > 0 &&
+            getComputedStyle(element).visibility === 'visible' &&
+            !element.closest('[hidden], [inert], [aria-hidden="true"]'),
+        )
+      const sidebar = document.querySelector<HTMLElement>('.hbar-app-ui-app-sidebar-drawer[data-open="true"]')
+      const tool = document.querySelector<HTMLElement>('.lumen-app-tool-drawer')
+      const mobileTrigger = document.querySelector<HTMLElement>('.hbar-mobile-header-menu-trigger')
+      const fallback =
+        origin === 'mobile-menu' ? mobileTrigger : (firstVisibleFocusable(sidebar) ?? firstVisibleFocusable(tool))
+      ;(selectedTab ?? fallback)?.focus({ preventScroll: true })
+      closeOrigin.current = null
     })
   }
-  const requestClose = (id: string, scope: HbarWorkspaceTabCloseScope) => {
+  const requestClose = (
+    id: string,
+    scope: HbarWorkspaceTabCloseScope,
+    origin: 'tab-bar' | 'mobile-menu' = 'tab-bar',
+  ) => {
     const index = tabs.items.findIndex((item) => item.id === id)
     if (index < 0) return
     const ids = tabs.items
@@ -146,6 +185,7 @@ export function WorkspaceTabsController({
       .map((item) => item.id)
     if (!ids.length) return
     const original = runtime.workspaceTabs.capture(ids)
+    closeOrigin.current = origin
     action(coordinator.request(original).then(focusAfterClose))
   }
   const resolveClose = (choice: 'cancel' | 'keepRunning' | 'stop' | 'recheck') => {
@@ -165,6 +205,32 @@ export function WorkspaceTabsController({
   }))
   const restoreError = tabs.restoreError ?? tabs.persistError
   const error = localError ?? restoreError
+  const mobileTabItems: readonly HbarMobileHeaderMenuItem[] = tabs.items.map((item, index) => {
+    const label = items[index]?.detail
+      ? `${items[index]?.title} — ${items[index]?.detail}`
+      : (items[index]?.title ?? item.id)
+    return {
+      id: `tab-${item.id}`,
+      order: index,
+      label,
+      disabled: busy,
+      current: presentation.page.kind === 'session' && tabs.activeId === item.id,
+      onActivate: () => action(runtime.view.commands.execute('workspaceTabs.select', { id: item.id })),
+      close: {
+        label: copy.tabs.close(items[index]?.title ?? label),
+        disabled: busy,
+        onActivate: () => requestClose(item.id, 'one', 'mobile-menu'),
+      },
+    }
+  })
+  useHbarMobileHeaderMenuSection(
+    tabs.items.length > 0 ? { id: 'workspace-tabs', order: 1, label: copy.tabs.tabs, items: mobileTabItems } : null,
+  )
+  useHbarMobileHeaderMenuSection(
+    mobileSessionFilesItem
+      ? { id: 'session-tools', order: 2, label: sessionCopy.tools.label, items: [mobileSessionFilesItem] }
+      : null,
+  )
   return (
     <LumenFrame className="hbar-workspace-tabs-controller">
       {(tabs.items.length > 0 || tabs.restoreStatus === 'loading' || error) && (
@@ -194,7 +260,7 @@ export function WorkspaceTabsController({
                     title={sessionCopy.tools.files}
                     aria-pressed={filesSelected}
                     disabled={busy}
-                    onClick={toggleSessionFiles}
+                    onClick={mobileSessionFilesItem?.onActivate}
                   >
                     <LumenIcon icon={Files} tier="sm" />
                   </LumenButton>
