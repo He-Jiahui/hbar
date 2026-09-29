@@ -893,3 +893,20 @@ stylelint、内容/图标/流式布局守卫和浏览器脚本通过；共享 `o
 全文件 lint 仍有 6 项既存错误（变更前 7 项）。旧缓存无当前协议且来源目录
 hash 与静态缓存不同，**未签 fresh strict**。抽样只覆盖不同状态机制，不逐个
 按钮 × 分辨率重复回放。
+
+Onboarding 6（setup-complete summary）来源 `full-static-v10` 八视图可见装饰性
+40px 完成标记、h2/说明、四组 `dl` 术语与定义、Open workspace / Take the
+two-minute tour 两 CTA、inbox 注记。旧同目标 hash `full-interactions-v4`
+第一 CTA 的 click/Enter/Space 原始 AX 前后相同，未证明实际工作区导航；Tour
+未抽样。两者都以独立 typed request 交给宿主，不伪造打开页面或启动导览。
+来源目录 hash 与静态缓存不同且旧报告无当前协议，**未签 fresh strict**。
+
+Lumen `0ce5212` 的四行正常流/语义定义对与独立主仓预览接线保留宿主英文、德语、
+长德语数值。`artifacts/onboarding6-local-review/` 有 light/dark × desktop/
+tablet/mobile/stress 八图及 320×420 短高图。代表性桌面 420px 宽时本地根框
+y34.8/高490.4，对照来源 y35.9/高488.25；摘要 y191.0 对照 y192.1，
+差异约 1–2px，主题材质可不同。浏览器一次 Open 点击确认不造本地导航，
+320×420 真实滚动 scrollTop=70 后 Tour y348.25–388.25 可达；德语长文案
+无横溢、page errors=0。七项专项测试（45 断言）、根/Lumen 类型检查、预览构建、
+限定文件 ESLint/stylelint、内容/图标/流式布局守卫和浏览器脚本通过。共享
+`onboarding.tsx` 的其它既存 lint 错误仍在，不宣称全文件通过。

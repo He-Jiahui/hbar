@@ -693,6 +693,45 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-6')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-6-reference.tsx',
+        'onboarding-6-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '0:click',
+          change: 'Open workspace remains a typed request with no observed in-frame navigation',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round strict source/local acceptance',
+          basis:
+            'full-static-v10 and full-interactions-v4 target source hashes match, but the legacy interaction cache lacks the current capture protocol and has a different source directory hash; no fresh strict pair exists.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Take the two-minute tour and external outcomes',
+          basis:
+            'The first CTA click/Enter/Space has identical captured before/after AX in-frame, while Tour was not sampled. Actual workspace navigation and tour side effects remain unverified; both are distinct typed host requests.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated summary rows and responsive flow',
+          basis:
+            'Four host-provided definition pairs share one passive row structure. Eight static local combinations, long German and a 320x420 real-scroll check cover flow without multiplying passive rows by actions or layouts.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-onboarding-5')
     return {
       revision: 1,

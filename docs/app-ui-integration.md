@@ -235,6 +235,23 @@ The interaction cache has no current capture protocol, so this is not fresh
 strict acceptance. Local narrow flow exposes the controls by natural scrolling,
 without assuming the source scroll owner.
 
+### Onboarding 6 integration status
+
+`hbar-app-ui-onboarding-6` presents a decorative success mark, four host-owned
+summary term/definition pairs and two independently named next actions. The
+first action's same-hash legacy before/after AX remains unchanged in-frame;
+the Tour outcome was not sampled. Both therefore emit typed host requests
+without pretending the workspace opened or the tour started. The summary
+values and German copy come from the host, with normal content-grown flow on
+narrow screens.
+
+The authorized [Onboarding 6 reference](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-6)
+`full-static-v10` and `full-interactions-v4` entries share target source hash
+`93ab87124b7b37a54b3787fb2dd7095a4216352a54de126546fe9e6b7b02628a`,
+but their source-directory hashes differ and the interaction cache has no
+current protocol. The representative local captures and scroll check do not
+constitute fresh strict acceptance.
+
 ### Onboarding 5 integration status
 
 `hbar-app-ui-onboarding-5` renders a host-owned invitation link and two
