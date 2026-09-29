@@ -270,7 +270,8 @@ export function SessionNavigationRow({
                   {copy.saved}
                 </LumenText>
               ) : (
-                <time
+                <LumenText
+                  as="time"
                   className="hbar-app-react-session-time"
                   dateTime={
                     Number.isSafeInteger(session.updatedAt) &&
@@ -282,7 +283,7 @@ export function SessionNavigationRow({
                   title={labels.sessionUpdatedAtFull(session.updatedAt)}
                 >
                   {labels.sessionUpdatedAt(session.updatedAt, now)}
-                </time>
+                </LumenText>
               )}
             </LumenText>
           </LumenNavigationButton>
