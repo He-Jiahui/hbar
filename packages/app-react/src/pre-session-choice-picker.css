@@ -110,6 +110,10 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   color: var(--lumen-muted);
 }
 
+.hbar-pre-session-choice-list > p {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 40rem) {
   .hbar-pre-session-choice-popover {
     inset: auto 0 0;

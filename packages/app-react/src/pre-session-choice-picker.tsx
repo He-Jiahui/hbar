@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, X, type LucideIcon } from 'lucide-react'
 import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import './pre-session-choice-picker.css'
@@ -74,6 +74,14 @@ export function HbarPreSessionChoicePicker({
   const unique = useMemo(() => visiblePreSessionChoices(items, '', items.length).rows, [items])
   const selected = unique.find((item) => item.id === selectedId) ?? null
   const { rows, remaining } = visiblePreSessionChoices(items, query, limit)
+  useEffect(() => {
+    if (placement !== 'composer' || !open || !popup.current?.matches(':popover-open')) return
+    if (document.activeElement !== document.body) return
+    const target = matchMedia('(max-width: 40rem)').matches
+      ? popup.current.querySelector<HTMLButtonElement>('.hbar-pre-session-choice-close')
+      : popup.current.querySelector<HTMLInputElement>('input[type="search"]')
+    target?.focus()
+  }, [items.length, loading, open, placement])
   const reset = () => {
     setQuery('')
     setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)

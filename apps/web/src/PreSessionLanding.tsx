@@ -43,6 +43,10 @@ export function WebPreSessionLanding({
   const [openingPath, setOpeningPath] = useState(false)
   const [models, setModels] = useState<readonly ModelDescriptor[]>([])
   const [modelError, setModelError] = useState<string | null>(null)
+  const [modelsLoading, setModelsLoading] = useState(true)
+  const [modelRefresh, setModelRefresh] = useState(0)
+  const [openingProviders, setOpeningProviders] = useState(false)
+  const [providerRouteError, setProviderRouteError] = useState<string | null>(null)
   const [workspaceCursor, setWorkspaceCursor] = useState<string | null>(null)
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -70,6 +74,7 @@ export function WebPreSessionLanding({
         // The live generation check intentionally observes the next StrictMode setup.
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (mountLease.current !== lease) return
+        if (runtime.state.presentation.getSnapshot().page.kind === 'settings') return
         void settledWrites
           .catch(() => undefined)
           .then(() => runtime.commands.execute('preSessionDraft.close', { draftId }))
@@ -87,6 +92,7 @@ export function WebPreSessionLanding({
   useEffect(() => {
     if (!connected) return
     let live = true
+    setModelsLoading(true)
     void runtime.commands
       .execute('model.list', {})
       .then((value) => {
@@ -96,12 +102,16 @@ export function WebPreSessionLanding({
       })
       .catch((reason: unknown) => {
         if (!live) return
+        setModels([])
         setModelError(code(reason))
+      })
+      .finally(() => {
+        if (live) setModelsLoading(false)
       })
     return () => {
       live = false
     }
-  }, [connected, runtime])
+  }, [connected, runtime, modelRefresh])
 
   useEffect(() => {
     if (!connected || !composerPermission.available || composerPermission.hostDefault.status !== 'idle') return
@@ -262,6 +272,39 @@ export function WebPreSessionLanding({
       })
   }
 
+  const retryModels = () => {
+    if (!connected || modelsLoading) return
+    setModelError(null)
+    setModelsLoading(true)
+    setModelRefresh((current) => current + 1)
+  }
+
+  const openProviderSettings = (closePicker?: () => void) => {
+    if (!connected || openingProviders) return
+    const presentation = runtime.state.presentation.getSnapshot()
+    const navigation = runtime.state.navigation.getSnapshot()
+    if (presentation.page.kind !== 'session' || navigation.sessionId !== null) return
+    closePicker?.()
+    setProviderRouteError(null)
+    setOpeningProviders(true)
+    void queue(async () => {
+      if (
+        runtime.state.presentation.getSnapshot() !== presentation ||
+        runtime.state.navigation.getSnapshot() !== navigation
+      ) {
+        if (alive.current) setProviderRouteError('STALE_TARGET')
+        return
+      }
+      await runtime.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
+    })
+      .catch((reason: unknown) => {
+        if (alive.current) setProviderRouteError(code(reason))
+      })
+      .finally(() => {
+        if (alive.current) setOpeningProviders(false)
+      })
+  }
+
   const submit = () => {
     if (!draft || !connected || submitting) return
     setSubmitting(true)
@@ -299,7 +342,7 @@ export function WebPreSessionLanding({
     label: labels.modelName(model.providerName, model.modelName),
     detail: shell.session.modelPicker.capability(model),
   }))
-  const modelLabels = modelError ? { ...labels.model, empty: labels.error(modelError) } : labels.model
+  const modelLabels = modelError ? { ...labels.model, empty: labels.modelReadFailed } : labels.model
   const workspaceControl = (
     <HbarPreSessionChoicePicker
       icon={Folder}
@@ -354,6 +397,31 @@ export function WebPreSessionLanding({
       items={modelChoices}
       selectedId={draft?.modelId ?? null}
       disabled={!connected || busy || draft?.phase === 'unknown'}
+      loading={modelsLoading}
+      extra={(closePicker) =>
+        modelsLoading ? (
+          <LumenText as="p" role="status">
+            {labels.checkingModels}
+          </LumenText>
+        ) : modelError ? (
+          <LumenFrame className="hbar-web-pre-session-model-actions">
+            <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
+              {labels.retryModels}
+            </LumenButton>
+          </LumenFrame>
+        ) : models.length === 0 ? (
+          <LumenFrame className="hbar-web-pre-session-model-actions">
+            <LumenButton
+              type="button"
+              size="s"
+              disabled={!connected || openingProviders}
+              onClick={() => openProviderSettings(closePicker)}
+            >
+              {labels.configureProviders}
+            </LumenButton>
+          </LumenFrame>
+        ) : null
+      }
       onMore={() => undefined}
       onChoose={chooseModel}
     />
@@ -418,6 +486,28 @@ export function WebPreSessionLanding({
         <LumenIcon icon={X} tier="sm" />
       </LumenButton>
     ) : null
+  const modelGuidance =
+    !modelsLoading && (modelError || models.length === 0 || providerRouteError) ? (
+      <LumenFrame className="hbar-web-pre-session-model-guidance">
+        <LumenText as="p" role={modelError || providerRouteError ? 'alert' : undefined}>
+          {providerRouteError ? labels.modelActionFailed : modelError ? labels.modelReadFailed : labels.model.empty}
+        </LumenText>
+        {modelError ? (
+          <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
+            {labels.retryModels}
+          </LumenButton>
+        ) : models.length === 0 ? (
+          <LumenButton
+            type="button"
+            size="s"
+            disabled={!connected || openingProviders}
+            onClick={() => openProviderSettings()}
+          >
+            {labels.configureProviders}
+          </LumenButton>
+        ) : null}
+      </LumenFrame>
+    ) : null
   const editorKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.shiftKey) return
     if (sendBehavior === null) return
@@ -448,7 +538,15 @@ export function WebPreSessionLanding({
         disabled: !connected || !draft,
         submitting: busy,
         uploading: false,
-        canSubmit: Boolean(draft?.workspaceId && text.trim() && !busy && draft.phase !== 'unknown'),
+        canSubmit: Boolean(
+          draft?.workspaceId &&
+          text.trim() &&
+          !busy &&
+          draft.phase !== 'unknown' &&
+          !modelsLoading &&
+          !modelError &&
+          models.length > 0,
+        ),
         error: goalError
           ? labels.goalError(goalError)
           : openError
@@ -457,9 +555,10 @@ export function WebPreSessionLanding({
               ? labels.error(draft.error)
               : undefined,
         context:
-          preparedGoal || draft?.phase === 'unknown' ? (
+          preparedGoal || modelGuidance || draft?.phase === 'unknown' ? (
             <>
               {preparedGoal}
+              {modelGuidance}
               {draft?.phase === 'unknown' && (
                 <LumenFrame className="hbar-web-pre-session-recovery">
                   <LumenText as="p" role="alert">

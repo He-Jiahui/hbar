@@ -8,6 +8,11 @@ export interface WebPreSessionCopy {
   readonly pathHint: string
   readonly addWorkspace: string
   readonly openingWorkspace: string
+  readonly checkingModels: string
+  readonly retryModels: string
+  readonly configureProviders: string
+  readonly modelReadFailed: string
+  readonly modelActionFailed: string
   readonly checking: string
   readonly goalPlanConflict: string
   readonly planGoalConflict: string
@@ -53,6 +58,11 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
     pathHint: choose('输入服务端上已存在的目录路径。', 'Enter an existing directory path on the server.'),
     addWorkspace: choose('添加项目', 'Add project'),
     openingWorkspace: choose('正在打开项目…', 'Opening project…'),
+    checkingModels: choose('正在检查可用模型…', 'Checking available models…'),
+    retryModels: choose('重试读取模型', 'Retry models'),
+    configureProviders: choose('配置模型提供商', 'Configure providers'),
+    modelReadFailed: choose('模型暂时无法加载，请重试。', 'Models could not be loaded. Try again.'),
+    modelActionFailed: choose('无法打开提供商设置，请重试。', 'Could not open provider settings. Try again.'),
     checking: choose('核对首次发送结果', 'Check first-send result'),
     goalPlanConflict: choose(
       '先在执行选项中退出计划模式，再准备目标。',

@@ -519,8 +519,11 @@ function WorkspaceBodyContent({
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
   const sessionWorkspace = session ? directory.workspaces[session.workspaceId] : undefined
   useEffect(() => {
-    if (session) landingDraftId.current = null
-  }, [session])
+    if (!session || !landingDraftId.current) return
+    const draftId = landingDraftId.current
+    landingDraftId.current = null
+    void runtime.commands.execute('preSessionDraft.close', { draftId }).catch(() => undefined)
+  }, [runtime, session])
   if (presentation.page.kind === 'status')
     return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
   if (presentation.page.kind === 'settings')
