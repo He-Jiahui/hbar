@@ -693,6 +693,57 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-forms-12')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'form-workflows.tsx',
+        'forms-12-reference.tsx',
+        'forms-12-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '0:press-enter',
+          change: 'Open Business details and inspect its three editor fields, Cancel/Save and the other disabled Edit controls',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '4:toggle',
+          change: 'Toggle the first consent checkbox without requesting a bound quote',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source interaction acceptance',
+          basis:
+            'The full-static-v9 and full-interactions-v4 caches share the Forms 12 source hash, but the interaction cache is schemaVersion 1 without the current capture protocol. The official page was unavailable this round. These are older same-hash mechanism clues, not fresh strict source/local pairs.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Consent state equivalence',
+          basis:
+            'The first checkbox appears checked in the cached source-after snapshot, while the old comparator records sourceChanged false and a local control-index mismatch. Local consent toggling is tested, but no strict matched source delta is claimed.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other section editors, Save/Cancel, premium recalculation and bound-quote result',
+          basis:
+            'Only Business editor opening is usefully captured. Its draft does not mutate the host-provided premium snapshot, and Save/Cancel/Request only emit typed host requests. No result or post-consent CTA enabled state is inferred.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated Edit controls and layout combinations',
+          basis:
+            'Eight local light/dark screenshots cover desktop, tablet, mobile and 320px normal flow. One Business Edit and one consent cover distinct change mechanisms; source narrow vertical scroll owner was not captured, while local mouse-wheel scrolling reaches the footer without horizontal overflow.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-forms-11')
     return {
       revision: 1,
