@@ -632,7 +632,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     }
     if (!pending) {
       pending = {
-        key: crypto.randomUUID(),
+        key: execution.idempotencyKey ?? crypto.randomUUID(),
         revision: current.revision,
         intent: current.intent,
         fingerprint,

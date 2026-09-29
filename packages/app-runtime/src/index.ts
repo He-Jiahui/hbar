@@ -9,6 +9,7 @@ import {
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
+import { preSessionDraftCommands } from '@hbar/contracts/commands/pre-session-draft'
 import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
 import { runActionCommands } from '@hbar/contracts/commands/run-action'
 export { runActionCommands } from '@hbar/contracts/commands/run-action'
@@ -81,6 +82,7 @@ export type {
   GoalHistorySnapshot,
 } from './goal-history'
 import { createDrafts } from './drafts'
+import { createPreSessionDrafts } from './pre-session-drafts'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
@@ -201,6 +203,7 @@ export type {
   GlobalSettingsStartup,
   RunCommandPort,
   SessionDraftState,
+  PreSessionDraftsState,
   SessionAttachmentUpload,
   SessionControlsState,
   ComposerModelState,
@@ -683,6 +686,19 @@ export function createAppRuntime(options: RuntimeOptions) {
     executionPreparation,
     isCurrentRunActive,
   )
+  const preSessionDrafts = createPreSessionDrafts(local, {
+    navigation: navigation.reader,
+    controls: controls.reader,
+    drafts: drafts.reader,
+    queries: directory.queries,
+    tabs: workspaceTabs.hooks,
+    createSession: directory.createSession,
+    ...(options.workspaces ? { workspaces: options.workspaces } : {}),
+    ...(options.models ? { models: options.models } : {}),
+    ...(options.run ? { run: options.run } : {}),
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const offModelEvents = options.modelEvents?.subscribe(composerModel.invalidateModels)
   const offModelConnection = options.modelEvents?.onConnection?.(composerModel.setConnected)
   const providerSettings = createProviderSettings(
@@ -807,6 +823,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       return Object.hasOwn(navigationCommands, name) ||
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
+        Object.hasOwn(preSessionDraftCommands, name) ||
         Object.hasOwn(runActionCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(interactionRecoveryCommands, name) ||
@@ -892,6 +909,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       activity: activityWorkspace.reader,
       queuedUserRuns: queuedUserRuns.reader,
       drafts: drafts.reader,
+      preSessionDrafts: preSessionDrafts.reader,
       runActions: drafts.actions,
       interactions: interactions.reader,
       questionnaires: interactions.questionnaires,
@@ -951,6 +969,7 @@ export function createAppRuntime(options: RuntimeOptions) {
 
       activityWorkspace.dispose()
       agentComposer.dispose()
+      preSessionDrafts.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()

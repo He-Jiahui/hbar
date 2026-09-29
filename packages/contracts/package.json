@@ -15,6 +15,7 @@
     "./commands/computer": "./src/commands/computer.ts",
     "./commands/command-palette": "./src/commands/command-palette.ts",
     "./commands/draft": "./src/commands/draft.ts",
+    "./commands/pre-session-draft": "./src/commands/pre-session-draft.ts",
     "./commands/connection": "./src/commands/connection.ts",
     "./commands/configuration": "./src/commands/configuration.ts",
     "./commands/git": "./src/commands/git.ts",

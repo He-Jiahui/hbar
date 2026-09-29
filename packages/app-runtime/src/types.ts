@@ -9,6 +9,7 @@ import type {
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type {
   ActiveOperationsPage,
@@ -770,6 +771,7 @@ export interface SessionDraftState {
 }
 export type SessionAttachmentUpload = AttachmentUploadInput
 export type DraftsState = Readonly<Record<string, SessionDraftState>>
+export type PreSessionDraftsState = Readonly<Record<string, Readonly<PreSessionDraftState>>>
 
 export interface InteractionRecoveryPort {
   getPlanExit?(target: {

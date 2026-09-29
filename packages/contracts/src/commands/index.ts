@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { budgetEditorCommands } from './budget-editor'
 import { surfaceCommands } from './surfaces'
 import { draftCommands } from './draft'
+import { preSessionDraftCommands } from './pre-session-draft'
 import { runCommands } from './run'
 import { runActionCommands } from './run-action'
 export { runActionCommands } from './run-action'
@@ -231,6 +232,7 @@ export const navigationCommands = {
 }
 export { surfaceCommands } from './surfaces'
 export { draftCommands } from './draft'
+export { preSessionDraftCommands } from './pre-session-draft'
 export { runCommands } from './run'
 export { interactionCommands } from './interaction'
 export { modelCommands } from './models'
@@ -255,6 +257,7 @@ export const applicationCommands = {
   ...budgetEditorCommands,
   ...surfaceCommands,
   ...draftCommands,
+  ...preSessionDraftCommands,
   ...runCommands,
   ...runActionCommands,
   ...interactionCommands,
