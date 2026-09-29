@@ -8,6 +8,16 @@
 
 崩溃测试启动额外 Bun 进程，在已提交工具意图且实际写入完成、结果尚未提交时终止进程，重新打开同一数据目录，检查 WAL 历史和 unknown 结果，不重放调用。它不宣称覆盖所有磁盘故障或断电场景。
 
+### 定向测试路径与审计浏览器探针
+
+定向运行具体测试文件时使用 `./tests/...`，不要省略 `./`。Bun 将未带路径前缀的参数视作名称过滤器，会递归发现工作区测试；审计产物较多时，这会把发现时间误认为测试或编译卡住。具体文件路径可以避免这次全树发现，测试断言不变。参见 [Bun 测试运行器说明](https://bun.com/docs/test)。
+
+```text
+bun test ./tests/reactbits-pro-audit.test.ts ./tests/reactbits-pro-audit-browser-state.test.ts --timeout 20000
+```
+
+审计浏览器状态探针独立在 `reactbits-pro-audit-browser-state.test.ts`。两个用例共享一次 Chrome 启动/关闭，各自使用独立 BrowserContext/Page，并在 `finally` 中释放 context；复用进程不复用 DOM 或状态。行为测试仍各有 20 秒预算，进程生命周期 hook 单独有界于 30 秒，不删除原有的 checkbox/switch/select/progress/meter 断言。此调整修复了相关提交 `20aeb93` 的 fixture 在完成功能断言后因 Chrome 退出仍占用单测预算而超时的问题，不改变生产捕获协议或来源验收标准。
+
 `bun run build && bun run test:e2e` 使用 Vite preview 和 Edge/Playwright，覆盖无 Host 时的中英文桌面/窄屏外壳、Ctrl+K 本地命令目录、命令关闭后的导航、刷新、旧 localStorage 隔离和明确失败状态。真实临时 Host 场景覆盖选择会话、文件 compare-and-write、通用 descriptor 预算表单、发送/审批/取消、可靠 Usage、真实工具结算/并发/耗时统计、三层设置动态内容、ProviderDialog 凭据保存、Session Monitoring、子 Agent、目标/计划、扩展/技能以及 Performance/Usage/Git 状态中心。连接 Host 后还会切换到 390×844，逐项重开上述工具，检查水平溢出和 AppSidebar/Main 几何重叠。组件库的受控交互测试和独立预览验证脚本继续保留。
 
 专注工作流的验证矩阵和定向命令见[专注工作流](workflows.md#迁移与验证)。`tests/compiled-cli.test.ts` 真实编译 standalone CLI，检查内嵌 Host、原生查询、Workflow、隔离补丁以及 Windows 进程拓扑；`e2e/workflow-focus.spec.ts` 用真实 Host 检查桌面和窄屏的单一 Agent Plan、当前焦点、显式人工模式与 Evidence 回读。

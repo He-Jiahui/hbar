@@ -491,10 +491,12 @@ pass. Eight local stills and representative mechanism checks report zero
 console/page errors; the final typography change receives desktop/narrow
 spot-checks without repeating unrelated requests. Shared `paywall.tsx` has
 11 existing lint errors, down from 12 before; it is not globally lint-clean.
-The complete audit unit regression initially reports 98/99 passing: the
-native-state fixture finishes all eight assertions but exceeds its test budget
-while closing Chrome. Its test-process lifecycle correction is separate from
-the Paywall integration; that run is not described as fully passing.
+The complete audit unit regression initially reported 98/99 passing: the
+native-state fixture finished all eight assertions but exceeded its test budget
+while closing Chrome. A separate lifecycle correction reuses one browser
+process with isolated contexts and preserves all assertions; the combined
+regression now passes 99/99 tests and 543 assertions in 18.70s. This is a unit
+regression result, not 300-variant source/local acceptance.
 
 ## Migration inventory
 
