@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
-import { idSchema } from '../index'
+import { idSchema, thinkingLevelSchema, type ThinkingLevel } from '../index'
 import { runAcceptedSchema } from './run'
 
 const metadata = (id: string, kind: 'command' | 'query' = 'command') => ({
@@ -31,6 +31,7 @@ export const preSessionDraftStateSchema = z.strictObject({
   workspaceId,
   text: z.string().max(200_000),
   modelId: idSchema.nullable(),
+  thinkingLevel: thinkingLevelSchema.nullable(),
   approvalChoice: preSessionApprovalChoiceSchema,
   planMode: preSessionPlanModeSchema,
   intent: preSessionIntentSchema,
@@ -59,6 +60,16 @@ export const preSessionDraftCommands = {
   'preSessionDraft.setModel': defineCommand(
     metadata('preSessionDraft.setModel'),
     z.strictObject({ draftId, modelId: idSchema.nullable(), expectedRevision: revision }),
+    result,
+  ),
+  'preSessionDraft.setThinkingLevel': defineCommand(
+    metadata('preSessionDraft.setThinkingLevel'),
+    z.strictObject({
+      draftId,
+      thinkingLevel: thinkingLevelSchema.nullable(),
+      expectedModelId: idSchema.nullable(),
+      expectedRevision: revision,
+    }),
     result,
   ),
   'preSessionDraft.setApprovalChoice': defineCommand(
@@ -111,3 +122,4 @@ export type PreSessionDraftState = z.output<typeof preSessionDraftStateSchema>
 export type PreSessionApprovalChoice = z.output<typeof preSessionApprovalChoiceSchema>
 export type PreSessionPlanMode = z.output<typeof preSessionPlanModeSchema>
 export type PreSessionIntent = z.output<typeof preSessionIntentSchema>
+export type PreSessionThinkingLevel = ThinkingLevel

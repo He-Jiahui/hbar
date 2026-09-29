@@ -26,9 +26,23 @@ const model: ModelDescriptor = {
   maxOutput: 4_000,
   imageInput: true,
   reasoning: false,
-  thinkingLevels: ['off'],
+  thinkingLevels: ['off', 'low', 'high'],
   defaultThinkingLevel: 'off',
   hasKey: true,
+}
+const compatibleModel: ModelDescriptor = {
+  ...model,
+  id: 'provider/compatible',
+  modelId: 'compatible',
+  modelName: 'Compatible model',
+  thinkingLevels: ['off', 'high'],
+}
+const restrictedModel: ModelDescriptor = {
+  ...model,
+  id: 'provider/restricted',
+  modelId: 'restricted',
+  modelName: 'Restricted model',
+  thinkingLevels: ['off'],
 }
 
 function workspace(id: string): Workspace {
@@ -89,6 +103,15 @@ function fixture(
   const createdByKey = new Map<string, Session>()
   const modelReceipts = new Map<string, ModelWriteResult>()
   const runReceipts = new Map<string, RunAccepted>()
+  const modelWrites: (
+    | { readonly name: 'session.setModel'; readonly key: string; readonly sessionId: string; readonly modelId: string }
+    | {
+        readonly name: 'session.setThinkingLevel'
+        readonly key: string
+        readonly sessionId: string
+        readonly thinkingLevel: Exclude<ModelConfiguration['thinkingLevel'], null>
+      }
+  )[] = []
   let modelCatalog: readonly ModelDescriptor[] = [model]
   let modelCatalogError: CommandError | null = null
   const permissionChoices = new Map<string, 'ask' | 'deny' | 'allow'>()
@@ -105,6 +128,7 @@ function fixture(
     sessionId: string
     key: string
     text: string
+    thinkingLevel: ModelConfiguration['thinkingLevel']
     approval: 'ask' | 'deny' | 'allow' | undefined
     mode: 'default' | 'plan' | undefined
   }[] = []
@@ -123,6 +147,7 @@ function fixture(
   let loseNextPermissionWriteReply = false
   let loseNextPlanModeWriteReply = false
   let loseNextGoalCreateReply = false
+  let loseNextThinkingWriteReply = false
   let failModelReads = false
   let unknownNextRun = false
   let nextSession = 0
@@ -137,8 +162,7 @@ function fixture(
         const input = directoryCommands['session.get'].input.parse(raw)
         return sessions.get(input.sessionId) ?? null
       }
-      if (name === 'workspace.list')
-        return { items: [...workspaces.values()], nextCursor: null }
+      if (name === 'workspace.list') return { items: [...workspaces.values()], nextCursor: null }
       if (name === 'session.list') {
         const input = directoryCommands['session.list'].input.parse(raw)
         return {
@@ -214,31 +238,70 @@ function fixture(
           revisions: receipt.revisions,
         }
       }
-      if (name !== 'session.setModel') throw new Error(`Unexpected model command: ${name}`)
-      const input = modelCommands[name].input.parse(raw)
-      const key = options.idempotencyKey
-      if (!key) throw new Error('Session model write requires an idempotency key')
-      const prior = modelReceipts.get(key)
-      if (prior) return prior
-      const current = models.get(input.sessionId)
-      if (!current) throw new CommandError('SESSION_NOT_FOUND', 'Fixture Session model is missing')
-      const layer = `settings:session:${input.sessionId}`
-      if (input.baselineRevisions[layer] !== current.revisions[layer])
-        throw new CommandError('VERSION_CONFLICT', 'Fixture model baseline changed')
-      const revision = (current.revisions[layer] ?? 0) + 1
-      const next: ModelConfiguration = {
-        sessionId: input.sessionId,
-        status: 'configured',
-        modelId: input.modelId,
-        model,
-        thinkingLevel: model.defaultThinkingLevel,
-        revisions: { ...current.revisions, [layer]: revision },
-        sources: { model: 'session', thinkingLevel: 'session' },
+      if (name === 'session.setModel') {
+        const input = modelCommands[name].input.parse(raw)
+        const key = options.idempotencyKey
+        if (!key) throw new Error('Session model write requires an idempotency key')
+        const prior = modelReceipts.get(key)
+        if (prior) return prior
+        const current = models.get(input.sessionId)
+        if (!current) throw new CommandError('SESSION_NOT_FOUND', 'Fixture Session model is missing')
+        const selected = modelCatalog.find((item) => item.id === input.modelId)
+        if (!selected) throw new CommandError('MODEL_NOT_FOUND', 'Fixture model was removed')
+        const layer = `settings:session:${input.sessionId}`
+        if (input.baselineRevisions[layer] !== current.revisions[layer])
+          throw new CommandError('VERSION_CONFLICT', 'Fixture model baseline changed')
+        const revision = (current.revisions[layer] ?? 0) + 1
+        const next: ModelConfiguration = {
+          sessionId: input.sessionId,
+          status: 'configured',
+          modelId: input.modelId,
+          model: selected,
+          thinkingLevel: selected.defaultThinkingLevel,
+          revisions: { ...current.revisions, [layer]: revision },
+          sources: { model: 'session', thinkingLevel: 'session' },
+        }
+        models.set(input.sessionId, next)
+        const result: ModelWriteResult = { ...next, commitId: key, revision }
+        modelReceipts.set(key, result)
+        modelWrites.push({ name: 'session.setModel', key, sessionId: input.sessionId, modelId: input.modelId })
+        return result
       }
-      models.set(input.sessionId, next)
-      const result: ModelWriteResult = { ...next, commitId: key, revision }
-      modelReceipts.set(key, result)
-      return result
+      if (name === 'session.setThinkingLevel') {
+        const input = modelCommands[name].input.parse(raw)
+        const key = options.idempotencyKey
+        if (!key) throw new Error('Session thinking write requires an idempotency key')
+        const prior = modelReceipts.get(key)
+        if (prior) return prior
+        const current = models.get(input.sessionId)
+        if (!current?.model) throw new CommandError('MODEL_NOT_FOUND', 'Fixture Session has no selected model')
+        if (!current.model.thinkingLevels.includes(input.thinkingLevel))
+          throw new CommandError('INVALID_INPUT', 'Fixture thinking level is unsupported')
+        const layer = `settings:session:${input.sessionId}`
+        if (input.baselineRevisions[layer] !== current.revisions[layer])
+          throw new CommandError('VERSION_CONFLICT', 'Fixture thinking baseline changed')
+        const revision = (current.revisions[layer] ?? 0) + 1
+        const next: ModelConfiguration = {
+          ...current,
+          thinkingLevel: input.thinkingLevel,
+          revisions: { ...current.revisions, [layer]: revision },
+        }
+        models.set(input.sessionId, next)
+        const result: ModelWriteResult = { ...next, commitId: key, revision }
+        modelReceipts.set(key, result)
+        modelWrites.push({
+          name: 'session.setThinkingLevel',
+          key,
+          sessionId: input.sessionId,
+          thinkingLevel: input.thinkingLevel,
+        })
+        if (loseNextThinkingWriteReply) {
+          loseNextThinkingWriteReply = false
+          throw new CommandError('RESULT_UNKNOWN', 'Session thinking level was written but its reply was lost')
+        }
+        return result
+      }
+      throw new Error(`Unexpected model command: ${name}`)
     },
   }
 
@@ -252,6 +315,7 @@ function fixture(
         sessionId: input.sessionId,
         key,
         text: input.input.text,
+        thinkingLevel: models.get(input.sessionId)?.thinkingLevel ?? null,
         approval: input.input.approval,
         mode: input.input.mode,
       })
@@ -335,8 +399,7 @@ function fixture(
         const input = settingsCommands[name].input.parse(raw)
         return permissionReceipts.get(input.idempotencyKey) ?? null
       }
-      if (name !== 'settings.set' && name !== 'settings.unset')
-        throw new Error(`Unexpected settings command: ${name}`)
+      if (name !== 'settings.set' && name !== 'settings.unset') throw new Error(`Unexpected settings command: ${name}`)
       let sessionId: string
       let baselineRevisions: Record<string, number>
       let choice: 'inherit' | 'ask' | 'deny' | 'allow'
@@ -547,6 +610,7 @@ function fixture(
     runtime,
     createCalls,
     runCalls,
+    modelWrites,
     permissionWrites,
     planModeWrites,
     goalCalls,
@@ -569,6 +633,9 @@ function fixture(
     },
     loseGoalCreateReply() {
       loseNextGoalCreateReply = true
+    },
+    loseThinkingWriteReply() {
+      loseNextThinkingWriteReply = true
     },
     holdNextGoalCreate() {
       const held = gate()
@@ -628,6 +695,7 @@ async function createDraft(
     readonly workspaceId: string | null
     readonly text: string
     readonly modelId?: string
+    readonly thinkingLevel?: ModelConfiguration['thinkingLevel']
     readonly approvalChoice?: 'inherit' | 'ask' | 'deny' | 'allow'
     readonly planMode?: 'default' | 'plan'
     readonly intent?: 'default' | 'goal'
@@ -645,6 +713,15 @@ async function createDraft(
     await runtime.view.commands.execute('preSessionDraft.setModel', {
       draftId,
       modelId: options.modelId,
+      expectedRevision: revision,
+    })
+    revision++
+  }
+  if (options.thinkingLevel !== undefined) {
+    await runtime.view.commands.execute('preSessionDraft.setThinkingLevel', {
+      draftId,
+      thinkingLevel: options.thinkingLevel,
+      expectedModelId: options.modelId ?? null,
       expectedRevision: revision,
     })
     revision++
@@ -682,9 +759,16 @@ test('pre-session drafts are local/idempotent and refuse a first send without a 
   const draftId = crypto.randomUUID()
   try {
     const first = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
-    const repeated = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: 'workspace-a' })
+    const repeated = await f.runtime.view.commands.execute('preSessionDraft.open', {
+      draftId,
+      workspaceId: 'workspace-a',
+    })
     expect(repeated).toEqual(first)
-    await f.runtime.view.commands.execute('preSessionDraft.setText', { draftId, text: 'keep this', expectedRevision: 0 })
+    await f.runtime.view.commands.execute('preSessionDraft.setText', {
+      draftId,
+      text: 'keep this',
+      expectedRevision: 0,
+    })
     await expect(
       f.runtime.view.commands.execute('preSessionDraft.submit', { draftId, expectedRevision: 1 }),
     ).rejects.toMatchObject({ code: 'WORKSPACE_REQUIRED' })
@@ -764,6 +848,199 @@ test('Plan mode is an independent revisioned draft choice', async () => {
       planMode: 'default',
       revision: 2,
     })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('thinking choices are revisioned, capability-checked, and reset only for incompatible models', async () => {
+  const f = fixture()
+  f.setModelCatalog([model, compatibleModel, restrictedModel])
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep the rest of this draft while changing model capability',
+      modelId: model.id,
+      approvalChoice: 'deny',
+      planMode: 'plan',
+    })
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setThinkingLevel', {
+      draftId: target.draftId,
+      thinkingLevel: 'high',
+      expectedModelId: model.id,
+      expectedRevision: target.revision,
+    })
+    expect(selected).toEqual({ draftId: target.draftId, revision: target.revision + 1 })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      text: 'Keep the rest of this draft while changing model capability',
+      modelId: model.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'deny',
+      planMode: 'plan',
+    })
+
+    const compatible = await f.runtime.view.commands.execute('preSessionDraft.setModel', {
+      draftId: target.draftId,
+      modelId: compatibleModel.id,
+      expectedRevision: selected.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      modelId: compatibleModel.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'deny',
+      planMode: 'plan',
+    })
+
+    const restricted = await f.runtime.view.commands.execute('preSessionDraft.setModel', {
+      draftId: target.draftId,
+      modelId: restrictedModel.id,
+      expectedRevision: compatible.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      modelId: restrictedModel.id,
+      thinkingLevel: null,
+      approvalChoice: 'deny',
+      planMode: 'plan',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setThinkingLevel', {
+        draftId: target.draftId,
+        thinkingLevel: 'high',
+        expectedModelId: restrictedModel.id,
+        expectedRevision: restricted.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      revision: restricted.revision,
+      modelId: restrictedModel.id,
+      thinkingLevel: null,
+      text: 'Keep the rest of this draft while changing model capability',
+      approvalChoice: 'deny',
+      planMode: 'plan',
+    })
+    expect(f.createCalls).toEqual([])
+    expect(f.modelWrites).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a delayed thinking choice cannot overwrite a more recent model selection', async () => {
+  const f = fixture()
+  f.setModelCatalog([model, restrictedModel])
+  const held = f.holdNextModelCatalogRead()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Fence a delayed thinking choice against model changes',
+      modelId: model.id,
+    })
+    const setting = f.runtime.view.commands.execute('preSessionDraft.setThinkingLevel', {
+      draftId: target.draftId,
+      thinkingLevel: 'high',
+      expectedModelId: model.id,
+      expectedRevision: target.revision,
+    })
+    const rejection = setting.catch((error: unknown) => error)
+    await held.entered
+
+    const changed = await f.runtime.view.commands.execute('preSessionDraft.setModel', {
+      draftId: target.draftId,
+      modelId: restrictedModel.id,
+      expectedRevision: target.revision,
+    })
+    held.release()
+
+    expect(await rejection).toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(changed.revision).toBe(target.revision + 1)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      modelId: restrictedModel.id,
+      thinkingLevel: null,
+      text: 'Fence a delayed thinking choice against model changes',
+    })
+    expect(f.createCalls).toEqual([])
+  } finally {
+    held.release()
+    f.runtime.dispose()
+  }
+})
+
+test('first send confirms the selected thinking level before Plan, approval, and Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Run with the selected thinking level and setup choices',
+      modelId: model.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'ask',
+      planMode: 'plan',
+    })
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+
+    expect(f.modelWrites.map((write) => write.name)).toEqual(['session.setModel', 'session.setThinkingLevel'])
+    expect(f.modelWrites[1]).toMatchObject({ sessionId: result.sessionId, thinkingLevel: 'high' })
+    expect(f.planModeWrites).toHaveLength(1)
+    expect(f.permissionWrites).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({
+      sessionId: result.sessionId,
+      text: 'Run with the selected thinking level and setup choices',
+      thinkingLevel: 'high',
+      approval: 'ask',
+      mode: 'plan',
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      thinkingLevel: 'high',
+      approvalChoice: 'ask',
+      planMode: 'plan',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('unknown thinking writes reconcile by their original receipt without replaying or running twice', async () => {
+  const f = fixture()
+  f.loseThinkingWriteReply()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Reconcile the original thinking-level write',
+      modelId: model.id,
+      thinkingLevel: 'high',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.sessions.size).toBe(1)
+    expect(f.modelWrites.filter((write) => write.name === 'session.setThinkingLevel')).toHaveLength(1)
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'unknown',
+      unknownStage: 'model',
+      sessionId: 'session-1',
+      text: 'Reconcile the original thinking-level write',
+      thinkingLevel: 'high',
+    })
+
+    const recovered = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(recovered).toMatchObject({ phase: 'accepted', sessionId: 'session-1' })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.sessions.size).toBe(1)
+    expect(f.modelWrites.filter((write) => write.name === 'session.setThinkingLevel')).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ sessionId: 'session-1', thinkingLevel: 'high' })
   } finally {
     f.runtime.dispose()
   }
@@ -1177,10 +1454,12 @@ test('duplicate first-send requests share one pending creation and settle one Ru
       operationId: result.accepted.operationId,
     })
     expect(
-      f.runtime.view.state.workspaceTabs.getSnapshot().items.some(
-        (item) =>
-          item.kind === 'session' && item.sessionId === result.sessionId && item.workspaceId === 'workspace-a',
-      ),
+      f.runtime.view.state.workspaceTabs
+        .getSnapshot()
+        .items.some(
+          (item) =>
+            item.kind === 'session' && item.sessionId === result.sessionId && item.workspaceId === 'workspace-a',
+        ),
     ).toBe(true)
   } finally {
     held.release()
@@ -1202,7 +1481,9 @@ test('closing an in-flight landing draft preserves it until acceptance, then dis
       expectedRevision: target.revision,
     })
     await held.entered
-    await expect(f.runtime.view.commands.execute('preSessionDraft.close', { draftId: target.draftId })).resolves.toEqual({
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.close', { draftId: target.draftId }),
+    ).resolves.toEqual({
       draftId: target.draftId,
       closed: false,
     })
@@ -1318,7 +1599,9 @@ test('same-key creation reconciliation discovers the real Session without steali
       f.runtime.view.commands.execute('preSessionDraft.close', { draftId: target.draftId }),
     ).resolves.toEqual({ draftId: target.draftId, closed: false })
     await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
-    await expect(f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })).rejects.toMatchObject({
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId }),
+    ).rejects.toMatchObject({
       code: 'STALE_TARGET',
     })
 
@@ -1364,7 +1647,11 @@ test('model initialization failure keeps the real Session and first message in t
       sessionId,
     })
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]?.text).toBe('retain this after model setup fails')
-    expect(draft).toMatchObject({ phase: 'failed', error: 'MODEL_NOT_READY', text: 'retain this after model setup fails' })
+    expect(draft).toMatchObject({
+      phase: 'failed',
+      error: 'MODEL_NOT_READY',
+      text: 'retain this after model setup fails',
+    })
     expect(f.runCalls).toEqual([])
   } finally {
     f.runtime.dispose()
@@ -1706,6 +1993,7 @@ test('unknown Goal creation reconciles to explicit active-composer retry without
       workspaceId: 'workspace-a',
       text: 'Recover the original Goal objective',
       modelId: model.id,
+      thinkingLevel: 'high',
       intent: 'goal',
     })
     await expect(
@@ -1726,6 +2014,7 @@ test('unknown Goal creation reconciles to explicit active-composer retry without
     })
     expect(f.goalCalls).toHaveLength(1)
     expect(f.runCalls).toEqual([])
+    expect(f.modelWrites.filter((write) => write.name === 'session.setThinkingLevel')).toHaveLength(1)
 
     await f.runtime.view.commands.execute('composerIntent.reconcile', { sessionId })
     const prepared = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
@@ -1758,6 +2047,7 @@ test('unknown Goal creation reconciles to explicit active-composer retry without
     expect(f.runCalls[0]).toMatchObject({
       sessionId,
       text: 'Recover the original Goal objective',
+      thinkingLevel: 'high',
       approval: 'ask',
       mode: 'default',
     })

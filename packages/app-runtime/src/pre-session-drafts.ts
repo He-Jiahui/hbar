@@ -1,6 +1,6 @@
 import { CommandError, type CommandExecutor, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { sessionSchema, type Session } from '@hbar/contracts/directory'
-import { modelCommands, type ModelDescriptor } from '@hbar/contracts/commands/models'
+import { modelCommands, modelConfigurationSchema, type ModelDescriptor } from '@hbar/contracts/commands/models'
 import {
   preSessionDraftCommands,
   preSessionDraftStateSchema,
@@ -41,6 +41,7 @@ interface PendingSubmission {
   readonly revision: number
   readonly text: string
   readonly requestedModelId: string | null
+  readonly requestedThinkingLevel: PreSessionDraftState['thinkingLevel']
   readonly approvalChoice: PreSessionDraftState['approvalChoice']
   readonly planMode: PreSessionDraftState['planMode']
   readonly intent: PreSessionDraftState['intent']
@@ -48,6 +49,8 @@ interface PendingSubmission {
   stage: 'create' | 'model' | 'approval' | 'planMode' | 'goal' | 'run'
   sessionId: string | null
   modelId: string | null
+  thinkingWriteStarted: boolean
+  thinkingWriteReceiptConfirmed: boolean
   approvalWriteStarted: boolean
   inFlight: boolean
   closeRequested: boolean
@@ -88,6 +91,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     workspaceId,
     text: '',
     modelId: null,
+    thinkingLevel: null,
     approvalChoice: 'inherit',
     planMode: 'default',
     intent: 'default',
@@ -295,6 +299,50 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       throw new CommandError('MODEL_NOT_READY', 'Choose a model before sending the first message')
     operation.modelId = configuration.modelId
     return configuration.modelId
+  }
+
+  const confirmThinkingLevel = async (operation: PendingSubmission): Promise<void> => {
+    const thinkingLevel = operation.requestedThinkingLevel
+    if (thinkingLevel === null) return
+    const sessionId = operation.sessionId
+    const modelId = operation.modelId
+    if (!sessionId || !modelId) throw new CommandError('INVALID_STATE', 'Thinking setup has no confirmed model')
+    await ensureSelected(operation)
+    const configuration = options.controls.getSnapshot().model
+    if (
+      !configuration ||
+      configuration.sessionId !== sessionId ||
+      configuration.status !== 'configured' ||
+      configuration.modelId !== modelId ||
+      !configuration.model
+    )
+      throw new CommandError('MODEL_NOT_READY', 'Created Session model is not confirmed for thinking setup')
+    if (!configuration.model.thinkingLevels.includes(thinkingLevel))
+      throw new CommandError('INVALID_INPUT', 'Thinking level is not supported by the selected model')
+
+    if (configuration.thinkingLevel !== thinkingLevel) {
+      if (operation.thinkingWriteStarted && !operation.thinkingWriteReceiptConfirmed)
+        throw new CommandError('RESULT_UNKNOWN', 'Reconcile the original thinking-level write before retrying')
+      if (operation.thinkingWriteReceiptConfirmed)
+        throw new CommandError('VERSION_CONFLICT', 'Confirmed thinking level changed before the first Run')
+      operation.thinkingWriteStarted = true
+      await local.execute('composerModel.selectThinking', { sessionId, thinkingLevel })
+      operation.thinkingWriteReceiptConfirmed = true
+    }
+
+    assertSelectionFence(operation)
+    const actual = modelConfigurationSchema.safeParse(await requireModels().execute('session.getModel', { sessionId }))
+    if (!actual.success || actual.data.sessionId !== sessionId)
+      throw new CommandError('INVALID_OUTPUT', 'Session model projection does not match the created Session')
+    if (
+      actual.data.status !== 'configured' ||
+      actual.data.modelId !== modelId ||
+      actual.data.thinkingLevel !== thinkingLevel ||
+      !actual.data.model?.thinkingLevels.includes(thinkingLevel)
+    )
+      throw new CommandError('VERSION_CONFLICT', 'Host thinking level changed before the first Run')
+    operation.thinkingWriteReceiptConfirmed = true
+    assertSelectionFence(operation)
   }
 
   const waitForApprovalEntry = async (sessionId: string): Promise<ComposerPermissionEntry> => {
@@ -530,6 +578,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       const sessionId = operation.sessionId
       if (!sessionId) throw new CommandError('INVALID_STATE', 'The Session identity is missing')
       operation.modelId = await confirmModel(operation)
+      await confirmThinkingLevel(operation)
       assertSelectionFence(operation)
       if (disposed || options.isDisposed()) throw new CommandError('DISPOSED', 'Pre-session drafts were disposed')
       if (operation.planMode === 'plan') {
@@ -656,6 +705,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         await ensureSelected(operation)
         try {
           await local.execute('composerModel.reconcile', { sessionId: operation.sessionId })
+          if (operation.thinkingWriteStarted) operation.thinkingWriteReceiptConfirmed = true
         } catch (error) {
           // A timed out catalog/config read has no model receipt. Refreshing and
           // comparing the effective value below is safe; unknown writes keep
@@ -666,9 +716,9 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         if (!operation.sessionId || !options.run)
           throw new CommandError('INVALID_STATE', 'Unknown Run has no receipt owner')
         await local.execute('composerIntent.reconcile', { sessionId: operation.sessionId })
-        const receipt = runAcceptedSchema.nullable().parse(
-          await options.run.getReceipt(operation.sessionId, operation.runKey, 'run.submit'),
-        )
+        const receipt = runAcceptedSchema
+          .nullable()
+          .parse(await options.run.getReceipt(operation.sessionId, operation.runKey, 'run.submit'))
         if (!receipt || receipt.sessionId !== operation.sessionId || receipt.idempotencyKey !== operation.runKey)
           throw new CommandError('RESULT_UNKNOWN', 'The original first Run receipt is not confirmed')
         settle(operation, receipt)
@@ -689,10 +739,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         if (permission?.writeUnknown) {
           await local.execute('composerPermission.reconcile', { sessionId: operation.sessionId })
           operation.approvalWriteStarted = false
-        } else if (
-          permission?.status !== 'idle' ||
-          permission.choice !== operation.approvalChoice
-        ) {
+        } else if (permission?.status !== 'idle' || permission.choice !== operation.approvalChoice) {
           // A known failure before dispatch is safe to retry only after the
           // existing Host projection is refreshed by applyApprovalChoice.
         }
@@ -706,9 +753,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       const permission = operation.sessionId
         ? options.permissions.getSnapshot().entries[operation.sessionId]
         : undefined
-      const planMode = operation.sessionId
-        ? options.planModes.getSnapshot().entries[operation.sessionId]
-        : undefined
+      const planMode = operation.sessionId ? options.planModes.getSnapshot().entries[operation.sessionId] : undefined
       const composerIntent = operation.sessionId
         ? options.composerIntents.getSnapshot().entries[operation.sessionId]
         : undefined
@@ -716,10 +761,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         operation.stage === 'create'
           ? UNKNOWN_CREATE_CODES.has(code)
           : operation.stage === 'approval'
-            ? Boolean(
-                permission?.writeUnknown ||
-                  (operation.approvalWriteStarted && UNKNOWN_OPERATION_CODES.has(code)),
-              )
+            ? Boolean(permission?.writeUnknown || (operation.approvalWriteStarted && UNKNOWN_OPERATION_CODES.has(code)))
             : operation.stage === 'planMode'
               ? planMode?.status === 'unknown'
               : UNKNOWN_OPERATION_CODES.has(code)
@@ -812,23 +854,92 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     },
   )
 
-  local.register(preSessionDraftCommands['preSessionDraft.setModel'], ({ draftId, modelId, expectedRevision }) => {
-    const current = entry(draftId)
-    requireEditable(draftId, current)
-    checkRevision(current, expectedRevision)
-    if (current.modelId === modelId) return { draftId, revision: current.revision }
-    const value = {
-      ...current,
-      modelId,
-      revision: current.revision + 1,
-      phase: current.phase === 'failed' ? ('idle' as const) : current.phase,
-      unknownStage: null,
-      error: null,
-      accepted: null,
-    }
-    publish(value)
-    return { draftId, revision: value.revision }
-  })
+  local.register(
+    preSessionDraftCommands['preSessionDraft.setModel'],
+    async ({ draftId, modelId, expectedRevision }, execution) => {
+      const current = entry(draftId)
+      requireEditable(draftId, current)
+      checkRevision(current, expectedRevision)
+      if (current.modelId === modelId) return { draftId, revision: current.revision }
+
+      let thinkingLevel = current.thinkingLevel
+      if (thinkingLevel !== null) {
+        if (modelId === null) thinkingLevel = null
+        else {
+          const catalog = await readModelCatalog(execution.signal)
+          const latest = entry(draftId)
+          requireEditable(draftId, latest)
+          checkRevision(latest, expectedRevision)
+          if (latest.modelId !== current.modelId)
+            throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before thinking validation')
+          const selected = catalog.find((model) => model.id === modelId)
+          if (!selected) throw new CommandError('MODEL_NOT_FOUND', 'Selected model is no longer available')
+          if (!selected.thinkingLevels.includes(thinkingLevel)) thinkingLevel = null
+        }
+      }
+
+      const latest = entry(draftId)
+      requireEditable(draftId, latest)
+      checkRevision(latest, expectedRevision)
+      if (latest.modelId !== current.modelId)
+        throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before this edit')
+      const value = {
+        ...latest,
+        modelId,
+        thinkingLevel,
+        revision: latest.revision + 1,
+        phase: latest.phase === 'failed' ? ('idle' as const) : latest.phase,
+        unknownStage: null,
+        error: null,
+        accepted: null,
+      }
+      publish(value)
+      return { draftId, revision: value.revision }
+    },
+  )
+
+  local.register(
+    preSessionDraftCommands['preSessionDraft.setThinkingLevel'],
+    async ({ draftId, thinkingLevel, expectedModelId, expectedRevision }, execution) => {
+      const current = entry(draftId)
+      requireEditable(draftId, current)
+      checkRevision(current, expectedRevision)
+      if (current.modelId !== expectedModelId)
+        throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before thinking selection')
+
+      if (thinkingLevel !== null) {
+        if (!expectedModelId) throw new CommandError('MODEL_NOT_READY', 'Choose a model before setting thinking')
+        const catalog = await readModelCatalog(execution.signal)
+        const latest = entry(draftId)
+        requireEditable(draftId, latest)
+        checkRevision(latest, expectedRevision)
+        if (latest.modelId !== expectedModelId)
+          throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before thinking validation')
+        const selected = catalog.find((model) => model.id === expectedModelId)
+        if (!selected) throw new CommandError('MODEL_NOT_FOUND', 'Selected model is no longer available')
+        if (!selected.thinkingLevels.includes(thinkingLevel))
+          throw new CommandError('INVALID_INPUT', 'Thinking level is not supported by the selected model')
+      }
+
+      const latest = entry(draftId)
+      requireEditable(draftId, latest)
+      checkRevision(latest, expectedRevision)
+      if (latest.modelId !== expectedModelId)
+        throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before thinking selection')
+      if (latest.thinkingLevel === thinkingLevel) return { draftId, revision: latest.revision }
+      const value = {
+        ...latest,
+        thinkingLevel,
+        revision: latest.revision + 1,
+        phase: latest.phase === 'failed' ? ('idle' as const) : latest.phase,
+        unknownStage: null,
+        error: null,
+        accepted: null,
+      }
+      publish(value)
+      return { draftId, revision: value.revision }
+    },
+  )
 
   local.register(
     preSessionDraftCommands['preSessionDraft.setApprovalChoice'],
@@ -919,6 +1030,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       revision: current.revision,
       text: current.text,
       requestedModelId,
+      requestedThinkingLevel: current.thinkingLevel,
       approvalChoice: current.approvalChoice,
       planMode: current.planMode,
       intent: current.intent,
@@ -926,6 +1038,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       stage: current.sessionId ? 'model' : 'create',
       sessionId: current.sessionId,
       modelId: requestedModelId,
+      thinkingWriteStarted: false,
+      thinkingWriteReceiptConfirmed: false,
       approvalWriteStarted: false,
       inFlight: false,
       closeRequested: false,
@@ -942,6 +1056,13 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         throw new CommandError('MODEL_NOT_FOUND', 'Selected model is no longer available')
       if (!requestedModelId && catalog.length === 0)
         throw new CommandError('MODEL_NOT_READY', 'No model is available for the first Run')
+      if (current.thinkingLevel !== null) {
+        const selected = requestedModelId ? catalog.find((model) => model.id === requestedModelId) : undefined
+        if (!selected)
+          throw new CommandError('MODEL_NOT_READY', 'Choose a model before setting thinking for the first Run')
+        if (!selected.thinkingLevels.includes(current.thinkingLevel))
+          throw new CommandError('INVALID_INPUT', 'Thinking level is not supported by the selected model')
+      }
     } catch (error) {
       if (operation.closeRequested) {
         const next = { ...state.reader.getSnapshot() }
@@ -969,8 +1090,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const accepted = await run(operation, true)
     const settled = state.reader.getSnapshot()[draftId]
     return (
-      settled ??
-      operationState(initial(draftId, operation.workspaceId), operation, 'accepted', null, null, accepted)
+      settled ?? operationState(initial(draftId, operation.workspaceId), operation, 'accepted', null, null, accepted)
     )
   })
 
