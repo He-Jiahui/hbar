@@ -120,7 +120,7 @@ test('an inherited trigger names the confirmed effective default, but never gues
   }
 })
 
-test('session Plan is a distinct fifth entry beside four Host-owned approval choices', () => {
+test('session Plan is distinct from approval and appears before Host default in the execution menu', () => {
   const input = props()
   const plan = {
     entry: { sessionId: 'a', mode: 'plan' as const, status: 'ready' as const, error: null, revision: 3 },
@@ -140,6 +140,9 @@ test('session Plan is a distinct fifth entry beside four Host-owned approval cho
   expect(html).not.toContain(labels.scopeHint)
   expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
   expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
+  const menu = html.slice(html.indexOf('role="menu"'))
+  expect(menu.indexOf('data-choice="allow"')).toBeLessThan(menu.indexOf('data-choice="plan"'))
+  expect(menu.indexOf('data-choice="plan"')).toBeLessThan(menu.indexOf('data-choice="inherit"'))
   expect(html).toContain('role="menuitemradio" aria-checked="true"')
   expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
   const uncertain = renderToStaticMarkup(
@@ -155,6 +158,8 @@ test('session Plan is a distinct fifth entry beside four Host-owned approval cho
   expect(uncertain).toContain(`aria-label="工具审批：${labels.execution.unknown}"`)
   expect(uncertain).not.toContain('aria-checked="true"')
   expect(uncertain.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
+  const uncertainMenu = uncertain.slice(uncertain.indexOf('role="menu"'))
+  expect(uncertainMenu.indexOf('data-choice="plan"')).toBeLessThan(uncertainMenu.indexOf('data-choice="inherit"'))
 })
 
 test('long host-supplied names and exact default labels remain semantic text without duplicated options', () => {

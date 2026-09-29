@@ -103,9 +103,12 @@ export interface HbarComposerPermissionPickerProps {
   }
 }
 
-// Four actual contract choices, not cc-haha's unsupported five-mode taxonomy.
+// Plan occupies the reference's execution-mode position, but remains a separate
+// durable Host mode. The other four entries are per-send approval choices.
 // This bounded list grows with its content; only the viewport-limited overlay scrolls.
-const choices: readonly ComposerPermissionChoice[] = ['ask', 'deny', 'allow', 'inherit']
+const choiceOrder = ['ask', 'deny', 'allow', 'plan', 'inherit'] as const satisfies readonly (
+  ComposerPermissionChoice | 'plan'
+)[]
 const icons = { ask: ShieldCheck, deny: ShieldX, allow: ShieldAlert, inherit: RotateCcw }
 
 /** The reference is a trigger-anchored overlay; coordinates apply to this container only. */
@@ -721,61 +724,67 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                 onKeyDown={moveChoice}
                 className="hbar-composer-permission-options"
               >
-                {choices.map((value) => (
-                  <LumenButton
-                    key={value}
-                    type="button"
-                    variant="text"
-                    indicator="none"
-                    role="menuitemradio"
-                    aria-checked={value === choice && ordinaryConfirmed}
-                    disabled={preparationUnavailable || busy || !canSelectOrdinary}
-                    className="hbar-composer-permission-option"
-                    data-choice={value}
-                    onClick={() => {
-                      if (!canSelectOrdinary) return
-                      if (value === 'allow' && (choice !== 'allow' || planSelected))
-                        setConfirmation({ sessionId, revision, sessionLabel })
-                      else select({ sessionId, choice: value, expectedRevision: revision })
-                    }}
-                  >
-                    <LumenIcon icon={icons[value]} tier="md" />
-                    <LumenFrame className="hbar-composer-permission-description">
-                      <LumenText as="span">{labels.options[value].label}</LumenText>
-                      <LumenText as="span">
-                        {value === 'inherit'
-                          ? labels.inheritedSnapshotHint(
-                              hostDefault.mode ? labels.options[hostDefault.mode].label : null,
-                            )
-                          : labels.options[value].description}
-                      </LumenText>
-                    </LumenFrame>
-                    {value === choice && ordinaryConfirmed && <LumenIcon icon={Check} tier="sm" />}
-                  </LumenButton>
-                ))}
-                {plan && (
-                  <LumenButton
-                    type="button"
-                    variant="text"
-                    indicator="none"
-                    role="menuitemradio"
-                    aria-checked={planSelected}
-                    aria-describedby={goalPreparation && !planSelected ? goalPreparedId : undefined}
-                    disabled={planBlocked}
-                    className="hbar-composer-permission-option hbar-composer-plan-option"
-                    data-choice="plan"
-                    onClick={() => {
-                      if (planSelected) closePopover()
-                      else changePlan('plan')
-                    }}
-                  >
-                    <LumenIcon icon={Lightbulb} tier="md" />
-                    <LumenFrame className="hbar-composer-permission-description">
-                      <LumenText as="span">{labels.plan.label}</LumenText>
-                      <LumenText as="span">{planSelected ? labels.plan.selected : labels.plan.description}</LumenText>
-                    </LumenFrame>
-                    {planSelected && <LumenIcon icon={Check} tier="sm" />}
-                  </LumenButton>
+                {choiceOrder.map((value) =>
+                  value === 'plan' ? (
+                    plan ? (
+                      <LumenButton
+                        key={value}
+                        type="button"
+                        variant="text"
+                        indicator="none"
+                        role="menuitemradio"
+                        aria-checked={planSelected}
+                        aria-describedby={goalPreparation && !planSelected ? goalPreparedId : undefined}
+                        disabled={planBlocked}
+                        className="hbar-composer-permission-option hbar-composer-plan-option"
+                        data-choice="plan"
+                        onClick={() => {
+                          if (planSelected) closePopover()
+                          else changePlan('plan')
+                        }}
+                      >
+                        <LumenIcon icon={Lightbulb} tier="md" />
+                        <LumenFrame className="hbar-composer-permission-description">
+                          <LumenText as="span">{labels.plan.label}</LumenText>
+                          <LumenText as="span">
+                            {planSelected ? labels.plan.selected : labels.plan.description}
+                          </LumenText>
+                        </LumenFrame>
+                        {planSelected && <LumenIcon icon={Check} tier="sm" />}
+                      </LumenButton>
+                    ) : null
+                  ) : (
+                    <LumenButton
+                      key={value}
+                      type="button"
+                      variant="text"
+                      indicator="none"
+                      role="menuitemradio"
+                      aria-checked={value === choice && ordinaryConfirmed}
+                      disabled={preparationUnavailable || busy || !canSelectOrdinary}
+                      className="hbar-composer-permission-option"
+                      data-choice={value}
+                      onClick={() => {
+                        if (!canSelectOrdinary) return
+                        if (value === 'allow' && (choice !== 'allow' || planSelected))
+                          setConfirmation({ sessionId, revision, sessionLabel })
+                        else select({ sessionId, choice: value, expectedRevision: revision })
+                      }}
+                    >
+                      <LumenIcon icon={icons[value]} tier="md" />
+                      <LumenFrame className="hbar-composer-permission-description">
+                        <LumenText as="span">{labels.options[value].label}</LumenText>
+                        <LumenText as="span">
+                          {value === 'inherit'
+                            ? labels.inheritedSnapshotHint(
+                                hostDefault.mode ? labels.options[hostDefault.mode].label : null,
+                              )
+                            : labels.options[value].description}
+                        </LumenText>
+                      </LumenFrame>
+                      {value === choice && ordinaryConfirmed && <LumenIcon icon={Check} tier="sm" />}
+                    </LumenButton>
+                  ),
                 )}
               </LumenFrame>
               {goalPreparation && !planSelected && (

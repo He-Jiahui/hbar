@@ -51,6 +51,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(popup.getByRole('menuitemradio', { checked: true })).toBeFocused()
       await expect(popup).toContainText(labels.scopeHint)
       await page.keyboard.press('ArrowUp')
+      await expect(popup.locator('[data-choice="plan"]')).toBeFocused()
+      await page.keyboard.press('ArrowUp')
+      await expect(popup.locator('[data-choice="allow"]')).toBeFocused()
       await page.keyboard.press('Enter')
       const cancel = popup.getByRole('button', { name: labels.cancel, exact: true })
       await expect(cancel).toBeFocused()
@@ -64,10 +67,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(trigger).toHaveAttribute('data-choice', 'inherit')
 
       for (const width of [1440, 390, 320]) {
-        await page.setViewportSize({ width, height: 900 })
+        await page.setViewportSize({ width, height: width === 320 ? 720 : 900 })
         await trigger.click()
         await expect(popup).toBeVisible()
         await expect(popup.getByRole('menuitemradio')).toHaveCount(5)
+        expect(
+          await popup
+            .getByRole('menuitemradio')
+            .evaluateAll((items) => items.map((item) => item.getAttribute('data-choice'))),
+        ).toEqual(['ask', 'deny', 'allow', 'plan', 'inherit'])
         await expect(popup).not.toContainText(labels.plan.scope)
         if (width === 320) await expect(popup.locator('[data-choice="plan"]')).toBeInViewport({ ratio: 1 })
         expect(await popup.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)

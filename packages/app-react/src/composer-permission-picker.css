@@ -104,6 +104,10 @@
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
+.hbar-composer-plan-option {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
 .hbar-composer-permission-popover .hbar-composer-permission-option[data-lumen-indicator='none']:focus-visible {
   outline: 0.0625rem solid var(--lumen-muted);
   outline-offset: -0.0625rem;

@@ -190,7 +190,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(trigger).toContainText(copy.plan.label)
         if (!(await popup.isVisible())) await trigger.click()
         await expect(popup.locator('[data-choice="plan"]')).toHaveAttribute('aria-checked', 'true')
-        await popup.locator('[data-choice="plan"]').click()
+        await popup.locator('button[data-plan-exit]').click()
         await expect(trigger).toContainText(copy.options.ask.label)
         if (!(await popup.isVisible())) await trigger.click()
         await expect(popup.locator('[role="menuitemradio"][data-choice="ask"]')).toHaveAttribute('aria-checked', 'true')
