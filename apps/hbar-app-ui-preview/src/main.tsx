@@ -10,7 +10,8 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
-import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
+import { AuthenticationReferencePreviewHost } from './Authentication2PreviewHost'
+import { createAuthentication2PreviewFixture } from './authentication2PreviewFixtures'
 import { KanbanPreviewHost } from './KanbanPreviewHost'
 import { WizardPreviewHost } from './WizardPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
@@ -81,6 +82,7 @@ import type {
 } from 'hbar-app-ui/catalog'
 import 'hbar-app-ui/theme.css'
 import './preview.css'
+import './authentication2-preview.css'
 import './onboarding1-preview.css'
 import './onboarding2-preview.css'
 import './onboarding3-preview.css'
@@ -466,6 +468,17 @@ function PreviewApp() {
         return HBAR_APP_UI_AUTHENTICATION_FIXTURES
     }
   }, [])
+  const authentication2ReferenceFixture = useMemo(() => {
+    const parameters = new URLSearchParams(window.location.search)
+    const fixture = parameters.get('authentication2Fixture') ?? parameters.get('authenticationFixture')
+    const capacity = parameters.get('authentication2Capacity') ?? fixture
+    return createAuthentication2PreviewFixture(
+      fixture === 'long' ? 'de-long' : fixture === 'localized' ? 'de' : 'en',
+      capacity === 'empty' || capacity === 'one' || capacity === 'boundary' || capacity === 'overflow'
+        ? capacity
+        : 'source',
+    )
+  }, [])
   const billingContent = useMemo(() => {
     switch (new URLSearchParams(window.location.search).get('billingFixture')) {
       case 'overflow':
@@ -848,8 +861,9 @@ function PreviewApp() {
                           onAction={handleAction}
                           referenceFixture={settingsForm2ReferenceFixture}
                         >
-                          <AuthenticationPreviewHost
+                          <AuthenticationReferencePreviewHost
                             content={authenticationContent}
+                            referenceFixture={authentication2ReferenceFixture}
                             spec={selected.spec}
                             onAction={handleAction}
                           >
@@ -1131,7 +1145,7 @@ function PreviewApp() {
                                 </CommentsPreviewHost>
                               </HbarAppUiIntegrationProvider>
                             </HbarAppUiBillingProvider>
-                          </AuthenticationPreviewHost>
+                          </AuthenticationReferencePreviewHost>
                         </SettingsForm2PreviewHost>
                       </SettingsPreviewHost>
                     </FeedbackPreviewHost>
@@ -1284,8 +1298,9 @@ function PreviewApp() {
                                     onAction={handleAction}
                                     referenceFixture={settingsForm2ReferenceFixture}
                                   >
-                                    <AuthenticationPreviewHost
+                                    <AuthenticationReferencePreviewHost
                                       content={authenticationContent}
+                                      referenceFixture={authentication2ReferenceFixture}
                                       spec={selected.spec}
                                       onAction={handleAction}
                                     >
@@ -1593,7 +1608,7 @@ function PreviewApp() {
                                           </CommentsPreviewHost>
                                         </HbarAppUiIntegrationProvider>
                                       </HbarAppUiBillingProvider>
-                                    </AuthenticationPreviewHost>
+                                    </AuthenticationReferencePreviewHost>
                                   </SettingsForm2PreviewHost>
                                 </SettingsPreviewHost>
                               </FeedbackPreviewHost>

@@ -4,6 +4,22 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('provider-first sampling covers mode and draft gates without assuming remote authentication or navigation', () => {
+  const id = 'hbar-app-ui-authentication-2'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.revision).toBe(2)
+  expect(plan.samples).toHaveLength(5)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([
+    `${id}:5:fill`,
+    `${id}:5:fill-valid`,
+    `${id}:auth-provider-sso:5:fill`,
+  ])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([])
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(2)
+  expect(plan.inferences.some((entry) => entry.basis.includes('did not trigger Continue'))).toBe(true)
+  expect(plan.inferences.some((entry) => entry.basis.includes('Six is a host boundary'))).toBe(true)
+})
+
 test('workspace form samples three raw-observed mechanisms and restricts legacy evidence', () => {
   const id = 'hbar-app-ui-onboarding-7'
   const plan = auditSamplingPlan(id)!

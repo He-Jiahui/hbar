@@ -27,6 +27,37 @@ entry in the generated `review-ledger.json`. The audit commands are
 `bun run app-ui:reactbits:discover`, `bun run app-ui:reactbits:audit`, and the
 development filters documented in that guide.
 
+### Authentication 2 controlled-provider integration status
+
+`hbar-app-ui-authentication-2` now accepts an optional typed `providerFirst.referenceFlow`.
+Its controlled view has no mirrored email/domain state; the preview's dedicated Zustand
+store owns both drafts, the mode and provider identities. Copy-only locale updates keep
+the drafts, while an explicit seed/scenario replacement resets the owner. The public
+uncontrolled API still uses its existing action IDs, and controlled callbacks do not
+also fire the legacy callback. Navigation and continuation only emit scoped typed
+requests with `authentication-and-navigation-unverified`; no real authentication,
+account creation, redirect or legal-page navigation was performed or simulated.
+
+The live [Authentication 2 preview](https://pro.reactbits.dev/docs/app-ui/authentication/authentication-2)
+was read on 2026-09-29 at 911×640 and 320×640, using visible DOM, computed styles and
+accessibility. The content column uses flex flow: 420×504 on desktop and 272×524
+at 320px. The narrow 48px footer keeps both text spans, lets each wrap in its own
+shrinking flex item and has no block padding; the document reaches 652px rather
+than hiding the footer in a fixed 640px content box. Host-provided long copy may
+naturally grow controls and content. The observed three providers are not a
+source capacity limit: the preview declares a six-provider host boundary and a
+17-item keyboard-accessible overflow fixture.
+
+`scripts/verify-hbar-app-ui-authentication-2.ts` captures eight local production
+theme/viewport views and samples the different mode/draft gates once. It also checks
+320×420 footer reachability, long German labels, provider-pane keyboard scrolling,
+request-only local Enter submission and browser errors. A separate in-memory browser
+test checks locale replacement, inherited provider content, single callback delivery
+and the legacy API. The historical `authentication-2-final-v4` cache uses capture
+14/interaction 33 evidence, not current 16/37; no current strict source/local acceptance
+is claimed. The reviewed five-case source sampling plan restricts remote outcomes and
+does not replay every button in every layout.
+
 ### Forms 8 audit status
 
 `hbar-app-ui-forms-8` was captured from the live [Forms 8 rule builder](https://pro.reactbits.dev/docs/app-ui/forms/forms-8)

@@ -20,6 +20,8 @@ Notifications 6 已完成关闭态和弹层的增量实现，**仍不是通过�
 
 Authentication 1 的居中登录卡片按实时原版重建了语义表单、原生 email 输入、密码显隐、记住我、三列提供方与桌面／窄屏流布局。12 个代表案例覆盖两种就近校验、宿主待处理、密码显隐、勾选、输入、提供方／辅助链接原版无可见变化及极窄屏键盘提交；其他同构提供方、页脚链接与主题／手势排列在 `sampling-plan.json` 标记为 `inferred-not-replayed`。8 组静态和 12 组前后配对、结构门禁、视觉反馈及人工签核见 `artifacts/reactbits-pro-visual-audit/authentication-1-final-v6/review-ledger.json`，严格比较通过。本地另验证空／单条／三条／超容量提供方、重复 ID、德语长文案、280–356px、宿主确认、失败重试、取消与缺失能力；正式宿主认证 transport 尚未接入，其他 13 个 Authentication 变体仍须逐项审计。首次原版现场捕获见 `artifacts/reactbits-pro-visual-audit/authentication-1-baseline-v1/`，本地重放不将其误写成新的实时捕获。
 
+Authentication 2 的选样计划更新为 **5 个安全代表案例**：切入 SSO、返回 email，以及 email 无效／有效与非空 domain 的提交可用性。官方可见预览在 2026-09-29 确认两个独立草稿及保留行为、桌面中心列和窄屏正常流页脚；没有触发真实 Continue、社交认证、Create account 或法律导航。宿主受控投影和独立 Zustand 草稿模型已接入，非受控旧 API 保留；请求记录原始 mode、draft、provider ID，结果标为 `authentication-and-navigation-unverified`。本地生产版本完成八组静态截图、320×420 页脚可达、德语长文案与 17 项 provider 键盘滚动；换语言保留草稿和唯一回调由隔离内存浏览器验证。同构按钮、其他手势和重复主题排列据此推断，不写成逐项实测。`authentication-2-final-v4` 是历史 14/33 协议缓存，本轮可见观测和本地产物不是当前 16/37 strict 源站配对，仍待严格签核。
+
 已配置计划的 Lumen 实现指纹从当前组件及 Provider 入口跟随相对依赖，并继续包含全部全局 CSS/JSON、公开入口和注册文件、hbar wrapper、预览宿主与 fixture。依赖清单写入 `implementation-scope.json`。其他未渲染组件的 TSX 改动不再令当前变体自动失效；共享样式、实际依赖和宿主输入变化仍需重新评估。未配置的旧穷举诊断保留整树指纹，不默默遗漏依赖。
 
 Approval 3 的当前计划为 **11 个代表案例**：展开/收起、批准/拒绝、后续请求、键盘/焦点、窄屏代码滚动与清空队列；覆盖桌面暗色和极窄亮色的关键变化。其余历史组合由共用状态转换和八种纯状态路径测试支撑。下面协议 23/24 的 408/2296 等数量是历史穷举说明，不再是当前默认验收要求。

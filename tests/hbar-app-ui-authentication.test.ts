@@ -1,15 +1,14 @@
 import {describe, expect, test} from 'bun:test'
 import {createElement} from 'react'
 import {renderToStaticMarkup} from 'react-dom/server'
-import {canContinueProviderFirst} from '../hbar-ui/packages/lumen-app-ui/src/authentication/ProviderFirstAuthentication'
-import {selectQuote} from '../hbar-ui/packages/lumen-app-ui/src/authentication/QuoteAuthentication'
+import {canContinueLumenProviderFirst as canContinueProviderFirst, selectLumenAuthQuote as selectQuote} from '@lumen/app-ui'
 import {
     getHbarAppUiVariant,
     HbarAppUiAuthenticationProvider,
     selectHbarAppUiAuthItem,
     uniqueHbarAppUiAuthItems,
     type HbarAppUiAuthContent,
-} from '../packages/hbar-app-ui/src/index'
+} from '../packages/hbar-app-ui/src/catalog'
 import {
     createHbarAppUiAuthenticationLocalizedFixtures,
     createHbarAppUiAuthenticationOverflowFixtures,

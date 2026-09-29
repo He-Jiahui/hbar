@@ -5182,7 +5182,7 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
     }
   if (variantId === 'hbar-app-ui-authentication-2')
     return {
-      revision: 1,
+      revision: 2,
       lumenEntries: [
         'authentication.tsx',
         'authentication-provider-first-reference.css',
@@ -5219,58 +5219,33 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         {
           viewport: 'desktop',
           theme: 'light',
-          suffix: 'auth-provider-email-valid:6:click',
-          change: 'Email Continue submits with no source demo transition',
-        },
-        {
-          viewport: 'desktop',
-          theme: 'light',
           suffix: 'auth-provider-sso:5:fill',
           change: 'Nonempty domain enables Continue beside the fixed suffix',
-        },
-        {
-          viewport: 'desktop',
-          theme: 'light',
-          suffix: 'auth-provider-sso-valid:6:click',
-          change: 'SSO Continue is a separate no-result submission path',
-        },
-        { viewport: 'desktop', theme: 'dark', suffix: '1:hover', change: 'Shared social provider pointer feedback' },
-        {
-          viewport: 'desktop',
-          theme: 'dark',
-          suffix: '2:click',
-          change: 'Representative provider click leaves the form unchanged',
-        },
-        {
-          viewport: 'tablet',
-          theme: 'light',
-          suffix: '0:click',
-          change: 'Create account has no source demo navigation result',
-        },
-        {
-          viewport: 'stress',
-          theme: 'light',
-          suffix: '4:press-space',
-          change: 'Narrow keyboard SSO switch reflows the suffix and helper',
-        },
-        {
-          viewport: 'stress',
-          theme: 'light',
-          suffix: '7:click',
-          change: 'Inline legal action retains the narrow form',
         },
       ],
       inferences: [
         {
-          scope: 'Other provider and legal links',
+          scope: 'Authentication, social-provider and navigation outcomes',
           basis:
-            'Host-owned providers share one ID-bound action and native button template; a representative provider hover/click and one legal action are paired. Their unclicked siblings are inferred, not counted as replayed.',
-          verification: 'inferred-not-replayed',
+            'The 2026-09-29 live review did not trigger Continue, social-provider authentication, Create account, terms or privacy. Local callbacks capture the original mode, draft and stable target IDs and return authentication-and-navigation-unverified; no remote success, redirect or delivery is inferred.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Current strict source/local acceptance',
+          basis:
+            'authentication-2-final-v4 is historical protocol 14/evidence 33, not current capture 16/interaction 37 proof. Live visible DOM and layout observations plus eight local production screenshots are separate evidence; this revision is a reviewed sampling plan, not a passed strict pair.',
+          verification: 'restricted-unverified',
         },
         {
           scope: 'Repeated themes, sizes, input strings and activation gestures',
           basis:
-            'Eight static pairs cover the whole width/theme matrix. Both mode transitions, disabled/enabled gates and both no-result submit routes are paired at representative sizes; local unit tests cover the email/domain boundary and content capacity. No Cartesian replay is claimed.',
+            'Email and SSO use one native form and independent host-owned drafts. The representative transitions and pure validator tests cover the state gates; local browser tests cover Space/Enter, copy-only rerenders and legacy callbacks. Responsive flex flow and material changes are checked statically without a button-by-layout product; unplayed combinations are not counted as live pairs.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Host capacity and localized overflow boundaries',
+          basis:
+            'Three providers were visible in the source. Six is a host boundary, not a tested source maximum; empty/one/six/seventeen lists, duplicate or stale IDs, keyboard pane scrolling and long German copy are local host-contract checks only.',
           verification: 'inferred-not-replayed',
         },
       ],
