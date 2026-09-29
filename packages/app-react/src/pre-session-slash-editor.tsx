@@ -36,6 +36,13 @@ export interface HbarPreSessionSlashEditorProps {
 type SlashTrigger = { readonly from: number; readonly to: number; readonly term: string }
 type PendingCaret = { readonly value: string; readonly offset: number }
 
+export function isSameSlashTrigger(
+  left: { readonly from: number; readonly to: number; readonly term: string } | null,
+  right: { readonly from: number; readonly to: number; readonly term: string } | null,
+): boolean {
+  return left !== null && right !== null && left.from === right.from && left.to === right.to && left.term === right.term
+}
+
 function getSlashTrigger(value: string, cursor: number, available: readonly LocalSlashCommand[]): SlashTrigger | null {
   const token = slashTokenAt(value, cursor)
   return token && slashMatches(token.term, available).length ? token : null
@@ -68,6 +75,7 @@ export function HbarPreSessionSlashEditor({
   const composing = useRef(false)
   const pendingCaret = useRef<PendingCaret | null>(null)
   const slashTriggerRef = useRef<SlashTrigger | null>(null)
+  const dismissedSlashRef = useRef<SlashTrigger | null>(null)
 
   const availableCommands = useMemo(
     () => labels.commands
@@ -88,10 +96,16 @@ export function HbarPreSessionSlashEditor({
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const setActiveSlash = useCallback((next: SlashTrigger | null) => {
+    let active = next
+    const dismissed = dismissedSlashRef.current
+    if (dismissed) {
+      if (isSameSlashTrigger(next, dismissed)) active = null
+      else dismissedSlashRef.current = null
+    }
     const previous = slashTriggerRef.current
-    if (!next || previous?.from !== next.from || previous?.term !== next.term) setSelectedIndex(0)
-    slashTriggerRef.current = next
-    setSlashTrigger(next)
+    if (!active || previous?.from !== active.from || previous?.term !== active.term) setSelectedIndex(0)
+    slashTriggerRef.current = active
+    setSlashTrigger(active)
   }, [])
 
   const matches = slashTrigger && !disabled
@@ -121,6 +135,7 @@ export function HbarPreSessionSlashEditor({
   const openSlashAtSelection = useCallback(() => {
     const input = inputRef.current
     if (!input || disabled) return
+    dismissedSlashRef.current = null
 
     const start = Math.max(0, Math.min(value.length, input.selectionStart ?? value.length))
     const end = Math.max(start, Math.min(value.length, input.selectionEnd ?? start))
@@ -201,7 +216,9 @@ export function HbarPreSessionSlashEditor({
       }
       if (event.key === 'Escape') {
         event.preventDefault()
+        const dismissed = slashTriggerRef.current
         setActiveSlash(null)
+        dismissedSlashRef.current = dismissed
         return
       }
     }

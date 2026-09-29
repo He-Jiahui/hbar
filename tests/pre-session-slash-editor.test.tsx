@@ -6,6 +6,7 @@ import {
   type HbarComposerSlashLabels,
   type LocalSlashCommand,
 } from '@hbar/app-react'
+import { isSameSlashTrigger } from '../packages/app-react/src/pre-session-slash-editor'
 
 const labels: HbarComposerSlashLabels = {
   menu: '本地命令',
@@ -84,4 +85,11 @@ test('the Host submit helper recognizes only exact local model/settings commands
   expect(localSlashCommand('/settings', available)).toBe('settings')
   expect(localSlashCommand('/model extra', available)).toBeNull()
   expect(localSlashCommand('/goal ship a feature', available)).toBeNull()
+})
+
+test('slash dismissal matches only the unchanged trigger so editing can reopen suggestions', () => {
+  const dismissed = { from: 0, to: 1, term: '' }
+  expect(isSameSlashTrigger({ from: 0, to: 1, term: '' }, dismissed)).toBe(true)
+  expect(isSameSlashTrigger({ from: 0, to: 2, term: 'm' }, dismissed)).toBe(false)
+  expect(isSameSlashTrigger(null, dismissed)).toBe(false)
 })
