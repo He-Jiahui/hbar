@@ -693,6 +693,57 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-5')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-5-reference.tsx',
+        'onboarding-5-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '1:fill',
+          change: 'Update the first invitation email draft without mutating the second row',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '2:select',
+          change: 'Select Member in the first role native select without changing the other row',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source interaction acceptance',
+          basis:
+            'full-static-v10 and full-interactions-v4 share target source hash, but the interaction report is legacy schemaVersion 1 without the current protocol; its source directory hash differs and no fresh strict source/local pair exists.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Legacy comparator false negatives for email and native role selection',
+          basis:
+            'Raw before/after AX shows first email priya@northwind.co→audit sample and first role Admin→Member. The old sourceChanged=false summaries omit same-length value/selected-option state; the host store models the raw observed local changes.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Copy, Add another, Remove, Skip and Send outcomes',
+          basis:
+            'Copy label stays Copy in observed click/Enter/Space. Clipboard, row add/remove, remote send and navigation outcomes were not captured; all remain typed host requests rather than invented local results.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Repeated rows, themes and responsive controls',
+          basis:
+            'Two rows share one email/select pattern. Eight static local states and one 320x420 real-scroll check cover flow and capacity stress; one email edit and one role selection cover distinct mechanisms instead of replaying every row-by-layout combination.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-1')
     return {
       revision: 1,

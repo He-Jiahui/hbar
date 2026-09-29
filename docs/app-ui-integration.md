@@ -235,6 +235,25 @@ The interaction cache has no current capture protocol, so this is not fresh
 strict acceptance. Local narrow flow exposes the controls by natural scrolling,
 without assuming the source scroll owner.
 
+### Onboarding 5 integration status
+
+`hbar-app-ui-onboarding-5` renders a host-owned invitation link and two
+stable-ID rows with email drafts and native role selects. The first row starts
+with Priya as Admin; the second is empty with Member selected. The raw
+same-hash source AX confirms that editing the first email and selecting Member
+change those fields even though the legacy comparator calls them unchanged.
+The local Zustand store changes only the targeted row. Copy, Add another,
+Remove, Skip and Send emit distinct typed requests without inventing clipboard
+success, row mutations, navigation or remote delivery.
+
+The authorized [Onboarding 5 reference](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-5)
+`full-static-v10` and `full-interactions-v4` entries share target source hash
+`51420cc1343bb3745a2a6b20caa68248033c860c0fcea1319823400de08abf8e`,
+but the interaction cache has no current protocol and its source-directory
+hash differs. The eight local static views and one short-height scroll do not
+constitute fresh strict source/local acceptance. Narrow flow keeps long host
+copy readable rather than reproducing the source's truncated text.
+
 ### Paywall 1 integration status
 
 `hbar-app-ui-paywall-1` now uses the source's single-column article teaser,

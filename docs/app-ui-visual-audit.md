@@ -872,3 +872,24 @@ errors=0。五项专项及既有测试（50 断言）、根/Lumen 类型检查�
 CSS stylelint、新改图标/内容守卫及浏览器脚本通过；共享 `paywall.tsx` 全文件
 ESLint 在变更前后均有 16 个既存错误，`paywall.css` flow guard 报告的 grid/
 absolute 项位于未改的其它 Paywall 变体段落。不能称这两个全文件检查通过。
+
+Onboarding 5（invite teammates）来源 `full-static-v10` 和同目标 hash 的旧
+`full-interactions-v4`：桌面根框 560×445、x263/y97.5；链接卡和两行邮箱/角色
+在边框内，底部 Skip/Send。原始 AX 前后显示第一行邮箱 `priya@northwind.co`→
+`audit sample`、role Admin→Member，旧比较器却因漏掉输入 value/选项状态写
+`sourceChanged=false`；宿主状态以稳定 invitation ID 更新该行，不变更另一行。
+Copy 的已见 click/Enter/Space 文案仍为 Copy；剪贴板、Add/Remove 行、Skip
+导航与 Send 的远端结果未可靠捕获，所以只发具名请求，不伪造结果。
+
+Lumen `f429e99`、根接线及八视图/浏览器脚本 `7caf32a`。本地桌面根框与来源
+同为 x263/y97.5/560×445，链接卡 y180、邀请卡 y284、页脚 y502.5；
+light/dark × desktop/tablet/mobile/stress 与 320×420 真滚动图保存在
+`artifacts/onboarding5-local-review/`。浏览器抽样一次独立邮箱编辑、一次原生
+role 选择；一次 Add 和 Copy 确认本地不造行/成功，390/320 窄屏无横溢、
+320×420 文档 scrollTop=160 后 Send y380–420 可达，德语/长文案及 page errors=0。
+来源窄屏有截断，本地保留正常流全文；未证明来源的短高 scroll owner。
+10 项专项测试（61 断言）、根/Lumen 类型检查、预览构建、限定文件 ESLint/
+stylelint、内容/图标/流式布局守卫和浏览器脚本通过；共享 `onboarding.tsx`
+全文件 lint 仍有 6 项既存错误（变更前 7 项）。旧缓存无当前协议且来源目录
+hash 与静态缓存不同，**未签 fresh strict**。抽样只覆盖不同状态机制，不逐个
+按钮 × 分辨率重复回放。
