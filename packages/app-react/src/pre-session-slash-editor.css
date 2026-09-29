@@ -11,3 +11,9 @@
   resize: vertical;
   overflow: auto;
 }
+
+@media (max-width: 40rem) {
+  .hbar-pre-session-slash-editor .hbar-composer-slash-hint {
+    display: none;
+  }
+}
