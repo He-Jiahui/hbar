@@ -25,6 +25,44 @@ export const REACTBITS_PRO_VIEWPORTS = [
 
 export const REACTBITS_PRO_THEMES = ['dark', 'light'] as const
 
+export type ReactBitsProReferenceCard = Readonly<{
+  sourceId: string
+  href: string
+  title: string
+  description: string
+}>
+
+// Keep this DOM reader self-contained: Playwright serializes it into the page.
+// Card previews load lazily and contain their own copy; only the separate card
+// metadata branch is a stable source for the inventory title and description.
+export function readReferenceVariantCards(
+  elements: Element[],
+  categoryName: string,
+): readonly ReactBitsProReferenceCard[] {
+  return elements.flatMap((element) => {
+    const href = new URL((element as HTMLAnchorElement).href)
+    const sourceId = href.pathname.split('/').at(-1) ?? ''
+    if (
+      href.pathname !== `/docs/app-ui/${categoryName}/${sourceId}` ||
+      !new RegExp(`^${categoryName}-\\d+$`).test(sourceId)
+    )
+      return []
+    const normalize = (text: string | null) => (text ?? '').trim().replaceAll(/\s+/g, ' ')
+    const metadata = Array.from(element.children).findLast(
+      (child) =>
+        child.querySelector('p') &&
+        Array.from(child.querySelectorAll('span')).some((span) => normalize(span.textContent) === sourceId),
+    )
+    const titleNode = Array.from(metadata?.querySelectorAll('span') ?? []).find(
+      (span) => normalize(span.textContent) === sourceId,
+    )
+    const title = normalize(titleNode?.textContent ?? null)
+    const description = normalize(metadata?.querySelector('p')?.textContent ?? null)
+    if (!title || !description) throw new Error(`React Bits card metadata is missing for ${sourceId}`)
+    return [{ sourceId, href: href.href, title, description }]
+  })
+}
+
 export function referenceAccessBlockReason(status: number, title: string): string | null {
   if (/Vercel Security Checkpoint/i.test(title)) return 'vercel-security-checkpoint'
   if (status === 401 || status === 403) return `http-${status}`
@@ -840,19 +878,9 @@ async function discoverReferenceInventory(browser: Browser, options: AuditOption
       if (categoryStatus < 200 || categoryStatus >= 400)
         throw new Error(`React Bits category ${categoryPath} returned HTTP ${categoryStatus}`)
       const category = categoryPath.split('/').at(-1) ?? ''
-      const categoryVariants = await page.locator(`a[href*="/docs/app-ui/${category}/"]`).evaluateAll(
-        (elements, categoryName) =>
-          elements
-            .map((element) => {
-              const href = new URL((element as HTMLAnchorElement).href)
-              const sourceId = href.pathname.split('/').at(-1) ?? ''
-              const text = (element.textContent ?? '').trim().replaceAll(/\s+/g, ' ')
-              const title = text.split(/\s{2,}/)[0] || sourceId
-              return { sourceId, href: href.href, text, title }
-            })
-            .filter((item) => new RegExp(`^${categoryName}-\\d+$`).test(item.sourceId)),
-        category,
-      )
+      const categoryVariants = await page
+        .locator(`a[href*="/docs/app-ui/${category}/"]`)
+        .evaluateAll(readReferenceVariantCards, category)
       for (const item of categoryVariants) {
         const variantText = item.sourceId.replace(`${category}-`, '')
         const variant = Number.parseInt(variantText, 10)
@@ -863,12 +891,12 @@ async function discoverReferenceInventory(browser: Browser, options: AuditOption
           variant,
           url: item.href,
           title: item.title,
-          description: item.text.slice(item.title.length).trim(),
+          description: item.description,
           sourceStatus: categoryStatus,
           sourceHash: stableHash({
             url: item.href,
             title: item.title,
-            description: item.text.slice(item.title.length).trim(),
+            description: item.description,
           }),
         })
       }
