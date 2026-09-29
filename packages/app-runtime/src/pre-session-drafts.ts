@@ -6,6 +6,10 @@ import {
   preSessionDraftStateSchema,
   type PreSessionDraftState,
 } from '@hbar/contracts/commands/pre-session-draft'
+import {
+  sessionLaunchSelectionSchema,
+  type SessionLaunchSelection,
+} from '@hbar/contracts/commands/session-launch-target'
 import { runAcceptedSchema, type RunAccepted } from '@hbar/contracts/commands/run'
 import { createState, type StateReader } from './state'
 import type { DraftsState, NavigationState, RunCommandPort, SessionControlsState } from './types'
@@ -40,6 +44,7 @@ interface PendingSubmission {
   readonly workspaceId: string
   readonly revision: number
   readonly text: string
+  readonly launchSelection: SessionLaunchSelection
   readonly requestedModelId: string | null
   readonly requestedThinkingLevel: PreSessionDraftState['thinkingLevel']
   readonly approvalChoice: PreSessionDraftState['approvalChoice']
@@ -90,6 +95,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     draftId,
     workspaceId,
     text: '',
+    launchSelection: { mode: 'shared-current' },
     modelId: null,
     thinkingLevel: null,
     approvalChoice: 'inherit',
@@ -102,6 +108,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     sessionId: null,
     capturedWorkspaceId: null,
     capturedRevision: null,
+    capturedLaunchSelection: null,
     operationId: null,
     accepted: null,
   }
@@ -123,9 +130,20 @@ function operationState(
     sessionId: pending.sessionId,
     capturedWorkspaceId: pending.workspaceId,
     capturedRevision: pending.revision,
+    capturedLaunchSelection: pending.launchSelection,
     operationId: accepted?.operationId ?? current.operationId,
     accepted,
   }
+}
+
+function sameLaunchSelection(left: SessionLaunchSelection, right: SessionLaunchSelection): boolean {
+  if (left.mode !== right.mode) return false
+  if (left.mode === 'shared-current') return true
+  if (right.mode !== 'isolated-worktree' || left.branch.kind !== right.branch.kind) return false
+  if (left.branch.kind === 'existing' && right.branch.kind === 'existing') return left.branch.name === right.branch.name
+  if (left.branch.kind === 'new' && right.branch.kind === 'new')
+    return left.branch.name === right.branch.name && left.branch.startPoint === right.branch.startPoint
+  return false
 }
 
 export function createPreSessionDrafts(local: CommandRegistry, options: PreSessionDraftOptions) {
@@ -843,8 +861,30 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       const value = {
         ...latest,
         workspaceId,
+        launchSelection: { mode: 'shared-current' as const },
         revision: latest.revision + 1,
         phase: latest.phase === 'failed' ? ('idle' as const) : latest.phase,
+        unknownStage: null,
+        error: null,
+        accepted: null,
+      }
+      publish(value)
+      return { draftId, revision: value.revision }
+    },
+  )
+
+  local.register(
+    preSessionDraftCommands['preSessionDraft.setLaunchSelection'],
+    ({ draftId, selection, expectedRevision }) => {
+      const current = entry(draftId)
+      requireEditable(draftId, current)
+      checkRevision(current, expectedRevision)
+      if (sameLaunchSelection(current.launchSelection, selection)) return { draftId, revision: current.revision }
+      const value = {
+        ...current,
+        launchSelection: sessionLaunchSelectionSchema.parse(selection),
+        revision: current.revision + 1,
+        phase: current.phase === 'failed' ? ('idle' as const) : current.phase,
         unknownStage: null,
         error: null,
         accepted: null,
@@ -1020,6 +1060,11 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     if (current.error === 'GOAL_PREPARED')
       throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
     requireCapabilities(current.approvalChoice, current.planMode, current.intent)
+    if (current.launchSelection.mode !== 'shared-current')
+      throw new CommandError(
+        'CAPABILITY_UNAVAILABLE',
+        'Session launch-target preparation is unavailable for the selected target',
+      )
     if (pending.size >= MAX_PENDING) throw new CommandError('BUSY', 'Too many first submissions are pending')
     const requestedModelId = input.modelId ?? current.modelId
     const operation: PendingSubmission = {
@@ -1029,6 +1074,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       workspaceId,
       revision: current.revision,
       text: current.text,
+      launchSelection: sessionLaunchSelectionSchema.parse(current.launchSelection),
       requestedModelId,
       requestedThinkingLevel: current.thinkingLevel,
       approvalChoice: current.approvalChoice,

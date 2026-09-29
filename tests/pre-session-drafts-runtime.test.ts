@@ -784,6 +784,143 @@ test('pre-session drafts are local/idempotent and refuse a first send without a 
   }
 })
 
+test('launch selection is revisioned, opening it creates no Session, and isolated first-send fails closed', async () => {
+  const f = fixture({ sessionSettings: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'preserve this first message',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+    const draft = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    expect(draft).toMatchObject({
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: null,
+      phase: 'idle',
+      text: 'preserve this first message',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+
+    const unchanged = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: { mode: 'shared-current' },
+      expectedRevision: target.revision,
+    })
+    expect(unchanged).toEqual({ draftId: target.draftId, revision: target.revision })
+
+    const isolatedSelection = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/first-send', startPoint: 'main' },
+    } as const
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: isolatedSelection,
+      expectedRevision: target.revision,
+    })
+    expect(selected).toEqual({ draftId: target.draftId, revision: target.revision + 1 })
+    const repeated = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: isolatedSelection,
+      expectedRevision: selected.revision,
+    })
+    expect(repeated).toEqual(selected)
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+        draftId: target.draftId,
+        selection: { mode: 'shared-current' },
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: selected.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      workspaceId: 'workspace-a',
+      launchSelection: isolatedSelection,
+      capturedLaunchSelection: null,
+      revision: selected.revision,
+      phase: 'idle',
+      sessionId: null,
+      text: 'preserve this first message',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('changing Workspace resets launch selection without losing the original draft settings', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'preserve Plan and approval when changing workspace',
+      modelId: model.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'ask',
+      planMode: 'plan',
+    })
+    const isolatedSelection = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'existing', name: 'feature/already-there' },
+    } as const
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: isolatedSelection,
+      expectedRevision: target.revision,
+    })
+    const sameWorkspace = await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId: target.draftId,
+      workspaceId: 'workspace-a',
+      expectedRevision: selected.revision,
+    })
+    expect(sameWorkspace.revision).toBe(selected.revision)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.launchSelection).toEqual(
+      isolatedSelection,
+    )
+
+    const changed = await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId: target.draftId,
+      workspaceId: 'workspace-b',
+      expectedRevision: selected.revision,
+    })
+    expect(changed.revision).toBe(selected.revision + 1)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      workspaceId: 'workspace-b',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: null,
+      revision: changed.revision,
+      phase: 'idle',
+      sessionId: null,
+      text: 'preserve Plan and approval when changing workspace',
+      modelId: model.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'ask',
+      planMode: 'plan',
+      intent: 'default',
+    })
+    expect(f.createCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 test('approval choice is revisioned and auto-approval requires explicit confirmation', async () => {
   const f = fixture()
   const draftId = crypto.randomUUID()
@@ -1436,6 +1573,24 @@ test('duplicate first-send requests share one pending creation and settle one Ru
       expectedRevision: target.revision,
     })
     await held.entered
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'creating',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
+      capturedWorkspaceId: 'workspace-a',
+      capturedRevision: target.revision,
+      text: 'first message',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+        draftId: target.draftId,
+        selection: {
+          mode: 'isolated-worktree',
+          branch: { kind: 'existing', name: 'feature/redirected' },
+        },
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
     await expect(
       f.runtime.view.commands.execute('preSessionDraft.submit', {
         draftId: target.draftId,
@@ -1451,6 +1606,8 @@ test('duplicate first-send requests share one pending creation and settle one Ru
       phase: 'accepted',
       sessionId: result.sessionId,
       text: '',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
       operationId: result.accepted.operationId,
     })
     expect(
@@ -1593,6 +1750,8 @@ test('same-key creation reconciliation discovers the real Session without steali
       phase: 'unknown',
       unknownStage: 'create',
       sessionId: null,
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
     })
 
     await expect(
@@ -1615,6 +1774,8 @@ test('same-key creation reconciliation discovers the real Session without steali
       error: 'STALE_TARGET',
       sessionId: 'session-1',
       capturedWorkspaceId: 'workspace-a',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
       text: 'recover this first message',
     })
     expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe('recover this first message')
@@ -1858,17 +2019,36 @@ test('Run unknown is reconciled by its original key and the Session composer own
     ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
     const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
     const sessionId = before?.sessionId
-    expect(before).toMatchObject({ phase: 'unknown', unknownStage: 'run', sessionId })
+    expect(before).toMatchObject({
+      phase: 'unknown',
+      unknownStage: 'run',
+      sessionId,
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
+    })
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]).toMatchObject({
       text: 'recover the accepted first Run',
       status: 'unknown',
     })
     expect(f.runCalls).toHaveLength(1)
 
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+
     const recovered = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
     expect(f.runCalls).toHaveLength(1)
-    expect(recovered).toMatchObject({ phase: 'accepted', sessionId, accepted: { idempotencyKey: f.runCalls[0]?.key } })
+    expect(recovered).toMatchObject({
+      phase: 'accepted',
+      sessionId,
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
+      accepted: { idempotencyKey: f.runCalls[0]?.key },
+    })
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]).toMatchObject({ text: '', status: 'idle' })
+    expect(f.runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: 'workspace-b',
+      sessionId: null,
+      status: 'idle',
+    })
   } finally {
     f.runtime.dispose()
   }

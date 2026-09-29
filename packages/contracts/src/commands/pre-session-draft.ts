@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, thinkingLevelSchema, type ThinkingLevel } from '../index'
+import { sessionLaunchSelectionSchema, type SessionLaunchSelection } from './session-launch-target'
 import { runAcceptedSchema } from './run'
 
 const metadata = (id: string, kind: 'command' | 'query' = 'command') => ({
@@ -30,6 +31,7 @@ export const preSessionDraftStateSchema = z.strictObject({
   draftId,
   workspaceId,
   text: z.string().max(200_000),
+  launchSelection: sessionLaunchSelectionSchema,
   modelId: idSchema.nullable(),
   thinkingLevel: thinkingLevelSchema.nullable(),
   approvalChoice: preSessionApprovalChoiceSchema,
@@ -42,6 +44,7 @@ export const preSessionDraftStateSchema = z.strictObject({
   sessionId: idSchema.nullable(),
   capturedWorkspaceId: idSchema.nullable(),
   capturedRevision: revision.nullable(),
+  capturedLaunchSelection: sessionLaunchSelectionSchema.nullable(),
   operationId: idSchema.nullable(),
   accepted: runAcceptedSchema.nullable(),
 })
@@ -55,6 +58,11 @@ export const preSessionDraftCommands = {
   'preSessionDraft.setText': defineCommand(
     metadata('preSessionDraft.setText'),
     z.strictObject({ draftId, text: z.string().max(200_000), expectedRevision: revision }),
+    result,
+  ),
+  'preSessionDraft.setLaunchSelection': defineCommand(
+    metadata('preSessionDraft.setLaunchSelection'),
+    z.strictObject({ draftId, selection: sessionLaunchSelectionSchema, expectedRevision: revision }),
     result,
   ),
   'preSessionDraft.setModel': defineCommand(
@@ -119,6 +127,7 @@ export const preSessionDraftCommands = {
 }
 
 export type PreSessionDraftState = z.output<typeof preSessionDraftStateSchema>
+export type PreSessionDraftLaunchSelection = SessionLaunchSelection
 export type PreSessionApprovalChoice = z.output<typeof preSessionApprovalChoiceSchema>
 export type PreSessionPlanMode = z.output<typeof preSessionPlanModeSchema>
 export type PreSessionIntent = z.output<typeof preSessionIntentSchema>
