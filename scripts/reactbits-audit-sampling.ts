@@ -693,6 +693,63 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-7')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-7-reference.tsx',
+        'onboarding-7-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '0:fill',
+          change: 'Edit workspace name independently of the slug and URL hint',
+        },
+        {
+          viewport: 'desktop',
+          theme: 'dark',
+          suffix: '2:select',
+          change: 'Choose United States in the three-option native region select',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '3:click',
+          change: 'Toggle the private-workspace checked state independently of other values',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Fresh strict source/local acceptance',
+          basis:
+            'full-static-v10 and full-interactions-v4 share target hash c769fb52bac854061e34445b9722cc24da504e6c6561b21d7b40eda062a5888d, but the legacy interaction cache has no current protocol and a different source-directory hash. Raw AX changes are mechanism clues, not fresh strict pairs.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Slug derivation, Back/Continue results and context stepper scope',
+          basis:
+            'Slug edit and derived URL were not sampled; navigation and creation outcomes remain unverified. The context image includes a stepper outside the form AX root, so its ownership is ambiguous. The local form emits typed requests and does not invent a stepper or a completed workspace.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Legacy comparator false negatives',
+          basis:
+            'The old summary says source-no-op, while raw AX records Northwind→audit sample, Europe→United States and checked true→false. Local state follows those three independent observed mechanisms.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other region IDs and responsive flow',
+          basis:
+            'Three options share native selection. Eight local static views, German long copy and one real 320x420 scroll cover flow without repeating each control by theme and viewport. Source scroll ownership and a region-count cap were not captured.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-onboarding-6')
     return {
       revision: 1,

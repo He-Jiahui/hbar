@@ -235,6 +235,26 @@ The interaction cache has no current capture protocol, so this is not fresh
 strict acceptance. Local narrow flow exposes the controls by natural scrolling,
 without assuming the source scroll owner.
 
+### Onboarding 7 integration status
+
+`hbar-app-ui-onboarding-7` renders the host-owned workspace form with name and
+URL controls, a three-option native region select, a private-workspace switch
+and two requests. Raw same-hash source AX shows that name fill, region selection
+and checked state change independently, although the legacy comparator labels
+all three as no-ops. The local Zustand store models these observed mechanisms.
+Slug edits emit requests and keep the supplied URL hint unchanged; Back and
+Continue do not invent navigation, URL derivation or workspace creation.
+
+The authorized [Onboarding 7 reference](https://pro.reactbits.dev/docs/app-ui/onboarding/onboarding-7)
+`full-static-v10` and `full-interactions-v4` entries share target source hash
+`c769fb52bac854061e34445b9722cc24da504e6c6561b21d7b40eda062a5888d`,
+but source-directory hashes differ and the interaction cache lacks the current
+protocol. The context stepper is outside the captured form AX root, so its scope
+remains ambiguous and it is not added to the form. Eight local static views,
+German long copy and a real 320×420 document scroll verify flow; the desktop
+form is 440×498.06, close to the cached 440×497.5. This is restricted source
+evidence, not fresh strict source/local acceptance.
+
 ### Onboarding 6 integration status
 
 `hbar-app-ui-onboarding-6` presents a decorative success mark, four host-owned

@@ -5,6 +5,18 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('workspace form samples three raw-observed mechanisms and restricts legacy evidence', () => {
+  const id = 'hbar-app-ui-onboarding-7'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(3)
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([`${id}:0:fill`, `${id}:3:click`])
+  expect(sampledInteractionIds(id, 'desktop', 'dark')).toEqual([`${id}:2:select`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([])
+  expect(plan.lumenEntries).toContain('onboarding-7-reference.tsx')
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(3)
+  expect(plan.inferences.some((entry) => entry.basis.includes('outside the form AX root'))).toBe(true)
+})
+
 test('reader sampling separates navigation, Focus, collapse and recovery without a button-layout product', () => {
   const id = 'hbar-app-ui-editor-5'
   const plan = auditSamplingPlan(id)!
