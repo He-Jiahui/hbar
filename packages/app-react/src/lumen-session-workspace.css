@@ -176,13 +176,21 @@
 
 @media (max-height: 40rem) {
   .hbar-app-react-session-empty-hero {
-    gap: 0.5rem;
-    padding-block: 0.75rem;
+    gap: 0.25rem;
+    padding-block: 0;
   }
 
   .hbar-app-react-session-empty-mark {
-    inline-size: 3.5rem;
-    block-size: 3.5rem;
+    inline-size: 2rem;
+    block-size: 2rem;
+  }
+
+  .hbar-app-react-session-empty-title {
+    font-size: 1.25rem;
+  }
+
+  .hbar-app-react-session-empty-description {
+    font-size: 0.75rem;
   }
 }
 
