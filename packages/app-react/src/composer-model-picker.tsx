@@ -847,6 +847,14 @@ export function HbarComposerModelPicker({
                 thinkingRef.current?.hidePopover()
                 return
               }
+              if (
+                ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(
+                  event.key,
+                )
+              ) {
+                // A new keyboard gesture is independent of an earlier cancelled pointer gesture.
+                cancelledRef.current = false
+              }
               if (event.key === 'Enter') {
                 event.preventDefault()
                 event.stopPropagation()
