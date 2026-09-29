@@ -60,6 +60,7 @@ async function render(input: {
   connected?: boolean
   canSelect?: boolean
   disabled?: boolean
+  menuPresentation?: 'native' | 'web'
 }) {
   const runtime = createAppRuntime({
     instanceId: 'model-recovery-semantic-fixture',
@@ -87,6 +88,7 @@ async function render(input: {
           disabled={input.disabled ?? false}
           canSelect={input.canSelect ?? true}
           labels={input.labels}
+          menuPresentation={input.menuPresentation}
         />
       </HbarRuntimeProvider>,
     )
@@ -94,6 +96,17 @@ async function render(input: {
     runtime.dispose()
   }
 }
+
+test('model menu keeps an explicit desktop presentation independent of CSS viewport width', async () => {
+  const input = states('configured')
+  const labels = getShellCopy('zh-CN').session.modelPicker
+  const native = await render({ ...input, labels, menuPresentation: 'native' })
+  const web = await render({ ...input, labels, menuPresentation: 'web' })
+  expect(native).toContain('data-kind="model" data-presentation="native"')
+  expect(web).toContain('data-kind="model" data-presentation="web"')
+  expect(native).toContain('data-kind="thinking"')
+  expect(native).not.toContain('data-kind="thinking" data-presentation=')
+})
 async function markup(html: string) {
   const buttons: Array<{
     label: string

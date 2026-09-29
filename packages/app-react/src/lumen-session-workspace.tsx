@@ -165,6 +165,7 @@ export interface HbarSessionWorkspaceProps {
   readonly navigationAccessory?: ReactNode | undefined
   readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
   readonly images?: HbarSessionImagesOptions | undefined
+  readonly modelMenuPresentation?: 'native' | 'web' | undefined
 }
 
 function SessionToolButton({
@@ -212,6 +213,7 @@ function SessionWorkspaceContent({
   navigationAccessory,
   projectContextLabels,
   images,
+  modelMenuPresentation,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const stopRun = useSessionStopAction()
@@ -1672,6 +1674,7 @@ function SessionWorkspaceContent({
                 }
                 canSelect={canPrepare && !activeRun}
                 labels={labels.modelPicker}
+                menuPresentation={modelMenuPresentation}
                 openRequest={modelOpenRequest}
                 onOpened={() => {
                   const target = pendingModelSlash.current

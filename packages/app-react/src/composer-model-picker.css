@@ -348,7 +348,7 @@
     max-inline-size: 9rem;
   }
 
-  .hbar-composer-picker-popover {
+  .hbar-composer-picker-popover[data-kind='model'][data-presentation='web'] {
     inset: auto 0 0;
     inline-size: 100%;
     max-block-size: 80dvh;
@@ -356,18 +356,7 @@
     padding: 1rem;
   }
 
-  .hbar-composer-picker-popover[data-kind='model']::backdrop {
+  .hbar-composer-picker-popover[data-kind='model'][data-presentation='web']::backdrop {
     background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
-  }
-
-  .hbar-composer-picker-popover[data-kind='thinking'] {
-    inset: auto;
-    top: var(--composer-popup-top);
-    bottom: var(--composer-popup-bottom);
-    left: var(--composer-popup-left);
-    inline-size: min(18.75rem, calc(100vw - 2rem));
-    max-block-size: var(--composer-popup-limit);
-    border-radius: 1rem;
-    padding: 1.1875rem 1.375rem;
   }
 }

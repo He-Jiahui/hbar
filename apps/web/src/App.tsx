@@ -312,7 +312,7 @@ type WorkspaceBodyProps = {
   readonly language?: WebLanguageController | undefined
   readonly sendBehavior: WebSendBehaviorController
   readonly zoom: WebZoomController
-  readonly nativeZoom: boolean
+  readonly nativeDesktop: boolean
   readonly connected: boolean
   readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
   readonly images: HbarSessionImagesOptions
@@ -414,7 +414,7 @@ function WorkspaceBodyContent({
   language,
   sendBehavior,
   zoom,
-  nativeZoom,
+  nativeDesktop,
   connected,
   prepareAttachment,
   images,
@@ -553,7 +553,7 @@ function WorkspaceBodyContent({
                 language={language}
                 sendBehavior={sendBehavior}
                 zoom={zoom}
-                nativeZoom={nativeZoom}
+                nativeZoom={nativeDesktop}
                 connected={connected}
               />
             )
@@ -653,6 +653,7 @@ function WorkspaceBodyContent({
         images={images}
         files={files}
         showFilesInHeader={showSessionFilesInHeader}
+        modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
         navigationAccessory={
           activeTab?.kind === 'session' && activeTab.agentSource ? (
             <AgentChildReturn
@@ -1363,7 +1364,7 @@ export default function App({
                 language={language}
                 sendBehavior={sendBehavior}
                 zoom={zoom}
-                nativeZoom={Boolean(nativeWindow)}
+                nativeDesktop={Boolean(nativeWindow)}
                 connected={connection === 'connected'}
                 prepareAttachment={attachmentController.prepare}
                 images={images}
@@ -1380,7 +1381,7 @@ export default function App({
               language={language}
               sendBehavior={sendBehavior}
               zoom={zoom}
-              nativeZoom={Boolean(nativeWindow)}
+              nativeDesktop={Boolean(nativeWindow)}
               connected={connection === 'connected'}
               prepareAttachment={attachmentController.prepare}
               images={images}

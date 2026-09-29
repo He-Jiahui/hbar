@@ -377,6 +377,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(bounds!.y).toBeGreaterThanOrEqual(0)
         expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height + 1)
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-${locale}-${viewport.width}.png` })
+        if (viewport.width === 320) {
+          await expect(popup).toHaveAttribute('data-presentation', 'web')
+          expect(bounds!.width).toBeGreaterThanOrEqual(viewport.width - 1)
+          await popup.evaluate((element) => element.setAttribute('data-presentation', 'native'))
+          const anchored = await popup.boundingBox()
+          expect(anchored).not.toBeNull()
+          expect(anchored!.x).toBeGreaterThan(0)
+          expect(anchored!.x + anchored!.width).toBeLessThan(viewport.width)
+          await page.screenshot({
+            path: `artifacts/reference-ux-v2/hbar-model-native-layout-fixture-${locale}-320.png`,
+          })
+          await popup.evaluate((element) => element.setAttribute('data-presentation', 'web'))
+        }
         await popup.getByRole('button', { name: labels.close, exact: true }).click()
         await expect(popup).not.toBeVisible()
         await expectComposerText(prompt, draft)

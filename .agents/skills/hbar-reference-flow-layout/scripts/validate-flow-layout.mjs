@@ -334,11 +334,11 @@ function isOverlaySelector(path, selector) {
     /^\.hbar-session-usage-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
   )
     return true
-  // cc-haha original-component evidence: composer model/effort anchored popovers,
-  // becoming bottom sheets on narrow screens. Only the top-layer container.
+  // cc-haha original-component evidence: composer model/effort anchored popovers;
+  // only the Web model menu becomes a bottom sheet on narrow screens.
   if (
     /packages\/app-react\/src\/composer-model-picker\.css$/.test(path.replaceAll('\\', '/')) &&
-    /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\])?$/.test(selector.trim())
+    /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\]|\[data-kind='model'\]\[data-presentation='web'\](?:::backdrop)?)?$/.test(selector.trim())
   )
     return true
   // cc-haha EmptySession model selector: only the no-tab composer's
@@ -662,6 +662,19 @@ inset-inline-end: 0;
   )
   if (overlay.length !== 0) {
     console.error(`Flow layout guard self-test expected overlay exception, got: ${overlay.join('; ')}`)
+    process.exit(1)
+  }
+  const modelSheet = `.hbar-composer-picker-popover[data-kind='model'][data-presentation='web'] { inset: auto 0 0; }
+.hbar-composer-picker-popover[data-kind='model'][data-presentation='web']::backdrop { inset: 0; }`
+  if (
+    validateCss('packages/app-react/src/composer-model-picker.css', modelSheet).length !== 0 ||
+    validateCss('packages/app-react/src/other.css', modelSheet).length === 0 ||
+    validateCss(
+      'packages/app-react/src/composer-model-picker.css',
+      `.hbar-composer-picker-popover[data-kind='model'][data-presentation='web'] span { inset: 0; }`,
+    ).length === 0
+  ) {
+    console.error('Flow layout guard self-test expected only the path-scoped model popover to float')
     process.exit(1)
   }
   const treeMenuCss = `.lumen-tree-menu {

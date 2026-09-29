@@ -151,6 +151,7 @@ function PickerPopover({
   title,
   close,
   kind,
+  presentation,
   anchor,
   children,
   onOpen,
@@ -161,6 +162,7 @@ function PickerPopover({
   readonly title: string
   readonly close: string
   readonly kind: 'model' | 'thinking'
+  readonly presentation?: 'native' | 'web'
   readonly anchor: RefObject<HTMLDivElement | null>
   readonly popupRef: RefObject<HTMLDivElement | null>
   readonly children: ReactNode
@@ -176,6 +178,7 @@ function PickerPopover({
       aria-label={title}
       className="hbar-composer-picker-popover"
       data-kind={kind}
+      data-presentation={presentation}
       onBeforeToggle={(event) => {
         if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)
       }}
@@ -221,6 +224,7 @@ export function HbarComposerModelPicker({
   openRequest = 0,
   onOpened,
   onOpenFailed,
+  menuPresentation = 'web',
 }: {
   readonly sessionId: string
   readonly connected: boolean
@@ -231,6 +235,8 @@ export function HbarComposerModelPicker({
   readonly openRequest?: number
   readonly onOpened?: () => void
   readonly onOpenFailed?: (code: string) => void
+  /** Native desktop keeps a trigger-anchored menu even when zoom narrows CSS viewport width. */
+  readonly menuPresentation?: 'native' | 'web' | undefined
 }) {
   const runtime = useHbarRuntime()
   const catalog = useHbarRuntimeState(runtime.state.composerModel)
@@ -643,6 +649,7 @@ export function HbarComposerModelPicker({
         title={labels.title}
         close={labels.close}
         kind="model"
+        presentation={menuPresentation}
         anchor={groupRef}
         popupRef={modelRef}
         onOpen={() => {
