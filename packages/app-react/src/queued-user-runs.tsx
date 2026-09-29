@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import { QUEUED_USER_RUNS_PAGE_SIZE, type QueuedUserRunsState } from '@hbar/app-runtime'
 import { Pencil, Trash2 } from 'lucide-react'
 import './queued-user-runs.css'
@@ -115,9 +115,10 @@ export function HbarQueuedUserRuns({
                       {labels.editLoading}
                     </LumenText>
                   ) : (
-                    <input
+                    <LumenInput
                       className="hbar-queued-user-run-edit-input"
                       type="text"
+                      variant="boxed"
                       aria-label={labels.editInput(position)}
                       value={edit.text}
                       maxLength={200_000}

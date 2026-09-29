@@ -46,17 +46,6 @@
   min-inline-size: 0;
 }
 
-.hbar-queued-user-run-edit-input {
-  box-sizing: border-box;
-  inline-size: 100%;
-  border: 0.0625rem solid var(--lumen-line);
-  border-radius: 0.25rem;
-  background: var(--lumen-reading);
-  color: var(--lumen-ink);
-  font: inherit;
-  padding: 0.25rem 0.375rem;
-}
-
 .hbar-queued-user-run-edit-actions {
   display: flex;
   flex: 0 0 auto;
