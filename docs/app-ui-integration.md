@@ -456,6 +456,46 @@ changing the layout mechanism. The browser reports zero console/page errors.
 Shared `paywall.tsx` retains 12 existing lint errors, down from 13 before; the
 shared file is not globally lint-clean.
 
+### Paywall 7 integration status
+
+`hbar-app-ui-paywall-7` receives the seat-level admin gate through the public
+provider. The host owns two passive administrator records, localized copy,
+the optional native note and stable request targets. The lock/building icons
+use shared `md`/`sm` tiers; request section copy stays paragraphs, not invented
+headings. The textarea has an associated, unique label and native two-row
+editing affordance. Compare and Send are different requests, without fabricated
+navigation, email delivery, approval or a plan upgrade.
+
+The [official Paywall 7 iframe](https://pro.reactbits.dev/docs/app-ui/paywall/paywall-7)
+was readable on 2026-09-29. One fictional note edit was observed; neither action
+was triggered. Authorized `full-static-v10` target hash
+`faedc1fdcb52ce4544dbba8f9c958c671e20d375f8e74f052caa1150a8531897`
+is an old static clue, not a current-protocol paired strict capture. Desktop
+source flow is 560×447.25; the 320px preview keeps the lock/title row and stacks
+footer copy above its two-button row. The preview stage owns padding/scrolling.
+
+The final local desktop naturally reaches 560×447.25 by preserving the native
+inline label/inline-block textarea flow and the observed reason-panel parent
+16px/24px typography. No fixed panel height or coordinate compensation is
+added. The final 320×420 spot-check scrolls 140 and reaches Send at
+360.25–396.25. Empty, one-item, six-item boundary and 16-recipient overflow
+fixtures exercise host policy, not a source maximum; the opt-in administrator
+region is keyboard-scrollable. Long German text remains present. One local
+Send in the preview inspector carries the latest draft and both stable IDs,
+preserving the draft and current Pro plan. Equivalent passive rows/actions are
+not replayed in every layout.
+
+Eleven focused tests/77 assertions, root/Lumen typechecks, targeted lint,
+style/format/content/icon/flow guards, preview build and direct Lumen builds
+pass. Eight local stills and representative mechanism checks report zero
+console/page errors; the final typography change receives desktop/narrow
+spot-checks without repeating unrelated requests. Shared `paywall.tsx` has
+11 existing lint errors, down from 12 before; it is not globally lint-clean.
+The complete audit unit regression initially reports 98/99 passing: the
+native-state fixture finishes all eight assertions but exceeds its test budget
+while closing Chrome. Its test-process lifecycle correction is separate from
+the Paywall integration; that run is not described as fully passing.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

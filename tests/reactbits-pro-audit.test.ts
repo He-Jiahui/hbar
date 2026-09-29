@@ -38,6 +38,18 @@ test('quota notice samples request feedback instead of passive bars and distingu
   expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
 })
 
+test('admin gate samples one note draft and restricts delivery and plan outcomes', () => {
+  const id = 'hbar-app-ui-paywall-7'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.samples).toHaveLength(1)
+  expect(sampledInteractionIds(id, 'desktop', 'light')).toEqual([`${id}:0:fill`])
+  expect(sampledInteractionIds(id, 'mobile', 'dark')).toEqual([])
+  expect(plan.lumenEntries).toContain('paywall-7-reference.css')
+  expect(plan.inferences.some((entry) => entry.basis.includes('Compare plans and Send request were not triggered'))).toBe(true)
+  expect(plan.inferences.some((entry) => entry.basis.includes('current draft and recipient IDs'))).toBe(true)
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(1)
+})
+
 test('metered reader samples one native draft and separates validation from unverified delivery', () => {
   const id = 'hbar-app-ui-paywall-6'
   const plan = auditSamplingPlan(id)!

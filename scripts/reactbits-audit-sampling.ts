@@ -840,6 +840,33 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-paywall-7')
+    return {
+      revision: 1,
+      lumenEntries: ['paywall.tsx', 'paywall-7-reference.tsx', 'paywall-7-reference.css', 'index.ts', 'LumenProvider.tsx'],
+      samples: [{ viewport: 'desktop', theme: 'light', suffix: '0:fill',
+        change: 'The native note draft changes while administrator identities and the current plan remain unchanged' }],
+      inferences: [
+        {
+          scope: 'Current strict evidence and administrator delivery',
+          basis:
+            'The public iframe was readable on 2026-09-29 and one fictional note edit was observed. Compare plans and Send request were not triggered. Authorized full-static-v10 target hash faedc1fdcb52ce4544dbba8f9c958c671e20d375f8e74f052caa1150a8531897 is old static evidence, not a current-protocol paired capture. Admin delivery, approval, plan upgrade and comparison navigation remain unverified requests.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Stable recipients, native note and request boundaries',
+          basis:
+            'Two passive source administrator rows share one stable-ID renderer. Empty/one/six/16-recipient fixtures and a focused keyboard-scroll overflow region exercise host policy; six is not a source maximum. The optional two-row native textarea keeps the editable draft separate from a Send request carrying current draft and recipient IDs. No local success, recipient mutation or plan change is fabricated.',
+          verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Responsive flow and equivalent rows/actions',
+          basis:
+            'Live source narrow flow keeps the lock/title row, stacks footer copy above a two-button row and lets the padded preview stage scroll. Eight static local states, long German and one 320x420 real document scroll sample these flow mechanisms. Repeated recipient rows and request buttons are not replayed across every theme/layout combination; default copy remains content-grown.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-paywall-6')
     return {
       revision: 1,
