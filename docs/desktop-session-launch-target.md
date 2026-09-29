@@ -17,7 +17,11 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 - `68c3426`：版本化选择、actor／幂等键回执及 storage v10；同一请求恢复不会重新选择目标，首条 Run 后禁止修改。
 - `a38e52f`：Host 管理准备意图与真实工作树、storage v11 的首条 Run 原子 binding、重启核对与模型／工具 cwd。旧会话迁移为原共享 checkout，不把此前的选择标签追溯成已经隔离执行。该提交的初始聚焦验证为 16 tests／132 assertions；随后独立扩展回归为 14 文件、77 tests／470 assertions，覆盖既有发送、取消、队列、Goal 续行、Plan 及恢复。
 
-初始提交后的审查另发现 joining caller 的取消、跨会话 Git 并发、Unicode worktree 路径、内部 Git hooks 和关闭总时限边界，需要独立修正与验证；不能以初始测试覆盖范围代替这些保证。
+- `3fba187`：可选会话 Files 目标，paired Client／真实 Host 验证 9 tests／52 assertions。
+- `73ef542`：与 Files 共用 context 的会话 Git 只读接口，扩展 Files／Git 回归 14 tests／90 assertions。
+- `9c6bdad`：修正初始提交审查发现的取消、锁链、并发、路径解析、hooks 和关闭边界。加入等待者取消不取消 owner；取消最后一个等待者不会提前清除正在使用的锁；每个 service 最多四条 Git 命令、64 条排队命令，排队可取消；Unicode／空格路径用 NUL porcelain 核对；内部 worktree add 不执行 post-checkout hook；受管会话根的 junction／symlink 逃逸被拒绝；关闭也中止无外部 signal 的已绑定目标核对。确认未受理 Run 后，容量／超时保留 typed 失败，不变成持续的未知结果。
+
+最后独立扩展验证为 **19 文件、106 tests／666 assertions、0 failures，74.72s**。它覆盖上述修正、真实 Files／Git API 和既有共享发送、队列、Goal、Plan、取消及恢复；不是全仓、native smoke 或 UI 上线验收。临时夹具中 get 在 preparing 时仍可读，协作取消／关闭测试使用小于三秒的预算；这不保证所有用户磁盘和 Git 环境均小于三秒。准备仍是同步 RPC，90s preparation 与 15s reconciliation 为配置预算，**尚未实现早受理的后台任务和增量进度通知**。
 
 ## Files 公共契约
 
@@ -54,5 +58,6 @@ hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示�
 3. 将 Session Git info、Changed Files 和 diff 接到上述会话只读接口，不让 UI 自行拼内部路径。项目级 Status 仍明确表示注册项目，而不是冒充某会话的隔离状态。
 4. 接入 host-owned 中英文 copy 的单一位置入口，首发后变成可解释的只读 context。准备／失败／重试／取消在原入口附近反馈，保留草稿和阅读位置。
 5. 使用当前参考组件的可见画面确定层级与响应式流；验证桌面、390px、320px、短窗口、键盘与焦点。再以真实 Host E2E 和 native smoke 验证选择、首发、Files 编辑、切换会话和重启，不以隔离组件画面冒充后端验收。
+6. 子 Agent／Fork 的执行位置需要单独闭环。当前普通 Agent child 按 parent 的注册 workspace 创建，patchTask 也从 `sessions.workspace(parent.workspaceId)` 同步源文件，不能据此宣称已经继承隔离父会话的实际目录。另需核对正常 Git branch mutation 与首次 launch selection 的关系；当前绑定核对要求原分支名，不应在 UI 上无说明地承诺任意 branch switch 后可以继续。
 
 隔离分支的全仓 TypeScript 检查尚受根测试 fixture 的 `@lumen/app-ui` 解析基线影响；变更文件的 explicit strict TypeScript 与 targeted lint 另行运行并记录，不能把 scoped gate 表述成全仓通过。主工作区同时存在其他任务的 Kernel、manifest 和 UI 改动，未清除、自动暂存或夹带它们；集成必须单独核对。
