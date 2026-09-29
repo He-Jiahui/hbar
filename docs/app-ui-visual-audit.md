@@ -579,3 +579,15 @@ Forms 2（Submit a session）的实时来源/本地证据位于
 本地窄屏与平板采用可达的正常文档流，根高度因此不等；五项交互的可见目标状态虽相符，
 审计 runner 的 consent 控件 `name` 元数据签名及三项视觉反馈阈值仍报差异。
 未安全点击来源的 consent，也未提交有效提案；这些结果与其他按钮/布局乘积不作推断。
+
+Forms 3（New freight booking）以
+`artifacts/reactbits-pro-visual-audit/full-audit-v1/source/hbar-app-ui-forms-3/` 的授权
+8 组静态截图/快照为来源边界：宿主草稿与 Lumen 表单保留 Consignor、Route and terms、
+Cargo lines、操作页脚，三条货物金额为 803.25、860.16、1,274.40，初始总额为
+EUR 2,937.81；`Book shipment` 初始禁用。数量/单价/税率派生金额与 Add/Remove 属
+本地草稿行为，Save 只发类型化回调，不显示未经确认的远端成功。独立浏览器脚本
+`scripts/verify-hbar-app-ui-forms-3.ts` 验证初始金额、数量变更、增删、德语文案和
+320px 页脚可达，页面错误 0；另行浏览器抽测确认货物行独立横向滚动。Forms 1/2 回归、6 项专项测试、
+类型检查、局部 lint、flow/content/icon guard 与构建通过，构建仍有既有大 chunk 提示。
+**本轮官方 iframe 为 `about:blank`，未签 strict 或实时来源交互账本**；不能以本地
+Add/Remove、Save、Book 的行为推断来源，也不进行所有按钮×布局的重复回放。
