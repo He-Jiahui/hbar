@@ -19,7 +19,7 @@ export const ONBOARDING3_TASK_ACTION_IDS = [
 ] as const
 
 export const ONBOARDING3_MAX_TASKS = ONBOARDING3_TASK_IDS.length
-export const ONBOARDING3_OBSERVED_COMPLETED_NOOP_TASK_ID = 'profile' satisfies Onboarding3TaskId
+export const ONBOARDING3_OBSERVED_PROFILE_UNCHECK_TASK_ID = 'profile' satisfies Onboarding3TaskId
 
 export type Onboarding3TaskId = (typeof ONBOARDING3_TASK_IDS)[number]
 export type Onboarding3TaskActionId = (typeof ONBOARDING3_TASK_ACTION_IDS)[number]
@@ -51,10 +51,18 @@ export type Onboarding3HostRequest =
       readonly resultBehavior: 'typed-request-only-navigation-result-unobserved'
     }
 
+export type Onboarding3CompletionResult =
+  | Extract<Onboarding3HostRequest, { readonly kind: 'task-completion-change-request' }>
+  | {
+      readonly kind: 'observed-local-completion-change'
+      readonly taskId: typeof ONBOARDING3_OBSERVED_PROFILE_UNCHECK_TASK_ID
+      readonly checked: false
+    }
+
 export interface Onboarding3PreviewStoreState {
   readonly tasks: readonly Onboarding3PreviewTaskReference[]
   readonly completedTaskIds: readonly Onboarding3TaskId[]
-  readonly requestCompletionChange: (taskId: string, checked: boolean) => Onboarding3HostRequest | null
+  readonly changeCompletion: (taskId: string, checked: boolean) => Onboarding3CompletionResult | null
   readonly requestTaskAction: (taskId: string) => Onboarding3HostRequest | null
 }
 
@@ -92,17 +100,22 @@ export function createOnboarding3PreviewStore(seed: Onboarding3PreviewStoreSeed)
   const taskIds = tasks.map((task) => task.id)
   const completedTaskIds = normalizeCompletedTaskIds(taskIds, seed.initiallyCompletedTaskIds)
 
-  return createStore<Onboarding3PreviewStoreState>(() => ({
+  return createStore<Onboarding3PreviewStoreState>((set, get) => ({
     tasks,
     completedTaskIds,
-    requestCompletionChange: (taskId, checked) => {
+    changeCompletion: (taskId, checked) => {
       if (!isTaskId(taskId) || !taskIds.includes(taskId)) return null
 
-      const isCurrentlyCompleted = completedTaskIds.includes(taskId)
+      const currentCompletedTaskIds = get().completedTaskIds
+      const isCurrentlyCompleted = currentCompletedTaskIds.includes(taskId)
       if (isCurrentlyCompleted === checked) return null
 
-      // The archived source sample clicked this already-completed checkbox and recorded no visible change.
-      if (taskId === ONBOARDING3_OBSERVED_COMPLETED_NOOP_TASK_ID && isCurrentlyCompleted && !checked) return null
+      // The same-hash source before/after snapshots show Profile unchecking and progress 2/6 → 1/6.
+      // The legacy comparator omitted checkbox checked state and progress text from its signature.
+      if (taskId === ONBOARDING3_OBSERVED_PROFILE_UNCHECK_TASK_ID && isCurrentlyCompleted && !checked) {
+        set({ completedTaskIds: currentCompletedTaskIds.filter((completedId) => completedId !== taskId) })
+        return { kind: 'observed-local-completion-change', taskId, checked: false }
+      }
 
       return {
         kind: 'task-completion-change-request',

@@ -44,19 +44,59 @@ describe('Onboarding 3 preview store', () => {
     })
   })
 
-  test('keeps the only observed completed-checkbox click as a no-op and requests unverified changes', () => {
+  test('unchecks the observed Profile task and recalculates progress, while other changes stay request-only', () => {
     const fixture = createOnboarding3PreviewFixture()
     const store = createOnboarding3PreviewStore(fixture.seed)
 
-    expect(store.getState().requestCompletionChange('profile', false)).toBeNull()
-    expect(store.getState().requestCompletionChange('first-project', true)).toEqual({
+    expect(store.getState().changeCompletion('profile', false)).toEqual({
+      kind: 'observed-local-completion-change',
+      taskId: 'profile',
+      checked: false,
+    })
+    expect(fixture.contentFor(store.getState()).progress.text).toBe('1 of 6 done')
+    expect(fixture.contentFor(store.getState()).tasks.map((task) => task.checked)).toEqual([
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ])
+    expect(store.getState().changeCompletion('profile', false)).toBeNull()
+    expect(store.getState().changeCompletion('first-project', true)).toEqual({
       kind: 'task-completion-change-request',
       taskId: 'first-project',
       checked: true,
       resultBehavior: 'typed-request-only-source-result-unobserved',
     })
-    expect(fixture.contentFor(store.getState()).progress.text).toBe('2 of 6 done')
-    expect(store.getState().completedTaskIds).toEqual(['profile', 'workspace'])
+    expect(store.getState().changeCompletion('profile', true)).toEqual({
+      kind: 'task-completion-change-request',
+      taskId: 'profile',
+      checked: true,
+      resultBehavior: 'typed-request-only-source-result-unobserved',
+    })
+    expect(fixture.contentFor(store.getState()).progress.text).toBe('1 of 6 done')
+    expect(store.getState().completedTaskIds).toEqual(['workspace'])
+  })
+
+  test('records the legacy comparator false negative against the same-hash source before/after', () => {
+    const fixture = createOnboarding3PreviewFixture()
+    const store = createOnboarding3PreviewStore(fixture.seed)
+    const evidence = fixture.contentFor(store.getState()).evidence.sameHashInteractionCache
+
+    expect(evidence.verified.profileCheckboxClick).toEqual({
+      capturedView: 'dark-mobile',
+      before: { checked: true, progressText: '2 of 6 done' },
+      after: { checked: false, progressText: '1 of 6 done' },
+      progressFillWidth: { before: 75.95, after: 39.13 },
+      result: 'source-checked-state-and-progress-changed',
+    })
+    expect(evidence.legacyComparatorDiscrepancy).toEqual({
+      reportedStatus: 'source-no-op',
+      reportedSourceChanged: false,
+      omittedFromDeltaSignature: ['checkbox-checked', 'ax-progress-text'],
+      resolution: 'trust-captured-before-after-ax-and-pixels-for-this-specific-transition',
+    })
   })
 
   test('directs task links by stable ID after reordering and never claims navigation', () => {
@@ -115,7 +155,7 @@ describe('Onboarding 3 preview store', () => {
     expect(boundaryStore.getState().tasks).toHaveLength(ONBOARDING3_MAX_TASKS)
     expect(boundaryStore.getState().tasks.map((task) => task.id)).toEqual([...ONBOARDING3_TASK_IDS])
     expect(boundaryStore.getState().completedTaskIds).toEqual(['profile', 'workspace'])
-    expect(boundaryStore.getState().requestCompletionChange('removed-task', true)).toBeNull()
+    expect(boundaryStore.getState().changeCompletion('removed-task', true)).toBeNull()
     expect(boundaryStore.getState().requestTaskAction('unknown-task')).toBeNull()
   })
 

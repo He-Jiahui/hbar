@@ -42,7 +42,19 @@ export const ONBOARDING3_SOURCE_EVIDENCE = {
     themes: ['dark'],
     viewports: ['desktop', 'mobile'],
     verified: {
-      profileCheckboxClick: 'source-no-op-on-initially-completed-task',
+      profileCheckboxClick: {
+        capturedView: 'dark-mobile',
+        before: { checked: true, progressText: '2 of 6 done' },
+        after: { checked: false, progressText: '1 of 6 done' },
+        progressFillWidth: { before: 75.95, after: 39.13 },
+        result: 'source-checked-state-and-progress-changed',
+      },
+    },
+    legacyComparatorDiscrepancy: {
+      reportedStatus: 'source-no-op',
+      reportedSourceChanged: false,
+      omittedFromDeltaSignature: ['checkbox-checked', 'ax-progress-text'],
+      resolution: 'trust-captured-before-after-ax-and-pixels-for-this-specific-transition',
     },
     unverified: {
       uncheckedCheckboxChange: 'not-captured',
