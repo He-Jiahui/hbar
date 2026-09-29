@@ -26,12 +26,6 @@ export interface Onboarding4PreviewStoreSeed {
 
 export type Onboarding4HostRequest =
   | {
-      readonly kind: 'use-case-selection-request'
-      readonly useCaseId: Onboarding4UseCaseId
-      readonly resultBehavior: 'typed-request-only-selection-result-unverified'
-      readonly cachedSample: 'plan-roadmap-source-no-op' | 'no-source-state-change-captured'
-    }
-  | {
       readonly kind: 'back-request'
       readonly fromStepId: 'use-case'
       readonly resultBehavior: 'typed-request-only-navigation-result-unverified'
@@ -50,7 +44,7 @@ export interface Onboarding4PreviewStoreState {
   readonly teamSizeIds: readonly Onboarding4TeamSizeId[]
   readonly selectedTeamSizeId: Onboarding4TeamSizeId | null
   readonly selectTeamSize: (teamSizeId: string) => boolean
-  readonly requestUseCaseSelection: (useCaseId: string) => Onboarding4HostRequest | null
+  readonly selectUseCase: (useCaseId: string) => boolean
   readonly requestBack: () => Onboarding4HostRequest
   readonly requestContinue: () => Onboarding4HostRequest
 }
@@ -98,16 +92,11 @@ export function createOnboarding4PreviewStore(seed: Onboarding4PreviewStoreSeed)
       set({ selectedTeamSizeId: teamSizeId })
       return true
     },
-    requestUseCaseSelection: (useCaseId) => {
-      if (!isUseCaseId(useCaseId) || !useCaseIds.includes(useCaseId)) return null
-      if (get().selectedUseCaseId === useCaseId) return null
-
-      return {
-        kind: 'use-case-selection-request',
-        useCaseId,
-        resultBehavior: 'typed-request-only-selection-result-unverified',
-        cachedSample: useCaseId === 'plan-roadmap' ? 'plan-roadmap-source-no-op' : 'no-source-state-change-captured',
-      }
+    selectUseCase: (useCaseId) => {
+      if (!isUseCaseId(useCaseId) || !useCaseIds.includes(useCaseId)) return false
+      if (get().selectedUseCaseId === useCaseId) return false
+      set({ selectedUseCaseId: useCaseId })
+      return true
     },
     requestBack: () => ({
       kind: 'back-request',

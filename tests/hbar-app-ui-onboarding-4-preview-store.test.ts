@@ -57,24 +57,32 @@ describe('Onboarding 4 preview store', () => {
     expect(store.getState().selectTeamSize('unknown')).toBe(false)
   })
 
-  test('keeps use-case changes request-only and records only the exact cached no-op sample', () => {
+  test('selects Plan a roadmap from Run sprints as observed in raw source AX after click and Enter', () => {
     const fixture = createOnboarding4PreviewFixture()
     const store = createOnboarding4PreviewStore(fixture.seed)
 
-    expect(store.getState().requestUseCaseSelection('plan-roadmap')).toEqual({
-      kind: 'use-case-selection-request',
-      useCaseId: 'plan-roadmap',
-      resultBehavior: 'typed-request-only-selection-result-unverified',
-      cachedSample: 'plan-roadmap-source-no-op',
-    })
-    expect(store.getState().requestUseCaseSelection('report-delivery')).toEqual({
-      kind: 'use-case-selection-request',
-      useCaseId: 'report-delivery',
-      resultBehavior: 'typed-request-only-selection-result-unverified',
-      cachedSample: 'no-source-state-change-captured',
-    })
-    expect(store.getState().requestUseCaseSelection('run-sprints')).toBeNull()
-    expect(fixture.contentFor(store.getState()).selectedUseCaseId).toBe('run-sprints')
+    expect(fixture.contentFor(store.getState()).evidence.sameHashInteractionCache.verified.useCaseChangeSample).toEqual(
+      {
+        targetId: 'plan-roadmap',
+        fromId: 'run-sprints',
+        toId: 'plan-roadmap',
+        input: ['click', 'press-enter'],
+        result: 'observed-radio-checked-change-in-raw-ax',
+        legacyComparison: 'source-no-op-because-delta-omitted-radio-checked',
+      },
+    )
+    expect(store.getState().selectUseCase('plan-roadmap')).toBe(true)
+    expect(fixture.contentFor(store.getState()).useCases.map((item) => item.checked)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ])
+    expect(store.getState().selectUseCase('plan-roadmap')).toBe(false)
+    expect(store.getState().selectUseCase('unknown')).toBe(false)
+    expect(store.getState().selectedTeamSizeId).toBe('2-10')
   })
 
   test('keeps Back and Continue as typed requests without faking step navigation', () => {
@@ -106,7 +114,7 @@ describe('Onboarding 4 preview store', () => {
     expect(emptyContent.useCases).toEqual([])
     expect(emptyContent.labels.emptyUseCasesText).toBe('No use cases are available.')
     expect(emptyContent.selectedUseCaseId).toBeNull()
-    expect(emptyStore.getState().requestUseCaseSelection('plan-roadmap')).toBeNull()
+    expect(emptyStore.getState().selectUseCase('plan-roadmap')).toBe(false)
 
     const oneFixture = createOnboarding4PreviewFixture('en', { useCaseOrder: ['plan-roadmap'] })
     const oneStore = createOnboarding4PreviewStore(oneFixture.seed)
@@ -133,12 +141,12 @@ describe('Onboarding 4 preview store', () => {
     expect(cappedStore.getState().useCaseIds).toEqual([...ONBOARDING4_USE_CASE_IDS])
     expect(cappedStore.getState().teamSizeIds).toHaveLength(ONBOARDING4_MAX_TEAM_SIZES)
     expect(cappedStore.getState().teamSizeIds).toEqual([...ONBOARDING4_TEAM_SIZE_IDS])
-    expect(cappedStore.getState().requestUseCaseSelection('unknown-use-case')).toBeNull()
-    expect(cappedStore.getState().requestUseCaseSelection('removed-use-case')).toBeNull()
+    expect(cappedStore.getState().selectUseCase('unknown-use-case')).toBe(false)
+    expect(cappedStore.getState().selectUseCase('removed-use-case')).toBe(false)
     expect(cappedStore.getState().selectTeamSize('unknown-size')).toBe(false)
   })
 
-  test('targets requests by stable use-case ID after the displayed list order changes', () => {
+  test('targets single-select state by stable use-case ID after the displayed list order changes', () => {
     const fixture = createOnboarding4PreviewFixture('en', {
       useCaseOrder: ['report-delivery', 'run-sprints', 'plan-roadmap'],
     })
@@ -147,12 +155,9 @@ describe('Onboarding 4 preview store', () => {
 
     expect(content.useCases.map((item) => item.id)).toEqual(['report-delivery', 'run-sprints', 'plan-roadmap'])
     expect(content.useCases.find((item) => item.checked)?.id).toBe('run-sprints')
-    expect(store.getState().requestUseCaseSelection('report-delivery')).toEqual({
-      kind: 'use-case-selection-request',
-      useCaseId: 'report-delivery',
-      resultBehavior: 'typed-request-only-selection-result-unverified',
-      cachedSample: 'no-source-state-change-captured',
-    })
+    expect(store.getState().selectUseCase('report-delivery')).toBe(true)
+    expect(fixture.contentFor(store.getState()).useCases.find((item) => item.checked)?.id).toBe('report-delivery')
+    expect(store.getState().requestContinue()).toMatchObject({ useCaseId: 'report-delivery' })
   })
 
   test('keeps long German localized option copy intact', () => {
