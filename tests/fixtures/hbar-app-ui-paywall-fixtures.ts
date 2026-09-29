@@ -34,6 +34,7 @@ export const HBAR_APP_UI_PAYWALL_FIXTURES: HbarAppUiPaywallContent = {
             'This teardown walks through the three decisions that turned a maintenance window into a quarter of operational cleanup.',
         ],
         benefits: ['Every issue in the archive, going back to 2019', 'The weekly teardown, two days before it goes public', 'Source files and spreadsheets for each analysis'],
+        listStrategy: {kind: 'content-grown', expectedMaximum: 12},
     },
     featureGate: {
         labels: {title: 'Scheduled exports are a Pro feature', description: 'Your workspace is on Starter. Upgrading applies immediately and is prorated.', dismiss: 'Dismiss', seeIncluded: "See what's included", price: '$24 per seat, per month', defer: 'Not now', upgrade: 'Upgrade workspace'},
@@ -75,6 +76,7 @@ export function createHbarAppUiPaywallOverflowFixtures(): HbarAppUiPaywallConten
     const overflowRows = Array.from({length: 18}, (_, index) => ({id: `meter-${index}`, label: `Usage meter ${index + 1}`, value: `${index} / 100`, progress: index * 5}))
     return {
         ...base,
+        article: base.article && {...base.article, benefits: [...base.article.benefits, ...Array.from({length: 18}, (_, index) => `Additional membership benefit ${index + 1}`)], listStrategy: {kind: 'pane-scroll', expectedMaximum: 12}},
         featureGate: base.featureGate && {...base.featureGate, features: [...base.featureGate.features, ...overflowFeatures], listStrategy: {kind: 'pane-scroll', expectedMaximum: 8}},
         plans: base.plans && {...base.plans, plans: [...base.plans.plans, ...Array.from({length: 5}, (_, index) => ({id: `plan-${index}`, name: `Plan ${index + 1}`, monthlyPrice: '$28', yearlyPrice: '$22', priceSuffix: 'per seat / mo', description: 'A host-provided plan option.', features: ['Workspace access']}))], listStrategy: {kind: 'pane-scroll', expectedMaximum: 6}},
         usage: base.usage && {...base.usage, meters: [...base.usage.meters, ...overflowRows], listStrategy: {kind: 'pane-scroll', expectedMaximum: 6}},
