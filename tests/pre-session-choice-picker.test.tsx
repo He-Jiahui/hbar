@@ -54,3 +54,21 @@ test('duplicate IDs keep the first source row and search does not invent a stale
   expect(html).toContain(labels.trigger(null))
   expect(html).not.toContain('Replacement project')
 })
+
+test('composer placement keeps the same Host choices in a trigger-owned popup', () => {
+  const html = renderToStaticMarkup(
+    <HbarPreSessionChoicePicker
+      icon={Folder}
+      placement="composer"
+      labels={labels}
+      items={[{ id: 'model', label: 'Provider · Model', detail: 'Reasoning' }]}
+      selectedId="model"
+      onChoose={() => undefined}
+    />,
+  )
+  expect(html).toContain('data-placement="composer"')
+  expect(html).toContain('popover="auto"')
+  expect(html).toContain('role="dialog"')
+  expect(html).toContain(labels.trigger('Provider · Model'))
+  expect(html).toContain('data-tier="sm"')
+})

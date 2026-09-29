@@ -327,6 +327,7 @@ export function WebPreSessionLanding({
   const modelControl = (
     <HbarPreSessionChoicePicker
       icon={Sparkles}
+      placement="composer"
       labels={modelLabels}
       items={modelChoices}
       selectedId={draft?.modelId ?? null}

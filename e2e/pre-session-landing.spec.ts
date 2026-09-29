@@ -69,6 +69,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const modelPicker = page.getByRole('dialog', { name: labels.model.title })
       await expect(modelPicker).toBeVisible()
       await expect(modelPicker).toBeInViewport()
+      await expect(modelPicker.getByRole('button', { name: labels.model.close })).toBeFocused()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-models-${locale}-320.png` })
       await modelPicker.getByRole('button', { name: new RegExp(fixtureModel!.modelName) }).click()
@@ -103,6 +104,26 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await count()).toBe(1)
       await expect(prompt).toHaveValue('First message from the no-tab landing.')
       await page.setViewportSize({ width: 1440, height: 900 })
+      const modelTrigger = landing.locator('[data-placement="composer"] > button')
+      await modelTrigger.click()
+      await expect(modelPicker).toBeVisible()
+      await expect(modelPicker.getByRole('searchbox', { name: labels.model.search })).toBeFocused()
+      const modelPlacement = await modelPicker.evaluate((popup) => {
+        const box = popup.getBoundingClientRect()
+        const trigger = document.querySelector('[data-placement="composer"] > button')?.getBoundingClientRect()
+        return {
+          above: Boolean(trigger && box.bottom <= trigger.top + 1),
+          trailing: Boolean(trigger && Math.abs(box.right - trigger.right) <= 2),
+          within: box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0,
+        }
+      })
+      expect(modelPlacement).toEqual({ above: true, trailing: true, within: true })
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-models-${locale}-1440.png` })
+      await page.keyboard.press('Escape')
+      await expect(modelPicker).toBeHidden()
+      await expect(modelTrigger).toBeFocused()
+      await expect(prompt).toHaveValue('First message from the no-tab landing.')
+      expect(await count()).toBe(1)
       await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
       await expect(page.getByRole('tab')).toHaveCount(1)
       await expect.poll(count).toBe(2)

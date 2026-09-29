@@ -332,6 +332,13 @@ function isOverlaySelector(path, selector) {
     /^\.hbar-composer-picker-popover(?::popover-open|::backdrop|\[data-kind='thinking'\])?$/.test(selector.trim())
   )
     return true
+  // cc-haha EmptySession model selector: only the no-tab composer's
+  // trigger-owned desktop popup / narrow bottom-sheet container floats.
+  if (
+    /packages\/app-react\/src\/pre-session-choice-picker\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-pre-session-choice-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+  )
+    return true
   // cc-haha AgentManager uses the shared trigger-anchored model selector.
   // Only hbar's top-layer Agent model menu, never its flowing options, floats.
   if (
@@ -939,6 +946,17 @@ inset-inline-end: 0;
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const preSessionChoicePath = 'packages/app-react/src/pre-session-choice-picker.css'
+  if (validateCss(preSessionChoicePath, '.hbar-pre-session-choice-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected observed pre-session model popover container')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-pre-session-choice-popover'],
+    [preSessionChoicePath, '.hbar-pre-session-choice-popover > button'],
+    [preSessionChoicePath, '.hbar-pre-session-choice-row'],
+  ]) {
+    if (validateCss(path, `${selector} { position: fixed; }`).length !== 1)
+      throw new Error('Pre-session model popover exception leaked to content or another file')
+  }
   const agentModelPath = 'packages/app-react/src/agent-model-picker.css'
   if (validateCss(agentModelPath, '.hbar-agent-model-popover:popover-open { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed Agent model popover container')
