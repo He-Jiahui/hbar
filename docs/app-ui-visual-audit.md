@@ -670,3 +670,23 @@ partial/unobserved。Route-to-zone 菜单虽观察到 Bay 1–4、Cold store、O
 局部 lint/guards 和构建通过，仍有大 chunk 提示。根类型检查在此轮被并行
 `tests/pre-session-drafts-runtime.test.ts:296` 的 TS2339 阻断，不能记为通过。
 其他按钮×布局组合不逐项回放，推理边界见采样计划。
+
+Forms 9（Opening hours）由宿主 Zustand 草稿提供稳定的七天/时段 ID、时区与文案；
+初始周合计 49h，复制周一到工作日仍为 49h 但标记未保存，关闭周一派生 40h，
+节假日开关只改草稿。Add/Remove/Save 仅发类型化宿主请求，Reset 是本地恢复；
+来源对这些结果未充分点验，不模拟远端持久化。时间/时区选项目录明确为 partial。
+独立 `scripts/verify-hbar-app-ui-forms-9.ts` 验证七天、默认禁用、上述三种变化机制、
+德语文案、320px 周日与底栏可达、无横向溢出及 page error（0）。13 项专项 store 测试、
+Lumen 类型检查、flow/content/icon guards 和预览构建通过；构建仍有既有大 chunk 提示。
+根类型检查曾在接线时通过，最终复跑被并行修改的
+`packages/app-runtime/src/index.ts:689` 与 `pre-session-drafts.ts:557,831,834`
+类型错误阻断，不能记为最终通过；未改动那些文件。
+
+来源 `artifacts/reactbits-pro-visual-audit/forms-9-r1/` 的官方导航中途 30s 超时，
+仅留下 3/8 组来源/本地图，没有完整 capture manifest；授权 `full-static-v9` 缓存
+又是旧协议，不能拼成同一实现 hash 的 8 静态/3 交互严格账本。修正局部面板几何后，
+本地八组图和滚动指标在 `forms-9-local-review-r4/`：桌面 760×659、平板 590×659、
+移动 292×742、320 压力视口 286×800，均有七行独立滚动且无横溢；320px 文档
+自然增长到底栏。人工复核读序和可见内容接近授权源图，剩余控件材质与弹层选项
+仍有未证差异。**严格 live ledger 为来源受限、未签核**；本地图、旧缓存和不完整
+实时图不互相冒充，也不逐一重放等价日期行与布局的笛卡尔组合。

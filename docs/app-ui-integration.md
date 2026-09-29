@@ -44,6 +44,31 @@ German host copy and zero page errors. The source Route-to-zone target menu was
 observed, but target selection remains callback-only and is explicitly restricted;
 Save/Test outcomes were not triggered or invented.
 
+### Forms 9 integration status
+
+`hbar-app-ui-forms-9` is routed to a host-owned `weeklyOpeningHoursReference` ViewModel.
+The Lumen view renders the ordered seven-day schedule; the preview Zustand store owns
+the editable draft and derives per-day and weekly minutes. Copy Monday updates weekday
+time values without changing day/interval IDs, closing a day retains its intervals,
+and the holiday checkbox stays independent of the weekly total. Add/Remove/Save are
+typed callback requests with no invented remote result; Reset is a local preview
+baseline restore. Time-zone and time menus expose partial host-supplied options only.
+The seven-day collection is a bounded, pane-owned scroll region with the header,
+holiday option and footer outside that region.
+
+The authorized source inventory resolves to [Forms 9 opening hours](https://pro.reactbits.dev/docs/app-ui/forms/forms-9),
+source hash `5dfcd697…73586752`. A live capture attempt on 2026-09-29 wrote only
+three source/local view pairs before navigation to the public URL timed out; no full
+capture manifest or same-hash source interaction ledger was produced. The complete
+static cache at `full-static-v9` uses an older audit protocol and cannot be imported
+into the current strict pipeline. `forms-9-local-review-r4/` contains eight local
+light/dark and desktop/tablet/mobile/320px screenshots plus measured scroll/overflow
+metrics. The local panel geometry matches the authorized cache dimensions (760×659,
+590×659, 292×742 and 286×800), and the focused browser verifier passes Copy Monday,
+Monday closed (49 h → 40 h), holiday toggling and 320px footer reachability. These
+local results do not constitute fresh live source pairs; Forms 9 remains pending
+strict source acceptance.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
