@@ -433,7 +433,9 @@ export function WebPreSessionLanding({
       onChoose={chooseWorkspace}
       extra={(closePicker) => (
         <LumenFrame className="hbar-web-pre-session-path">
-          <label htmlFor="hbar-pre-session-path">{labels.path}</label>
+          <LumenFrame as="label" htmlFor="hbar-pre-session-path">
+            {labels.path}
+          </LumenFrame>
           <LumenInput
             id="hbar-pre-session-path"
             variant="boxed"
