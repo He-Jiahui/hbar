@@ -1,0 +1,4 @@
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-forms-3']) {
+  block-size: auto;
+  overflow: visible;
+}
