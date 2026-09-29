@@ -84,6 +84,7 @@ import './preview.css'
 import './onboarding1-preview.css'
 import './onboarding2-preview.css'
 import './onboarding3-preview.css'
+import './onboarding4-preview.css'
 import './wizard-preview.css'
 import './comments-preview.css'
 import { CommentsPreviewHost } from './CommentsPreviewHost'
@@ -233,6 +234,8 @@ import { Onboarding2PreviewHost } from './Onboarding2PreviewHost'
 import { createOnboarding2PreviewFixture } from './onboarding2PreviewFixtures'
 import { Onboarding3PreviewHost } from './Onboarding3PreviewHost'
 import { createOnboarding3PreviewFixture } from './onboarding3PreviewFixtures'
+import { Onboarding4PreviewHost } from './Onboarding4PreviewHost'
+import { createOnboarding4PreviewFixture } from './onboarding4PreviewFixtures'
 import { Onboarding1PreviewHost } from './Onboarding1PreviewHost'
 import { createOnboarding1PreviewFixture } from './onboarding1PreviewFixtures'
 import { HBAR_APP_UI_LIST_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-list-fixtures'
@@ -669,6 +672,13 @@ function PreviewApp() {
       ),
     [],
   )
+  const onboarding4ReferenceFixture = useMemo(
+    () =>
+      createOnboarding4PreviewFixture(
+        new URLSearchParams(window.location.search).get('onboarding4Fixture') === 'localized' ? 'de' : 'en',
+      ),
+    [],
+  )
   const listContent = useMemo(() => HBAR_APP_UI_LIST_FIXTURES, [])
   const filteringContent = useMemo(() => HBAR_APP_UI_FILTERING_FIXTURES, [])
   const monitoringContent = useMemo(() => HBAR_APP_UI_MONITORING_FIXTURES, [])
@@ -935,6 +945,12 @@ function PreviewApp() {
                                                                                                                           onAction={handleAction}
                                                                                                                           referenceFixture={forms12ReferenceFixture}
                                                                                                                         >
+                                                                                                                          <Onboarding4PreviewHost
+                                                                                                                            content={onboardingContent}
+                                                                                                                            spec={selected.spec}
+                                                                                                                            onAction={handleAction}
+                                                                                                                            referenceFixture={onboarding4ReferenceFixture}
+                                                                                                                          >
                                                                                                                           <Onboarding3PreviewHost
                                                                                                                             content={onboardingContent}
                                                                                                                             spec={selected.spec}
@@ -960,6 +976,7 @@ function PreviewApp() {
                                                                                                                             </Onboarding1PreviewHost>
                                                                                                                           </Onboarding2PreviewHost>
                                                                                                                           </Onboarding3PreviewHost>
+                                                                                                                          </Onboarding4PreviewHost>
                                                                                                                         </FormsForm12PreviewHost>
                                                                                                                       </FormsForm11PreviewHost>
                                                                                                                     </FormsForm10PreviewHost>
@@ -1354,6 +1371,12 @@ function PreviewApp() {
                                                                                                                                      onAction={handleAction}
                                                                                                                                      referenceFixture={forms12ReferenceFixture}
                                                                                                                                    >
+                                                                                                                                     <Onboarding4PreviewHost
+                                                                                                                                       content={onboardingContent}
+                                                                                                                                       spec={selected.spec}
+                                                                                                                                       onAction={handleAction}
+                                                                                                                                       referenceFixture={onboarding4ReferenceFixture}
+                                                                                                                                     >
                                                                                                                                      <Onboarding3PreviewHost
                                                                                                                                        content={onboardingContent}
                                                                                                                                        spec={selected.spec}
@@ -1379,6 +1402,7 @@ function PreviewApp() {
                                                                                                                                        </Onboarding1PreviewHost>
                                                                                                                                      </Onboarding2PreviewHost>
                                                                                                                                      </Onboarding3PreviewHost>
+                                                                                                                                     </Onboarding4PreviewHost>
                                                                                                                                    </FormsForm12PreviewHost>
                                                                                                                                 </FormsForm11PreviewHost>
                                                                                                                               </FormsForm10PreviewHost>
