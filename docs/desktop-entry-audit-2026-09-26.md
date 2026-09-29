@@ -2,6 +2,19 @@
 
 本页是 cc-haha 参考体验迁移的剩余工作记录，不是完成声明。审查由会话、导航和设置三个独立方向进行，主线核对代码、测试与截图。已有产物与本轮新验收分开，不以旧截图证明当前完整体验。
 
+## New Session 入口语义复核
+
+后续逐源码复核纠正了一个容易混淆的说法：**cc-haha 并非所有“新会话”入口都延迟创建**。当前跟踪源码有两条不同路径，不能只看相似的欢迎页就合并成一个流程。
+
+| 入口                         | cc-haha 当前跟踪实现                                                                                                                | hbar 当前实现                                                                                                                                  | 仍需对齐的体验                                                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 侧栏 New Session／项目行入口 | `desktop/src/components/layout/Sidebar.tsx` 的 `createSessionForWorkDir` 立即调用 `createSession`，然后打开标签并连接。             | `lumen-workspace-shell.tsx` 的 `newSession` 在有有效当前项目或显式项目行目标时立即调用 `app.createSession`；无有效当前项目时先显示项目选择器。 | 两者都是 eager 创建；差别在默认目录与项目选择、空会话关闭清理、窄屏入口位置。不得把侧栏按钮改成“首次发送才创建”来追求错误的参照。                   |
+| 无活动标签的落地页           | `ContentRouter.tsx` 渲染 `EmptySession`；文本、附件、目录和权限先留在本地草稿，Run 时检查认证，再创建 Session、转移模型选择并发送。 | `apps/web/src/App.tsx` 在无 Session 时仅渲染选择会话提示，没有可编辑草稿；现有欢迎页仅属于已经创建的 Session。                                 | 增加真正的 pre-session 草稿入口及工作区、模型、权限、附件与首次发送闭环；不能伪装一个 Host Session ID，也不能仅把 `session.create` 延后而遗漏恢复。 |
+
+参考证据是 cc-haha 跟踪源码 `desktop/src/components/layout/Sidebar.tsx:459`、`ContentRouter.tsx:29`、`pages/EmptySession.tsx:289-403` 与 `pages/EmptySession.test.tsx`；hbar 的 `packages/app-react/src/lumen-workspace-shell.tsx:708-714`、`workspace-navigation-actions.ts:64-158`、`apps/web/src/App.tsx:631-689`、`packages/app-runtime/src/navigation.ts:87-117` 以及 `e2e/workspace-session-entry.spec.ts`、`e2e/session-empty-hero.spec.ts`。cc-haha `docs/images/app/en/session-new.webp` 是旧文档图，Stitch 空会话图是静态设计稿，均不是当前软件的同条件实时截图。hbar 现有 E2E 图只证明已创建 Session 的欢迎页，不证明 pre-session 草稿。
+
+无活动标签的落地页需要单独的客户端 `draftId`、有界且按 Host 隔离的持久化、明确的工作区选择，以及首次发送的固定创建键和独立 Run 键。创建结果未知时只能核对／重试原键；创建已确认但 Run 未确认时不得再创建第二个 Session。切换标签、刷新、长文案、0/1/多工作区和 320px 流式布局都应纳入验收。现有 Host `session.create` 有持久幂等收据，但 `navigation.ts` 的待创建键只存当前 runtime 内存；不能把当前窗口内重试误报成跨刷新恢复。这一段是实施边界，不是已交付功能。
+
 页内早期“本轮”统计是对应提交时点的历史记录，不是后续并行任务仍在编辑的最新全仓结果。最新独立交付如下；全量最终工作树门禁另行记录。
 
 ## 继续审查的新进展
