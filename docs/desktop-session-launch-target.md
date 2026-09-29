@@ -6,23 +6,27 @@
 
 参考 `desktop/src/components/chat/RepositoryLaunchControls.tsx` 是输入区内的单一位置入口：根视图说明目录、分支和当前／隔离工作树，分支列表可搜索并进入创建分支子视图。取消创建回到列表，成功后关闭菜单并在触发器上显示选择。桌面为锚定菜单，移动浏览器使用 bottom sheet；同一组件区分 toolbar 和 outside 两种正常流位置，不需要重复业务事实。
 
-`ChatInput.tsx` 在首次发送前使用可编辑的 launch controls，已有消息后使用只读 `ProjectContextChip`。实际首发提交把位置和 repository 选择绑定到原会话；项目归属不随临时工作树变成新项目。这些是当前源码证据，不能代替专门的当前画面与行为截图。
+`ChatInput.tsx` 在首次发送前使用可编辑的 launch controls，已有消息后使用只读 `ProjectContextChip`。实际首发提交把位置和 repository 选择绑定到原会话；项目归属不随临时工作树变成新项目。组件画面只支撑可见表达和被实际操作的状态，不代替真实首发与 Host 行为验收。
 
 ### 2026-09-29 参考取证的有效范围
 
 只读审查确认 `EmptySession.tsx` 的桌面入口在 composer 工具行中，位于加号／权限模式之后、模型／Run 之前；H5 窄屏把同一入口放到 composer 面板之后。`RepositoryLaunchControls` 用 `useMobileViewport() && !isDesktopRuntime()` 决定是否使用 bottom sheet，不能仅根据窗口变窄就把 native 菜单改成 H5 sheet。
 
-| 交互                        | 当前源码／已有测试所表达的语义                               | 本次证据界限                                                            |
-| --------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| Directory／Branch／worktree | 单一 Location pill 内分层进入，不在外部放三个重复入口        | 源码与缺少 utility 样式的组件 DOM；无有效样式几何                       |
-| Current／Isolated worktree  | 选择后更新 parent-owned launch choice 并关闭菜单，不立即运行 | 源码核对；本次未完成真实首发                                            |
-| New branch → Cancel         | 返回分支列表，而不是退出全部选择流程                         | 源码及参考已有行为测试；本次无有效 Cancel-return 截图                   |
-| New branch 空名 → Create    | 按钮仍可点击，处理函数就近显示校验错误，API 请求前返回       | 源码及参考已有测试；最初 capture 的 disabled 断言错误，不是参考产品缺陷 |
-| Files／Changed／Editor      | 使用会话活动 workDir，项目身份仍保留原 repo                  | 源码数据链核对；不是本次 native smoke                                   |
+| 交互                        | 当前源码／已有测试所表达的语义                               | 本次证据界限                                                     |
+| --------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Directory／Branch／worktree | 单一 Location pill 内分层进入，不在外部放三个重复入口        | 当前真实组件的桌面锚定菜单、H5 sheet、可见层级及 computed styles |
+| Current／Isolated worktree  | 选择后更新 parent-owned launch choice 并关闭菜单，不立即运行 | 已捕获两张 radio card 和选中态；本次未操作切换或真实首发         |
+| New branch → Cancel         | 返回分支列表，而不是退出全部选择流程                         | 两个视口实际点击并捕获 Cancel-return，未调用创建 API             |
+| New branch 空名 → Create    | 按钮仍可点击，处理函数就近显示校验错误，API 请求前返回       | 两个视口实际点击并捕获局部错误；branch-create 请求计数为零       |
+| Files／Changed／Editor      | 使用会话活动 workDir，项目身份仍保留原 repo                  | 源码数据链核对；不是本次 native smoke                            |
 
-取证产物在主 checkout 的忽略目录 `artifacts/ui-reference/cc-haha-runtime/repository-launch-audit-20260929/`。完整 Host／页面的有界尝试未得到可用画面；组件 harness 曾挂载当前真实组件，但 Tailwind utility 样式缺失，人工检查发现行内容连在一起、面板异常宽，**这些截图不能作为美感、尺寸或布局匹配依据**。最终 `component-reference/captures-final-01/capture-result.json` 记录了 page navigation 10s timeout；没有有效的 390px 或 Cancel-return 样式截图。旧 `current/session-empty-1440x900.png` 的捕获日期为 2026-09-20，且未展示此入口，也不能代替当前参考。
+取证产物在主 checkout 的忽略目录 `artifacts/ui-reference/cc-haha-runtime/repository-launch-audit-20260929/`。有效组件 capture 为 `component-reference/captures-styled-flow-20260929/capture-metadata.json`，对应 1440×900 和 390×844，每个视口包含未选目录、根菜单、已选触发器、分支列表、新建表单、空名错误和 Cancel-return，共 14 张截图。使用当前 `RepositoryLaunchControls`／`DirectoryPicker`／`Button`／主题和 Tailwind 插件，隔离 route fixture 提供项目与分支；输入框、邻近权限和模型按钮是明确标注的合成 composer 外壳，**不是完整桌面应用或 native 截图**。
 
-该 lane 使用临时配置／Git fixture 和无网络 provider；`user-state-guard.json` 记录 `realConfigMutations: []`，参考 tracked source 未修改。负责取证的 agent 已停止自己的 Host／Vite／Browser 进程；被 shell policy 拒绝清理的临时目录保留，没有换用另一种删除方式。后续视觉实现仍需重新取得有效的当前样式画面；本次源码／DOM 证据只支撑交互语义和数据归属。
+人工核对了两个视口的根菜单和新建表单，并读取 DOM／ARIA／computed styles：Location 内部为 flex row，根菜单为 flex column，目录／分支／radio card 为自然流行；桌面触发器为 36px 高，菜单外框约 400px 宽，H5 使用 390px 宽的内容生长 sheet。两个视口无 document 横向溢出；表单底部动作按 Cancel、Create 顺序排列。尺寸是参考观察值，不授权以截图坐标或固定内容高度实现 hbar，也不要求复制参考的每个非语义像素值。native 窄窗口行为仍只有源码依据，未在此 capture 中模拟。
+
+此前完整 Host／页面的有界尝试未得到可用画面；早期组件 capture 缺少 Tailwind utility，行内容连在一起、面板异常宽，**仍不可作为视觉依据**。`captures-final-01` 记录了 10s page navigation timeout。随后一轮样式检查把 flex parent 对 inline-flex 的正常 blockification 误判为无样式，未被接受；修正观察断言后记录上述有效证据，没有修改参考生产代码。旧 `current/session-empty-1440x900.png` 日期为 2026-09-20，且未展示此入口，也不能代替当前参考。
+
+有效 lane 未启动参考 Host，未发送首条消息、创建分支、调用付费 provider 或读写真实用户配置；metadata 记录 API 请求与 fixture 边界。此前 lane 的 `user-state-guard.json` 记录 `realConfigMutations: []`，本次再次核对参考 tracked source 无改动。每次 capture 的自有 Vite／Browser 进程均在 finally 中停止。被 shell policy 拒绝清理的早期临时目录保留，没有换用其他删除方式。真实首发、重启、文件编辑与 native smoke 仍需独立验收。
 
 hbar 既有 [项目上下文](desktop-session-project-context.md) 只读展示注册工作区与分支。通用 `git.branch`／`git.worktree` 虽能接受目录和文件系统路径，但不能直接接到 composer：切换共享 checkout 会影响其他会话，客户端自由决定工作树路径也无法提供可靠恢复。
 
