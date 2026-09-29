@@ -8,7 +8,7 @@ import {
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
-import { workspaceDisplayName, type ComposerPermissionChoice } from '@hbar/app-runtime'
+import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanMode } from '@hbar/app-runtime'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { workspacePageSchema } from '@hbar/contracts/directory'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
@@ -32,6 +32,7 @@ export function WebPreSessionLanding({
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const preSessionDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
+  const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const draft = preSessionDrafts[draftId]
   const shell = getShellCopy(locale)
   const labels = preSessionCopy(locale)
@@ -171,13 +172,33 @@ export function WebPreSessionLanding({
 
   const chooseApproval = (choice: ComposerPermissionChoice, confirmAllow?: true) =>
     queue(async () => {
-      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      let current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
       if (!current) throw new Error('Draft is unavailable')
+      if (current.planMode === 'plan') {
+        await runtime.commands.execute('preSessionDraft.setPlanMode', {
+          draftId,
+          mode: 'default',
+          expectedRevision: current.revision,
+        })
+        current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+        if (!current) throw new Error('Draft is unavailable')
+      }
       await runtime.commands.execute('preSessionDraft.setApprovalChoice', {
         draftId,
         choice,
         expectedRevision: current.revision,
         ...(confirmAllow ? { confirmAllow } : {}),
+      })
+    })
+
+  const choosePlanMode = (mode: ComposerPlanMode) =>
+    queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setPlanMode', {
+        draftId,
+        mode,
+        expectedRevision: current.revision,
       })
     })
 
@@ -317,11 +338,14 @@ export function WebPreSessionLanding({
   const approvalControl = (
     <HbarPreSessionApprovalPicker
       choice={draft?.approvalChoice ?? 'inherit'}
+      planMode={draft?.planMode ?? 'default'}
+      planAvailable={composerPlanMode.available}
       hostDefault={composerPermission.hostDefault.status === 'ready' ? composerPermission.hostDefault.mode : null}
       sessionLabel={shell.preSession.hero.title}
       labels={shell.session.permissionPicker}
       disabled={!connected || !draft || busy || draft.phase === 'unknown'}
       onChoose={chooseApproval}
+      onPlanMode={choosePlanMode}
     />
   )
   const editorKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
@@ -335,7 +359,14 @@ export function WebPreSessionLanding({
   }
   return (
     <HbarPreSessionLanding
-      labels={shell.preSession}
+      labels={
+        draft?.planMode === 'plan'
+          ? {
+              ...shell.preSession,
+              prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },
+            }
+          : shell.preSession
+      }
       composer={{
         value: text,
         attachments: [],

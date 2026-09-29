@@ -77,7 +77,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await approval.click()
       const approvalPicker = page.locator('.hbar-pre-session-approval-popover')
       await expect(approvalPicker).toBeVisible()
-      await expect(approvalPicker.getByRole('menuitemradio')).toHaveCount(4)
+      await expect(approvalPicker.getByRole('menuitemradio')).toHaveCount(5)
       await expect(approvalPicker).toBeInViewport()
       await expect(approvalPicker.getByRole('menuitemradio', { checked: true })).toBeFocused()
       await page.keyboard.press('Home')
@@ -135,6 +135,130 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ).toBe('deny')
       expect(await configuration.execute('permission.get', {})).toEqual(hostDefaultApproval)
       expect(errors).toEqual([])
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test(`no-tab Plan is confirmed on the created Host Session before first Run: ${locale}`, async ({ browser }) => {
+    test.setTimeout(120_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-pre-session-plan-'))
+    const context = await browser.newContext({ locale, viewport: { width: 320, height: 720 } })
+    const copy = getShellCopy(locale)
+    const labels = preSessionCopy(locale)
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      const sessions = createWorkspaceSessionCommandClient(host.client)
+      const configuration = createConfigurationCommandClient(host.client)
+      const fixtureModel = (await createModelCommandClient(host.client).execute('model.list', {})).find(
+        (model) => model.id === 'local-fixture',
+      )
+      expect(fixtureModel).toBeDefined()
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      await page.goto(base)
+      const landing = page.locator('.hbar-pre-session-landing')
+      await expect(landing).toBeVisible()
+      const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
+      const message = `Plan first on the no-tab landing ${locale}`
+      await prompt.fill(message)
+      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
+      const projects = page.getByRole('dialog', { name: labels.workspace.title })
+      await projects.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
+      const models = page.getByRole('dialog', { name: labels.model.title })
+      await models.getByRole('button', { name: new RegExp(fixtureModel!.modelName) }).click()
+      const trigger = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+      const picker = page.locator('.hbar-pre-session-approval-popover')
+      await trigger.click()
+      await expect(picker.getByRole('menuitemradio')).toHaveCount(5)
+      await picker
+        .getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.options.deny.label) })
+        .click()
+      await trigger.click()
+      await picker.getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.plan.label) }).click()
+      await expect(trigger).toHaveAttribute('data-choice', 'plan')
+      await expect(prompt).toHaveAttribute('placeholder', copy.session.intent.planPlaceholder)
+      await trigger.click()
+      await picker
+        .getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.options.deny.label) })
+        .click()
+      await expect(trigger).toHaveAttribute('data-choice', 'deny')
+      await expect(prompt).toHaveAttribute('placeholder', copy.preSession.prompt.placeholder)
+      await trigger.click()
+      await picker.getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.plan.label) }).click()
+      await expect(trigger).toHaveAttribute('data-choice', 'plan')
+      await trigger.click()
+      await picker.getByRole('menuitem', { name: new RegExp(copy.session.permissionPicker.plan.exit) }).click()
+      await expect(trigger).toHaveAttribute('data-choice', 'deny')
+      await trigger.click()
+      await picker.getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.plan.label) }).click()
+      await expect(trigger).toHaveAttribute('data-choice', 'plan')
+      await trigger.click()
+      await expect(
+        picker.getByRole('menuitem', { name: new RegExp(copy.session.permissionPicker.plan.exit) }),
+      ).toBeVisible()
+      await expect(picker).toBeInViewport()
+      const menuBody = picker.locator('.hbar-composer-permission-body')
+      const overflow = await menuBody.evaluate((element) => ({
+        needsScroll: element.scrollHeight > element.clientHeight,
+        mode: getComputedStyle(element).overflowY,
+      }))
+      if (overflow.needsScroll) expect(overflow.mode).toBe('auto')
+      const inherited = picker.getByRole('menuitemradio', {
+        name: new RegExp(copy.session.permissionPicker.options.inherit.label),
+      })
+      await inherited.scrollIntoViewIfNeeded()
+      await expect(inherited).toBeInViewport()
+      const exitPlan = picker.getByRole('menuitem', { name: new RegExp(copy.session.permissionPicker.plan.exit) })
+      await exitPlan.scrollIntoViewIfNeeded()
+      await expect(exitPlan).toBeInViewport()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-plan-${locale}-320.png` })
+      await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
+      expect(
+        (await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })).items,
+      ).toHaveLength(1)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await trigger.click()
+      const placement = await picker.evaluate((popup) => {
+        const box = popup.getBoundingClientRect()
+        const anchor = document.querySelector('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+        const triggerBox = anchor?.getBoundingClientRect()
+        return {
+          above: Boolean(triggerBox && box.bottom <= triggerBox.top + 1),
+          within: box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0,
+        }
+      })
+      expect(placement).toEqual({ above: true, within: true })
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-plan-${locale}-1440.png` })
+      await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
+      await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
+      await expect(page.getByRole('tab')).toHaveCount(1)
+      await expect
+        .poll(async () => {
+          const items = (await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 }))
+            .items
+          return items.find((item) => item.id !== host!.ready.sessionId)?.id ?? null
+        })
+        .not.toBeNull()
+      const session = (
+        await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
+      ).items.find((item) => item.id !== host!.ready.sessionId)!
+      await expect
+        .poll(async () => (await configuration.execute('mode.get', { sessionId: session.id })).mode)
+        .toBe('plan')
+      await expect
+        .poll(async () => {
+          const snapshot = await host!.client.call('session.snapshot', { sessionId: session.id, limit: 10 })
+          return snapshot.runs.find((run) => run.input.text === message)?.input.approval ?? null
+        })
+        .toBe('deny')
+      await expect(page.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
