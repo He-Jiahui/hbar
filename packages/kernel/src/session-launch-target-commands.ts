@@ -6,7 +6,7 @@ import {
   sessionLaunchTargetSetReceiptSchema,
 } from '@hbar/contracts/commands/session-launch-target'
 import type { SessionLaunchTargetSetInput } from '@hbar/contracts/commands/session-launch-target'
-import type { StoragePort } from '@hbar/storage'
+import type { Kernel } from './index'
 
 const rejectedBeforeCommit = new Set([
   'COMMAND_CONFLICT',
@@ -21,7 +21,7 @@ function requestsEqual(left: SessionLaunchTargetSetInput, right: SessionLaunchTa
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
-export function createSessionLaunchTargetCommands(storage: StoragePort, changed: () => void) {
+export function createSessionLaunchTargetCommands(kernel: Kernel, changed: () => void) {
   const registry = new CommandRegistry({ execution: 'host' })
   const read = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
@@ -34,7 +34,7 @@ export function createSessionLaunchTargetCommands(storage: StoragePort, changed:
 
   registry.register(sessionLaunchTargetCommands['sessionLaunchTarget.get'], async ({ sessionId }, context) => {
     if (!context.actorId) throw new CommandError('INVALID_INPUT', 'Authenticated actor is required')
-    return sessionLaunchTargetSchema.parse(await read(() => storage.call('sessionLaunchTarget', sessionId)))
+    return sessionLaunchTargetSchema.parse(await read(() => kernel.getSessionLaunchTarget(sessionId)))
   })
   registry.register(
     sessionLaunchTargetCommands['sessionLaunchTarget.set'],
@@ -43,7 +43,7 @@ export function createSessionLaunchTargetCommands(storage: StoragePort, changed:
       if (!actorId || !idempotencyKey)
         throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
       try {
-        const result = await storage.call('setSessionLaunchTarget', { ...request, actorId, idempotencyKey })
+        const result = await kernel.setSessionLaunchTarget({ ...request, actorId, idempotencyKey })
         const parsed = sessionLaunchTargetSetReceiptSchema.safeParse(result)
         if (!parsed.success || !requestsEqual(parsed.data.request, request))
           throw new CommandError('RESULT_UNKNOWN', 'Launch target acknowledgement does not match this request')
@@ -61,7 +61,7 @@ export function createSessionLaunchTargetCommands(storage: StoragePort, changed:
   registry.register(sessionLaunchTargetCommands['sessionLaunchTarget.receipt'], async (input, context) => {
     if (!context.actorId) throw new CommandError('INVALID_INPUT', 'Authenticated actor is required')
     return read(async () => {
-      const result = await storage.call('sessionLaunchTargetReceipt', {
+      const result = await kernel.storage.call('sessionLaunchTargetReceipt', {
         actorId: context.actorId!,
         ...input,
       })
@@ -74,6 +74,36 @@ export function createSessionLaunchTargetCommands(storage: StoragePort, changed:
       return parsed.data
     })
   })
+  registry.register(
+    sessionLaunchTargetCommands['sessionLaunchTarget.prepare'],
+    async ({ sessionId, expectedRevision }, context) =>
+      read(async () => {
+        const target = await kernel.prepareSessionLaunchTarget(sessionId, expectedRevision, context.signal)
+        changed()
+        return sessionLaunchTargetSchema.parse(target)
+      }),
+    { durable: true },
+  )
+  registry.register(
+    sessionLaunchTargetCommands['sessionLaunchTarget.reconcile'],
+    async ({ sessionId, expectedRevision }, context) =>
+      read(async () => {
+        const target = await kernel.reconcileSessionLaunchTarget(sessionId, expectedRevision, context.signal)
+        changed()
+        return sessionLaunchTargetSchema.parse(target)
+      }),
+    { durable: true },
+  )
+  registry.register(
+    sessionLaunchTargetCommands['sessionLaunchTarget.cancel'],
+    async ({ sessionId, expectedRevision }) =>
+      read(async () => {
+        const target = await kernel.cancelSessionLaunchTarget(sessionId, expectedRevision)
+        changed()
+        return sessionLaunchTargetSchema.parse(target)
+      }),
+    { durable: true },
+  )
   return {
     ...createCommandClient(sessionLaunchTargetCommands, registry),
     dispatch(value: unknown, actorId: string) {

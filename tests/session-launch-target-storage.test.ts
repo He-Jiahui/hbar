@@ -39,7 +39,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 10 })
+  expect(await store.call('ready')).toEqual({ version: 11 })
   const workspace = await store.call('createWorkspace', root, 'project')
   const first = await store.call('createSession', workspace.id, 'first')
   const second = await store.call('createSession', workspace.id, 'second')
@@ -146,6 +146,24 @@ test('revisioned selections are session-owned, durable, idempotent, and lock aft
     'IDEMPOTENCY_CONFLICT',
   )
 
+  const launchTarget = {
+    sessionId: f.first.id,
+    expectedRevision: 1,
+    selection: selection('feature/target'),
+    targetPath: join(f.root, 'managed-feature-target'),
+    branch: 'feature/target',
+    requestedHead: 'a'.repeat(40),
+  }
+  await f.store.call('beginSessionLaunchTargetPreparation', launchTarget)
+  await f.store.call('updateSessionLaunchTargetPreparation', {
+    sessionId: f.first.id,
+    revision: 1,
+    targetPath: launchTarget.targetPath,
+    state: 'ready',
+    resolvedHead: launchTarget.requestedHead,
+  })
+  expect(await f.store.call('sessionLaunchTargetBindingForPath', launchTarget.targetPath)).toBeNull()
+
   await close(f.store)
   const reopened = open(f.path)
   await reopened.call('ready')
@@ -155,7 +173,24 @@ test('revisioned selections are session-owned, durable, idempotent, and lock aft
     locked: false,
   })
 
-  await reopened.call('enqueue', f.first.id, 'first-run', { text: 'hello', images: [] }, 'demo/mock')
+  await reopened.call('enqueue', f.first.id, 'first-run', { text: 'hello', images: [] }, 'demo/mock', undefined, {
+    sessionId: f.first.id,
+    expectedRevision: launchTarget.expectedRevision,
+    selection: launchTarget.selection,
+    targetPath: launchTarget.targetPath,
+    branch: launchTarget.branch,
+    head: launchTarget.requestedHead,
+  })
+  const boundTarget = await reopened.call('sessionLaunchTargetBindingForPath', launchTarget.targetPath)
+  if (!boundTarget) throw new Error('Accepted Run did not persist its isolated target binding')
+  expect(boundTarget).toMatchObject({
+    sessionId: f.first.id,
+    selection: launchTarget.selection,
+    targetPath: launchTarget.targetPath,
+    branch: launchTarget.branch,
+  })
+  expect(boundTarget.boundRunId.length).toBeGreaterThan(0)
+  expect(await reopened.call('sessionLaunchTargetBindingForPath', `${launchTarget.targetPath}/child`)).toBeNull()
   expect(await reopened.call('sessionLaunchTarget', f.first.id)).toMatchObject({ locked: true })
   await failure(
     reopened.call('setSessionLaunchTarget', {
@@ -190,7 +225,7 @@ test('session ownership is derived from the persisted Session; missing and archi
   )
 })
 
-test('v9 databases migrate concurrently to v10 before serializing two stale launch-target revisions', async () => {
+test('v9 databases migrate concurrently to v11 before serializing two stale launch-target revisions', async () => {
   const f = await fixture()
   await close(f.store)
   inspect(f.path, (db) => {
@@ -198,7 +233,7 @@ test('v9 databases migrate concurrently to v10 before serializing two stale laun
   })
   const a = open(f.path)
   const b = open(f.path)
-  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 10 }, { version: 10 }])
+  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 11 }, { version: 11 }])
 
   const writes = await Promise.allSettled([
     a.call('setSessionLaunchTarget', {

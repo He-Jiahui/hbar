@@ -5,6 +5,19 @@ import { idSchema } from '../index'
 const revisionSchema = z.number().int().nonnegative().safe()
 const branchNameSchema = z.string().trim().min(1).max(1_000)
 
+export const sessionLaunchTargetResolutionSchema = z.discriminatedUnion('status', [
+  z.strictObject({ status: z.literal('idle') }),
+  z.strictObject({ status: z.literal('preparing') }),
+  z.strictObject({ status: z.literal('ready'), branch: z.string().nullable() }),
+  z.strictObject({
+    status: z.literal('reconciling'),
+    code: z.string().min(1).max(128),
+    message: z.string().max(1_000),
+  }),
+  z.strictObject({ status: z.literal('cancelled'), code: z.string().min(1).max(128), message: z.string().max(1_000) }),
+  z.strictObject({ status: z.literal('failed'), code: z.string().min(1).max(128), message: z.string().max(1_000) }),
+])
+
 /** Only a Host-derived shared checkout or an isolated session worktree can be selected. */
 export const sessionLaunchSelectionSchema = z.discriminatedUnion('mode', [
   z.strictObject({ mode: z.literal('shared-current') }),
@@ -28,6 +41,7 @@ export const sessionLaunchTargetSchema = z.strictObject({
   revision: revisionSchema,
   selection: sessionLaunchSelectionSchema,
   locked: z.boolean(),
+  resolution: sessionLaunchTargetResolutionSchema,
   updatedAt: z.number().int().nonnegative(),
 })
 
@@ -40,6 +54,18 @@ export const sessionLaunchTargetSetInputSchema = z.strictObject({
 export const sessionLaunchTargetReceiptInputSchema = z.strictObject({
   sessionId: idSchema,
   idempotencyKey: z.string().min(1).max(128),
+})
+export const sessionLaunchTargetPrepareInputSchema = z.strictObject({
+  sessionId: idSchema,
+  expectedRevision: revisionSchema,
+})
+export const sessionLaunchTargetReconcileInputSchema = z.strictObject({
+  sessionId: idSchema,
+  expectedRevision: revisionSchema,
+})
+export const sessionLaunchTargetCancelInputSchema = z.strictObject({
+  sessionId: idSchema,
+  expectedRevision: revisionSchema,
 })
 
 export const sessionLaunchTargetSetReceiptSchema = z
@@ -60,6 +86,10 @@ export type SessionLaunchTargetGetInput = z.infer<typeof sessionLaunchTargetGetI
 export type SessionLaunchTargetSetInput = z.infer<typeof sessionLaunchTargetSetInputSchema>
 export type SessionLaunchTargetSetReceipt = z.infer<typeof sessionLaunchTargetSetReceiptSchema>
 export type SessionLaunchTargetReceiptInput = z.infer<typeof sessionLaunchTargetReceiptInputSchema>
+export type SessionLaunchTargetResolution = z.infer<typeof sessionLaunchTargetResolutionSchema>
+export type SessionLaunchTargetPrepareInput = z.infer<typeof sessionLaunchTargetPrepareInputSchema>
+export type SessionLaunchTargetReconcileInput = z.infer<typeof sessionLaunchTargetReconcileInputSchema>
+export type SessionLaunchTargetCancelInput = z.infer<typeof sessionLaunchTargetCancelInputSchema>
 
 const metadata = (id: string, kind: 'query' | 'command') => ({
   id,
@@ -91,5 +121,38 @@ export const sessionLaunchTargetCommands = {
     metadata('sessionLaunchTarget.receipt', 'query'),
     sessionLaunchTargetReceiptInputSchema,
     sessionLaunchTargetSetReceiptSchema.nullable(),
+  ),
+  'sessionLaunchTarget.prepare': defineCommand(
+    {
+      ...metadata('sessionLaunchTarget.prepare', 'command'),
+      stateEffect: 'external',
+      cancelMode: 'cooperative',
+      timeoutMs: 120_000,
+      idempotency: 'required',
+    },
+    sessionLaunchTargetPrepareInputSchema,
+    sessionLaunchTargetSchema,
+  ),
+  'sessionLaunchTarget.reconcile': defineCommand(
+    {
+      ...metadata('sessionLaunchTarget.reconcile', 'command'),
+      stateEffect: 'external',
+      cancelMode: 'cooperative',
+      timeoutMs: 120_000,
+      idempotency: 'required',
+    },
+    sessionLaunchTargetReconcileInputSchema,
+    sessionLaunchTargetSchema,
+  ),
+  'sessionLaunchTarget.cancel': defineCommand(
+    {
+      ...metadata('sessionLaunchTarget.cancel', 'command'),
+      stateEffect: 'external',
+      cancelMode: 'cooperative',
+      timeoutMs: 120_000,
+      idempotency: 'required',
+    },
+    sessionLaunchTargetCancelInputSchema,
+    sessionLaunchTargetSchema,
   ),
 }

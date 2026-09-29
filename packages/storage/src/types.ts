@@ -51,6 +51,8 @@ import type {
 } from '@hbar/contracts/commands/workspace-display-names'
 import type {
   SessionLaunchTarget,
+  SessionLaunchSelection,
+  SessionLaunchTargetResolution,
   SessionLaunchTargetSetInput,
   SessionLaunchTargetSetReceipt,
 } from '@hbar/contracts/commands/session-launch-target'
@@ -76,6 +78,54 @@ export interface SessionLaunchTargetReceiptLookup {
   actorId: string
   idempotencyKey: string
   sessionId: string
+}
+
+export interface SessionLaunchTargetPreparationInput {
+  sessionId: string
+  expectedRevision: number
+  selection: SessionLaunchSelection
+  targetPath: string
+  branch: string | null
+  requestedHead: string | null
+}
+
+export interface SessionLaunchTargetPreparationUpdate {
+  sessionId: string
+  revision: number
+  targetPath: string
+  state: Exclude<SessionLaunchTargetResolution['status'], 'idle'>
+  resolvedHead?: string | null
+  errorCode?: string
+  errorMessage?: string
+}
+
+/** Internal Host-only binding; the absolute path is never part of a public command result. */
+export interface SessionLaunchTargetBindingInput {
+  sessionId: string
+  expectedRevision: number
+  selection: SessionLaunchSelection
+  targetPath: string
+  branch: string | null
+  head: string | null
+}
+
+export interface SessionLaunchTargetResolutionRecord extends SessionLaunchTargetPreparationInput {
+  state: Exclude<SessionLaunchTargetResolution['status'], 'idle' | 'ready'> | 'ready'
+  resolvedHead: string | null
+  errorCode: string | null
+  errorMessage: string | null
+  updatedAt: number
+}
+
+export interface SessionLaunchTargetBinding extends SessionLaunchTargetBindingInput {
+  boundRunId: string
+  boundAt: number
+}
+
+export interface SessionLaunchTargetRuntimeSnapshot {
+  target: SessionLaunchTarget
+  resolution: SessionLaunchTargetResolutionRecord | null
+  binding: SessionLaunchTargetBinding | null
 }
 
 export interface StoredSettingsLayer {
@@ -164,8 +214,12 @@ export interface StorageMethods {
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
   sessionLaunchTarget(sessionId: string): SessionLaunchTarget
+  sessionLaunchTargetRuntime(sessionId: string): SessionLaunchTargetRuntimeSnapshot
+  sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
   setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
   sessionLaunchTargetReceipt(input: SessionLaunchTargetReceiptLookup): SessionLaunchTargetSetReceipt | null
+  beginSessionLaunchTargetPreparation(input: SessionLaunchTargetPreparationInput): SessionLaunchTargetResolutionRecord
+  updateSessionLaunchTargetPreparation(input: SessionLaunchTargetPreparationUpdate): SessionLaunchTargetResolutionRecord
   updateSession(
     id: string,
     update: { title?: string; archived?: boolean; expectedTitle?: string },
@@ -209,6 +263,7 @@ export interface StorageMethods {
     input: UserInput,
     modelId: string,
     command?: RunCommandRecord,
+    launchTarget?: SessionLaunchTargetBindingInput,
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null

@@ -93,7 +93,7 @@ export function createRunCommands(kernel: Kernel) {
       }
       if (prior) return prior
       try {
-        const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command)
+        const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command, context.signal)
         return accepted(run, command)
       } catch (error) {
         // Admission may have committed before the response was lost. Inspect the canonical queued fact.
@@ -117,7 +117,22 @@ export function createRunCommands(kernel: Kernel) {
             'ARCHIVED',
             'NOT_FOUND',
             'INVALID_INPUT',
+            'COMMAND_CONFLICT',
             'IDEMPOTENCY_CONFLICT',
+            'BRANCH_IN_USE',
+            'BRANCH_EXISTS',
+            'BRANCH_NOT_FOUND',
+            'GIT_INVALID_BRANCH',
+            'GIT_REF_NOT_FOUND',
+            'GIT_NOT_REPOSITORY',
+            'GIT_OPERATION_FAILED',
+            'SESSION_LAUNCH_TARGET_LOCKED',
+            'SESSION_LAUNCH_TARGET_PATH_OCCUPIED',
+            'SESSION_LAUNCH_TARGET_INVALID_ROOT',
+            'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+            'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+            'SESSION_LAUNCH_TARGET_UNRESOLVED',
+            'USER_CANCELLED',
           ].includes(error.code)
         )
           throw new CommandError(error.code, error.message)

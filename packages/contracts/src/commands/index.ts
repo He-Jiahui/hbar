@@ -255,10 +255,14 @@ export { sessionLaunchTargetCommands } from './session-launch-target'
 export type {
   SessionLaunchSelection,
   SessionLaunchTarget,
+  SessionLaunchTargetResolution,
   SessionLaunchTargetGetInput,
   SessionLaunchTargetSetInput,
   SessionLaunchTargetSetReceipt,
   SessionLaunchTargetReceiptInput,
+  SessionLaunchTargetPrepareInput,
+  SessionLaunchTargetReconcileInput,
+  SessionLaunchTargetCancelInput,
 } from './session-launch-target'
 export { workflowCommands } from './workflows'
 export const applicationCommands = {

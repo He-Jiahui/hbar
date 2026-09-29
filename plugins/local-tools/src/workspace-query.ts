@@ -190,6 +190,7 @@ function queryError(error: unknown): HbarError {
 }
 
 type ResolveWorkspacePath = (workspace: string, path: string) => Promise<string>
+type ResolveBlockedPaths = (canonicalWorkspace: string) => Promise<string[]>
 
 export interface NativeWorkspaceQueryAdapter {
   search(request: NativeSearchRequest, cancelId: string): Promise<NativeSearchResponse>
@@ -218,9 +219,10 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
   readonly #reads = new Map<string, SharedQuery<WorkspaceReadResult>>()
 
   constructor(
-    private readonly blocked: string[],
+    blocked: string[],
     private readonly resolvePath: ResolveWorkspacePath,
     options: WorkspaceQueryRuntimeOptions = {},
+    private readonly resolveBlockedPaths: ResolveBlockedPaths = async () => blocked,
   ) {
     this.#native = options.native ?? new NativeWorkspaceQuery(options.maxCacheBytes ?? 64 * 1024 * 1024)
     this.#queue = new BoundedQueryQueue(
@@ -236,14 +238,14 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
     signal: AbortSignal,
   ): Promise<WorkspaceSearchResult> {
     const { root, path } = await this.#scope(workspace, input.path)
-    const request = { ...input, workspace: root, path, blocked: this.blocked }
+    const request = { ...input, workspace: root, path, blocked: await this.resolveBlockedPaths(root) }
     const key = JSON.stringify(request)
     return this.#shared(this.#searches, key, signal, (id) => this.#native.search(request, id))
   }
 
   async find(workspace: string, input: ParsedWorkspaceFindInput, signal: AbortSignal): Promise<WorkspaceFindResult> {
     const { root, path } = await this.#scope(workspace, input.path)
-    const request = { ...input, workspace: root, path, blocked: this.blocked }
+    const request = { ...input, workspace: root, path, blocked: await this.resolveBlockedPaths(root) }
     const key = JSON.stringify(request)
     return this.#shared(this.#finds, key, signal, (id) => this.#native.find(request, id))
   }
@@ -259,7 +261,7 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
     const request = {
       workspace: scope.root,
       path: scope.path,
-      blocked: this.blocked,
+      blocked: await this.resolveBlockedPaths(scope.root),
       startLine,
       lineCount,
     }

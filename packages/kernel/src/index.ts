@@ -28,6 +28,7 @@ import type {
   RunFailure,
   SessionEvent,
   SessionSnapshot,
+  Workspace,
   UserInputRequest,
   UserInputResponse,
   UserInput,
@@ -47,7 +48,7 @@ import type {
   UserInputService,
 } from '@hbar/plugin-sdk'
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
-import type { PathLayout, StoragePort } from '@hbar/storage'
+import type { PathLayout, SessionLaunchTargetMutationInput, StoragePort } from '@hbar/storage'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
 import type { QueuedRunEditTextInput, QueuedRunRemoveInput, RunCommandRecord } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
@@ -76,6 +77,8 @@ export { createConfigurationCommands, HBAR_PROVIDER_EDITOR_DESCRIPTION } from '.
 export { createGitCommands } from './git-commands'
 export { createWorkspaceSessionCommands } from './workspace-session-commands'
 export { createSessionLaunchTargetCommands } from './session-launch-target-commands'
+export { SessionLaunchTargetService } from './session-launch-target-service'
+import { SessionLaunchTargetService } from './session-launch-target-service'
 export { createSettingsCommands } from './settings-commands'
 export { createUsageCommands } from './usage-commands'
 export { createWorkflowCommands } from './workflow-commands'
@@ -214,6 +217,7 @@ type ApprovalResolution =
 export class Kernel {
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
+  readonly sessionLaunchTargets: SessionLaunchTargetService
   readonly tools = new Tools()
   readonly hooks = new Hooks()
   readonly schemaCallbacks = createSchemaCallbackRegistry()
@@ -238,6 +242,7 @@ export class Kernel {
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private readonly permissionSettings: SettingsService
   private admissions = 0
+  private readonly sessionLaunchTargetLocks = new Map<string, Promise<void>>()
   private closing = false
   private readyForRuns = false
   recovered = 0
@@ -246,6 +251,7 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.sessionLaunchTargets = new SessionLaunchTargetService(this.storage, options.layout)
     this.permissionSettings = new SettingsService(this.storage)
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
@@ -457,7 +463,13 @@ export class Kernel {
       }),
     )
     this.plugins.add(piPlugin)
-    this.plugins.add(localExecutionPlugin([this.options.layout.dataRoot]))
+    this.plugins.add(
+      localExecutionPlugin([this.options.layout.dataRoot], {
+        root: this.options.layout.worktrees,
+        protectedRoot: this.options.layout.dataRoot,
+        verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
+      }),
+    )
     this.plugins.add(
       definePlugin({
         manifest: {
@@ -685,7 +697,48 @@ export class Kernel {
       .map(({ request }) => request)
     return snapshot
   }
-  async submit(sessionId: string, requestId: string, input: UserInput, modelId: string, command?: RunCommandRecord) {
+  private async withSessionLaunchTargetLock<Value>(sessionId: string, action: () => Promise<Value>): Promise<Value> {
+    const previous = this.sessionLaunchTargetLocks.get(sessionId) ?? Promise.resolve()
+    let release!: () => void
+    const current = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    this.sessionLaunchTargetLocks.set(sessionId, current)
+    await previous
+    try {
+      return await action()
+    } finally {
+      release()
+      if (this.sessionLaunchTargetLocks.get(sessionId) === current) this.sessionLaunchTargetLocks.delete(sessionId)
+    }
+  }
+  async getSessionLaunchTarget(sessionId: string) {
+    return this.sessionLaunchTargets.get(sessionId)
+  }
+  async setSessionLaunchTarget(input: SessionLaunchTargetMutationInput) {
+    return this.withSessionLaunchTargetLock(input.sessionId, () => this.sessionLaunchTargets.set(input))
+  }
+  async prepareSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
+    return this.withSessionLaunchTargetLock(sessionId, () =>
+      this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+    )
+  }
+  async reconcileSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
+    return this.withSessionLaunchTargetLock(sessionId, () =>
+      this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+    )
+  }
+  async cancelSessionLaunchTarget(sessionId: string, revision: number) {
+    return this.sessionLaunchTargets.cancel(sessionId, revision)
+  }
+  async submit(
+    sessionId: string,
+    requestId: string,
+    input: UserInput,
+    modelId: string,
+    command?: RunCommandRecord,
+    signal?: AbortSignal,
+  ) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
@@ -715,7 +768,11 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
-      const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId, command)
+      const run = await this.withSessionLaunchTargetLock(sessionId, async () => {
+        const binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal)
+        signal?.throwIfAborted()
+        return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+      })
       if (run.status === 'queued') {
         if (run.queuedEvent) {
           // Only a newly accepted turn clears unresolved interactive requests.
@@ -830,6 +887,10 @@ export class Kernel {
         })
         const session = await this.storage.call('session', sessionId)
         const workspace = await this.storage.call('workspace', session.workspaceId)
+        const workspaceForRun: Workspace = {
+          ...workspace,
+          path: await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal),
+        }
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
         const apiKey = model.protocol === 'mock' ? null : await this.secrets.get(model.id)
         const content: ContentBlock[] = [
@@ -857,9 +918,9 @@ export class Kernel {
         const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
         const input: DriverInput = {
           session,
-          workspace,
+          workspace: workspaceForRun,
           run,
-          request: await this.buildRequest(sessionId, model, scope.hooks, run),
+          request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun),
           apiKey,
           signal: controller.signal,
           tools: selectedTools.tools,
@@ -913,7 +974,13 @@ export class Kernel {
             const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
             const effectiveRun =
               effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
-            const context: ToolContext = { session, workspace, run: effectiveRun, signal: controller.signal, callId }
+            const context: ToolContext = {
+              session,
+              workspace: workspaceForRun,
+              run: effectiveRun,
+              signal: controller.signal,
+              callId,
+            }
             const sequence = createToolSequenceExecutor(
               context,
               selectedTools.tools,
@@ -929,10 +996,10 @@ export class Kernel {
           },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
-            let request = await this.buildRequest(sessionId, model, scope.hooks, run)
+            let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun)
             if (this.plugins.get<CompactionProvider>('compaction').shouldCompact(request)) {
-              await this.compactInternal(sessionId, model, controller.signal, run.id)
-              request = await this.buildRequest(sessionId, model, scope.hooks, run)
+              await this.compactInternal(sessionId, model, controller.signal, run.id, workspaceForRun)
+              request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun)
             }
             request = await scope.hooks.dispatch('model.request', request)
             const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
@@ -1015,10 +1082,11 @@ export class Kernel {
     model: ProviderConfig,
     hooks = this.hooks,
     run?: Run,
+    workspaceOverride?: Workspace,
   ): Promise<ModelRequest> {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
-    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
     return hooks.dispatch('context.build', {
       system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages: context.messages,
@@ -1452,8 +1520,8 @@ export class Kernel {
       this.maintenance = false
     }
   }
-  private async compactInternal(sessionId: string, model: ProviderConfig, signal: AbortSignal, runId?: string) {
-    const request = await this.buildRequest(sessionId, model)
+  private async compactInternal(sessionId: string, model: ProviderConfig, signal: AbortSignal, runId?: string, workspaceOverride?: Workspace) {
+    const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     let boundary = -1
     for (let i = 1; i <= request.messages.length - retain; i++) if (request.messages[i]?.role === 'user') boundary = i
@@ -1610,6 +1678,7 @@ export class Kernel {
     this.directoryQueries.dispose()
     for (const active of this.active.values())
       active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
+    await this.sessionLaunchTargets.close()
     await this.waitForIdle()
     for (const pending of this.userInputs.values())
       await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))

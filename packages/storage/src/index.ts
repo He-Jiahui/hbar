@@ -16,6 +16,12 @@ export type {
   WorkspaceDisplayNamesMutationInput,
   SessionLaunchTargetMutationInput,
   SessionLaunchTargetReceiptLookup,
+  SessionLaunchTargetPreparationInput,
+  SessionLaunchTargetPreparationUpdate,
+  SessionLaunchTargetBindingInput,
+  SessionLaunchTargetBinding,
+  SessionLaunchTargetResolutionRecord,
+  SessionLaunchTargetRuntimeSnapshot,
 } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'

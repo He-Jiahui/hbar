@@ -52,7 +52,11 @@ import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
-import { createSessionLaunchTargetStorage, SESSION_LAUNCH_TARGET_SQL } from './session-launch-target.ts'
+import {
+  createSessionLaunchTargetStorage,
+  SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
+  SESSION_LAUNCH_TARGET_SQL,
+} from './session-launch-target.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -63,7 +67,7 @@ const db = new Database(options.path, { create: true, strict: true })
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 10) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > 11) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -134,7 +138,8 @@ if (schemaVersion < 7)
   db.transaction(() => {
     // Another Worker may already have completed this migration while this one waited for the write lock.
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 7 && current !== 8 && current !== 9) {
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current < 7 || current > 11) {
       if (current !== 6) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
       db.exec(WORKSPACE_ORGANIZATION_SQL)
       db.exec('PRAGMA user_version=7;')
@@ -144,30 +149,62 @@ if (schemaVersion < 7)
 if (schemaVersion < 8)
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 8 && current !== 9) {
-      if (current !== 7) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 7) {
       db.exec(WORKSPACE_DISPLAY_NAMES_SQL)
       db.exec('PRAGMA user_version=8;')
+    } else if (current < 8 || current > 11) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
 
 if (schemaVersion < 9)
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 9) {
-      if (current !== 8) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 8) {
       db.exec(SESSION_SEARCH_SQL)
       db.exec('PRAGMA user_version=9;')
+    } else if (current < 9 || current > 11) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
 
 if (schemaVersion < 10)
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 10) {
-      if (current !== 9) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 9) {
       db.exec(SESSION_LAUNCH_TARGET_SQL)
       db.exec('PRAGMA user_version=10;')
+    } else if (current !== 10 && current !== 11) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 11)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 10) {
+      db.exec(SESSION_LAUNCH_TARGET_RESOLUTION_SQL)
+      // Before cwd routing shipped, every accepted Run used the shared checkout. Freeze legacy history there.
+      db.exec(`
+        UPDATE session_launch_targets
+        SET revision=revision+1,selectionJson='{"mode":"shared-current"}',updatedAt=CAST(unixepoch('subsec')*1000 AS INTEGER)
+        WHERE sessionId IN (SELECT DISTINCT sessionId FROM runs)
+          AND json_extract(selectionJson,'$.mode')<>'shared-current';
+        INSERT OR IGNORE INTO session_launch_target_bindings
+          (sessionId,revision,selectionJson,targetPath,branch,head,boundRunId,boundAt)
+        SELECT s.id,COALESCE(t.revision,0),COALESCE(t.selectionJson,'{"mode":"shared-current"}'),w.path,NULL,NULL,
+          (SELECT r.id FROM runs r WHERE r.sessionId=s.id ORDER BY r.createdAt,r.rowid LIMIT 1),
+          (SELECT r.createdAt FROM runs r WHERE r.sessionId=s.id ORDER BY r.createdAt,r.rowid LIMIT 1)
+        FROM sessions s JOIN workspaces w ON w.id=s.workspaceId LEFT JOIN session_launch_targets t ON t.sessionId=s.id
+        WHERE EXISTS(SELECT 1 FROM runs r WHERE r.sessionId=s.id);
+        PRAGMA user_version=11;
+      `)
+    } else if (current !== 11) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
 
@@ -474,7 +511,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 10 }),
+  ready: () => ({ version: 11 }),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,
@@ -593,8 +630,12 @@ const methods: StorageMethods = {
   },
   session: (id) => sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null),
   sessionLaunchTarget: sessionLaunchTarget.read,
+  sessionLaunchTargetRuntime: sessionLaunchTarget.runtime,
+  sessionLaunchTargetBindingForPath: sessionLaunchTarget.bindingForPath,
   setSessionLaunchTarget: sessionLaunchTarget.set,
   sessionLaunchTargetReceipt: sessionLaunchTarget.receipt,
+  beginSessionLaunchTargetPreparation: sessionLaunchTarget.beginPreparation,
+  updateSessionLaunchTargetPreparation: sessionLaunchTarget.updatePreparation,
   updateSession(id, update) {
     return db.transaction(() => {
       const prior = methods.session(id)
@@ -1107,13 +1148,14 @@ const methods: StorageMethods = {
       return { sessionId: parsed.sessionId, items: parsed.messageIds.map((id) => unique.get(id)!) }
     })()
   },
-  enqueue: (sessionId, requestId, input, modelId, command) =>
+  enqueue: (sessionId, requestId, input, modelId, command, launchTarget) =>
     db.transaction(() => {
       const existing = db
         .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
         .get(sessionId, requestId) as Row | null
       if (existing) {
         const prior = runRow(existing)
+        if (launchTarget) sessionLaunchTarget.validateReplayBinding(sessionId, launchTarget)
         const queued = db
           .query<{ data: string }, [string]>("SELECT data FROM events WHERE runId=? AND type='run.queued' LIMIT 1")
           .get(prior.id)
@@ -1123,7 +1165,8 @@ const methods: StorageMethods = {
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
         return prior
       }
-      if (methods.session(sessionId).archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
+      const owner = methods.session(sessionId)
+      if (owner.archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
       const run: Run = {
         id: crypto.randomUUID(),
         sessionId,
@@ -1136,6 +1179,7 @@ const methods: StorageMethods = {
         endedAt: null,
         error: null,
       }
+      sessionLaunchTarget.bindToRun(sessionId, run.id, methods.workspace(owner.workspaceId).path, launchTarget)
       db.query(
         'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
       ).run(run.id, sessionId, requestId, JSON.stringify(input), modelId, 'queued', run.createdAt, null, null, null)

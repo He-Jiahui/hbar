@@ -130,7 +130,7 @@ test('old version-8 projection backfills incrementally and never reports false e
   db.close()
   const reopened = new Storage(database)
   stores.push(reopened)
-  expect((await reopened.call('ready')).version).toBe(10)
+  expect((await reopened.call('ready')).version).toBe(11)
   expect((await reopened.call('searchIndexStep')).complete).toBe(false)
   await finishIndex(reopened)
   expect((await reopened.call('searchSessions', { query: 'legacy-match-19' })).items[0]?.sessionId).toBe(session.id)

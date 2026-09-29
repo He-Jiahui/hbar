@@ -138,7 +138,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   })
   const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'))
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
-  const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel.storage, () =>
+  const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),
   )
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
