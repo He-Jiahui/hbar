@@ -44,6 +44,7 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'agent.create',
     'agent.list',
     'agent.patch.apply',
+    'agent.profiles.list',
     'agent.result.get',
     'goal.clear',
     'goal.create',
