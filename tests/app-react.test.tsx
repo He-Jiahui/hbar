@@ -48,6 +48,7 @@ const labels: HbarWorkspaceShellLabels = {
   settingsShortcut: 'Ctrl ,',
   searchChats: '搜索全部聊天记录中的内容',
   searchShortcut: 'Ctrl K',
+  archiveBatch: getShellCopy('zh-CN').shell.archiveBatch,
   roster: {
     refreshExpanded: '刷新所有展开工程的会话',
     refreshWorkspace: (name) => `刷新 ${name} 的会话`,
@@ -95,6 +96,7 @@ const labels: HbarWorkspaceShellLabels = {
   sessionUpdatedAt: (timestamp) => `更新于 ${timestamp}`,
   sessionUpdatedAtFull: (timestamp) => `完整更新时间 ${timestamp}`,
   sessionActions: (name) => `${name} 的操作`,
+  selectSession: (name) => `选择会话 ${name} 进行批量归档`,
   renameSession: '重命名会话',
   renameEditor: {
     form: (title) => `重命名原会话 ${title}`,

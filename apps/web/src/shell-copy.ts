@@ -20,6 +20,7 @@ import type {
   HbarStatusWorkspaceLabels,
   HbarSystemDiagnosticsLabels,
   HbarWorkspaceShellLabels,
+  SessionArchiveBatchLabels,
 } from '@hbar/app-react'
 import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
@@ -2806,6 +2807,67 @@ function createArchiveLabels(locale: ShellLocale): HbarWorkspaceShellLabels['arc
   }
 }
 
+function createArchiveBatchLabels(locale: ShellLocale): SessionArchiveBatchLabels {
+  const zh = locale === 'zh-CN'
+  return {
+    enter: zh ? '批量管理会话' : 'Select sessions to archive',
+    selectionTitle: zh ? '批量归档会话' : 'Archive selected sessions',
+    selectedCount: (count, maximum) =>
+      zh ? `已选择 ${count} 项（每批最多 ${maximum} 项）` : `${count} selected (maximum ${maximum} per batch)`,
+    maximumReached: (maximum) =>
+      zh
+        ? `一次最多选择 ${maximum} 个已加载会话。取消其他选择后再试。`
+        : `Select up to ${maximum} loaded sessions per batch. Deselect one before adding another.`,
+    maximumHint: (maximum) =>
+      zh
+        ? `仅处理当前已加载的会话，不会自动加载更多；每批最多 ${maximum} 项。`
+        : `Only currently loaded sessions are included; more are not loaded automatically. Maximum ${maximum} per batch.`,
+    clearSelection: zh ? '清除选择' : 'Clear selection',
+    exitSelection: zh ? '退出选择' : 'Exit selection',
+    archiveSelected: zh ? '预览并确认归档' : 'Review archive',
+    previewTitle: (count) => (zh ? `确认归档 ${count} 个会话` : `Confirm archive of ${count} sessions`),
+    pending: zh ? '待确认' : 'Pending confirmation',
+    cancel: zh ? '取消' : 'Cancel',
+    confirm: zh ? '立即归档' : 'Archive now',
+    project: (name) => (zh ? `项目：${name}` : `Project: ${name}`),
+    archiving: (completed, total) =>
+      zh ? `正在处理 ${completed}/${total} 项…` : `Processing ${completed} of ${total}…`,
+    processing: zh ? '正在归档…' : 'Archiving…',
+    checking: zh ? '正在只读核对原会话…' : 'Checking the original session (read only)…',
+    reconcile: zh ? '只读核对' : 'Check without writing',
+    continue: zh ? '继续剩余会话' : 'Continue with remaining sessions',
+    archived: (title) => (zh ? `已归档“${title}”，历史已保留。` : `“${title}” was archived; its history is preserved.`),
+    failed: (title, code) => (zh ? `“${title}”未归档（${code}）。` : `“${title}” was not archived (${code}).`),
+    unknown: (title) =>
+      zh
+        ? `“${title}”的写入结果尚未确认；已停止后续操作。请只读核对，不要重复提交。`
+        : `The write result for “${title}” is unknown; later sessions are stopped. Reconcile read-only; do not resubmit.`,
+    succeeded: (count) =>
+      zh ? `已归档 ${count} 个会话，历史均已保留。` : `Archived ${count} sessions; all history is preserved.`,
+    partial: (failed, total) =>
+      zh
+        ? `已处理 ${total} 项，其中 ${failed} 项未能归档；请查看每项结果。`
+        : `Processed ${total} sessions; ${failed} could not be archived. Review each result.`,
+    dismiss: zh ? '完成' : 'Done',
+    error: (code) =>
+      code === 'STALE_TARGET'
+        ? zh
+          ? '一个或多个原会话已变化。请取消选择、刷新项目列表后重新选择。'
+          : 'One or more original sessions changed. Cancel the selection, refresh the project list, and select again.'
+        : code === 'INVALID_INPUT'
+          ? zh
+            ? '选择列表无效。请重新选择会话。'
+            : 'The selection is invalid. Select the sessions again.'
+          : code === 'BUSY'
+            ? zh
+              ? '另一个会话操作仍在进行。请先解决该操作。'
+              : 'Another session action is still in progress. Resolve it first.'
+            : zh
+              ? `批量归档失败：${code}`
+              : `Batch archive failed: ${code}`,
+  }
+}
+
 const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
   'zh-CN': {
     toolLayout: toolPaneLayoutCopy('zh-CN'),
@@ -2838,6 +2900,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       settingsShortcut: 'Ctrl ,',
       searchChats: '搜索聊天',
       searchShortcut: 'Ctrl K',
+      archiveBatch: createArchiveBatchLabels('zh-CN'),
       roster: {
         refreshExpanded: '刷新已展开项目的会话',
         refreshWorkspace: (name) => `刷新 ${name} 的会话`,
@@ -2890,6 +2953,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       sessionUpdatedAt: sessionTimeCopy('zh-CN').compact,
       sessionUpdatedAtFull: sessionTimeCopy('zh-CN').full,
       sessionActions: (name) => `会话“${name}”的操作`,
+      selectSession: (name) => `选择会话“${name}”进行批量归档`,
       renameSession: '重命名',
       renameEditor: {
         form: (title) => `重命名会话“${title}”`,
@@ -2981,6 +3045,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       settingsShortcut: 'Ctrl ,',
       searchChats: 'Search chats',
       searchShortcut: 'Ctrl K',
+      archiveBatch: createArchiveBatchLabels('en-US'),
       roster: {
         refreshExpanded: 'Refresh sessions in expanded projects',
         refreshWorkspace: (name) => `Refresh sessions in ${name}`,
@@ -3033,6 +3098,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       sessionUpdatedAt: sessionTimeCopy('en-US').compact,
       sessionUpdatedAtFull: sessionTimeCopy('en-US').full,
       sessionActions: (name) => `Actions for ${name}`,
+      selectSession: (name) => `Select session “${name}” for batch archive`,
       renameSession: 'Rename',
       renameEditor: {
         form: (title) => `Rename session “${title}”`,

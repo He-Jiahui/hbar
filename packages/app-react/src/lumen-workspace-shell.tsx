@@ -7,6 +7,7 @@ import {
   Command,
   Folder,
   FolderOpen,
+  ListChecks,
   Menu,
   PanelLeftClose,
   Pin,
@@ -34,7 +35,7 @@ import {
   type LumenToolPresentation,
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
-import { sortPinnedWorkspaces, workspaceDisplayName } from '@hbar/app-runtime'
+import { SESSION_ARCHIVE_BATCH_MAX_ITEMS, sortPinnedWorkspaces, workspaceDisplayName } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionStopNotice, HbarSessionStopProvider, type SessionStopLabels } from './session-stop'
 import {
@@ -58,7 +59,13 @@ import {
 } from './workspace-display-names'
 import { useWorkspaceDisplayNameFocus } from './workspace-display-name-focus'
 import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
-import { ArchivedSessions, SessionArchiveRecovery, type SessionArchiveLabels } from './session-archive'
+import {
+  ArchivedSessions,
+  SessionArchiveBatchPanel,
+  SessionArchiveRecovery,
+  type SessionArchiveBatchLabels,
+  type SessionArchiveLabels,
+} from './session-archive'
 import { useSessionRosterRefresh } from './session-roster-refresh'
 import { SessionRosterFeedback, type SessionRosterRefreshLabels } from './session-roster-feedback'
 import {
@@ -96,6 +103,7 @@ export interface HbarWorkspaceShellLabels {
   readonly settingsShortcut: string
   readonly searchChats: string
   readonly searchShortcut: string
+  readonly archiveBatch: SessionArchiveBatchLabels
   readonly roster: SessionRosterRefreshLabels
   readonly openWorkspace: string
   readonly status: string
@@ -133,6 +141,7 @@ export interface HbarWorkspaceShellLabels {
   readonly sessionUpdatedAt: (timestamp: number, now?: number) => string
   readonly sessionUpdatedAtFull: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
+  readonly selectSession: (name: string) => string
   readonly renameSession: string
   readonly renameEditor: SessionRenameLabels
   readonly archiveSession: string
@@ -192,6 +201,7 @@ const workspaceShellIcons = {
   plus: Plus,
   refresh: RefreshCw,
   search: Search,
+  'list-checks': ListChecks,
   settings: Settings,
   'new-session': SquarePen,
 } satisfies Readonly<Record<string, LucideIcon>>
@@ -291,6 +301,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   )
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const rosterRefresh = useHbarRuntimeState(runtime.state.sessionRosterRefresh)
+  const sessionArchive = useHbarRuntimeState(runtime.state.sessionArchive)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const workspaceTabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const mainRef = useRef<HTMLElement | null>(null)
@@ -417,6 +428,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [projectPicker, setProjectPicker] = useState<'create-session' | 'open-workspace' | null>(null)
   const [workspacePath, setWorkspacePath] = useState('')
   const [sessionTimeNow, setSessionTimeNow] = useState(Date.now)
+  const [batchSelecting, setBatchSelecting] = useState(false)
+  const [batchSelection, setBatchSelection] = useState<
+    ReadonlyMap<string, { readonly workspaceId: string; readonly sessionId: string }>
+  >(new Map())
+  const batchSelectionRef = useRef(batchSelection)
+  const [batchLimitReached, setBatchLimitReached] = useState(false)
+  const batchToolbarRef = useRef<HTMLButtonElement | null>(null)
   const projectPickerTrigger = useRef<HTMLElement | null>(null)
   const restoreProjectPickerFocus = useRef(false)
   const navigationActions = useRef<ReturnType<typeof createWorkspaceNavigationActions> | null>(null)
@@ -523,9 +541,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       )
       if (!shortcut) return
       event.preventDefault()
-      void (shortcut === 'settings'
-        ? execute('app.openSettings', { scope: 'global' })
-        : execute('app.openPanel', { panelId: shortcut }))
+      void (
+        shortcut === 'settings'
+          ? execute('app.openSettings', { scope: 'global' })
+          : execute('app.openPanel', { panelId: shortcut })
+      )
         .then(() => {
           if (window.matchMedia('(max-width: 63.9375rem)').matches)
             return execute('app.setSidebarVisible', { visible: false })
@@ -624,6 +644,38 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     for (const items of result.values()) items.sort((left, right) => right.updatedAt - left.updatedAt)
     return result
   }, [directory])
+
+  const batchSelectedTargets = Array.from(batchSelection.values())
+  const clearBatchSelection = () => {
+    const next = new Map<string, { readonly workspaceId: string; readonly sessionId: string }>()
+    batchSelectionRef.current = next
+    setBatchSelection(next)
+    setBatchLimitReached(false)
+  }
+  const exitBatchSelection = () => {
+    setBatchSelecting(false)
+    clearBatchSelection()
+  }
+  const toggleBatchSession = (workspaceId: string, sessionId: string) => {
+    const key = `${workspaceId}\u0000${sessionId}`
+    const current = batchSelectionRef.current
+    if (current.has(key)) {
+      const next = new Map(current)
+      next.delete(key)
+      batchSelectionRef.current = next
+      setBatchSelection(next)
+      setBatchLimitReached(false)
+      return
+    }
+    if (current.size >= SESSION_ARCHIVE_BATCH_MAX_ITEMS) {
+      setBatchLimitReached(true)
+      return
+    }
+    const next = new Map(current).set(key, { workspaceId, sessionId })
+    batchSelectionRef.current = next
+    setBatchSelection(next)
+    setBatchLimitReached(false)
+  }
 
   const setSidebarVisible = (visible: boolean) => void execute('app.setSidebarVisible', { visible }).catch(recordError)
   const closeNarrowSidebar = useCallback(async () => {
@@ -985,6 +1037,22 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   onClick={() => openPanel('chat-search')}
                 />
                 <LumenIconButton
+                  ref={batchToolbarRef}
+                  className="hbar-app-react-session-batch-mode"
+                  label={props.labels.archiveBatch.enter}
+                  aria-pressed={batchSelecting}
+                  disabled={
+                    sessionArchive.batch.status !== 'idle' ||
+                    !['idle', 'succeeded'].includes(sessionArchive.mutation.status)
+                  }
+                  onClick={() => {
+                    if (batchSelecting) exitBatchSelection()
+                    else setBatchSelecting(true)
+                  }}
+                >
+                  <WorkspaceShellIcon name="list-checks" tier="md" />
+                </LumenIconButton>
+                <LumenIconButton
                   className="hbar-app-react-roster-refresh"
                   label={props.labels.roster.refreshExpanded}
                   loading={rosterBusy}
@@ -994,6 +1062,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   <WorkspaceShellIcon name="refresh" />
                 </LumenIconButton>
               </LumenFrame>
+              <SessionArchiveBatchPanel
+                labels={props.labels.archiveBatch}
+                connected={connected}
+                selecting={batchSelecting}
+                selectedTargets={batchSelectedTargets}
+                toolbarRef={batchToolbarRef}
+                onClearSelection={clearBatchSelection}
+                onExitSelection={exitBatchSelection}
+                onBatchStarted={() => {
+                  setBatchSelecting(false)
+                }}
+                onBatchCancelled={() => setBatchSelecting(true)}
+                onBatchDismissed={exitBatchSelection}
+              />
+              {batchLimitReached && batchSelecting && (
+                <LumenText as="p" role="status" className="hbar-app-react-sidebar-action-error">
+                  {props.labels.archiveBatch.maximumReached(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
+                </LumenText>
+              )}
               <WorkspaceSidebarAction
                 icon="command"
                 label={props.labels.commands}
@@ -1275,6 +1362,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             connected={props.connection === 'connected'}
                             labels={props.labels}
                             now={sessionTimeNow}
+                            batchSelecting={batchSelecting}
+                            batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
+                            onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
+                            onExitBatchSelection={() => {
+                              exitBatchSelection()
+                              batchToolbarRef.current?.focus()
+                            }}
                             selected={
                               presentation.page.kind === 'session' &&
                               navigation.workspaceId === session.workspaceId &&

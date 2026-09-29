@@ -44,6 +44,8 @@ export {
   type HbarWorkspaceShellLabels,
   type HbarWorkspaceShellProps,
 } from './lumen-workspace-shell'
+export { SessionArchiveBatchPanel } from './session-archive'
+export type { SessionArchiveBatchLabels } from './session-archive'
 export {
   HbarSessionWorkspace,
   type HbarSessionAttachmentSelection,

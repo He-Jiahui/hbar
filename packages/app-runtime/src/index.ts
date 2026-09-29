@@ -281,9 +281,13 @@ export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 export type {
   SessionArchiveState,
   SessionArchiveMutation,
+  SessionArchiveBatchState,
+  SessionArchiveBatchItem,
+  SessionArchiveBatchTarget,
   ArchivedSessionsPage,
   SessionArchiveOptions,
 } from './session-archive'
+export { ARCHIVED_SESSIONS_PAGE_SIZE, SESSION_ARCHIVE_BATCH_MAX_ITEMS } from './session-archive'
 export type {
   ComposerPermissionState,
   ComposerPermissionEntry,

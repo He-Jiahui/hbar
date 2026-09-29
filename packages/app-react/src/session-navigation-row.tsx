@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { Check, Circle, MessageSquare } from 'lucide-react'
 import type { DirectoryState } from '@hbar/app-runtime'
 import {
   LumenActionMenu,
@@ -31,6 +31,7 @@ export interface SessionNavigationRowLabels {
   readonly sessionUpdatedAt: (timestamp: number, now?: number) => string
   readonly sessionUpdatedAtFull: (timestamp: number) => string
   readonly sessionActions: (name: string) => string
+  readonly selectSession: (name: string) => string
   readonly renameSession: string
   readonly archiveSession: string
   readonly archive: SessionArchiveLabels
@@ -95,6 +96,10 @@ export function SessionNavigationRow({
   labels,
   now,
   onOpen,
+  batchSelecting = false,
+  batchSelected = false,
+  onToggleBatchSelection,
+  onExitBatchSelection,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
@@ -102,16 +107,20 @@ export function SessionNavigationRow({
   readonly labels: SessionNavigationRowLabels
   readonly now: number
   readonly onOpen: () => void
+  readonly batchSelecting?: boolean
+  readonly batchSelected?: boolean
+  readonly onToggleBatchSelection?: () => void
+  readonly onExitBatchSelection?: () => void
 }) {
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
-  const { mutation: archive } = useHbarRuntimeState(runtime.state.sessionArchive)
+  const { mutation: archive, batch: archiveBatch } = useHbarRuntimeState(runtime.state.sessionArchive)
   const archiving =
     archive.target?.sessionId === session.id &&
     archive.target.archived &&
     archive.status !== 'idle' &&
     archive.status !== 'succeeded'
-  const archiveLocked = archive.status !== 'idle' && archive.status !== 'succeeded'
+  const archiveLocked = (archive.status !== 'idle' && archive.status !== 'succeeded') || archiveBatch.status !== 'idle'
   const own = rename.target?.sessionId === session.id && rename.target.workspaceId === session.workspaceId
   const editing = own && rename.status !== 'idle' && rename.status !== 'succeeded'
   const busy = rename.status === 'submitting' || rename.status === 'reconciling'
@@ -150,8 +159,16 @@ export function SessionNavigationRow({
       ref={row}
       className="hbar-app-react-session-row"
       data-selected={selected}
+      data-batch-selected={batchSelected || undefined}
       data-session-id={session.id}
       data-editing={editing || undefined}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && batchSelecting && onExitBatchSelection) {
+          event.preventDefault()
+          event.stopPropagation()
+          onExitBatchSelection()
+        }
+      }}
     >
       {archiving ? (
         <SessionArchiveFeedback labels={labels.archive} connected={connected} focusCancel />
@@ -236,13 +253,14 @@ export function SessionNavigationRow({
             className="hbar-app-react-session-target"
             size="s"
             variant="text"
-            selected={selected}
+            selected={batchSelecting ? batchSelected : selected}
             indicatorEdge="left"
-            aria-label={labels.openSession(session.title)}
+            aria-label={batchSelecting ? labels.selectSession(session.title) : labels.openSession(session.title)}
+            aria-pressed={batchSelecting ? batchSelected : undefined}
             title={session.title}
-            onClick={onOpen}
+            onClick={batchSelecting && onToggleBatchSelection ? onToggleBatchSelection : onOpen}
           >
-            <LumenIcon icon={MessageSquare} tier="sm" />
+            <LumenIcon icon={batchSelecting ? (batchSelected ? Check : Circle) : MessageSquare} tier="sm" />
             <LumenText as="span" className="hbar-app-react-session-label">
               <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
                 {session.title}
@@ -268,32 +286,34 @@ export function SessionNavigationRow({
               )}
             </LumenText>
           </LumenNavigationButton>
-          <LumenActionMenu
-            label={labels.sessionActions(session.title)}
-            items={[
-              {
-                id: 'rename',
-                label: labels.renameSession,
-                disabled: !['idle', 'succeeded'].includes(rename.status) || archiveLocked,
-              },
-              {
-                id: 'archive',
-                label: labels.archiveSession,
-                disabled: !connected || archiveLocked || !['idle', 'succeeded'].includes(rename.status),
-                tone: 'danger',
-              },
-            ]}
-            onAction={(action) => {
-              if (action === 'rename') {
-                void runtime.commands
-                  .execute('sessionRename.begin', { workspaceId: session.workspaceId, sessionId: session.id })
-                  .catch(() => {})
-              } else
-                void runtime.commands
-                  .execute('sessionArchive.begin', { workspaceId: session.workspaceId, sessionId: session.id })
-                  .catch(() => {})
-            }}
-          />
+          {!batchSelecting && (
+            <LumenActionMenu
+              label={labels.sessionActions(session.title)}
+              items={[
+                {
+                  id: 'rename',
+                  label: labels.renameSession,
+                  disabled: !['idle', 'succeeded'].includes(rename.status) || archiveLocked,
+                },
+                {
+                  id: 'archive',
+                  label: labels.archiveSession,
+                  disabled: !connected || archiveLocked || !['idle', 'succeeded'].includes(rename.status),
+                  tone: 'danger',
+                },
+              ]}
+              onAction={(action) => {
+                if (action === 'rename') {
+                  void runtime.commands
+                    .execute('sessionRename.begin', { workspaceId: session.workspaceId, sessionId: session.id })
+                    .catch(() => {})
+                } else
+                  void runtime.commands
+                    .execute('sessionArchive.begin', { workspaceId: session.workspaceId, sessionId: session.id })
+                    .catch(() => {})
+              }}
+            />
+          )}
         </>
       )}
     </LumenFrame>

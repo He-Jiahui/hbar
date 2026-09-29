@@ -1,7 +1,275 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { SESSION_ARCHIVE_BATCH_MAX_ITEMS } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-archive.css'
+
+const commandErrorCode = (error: unknown) =>
+  error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : 'EXECUTION_FAILED'
+
+export interface SessionArchiveBatchLabels {
+  readonly enter: string
+  readonly selectionTitle: string
+  readonly selectedCount: (count: number, maximum: number) => string
+  readonly maximumReached: (maximum: number) => string
+  readonly maximumHint: (maximum: number) => string
+  readonly clearSelection: string
+  readonly exitSelection: string
+  readonly archiveSelected: string
+  readonly previewTitle: (count: number) => string
+  readonly pending: string
+  readonly cancel: string
+  readonly confirm: string
+  readonly project: (name: string) => string
+  readonly archiving: (completed: number, total: number) => string
+  readonly processing: string
+  readonly checking: string
+  readonly reconcile: string
+  readonly continue: string
+  readonly archived: (title: string) => string
+  readonly failed: (title: string, code: string) => string
+  readonly unknown: (title: string) => string
+  readonly succeeded: (count: number) => string
+  readonly partial: (failed: number, total: number) => string
+  readonly dismiss: string
+  readonly error: (code: string) => string
+}
+
+export function SessionArchiveBatchPanel({
+  labels,
+  connected,
+  selecting,
+  selectedTargets,
+  toolbarRef,
+  onClearSelection,
+  onExitSelection,
+  onBatchStarted,
+  onBatchCancelled,
+  onBatchDismissed,
+}: {
+  readonly labels: SessionArchiveBatchLabels
+  readonly connected: boolean
+  readonly selecting: boolean
+  readonly selectedTargets: readonly { readonly workspaceId: string; readonly sessionId: string }[]
+  readonly toolbarRef: RefObject<HTMLButtonElement | null>
+  readonly onClearSelection: () => void
+  readonly onExitSelection: () => void
+  readonly onBatchStarted: () => void
+  readonly onBatchCancelled: () => void
+  readonly onBatchDismissed: () => void
+}) {
+  const runtime = useHbarRuntime()
+  const { batch } = useHbarRuntimeState(runtime.state.sessionArchive)
+  const cancel = useRef<HTMLButtonElement>(null)
+  const reconcile = useRef<HTMLButtonElement>(null)
+  const continueBatch = useRef<HTMLButtonElement>(null)
+  const dismiss = useRef<HTMLButtonElement>(null)
+  const [commandError, setCommandError] = useState<string | null>(null)
+  const restoreToolbarFocus = useRef(false)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const failedCount = batch.items.filter((item) => item.status === 'failed').length
+  const completedCount = batch.items.filter((item) => item.status === 'archived' || item.status === 'failed').length
+
+  useEffect(() => {
+    if (batch.status === 'confirming') cancel.current?.focus()
+  }, [batch.revision, batch.status])
+  useEffect(() => {
+    if (document.activeElement !== document.body) return
+    if (batch.status === 'unknown') reconcile.current?.focus()
+    else if (batch.status === 'paused') continueBatch.current?.focus()
+    else if (batch.status === 'succeeded' || batch.status === 'partial') dismiss.current?.focus()
+  }, [batch.revision, batch.status])
+  useEffect(() => {
+    if (batch.status !== 'idle' || !restoreToolbarFocus.current) return
+    restoreToolbarFocus.current = false
+    toolbarRef.current?.focus()
+  }, [batch.status, batch.revision, toolbarRef])
+
+  const invoke = (operation: 'confirm' | 'cancel' | 'reconcile' | 'continue' | 'dismiss') => {
+    setCommandError(null)
+    if (operation === 'cancel' || operation === 'dismiss') restoreToolbarFocus.current = true
+    void runtime.commands
+      .execute(`sessionArchiveBatch.${operation}`, { revision: batch.revision })
+      .then(() => {
+        if (operation === 'cancel') onBatchCancelled()
+        if (operation === 'dismiss') {
+          onBatchDismissed()
+        }
+      })
+      .catch((error: unknown) => {
+        restoreToolbarFocus.current = false
+        setCommandError(commandErrorCode(error))
+      })
+  }
+
+  const start = () => {
+    setCommandError(null)
+    void runtime.commands
+      .execute('sessionArchiveBatch.begin', { targets: [...selectedTargets] })
+      .then(onBatchStarted)
+      .catch((error: unknown) => setCommandError(commandErrorCode(error)))
+  }
+
+  const escape = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape') return
+    if (batch.status === 'confirming') {
+      event.preventDefault()
+      event.stopPropagation()
+      invoke('cancel')
+    } else if (batch.status === 'idle' && selecting) {
+      event.preventDefault()
+      event.stopPropagation()
+      onExitSelection()
+      toolbarRef.current?.focus()
+    }
+  }
+
+  if (batch.status === 'idle' && !selecting) return null
+
+  const unknownTarget = batch.activeIndex === null ? null : (batch.items[batch.activeIndex]?.target ?? null)
+  const workspaceIds = new Set(batch.items.map((item) => item.target.workspaceId))
+  const singleWorkspaceId = workspaceIds.size === 1 ? batch.items[0]?.target.workspaceId : undefined
+  const singleWorkspaceName = singleWorkspaceId
+    ? (directory.workspaces[singleWorkspaceId]?.name ?? singleWorkspaceId)
+    : undefined
+  const reconciledTarget =
+    batch.activeIndex === null ? null : (batch.items[Math.max(0, batch.activeIndex - 1)]?.target ?? null)
+  const stateMessage =
+    batch.status === 'confirming'
+      ? null
+      : batch.status === 'submitting'
+        ? labels.archiving(completedCount, batch.items.length)
+        : batch.status === 'unknown'
+          ? labels.unknown(unknownTarget?.title ?? '')
+          : batch.status === 'reconciling'
+            ? labels.checking
+            : batch.status === 'paused'
+              ? labels.archived(reconciledTarget?.title ?? '')
+              : batch.status === 'succeeded'
+                ? labels.succeeded(batch.items.length)
+                : batch.status === 'partial'
+                  ? labels.partial(failedCount, batch.items.length)
+                  : null
+
+  return (
+    <LumenFrame
+      as="section"
+      className="hbar-app-react-session-archive-batch"
+      role="region"
+      aria-label={batch.status === 'idle' ? labels.selectionTitle : labels.previewTitle(batch.items.length)}
+      onKeyDown={escape}
+    >
+      {batch.status === 'idle' ? (
+        <>
+          <LumenText as="strong">{labels.selectionTitle}</LumenText>
+          <LumenText as="p" role="status">
+            {labels.selectedCount(selectedTargets.length, SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
+          </LumenText>
+          <LumenText as="small">{labels.maximumHint(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}</LumenText>
+          {commandError && (
+            <LumenText as="p" role="alert">
+              {labels.error(commandError)}
+            </LumenText>
+          )}
+          <LumenFrame className="hbar-app-react-session-archive-actions">
+            <LumenButton size="s" variant="text" disabled={selectedTargets.length === 0} onClick={onClearSelection}>
+              {labels.clearSelection}
+            </LumenButton>
+            <LumenButton size="s" variant="text" onClick={onExitSelection}>
+              {labels.exitSelection}
+            </LumenButton>
+            <LumenButton size="s" tone="danger" disabled={!connected || selectedTargets.length === 0} onClick={start}>
+              {labels.archiveSelected}
+            </LumenButton>
+          </LumenFrame>
+        </>
+      ) : (
+        <>
+          <LumenText as="strong">{labels.previewTitle(batch.items.length)}</LumenText>
+          {singleWorkspaceName && <LumenText as="small">{labels.project(singleWorkspaceName)}</LumenText>}
+          <ol className="hbar-app-react-session-archive-batch-list">
+            {batch.items.map((item) => {
+              const workspace = directory.workspaces[item.target.workspaceId]
+              return (
+                <li
+                  key={`${item.target.workspaceId}\u0000${item.target.sessionId}`}
+                  data-workspace-id={item.target.workspaceId}
+                  data-session-id={item.target.sessionId}
+                  data-result={item.status}
+                >
+                  <LumenText as="span" className="hbar-app-react-session-archive-batch-target">
+                    {workspaceIds.size === 1
+                      ? item.target.title
+                      : `${workspace?.name ?? item.target.workspaceId}: ${item.target.title}`}
+                  </LumenText>
+                  {item.status === 'pending' && batch.status === 'confirming' && (
+                    <LumenText as="small">{labels.pending}</LumenText>
+                  )}
+                  {item.status === 'submitting' && <LumenText as="small">{labels.processing}</LumenText>}
+                  {item.status === 'archived' && <LumenText as="small">{labels.archived(item.target.title)}</LumenText>}
+                  {item.status === 'failed' && (
+                    <LumenText as="small" role="alert">
+                      {labels.failed(item.target.title, item.error ?? 'UNKNOWN')}
+                    </LumenText>
+                  )}
+                  {item.status === 'unknown' && (
+                    <LumenText as="small" role="alert">
+                      {labels.unknown(item.target.title)}
+                    </LumenText>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+          {stateMessage && (
+            <LumenText as="p" role={batch.status === 'unknown' || batch.status === 'partial' ? 'alert' : 'status'}>
+              {stateMessage}
+            </LumenText>
+          )}
+          {commandError && (
+            <LumenText as="p" role="alert">
+              {labels.error(commandError)}
+            </LumenText>
+          )}
+          <LumenFrame className="hbar-app-react-session-archive-actions">
+            {batch.status === 'confirming' && (
+              <>
+                <LumenButton ref={cancel} size="s" variant="text" onClick={() => invoke('cancel')}>
+                  {labels.cancel}
+                </LumenButton>
+                <LumenButton size="s" tone="danger" disabled={!connected} onClick={() => invoke('confirm')}>
+                  {labels.confirm}
+                </LumenButton>
+              </>
+            )}
+            {(batch.status === 'unknown' || batch.status === 'reconciling') && (
+              <LumenButton
+                ref={reconcile}
+                size="s"
+                disabled={!connected || batch.status === 'reconciling'}
+                onClick={() => invoke('reconcile')}
+              >
+                {batch.status === 'reconciling' ? labels.checking : labels.reconcile}
+              </LumenButton>
+            )}
+            {batch.status === 'paused' && (
+              <LumenButton ref={continueBatch} size="s" disabled={!connected} onClick={() => invoke('continue')}>
+                {labels.continue}
+              </LumenButton>
+            )}
+            {(batch.status === 'succeeded' || batch.status === 'partial') && (
+              <LumenButton ref={dismiss} size="s" onClick={() => invoke('dismiss')}>
+                {labels.dismiss}
+              </LumenButton>
+            )}
+          </LumenFrame>
+        </>
+      )}
+    </LumenFrame>
+  )
+}
 
 export interface SessionArchiveLabels {
   readonly openList: (workspaceName: string) => string

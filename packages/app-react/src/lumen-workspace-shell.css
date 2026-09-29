@@ -88,6 +88,12 @@
   flex: 0 0 auto;
 }
 
+.hbar-app-react-session-batch-mode {
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+}
+
 .hbar-app-react-roster-feedback {
   display: flex;
   min-inline-size: 0;
