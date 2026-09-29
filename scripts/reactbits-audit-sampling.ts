@@ -693,6 +693,51 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         },
       ],
     }
+  if (variantId === 'hbar-app-ui-onboarding-2')
+    return {
+      revision: 1,
+      lumenEntries: [
+        'onboarding.tsx',
+        'onboarding-2-reference.tsx',
+        'onboarding-2-reference.css',
+        'index.ts',
+        'LumenProvider.tsx',
+      ],
+      samples: [
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '6:fill',
+          change: 'A Profile name fill updates its textbox draft',
+        },
+        {
+          viewport: 'mobile',
+          theme: 'dark',
+          suffix: '8:click',
+          change: 'Continue moves from Profile to Role with Product selected and four radio options',
+        },
+      ],
+      inferences: [
+        {
+          scope: 'Current-round source interaction acceptance',
+          basis:
+            'The full-static-v10 and full-interactions-v4 caches share the Onboarding 2 source hash, but the latter is schemaVersion 1 without a current capture protocol. The live documentation text was visible but its iframe was not exposed for a fresh replay.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Back, changing the selected role, rail navigation and four later step bodies',
+          basis:
+            'The cache shows Profile Continue entering Role, but no reliable result for Back, choosing another radio, or visiting Source/Workspace/Goals/Invite. Those controls stay typed request-only; missing bodies are not invented.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Other step buttons, theme and viewport combinations',
+          basis:
+            'Eight static source views cover desktop rail and narrow Step N of 6 replacement in both themes. One Profile draft and Continue represent distinct changes; local browser checks cover desktop and narrow transitions without a six-step by four-viewport action matrix.',
+          verification: 'inferred-not-replayed',
+        },
+      ],
+    }
   if (variantId === 'hbar-app-ui-onboarding-1')
     return {
       revision: 1,
