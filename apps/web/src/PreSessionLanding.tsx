@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Folder, Sparkles } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenInput, LumenText, LumenTextarea } from '@lumen/app-ui'
-import { HbarPreSessionChoicePicker, HbarPreSessionLanding, useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
-import { workspaceDisplayName } from '@hbar/app-runtime'
+import {
+  HbarPreSessionApprovalPicker,
+  HbarPreSessionChoicePicker,
+  HbarPreSessionLanding,
+  useHbarRuntime,
+  useHbarRuntimeState,
+} from '@hbar/app-react'
+import { workspaceDisplayName, type ComposerPermissionChoice } from '@hbar/app-runtime'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { workspacePageSchema } from '@hbar/contracts/directory'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
@@ -25,6 +31,7 @@ export function WebPreSessionLanding({
   const directory = useHbarRuntimeState(runtime.state.directory)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const preSessionDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const draft = preSessionDrafts[draftId]
   const shell = getShellCopy(locale)
   const labels = preSessionCopy(locale)
@@ -93,6 +100,11 @@ export function WebPreSessionLanding({
   }, [connected, runtime])
 
   useEffect(() => {
+    if (!connected || !composerPermission.available || composerPermission.hostDefault.status !== 'idle') return
+    void runtime.commands.execute('composerPermission.refresh', {}).catch(() => undefined)
+  }, [connected, composerPermission.available, composerPermission.hostDefault.status, runtime])
+
+  useEffect(() => {
     if (!connected || !draft?.workspaceId || directory.workspaces[draft.workspaceId]) return
     void runtime.commands.execute('workspace.get', { workspaceId: draft.workspaceId }).catch(() => undefined)
   }, [connected, directory.workspaces, draft?.workspaceId, runtime])
@@ -154,6 +166,18 @@ export function WebPreSessionLanding({
         draftId,
         modelId,
         expectedRevision: current.revision,
+      })
+    })
+
+  const chooseApproval = (choice: ComposerPermissionChoice, confirmAllow?: true) =>
+    queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setApprovalChoice', {
+        draftId,
+        choice,
+        expectedRevision: current.revision,
+        ...(confirmAllow ? { confirmAllow } : {}),
       })
     })
 
@@ -290,6 +314,16 @@ export function WebPreSessionLanding({
       onChoose={chooseModel}
     />
   )
+  const approvalControl = (
+    <HbarPreSessionApprovalPicker
+      choice={draft?.approvalChoice ?? 'inherit'}
+      hostDefault={composerPermission.hostDefault.status === 'ready' ? composerPermission.hostDefault.mode : null}
+      sessionLabel={shell.preSession.hero.title}
+      labels={shell.session.permissionPicker}
+      disabled={!connected || !draft || busy || draft.phase === 'unknown'}
+      onChoose={chooseApproval}
+    />
+  )
   const editorKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.shiftKey) return
     if (sendBehavior === null) return
@@ -325,7 +359,12 @@ export function WebPreSessionLanding({
               </LumenButton>
             </LumenFrame>
           ) : undefined,
-        controls: workspaceControl,
+        controls: (
+          <LumenFrame className="hbar-web-pre-session-controls">
+            {workspaceControl}
+            {approvalControl}
+          </LumenFrame>
+        ),
         modelPicker: modelControl,
         editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
           <LumenTextarea

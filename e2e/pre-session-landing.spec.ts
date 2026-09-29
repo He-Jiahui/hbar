@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { createModelCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import {
+  createConfigurationCommandClient,
+  createModelCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,6 +23,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const models = createModelCommandClient(host.client)
+      const configuration = createConfigurationCommandClient(host.client)
+      const hostDefaultApproval = await configuration.execute('permission.get', {})
       const count = async () =>
         (await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })).items.length
       const available = await models.execute('model.list', {})
@@ -67,6 +73,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-models-${locale}-320.png` })
       await modelPicker.getByRole('button', { name: new RegExp(fixtureModel!.modelName) }).click()
       await expect(modelPicker).toHaveCount(0)
+      const approval = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+      await approval.click()
+      const approvalPicker = page.locator('.hbar-pre-session-approval-popover')
+      await expect(approvalPicker).toBeVisible()
+      await expect(approvalPicker.getByRole('menuitemradio')).toHaveCount(4)
+      await expect(approvalPicker).toBeInViewport()
+      await expect(approvalPicker.getByRole('menuitemradio', { checked: true })).toBeFocused()
+      await page.keyboard.press('Home')
+      await expect(approvalPicker.locator('[data-choice="ask"]')).toBeFocused()
+      await page.keyboard.press('End')
+      await expect(approvalPicker.locator('[data-choice="inherit"]')).toBeFocused()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-approval-${locale}-320.png` })
+      await approvalPicker
+        .getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.options.deny.label) })
+        .click()
+      await expect(approval).toHaveAttribute('data-choice', 'deny')
+      await approval.click()
+      await approvalPicker
+        .getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.options.allow.label) })
+        .click()
+      await expect(approvalPicker.getByText(copy.session.permissionPicker.confirmTitle, { exact: true })).toBeVisible()
+      await expect(approvalPicker.getByRole('button', { name: copy.session.permissionPicker.cancel })).toBeFocused()
+      await approvalPicker.getByRole('button', { name: copy.session.permissionPicker.cancel }).click()
+      await expect(approvalPicker.locator('[data-choice="allow"]')).toBeFocused()
+      await expect(approval).toHaveAttribute('data-choice', 'deny')
+      await approvalPicker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
       expect(await count()).toBe(1)
       await expect(prompt).toHaveValue('First message from the no-tab landing.')
       await page.setViewportSize({ width: 1440, height: 900 })
@@ -92,6 +125,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBe(true)
       await expect(page.locator('.hbar-pre-session-landing')).toHaveCount(0)
       await expect(page.getByRole('textbox', { name: copy.session.prompt.input })).toBeVisible()
+      const created = (
+        await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
+      ).items.find((item) => item.id !== host!.ready.sessionId)
+      expect(created).toBeDefined()
+      const snapshot = await host.client.call('session.snapshot', { sessionId: created!.id, limit: 10 })
+      expect(
+        snapshot.runs.find((run) => run.input.text === 'First message from the no-tab landing.')?.input.approval,
+      ).toBe('deny')
+      expect(await configuration.execute('permission.get', {})).toEqual(hostDefaultApproval)
       expect(errors).toEqual([])
     } finally {
       await context.close()

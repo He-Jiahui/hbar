@@ -69,6 +69,7 @@ export {
   type HbarPreSessionChoiceLabels,
   type HbarPreSessionChoicePickerProps,
 } from './pre-session-choice-picker'
+export { HbarPreSessionApprovalPicker, type HbarPreSessionApprovalPickerProps } from './pre-session-approval-picker'
 export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
