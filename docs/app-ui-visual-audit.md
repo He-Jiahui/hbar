@@ -591,3 +591,18 @@ EUR 2,937.81；`Book shipment` 初始禁用。数量/单价/税率派生金额�
 类型检查、局部 lint、flow/content/icon guard 与构建通过，构建仍有既有大 chunk 提示。
 **本轮官方 iframe 为 `about:blank`，未签 strict 或实时来源交互账本**；不能以本地
 Add/Remove、Save、Book 的行为推断来源，也不进行所有按钮×布局的重复回放。
+
+Forms 4（Equipment record）的实时配对位于
+`artifacts/reactbits-pro-visual-audit/forms-4-integrated-r5/`：8 组静态对、3 个按属性
+编辑/取消、Condition 选择与 Condition tracking 开关抽样的交互例，缺失 0。
+AX 语义树、控件数量/形状/状态、标签关联、截断和横向溢出均对齐；来源桌面约 760px
+面板宽度已用该变体局部 max-width 对齐。Asset tag 的 Cancel 还原与开关反馈两项
+`matched`；Condition 选择两侧均显示 Excellent，但来源是自定义 button/combobox +
+listbox，本地为原生 select，展开形态与审计原始 delta 不等。
+**严格账本保持 `needs-fix`，未人工签署通过**：上述选择器交互仍是
+`lumen-different`；移动和 320px 的来源固定画布裁掉下部属性，本地正常文档流保留末行
+可达，因此有四个 root-height 差异。没有为改善分数调整比较阈值或做结果归一化。
+本地独立浏览器脚本 `scripts/verify-hbar-app-ui-forms-4.ts` 验证编辑/取消、开关、
+德语文案、320px 末行可达且 page error 0；专项 store/audit 测试 95 项、类型检查、
+局部 lint 和构建通过，构建仍有既有大 chunk 提示。Save 与 Add note 来源结果未点验，
+宿主只转发类型化请求，不虚构保存或笔记；等价行与布局乘积不逐一回放。
