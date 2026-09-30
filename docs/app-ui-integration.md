@@ -58,6 +58,17 @@ and the legacy API. The historical `authentication-2-final-v4` cache uses captur
 is claimed. The reviewed five-case source sampling plan restricts remote outcomes and
 does not replay every button in every layout.
 
+The same-day `authentication-2-3-current-v1` subsequently recorded eight source/local
+static pairs and five matching Authentication 2 interaction-state deltas. Strict
+comparison fails the two stress root geometries: the source root is 286×640, while
+the local content-grown root is 286×692. Both snapshots place the header at 0–56,
+main at 56–644 and footer at 644–692, with the same nine controls and semantic roles.
+The source component PNG stops at the iframe root; the local PNG includes the
+flowed footer. This is evidence of unequal capture footprints, not a reason to set
+a fixed content height. Source footer scroll reachability beyond the captured root
+is not proven by these artifacts. A shared comparison canvas and separate content
+extent/reachability evidence are the next audit task; no strict sign-off is given.
+
 ### Authentication 3 controlled-quote integration status
 
 `hbar-app-ui-authentication-3` accepts an optional typed `quote.referenceFlow`.
