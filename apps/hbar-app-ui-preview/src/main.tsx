@@ -10,6 +10,13 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
+import { EmptyStatePreviewHost } from './EmptyStatePreviewHost'
+import './empty-state-preview.css'
+import {
+  HBAR_APP_UI_EMPTY_STATE_FIXTURES,
+  createEmptyStateLocalizedFixtures,
+  createEmptyStateOverflowFixtures,
+} from '../../../tests/fixtures/hbar-app-ui-empty-state-fixtures'
 import { AuthenticationReferencePreviewHost } from './AuthenticationReferencePreviewHost'
 import { createAuthentication2PreviewFixture } from './authentication2PreviewFixtures'
 import { createAuthentication3PreviewFixture } from './authentication3PreviewFixtures'
@@ -553,6 +560,12 @@ function PreviewApp() {
   const dataTableContent = useMemo(() => HBAR_APP_UI_DATA_TABLE_FIXTURES, [])
   const dashboardContent = useMemo(() => HBAR_APP_UI_DASHBOARD_FIXTURES, [])
   const analyticsContent = useMemo(() => HBAR_APP_UI_ANALYTICS_FIXTURES, [])
+  const emptyStateContent = useMemo(() => {
+    const fixture = new URLSearchParams(window.location.search).get('emptyStateFixture')
+    return fixture === 'localized' || fixture === 'long'
+      ? createEmptyStateLocalizedFixtures(fixture === 'long' ? 'de-long' : 'de')
+      : fixture === 'overflow' ? createEmptyStateOverflowFixtures() : HBAR_APP_UI_EMPTY_STATE_FIXTURES
+  }, [])
   const formsContent = useMemo(() => HBAR_APP_UI_FORMS_FIXTURES, [])
   const formsForm1ReferenceFixture = useMemo(
     () =>
@@ -867,6 +880,7 @@ function PreviewApp() {
           style={previewLayoutStyle}
           data-hbar-app-ui-variant={selected.spec.id}
         >
+          <EmptyStatePreviewHost content={emptyStateContent} spec={selected.spec} onAction={handleAction}>
           <KanbanPreviewHost content={kanbanContent}>
             <HbarAppUiAiChatProvider content={aiChatContent}>
               <HbarAppUiAppSidebarProvider content={appSidebarContent}>
@@ -1180,6 +1194,7 @@ function PreviewApp() {
               </HbarAppUiAppSidebarProvider>
             </HbarAppUiAiChatProvider>
           </KanbanPreviewHost>
+          </EmptyStatePreviewHost>
         </LumenFrame>
       </LumenProvider>
     )
@@ -1306,6 +1321,7 @@ function PreviewApp() {
                     data-hbar-app-ui-surface={selected.spec.profile.surface}
                     data-hbar-app-ui-state={selected.spec.profile.initialState}
                   >
+                    <EmptyStatePreviewHost content={emptyStateContent} spec={selected.spec} onAction={handleAction}>
                     <KanbanPreviewHost content={kanbanContent}>
                       <HbarAppUiAiChatProvider content={aiChatContent}>
                         <HbarAppUiAppSidebarProvider content={appSidebarContent}>
@@ -1645,6 +1661,7 @@ function PreviewApp() {
                         </HbarAppUiAppSidebarProvider>
                       </HbarAppUiAiChatProvider>
                     </KanbanPreviewHost>
+                    </EmptyStatePreviewHost>
                   </LumenFrame>
                 </LumenFrame>
               </LumenFrame>

@@ -993,3 +993,27 @@ Lumen `f810258647` 修复恢复码、注册、企业登录及重置表单的共�
 14 个预览按当前功能/布局标准可继续交付；正式宿主服务与 fresh strict 全矩阵
 不在此结论内。根/子仓严格类型、限定类型感知 lint、内容/图标守卫和预览/直接
 CLI 包构建通过，既有大 chunk 警告和不兼容的 pinned-pnpm 工作流说明仍保留。
+
+Empty State 1–5 按当前功能/合理布局标准完成。参考沿用已保存的真实
+`full-static-v10` 可见结构，不重新建立逐按钮、主题和视口矩阵：首次接入的三张
+choice 卡、搜索无结果的查询/筛选/建议、收件箱清空的指标与列表、加载失败的
+诊断/重试、空文件夹的面包屑/原生文件选择分别实现，不再用同一个泛化空态替代。
+Lumen 内容契约与 provider 要求宿主提供文案和记录，旧 explicit-prop factories
+仍兼容；根入口只桥接公共组件。列表采用 content-grown、稳定 ID 去重和自然换行。
+
+独立 Zustand owner 管理查询、筛选、重试 ticket 和文件选择计数。语言改变保留
+领域草稿，初始场景改变退休 owner；清理取消未完成重试，过期 ticket 不回写。
+重试结束明确提示服务尚未验证，文件选择只反馈 metadata，不读取/上传文件内容。
+添加来源、指南、服务状态、choice 与链接导入只发具名意图，不伪造导航或业务成功。
+
+本轮 13 项 Empty State 模型/投影测试覆盖旧 API、长译文、空/单项/容量、重复与
+失效 ID、owner 隔离和取消。`bun scripts/verify-hbar-app-ui-empty-state-core.ts`
+在已有 5193 生产预览抽查五种默认结构、一个查询/筛选机制、重试与原生文件选择，
+另抽查 320px 长德语与 17 条 choice 的内容增长；无横向溢出和 page/console error。
+代表图在 `artifacts/empty-state-core-review/`，人工复核整体布局正常。其余同构
+choice、拖放/选择同回调、主题与尺寸由实现推导，不计为逐项实测或 fresh strict。
+
+根/子仓类型检查、限定 ESLint、Empty State 的 stylelint 与内容/图标/流式布局
+守卫、子包直接 CLI bundle/声明构建、生产预览构建通过。相关联合测试共 24 项、
+157 个断言通过。额外注册表测试仍有一条既存 Wizard 3 断言期待旧 plan-list 类名，
+与当前 upgrade-reference 实现不符；本轮未改 Wizard 或该测试，不宣称注册表全绿。
