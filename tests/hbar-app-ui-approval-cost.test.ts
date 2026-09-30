@@ -68,6 +68,22 @@ describe('controlled cost approval', () => {
     store.getState().decide('next', 'approved')
     expect(store.getState().decision).toBe('approved')
   })
+  test('host state and busy transitions replace a local decision for the same request', () => {
+    const content = fixture()
+    const store = createCostPreviewStore(content)
+    store.getState().decide(content.requestId, 'approved')
+    store.getState().replace({ ...content, busy: true })
+    expect(store.getState().decision).toBeUndefined()
+    store.getState().replace(content)
+    expect(store.getState().decision).toBeUndefined()
+
+    store.getState().decide(content.requestId, 'rejected')
+    store.getState().replace({ ...content, state: 'approved' })
+    expect(store.getState().decision).toBeUndefined()
+    expect(projectCostPreviewContent(store.getState())?.state).toBe('approved')
+    store.getState().replace(content)
+    expect(store.getState().decision).toBeUndefined()
+  })
   test('localization and reordered metrics preserve identity; another host stays untouched', () => {
     const content = fixture()
     const store = createCostPreviewStore(content)

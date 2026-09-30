@@ -19,7 +19,9 @@ export function createCostPreviewStore(content: Content) {
     replace(next) {
       const current = get()
       if (current.content === next) return
-      set({ content: next, decision: next?.requestId === current.content?.requestId ? current.decision : undefined })
+      const sameRequest = next?.requestId === current.content?.requestId
+      const authorityChanged = next?.state !== current.content?.state || next?.busy !== current.content?.busy
+      set({ content: next, decision: sameRequest && !authorityChanged ? current.decision : undefined })
     },
     decide(requestId, decision) {
       const current = get()

@@ -102,6 +102,38 @@ describe('controlled permission approval', () => {
     expect(projectPermissionPreviewContent(store.getState())?.scopes.every((scope) => scope.checked)).toBe(true)
   })
 
+  test('drops stale scope overrides and local decisions when the host updates its baseline', () => {
+    const content = fixture()
+    const store = createPermissionPreviewStore(content)
+    const scope = content.scopes[0]
+    if (!scope) throw new Error('Scope required')
+
+    store.getState().changeScope(content.requestId, scope.id, !scope.checked)
+    store.getState().changeScope(content.requestId, ' ', true)
+    expect(store.getState().selections.has(' ')).toBe(false)
+    store.getState().replace({
+      ...content,
+      scopes: content.scopes.map((item) => (item.id === scope.id ? { ...item, checked: !scope.checked } : item)),
+    })
+    expect(store.getState().selections.has(scope.id)).toBe(false)
+    expect(
+      projectPermissionPreviewContent(store.getState())?.scopes.find((item) => item.id === scope.id)?.checked,
+    ).toBe(!scope.checked)
+
+    store.getState().decide(content.requestId, 'rejected')
+    expect(store.getState().decision).toBe('rejected')
+    store.getState().replace({ ...content, state: 'approved' })
+    expect(store.getState().decision).toBeUndefined()
+    store.getState().replace(content)
+    expect(store.getState().decision).toBeUndefined()
+
+    store.getState().decide(content.requestId, 'rejected')
+    store.getState().replace({ ...content, busy: true })
+    expect(store.getState().decision).toBeUndefined()
+    store.getState().replace(content)
+    expect(store.getState().decision).toBeUndefined()
+  })
+
   test('host list capacity grows through zero, one, bound and over-bound without slicing', () => {
     const content = fixture()
     for (const count of [0, 1, 3, 4]) {

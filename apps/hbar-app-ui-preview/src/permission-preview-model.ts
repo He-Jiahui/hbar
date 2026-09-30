@@ -17,14 +17,17 @@ export interface PermissionPreviewState {
 }
 
 function scopesFor(state: PermissionPreviewState) {
-  return uniqueHbarAppUiAgentApprovalItems(state.content?.scopes ?? []).map((scope) => ({
-    ...scope,
-    checked: state.selections.get(scope.id) ?? scope.checked,
-  }))
+  return uniqueHbarAppUiAgentApprovalItems(state.content?.scopes ?? [])
+    .filter((scope) => scope.id.trim().length > 0)
+    .map((scope) => ({
+      ...scope,
+      checked: state.selections.get(scope.id) ?? scope.checked,
+    }))
 }
 
 function pending(state: PermissionPreviewState, requestId: string): boolean {
   return Boolean(
+    requestId.trim() &&
     state.content &&
     state.content.requestId === requestId &&
     state.content.state === 'pending' &&
@@ -55,12 +58,28 @@ export function createPermissionPreviewStore(content: PermissionContent, duratio
         })
         return
       }
-      const ids = new Set(next?.scopes.map((scope) => scope.id))
-      set({ content: next, selections: new Map([...current.selections].filter(([id]) => ids.has(id))) })
+      const previousScopes = uniqueHbarAppUiAgentApprovalItems(current.content?.scopes ?? []).filter(
+        (scope) => scope.id.trim().length > 0,
+      )
+      const nextScopes = uniqueHbarAppUiAgentApprovalItems(next?.scopes ?? []).filter(
+        (scope) => scope.id.trim().length > 0,
+      )
+      const previousById = new Map(previousScopes.map((scope) => [scope.id, scope]))
+      const nextById = new Map(nextScopes.map((scope) => [scope.id, scope]))
+      const selections = new Map(
+        [...current.selections].filter(([id]) => {
+          const previous = previousById.get(id)
+          const updated = nextById.get(id)
+          return previous !== undefined && updated !== undefined && previous.checked === updated.checked
+        }),
+      )
+      const authorityChanged = next?.state !== current.content?.state || next?.busy !== current.content?.busy
+      set({ content: next, selections, decision: authorityChanged ? undefined : current.decision })
     },
     changeScope(requestId, scopeId, checked) {
       const current = get()
-      if (!pending(current, requestId) || !current.content?.scopes.some((scope) => scope.id === scopeId)) return
+      if (!scopeId.trim() || !pending(current, requestId) || !scopesFor(current).some((scope) => scope.id === scopeId))
+        return
       const selections = new Map(current.selections)
       selections.set(scopeId, checked)
       set({ selections })

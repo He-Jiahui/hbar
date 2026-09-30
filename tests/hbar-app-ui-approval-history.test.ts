@@ -96,6 +96,34 @@ describe('host-owned approval history', () => {
     store.getState().replace(undefined)
     expect(projectHistoryPreviewContent(store.getState())).toBeUndefined()
   })
+  test('blank filter and history target IDs cannot become active model state', () => {
+    const content = fixture()
+    const firstFilter = content.filters[0]
+    if (!firstFilter) throw new Error('Filter required')
+    const store = createHistoryPreviewStore({
+      ...content,
+      activeFilterId: ' ',
+      filters: [{ ...firstFilter, id: ' ' }, ...content.filters],
+    })
+    expect(store.getState().activeFilterId).toBe(firstFilter.id)
+    const initial = store.getState()
+    initial.filter(content.historyId, ' ')
+    initial.filter(' ', firstFilter.id)
+    initial.search(' ', 'stale')
+    initial.clear(' ')
+    expect(store.getState()).toBe(initial)
+  })
+  test('export records an owned preview intent without changing supplied history', () => {
+    const content = fixture()
+    const store = createHistoryPreviewStore(content)
+    store.getState().export('missing-history')
+    expect(store.getState().exportRequested).toBe(false)
+    projectHistoryPreviewContent(store.getState())?.onExport?.(content.historyId)
+    expect(store.getState().exportRequested).toBe(true)
+    expect(store.getState().content?.entries).toBe(content.entries)
+    store.getState().replace({ ...content, historyId: 'another-owner' })
+    expect(store.getState().exportRequested).toBe(false)
+  })
   test('pane list preserves empty, single, boundary and over-bound rows; deduplicates stable IDs', () => {
     const content = fixture()
     const entry = content.entries[0]

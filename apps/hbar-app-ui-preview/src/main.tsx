@@ -68,6 +68,7 @@ import { PlanPreviewHost } from './PlanPreviewHost'
 import { EditorPreviewHost } from './EditorPreviewHost'
 import { FeedbackPreviewHost } from './FeedbackPreviewHost'
 import { ApprovalPreviewHost } from './ApprovalPreviewHost'
+import './agent-approval-preview.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Maximize2, Moon, RotateCcw, Search, Sun, X } from 'lucide-react'
@@ -1001,6 +1002,8 @@ function PreviewApp() {
                                                                       <PlanPreviewHost content={agentPlanContent}>
                                                                         <ApprovalPreviewHost
                                                                           content={agentApprovalContent}
+                                                                          spec={selected.spec}
+                                                                          localized={new URLSearchParams(window.location.search).get('agentApprovalFixture') === 'localized'}
                                                                         >
                                                                           <HbarAppUiAgentActivityProvider
                                                                             content={agentActivityContent}
@@ -1495,6 +1498,8 @@ function PreviewApp() {
                                                                                 >
                                                                                   <ApprovalPreviewHost
                                                                                     content={agentApprovalContent}
+                                                                                    spec={selected.spec}
+                                                                                    localized={new URLSearchParams(window.location.search).get('agentApprovalFixture') === 'localized'}
                                                                                   >
                                                                                     <HbarAppUiAgentActivityProvider
                                                                                       content={agentActivityContent}
