@@ -65,10 +65,14 @@ function matchesInput(draft: SessionDraftState, input: SubmitRunInput): boolean 
     ...input.input.images.map((artifact) => ({ kind: 'image' as const, artifact })),
     ...(input.input.files ?? []).map((artifact) => ({ kind: 'file' as const, artifact })),
   ]
+  // Intake keeps the user's material order; the Run contract groups images and
+  // files. Match identities without treating that wire grouping as an edit.
+  const expectedKeys = expected.map(attachmentKey).sort()
+  const draftKeys = draft.attachments.map(attachmentKey).sort()
   return (
     serializeMentions(draft.text, draft.mentions) === input.input.text &&
     draft.attachments.length === expected.length &&
-    draft.attachments.every((item, index) => attachmentKey(item) === attachmentKey(expected[index]!))
+    draftKeys.every((key, index) => key === expectedKeys[index])
   )
 }
 

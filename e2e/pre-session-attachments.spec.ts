@@ -13,6 +13,7 @@ import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { sessionImageCopy } from '../apps/web/src/session-image-copy'
 import { imageFile } from './support/image-file'
+import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 type UploadedArtifact = { readonly id: string; readonly name: string; readonly mime: string; readonly size: number }
@@ -21,6 +22,7 @@ type EntryMode = 'plan' | 'goal'
 const fileName = 'desktop-session-attachment-review-evidence-with-a-long-readable-name.txt'
 const imageName = 'desktop-session-attachment-reference-image-with-a-long-readable-name.png'
 const imageBytes = imageFile(2, imageName).buffer
+const captureDirectory = process.env.HBAR_E2E_CAPTURE_DIRECTORY ?? 'artifacts/pre-session-images'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -35,7 +37,7 @@ async function removeOwnedTemporaryDirectory(path: string, expectedPrefix: strin
 for (const entryMode of ['plan', 'goal'] as const satisfies readonly EntryMode[]) {
   test(`no-tab ${entryMode} keeps file and image references through first send`, async ({ browser }) => {
     test.setTimeout(180_000)
-    await mkdir(join(process.cwd(), 'artifacts', 'pre-session-images'), { recursive: true })
+    await mkdir(join(process.cwd(), captureDirectory), { recursive: true })
 
     for (const locale of ['en-US', 'zh-CN'] as const) {
       const root = await mkdtemp(join(tmpdir(), `hbar-pre-session-attachments-${entryMode}-`))
@@ -138,7 +140,7 @@ for (const entryMode of ['plan', 'goal'] as const satisfies readonly EntryMode[]
         const gallery = page.getByRole('dialog', { name: imageLabels.gallery.title, exact: true })
         await expect(gallery).toBeVisible()
         await expect(gallery.locator('.lumen-image-gallery-media img')).toBeVisible()
-        await page.screenshot({ path: `artifacts/pre-session-images/gallery-${entryMode}-${locale}.png` })
+        await page.screenshot({ path: `${captureDirectory}/gallery-${entryMode}-${locale}.png` })
         await page.keyboard.press('Escape')
         await expect(gallery).toBeHidden()
         await expect(openImage).toBeFocused()
@@ -155,7 +157,7 @@ for (const entryMode of ['plan', 'goal'] as const satisfies readonly EntryMode[]
           })
           expect(flow).toBe(true)
           await page.screenshot({
-            path: `artifacts/pre-session-images/${entryMode}-${locale}-${width}.png`,
+            path: `${captureDirectory}/${entryMode}-${locale}-${width}.png`,
             fullPage: true,
           })
         }
@@ -197,7 +199,7 @@ for (const entryMode of ['plan', 'goal'] as const satisfies readonly EntryMode[]
         expect(
           (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId, limit: 10 })).runs,
         ).toHaveLength(0)
-        await page.screenshot({ path: `artifacts/pre-session-images/ready-${entryMode}-${locale}-320.png` })
+        await page.screenshot({ path: `${captureDirectory}/ready-${entryMode}-${locale}-320.png` })
         await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
         await expect(page.getByRole('tab')).toHaveCount(1)
 
@@ -224,6 +226,11 @@ for (const entryMode of ['plan', 'goal'] as const satisfies readonly EntryMode[]
         expect(sentRefs).toHaveLength(2)
         const refKey = ({ id, name, mime, size }: UploadedArtifact) => `${id}|${name}|${mime}|${size}`
         expect(sentRefs.map(refKey).sort()).toEqual(uploaded.map(refKey).sort())
+        const composer = page.locator('.hbar-app-react-session-footer')
+        await expectComposerText(composer.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), '')
+        await expect(composer.locator('.hbar-draft-image-content')).toHaveCount(0)
+        await expect(composer.locator('.lumen-attachment-chip')).toHaveCount(0)
+        await page.screenshot({ path: `${captureDirectory}/accepted-${entryMode}-${locale}-320.png` })
         if (entryMode === 'plan') {
           const mode = await configuration.execute('mode.get', { sessionId })
           expect(mode.mode).toBe('plan')
