@@ -8,8 +8,13 @@
 
 当前登记 22 个变体已接入受控契约；其余 278 个继续按清单迁移。仍需完成设置中的模型/插件/设备管理、工具与专用面板接入，其他组件族清理，以及最终桌面和全包视觉验收。
 
-本表的“受控契约已接入”“已有内容契约，继续迁移”和“待数据化”只描述实现迁移状态，不能
-代替 React Bits Pro 的真实视觉/交互验收。逐变体验收状态以忽略目录
+2026-09-29 用户调整后，本表新增“功能与布局通过”：主要流程可用、自然流布局合理，
+不同状态按风险抽查，共享行为允许从实现和已有案例推导，不逐按钮或逐布局组合校验。
+这与“受控契约已接入”等迁移状态及下述 strict 审计状态分别记录；不因微小像素残差拖住进度，
+也不将预览结果写成真实远端业务完成。参见 [当前交付标准](reactbits-pro-visual-audit.md)。
+
+本表的“受控契约已接入”“已有内容契约，继续迁移”和“待数据化”只描述实现迁移状态。
+可选严格视觉/交互审计状态以忽略目录
 `artifacts/reactbits-pro-visual-audit/<run-id>/review-ledger.json` 为准；只有同时具备 8 个
 静态 source/local 组合、按反馈机制选样的真实交互 before/after、结构硬门禁通过且无 page/console error，
 才可把对应行更新为“视觉与交互审计通过”。
@@ -262,9 +267,9 @@ Notifications 5 的独立证据在 `artifacts/reactbits-pro-visual-audit/notific
 | hbar-app-ui-paywall-6         | [hbar-app-ui-paywall-6](../hbar-ui/packages/lumen-app-ui/src/paywall-6-reference.tsx)      | 宿主邮箱阅读卡已公开接入；实时可见参考，未签核 | 图片角色读数、可选原生邮箱校验与 Enter 请求；空/一/六/17条、长德文与键盘滚动 | 寄送/订阅/登录未证且不重置读数；255.73/254.25 高度残差、旧来源非 strict 配对 |
 | hbar-app-ui-paywall-7         | [hbar-app-ui-paywall-7](../hbar-ui/packages/lumen-app-ui/src/paywall-7-reference.tsx)      | 宿主管理员请求卡已公开接入；实时可见参考，未签核 | 双被动管理员、唯一便笺标签/原生编辑；空/一/六/16条、键盘滚动、长德文与最终 320×420 spot-check | 最新草稿和稳定 ID 只发请求，送达/审批/升级未证；桌面自然 560×447.25，但无 strict 来源配对 |
 | hbar-app-ui-authentication-1  | [hbar-app-ui-authentication-1](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 逐变体审计通过 | 原版居中登录卡片：8 组静态、12 组代表性交互及人工签核；宿主确认登录，校验／失败／重试／不可用就近反馈，提供方 content-grown | 正式宿主认证仍需接入；Authentication 其余 13 个变体未因此验收 |
-| hbar-app-ui-authentication-2  | [hbar-app-ui-authentication-2](../hbar-ui/packages/lumen-app-ui/src/authentication/ProviderFirstAuthentication.tsx) | 可选宿主受控草稿已接入；状态对照匹配，未签核 | 独立 email/domain 草稿、原生表单；35 项聚焦测试、八组源/本地静态配对、长德文、17 项键盘滚动和 320×420 页脚可达 | 源三项不是上限；5 个机制状态与反馈匹配；协议 17 确认 source mobile/stress 页脚裁切 12/52px，本地自然增长可滚动；strict 未过，认证/导航未证 |
-| hbar-app-ui-authentication-3  | [hbar-app-ui-authentication-3](../hbar-ui/packages/lumen-app-ui/src/authentication/QuoteAuthentication.tsx)         | 可选宿主受控草稿／引语已接入；机器对照匹配，未签核     | 独立内存密码、不含密码的请求、ID 规范化与失效恢复、换语言保留、轮播清理；1023/1024 内容断点、286px 单行 provider、长德文、17 项与短宿主可达      | 源三项不是上限；恢复指标单行省略且保留完整文本，8 组结构／5 个机制状态与反馈匹配；16px 图标与源挤压仍不等价，current strict 待人工签核          |
-| hbar-app-ui-authentication-4  | [hbar-app-ui-authentication-4](../hbar-ui/packages/lumen-app-ui/src/authentication/TwoStepAuthentication.tsx) | 可选宿主受控双步骤已接入；实时可见参考，未签核 | 四 phase、独立草稿/ticket、错误关联、取消与退休回调、换语言保留；18 项专项测试、长德文和 320×420 页脚可达按机制验证 | 单次源 Continue 证实等待→密码步骤；认证/邮件/导航未证；源图标压缩与 40/42px 控件残差保留，尚无当前实现完整 strict 配对 |
+| hbar-app-ui-authentication-2  | [hbar-app-ui-authentication-2](../hbar-ui/packages/lumen-app-ui/src/authentication/ProviderFirstAuthentication.tsx) | 功能与布局通过；宿主受控草稿已接入 | 独立 email/domain 草稿、原生表单；35 项聚焦测试、源/本地状态配对、长德文和短宿主页脚可达 | 5 个机制状态与反馈匹配；本地自然增长可滚动，不复刻 source 极窄屏页脚裁切；strict 未过，认证/导航未证 |
+| hbar-app-ui-authentication-3  | [hbar-app-ui-authentication-3](../hbar-ui/packages/lumen-app-ui/src/authentication/QuoteAuthentication.tsx) | 功能与布局通过；宿主受控草稿／引语已接入 | 独立内存密码、ID 规范化与失效恢复、换语言保留、轮播清理；内容断点、长德文与短宿主可达 | 8 组结构／5 个机制状态与反馈匹配；图标挤压的微小差异不阻塞当前交付，strict 未签核，认证/导航未证 |
+| hbar-app-ui-authentication-4  | [hbar-app-ui-authentication-4](../hbar-ui/packages/lumen-app-ui/src/authentication/TwoStepAuthentication.tsx) | 功能与布局通过；宿主受控双步骤已接入 | 四 phase、独立草稿/ticket、错误关联、取消与退休回调、换语言保留；18 项专项测试、长德文和短宿主页脚可达 | 源 Continue 证实等待→密码步骤；42px 内容增长控件可用，微小残差不阻塞；认证/邮件/导航未证，未签 fresh strict |
 | hbar-app-ui-authentication-5  | [hbar-app-ui-authentication-5](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
 | hbar-app-ui-authentication-6  | [hbar-app-ui-authentication-6](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 受控契约已接入         | 验证码长度由协议/宿主提供；表单随内容增长，计时和验证结果归宿主  | 仍需最终全包/桌面验收                                        |
 | hbar-app-ui-authentication-7  | [hbar-app-ui-authentication-7](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
