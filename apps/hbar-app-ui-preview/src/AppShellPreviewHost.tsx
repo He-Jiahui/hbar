@@ -1,10 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  HbarAppUiAppShellProvider,
-  type HbarAppUiAppShellContent,
-  type HbarAppUiVariantProps,
-} from 'hbar-app-ui/catalog'
+import { LumenAppShellWorkflowsProvider as HbarAppUiAppShellProvider, type LumenAppShellContent } from '@lumen/app-ui'
+import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { appShellSidebarFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-sidebar-fixtures'
 import { appShellRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-rail-fixtures'
 import { appShellContractsFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-contracts-fixtures'
@@ -32,13 +29,27 @@ import {
 } from './app-shell-contracts-preview-model'
 import { createAppShellRailPreviewStore, projectAppShellRailPreview } from './app-shell-rail-preview-model'
 import { createAppShellSidebarPreviewStore, projectAppShellSidebarPreview } from './app-shell-sidebar-preview-model'
+import { appShellPreviewRequestActions, createAppShellIntentPreviewStore } from './appShellIntentPreviewStore'
+import { createAppShellPreviewCopy } from './appShellPreviewCopy'
 
-export function AppShellPreviewHost({
+interface AppShellPreviewHostProps extends HbarAppUiVariantProps {
+  readonly content: LumenAppShellContent
+  readonly children: ReactNode
+}
+
+export function AppShellPreviewHost(props: AppShellPreviewHostProps) {
+  if (props.spec.category !== 'app-shell') return <>{props.children}</>
+  const mode = new URLSearchParams(location.search).get('appShellFixture')
+  return <AppShellPreviewOwner key={`${props.spec.id}:${mode ?? 'default'}`} {...props} mode={mode} />
+}
+
+function AppShellPreviewOwner({
   content,
   spec,
   onAction,
   children,
-}: HbarAppUiVariantProps & { readonly content: HbarAppUiAppShellContent; readonly children: ReactNode }) {
+  mode,
+}: AppShellPreviewHostProps & { readonly mode: string | null }) {
   const [store] = useState(createAppShellSidebarPreviewStore)
   const [railStore] = useState(createAppShellRailPreviewStore)
   const [contractsStore] = useState(createAppShellContractsPreviewStore)
@@ -48,64 +59,58 @@ export function AppShellPreviewHost({
   const [scopeStore] = useState(createAppShellScopePreviewStore)
   const [adaptiveStore] = useState(createAppShellAdaptivePreviewStore)
   const [chatStore] = useState(createAppShellChatPreviewStore)
-  const scopeMode = new URLSearchParams(location.search).get('appShellFixture')
-  const scope = projectAppShellScopePreview(
-    useStore(scopeStore),
-    appShellScopeFixture(scopeMode, (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-    scopeMode,
+  const ownerId = `app-shell-preview-${spec.id}`
+  const copy = createAppShellPreviewCopy(mode === 'localized')
+  const [intentStore] = useState(() =>
+    createAppShellIntentPreviewStore({
+      ownerId,
+      actions:
+        spec.variant === 6
+          ? [
+              'new',
+              'trash',
+              'share',
+              'link',
+              ...appShellDocumentsFixture(mode).menu.map((item) => item.id),
+              ...appShellDocumentsFixture(mode).moreFormatting.map((item) => item.id),
+            ]
+          : appShellPreviewRequestActions(spec.variant),
+    }),
   )
-  const adaptive = projectAppShellAdaptivePreview(
-    useStore(adaptiveStore),
-    appShellAdaptiveFixture(scopeMode, (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const chat = projectAppShellChatPreview(
-    useStore(chatStore),
-    appShellChatFixture(scopeMode, (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const documents = projectAppShellDocumentsPreview(
-    useStore(documentsStore),
-    appShellDocumentsFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const inbox = projectAppShellInboxPreview(
-    useStore(inboxStore),
-    appShellInboxFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const editorial = projectAppShellEditorialPreview(
-    useStore(editorialStore),
-    appShellEditorialFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const contracts = projectAppShellContractsPreview(
-    useStore(contractsStore),
-    appShellContractsFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const rail = projectAppShellRailPreview(
-    useStore(railStore),
-    appShellRailFixture(new URLSearchParams(location.search).get('appShellFixture'), (actionId, value) =>
-      onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-    ),
-  )
-  const fixture = appShellSidebarFixture(
-    new URLSearchParams(location.search).get('appShellFixture'),
-    (actionId, value) => onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) }),
-  )
+  const intent = useStore(intentStore, (state) => state.intent)
+  function report(actionId: string, value?: string) {
+    if (intentStore.getState().seed.actions.includes(actionId)) {
+      // Inbox's no-target callbacks historically serialize their absent IDs as an empty string.
+      const requestValue = spec.variant === 5 && value === '' ? undefined : value
+      if (!intentStore.getState().request(ownerId, actionId, requestValue)) return
+    }
+    onAction?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) })
+  }
+  const scope = projectAppShellScopePreview(useStore(scopeStore), appShellScopeFixture(mode, report), mode)
+  const adaptive = projectAppShellAdaptivePreview(useStore(adaptiveStore), appShellAdaptiveFixture(mode, report))
+  const chat = projectAppShellChatPreview(useStore(chatStore), appShellChatFixture(mode, report))
+  const documents = projectAppShellDocumentsPreview(useStore(documentsStore), appShellDocumentsFixture(mode, report))
+  const inbox = projectAppShellInboxPreview(useStore(inboxStore), appShellInboxFixture(mode, report))
+  const editorial = projectAppShellEditorialPreview(useStore(editorialStore), appShellEditorialFixture(mode, report))
+  const contracts = projectAppShellContractsPreview(useStore(contractsStore), appShellContractsFixture(mode, report))
+  const rail = projectAppShellRailPreview(useStore(railStore), appShellRailFixture(mode, report))
+  const fixture = appShellSidebarFixture(mode, report)
   const sidebar = projectAppShellSidebarPreview(useStore(store), fixture)
   return (
     <HbarAppUiAppShellProvider
-      content={{ ...content, sidebar, rail, contracts, editorial, inbox, documents, scope, adaptive, chat }}
+      content={{
+        ...content,
+        presentation: { ownerId, notice: intent ? copy.requestNotice : undefined },
+        sidebar,
+        rail,
+        contracts,
+        editorial,
+        inbox,
+        documents,
+        scope,
+        adaptive,
+        chat,
+      }}
     >
       {children}
     </HbarAppUiAppShellProvider>

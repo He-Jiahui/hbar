@@ -117,6 +117,15 @@ test('separate host instances retain independent query and callbacks', () => {
   expect(b.getState().query).toBe('')
   expect(events).toEqual(['a', 'b'])
 })
+test('sidebar ignores blank and unknown navigation targets while preserving valid IDs', () => {
+  const actions: string[] = []
+  const content = appShellSidebarFixture(null, (action) => actions.push(action))
+  const view = projectAppShellSidebarPreview(createAppShellSidebarPreviewStore().getState(), content)
+  view.onNavigate?.(' ')
+  view.onNavigate?.('removed')
+  view.onNavigate?.('pickup')
+  expect(actions).toEqual(['navigate'])
+})
 test('audit samples independent shell behavior and labels equivalence as inference', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-1')!
   expect(plan.samples).toHaveLength(11)

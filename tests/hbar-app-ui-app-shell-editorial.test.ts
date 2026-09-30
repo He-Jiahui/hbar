@@ -142,6 +142,18 @@ test('localized formatting and independent stores do not leak English headings o
   expect(setup('empty').view().events).toHaveLength(0)
   expect(setup('overflow').view().events).toHaveLength(101)
 })
+test('blank editorial filters and stale navigation/event targets are ignored', () => {
+  const actions: string[] = []
+  const fixture = appShellEditorialFixture(null, (id, value) => actions.push(`${id}:${value ?? ''}`))
+  const store = createAppShellEditorialPreviewStore()
+  const view = projectAppShellEditorialPreview(store.getState(), fixture)
+  view.onFilter(' ')
+  view.onNavigate(' ')
+  view.onEvent(' ')
+  store.getState().setFilter(' ')
+  expect(view.filterId).toBe('all')
+  expect(actions).toEqual([])
+})
 test('fourteen representative states cover distinct mechanisms without clicking every calendar cell or story', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-4')!
   expect(plan.samples).toHaveLength(14)

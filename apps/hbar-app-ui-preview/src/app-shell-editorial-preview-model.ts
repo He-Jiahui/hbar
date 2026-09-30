@@ -7,6 +7,12 @@ function utcDate(id: string): Date | null {
   const date = new Date(`${id}T00:00:00Z`)
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === id ? date : null
 }
+function isValidId(id: string): boolean {
+  return id.trim().length > 0
+}
+function stableValidItems<T extends { readonly id: string }>(items: readonly T[]): T[] {
+  return [...new Map(items.filter((item) => isValidId(item.id)).map((item) => [item.id, item])).values()]
+}
 export function createAppShellEditorialPreviewStore() {
   return createStore<{
     readonly filterId: string
@@ -19,20 +25,32 @@ export function createAppShellEditorialPreviewStore() {
     filterId: 'all',
     selectedDate: '2026-08-12',
     monthId: '2026-08-01',
-    setFilter: (filterId) => set({ filterId }),
-    setDate: (selectedDate) => set({ selectedDate }),
-    setMonth: (monthId) => set({ monthId }),
+    setFilter: (filterId) => {
+      if (isValidId(filterId)) set({ filterId })
+    },
+    setDate: (selectedDate) => {
+      if (isValidId(selectedDate)) set({ selectedDate })
+    },
+    setMonth: (monthId) => {
+      if (isValidId(monthId)) set({ monthId })
+    },
   }))
 }
 export function projectAppShellEditorialPreview(
   state: ReturnType<ReturnType<typeof createAppShellEditorialPreviewStore>['getState']>,
   content: EditorialPreviewFixture,
 ): LumenAppShellEditorialContent {
-  const inventory = [...new Map(content.inventory.map((item) => [item.id, item])).values()]
-  const agenda = [...new Map(content.agenda.map((item) => [item.id, item])).values()]
+  const inventory = stableValidItems(content.inventory)
+  const agenda = stableValidItems(content.agenda)
+  const filters = stableValidItems(content.filters)
+  const sections = stableValidItems(content.sections).map((section) => ({
+    ...section,
+    links: stableValidItems(section.links),
+  }))
+  const navigationIds = new Set(sections.flatMap((section) => section.links.map((link) => link.id)))
   const selected = utcDate(state.selectedDate),
     monthDate = utcDate(state.monthId)
-  const validFilter = content.filters.some((filter) => filter.id === state.filterId)
+  const validFilter = filters.some((filter) => filter.id === state.filterId)
   const dateFormatter = new Intl.DateTimeFormat(content.locale, {
     weekday: 'long',
     year: 'numeric',
@@ -68,6 +86,8 @@ export function projectAppShellEditorialPreview(
   })
   return {
     ...content,
+    sections,
+    filters,
     filterId: validFilter ? state.filterId : null,
     stories: validFilter
       ? inventory.filter((story) => state.filterId === 'all' || story.category === state.filterId)
@@ -83,10 +103,13 @@ export function projectAppShellEditorialPreview(
       emptyScheduleDetail: selected ? content.formatEmptySchedule(selected) : content.labels.emptyScheduleDetail,
     },
     onFilter: (id) => {
-      if (content.filters.some((filter) => filter.id === id)) {
+      if (isValidId(id) && filters.some((filter) => filter.id === id)) {
         state.setFilter(id)
         content.onFilter(id)
       }
+    },
+    onNavigate: (id) => {
+      if (isValidId(id) && navigationIds.has(id)) content.onNavigate(id)
     },
     onDate: (id) => {
       if (days.some((day) => day.id === id)) {
@@ -104,8 +127,13 @@ export function projectAppShellEditorialPreview(
       }
     },
     onToday: () => {
-      state.setDate(content.todayId)
-      content.onToday()
+      if (utcDate(content.todayId)) {
+        state.setDate(content.todayId)
+        content.onToday()
+      }
+    },
+    onEvent: (id) => {
+      if (isValidId(id) && agenda.some((event) => event.id === id)) content.onEvent(id)
     },
   }
 }

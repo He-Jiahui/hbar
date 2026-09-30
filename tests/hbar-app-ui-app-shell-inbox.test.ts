@@ -128,6 +128,23 @@ test('localized content and independent stores preserve domain identities withou
   expect(html).not.toContain('Search conversations')
   expect(html).toContain('Unterhaltungen durchsuchen')
 })
+test('blank and stale mailbox, conversation, attachment and menu targets are rejected', () => {
+  const actions: string[] = []
+  const fixture = appShellInboxFixture(null, (action, value) => actions.push(`${action}:${value ?? ''}`))
+  const store = createAppShellInboxPreviewStore()
+  const view = projectAppShellInboxPreview(store.getState(), fixture)
+  view.onFilter(' ')
+  view.onMailbox(' ')
+  view.onSelect(' ')
+  view.onStar(' ')
+  view.onAction('reply', ' ')
+  view.onAction('download', 'priya', ' ')
+  view.onAction('menu', 'priya', 'removed')
+  expect(store.getState().selectedId).toBe('priya')
+  expect(actions).toEqual([])
+  view.onAction('reply', 'priya')
+  expect(actions).toEqual(['reply:priya'])
+})
 test('inbox sampling covers independent changes and explicitly infers repeated buttons', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-5')
   expect(plan?.samples).toHaveLength(17)

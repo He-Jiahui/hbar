@@ -144,6 +144,20 @@ test('localized fixtures, separate instances and removed selections do not inher
   expect(appShellRailFixture('overflow').areas[0]!.records).toHaveLength(101)
   expect(content.areas.find((area) => area.id === 'billing')!.recordsCount).toBe('119')
 })
+test('blank and removed rail targets do not reach host callbacks or overwrite selection', () => {
+  const actions: string[] = []
+  const content = appShellRailFixture(null, (action, value) => actions.push(`${action}:${value ?? ''}`))
+  const store = createAppShellRailPreviewStore()
+  const view = projectAppShellRailPreview(store.getState(), content)
+  view.onSelectArea(' ')
+  view.onSelectWorkspace(' ')
+  view.onNavigate('shipments', ' ')
+  view.onRecord('shipments', 'missing')
+  view.onPrimaryAction('missing')
+  expect(store.getState().areaId).toBe('shipments')
+  expect(store.getState().workspaceId).toBe('kestrel')
+  expect(actions).toEqual([])
+})
 test('representative audit distinguishes changed areas from equivalent repeated row actions', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-2')!
   expect(plan.samples).toHaveLength(13)

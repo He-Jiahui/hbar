@@ -102,6 +102,24 @@ test('duplicate and stale IDs, original-target callbacks, long locale and no-op 
   translated.onAction('search')
   expect(translated.selectedThreadId).toBeNull()
 })
+test('chat rejects blank targets and stale send callbacks after the current draft changes', () => {
+  const actions: string[] = []
+  const fixture = appShellChatFixture(null, (action, value) => actions.push(`${action}:${value ?? ''}`))
+  const store = createAppShellChatPreviewStore()
+  const oldView = projectAppShellChatPreview(store.getState(), fixture)
+  oldView.onModel(' ')
+  oldView.onThread(' ')
+  oldView.onAction('quick', ' ')
+  oldView.onDraft('Old draft')
+  store.getState().edit('Current draft')
+  actions.length = 0
+  oldView.onAction('send', 'Old draft')
+  const currentView = projectAppShellChatPreview(store.getState(), fixture)
+  currentView.onAction('send', 'Current draft')
+  expect(store.getState().modelId).toBe('atlas')
+  expect(store.getState().threadId).toBeNull()
+  expect(actions).toEqual(['send:Current draft'])
+})
 test('sampling plan separates distinct feedback from repeated no-op affordances', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-9')
   expect(plan?.samples.length).toBeGreaterThanOrEqual(6)

@@ -98,6 +98,15 @@ test('host localization, long content, empty/one/100/101 records and duplicate I
   )
   expect(selectAdaptiveJobs({ ...value, selectedQueueId: 'stale' })).toEqual([])
 })
+test('blank queue and job IDs are rejected without disturbing the active queue', () => {
+  const events: string[] = []
+  const { store, view } = setup(null, (action, value) => events.push(`${action}:${value ?? ''}`))
+  view().onQueue(' ')
+  view().onFlag(' ')
+  store.getState().select(' ')
+  expect(store.getState().selectedQueueId).toBe('today')
+  expect(events).toEqual([])
+})
 test('interaction sampling explicitly distinguishes replayed mechanisms from inferred repetitions', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-8')
   expect(plan?.samples.length).toBeGreaterThanOrEqual(6)

@@ -117,6 +117,19 @@ test('localized long content and save-status lifecycle stay owned by the host', 
     expect(value).toContain('Ausführliche Dokumentation')
   }
 })
+test('blank document and action IDs cannot select, edit or dispatch a document target', () => {
+  const actions: string[] = []
+  const fixture = appShellDocumentsFixture(null, (action, id) => actions.push(`${action}:${id ?? ''}`))
+  const store = createAppShellDocumentsPreviewStore()
+  const view = projectAppShellDocumentsPreview(store.getState(), fixture)
+  view.onSelect(' ')
+  view.onTitle(' ', 'invalid title')
+  view.onAction('share', ' ')
+  view.onAction('menu', 'webhook', ' ')
+  expect(store.getState().selectedId).toBe('webhook')
+  expect(store.getState().titles[' ']).toBeUndefined()
+  expect(actions).toEqual([])
+})
 test('sampling distinguishes narrow menu callbacks from desktop toggles without exhaustive gesture multiplication', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-6')
   expect(plan?.samples).toHaveLength(16)

@@ -109,6 +109,17 @@ test('duplicate records de-duplicate by stable ID, stale scope is empty and unkn
   expect(stale.databases).toHaveLength(0)
   expect(render(stale)).toContain('No scope selected')
 })
+test('blank scope options and stale navigation/account IDs are ignored', () => {
+  const actions: string[] = []
+  const fixture = appShellScopeFixture(null, (action, id) => actions.push(`${action}:${id ?? ''}`))
+  const store = createAppShellScopePreviewStore()
+  const view = projectAppShellScopePreview(store.getState(), fixture)
+  view.onScope('project', ' ')
+  view.onAction('navigate', ' ')
+  view.onAction('account', 'removed')
+  expect(store.getState().selections.project).toBe('payments-api')
+  expect(actions).toEqual([])
+})
 test('scope sampling covers distinct changes while explicitly inferring repeated buttons', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-7')
   expect(plan?.samples).toHaveLength(16)

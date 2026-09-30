@@ -1245,3 +1245,35 @@ error 或页面横溢。61 项模型/SSR/兼容测试、507 个断言通过；�
 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览
 构建通过。根测试夹具排除可选 presentation，仍专门提供八种数据契约。使用授权缓存，
 不重标旧严格审计或声称 fresh strict 全量完成，也没有真实服务验收声明。
+
+App Shell 1–9 本轮保留已有九种独立工作台结构与九个 Zustand Host 模型，修复预览
+Host 为所有类别分配隐藏状态、变体/夹具切换不隔离的问题。所属 owner 才挂载模型，
+可选 presentation 包装保留旧默认 DOM，仅提供 Host EN/DE 就近请求反馈。模型过滤
+空白 ID、验证所属导航/行/文档/附件/菜单目标，原 Map 合并语义与同 ID 草稿恢复不变；
+legacy 公共 helper 保留 first-wins。Chat 的旧发送闭包通过 store 当前草稿守卫拒绝
+被替换的 payload，不清空草稿、不添加伪造的消息或 assistant 回答。
+
+参考使用已授权缓存：1–5 的 `app-shell-N-final-v26`，6 的 `app-shell-6-reviewed-v27`，
+7 的 `app-shell-7-reviewed-v27`，8 的 `app-shell-8-verified-v37` 和 9 的
+`app-shell-9-verified-v47`。已查看九种 desktop/tablet/mobile 与可用 context；结构
+来源包括根 `b0a1d77f` 至 `a76fd550` 的逐变体实现，子仓 `dfde063f3e` 至
+`59a39ee9a7`。第 1 种搜索按来源只保留输入、不筛主表；第 7 种 Preview 环境供给
+13 条而非 Production 的 14 条；第 9 种窄屏省略顶部 thread 标题而保留正文与输入。
+不把隐藏的响应式副本、源默认 drawer 或这些变化误认成缺失功能。
+
+App Shell 属于真实有界工作台，不机械解除全部高度或 pane 滚动。新增 preview flex
+拥有层把 notice 留在滚动区之外，LumenSurface 使用剩余空间，侧栏、记录、阅读区和
+已证实的 drawer/menu 覆盖关系保持原样。短导航自然增长，长集合继续交由 Host 供给
+分页数据；本轮的 101 文档压力夹具特意验证 pane 可达性，不宣称新增分页实现。
+来源的极窄组合菜单曾有边缘裁切（`a2995d63`），本地沿用安全有界菜单，不追逐源裁切。
+分享、创建、发送、导出等仅报告请求，不导航、持久化、发信、写文件、下载或调用服务。
+
+新增 `bun scripts/verify-hbar-app-ui-app-shell.ts`，九种结构各一次；抽查分组、区域、
+合同过滤、日历、会话阅读、标题同步、scope、窄屏 queue/flag 和德语 chat/model/
+thread/composer。仅两个窄屏样本、一个文档树真实滚动样本、三张代表图，38 条检查
+记录通过，图在 `artifacts/app-shell-core-review/`，目视无阻断使用的问题，无页面
+横溢或 page/console error。78 项模型/SSR/公共契约测试、575 个断言通过；根/子仓
+类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明
+和生产预览构建通过。新增 Inbox 测试回调修正为 fixture 的双参数契约；浏览器定位
+修正为所属响应式区域和正确环境数据，不为脚本而改变正常视图。未重跑或重标旧严格
+按钮/主题/视口排列，也不声称 fresh strict 全量或真实服务验收。

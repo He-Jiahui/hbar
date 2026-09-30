@@ -116,6 +116,18 @@ test('localized fixtures and separate stores retain host copy, query and collaps
   expect(render(appShellContractsFixture('empty'))).toContain('No metrics available')
   expect(appShellContractsFixture('overflow').records).toHaveLength(101)
 })
+test('blank or missing contract IDs are rejected by filter and target callbacks', () => {
+  const actions: string[] = []
+  const content = appShellContractsFixture(null, (action, value) => actions.push(`${action}:${value ?? ''}`))
+  const store = createAppShellContractsPreviewStore()
+  const view = projectAppShellContractsPreview(store.getState(), content)
+  view.onFilterChange(' ')
+  view.onNavigate(' ')
+  view.onRecord(' ')
+  store.getState().setFilter(' ')
+  expect(store.getState().filterId).toBe('all')
+  expect(actions).toEqual([])
+})
 test('audit samples outcome branches, not every contract or header button', () => {
   const plan = auditSamplingPlan('hbar-app-ui-app-shell-3')!
   expect(plan.samples).toHaveLength(15)
