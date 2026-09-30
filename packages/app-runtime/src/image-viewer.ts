@@ -24,6 +24,7 @@ export type ImageResourceErrorCode = (typeof resourceErrorCodes)[number]
 
 export type ImageViewerSource =
   | { readonly kind: 'draft'; readonly sessionId: string; readonly draftRevision: number }
+  | { readonly kind: 'pre-session-draft'; readonly draftId: string; readonly draftRevision: number }
   | { readonly kind: 'message'; readonly sessionId: string; readonly messageId: string; readonly messageSeq: number }
 
 export interface ImageViewerItem {
@@ -73,7 +74,7 @@ export type ImageViewerState =
 
 export interface ImageViewerOptions {
   readonly resources: ImageResourcePort
-  /** Consult canonical membership/active session. Text-only draft edits may remain current. */
+  /** Consult canonical membership and active owner. Text-only draft edits may remain current. */
   readonly isCurrent: (request: ImageViewerRequest) => boolean
   readonly onSubscriberError?: (error: unknown) => void
 }
@@ -85,7 +86,7 @@ export interface ImageViewer {
   /** Report a DOM decode error only for the exact ready snapshot rendered by that element. */
   reportDecodeFailure(expected: ImageViewerState): void
   close(): void
-  /** Called by the composition root when canonical source/session membership changes. */
+  /** Called by the composition root when canonical source/owner membership changes. */
   revalidate(): void
   dispose(): void
 }
@@ -93,6 +94,11 @@ export interface ImageViewer {
 const keySchema = z.string().min(1).max(512)
 const sourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('draft'), sessionId: idSchema, draftRevision: z.number().int().nonnegative() }),
+  z.strictObject({
+    kind: z.literal('pre-session-draft'),
+    draftId: z.string().uuid(),
+    draftRevision: z.number().int().nonnegative(),
+  }),
   z.strictObject({
     kind: z.literal('message'),
     sessionId: idSchema,

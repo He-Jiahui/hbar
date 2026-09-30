@@ -183,15 +183,22 @@ export type {
 } from './image-viewer'
 export {
   projectSessionDraftImages,
+  projectPreSessionDraftImages,
   projectSessionMessageImages,
+  containsPreSessionDraftImages,
+  isPreSessionImageRequestCurrent,
   isSessionImageRequestCurrent,
 } from './session-image-sources'
 export type {
   SessionImageProjection,
+  PreSessionImageProjection,
   SessionImageDraftInput,
+  PreSessionDraftImageInput,
   SessionImageMessageInput,
   SessionImageMembership,
+  PreSessionImageMembership,
   SessionImageDraft,
+  PreSessionImageDraft,
   SessionImageMessage,
   SessionImageTimeline,
 } from './session-image-sources'
