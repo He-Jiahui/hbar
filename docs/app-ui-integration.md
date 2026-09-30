@@ -58,6 +58,53 @@ and the legacy API. The historical `authentication-2-final-v4` cache uses captur
 is claimed. The reviewed five-case source sampling plan restricts remote outcomes and
 does not replay every button in every layout.
 
+### Authentication 3 controlled-quote integration status
+
+`hbar-app-ui-authentication-3` accepts an optional typed `quote.referenceFlow`.
+The controlled Lumen view projects email, password visibility, the in-memory password
+draft and selected quote without its own mirrored state or timer. A dedicated
+Zustand preview owner normalizes blank/duplicate IDs, reconciles removed selections
+without reviving stale IDs, and retains drafts across copy-only locale and list
+updates. Explicit scenario/initial-seed replacement resets the owner. The legacy
+view retains its original email-only action API and timer cleanup.
+
+Only typed, scoped sign-in/provider/navigation requests are emitted, with
+`authentication-and-navigation-unverified`. Sign-in records contain the current
+email and quote ID, never the password; stale payloads and callbacks from retired
+owners cannot append requests. The host owns rotation, retains cadence across
+draft/copy changes, cleans up on scenario/variant replacement, and rejects invalid
+or browser-overflowing intervals. No real login, social authentication, account
+creation or external navigation is performed or simulated.
+
+The live [Authentication 3 preview](https://pro.reactbits.dev/docs/app-ui/authentication/authentication-3)
+was read on 2026-09-29. Its actual content-width aside boundary is 1024px visible /
+1023px hidden, not a browser-window breakpoint. The flex sign-in column measures
+360×434 on the 1071×640 desktop canvas and 272×454 at 320px; its inline footer starts
+at 588px in the ordinary 640px canvas. Short hosts grow and scroll naturally, and
+long copy can wrap. The source's narrow provider SVGs shrink non-uniformly; Lumen
+keeps the shared 16px tier with compact padding rather than distorting or hiding them.
+Passive metric labels may wrap to retain host content instead of the source's
+ellipsis; this is an explicit fidelity difference, not a theme-only waiver.
+
+The three source stories/providers are observations, not capacity limits. The host
+boundary is six, with content-grown 17-provider/story and 17-metric fixtures.
+`scripts/verify-hbar-app-ui-authentication-3.ts` checks the split boundary once,
+representative draft/reveal/selection and keyboard request behavior, 320×420 footer
+reachability, long German copy including its real text bounds, overflow retention,
+request-log secrecy and zero browser errors. In-memory tests cover locale/list
+updates, timer lifecycle and retired callbacks separately from layout sampling.
+The five safe source samples cover next, previous-wrap, direct selection, blank
+password reveal and email editing; remote actions and secret entry are restricted.
+Historical September 23 captures are not current 16/37 acceptance evidence.
+The latest `authentication-3-current-v3` uses the same-day protocol-16 source
+canvases from `authentication-2-3-current-v1` and freshly captures the current
+production view. All eight structural pairs and five protocol-37 raw interaction
+state deltas match after restoring `aria-current` on the carousel dots. Strict
+comparison still fails two visual-feedback deltas (direct selection and next):
+the source ellipsizes Mina's longer metric labels while Lumen wraps them, changing
+the testimonial's content height. This difference has no theme waiver or manual
+sign-off; the ledger remains `needs-fix`.
+
 ### Forms 8 audit status
 
 `hbar-app-ui-forms-8` was captured from the live [Forms 8 rule builder](https://pro.reactbits.dev/docs/app-ui/forms/forms-8)

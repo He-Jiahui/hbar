@@ -5087,7 +5087,7 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
     }
   if (variantId === 'hbar-app-ui-authentication-3')
     return {
-      revision: 1,
+      revision: 2,
       lumenEntries: [
         'authentication.tsx',
         'authentication-quote-reference.css',
@@ -5127,37 +5127,6 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
           suffix: '0:fill',
           change: 'Host email field retains an edit without affecting the hidden quote pane',
         },
-        {
-          viewport: 'tablet',
-          theme: 'dark',
-          suffix: '4:click',
-          change: 'Sign-in preview submit has no invented success result',
-        },
-        { viewport: 'tablet', theme: 'dark', suffix: '5:hover', change: 'Shared social button pointer feedback' },
-        {
-          viewport: 'tablet',
-          theme: 'dark',
-          suffix: '7:click',
-          change: 'Representative provider action has no source demo transition',
-        },
-        {
-          viewport: 'mobile',
-          theme: 'light',
-          suffix: '8:click',
-          change: 'Account creation link has no source demo navigation result',
-        },
-        {
-          viewport: 'stress',
-          theme: 'light',
-          suffix: '1:click',
-          change: 'Narrow forgot-password action preserves the form',
-        },
-        {
-          viewport: 'stress',
-          theme: 'light',
-          suffix: '3:press-space',
-          change: 'Narrow keyboard password reveal retains field flow',
-        },
       ],
       inferences: [
         {
@@ -5169,14 +5138,26 @@ export function auditSamplingPlan(variantId: string): AuditSamplingPlan | undefi
         {
           scope: 'Autonomous quote rotation',
           basis:
-            'A separate live source probe observed the first-to-second transition after roughly eight seconds. Host-configured local timer progression and cleanup are browser-tested; independent clocks are not claimed as frame-synchronized screenshot pairs.',
+            'Current visible source observations include autonomous story changes; the older eight-second probe is historical, not a new duration measurement. Local Host rotation and cleanup use deterministic tests; independently running clocks are not claimed as synchronized screenshot pairs.',
           verification: 'inferred-not-replayed',
         },
         {
-          scope: 'Other viewport/theme form and provider permutations',
+          scope: 'Other viewport/theme form edits, password drafts, keyboard activation and pointer styles',
           basis:
-            'Eight static pairs cover the responsive split/hide boundary. Field edit, reveal, keyboard activation and representative no-result actions are sampled without replaying every native control in every viewport.',
+            'Five safe pairs cover email draft, empty-password reveal, next, previous-wrap and direct story selection. Local controlled-draft and native keyboard tests support equivalent gestures without transmitting a secret to the source. Eight static pairs cover responsive structure; current visible source hides the aside at content width 1023 and shows it at 1024.',
           verification: 'inferred-not-replayed',
+        },
+        {
+          scope: 'Sign-in, provider authentication and external navigation outcomes',
+          basis:
+            'This plan does not trigger source Sign in, Google/Apple/GitHub, Forgot password or Create an account. Local callbacks emit typed unverified requests and omit passwords from request records; no unchanged old capture is promoted into proof of authentication, delivery or navigation.',
+          verification: 'restricted-unverified',
+        },
+        {
+          scope: 'Capacity and legacy source evidence',
+          basis:
+            'Three source stories and three providers are visible data, not discovered limits. Six is a host boundary; local empty/one/boundary/overflow fixtures retain all items. September 23 static and interaction caches predate the current implementation and are historical only.',
+          verification: 'restricted-unverified',
         },
       ],
     }

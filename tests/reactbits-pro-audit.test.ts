@@ -4,6 +4,18 @@ import { HBAR_APP_UI_CATEGORIES, HBAR_APP_UI_CATEGORY_COUNTS } from '../packages
 import { renderAuditEvidencePage } from '../scripts/reactbits-audit-evidence-page'
 import { auditSamplingPlan, sampledInteractionIds } from '../scripts/reactbits-audit-sampling'
 
+test('quote sign-in samples safe draft and carousel mechanisms without authenticating or transmitting a secret', () => {
+  const id = 'hbar-app-ui-authentication-3'
+  const plan = auditSamplingPlan(id)!
+  expect(plan.revision).toBe(2)
+  expect(plan.samples).toHaveLength(5)
+  expect(sampledInteractionIds(id, 'tablet', 'light')).toEqual([`${id}:3:click`, `${id}:0:fill`])
+  expect(sampledInteractionIds(id, 'stress', 'light')).toEqual([])
+  expect(plan.inferences.filter((entry) => entry.verification === 'restricted-unverified')).toHaveLength(2)
+  expect(plan.inferences.some((entry) => entry.basis.includes('does not trigger source Sign in'))).toBe(true)
+  expect(plan.inferences.some((entry) => entry.basis.includes('1023'))).toBe(true)
+})
+
 test('provider-first sampling covers mode and draft gates without assuming remote authentication or navigation', () => {
   const id = 'hbar-app-ui-authentication-2'
   const plan = auditSamplingPlan(id)!

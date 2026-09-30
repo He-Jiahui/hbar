@@ -10,8 +10,9 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
-import { AuthenticationReferencePreviewHost } from './Authentication2PreviewHost'
+import { AuthenticationReferencePreviewHost } from './AuthenticationReferencePreviewHost'
 import { createAuthentication2PreviewFixture } from './authentication2PreviewFixtures'
+import { createAuthentication3PreviewFixture } from './authentication3PreviewFixtures'
 import { KanbanPreviewHost } from './KanbanPreviewHost'
 import { WizardPreviewHost } from './WizardPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
@@ -83,6 +84,7 @@ import type {
 import 'hbar-app-ui/theme.css'
 import './preview.css'
 import './authentication2-preview.css'
+import './authentication3-preview.css'
 import './onboarding1-preview.css'
 import './onboarding2-preview.css'
 import './onboarding3-preview.css'
@@ -479,6 +481,18 @@ function PreviewApp() {
         : 'source',
     )
   }, [])
+  const authentication3ReferenceFixture = useMemo(() => {
+    const parameters = new URLSearchParams(window.location.search)
+    const fixture = parameters.get('authentication3Fixture') ?? parameters.get('authenticationFixture')
+    const capacity = parameters.get('authentication3Capacity') ?? fixture
+    return createAuthentication3PreviewFixture(
+      fixture === 'long' ? 'de-long' : fixture === 'localized' ? 'de' : 'en',
+      capacity === 'empty' || capacity === 'one' || capacity === 'boundary' || capacity === 'overflow'
+        ? capacity
+        : 'source',
+      parameters.get('authentication3Metrics') === 'overflow' ? 'overflow' : 'source',
+    )
+  }, [])
   const billingContent = useMemo(() => {
     switch (new URLSearchParams(window.location.search).get('billingFixture')) {
       case 'overflow':
@@ -864,6 +878,7 @@ function PreviewApp() {
                           <AuthenticationReferencePreviewHost
                             content={authenticationContent}
                             referenceFixture={authentication2ReferenceFixture}
+                            quoteReferenceFixture={authentication3ReferenceFixture}
                             spec={selected.spec}
                             onAction={handleAction}
                           >
@@ -1301,6 +1316,7 @@ function PreviewApp() {
                                     <AuthenticationReferencePreviewHost
                                       content={authenticationContent}
                                       referenceFixture={authentication2ReferenceFixture}
+                                      quoteReferenceFixture={authentication3ReferenceFixture}
                                       spec={selected.spec}
                                       onAction={handleAction}
                                     >

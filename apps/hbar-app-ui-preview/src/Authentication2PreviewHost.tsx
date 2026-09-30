@@ -7,7 +7,6 @@ import {
   type LumenAuthProviderFirstReferenceFlow,
 } from '@lumen/app-ui'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
-import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import type { Authentication2PreviewFixture } from './authentication2PreviewFixtures'
 import { createAuthentication2PreviewStore, type Authentication2HostRequest } from './authentication2PreviewStore'
 
@@ -15,14 +14,6 @@ interface Authentication2PreviewHostProps extends HbarAppUiVariantProps {
   readonly content: LumenAuthContent
   readonly referenceFixture: Authentication2PreviewFixture
   readonly children: ReactNode
-}
-
-/** Authentication 2 owns its drafts, not the legacy multi-variant demonstration timers. */
-export function AuthenticationReferencePreviewHost(props: Authentication2PreviewHostProps) {
-  if (props.spec.category === 'authentication' && props.spec.variant === 2) {
-    return <Authentication2PreviewHost {...props} />
-  }
-  return <AuthenticationPreviewHost {...props} />
 }
 
 export function Authentication2PreviewHost(props: Authentication2PreviewHostProps) {
