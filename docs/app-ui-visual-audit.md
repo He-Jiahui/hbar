@@ -1017,3 +1017,19 @@ choice、拖放/选择同回调、主题与尺寸由实现推导，不计为逐�
 守卫、子包直接 CLI bundle/声明构建、生产预览构建通过。相关联合测试共 24 项、
 157 个断言通过。额外注册表测试仍有一条既存 Wizard 3 断言期待旧 plan-list 类名，
 与当前 upgrade-reference 实现不符；本轮未改 Wizard 或该测试，不宣称注册表全绿。
+
+Support 2 的 ticket 表单新增可选受控 referenceFlow，保留 legacy API 和已有布局。
+预览 Host 用独立 Zustand owner 管理领域选择、正文、附件占位和提交阶段；提交等待
+owner 回执，失败保留可编辑草稿，确认文案明确“没有创建真实支持工单”。语言更新
+不重建草稿；宿主选项变化协调失效 ID 并取消指向旧目标的等待，清理使旧 ticket
+失效。保存只发 preview-only 意图，不声明真实持久化或实际附件传输。
+
+12 项相关模型/内容/投影测试、95 个断言通过；受控实例 ID 独立，等待时禁用表单，
+失败可再提交，迟到结果与其他 owner 的 ticket 不被接收。
+`bun scripts/verify-hbar-app-ui-support-ticket-core.ts` 抽查生产预览的等待/失败草稿
+和 320px 德语确认，无横向溢出和 page/console error。样式未改，正常流布局及其余
+同构选择从已有实现推导；不扩展到 Support 3–5，不重新跑严格视觉矩阵。
+
+类型检查、限定 ESLint、Host 内容守卫与包/预览构建通过。整份 `support.tsx` 的
+内容守卫仍报告两个 HEAD 中已存在、位于 Thread 3 的 `You` 字面文案，未将这项
+既存差距伪报为全文件通过；本轮仅受控 ticket 范围闭环。

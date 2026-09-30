@@ -11,6 +11,8 @@ import {
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { EmptyStatePreviewHost } from './EmptyStatePreviewHost'
+import { SupportTicketPreviewHost } from './SupportTicketPreviewHost'
+import { createSupportTicketPreviewCopy, localizeSupportTicketPreviewContent } from './supportTicketPreviewCopy'
 import './empty-state-preview.css'
 import {
   HBAR_APP_UI_EMPTY_STATE_FIXTURES,
@@ -678,7 +680,10 @@ function PreviewApp() {
     [],
   )
   const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])
-  const supportContent = useMemo(() => HBAR_APP_UI_SUPPORT_FIXTURES, [])
+  const supportLocale = useMemo(() => new URLSearchParams(window.location.search).get('supportFixture') === 'localized' ? 'de' : 'en', [])
+  const supportContent = useMemo(() => localizeSupportTicketPreviewContent(HBAR_APP_UI_SUPPORT_FIXTURES, supportLocale), [supportLocale])
+  const supportTicketCopy = useMemo(() => createSupportTicketPreviewCopy(supportLocale), [supportLocale])
+  const supportTicketOutcome = useMemo(() => new URLSearchParams(window.location.search).get('supportOutcome') === 'failed' ? 'failed' : 'confirmed', [])
   const wizardContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('wizardFixture')
     return fixture === 'localized'
@@ -922,6 +927,7 @@ function PreviewApp() {
                                                     <HbarAppUiNotificationsProvider content={notificationsContent}>
                                                       <HbarAppUiMobileProvider content={mobileContent}>
                                                         <HbarAppUiSupportProvider content={supportContent}>
+                                                          <SupportTicketPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportTicketCopy} submitPreviewOutcome={supportTicketOutcome}>
                                                           <WizardPreviewHost content={wizardContent}>
                                                             <HbarAppUiOnboardingProvider content={onboardingContent}>
                                                               <HbarAppUiListProvider content={listContent}>
@@ -1170,6 +1176,7 @@ function PreviewApp() {
                                                               </HbarAppUiListProvider>
                                                             </HbarAppUiOnboardingProvider>
                                                           </WizardPreviewHost>
+                                                          </SupportTicketPreviewHost>
                                                         </HbarAppUiSupportProvider>
                                                       </HbarAppUiMobileProvider>
                                                     </HbarAppUiNotificationsProvider>
@@ -1365,6 +1372,7 @@ function PreviewApp() {
                                                               >
                                                                 <HbarAppUiMobileProvider content={mobileContent}>
                                                                   <HbarAppUiSupportProvider content={supportContent}>
+                                                                    <SupportTicketPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportTicketCopy} submitPreviewOutcome={supportTicketOutcome}>
                                                                     <WizardPreviewHost content={wizardContent}>
                                                                       <HbarAppUiOnboardingProvider
                                                                         content={onboardingContent}
@@ -1637,6 +1645,7 @@ function PreviewApp() {
                                                                         </HbarAppUiListProvider>
                                                                       </HbarAppUiOnboardingProvider>
                                                                     </WizardPreviewHost>
+                                                                    </SupportTicketPreviewHost>
                                                                   </HbarAppUiSupportProvider>
                                                                 </HbarAppUiMobileProvider>
                                                               </HbarAppUiNotificationsProvider>
