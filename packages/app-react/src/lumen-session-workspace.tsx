@@ -64,6 +64,7 @@ import {
   HbarComposerAttachmentTransfers,
   type HbarComposerAttachmentLabels,
 } from './composer-attachments'
+import { HbarComposerWorkspaceContexts, type HbarComposerWorkspaceContextLabels } from './composer-workspace-contexts'
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
 import {
@@ -110,6 +111,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly error: (code: string) => string
   readonly prompt: LumenPromptLabels
   readonly attachments: HbarComposerAttachmentLabels
+  readonly workspaceContexts: HbarComposerWorkspaceContextLabels
   readonly mentions: HbarComposerMentionLabels
   readonly slash: HbarComposerSlashLabels
   readonly addMenu: HbarComposerAddMenuLabels
@@ -480,6 +482,9 @@ function SessionWorkspaceContent({
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string; profileId?: string } | null>(null)
+  const [workspaceContextFailure, setWorkspaceContextFailure] = useState<{ sessionId: string; message: string } | null>(
+    null,
+  )
   const [launchTargetFailure, setLaunchTargetFailure] = useState<{ sessionId: string; code: string } | null>(null)
   const [goalConfirmation, setGoalConfirmation] = useState<{
     sessionId: string
@@ -496,6 +501,7 @@ function SessionWorkspaceContent({
     pendingModelSlash.current = null
     localSlashInFlight.current = false
     setGoalConfirmation(null)
+    setWorkspaceContextFailure(null)
   }, [sessionId])
   const saveComposerContent = (
     targetSessionId: string,
@@ -532,6 +538,7 @@ function SessionWorkspaceContent({
       latest?.revision !== target.revision ||
       !localSlashCommand(latest.text, slashIds) ||
       latest.mentions.length ||
+      latest.workspaceContexts?.length ||
       latest.attachments.length ||
       latest.attachmentTransfers.length
     )
@@ -557,6 +564,7 @@ function SessionWorkspaceContent({
       latest?.revision !== target.revision ||
       latest.text !== target.text ||
       latest.mentions.length ||
+      latest.workspaceContexts?.length ||
       latest.attachments.length ||
       latest.attachmentTransfers.length ||
       activeRun
@@ -860,7 +868,8 @@ function SessionWorkspaceContent({
       latest.status === 'unknown' ||
       latest.status === 'submitting' ||
       latest.attachmentTransfers.length ||
-      (!latest.text.trim() && !latest.attachments.length) ||
+      (!latest.text.trim() && !latest.attachments.length && !latest.workspaceContexts?.length) ||
+      (intentState?.intent === 'goal' && !latest.text.trim()) ||
       permission?.locked ||
       (modelAction.sessionId === targetSessionId && ['submitting', 'unknown'].includes(modelAction.action.status)) ||
       ['submitting', 'unknown'].includes(intentState?.submission.status ?? '') ||
@@ -935,6 +944,7 @@ function SessionWorkspaceContent({
     invoke('composerIntent.submit', submitInput)
   }
   const attachmentTransfers = draft?.attachmentTransfers ?? []
+  const workspaceContexts = draft?.workspaceContexts ?? []
   const attachmentIntakeEnabled =
     Boolean(prepareAttachment) &&
     canPrepare &&
@@ -962,6 +972,20 @@ function SessionWorkspaceContent({
       () => {},
     )
   }
+  const removeWorkspaceContext = (contextId: string) => {
+    if (!sessionId || !draft || !connected || firstSendLocked || workspaceMoveLocked || intentPending) return
+    const targetSessionId = sessionId
+    const expectedRevision = draft.revision
+    setWorkspaceContextFailure(null)
+    void execute('draft.removeWorkspaceContext', { sessionId: targetSessionId, expectedRevision, contextId }).catch(
+      () => {
+        if (runtime.state.navigation.getSnapshot().sessionId === targetSessionId)
+          setWorkspaceContextFailure({ sessionId: targetSessionId, message: labels.workspaceContexts.removeError })
+      },
+    )
+  }
+  const workspaceContextError =
+    workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
   const runErrorAction = timeline.runs
     .map((run) => runActions[run.id])
     .find((action) => action?.error && (!stopRun || action.commandId !== 'operation.cancel'))
@@ -1686,25 +1710,60 @@ function SessionWorkspaceContent({
             name: attachment.artifact.name,
           }))}
           attachmentContent={
-            images && draft?.attachments.length ? (
-              <HbarDraftImageAttachments
-                draft={draft}
-                removeLabel={labels.prompt.removeAttachment}
-                removeDisabled={
-                  draft.status === 'submitting' ||
-                  draft.status === 'unknown' ||
-                  intentEntry?.submission.status === 'submitting' ||
-                  workspaceMoveLocked
-                }
-                onRemove={(id, kind) =>
-                  invoke('draft.removeAttachment', {
-                    sessionId,
-                    artifactId: id,
-                    kind,
-                    expectedRevision: draft.revision,
-                  })
-                }
-              />
+            draft &&
+            (workspaceContexts.length > 0 || workspaceContextError || (images && draft.attachments.length > 0)) ? (
+              <>
+                <HbarComposerWorkspaceContexts
+                  contexts={workspaceContexts}
+                  attachments={!images ? draft.attachments : []}
+                  labels={labels.workspaceContexts}
+                  removeAttachmentLabel={(attachment) =>
+                    labels.prompt.removeAttachment({
+                      id: attachment.artifact.id,
+                      kind: attachment.kind,
+                      name: attachment.artifact.name,
+                    })
+                  }
+                  removeDisabled={
+                    !connected ||
+                    firstSendLocked ||
+                    workspaceMoveLocked ||
+                    draft.status === 'submitting' ||
+                    draft.status === 'unknown' ||
+                    intentPending
+                  }
+                  error={workspaceContextError}
+                  onRemove={removeWorkspaceContext}
+                  onRemoveAttachment={(attachment) =>
+                    invoke('draft.removeAttachment', {
+                      sessionId,
+                      artifactId: attachment.artifact.id,
+                      kind: attachment.kind,
+                      expectedRevision: draft.revision,
+                    })
+                  }
+                />
+                {images && draft.attachments.length > 0 ? (
+                  <HbarDraftImageAttachments
+                    draft={draft}
+                    removeLabel={labels.prompt.removeAttachment}
+                    removeDisabled={
+                      draft.status === 'submitting' ||
+                      draft.status === 'unknown' ||
+                      intentEntry?.submission.status === 'submitting' ||
+                      workspaceMoveLocked
+                    }
+                    onRemove={(id, kind) =>
+                      invoke('draft.removeAttachment', {
+                        sessionId,
+                        artifactId: id,
+                        kind,
+                        expectedRevision: draft.revision,
+                      })
+                    }
+                  />
+                ) : null}
+              </>
             ) : undefined
           }
           disabled={
@@ -1737,12 +1796,19 @@ function SessionWorkspaceContent({
                 attachmentTransfers.length === 0 &&
                 !permissionEntry?.locked &&
                 draft?.status !== 'unknown' &&
-                Boolean(draft?.text.trim() || draft?.attachments.length))
+                Boolean(
+                  (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
+                  (intent !== 'goal' || draft?.text.trim()),
+                ))
           }
           canStop={Boolean(activeRun)}
           runningActions={{
             ...labels.runningActions,
-            submit: draft?.text.trim() || draft?.attachments.length ? 'queue' : 'hidden',
+            submit:
+              (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
+              (intent !== 'goal' || draft?.text.trim())
+                ? 'queue'
+                : 'hidden',
           }}
           stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
           error={

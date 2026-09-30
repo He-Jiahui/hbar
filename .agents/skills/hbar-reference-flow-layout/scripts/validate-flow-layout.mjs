@@ -89,6 +89,11 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // CC WorkspacePanel's observed selected-text action floats beside a DOM Range.
+  // Evidence: artifacts/file-selection-reference/*-source-selection-menu.png;
+  // only this measured menu container floats, not source rows or comment content.
+  if (/packages\/app-react\/src\/file-context-surfaces\.css$/.test(path.replaceAll('\\', '/')) &&
+      selector.trim() === '.hbar-file-selection-menu') return true
   // Forms 5: the observed data-region options list overlays the plan cards.
   // Only the listbox container floats; the options and surrounding form stay in flow.
   if (/packages\/lumen-app-ui\/src\/forms-5-reference\.css$/.test(path.replaceAll('\\', '/')) &&
@@ -531,6 +536,12 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const selectionMenuPath = 'packages/app-react/src/file-context-surfaces.css'
+  const selectionMenu = '.hbar-file-selection-menu {\nposition: fixed;\nleft: 0;\n}'
+  if (validateCss(selectionMenuPath, selectionMenu).length ||
+      validateCss('other.css', selectionMenu).length === 0 ||
+      validateCss(selectionMenuPath, selectionMenu.replace('selection-menu {', 'selection-menu button {')).length === 0)
+    throw new Error('Source selection overlay exception must remain exact, path-scoped and exclude menu content')
   const settingsForm4Menu = `.lumen-settings-form-4-menu {
 position: absolute;
 inset-block-start: calc(100% + 0.25rem);

@@ -26,6 +26,7 @@ import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
 import { goalExecutionCopy } from './goal-execution-copy'
 import { composerAttachmentCopy } from './composer-attachment-copy'
+import { sessionWorkspaceContextCopy } from './session-workspace-context-copy'
 import { generalSettingsCopy } from './general-settings-copy'
 import type { WebGeneralSettingsLabels } from './GeneralSettings'
 import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layout-copy'
@@ -1328,6 +1329,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       removeAttachment: (attachment) => choose(`移除附件 ${attachment.name}`, `Remove attachment ${attachment.name}`),
     },
     attachments: composerAttachmentCopy(choose),
+    workspaceContexts: sessionWorkspaceContextCopy(choose),
     mentions: {
       menu: choose('提及工作区文件或目录', 'Mention workspace files or folders'),
       root: choose('工作区根目录', 'Workspace root'),

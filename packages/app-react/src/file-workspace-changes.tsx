@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { FileDiff, Folder, MessageCircle, RefreshCw } from 'lucide-react'
 import {
   LumenButton,
@@ -9,8 +9,16 @@ import {
   LumenInput,
   LumenText,
 } from '@lumen/app-ui'
-import { filteredFileChanges, FILE_CHANGES_PAGE_SIZE, type FileWorkspaceEntryState } from '@hbar/app-runtime'
+import {
+  filteredFileChanges,
+  FILE_CHANGES_PAGE_SIZE,
+  projectWorkspaceDiffRows,
+  selectWorkspaceDiffRange,
+  type FileComposerContextSelection,
+  type FileWorkspaceEntryState,
+} from '@hbar/app-runtime'
 import { clampFileDiffPage, FILE_DIFF_LINES_PER_PAGE, type FileDiffPagination } from './file-preview-pagination'
+import { HbarFileCommentEditor, type HbarFileContextLabels } from './file-context-surfaces'
 
 type Changes = FileWorkspaceEntryState['changes']
 type Diff = NonNullable<FileWorkspaceEntryState['diff']>
@@ -181,6 +189,7 @@ export function HbarFileDiff({
   headerActions,
   onRefresh,
   pagination,
+  context,
 }: {
   readonly diff: Diff
   readonly change: Change | undefined
@@ -201,12 +210,54 @@ export function HbarFileDiff({
   readonly headerActions?: ReactNode
   readonly onRefresh?: (() => void) | undefined
   readonly pagination?: FileDiffPagination | undefined
+  readonly context?:
+    | {
+        readonly labels: HbarFileContextLabels
+        readonly disabled: boolean
+        readonly onAdd: (selection: FileComposerContextSelection) => Promise<boolean>
+      }
+    | undefined
 }) {
   const [requestedPage, setPage] = useState(0)
   const lines = diff.text.split('\n')
   const page = clampFileDiffPage(pagination?.page ?? requestedPage, lines.length)
   const changePage = pagination?.onChange ?? setPage
   const start = page * FILE_DIFF_LINES_PER_PAGE
+  const rows = projectWorkspaceDiffRows(diff.text)
+  const [review, setReview] = useState<{
+    readonly text: string
+    readonly cached: boolean
+    readonly anchor: number
+    readonly focus: number
+    readonly note: string
+  } | null>(null)
+  const [incompatible, setIncompatible] = useState(false)
+  const buttons = useRef(new Map<number, HTMLButtonElement>())
+  const currentReview = review?.text === diff.text && review.cached === diff.cached ? review : null
+  const range = currentReview ? selectWorkspaceDiffRange(rows, currentReview.anchor, currentReview.focus) : null
+  const selected = new Set(range?.rowIndices)
+  const closeReview = () => {
+    const anchor = currentReview?.anchor
+    setReview(null)
+    setIncompatible(false)
+    if (anchor !== undefined) requestAnimationFrame(() => buttons.current.get(anchor)?.focus())
+  }
+  const activate = (index: number, extend: boolean) => {
+    const anchor = extend && currentReview ? currentReview.anchor : index
+    const next = selectWorkspaceDiffRange(rows, anchor, index)
+    setIncompatible(!next)
+    setReview({
+      text: diff.text,
+      cached: diff.cached,
+      anchor: next ? anchor : index,
+      focus: index,
+      note: extend && currentReview && next ? currentReview.note : '',
+    })
+  }
+  const selectPage = (next: number) => {
+    closeReview()
+    changePage(next)
+  }
   return (
     <LumenFrame className="hbar-file-diff">
       <LumenFrame className="hbar-file-diff-toolbar">
@@ -292,30 +343,105 @@ export function HbarFileDiff({
       )}
       {(diff.status === 'ready' || Boolean(diff.text)) &&
         (diff.text ? (
-          <LumenText
-            as="pre"
-            className="hbar-file-diff-content"
-            aria-label={labels.diffContent(diff.path)}
-            tabIndex={0}
-          >
-            {lines.slice(start, start + FILE_DIFF_LINES_PER_PAGE).map((line, index) => (
-              <LumenText as="span" data-kind={lineKind(line)} key={start + index}>
-                {line || '\n'}
-              </LumenText>
+          <LumenFrame className="hbar-file-diff-content" aria-label={labels.diffContent(diff.path)} tabIndex={0}>
+            {rows.slice(start, start + FILE_DIFF_LINES_PER_PAGE).map((row) => (
+              <Fragment key={row.index}>
+                <LumenFrame
+                  className="hbar-file-diff-row"
+                  data-kind={lineKind(row.raw)}
+                  data-selected={selected.has(row.index)}
+                >
+                  {context && row.side ? (
+                    <LumenButton
+                      ref={(element) => {
+                        if (element) buttons.current.set(row.index, element)
+                        else buttons.current.delete(row.index)
+                      }}
+                      className="hbar-file-line-control"
+                      variant="text"
+                      indicator="none"
+                      aria-label={context.labels.commentLine(
+                        diff.path,
+                        (row.side === 'old' ? row.oldLine : row.newLine)!,
+                        row.side,
+                      )}
+                      aria-pressed={selected.has(row.index)}
+                      disabled={context.disabled || !row.text.trim()}
+                      onClick={(event) => activate(row.index, event.shiftKey)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          closeReview()
+                          return
+                        }
+                        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+                        event.preventDefault()
+                        const step = event.key === 'ArrowDown' ? 1 : -1
+                        for (
+                          let index = row.index + step;
+                          index >= start && index < Math.min(start + FILE_DIFF_LINES_PER_PAGE, rows.length);
+                          index += step
+                        ) {
+                          if (!rows[index]?.side) continue
+                          if (event.shiftKey) activate(index, true)
+                          buttons.current.get(index)?.focus()
+                          break
+                        }
+                      }}
+                    >
+                      {row.side === 'old' ? row.oldLine : row.newLine}
+                    </LumenButton>
+                  ) : (
+                    <LumenText as="span" />
+                  )}
+                  <LumenText as="span" data-diff-code={row.index}>
+                    {row.raw || '\u200b'}
+                  </LumenText>
+                </LumenFrame>
+                {range?.rowEnd === row.index && context && (
+                  <HbarFileCommentEditor
+                    key={`${diff.cached}:${range.rowStart}:${range.rowEnd}`}
+                    labels={context.labels}
+                    rangeLabel={context.labels.range(range.lineStart, range.lineEnd, range.diffSide)}
+                    disabled={context.disabled}
+                    note={currentReview?.note ?? ''}
+                    onNote={(note) => setReview((current) => (current ? { ...current, note } : null))}
+                    onCancel={closeReview}
+                    onSubmit={async (note) => {
+                      const added = await context.onAdd({
+                        kind: 'diff-comment',
+                        cached: diff.cached,
+                        expectedText: diff.text,
+                        rowStart: range.rowStart,
+                        rowEnd: range.rowEnd,
+                        diffSide: range.diffSide,
+                        note,
+                      })
+                      if (added) closeReview()
+                      return added
+                    }}
+                  />
+                )}
+              </Fragment>
             ))}
-          </LumenText>
+          </LumenFrame>
         ) : (
           <LumenText as="p">{labels.noDiff}</LumenText>
         ))}
+      {incompatible && context && (
+        <LumenText as="p" role="status">
+          {context.labels.incompatible}
+        </LumenText>
+      )}
       {lines.length > FILE_DIFF_LINES_PER_PAGE && (
         <LumenFrame className="hbar-file-changes-pagination">
           <LumenText as="span">
             {labels.linePage(start + 1, Math.min(start + FILE_DIFF_LINES_PER_PAGE, lines.length), lines.length)}
           </LumenText>
-          <LumenButton disabled={page === 0} onClick={() => changePage(page - 1)}>
+          <LumenButton disabled={page === 0} onClick={() => selectPage(page - 1)}>
             {labels.previousLines}
           </LumenButton>
-          <LumenButton disabled={start + FILE_DIFF_LINES_PER_PAGE >= lines.length} onClick={() => changePage(page + 1)}>
+          <LumenButton disabled={start + FILE_DIFF_LINES_PER_PAGE >= lines.length} onClick={() => selectPage(page + 1)}>
             {labels.nextLines}
           </LumenButton>
         </LumenFrame>

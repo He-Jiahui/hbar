@@ -29,7 +29,7 @@ export function fileWorkspaceErrorCopy(zh: boolean, code: string): string | null
 
 export function fileWorkspaceCopy(
   zh: boolean,
-): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview' | 'previews'> {
+): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview' | 'previews' | 'context'> {
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
   const status = (value: string) => {
     const names: Record<string, string> = {
@@ -51,6 +51,30 @@ export function fileWorkspaceCopy(
     staged: choose('暂存区差异', 'Staged diff'),
   }
   return {
+    context: {
+      addSelection: choose('加入对话', 'Add to chat'),
+      commentTitle: choose('本地批注', 'Local comment'),
+      note: choose('代码批注', 'Code comment'),
+      placeholder: choose('对此处代码添加批注…', 'Add a note about this code…'),
+      addComment: choose('加入批注', 'Add comment'),
+      cancel: choose('取消', 'Cancel'),
+      range: (start, end, side) => {
+        const sideLabel =
+          side === 'old' ? choose('旧版本 · ', 'Old · ') : side === 'new' ? choose('新版本 · ', 'New · ') : ''
+        return (
+          sideLabel +
+          (start === end
+            ? choose(`第 ${start} 行`, `Line ${start}`)
+            : choose(`第 ${start}–${end} 行`, `Lines ${start}–${end}`))
+        )
+      },
+      commentLine: (path, line, side) =>
+        choose(
+          `批注 ${path} ${side === 'old' ? '旧版本' : side === 'new' ? '新版本' : ''} 第 ${line} 行`,
+          `Comment on ${path} ${side ?? ''} line ${line}`,
+        ),
+      incompatible: choose('请选择同一差异块中同一侧的代码。', 'Select code on the same side of one diff hunk.'),
+    },
     previews: {
       tabs: choose('已打开的文件预览', 'Open file previews'),
       kind: (kind) => kinds[kind],

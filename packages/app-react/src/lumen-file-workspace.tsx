@@ -14,7 +14,7 @@ import {
   LumenToolPane,
   type LumenWorkspaceFileLabels,
 } from '@lumen/app-ui'
-import type { SessionFileTarget } from '@hbar/app-runtime'
+import type { FileComposerContextSelection, SessionFileTarget } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './file-workspace-changes'
 import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'
@@ -23,9 +23,11 @@ import { useFilePreviewReadingPosition } from './file-preview-reading-position'
 import { useFilePreviewPagination } from './file-preview-pagination'
 import { filePreviewOwnsFailure, focusVisibleFilePreviewControl } from './file-preview-feedback'
 import { HbarFilePreviewTabs, type HbarFilePreviewItem, type HbarFilePreviewLabels } from './file-preview-tabs'
+import { HbarFileSourceSurface, type HbarFileContextLabels } from './file-context-surfaces'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
+  readonly context: HbarFileContextLabels
   readonly changes: HbarFileChangesLabels
   readonly tree: HbarFileTreeLabels
   readonly previews: HbarFilePreviewLabels
@@ -172,27 +174,36 @@ export function HbarFileWorkspace({
       ].includes(name)
       const intent = previewAction ? ++previewIntent.current : null
       if (previewAction) setPreviewFeedback(null)
-      void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, commandInput).catch(
-        (reason: unknown) => {
-          if (intent === null || intent !== previewIntent.current || activeTarget.current !== target) return
-          const code =
-            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-              ? reason.code
-              : 'EXECUTION_FAILED'
-          const latest = instanceId ? runtime.state.files.getSnapshot().entries[instanceId] : undefined
-          // A reader already owns this error. Only add strip feedback when no current reader displays it.
-          if (filePreviewOwnsFailure(latest, name, input)) return
-          if (code !== 'CANCELLED' && code !== 'TARGET_CHANGED' && code !== 'RESULT_UNKNOWN')
-            setPreviewFeedback({ target, message: labels.previews.error(code) })
-        },
-      )
+      void (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(
+        name,
+        commandInput,
+      ).catch((reason: unknown) => {
+        if (intent === null || intent !== previewIntent.current || activeTarget.current !== target) return
+        const code =
+          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+            ? reason.code
+            : 'EXECUTION_FAILED'
+        const latest = instanceId ? runtime.state.files.getSnapshot().entries[instanceId] : undefined
+        // A reader already owns this error. Only add strip feedback when no current reader displays it.
+        if (filePreviewOwnsFailure(latest, name, input)) return
+        if (code !== 'CANCELLED' && code !== 'TARGET_CHANGED' && code !== 'RESULT_UNKNOWN')
+          setPreviewFeedback({ target, message: labels.previews.error(code) })
+      })
     },
     [runtime.commands, runtime.state.files, instanceId, sourceSessionId, entry?.sessionTarget, target, labels.previews],
   )
   useEffect(() => {
     if (instanceId && panel?.panelId === 'files' && panel.workspaceId && entry?.workspaceId !== panel.workspaceId)
       invoke('fileWorkspace.refresh', { instanceId })
-  }, [candidate?.sourceSessionId, entry?.workspaceId, instanceId, invoke, panel?.panelId, panel?.workspaceId, sourceSessionId])
+  }, [
+    candidate?.sourceSessionId,
+    entry?.workspaceId,
+    instanceId,
+    invoke,
+    panel?.panelId,
+    panel?.workspaceId,
+    sourceSessionId,
+  ])
   useEffect(() => {
     if (
       instanceId &&
@@ -360,14 +371,14 @@ export function HbarFileWorkspace({
           : addingTarget === addTarget
             ? labels.addingToChat
             : null
-  const addCurrentFile = () => {
-    if (!canAdd || !workspaceId || !selectedPath || !sourceSessionId || !sourceTab || addInFlight.current) return
+  const addCurrentFile = async (context?: FileComposerContextSelection): Promise<boolean> => {
+    if (!canAdd || !workspaceId || !selectedPath || !sourceSessionId || !sourceTab || addInFlight.current) return false
     const target = addTarget
     const expectedRevision = runtime.state.drafts.getSnapshot()[sourceSessionId]?.revision ?? 0
     addInFlight.current = true
     setAddingTarget(target)
     setAddFeedback(null)
-    void runtime.commands
+    return runtime.commands
       .execute('fileWorkspace.addToComposer', {
         instanceId,
         workspaceId,
@@ -378,23 +389,26 @@ export function HbarFileWorkspace({
         sourceTabInstanceKey: sourceTab.instanceKey,
         ...(workbenchTab ? { workbenchTabId: workbenchTab.id, workbenchTabInstanceKey: workbenchTab.instanceKey } : {}),
         expectedRevision,
+        ...(context ? { context } : {}),
       })
       .then((result) => {
-        if (target !== activeAddTarget.current) return
+        if (target !== activeAddTarget.current) return false
         setAddFeedback({
           target,
           kind: 'success',
           message: result.added ? labels.addedToChat(result.sessionTitle) : labels.alreadyInChat(result.sessionTitle),
           revision: result.revision,
         })
+        return true
       })
       .catch((reason: unknown) => {
-        if (target !== activeAddTarget.current) return
+        if (target !== activeAddTarget.current) return false
         const code =
           reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
             ? reason.code
             : 'EXECUTION_FAILED'
         setAddFeedback({ target, kind: 'error', message: labels.addToChatError(code) })
+        return false
       })
       .finally(() => {
         addInFlight.current = false
@@ -566,7 +580,9 @@ export function HbarFileWorkspace({
                       className="hbar-file-add-to-chat"
                       variant="text"
                       disabled={!canAdd || addingTarget !== null}
-                      onClick={addCurrentFile}
+                      onClick={() => {
+                        void addCurrentFile()
+                      }}
                     >
                       <LumenIcon icon={MessageCircle} tier="sm" />
                       {labels.addToChat}
@@ -604,14 +620,16 @@ export function HbarFileWorkspace({
                     }
                   />
                 ) : (
-                  <LumenText
-                    as="pre"
-                    className="hbar-file-text-preview"
-                    tabIndex={0}
-                    aria-label={labels.textPreview(document.path)}
-                  >
-                    {document.draft}
-                  </LumenText>
+                  <HbarFileSourceSurface
+                    key={`${previewId}:${document.sha256}`}
+                    path={document.path}
+                    value={document.draft}
+                    sha256={document.sha256}
+                    previewLabel={labels.textPreview(document.path)}
+                    labels={labels.context}
+                    disabled={!canAdd || addingTarget !== null}
+                    onAdd={addCurrentFile}
+                  />
                 )}
                 {unknown && document.error && (
                   <LumenText as="p" role="alert">
@@ -666,13 +684,20 @@ export function HbarFileWorkspace({
                     ? {
                         label: labels.addToChat,
                         disabled: !canAdd || addingTarget !== null,
-                        onClick: addCurrentFile,
+                        onClick: () => {
+                          void addCurrentFile()
+                        },
                         feedback: feedback?.message,
                         feedbackKind: feedback?.kind,
                       }
                     : undefined
                 }
                 referenceHint={addHint ?? undefined}
+                context={
+                  sourceTab && (mode !== 'workbench' || workbenchTab)
+                    ? { labels: labels.context, disabled: !canAdd || addingTarget !== null, onAdd: addCurrentFile }
+                    : undefined
+                }
               />
             ) : null}
           </LumenFrame>
