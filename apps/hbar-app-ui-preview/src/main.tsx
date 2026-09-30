@@ -11,6 +11,8 @@ import {
 } from '@lumen/app-ui'
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { EmptyStatePreviewHost } from './EmptyStatePreviewHost'
+import { ChatPreviewHost } from './ChatPreviewHost'
+import { createChatReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-chat-reference-fixtures'
 import { SupportTicketPreviewHost } from './SupportTicketPreviewHost'
 import { SupportThreadPreviewHost } from './SupportThreadPreviewHost'
 import { createSupportThreadPreviewCopy } from './supportThreadPreviewCopy'
@@ -200,7 +202,6 @@ import {
   createHbarAppUiSchedulingLocalizedFixtures,
   createHbarAppUiSchedulingOverflowFixtures,
 } from '../../../tests/fixtures/hbar-app-ui-scheduling-fixtures'
-import { HBAR_APP_UI_CHAT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-chat-fixtures'
 import {
   createHbarAppUiPromptInputLocalizedFixtures,
   HBAR_APP_UI_PROMPT_INPUT_FIXTURES,
@@ -552,7 +553,9 @@ function PreviewApp() {
         ? createHbarAppUiSchedulingOverflowFixtures()
         : HBAR_APP_UI_SCHEDULING_FIXTURES
   }, [])
-  const chatContent = useMemo(() => HBAR_APP_UI_CHAT_FIXTURES, [])
+  const chatLocale = useMemo(() => new URLSearchParams(window.location.search).get('chatFixture') === 'localized' ? 'de-long' : 'en', [])
+  const chatContent = useMemo(() => createChatReferencePreviewFixtures(chatLocale), [chatLocale])
+  const chatPreviewOutcome = useMemo(() => new URLSearchParams(window.location.search).get('chatOutcome') === 'failed' ? 'failed' : 'confirmed', [])
   const promptInputContent = useMemo(
     () =>
       new URLSearchParams(window.location.search).get('promptInputFixture') === 'localized'
@@ -921,6 +924,7 @@ function PreviewApp() {
                                 <CommentsPreviewHost content={commentsContent}>
                                   <SchedulingPreviewHost content={schedulingContent}>
                                     <HbarAppUiChatProvider content={chatContent}>
+                                      <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
                                       <HbarAppUiPromptInputProvider content={promptInputContent}>
                                         <HbarAppUiCardProvider content={cardContent}>
                                           <HbarAppUiDataTableProvider content={dataTableContent}>
@@ -1193,6 +1197,7 @@ function PreviewApp() {
                                           </HbarAppUiDataTableProvider>
                                         </HbarAppUiCardProvider>
                                       </HbarAppUiPromptInputProvider>
+                                      </ChatPreviewHost>
                                     </HbarAppUiChatProvider>
                                   </SchedulingPreviewHost>
                                 </CommentsPreviewHost>
@@ -1366,6 +1371,7 @@ function PreviewApp() {
                                           <CommentsPreviewHost content={commentsContent}>
                                             <SchedulingPreviewHost content={schedulingContent}>
                                               <HbarAppUiChatProvider content={chatContent}>
+                                                <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
                                                 <HbarAppUiPromptInputProvider content={promptInputContent}>
                                                   <HbarAppUiCardProvider content={cardContent}>
                                                     <HbarAppUiDataTableProvider content={dataTableContent}>
@@ -1664,6 +1670,7 @@ function PreviewApp() {
                                                     </HbarAppUiDataTableProvider>
                                                   </HbarAppUiCardProvider>
                                                 </HbarAppUiPromptInputProvider>
+                                                </ChatPreviewHost>
                                               </HbarAppUiChatProvider>
                                             </SchedulingPreviewHost>
                                           </CommentsPreviewHost>

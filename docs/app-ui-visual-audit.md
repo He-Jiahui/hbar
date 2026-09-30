@@ -1054,3 +1054,26 @@ legacy API 保留。回复由 Zustand owner 管理，400ms 只模拟本地确认
 根/子仓类型检查、限定类型感知 ESLint、样式/content/icon/flow 守卫以及包 bundle/
 声明和生产预览构建通过。此前 Thread 3 的两处 `You` 硬编码已改为宿主 metadata；
 本轮全份 support 内容守卫通过，不将其它 Support 变体业务接入一并写成完成。
+
+Chat 1–6 本轮补足共用的受控发送机制：每个预览 owner 有独立 Zustand store，按
+channel/contact/post/room/stream 的稳定目标保存草稿、捕获请求 ticket；切换目标不
+改写原目标的迟到结果，移除目标和清理取消等待。失败或零容量保留草稿，确认后才
+向正确目标追加本地消息，并明确“只加入预览，未送达”。翻译不存入领域状态，当前
+作者/时间/status 随 Host 文案投影。局部消息后缀最多 20 条，且不超过宿主期望容量
+扣除已有记录后的余量；基础记录不删除，超容量时不伪造成功。Support chat 评分与
+快捷项改为宿主 ID/domain action，仍是预览意图，不称真实支持服务。
+
+Chat 1 的原参考没有频道侧导航，本轮增加独立 referenceLayout：launch-room
+标题/说明、pin/member toolbar、Today、四条消息、typing 注记、原生单行 composer
+与附件/emoji/send 顺序。新流式 CSS 不改 legacy 分支，不用坐标、Grid 或固定内容
+高度。Chat 2 补齐五位真实联系人与五条参考消息并实测目标切换；**Chat 2–6 的
+其它结构仍部分沿用旧视图，不能据此签整类功能/布局通过**。搜索/气泡/通话、嵌套
+社交回复、支持完整历史/评价、群附件线程、无 tab 直播仍是下一批真实缺口。
+
+20 项相关模型/Host/SSR/fixture 测试、156 个断言通过；类型、限定 ESLint、content/
+icon/flow 守卫、两份新样式的 stylelint 和包/预览构建通过。
+`bun scripts/verify-hbar-app-ui-chat-core.ts` 只回放共用发送的等待/确认与失败保留，
+Direct 发送后切到另一联系人并返回、每联系人草稿，以及 320px 长德语频道；其余
+四个独立家族只检查挂载，共同 composer 行为由实现和状态测试推导。代表图在
+`artifacts/chat-core-review/`，page/console error 为零，无横溢。未重跑主题/视口/
+按钮笛卡尔积，也未签 fresh strict 或声称任何远端消息、附件或导航已成功。
