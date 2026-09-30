@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -9,6 +9,9 @@ import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './
 
 const prefix = 'hbar-composer-active-location-order-'
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 48729}`
+const colorScheme = process.env.HBAR_E2E_COMPOSER_SCHEME ?? 'light'
+if (colorScheme !== 'light' && colorScheme !== 'dark')
+  throw new Error('Composer capture color scheme must be light or dark')
 
 async function removeOwnedFixture(root: string) {
   const absoluteRoot = resolve(root)
@@ -23,8 +26,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   }) => {
     test.setTimeout(60_000)
     const root = await mkdtemp(join(tmpdir(), prefix))
-    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
-    const screenshotDirectory = resolve('artifacts/composer-active-location-order', locale)
+    const context = await browser.newContext({ locale, colorScheme, viewport: { width: 1440, height: 900 } })
+    const screenshotDirectory = resolve(
+      'artifacts/composer-active-location-order',
+      colorScheme === 'dark' ? 'dark' : '',
+      locale,
+    )
     let host: WebSessionHost | undefined
     try {
       await mkdir(screenshotDirectory, { recursive: true })
@@ -55,6 +62,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       if (await expand.isVisible()) await expand.click()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', colorScheme)
 
       const project = page.getByRole('group', {
         name: contextCopy.project(host.ready.workspaceName),
@@ -197,6 +205,34 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
       }
       expect(errors).toEqual([])
+      await writeFile(
+        join(screenshotDirectory, 'capture-metadata.json'),
+        JSON.stringify(
+          {
+            capturedAt: new Date().toISOString(),
+            source: 'production Web with an owned temporary Host and local-fixture model',
+            buildSourceCommit: process.env.HBAR_E2E_CAPTURE_BUILD_COMMIT ?? null,
+            locale,
+            colorScheme,
+            actualLumenMode: await page.locator('html').getAttribute('data-lumen-mode'),
+            browserVersion: browser.version(),
+            goalSelected,
+            viewports,
+            pageErrors: errors,
+            boundaries: {
+              nativeDesktop: false,
+              messagesLoaded: false,
+              sendClicked: false,
+              hostGoalCreated: false,
+              launchSelectionChanged: false,
+              userPreferencesChanged: false,
+              narrowReferenceParity: false,
+            },
+          },
+          null,
+          2,
+        ),
+      )
     } finally {
       try {
         await context.close()

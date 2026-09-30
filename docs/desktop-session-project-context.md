@@ -29,3 +29,13 @@ hbar 的现有只读工程／分支组件从右侧 options/model group 移入 le
 十张截图保存在隔离 checkout 的 `artifacts/composer-active-location-order/{en-US,zh-CN}/`，包含额外的宽屏默认状态；人工检查英文 1440／900 与中文 320。首轮两个 locale 均失败于测试把隐藏菜单内的 Goal 当作常驻按钮，该 PNG／trace／context 保存在 `initial-hidden-goal-fixture/`；依据真实画面和当前 portal 源码修正断言，没有为测试修改产品行为。
 
 两个变更代码路径的 full-flag explicit strict TypeScript 和 scoped ESLint 零警告通过，E2E 与文档格式检查通过，content／icon guards 通过，生产 build 通过（3,316 modules，仍有大 chunk 警告）。`lumen-session-workspace.tsx` 的整体 Prettier 检查在 HEAD 基线也失败，本次保留原格式，仅移动六行。全仓 typecheck 再次退出 1，包含 preview contracts 与根 fixture 的 `@lumen/app-ui` 解析错误及当时并行开发中的 admission-test unused import；不能把聚焦通过表述成全仓通过。清理中的 preview WS `ECONNRESET` 有日志，浏览器 pageerror 数组为空；自有 browser／preview／Host 均释放。
+
+### 同主题的补充视觉证据
+
+原始 hbar 验证图是 light，而上述 CC 完整应用参考是 dark。为后续判断 composer 层级、控件密度、边框和灯效补拍 dark，不能只凭浅／深不同就建议改主题。现有 E2E 增加测试专用 `HBAR_E2E_COMPOSER_SCHEME=light|dark`，默认 light；无效值明确失败。通过独立 browser context 的媒体偏好选择 system theme，并断言实际 `html[data-lumen-mode]`，不写用户主题或 Host appearance 设置，也不改产品 CSS、tokens 或组件。
+
+使用恢复到 `82931b8a` 的生产源码构建后，最终 dark 两语言 **2 cases／8.5s** 与 light **2 cases／8.1s** 均通过，中英文各覆盖四宽度、默认／已选本地 Goal、只读 context 和无 document 横向溢出。每种主题十张 PNG；dark 位于隔离 checkout 的 `artifacts/composer-active-location-order/dark/{en-US,zh-CN}/`，light 保持原目录。每个 locale 的 `capture-metadata.json` 记录声明的 build source commit、实际 Lumen mode、Edge `154.0.4258.37`、viewports、Goal selected、空 pageerror 数组和 Web／无 Send／无 Host Goal／无用户偏好修改等边界。build commit 由执行命令传入，缺少时记 null，不把测试当时的工作树 HEAD 自动冒充已构建源码。
+
+Root 查看 dark 英文默认 1440 与中文已选 Goal 320，核对正常流、wrapped controls、下置只读 context 与原有描边／阴影／控件下划线。CC 参考 HEAD 再次确认为 `e28d0a653481ef41b7a329411eeb2f0fd5656731`。两者现在同属 dark mode，但 palette、字体、浏览器版本和会话内容仍不同，不能据此声称整页像素、颜色或字体 parity；窄屏仍只是 hbar 回归。本轮新增的是可信比较基础，不是视觉样式改进已经完成。
+
+取证前第一轮 build 与并行 agent 尚未接线的 contract patch 重叠，输出 `index-CyJRaxBb.js` 未用于浏览器证据；合同恢复后第二轮 `index-DBTjNLZ4.js` 才用于上述运行，3,316 modules／大 chunk 告警保持。E2E 的 explicit strict 初轮也被该在途合同缺少 initial projection 的 TS2741 阻断，完整 initial 随后由所属 agent 补齐后重跑并通过；这个在途诊断不是全仓门禁通过或产品发布失败的记录。最终 E2E 路径的 full-flag explicit strict TypeScript、scoped ESLint 零警告、E2E／文档 Prettier 与 staged diff 检查通过。无效 scheme 的 `--list` 负例在收集测试前退出 1／0 tests，不启动 browser／Host；最终自有 48729／48739／48740 无 listener。Main 和用户配置未改动。
