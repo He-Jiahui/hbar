@@ -1583,6 +1583,9 @@ function SessionWorkspaceContent({
                     : {})}
                 />
               )}
+              {projectContextLabels && (
+                <LumenFrame className="hbar-session-project-context-toolbar">{projectContextView()}</LumenFrame>
+              )}
               <HbarComposerIntentControls
                 key={sessionId}
                 preferMenu
@@ -1658,9 +1661,6 @@ function SessionWorkspaceContent({
                 labels={labels.usage}
                 onOpenMonitor={() => toggleTool('monitoring')}
               />
-              {projectContextLabels && (
-                <LumenFrame className="hbar-session-project-context-toolbar">{projectContextView()}</LumenFrame>
-              )}
               <HbarComposerModelPicker
                 key={sessionId}
                 sessionId={sessionId}

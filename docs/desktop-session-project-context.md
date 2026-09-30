@@ -17,3 +17,15 @@
 2026-09-29 当前切片验证：14 个 runtime tests／56 assertions、scoped ESLint 零警告、explicit strict TypeScript 和生产 Web build 通过；最后独立浏览器轮为 **3 tests 通过，20.2s**，包含中英文四宽度和真实绑定隔离兄弟会话。人工查看了新增的 1440px／320px 截图，核对原工程名、隔离分支尾部、窄屏正常流和无横向溢出。初轮为 2 pass／1 fail：新夹具把 Host worktree storage 放进源 repository，被正确拒绝；随后改为单独注册的子 repository，Host data 仍在其外部，未放宽产品路径限制。刻意关闭 Host 时 preview proxy 的 `ECONNRESET` 是夹具断线／清理日志，浏览器 pageerror 数组为空。
 
 这不是全仓 typecheck／lint 或 native desktop smoke 的通过记录，也不是 Location selector 已交付的声明。隔离分支还有其他正在验证的 Files／Git DTO 切片，未混入本子功能提交；主工作区的其他任务改动保持原样。
+
+## 宽屏位置阅读顺序的追加校正
+
+再次核对参考的真实完整应用截图 `artifacts/ui-reference/cc-haha-runtime/current/session-tool-complete-1440x900.png`、ARIA 和 capture metadata：2026-09-20 的临时 Desktop UI Smoke 项目画面显示权限 → 只读 project chip → 用量 → 模型／effort → Run。其 capture commit 与本轮再次读取的参考 HEAD 均为 `e28d0a653481ef41b7a329411eeb2f0fd5656731`，可以支撑当前宽屏父级顺序；截图不含 Git branch 标签，也不代表已获得窄屏活动会话的分支视觉证据。
+
+hbar 的现有只读工程／分支组件从右侧 options/model group 移入 leading controls，紧跟权限／Plan、位于用量和模型之前；准备好的本地 Goal 意图在它之后。仅移动原有 JSX，没有新增入口、可编辑能力、图标尺寸或 CSS；原有窄屏下置容器保持不变。普通模式的 Goal 入口仍在加号菜单，选择后才出现行内“下条：目标”，不是一个一直可见的行内按钮。这一既有行为可追溯到 `4ba57343`。
+
+`e2e/composer-active-location-order.spec.ts` 在 production Web＋临时真实 Host 中验证 **2 cases／8.7s**，en-US／zh-CN 各包含 1440、900、390、320 宽度。默认工具行、加号内本地 Goal 选择后的行内顺序、模型／发送可见、只读 chip 无按钮和无 document 横向溢出均通过；本轮两种语言的实际截图均有已选本地 Goal。没有点击 Send、创建 Host Goal、切换分支或准备 worktree。窄屏检查仅是 hbar 回归，不声称参考 parity；夹具为尚无消息的已物化会话，不是 native 截图或完整首发验收。
+
+十张截图保存在隔离 checkout 的 `artifacts/composer-active-location-order/{en-US,zh-CN}/`，包含额外的宽屏默认状态；人工检查英文 1440／900 与中文 320。首轮两个 locale 均失败于测试把隐藏菜单内的 Goal 当作常驻按钮，该 PNG／trace／context 保存在 `initial-hidden-goal-fixture/`；依据真实画面和当前 portal 源码修正断言，没有为测试修改产品行为。
+
+两个变更代码路径的 full-flag explicit strict TypeScript 和 scoped ESLint 零警告通过，E2E 与文档格式检查通过，content／icon guards 通过，生产 build 通过（3,316 modules，仍有大 chunk 警告）。`lumen-session-workspace.tsx` 的整体 Prettier 检查在 HEAD 基线也失败，本次保留原格式，仅移动六行。全仓 typecheck 再次退出 1，包含 preview contracts 与根 fixture 的 `@lumen/app-ui` 解析错误及当时并行开发中的 admission-test unused import；不能把聚焦通过表述成全仓通过。清理中的 preview WS `ECONNRESET` 有日志，浏览器 pageerror 数组为空；自有 browser／preview／Host 均释放。
