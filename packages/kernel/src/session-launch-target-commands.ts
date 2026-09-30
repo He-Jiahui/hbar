@@ -3,6 +3,8 @@ import { HbarError } from '@hbar/contracts'
 import {
   sessionLaunchTargetCommands,
   sessionLaunchTargetSchema,
+  sessionLaunchTargetPreparationSnapshotSchema,
+  sessionLaunchTargetPreparationStartReceiptSchema,
   sessionLaunchTargetSetReceiptSchema,
 } from '@hbar/contracts/commands/session-launch-target'
 import type { SessionLaunchTargetSetInput } from '@hbar/contracts/commands/session-launch-target'
@@ -15,6 +17,7 @@ const rejectedBeforeCommit = new Set([
   'NOT_FOUND',
   'SESSION_ARCHIVED',
   'SESSION_LAUNCH_TARGET_LOCKED',
+  'BUSY',
 ])
 
 function requestsEqual(left: SessionLaunchTargetSetInput, right: SessionLaunchTargetSetInput): boolean {
@@ -102,6 +105,63 @@ export function createSessionLaunchTargetCommands(kernel: Kernel, changed: () =>
         changed()
         return sessionLaunchTargetSchema.parse(target)
       }),
+    { durable: true },
+  )
+  registry.register(
+    sessionLaunchTargetCommands['sessionLaunchTarget.startPreparation'],
+    async (request, context) => {
+      if (!context.actorId || !context.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      try {
+        const receipt = await kernel.startSessionLaunchTargetPreparation({
+          ...request,
+          actorId: context.actorId,
+          idempotencyKey: context.idempotencyKey,
+        })
+        const parsed = sessionLaunchTargetPreparationStartReceiptSchema.safeParse(receipt)
+        if (
+          !parsed.success ||
+          parsed.data.sessionId !== request.sessionId ||
+          parsed.data.targetRevision !== request.expectedRevision
+        )
+          throw new CommandError('RESULT_UNKNOWN', 'Preparation acknowledgement does not match this request')
+        changed()
+        return parsed.data
+      } catch (error) {
+        if (error instanceof HbarError && rejectedBeforeCommit.has(error.code))
+          throw new CommandError(error.code, error.message)
+        if (error instanceof CommandError) throw error
+        throw new CommandError('RESULT_UNKNOWN', 'Preparation acknowledgement was lost; retry with the same key')
+      }
+    },
+    { durable: true },
+  )
+  registry.register(sessionLaunchTargetCommands['sessionLaunchTarget.preparation'], async (request, context) => {
+    if (!context.actorId) throw new CommandError('INVALID_INPUT', 'Authenticated actor is required')
+    return sessionLaunchTargetPreparationSnapshotSchema.parse(
+      await read(() => kernel.readSessionLaunchTargetPreparation(request)),
+    )
+  })
+  registry.register(
+    sessionLaunchTargetCommands['sessionLaunchTarget.cancelPreparation'],
+    async (request) => {
+      const snapshot = sessionLaunchTargetPreparationSnapshotSchema.parse(
+        await read(() => kernel.cancelSessionLaunchTargetPreparation(request)),
+      )
+      changed()
+      return snapshot
+    },
+    { durable: true },
+  )
+  registry.register(
+    sessionLaunchTargetCommands['sessionLaunchTarget.reconcilePreparation'],
+    async (request) => {
+      const snapshot = sessionLaunchTargetPreparationSnapshotSchema.parse(
+        await read(() => kernel.reconcileSessionLaunchTargetPreparation(request)),
+      )
+      changed()
+      return snapshot
+    },
     { durable: true },
   )
   return {

@@ -55,6 +55,10 @@ import type {
   SessionLaunchTargetResolution,
   SessionLaunchTargetSetInput,
   SessionLaunchTargetSetReceipt,
+  SessionLaunchTargetPreparationStartInput,
+  SessionLaunchTargetPreparationStartReceipt,
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
 } from '@hbar/contracts/commands/session-launch-target'
 
 export interface WorkspaceOrganizationMutationInput {
@@ -126,6 +130,22 @@ export interface SessionLaunchTargetRuntimeSnapshot {
   target: SessionLaunchTarget
   resolution: SessionLaunchTargetResolutionRecord | null
   binding: SessionLaunchTargetBinding | null
+}
+
+export interface SessionLaunchTargetPreparationStartMutationInput extends SessionLaunchTargetPreparationStartInput {
+  actorId: string
+  idempotencyKey: string
+}
+
+export type SessionLaunchTargetPreparationOperationRecord = SessionLaunchTargetPreparationSnapshot & {
+  selection: SessionLaunchSelection
+  cancellationRequested: boolean
+}
+
+export interface SessionLaunchTargetPreparationOperationTransitionInput extends SessionLaunchTargetPreparationOperationInput {
+  expectedOperationVersion: number
+  status: SessionLaunchTargetPreparationSnapshot['status']
+  error: { code: string; message: string } | null
 }
 
 export interface StoredSettingsLayer {
@@ -218,6 +238,22 @@ export interface StorageMethods {
   sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
   setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
   sessionLaunchTargetReceipt(input: SessionLaunchTargetReceiptLookup): SessionLaunchTargetSetReceipt | null
+  startSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationStartMutationInput,
+  ): SessionLaunchTargetPreparationStartReceipt
+  sessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): SessionLaunchTargetPreparationSnapshot
+  sessionLaunchTargetPreparationRecord(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): SessionLaunchTargetPreparationOperationRecord
+  pendingSessionLaunchTargetPreparations(): SessionLaunchTargetPreparationOperationRecord[]
+  requestSessionLaunchTargetPreparationCancellation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): SessionLaunchTargetPreparationSnapshot
+  transitionSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationTransitionInput,
+  ): SessionLaunchTargetPreparationSnapshot
   beginSessionLaunchTargetPreparation(input: SessionLaunchTargetPreparationInput): SessionLaunchTargetResolutionRecord
   updateSessionLaunchTargetPreparation(input: SessionLaunchTargetPreparationUpdate): SessionLaunchTargetResolutionRecord
   updateSession(

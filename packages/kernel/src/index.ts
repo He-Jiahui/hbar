@@ -48,7 +48,17 @@ import type {
   UserInputService,
 } from '@hbar/plugin-sdk'
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
-import type { PathLayout, SessionLaunchTargetMutationInput, StoragePort } from '@hbar/storage'
+import type {
+  PathLayout,
+  SessionLaunchTargetMutationInput,
+  SessionLaunchTargetPreparationStartMutationInput,
+  StoragePort,
+} from '@hbar/storage'
+import type {
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+  SessionLaunchTargetPreparationStartReceipt,
+} from '@hbar/contracts/commands/session-launch-target'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
 import type { QueuedRunEditTextInput, QueuedRunRemoveInput, RunCommandRecord } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
@@ -79,6 +89,8 @@ export { createWorkspaceSessionCommands } from './workspace-session-commands'
 export { createSessionLaunchTargetCommands } from './session-launch-target-commands'
 export { SessionLaunchTargetService } from './session-launch-target-service'
 import { SessionLaunchTargetService } from './session-launch-target-service'
+export { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
+import { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 export { createSettingsCommands } from './settings-commands'
 export { createUsageCommands } from './usage-commands'
 export { createWorkflowCommands } from './workflow-commands'
@@ -246,6 +258,7 @@ export class Kernel {
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
   readonly sessionLaunchTargets: SessionLaunchTargetService
+  readonly sessionLaunchPreparations: SessionLaunchTargetPreparationService
   readonly tools = new Tools()
   readonly hooks = new Hooks()
   readonly schemaCallbacks = createSchemaCallbackRegistry()
@@ -280,6 +293,17 @@ export class Kernel {
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
     this.sessionLaunchTargets = new SessionLaunchTargetService(this.storage, options.layout)
+    this.sessionLaunchPreparations = new SessionLaunchTargetPreparationService(
+      this.storage,
+      {
+        prepare: (sessionId, revision, signal) => this.prepareSessionLaunchTarget(sessionId, revision, signal),
+        reconcile: (sessionId, revision, signal) => this.reconcileSessionLaunchTarget(sessionId, revision, signal),
+        reconcileCancellation: (sessionId, revision, signal) =>
+          this.sessionLaunchTargets.reconcileCancelledPreparation(sessionId, revision, signal),
+        readTarget: (sessionId) => this.getSessionLaunchTarget(sessionId),
+      },
+      () => this.changed('session-launch-target'),
+    )
     this.permissionSettings = new SettingsService(this.storage)
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
@@ -427,6 +451,7 @@ export class Kernel {
           }),
         )
       kernel.readyForRuns = true
+      await kernel.sessionLaunchPreparations.resumePending()
       // Only persisted continuation intents can start new work. Old active
       // Goals without an intent remain inert during this startup scan.
       for (const session of await kernel.storage.call('sessions')) kernel.kick(session.id)
@@ -776,6 +801,26 @@ export class Kernel {
   }
   async cancelSessionLaunchTarget(sessionId: string, revision: number) {
     return this.sessionLaunchTargets.cancel(sessionId, revision)
+  }
+  async startSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationStartMutationInput,
+  ): Promise<SessionLaunchTargetPreparationStartReceipt> {
+    return this.sessionLaunchPreparations.start(input)
+  }
+  readSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.read(input)
+  }
+  cancelSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.cancel(input)
+  }
+  reconcileSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.reconcile(input)
   }
   async submit(
     sessionId: string,
@@ -1724,6 +1769,7 @@ export class Kernel {
     this.directoryQueries.dispose()
     for (const active of this.active.values())
       active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
+    await this.sessionLaunchPreparations.close()
     await this.sessionLaunchTargets.close()
     await this.waitForIdle()
     for (const pending of this.userInputs.values())

@@ -67,6 +67,52 @@ export const sessionLaunchTargetCancelInputSchema = z.strictObject({
   sessionId: idSchema,
   expectedRevision: revisionSchema,
 })
+export const sessionLaunchTargetPreparationStartInputSchema = z.strictObject({
+  sessionId: idSchema,
+  expectedRevision: revisionSchema,
+})
+export const sessionLaunchTargetPreparationStartReceiptSchema = z.strictObject({
+  operationId: idSchema,
+  sessionId: idSchema,
+  workspaceId: idSchema,
+  targetRevision: revisionSchema,
+})
+export const sessionLaunchTargetPreparationOperationInputSchema = z.strictObject({
+  sessionId: idSchema,
+  expectedRevision: revisionSchema,
+  operationId: idSchema,
+})
+const preparationOperationFields = {
+  schemaVersion: z.literal(1),
+  operationId: idSchema,
+  sessionId: idSchema,
+  workspaceId: idSchema,
+  targetRevision: revisionSchema,
+  operationVersion: z.number().int().positive().safe(),
+  createdAt: z.number().int().nonnegative().safe(),
+  updatedAt: z.number().int().nonnegative().safe(),
+}
+const preparationOperationErrorSchema = z.strictObject({
+  code: z.string().min(1).max(128),
+  message: z.string().max(1_000),
+})
+export const sessionLaunchTargetPreparationSnapshotSchema = z.discriminatedUnion('status', [
+  z.strictObject({ ...preparationOperationFields, status: z.literal('queued') }),
+  z.strictObject({ ...preparationOperationFields, status: z.literal('preparing') }),
+  z.strictObject({ ...preparationOperationFields, status: z.literal('cancel-requested') }),
+  z.strictObject({ ...preparationOperationFields, status: z.literal('ready') }),
+  z.strictObject({ ...preparationOperationFields, status: z.literal('cancelled') }),
+  z.strictObject({
+    ...preparationOperationFields,
+    status: z.literal('reconciling'),
+    error: preparationOperationErrorSchema,
+  }),
+  z.strictObject({
+    ...preparationOperationFields,
+    status: z.literal('failed'),
+    error: preparationOperationErrorSchema,
+  }),
+])
 
 export const sessionLaunchTargetSetReceiptSchema = z
   .strictObject({
@@ -90,6 +136,14 @@ export type SessionLaunchTargetResolution = z.infer<typeof sessionLaunchTargetRe
 export type SessionLaunchTargetPrepareInput = z.infer<typeof sessionLaunchTargetPrepareInputSchema>
 export type SessionLaunchTargetReconcileInput = z.infer<typeof sessionLaunchTargetReconcileInputSchema>
 export type SessionLaunchTargetCancelInput = z.infer<typeof sessionLaunchTargetCancelInputSchema>
+export type SessionLaunchTargetPreparationStartInput = z.infer<typeof sessionLaunchTargetPreparationStartInputSchema>
+export type SessionLaunchTargetPreparationStartReceipt = z.infer<
+  typeof sessionLaunchTargetPreparationStartReceiptSchema
+>
+export type SessionLaunchTargetPreparationOperationInput = z.infer<
+  typeof sessionLaunchTargetPreparationOperationInputSchema
+>
+export type SessionLaunchTargetPreparationSnapshot = z.infer<typeof sessionLaunchTargetPreparationSnapshotSchema>
 
 /** A read-only capability; callers cannot choose a filesystem root or mutate a target. */
 export interface SessionLaunchTargetReadOptions {
@@ -98,6 +152,38 @@ export interface SessionLaunchTargetReadOptions {
 }
 export interface SessionLaunchTargetReader {
   read(sessionId: string, options?: SessionLaunchTargetReadOptions): Promise<SessionLaunchTarget>
+}
+
+export interface SessionLaunchTargetWriteOptions extends SessionLaunchTargetReadOptions {
+  readonly idempotencyKey: string
+}
+
+export interface SessionLaunchTargetPreparationManager {
+  readTarget(sessionId: string, options?: SessionLaunchTargetReadOptions): Promise<SessionLaunchTarget>
+  setSelection(
+    input: SessionLaunchTargetSetInput,
+    options: SessionLaunchTargetWriteOptions,
+  ): Promise<SessionLaunchTargetSetReceipt>
+  readSelectionReceipt(
+    input: SessionLaunchTargetReceiptInput,
+    options?: SessionLaunchTargetReadOptions,
+  ): Promise<SessionLaunchTargetSetReceipt | null>
+  startPreparation(
+    input: SessionLaunchTargetPreparationStartInput,
+    options: SessionLaunchTargetWriteOptions,
+  ): Promise<SessionLaunchTargetPreparationStartReceipt>
+  readPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+    options?: SessionLaunchTargetReadOptions,
+  ): Promise<SessionLaunchTargetPreparationSnapshot>
+  cancelPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+    options: SessionLaunchTargetWriteOptions,
+  ): Promise<SessionLaunchTargetPreparationSnapshot>
+  reconcilePreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+    options: SessionLaunchTargetWriteOptions,
+  ): Promise<SessionLaunchTargetPreparationSnapshot>
 }
 
 const metadata = (id: string, kind: 'query' | 'command') => ({
@@ -163,5 +249,40 @@ export const sessionLaunchTargetCommands = {
     },
     sessionLaunchTargetCancelInputSchema,
     sessionLaunchTargetSchema,
+  ),
+  'sessionLaunchTarget.startPreparation': defineCommand(
+    {
+      ...metadata('sessionLaunchTarget.startPreparation', 'command'),
+      stateEffect: 'external',
+      timeoutMs: 10_000,
+      idempotency: 'required',
+    },
+    sessionLaunchTargetPreparationStartInputSchema,
+    sessionLaunchTargetPreparationStartReceiptSchema,
+  ),
+  'sessionLaunchTarget.preparation': defineCommand(
+    { ...metadata('sessionLaunchTarget.preparation', 'query'), timeoutMs: 10_000 },
+    sessionLaunchTargetPreparationOperationInputSchema,
+    sessionLaunchTargetPreparationSnapshotSchema,
+  ),
+  'sessionLaunchTarget.cancelPreparation': defineCommand(
+    {
+      ...metadata('sessionLaunchTarget.cancelPreparation', 'command'),
+      stateEffect: 'external',
+      timeoutMs: 10_000,
+      idempotency: 'required',
+    },
+    sessionLaunchTargetPreparationOperationInputSchema,
+    sessionLaunchTargetPreparationSnapshotSchema,
+  ),
+  'sessionLaunchTarget.reconcilePreparation': defineCommand(
+    {
+      ...metadata('sessionLaunchTarget.reconcilePreparation', 'command'),
+      stateEffect: 'external',
+      timeoutMs: 10_000,
+      idempotency: 'required',
+    },
+    sessionLaunchTargetPreparationOperationInputSchema,
+    sessionLaunchTargetPreparationSnapshotSchema,
   ),
 }

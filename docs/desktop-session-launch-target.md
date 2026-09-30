@@ -149,3 +149,13 @@ Changed 使用 `sessionGit.status/diff` 的 execution-root 相对路径与严格
 这三个 UI／E2E 文件的 full-flag explicit strict TypeScript、scoped ESLint 零警告及 staged diff 检查通过；choice-picker／新 E2E／文档的 Prettier 通过。`PreSessionLanding.tsx` 格式检查仍有告警，独立检查当前 HEAD 的原始文件也退出 1；该文件本次只调换两个 JSX children，没有夹带历史全文件格式化。两个 TSX 的 flow／content／icon guards 通过，生产 Web build 通过并保留既有 2.37MB chunk 警告。rendered choice-picker suite 仍在测试执行前因 pinned `hbar-ui` 缺少 `prop-types` 失败（0 pass／1 fail／1 error）；未安装依赖，也不把浏览器绿色结果表述成全仓检查通过。
 
 隔离分支的全仓 TypeScript 检查尚受根测试 fixture 的 `@lumen/app-ui` 解析基线影响；变更文件的 explicit strict TypeScript 与 targeted lint 另行运行并记录，不能把 scoped gate 表述成全仓通过。主工作区同时存在其他任务的 Kernel、manifest 和 UI 改动，未清除、自动暂存或夹带它们；集成必须单独核对。
+
+## 追加的异步准备 API 与接入边界
+
+在保留旧 `prepare`／`reconcile`／`cancel` 签名的前提下，新增 `startPreparation`、`preparation`、`cancelPreparation`、`reconcilePreparation`。start 持久化原 actor／idempotency key 对应的 operation receipt 后返回，不等待 Git 或接受 Run；查询与取消绑定原 session、target revision 和 operation ID，不跟随当前导航。storage v12 保存操作状态和取消意图，公开 snapshot 只包含身份、版本、时间、状态与安全错误，不携带执行路径或私有 selection。
+
+操作状态为 queued、preparing、cancel-requested、ready、cancelled、reconciling、failed。取消受理与取消终态不同：如果 Git 已创建 worktree，Host 核验后可以报告 ready，并保留该 worktree；客户端仍需遵守自己已捕获的取消意图，不能因为迟到 ready 自动发送。未知创建结果和取消意图可在重启后核对，取消恢复只检查已有目标，不重新创建，也不删除已有分支／工作树。数据库内持久 pending 容量为 68，同一 Host 执行最多四项；活动准备期间禁止更换 selection 和事务内首次 Run binding。
+
+Client 的 `SessionLaunchTargetPreparationManager` 是独立的认证传输适配器，不选择 cwd、不调用旧慢准备、不提交 Run。写入派发后的本地 abort、丢失响应或无法校验的 ack 保持 RESULT_UNKNOWN；停止观察不等于远程取消。start 重试使用原键，查询核对原操作，状态版本用于后续投影抑制旧响应。
+
+该 API 子功能的验证结果记录在对应提交正文中，使用临时 Host／Git／SQLite 和配对 Client，未操作用户项目或付费 provider。它尚未注入 pre-session ViewModel，完整首次发送 handoff、就近进度／取消恢复 UI、最终 expected-target Run 受理检查仍是后续接缝；没有为此新增可见 Prepare 按钮。前面的同步准备时长记录描述旧 API，不能当作新 start 的响应时长证明，也不能把这次契约接入称为 native 桌面体验已经交付。

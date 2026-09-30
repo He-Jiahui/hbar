@@ -320,6 +320,25 @@ export class SessionLaunchTargetService {
     return this.trackOperation(() => this.reconcileInternal(sessionId, expectedRevision, signal))
   }
 
+  reconcileCancelledPreparation(
+    sessionId: string,
+    expectedRevision: number,
+    signal?: AbortSignal,
+  ): Promise<SessionLaunchTarget> {
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () =>
+        controller.abort(
+          new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED', 'Cancellation reconciliation exceeded 15 seconds'),
+        ),
+      RECONCILIATION_TIMEOUT_MS,
+    )
+    const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal
+    return this.trackOperation(() =>
+      this.reconcileCancelledPreparationInternal(sessionId, expectedRevision, combined),
+    ).finally(() => clearTimeout(timeout))
+  }
+
   private async reconcileInternal(
     sessionId: string,
     expectedRevision: number,
@@ -331,6 +350,68 @@ export class SessionLaunchTargetService {
     if (!runtime.resolution || !['preparing', 'reconciling', 'ready'].includes(runtime.resolution.state))
       return this.prepare(sessionId, expectedRevision, signal)
     return this.prepare(sessionId, expectedRevision, signal)
+  }
+
+  private async reconcileCancelledPreparationInternal(
+    sessionId: string,
+    expectedRevision: number,
+    signal: AbortSignal,
+  ): Promise<SessionLaunchTarget> {
+    signal.throwIfAborted()
+    const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
+    if (runtime.target.revision !== expectedRevision)
+      throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+    if (runtime.binding) {
+      await this.verifyBoundTarget(runtime, signal)
+      return this.get(sessionId)
+    }
+    const intent = runtime.resolution
+    if (!intent || intent.state === 'cancelled' || intent.state === 'failed') return runtime.target
+    if (intent.state === 'ready') {
+      if (intent.selection.mode === 'shared-current') return runtime.target
+      const session = await this.storage.call('session', sessionId)
+      const workspace = await this.storage.call('workspace', session.workspaceId)
+      const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, signal)
+      try {
+        await this.verifyPreparedWorktree(managed, intent, signal)
+        return runtime.target
+      } catch (error) {
+        await this.storeFailure(
+          intent,
+          error instanceof HbarError
+            ? error
+            : new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED', 'Prepared worktree could not be verified'),
+        )
+        throw error
+      }
+    }
+
+    if (intent.selection.mode === 'shared-current') {
+      await this.storage.call('updateSessionLaunchTargetPreparation', {
+        sessionId,
+        revision: expectedRevision,
+        targetPath: intent.targetPath,
+        state: 'cancelled',
+        errorCode: 'USER_CANCELLED',
+        errorMessage: 'Launch-target preparation was cancelled before any worktree was created',
+      })
+      return this.get(sessionId)
+    }
+
+    const session = await this.storage.call('session', sessionId)
+    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, signal)
+    const reconciled = await this.reconcileIntent(managed, intent, signal)
+    if (reconciled) return this.get(sessionId)
+    await this.storage.call('updateSessionLaunchTargetPreparation', {
+      sessionId,
+      revision: expectedRevision,
+      targetPath: intent.targetPath,
+      state: 'cancelled',
+      errorCode: 'USER_CANCELLED',
+      errorMessage: 'Launch-target preparation was cancelled after confirming no worktree was created',
+    })
+    return this.get(sessionId)
   }
 
   cancel(sessionId: string, expectedRevision: number): Promise<SessionLaunchTarget> {

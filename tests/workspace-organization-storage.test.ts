@@ -35,7 +35,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 11 })
+  expect(await store.call('ready')).toEqual({ version: 12 })
   const workspace = await store.call('createWorkspace', root, 'same display name')
   return { root, path, store, workspace }
 }
@@ -210,7 +210,7 @@ test('two Workers migrate an existing v6 database safely and serialize CAS witho
   )
   const a = open(f.path)
   const b = open(f.path)
-  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 11 }, { version: 11 }])
+  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 12 }, { version: 12 }])
   const requests = [input(f.workspace.id), input(other.id)]
   const results = await Promise.allSettled(
     requests.map((request, index) => (index === 0 ? a : b).call('applyWorkspaceOrganization', request)),
@@ -455,7 +455,7 @@ test('Worker startup waits for a held database lock before configuring WAL and m
   }
   const result = await ready
   expect(settledWhileLocked).toBe(false)
-  expect(result).toEqual({ ok: true, result: { version: 11 } })
+  expect(result).toEqual({ ok: true, result: { version: 12 } })
   expect(await contender.call('workspaceOrganization')).toEqual({
     schemaVersion: 1,
     revision: 0,
@@ -475,7 +475,7 @@ test('twenty bounded two-Worker v6 startup rounds preserve migration and one-win
     const a = open(f.path)
     const b = open(f.path)
     try {
-      expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 11 }, { version: 11 }])
+      expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 12 }, { version: 12 }])
       const results = await Promise.allSettled([
         a.call('applyWorkspaceOrganization', input(f.workspace.id)),
         b.call('applyWorkspaceOrganization', input(f.workspace.id)),

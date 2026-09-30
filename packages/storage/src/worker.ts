@@ -57,6 +57,10 @@ import {
   SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
   SESSION_LAUNCH_TARGET_SQL,
 } from './session-launch-target.ts'
+import {
+  createSessionLaunchTargetPreparationStorage,
+  SESSION_LAUNCH_TARGET_PREPARATION_OPERATION_SQL,
+} from './session-launch-target-preparations.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -66,8 +70,9 @@ const db = new Database(options.path, { create: true, strict: true })
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+const LATEST_SCHEMA_VERSION = 12
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 11) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -139,7 +144,7 @@ if (schemaVersion < 7)
     // Another Worker may already have completed this migration while this one waited for the write lock.
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
     if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
-    if (current < 7 || current > 11) {
+    if (current < 7 || current > LATEST_SCHEMA_VERSION) {
       if (current !== 6) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
       db.exec(WORKSPACE_ORGANIZATION_SQL)
       db.exec('PRAGMA user_version=7;')
@@ -153,7 +158,7 @@ if (schemaVersion < 8)
     if (current === 7) {
       db.exec(WORKSPACE_DISPLAY_NAMES_SQL)
       db.exec('PRAGMA user_version=8;')
-    } else if (current < 8 || current > 11) {
+    } else if (current < 8 || current > LATEST_SCHEMA_VERSION) {
       throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
@@ -165,7 +170,7 @@ if (schemaVersion < 9)
     if (current === 8) {
       db.exec(SESSION_SEARCH_SQL)
       db.exec('PRAGMA user_version=9;')
-    } else if (current < 9 || current > 11) {
+    } else if (current < 9 || current > LATEST_SCHEMA_VERSION) {
       throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
@@ -177,7 +182,7 @@ if (schemaVersion < 10)
     if (current === 9) {
       db.exec(SESSION_LAUNCH_TARGET_SQL)
       db.exec('PRAGMA user_version=10;')
-    } else if (current !== 10 && current !== 11) {
+    } else if (current < 10 || current > LATEST_SCHEMA_VERSION) {
       throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
@@ -203,7 +208,19 @@ if (schemaVersion < 11)
         WHERE EXISTS(SELECT 1 FROM runs r WHERE r.sessionId=s.id);
         PRAGMA user_version=11;
       `)
-    } else if (current !== 11) {
+    } else if (current < 11 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 12)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 11) {
+      db.exec(SESSION_LAUNCH_TARGET_PREPARATION_OPERATION_SQL)
+      db.exec('PRAGMA user_version=12;')
+    } else if (current < 12 || current > LATEST_SCHEMA_VERSION) {
       throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
@@ -215,6 +232,7 @@ const sessionSearch = createSessionSearchStorage(
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
+const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
 db.exec(GOAL_HISTORY_INDEX_SQL)
@@ -511,7 +529,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 11 }),
+  ready: () => ({ version: 12 }),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,
@@ -634,6 +652,12 @@ const methods: StorageMethods = {
   sessionLaunchTargetBindingForPath: sessionLaunchTarget.bindingForPath,
   setSessionLaunchTarget: sessionLaunchTarget.set,
   sessionLaunchTargetReceipt: sessionLaunchTarget.receipt,
+  startSessionLaunchTargetPreparation: sessionLaunchTargetPreparations.start,
+  sessionLaunchTargetPreparation: sessionLaunchTargetPreparations.read,
+  sessionLaunchTargetPreparationRecord: sessionLaunchTargetPreparations.record,
+  pendingSessionLaunchTargetPreparations: sessionLaunchTargetPreparations.listPending,
+  requestSessionLaunchTargetPreparationCancellation: sessionLaunchTargetPreparations.requestCancellation,
+  transitionSessionLaunchTargetPreparation: sessionLaunchTargetPreparations.transition,
   beginSessionLaunchTargetPreparation: sessionLaunchTarget.beginPreparation,
   updateSessionLaunchTargetPreparation: sessionLaunchTarget.updatePreparation,
   updateSession(id, update) {

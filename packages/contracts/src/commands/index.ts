@@ -263,6 +263,12 @@ export type {
   SessionLaunchTargetPrepareInput,
   SessionLaunchTargetReconcileInput,
   SessionLaunchTargetCancelInput,
+  SessionLaunchTargetPreparationStartInput,
+  SessionLaunchTargetPreparationStartReceipt,
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+  SessionLaunchTargetWriteOptions,
+  SessionLaunchTargetPreparationManager,
 } from './session-launch-target'
 export { workflowCommands } from './workflows'
 export const applicationCommands = {

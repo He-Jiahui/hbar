@@ -21,6 +21,7 @@ import type {
   SessionLaunchTargetResolutionRecord,
   SessionLaunchTargetRuntimeSnapshot,
 } from './types.ts'
+import { hasActiveSessionLaunchTargetPreparation } from './session-launch-target-preparations.ts'
 
 export const SESSION_LAUNCH_TARGET_SQL = `
   CREATE TABLE IF NOT EXISTS session_launch_targets(
@@ -331,6 +332,8 @@ export function createSessionLaunchTargetStorage(db: Database) {
           throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
         const changed = JSON.stringify(current.selection) !== JSON.stringify(input.selection)
         if (changed && current.revision === Number.MAX_SAFE_INTEGER) return invalidState()
+        if (changed && hasActiveSessionLaunchTargetPreparation(db, input.sessionId))
+          throw new HbarError('BUSY', 'Wait for the current launch-target preparation before changing its selection')
 
         const updatedAt = changed ? Date.now() : current.updatedAt
         const revision = current.revision + Number(changed)
@@ -478,6 +481,8 @@ export function createSessionLaunchTargetStorage(db: Database) {
       if (candidate) validateReplayBinding(sessionId, candidate)
       return existing
     }
+    if (hasActiveSessionLaunchTargetPreparation(db, sessionId))
+      throw new HbarError('BUSY', 'Wait for the current launch-target preparation before accepting a Run')
     const current = read(sessionId)
     const selected = candidate
       ? bindingInputSchema.safeParse(candidate)
