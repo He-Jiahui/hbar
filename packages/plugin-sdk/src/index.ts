@@ -407,6 +407,17 @@ export interface GitLaunchBranchSnapshot {
   readonly incomplete: boolean
 }
 
+export interface GitLaunchBranchCreateInput {
+  readonly name: string
+  readonly baseRef: string
+  readonly expectedBaseOid: string
+}
+
+export interface GitLaunchBranchCreateResult {
+  readonly ref: string
+  readonly oid: string
+}
+
 export interface GitService {
   info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
@@ -419,6 +430,12 @@ export interface GitService {
     operation?: GitBranchOperation,
     signal?: AbortSignal,
   ): Promise<GitBranchInfo[] | GitBranchInfo>
+  /** Creates only a local branch ref from a captured local base ref/OID; does not switch HEAD. */
+  createLaunchBranch?(
+    cwd: string | undefined,
+    input: GitLaunchBranchCreateInput,
+    signal?: AbortSignal,
+  ): Promise<GitLaunchBranchCreateResult>
   worktree(
     cwd: string | undefined,
     operation?: GitWorktreeOperation,

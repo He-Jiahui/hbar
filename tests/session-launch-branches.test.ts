@@ -151,6 +151,63 @@ test('branch discovery is a strict read-only workspace query with explicit targe
   ).toBeFalse()
 })
 
+test('workspace branch creation adds the captured ref without checking out or exposing its path', async () => {
+  const f = await fixture()
+  const originalBranch = await git(f.repository, ['branch', '--show-current'])
+  const originalHead = await git(f.repository, ['rev-parse', 'HEAD'])
+  const request = {
+    workspaceId: f.repositoryWorkspace.id,
+    name: 'feature/from-picker',
+    baseRef: `refs/heads/${originalBranch}`,
+    expectedBaseOid: originalHead,
+  }
+
+  const result = await f.commands.execute('sessionLaunchBranches.create', request, {
+    actorId: 'paired-device',
+    idempotencyKey: 'launch-branch-create-1',
+  })
+  expect(result).toEqual({
+    workspaceId: f.repositoryWorkspace.id,
+    name: 'feature/from-picker',
+    createdRef: 'refs/heads/feature/from-picker',
+    createdOid: originalHead,
+    baseRef: request.baseRef,
+    baseOid: originalHead,
+  })
+  expect(result).not.toHaveProperty('path')
+  expect(await git(f.repository, ['rev-parse', 'refs/heads/feature/from-picker'])).toBe(originalHead)
+  expect(await git(f.repository, ['branch', '--show-current'])).toBe(originalBranch)
+  expect(await git(f.repository, ['rev-parse', 'HEAD'])).toBe(originalHead)
+
+  await expect(
+    f.commands.execute(
+      'sessionLaunchBranches.create',
+      { ...request, name: 'bad branch name' },
+      { actorId: 'paired-device', idempotencyKey: 'launch-branch-create-invalid' },
+    ),
+  ).rejects.toMatchObject({ code: 'GIT_INVALID_BRANCH' })
+  await expect(
+    f.commands.execute('sessionLaunchBranches.create', request, {
+      actorId: 'paired-device',
+      idempotencyKey: 'launch-branch-create-duplicate',
+    }),
+  ).rejects.toMatchObject({ code: 'GIT_BRANCH_EXISTS' })
+  await expect(
+    f.commands.execute(
+      'sessionLaunchBranches.create',
+      { ...request, name: 'feature/missing-base', baseRef: 'refs/heads/missing' },
+      { actorId: 'paired-device', idempotencyKey: 'launch-branch-create-missing-base' },
+    ),
+  ).rejects.toMatchObject({ code: 'GIT_BRANCH_BASE_NOT_FOUND' })
+  await expect(
+    f.commands.execute(
+      'sessionLaunchBranches.create',
+      { ...request, name: 'feature/moved-base', expectedBaseOid: 'b'.repeat(40) },
+      { actorId: 'paired-device', idempotencyKey: 'launch-branch-create-moved-base' },
+    ),
+  ).rejects.toMatchObject({ code: 'GIT_BRANCH_BASE_CHANGED' })
+})
+
 test('real Git discovery distinguishes current, detached, unborn, and non-repository roots', async () => {
   const f = await fixture()
   await git(f.repository, ['branch', 'feature/held'])

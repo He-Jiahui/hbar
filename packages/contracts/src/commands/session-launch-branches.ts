@@ -108,6 +108,31 @@ export type SessionLaunchBranchHead = z.infer<typeof sessionLaunchBranchHeadSche
 export type SessionLaunchBranch = z.infer<typeof sessionLaunchBranchSchema>
 export type SessionLaunchBranchesPage = z.infer<typeof sessionLaunchBranchesPageSchema>
 
+export const sessionLaunchBranchCreateInputSchema = z.strictObject({
+  workspaceId: idSchema,
+  name: z.string().trim().min(1).max(1_000),
+  baseRef: branchRefSchema,
+  expectedBaseOid: gitObjectIdSchema,
+})
+export const sessionLaunchBranchCreateResultSchema = z
+  .strictObject({
+    workspaceId: idSchema,
+    name: branchNameSchema,
+    createdRef: branchRefSchema,
+    createdOid: gitObjectIdSchema,
+    baseRef: branchRefSchema,
+    baseOid: gitObjectIdSchema,
+  })
+  .superRefine((result, context) => {
+    if (result.createdRef.slice('refs/heads/'.length) !== result.name)
+      context.addIssue({ code: 'custom', path: ['createdRef'], message: 'Created ref must match its branch name' })
+    if (result.createdOid.toLowerCase() !== result.baseOid.toLowerCase())
+      context.addIssue({ code: 'custom', path: ['createdOid'], message: 'Created ref must start at its base OID' })
+  })
+
+export type SessionLaunchBranchCreateRequest = z.input<typeof sessionLaunchBranchCreateInputSchema>
+export type SessionLaunchBranchCreateResult = z.infer<typeof sessionLaunchBranchCreateResultSchema>
+
 export interface SessionLaunchBranchesReadOptions {
   readonly signal?: AbortSignal
   readonly requestId?: string
@@ -118,6 +143,18 @@ export interface SessionLaunchBranchesReader {
     input: SessionLaunchBranchesRequest,
     options?: SessionLaunchBranchesReadOptions,
   ): Promise<SessionLaunchBranchesPage>
+}
+
+export interface SessionLaunchBranchCreateOptions extends SessionLaunchBranchesReadOptions {
+  /** Correlates this single attempt; the Host does not journal/replay create acknowledgements. */
+  readonly idempotencyKey: string
+}
+
+export interface SessionLaunchBranchesManager extends SessionLaunchBranchesReader {
+  create(
+    input: SessionLaunchBranchCreateRequest,
+    options: SessionLaunchBranchCreateOptions,
+  ): Promise<SessionLaunchBranchCreateResult>
 }
 
 const metadata = {
@@ -137,11 +174,26 @@ const metadata = {
   maxConcurrent: 4,
   cancelMode: 'cooperative' as const,
 }
+const createMetadata = {
+  ...metadata,
+  id: 'sessionLaunchBranches.create',
+  version: 1,
+  kind: 'command' as const,
+  stateEffect: 'external' as const,
+  titleKey: 'commands.sessionLaunchBranches.create.title',
+  descriptionKey: 'commands.sessionLaunchBranches.create.description',
+  idempotency: 'none' as const,
+}
 
 export const sessionLaunchBranchesCommands = {
   'sessionLaunchBranches.list': defineCommand(
     metadata,
     sessionLaunchBranchesInputSchema,
     sessionLaunchBranchesPageSchema,
+  ),
+  'sessionLaunchBranches.create': defineCommand(
+    createMetadata,
+    sessionLaunchBranchCreateInputSchema,
+    sessionLaunchBranchCreateResultSchema,
   ),
 }

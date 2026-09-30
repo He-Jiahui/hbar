@@ -28,6 +28,8 @@ import type {
   GitBranchOperation,
   GitCommitOptions,
   GitDiffOptions,
+  GitLaunchBranchCreateInput,
+  GitLaunchBranchCreateResult,
   GitLaunchBranchHead,
   GitLaunchBranchReference,
   GitLaunchBranchSnapshot,
@@ -931,6 +933,61 @@ export class GitRuntime implements GitService {
     const listed = await this.branch(path, {}, signal)
     if (Array.isArray(listed)) return listed.find((item) => item.name === name) ?? listed[0] ?? gitBranchInfoSchema.parse({ name, current: false, remote: null, upstream: null, ahead: 0, behind: 0 })
     return listed
+  }
+
+  async createLaunchBranch(
+    cwd: string | undefined,
+    input: GitLaunchBranchCreateInput,
+    signal?: AbortSignal,
+  ): Promise<GitLaunchBranchCreateResult> {
+    const path = await this.resolveWithinRoot(cwd)
+    const name = branchName(input.name.trim())
+    const ref = `refs/heads/${name}`
+    const basePrefix = 'refs/heads/'
+    if (!input.baseRef.startsWith(basePrefix) || input.baseRef.length <= basePrefix.length)
+      throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base must be a local branch ref')
+    branchName(input.baseRef.slice(basePrefix.length))
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(input.expectedBaseOid))
+      throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'Launch branch base OID is invalid')
+
+    const validName = await this.tryRun(path, ['check-ref-format', ref], signal)
+    if (!validName) throw new HbarError('GIT_INVALID_BRANCH', 'Invalid Git branch name')
+    const validBase = await this.tryRun(path, ['check-ref-format', input.baseRef], signal)
+    if (!validBase) throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base ref is invalid')
+    const existing = await this.tryRun(path, ['show-ref', '--verify', '--quiet', ref], signal)
+    if (existing) throw new HbarError('GIT_BRANCH_EXISTS', 'Launch branch already exists')
+
+    const base = await this.tryRun(
+      path,
+      ['rev-parse', '--verify', '--quiet', '--end-of-options', `${input.baseRef}^{commit}`],
+      signal,
+    )
+    if (!base) throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base ref does not resolve to a commit')
+    const baseOid = base.stdout.trim()
+    if (baseOid.toLowerCase() !== input.expectedBaseOid.toLowerCase())
+      throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'Launch branch base moved after it was selected')
+
+    try {
+      await this.run(path, ['branch', '--', name, input.expectedBaseOid], signal)
+    } catch (error) {
+      if (error instanceof HbarError && error.code === 'GIT_COMMAND_FAILED') {
+        const createdDuringRequest = await this.tryRun(path, ['show-ref', '--verify', '--quiet', ref], signal)
+        if (createdDuringRequest) throw new HbarError('GIT_BRANCH_EXISTS', 'Launch branch already exists')
+      }
+      throw error
+    }
+
+    const created = await this.tryRun(
+      path,
+      ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`],
+      signal,
+    )
+    const oid = created?.stdout.trim() ?? ''
+    if (!created || oid.toLowerCase() !== baseOid.toLowerCase())
+      throw new HbarError('GIT_BRANCH_RESULT_UNKNOWN', 'Created launch branch could not be verified')
+
+    await this.notifyChanged(path)
+    return { ref, oid }
   }
 
   async worktree(cwd: string | undefined, operation: GitWorktreeOperation = {}, signal?: AbortSignal): Promise<GitWorktreeInfo[] | GitWorktreeInfo> {

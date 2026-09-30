@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError, idSchema } from '@hbar/contracts'
 import {
+  sessionLaunchBranchCreateResultSchema,
   sessionLaunchBranchesCommands,
   sessionLaunchBranchHeadSchema,
   sessionLaunchBranchesPageSchema,
@@ -12,6 +13,10 @@ import { z } from 'zod'
 
 const MAX_LAUNCH_BRANCH_REFS = 5_000
 const gitObjectIdSchema = z.union([z.string().regex(/^[0-9a-f]{40}$/i), z.string().regex(/^[0-9a-f]{64}$/i)])
+const gitLaunchBranchCreateResultSchema = z.strictObject({
+  ref: z.string().min('refs/heads/'.length + 1).max(1_011).startsWith('refs/heads/'),
+  oid: gitObjectIdSchema,
+})
 const gitLaunchBranchSnapshotSchema = z
   .strictObject({
     repository: z.discriminatedUnion('kind', [
@@ -156,7 +161,7 @@ function projectPage(
 
 export function createSessionLaunchBranchesCommands(
   storage: StoragePort,
-  git: Pick<GitService, 'launchBranchSnapshot'>,
+  git: Pick<GitService, 'launchBranchSnapshot'> & Partial<Pick<GitService, 'createLaunchBranch'>>,
 ) {
   const registry = new CommandRegistry({ execution: 'host' })
   const read = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
@@ -204,6 +209,61 @@ export function createSessionLaunchBranchesCommands(
           : null
       return projectPage(input.workspaceId, snapshot, pageBranches, nextCursor)
     }),
+  )
+
+  registry.register(
+    sessionLaunchBranchesCommands['sessionLaunchBranches.create'],
+    async (input, context) => {
+      if (!context.actorId || !context.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and single-attempt correlation key are required')
+      if (typeof git.createLaunchBranch !== 'function')
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Registered Git service cannot create launch branches')
+      if (context.signal.aborted) throw new CommandError('CANCELLED', 'Branch creation was cancelled before dispatch')
+
+      const workspace = await read(() => storage.call('workspace', input.workspaceId))
+      if (context.signal.aborted) throw new CommandError('CANCELLED', 'Branch creation was cancelled before dispatch')
+      try {
+        const raw: unknown = await git.createLaunchBranch(
+          workspace.path,
+          { name: input.name, baseRef: input.baseRef, expectedBaseOid: input.expectedBaseOid },
+          context.signal,
+        )
+        if (context.signal.aborted)
+          throw new CommandError('RESULT_UNKNOWN', 'Branch creation was interrupted; verify the original ref')
+        const created = gitLaunchBranchCreateResultSchema.safeParse(raw)
+        if (
+          !created.success ||
+          created.data.ref !== `refs/heads/${input.name}` ||
+          created.data.oid.toLowerCase() !== input.expectedBaseOid.toLowerCase()
+        )
+          throw new CommandError('RESULT_UNKNOWN', 'Branch creation could not be verified; inspect the original ref')
+        return sessionLaunchBranchCreateResultSchema.parse({
+          workspaceId: input.workspaceId,
+          name: input.name,
+          createdRef: created.data.ref,
+          createdOid: created.data.oid,
+          baseRef: input.baseRef,
+          baseOid: input.expectedBaseOid,
+        })
+      } catch (error: unknown) {
+        if (error instanceof CommandError) throw error
+        if (error instanceof HbarError) {
+          if (
+            [
+              'GIT_INVALID_BRANCH',
+              'GIT_BRANCH_EXISTS',
+              'GIT_BRANCH_BASE_NOT_FOUND',
+              'GIT_BRANCH_BASE_CHANGED',
+              'GIT_NOT_REPOSITORY',
+              'PATH_DENIED',
+            ].includes(error.code)
+          )
+            throw new CommandError(error.code, error.message)
+        }
+        throw new CommandError('RESULT_UNKNOWN', 'Branch creation outcome is uncertain; verify the original ref')
+      }
+    },
+    { durable: true },
   )
 
   return {

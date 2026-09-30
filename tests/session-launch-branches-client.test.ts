@@ -2,9 +2,75 @@ import { expect, test } from 'bun:test'
 import { HbarError } from '@hbar/contracts'
 import type { RpcParams } from '@hbar/contracts'
 import type { SessionLaunchBranchesPage } from '@hbar/contracts/commands/session-launch-branches'
-import { createSessionLaunchBranchesReader } from '@hbar/client'
+import { createSessionLaunchBranchesManager, createSessionLaunchBranchesReader } from '@hbar/client'
 
 const oid = 'a'.repeat(40)
+const creation = {
+  workspaceId: 'workspace-a',
+  name: 'feature/new',
+  baseRef: 'refs/heads/main',
+  expectedBaseOid: oid,
+}
+const created = {
+  workspaceId: creation.workspaceId,
+  name: creation.name,
+  createdRef: `refs/heads/${creation.name}`,
+  createdOid: oid,
+  baseRef: creation.baseRef,
+  baseOid: oid,
+}
+
+test('branch manager dispatches one captured creation and validates the exact returned ref and OID', async () => {
+  const calls: RpcParams<'command.execute'>[] = []
+  const manager = createSessionLaunchBranchesManager({
+    async call(_method, request) {
+      calls.push(request)
+      return created
+    },
+  })
+  expect(await manager.create(creation, { idempotencyKey: 'one-attempt', requestId: 'create-request' })).toEqual(
+    created,
+  )
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toEqual({
+    protocol: 1,
+    requestId: 'create-request',
+    commandId: 'sessionLaunchBranches.create',
+    commandVersion: 1,
+    idempotencyKey: 'one-attempt',
+    input: creation,
+  })
+  expect(calls[0]?.input).not.toHaveProperty('cwd')
+  const mismatched = createSessionLaunchBranchesManager({
+    async call() {
+      return { ...created, workspaceId: 'workspace-b' }
+    },
+  })
+  await expect(mismatched.create(creation, { idempotencyKey: 'bad-ack' })).rejects.toMatchObject({
+    code: 'RESULT_UNKNOWN',
+  })
+})
+
+test('lost branch creation response stays unknown and never triggers an automatic second write', async () => {
+  let calls = 0
+  const manager = createSessionLaunchBranchesManager({
+    async call() {
+      calls++
+      throw new HbarError('DISCONNECTED', 'lost fixture response')
+    },
+  })
+  await expect(manager.create(creation, { idempotencyKey: 'original-attempt' })).rejects.toMatchObject({
+    code: 'RESULT_UNKNOWN',
+  })
+  expect(calls).toBe(1)
+  const controller = new AbortController()
+  controller.abort()
+  await expect(
+    manager.create(creation, { idempotencyKey: 'not-dispatched', signal: controller.signal }),
+  ).rejects.toMatchObject({ code: 'CANCELLED' })
+  expect(calls).toBe(1)
+})
+
 function page(workspaceId = 'workspace-a', name = 'main'): SessionLaunchBranchesPage {
   return {
     workspaceId,
