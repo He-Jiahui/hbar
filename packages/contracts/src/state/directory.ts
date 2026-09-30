@@ -71,6 +71,49 @@ export type WorkspaceActivityCursor = z.infer<typeof workspaceActivityCursorSche
 export type WorkspaceActivityListInput = z.input<typeof workspaceActivityListInputSchema>
 export type WorkspaceActivityItem = z.infer<typeof workspaceActivityItemSchema>
 export type WorkspaceActivityPage = z.infer<typeof workspaceActivityPageSchema>
+export const sessionActivitySortSchema = z.enum(['createdAt', 'updatedAt'])
+export const sessionActivityCursorSchema = z.strictObject({
+  workspaceId: entityId,
+  sortBy: sessionActivitySortSchema,
+  revision: workspaceActivityRevisionSchema,
+  timestamp: workspaceActivityTimestampSchema,
+  sessionId: entityId,
+})
+export const sessionActivityListInputSchema = z
+  .strictObject({
+    workspaceId: entityId,
+    sortBy: sessionActivitySortSchema.default('updatedAt'),
+    cursor: sessionActivityCursorSchema.optional(),
+    limit: z.number().int().min(1).max(200).default(60),
+  })
+  .superRefine((value, context) => {
+    if (value.cursor?.workspaceId !== undefined && value.cursor.workspaceId !== value.workspaceId)
+      context.addIssue({ code: 'custom', message: 'Session activity cursor workspace does not match the request' })
+    if (value.cursor && value.cursor.sortBy !== value.sortBy)
+      context.addIssue({ code: 'custom', message: 'Session activity cursor sort does not match the request' })
+  })
+export const sessionActivityPageSchema = z
+  .strictObject({
+    revision: workspaceActivityRevisionSchema,
+    items: z.array(sessionSchema).max(200),
+    nextCursor: sessionActivityCursorSchema.nullable(),
+  })
+  .superRefine((value, context) => {
+    const lastItem = value.items.at(-1)
+    if (
+      value.nextCursor &&
+      (value.nextCursor.revision !== value.revision ||
+        !lastItem ||
+        value.nextCursor.workspaceId !== lastItem.workspaceId ||
+        value.nextCursor.timestamp !== lastItem[value.nextCursor.sortBy] ||
+        value.nextCursor.sessionId !== lastItem.id)
+    )
+      context.addIssue({ code: 'custom', message: 'Session activity cursor does not match its page' })
+  })
+export type SessionActivitySortBy = z.infer<typeof sessionActivitySortSchema>
+export type SessionActivityCursor = z.infer<typeof sessionActivityCursorSchema>
+export type SessionActivityListInput = z.input<typeof sessionActivityListInputSchema>
+export type SessionActivityPage = z.infer<typeof sessionActivityPageSchema>
 export const workspaceListInputSchema = z.strictObject({
   after: entityId.optional(),
   limit: z.number().int().min(1).max(200).default(60),

@@ -31,6 +31,7 @@ async function fixture() {
   const queries = createDirectoryQueries({
     workspacePage: (input) => storage.call('workspacePage', input),
     workspaceActivityPage: (input) => storage.call('workspaceActivityPage', input),
+    sessionActivityPage: (input) => storage.call('sessionActivityPage', input),
     sessionPage: (input) => storage.call('sessionPage', input),
     findWorkspace: (id) => storage.call('findWorkspace', id),
     findSession: (id) => storage.call('findSession', id),

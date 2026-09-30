@@ -21,10 +21,18 @@ import {
   workspaceActivityPageSchema,
   workspaceActivityCursorSchema,
   workspaceActivityItemSchema,
+  sessionActivityListInputSchema,
+  sessionActivityPageSchema,
+  sessionActivityCursorSchema,
   workspaceListInputSchema,
   sessionListInputSchema,
 } from '@hbar/contracts/directory'
-import type { WorkspaceActivityListInput, WorkspaceActivityPage } from '@hbar/contracts/directory'
+import type {
+  WorkspaceActivityListInput,
+  WorkspaceActivityPage,
+  SessionActivityListInput,
+  SessionActivityPage,
+} from '@hbar/contracts/directory'
 import {
   queuedRunEditableInputSchema,
   queuedRunEditableSchema,
@@ -455,6 +463,59 @@ function workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActi
     return workspaceActivityPageSchema.parse({ revision, items: pageItems, includedItems, nextCursor })
   })()
 }
+
+function sessionActivityPage(input: SessionActivityListInput): SessionActivityPage {
+  const parsedInput = sessionActivityListInputSchema.safeParse(input)
+  if (!parsedInput.success) throw new HbarError('INVALID_INPUT', 'Invalid session activity query')
+  const { workspaceId, sortBy, cursor, limit } = parsedInput.data
+  const selectedTimestamp = sortBy === 'createdAt' ? 'createdAt' : 'updatedAt'
+  return db.transaction(() => {
+    const revisionRow = db
+      .query<{ revision: number }, []>('SELECT revision FROM directory_activity_revision WHERE id=1')
+      .get()
+    if (!revisionRow || !Number.isSafeInteger(revisionRow.revision) || revisionRow.revision < 0)
+      throw new HbarError('INVALID_STATE', 'Session activity revision is unavailable')
+    const { revision } = revisionRow
+    if (cursor && cursor.revision !== revision)
+      throw new HbarError('STALE_CURSOR', 'Session activity changed; restart the listing')
+    if (!db.query('SELECT id FROM workspaces WHERE id=?').get(workspaceId))
+      throw new HbarError('NOT_FOUND', 'Workspace not found')
+
+    const rows = z.array(z.record(z.string(), z.unknown())).parse(
+      db
+        .query(
+          `SELECT * FROM sessions
+             WHERE workspaceId=? AND archived=0
+               AND (? IS NULL OR ${selectedTimestamp}<?
+                 OR (${selectedTimestamp}=? AND id>?))
+             ORDER BY ${selectedTimestamp} DESC,id ASC
+             LIMIT ?`,
+        )
+        .all(
+          workspaceId,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.sessionId ?? null,
+          limit + 1,
+        ),
+    )
+    const items = rows.slice(0, limit).map((row) => sessionSchema.parse({ ...row, archived: Boolean(row.archived) }))
+    const lastItem = items.at(-1)
+    const nextCursor =
+      rows.length > limit && lastItem
+        ? sessionActivityCursorSchema.parse({
+            workspaceId,
+            sortBy,
+            revision,
+            timestamp: lastItem[selectedTimestamp],
+            sessionId: lastItem.id,
+          })
+        : null
+    return sessionActivityPageSchema.parse({ revision, items, nextCursor })
+  })()
+}
+
 function messageRow(row: Row): Message {
   return {
     ...row,
@@ -706,6 +767,7 @@ const methods: StorageMethods = {
     return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
   },
   workspaceActivityPage: (input) => workspaceActivityPage(input),
+  sessionActivityPage: (input) => sessionActivityPage(input),
   sessionPage(input) {
     const { workspaceId, after, title, includeArchived, limit } = sessionListInputSchema.parse(input)
     methods.workspace(workspaceId)

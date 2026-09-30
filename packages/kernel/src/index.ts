@@ -320,6 +320,7 @@ export class Kernel {
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
       workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
+      sessionActivityPage: (input) => this.storage.call('sessionActivityPage', input),
       sessionPage: (input) => this.storage.call('sessionPage', input),
       findWorkspace: (id) => this.storage.call('findWorkspace', id),
       findSession: (id) => this.storage.call('findSession', id),

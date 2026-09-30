@@ -16,6 +16,8 @@ export function createDirectoryQueryAdapter(client: ClientTransport) {
           return commands.execute(name, input as never)
         case 'session.list':
           return commands.execute(name, input as never)
+        case 'session.activity.list':
+          return commands.execute(name, input as never)
         case 'session.get':
           return commands.execute(name, input as never)
         default:

@@ -15,9 +15,11 @@ import type {
   Workspace,
   WorkspaceListInput,
   WorkspaceActivityListInput,
+  SessionActivityListInput,
   SessionListInput,
   WorkspacePage,
   WorkspaceActivityPage,
+  SessionActivityPage,
   SessionPage,
 } from '@hbar/contracts'
 import type {
@@ -226,6 +228,7 @@ export interface StorageMethods {
   workspaces(): Workspace[]
   workspacePage(input: WorkspaceListInput): WorkspacePage
   workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActivityPage
+  sessionActivityPage(input: SessionActivityListInput): SessionActivityPage
   sessionPage(input: SessionListInput): SessionPage
   findWorkspace(id: string): Workspace | null
   workspaceOrganization(): WorkspaceOrganizationSnapshot

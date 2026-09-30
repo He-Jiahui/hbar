@@ -36,6 +36,7 @@ import { sessionTimelineCommands } from './session-timeline'
 import { sessionLaunchTargetCommands } from './session-launch-target'
 import { sessionLaunchBranchesCommands } from './session-launch-branches'
 import { workspaceActivityCommands } from './workspace-activity'
+import { sessionActivityCommands } from './session-activity'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -63,6 +64,7 @@ function query(id: string): CommandMetadataInput {
 }
 export const directoryCommands = {
   ...workspaceActivityCommands,
+  ...sessionActivityCommands,
   'workspace.list': defineCommand(
     {
       ...query('workspace.list'),
@@ -257,6 +259,7 @@ export { sessionTimelineCommands } from './session-timeline'
 export { sessionLaunchTargetCommands } from './session-launch-target'
 export { sessionLaunchBranchesCommands } from './session-launch-branches'
 export { workspaceActivityCommands } from './workspace-activity'
+export { sessionActivityCommands } from './session-activity'
 export type {
   SessionLaunchBranchesInput,
   SessionLaunchBranchesRequest,

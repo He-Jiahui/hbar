@@ -6,15 +6,18 @@ import type {
   Session,
   WorkspaceListInput,
   WorkspaceActivityListInput,
+  SessionActivityListInput,
   SessionListInput,
   WorkspacePage,
   WorkspaceActivityPage,
+  SessionActivityPage,
   SessionPage,
 } from '@hbar/contracts/directory'
 
 export interface DirectoryRepository {
   workspacePage(input: WorkspaceListInput): Promise<WorkspacePage>
   workspaceActivityPage(input: WorkspaceActivityListInput): Promise<WorkspaceActivityPage>
+  sessionActivityPage(input: SessionActivityListInput): Promise<SessionActivityPage>
   sessionPage(input: SessionListInput): Promise<SessionPage>
   findWorkspace(id: string): Promise<Workspace | null>
   findSession(id: string): Promise<Session | null>
@@ -26,6 +29,16 @@ export function createDirectoryQueries(repository: DirectoryRepository) {
   registry.register(directoryCommands['workspace.activity.list'], async (input) => {
     try {
       return await repository.workspaceActivityPage(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(directoryCommands['session.activity.list'], async (input) => {
+    if (!(await repository.findWorkspace(input.workspaceId)))
+      throw new CommandError('WORKSPACE_NOT_FOUND', 'Workspace not found')
+    try {
+      return await repository.sessionActivityPage(input)
     } catch (error) {
       if (error instanceof HbarError) throw new CommandError(error.code, error.message)
       throw error
