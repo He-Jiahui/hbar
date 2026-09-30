@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+test.use({ actionTimeout: 10_000 })
 
 const prefix = 'hbar-composer-launch-order-'
 
@@ -31,6 +34,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         (await directory.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })).items.length
       const shell = getShellCopy(locale)
       const labels = preSessionCopy(locale)
+      const location = preSessionLaunchCopy(locale).location
       const page = await context.newPage()
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
@@ -42,10 +46,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const originalText = await editor.inputValue()
       const add = landing.getByRole('button', { name: shell.session.addMenu.open, exact: true })
       const permission = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
-      const workspace = landing.getByRole('button', { name: labels.workspace.trigger(null), exact: true })
+      const locationButton = landing.locator('.hbar-pre-session-location-picker > button')
       const model = landing.getByRole('button', { name: labels.model.trigger(null), exact: true })
+      const openDirectoryPicker = async () => {
+        await locationButton.click()
+        const rootDialog = page.getByRole('dialog', { name: location.title, exact: true })
+        if (await rootDialog.isVisible())
+          await rootDialog.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+        const directoryDialog = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+        await expect(directoryDialog).toBeVisible()
+        return directoryDialog
+      }
       await expect(permission).toBeEnabled()
-      await expect(workspace).toBeEnabled()
+      await expect(locationButton).toBeEnabled()
       await expect(model).toBeEnabled()
       const initialCount = await count()
 
@@ -64,23 +77,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
                 [
                   'hbar-web-pre-session-goal-controls',
                   'hbar-pre-session-approval-picker',
-                  'hbar-pre-session-choice-picker',
+                  'hbar-pre-session-location-picker',
                 ].find((name) => child.classList.contains(name)),
               ),
             ),
         ).toEqual([
           'hbar-web-pre-session-goal-controls',
           'hbar-pre-session-approval-picker',
-          'hbar-pre-session-choice-picker',
+          'hbar-pre-session-location-picker',
         ])
         await add.focus()
         await page.keyboard.press('Tab')
         await expect(permission).toBeFocused()
         await page.keyboard.press('Tab')
-        await expect(workspace).toBeFocused()
+        await expect(locationButton).toBeFocused()
         await page.keyboard.press('Tab')
         await expect(model).toBeFocused()
-        for (const control of [add, permission, workspace, model]) await expect(control).toBeInViewport()
+        for (const control of [add, permission, locationButton, model]) await expect(control).toBeInViewport()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/composer-launch-order/${locale}-${viewport.width}.png` })
       }
@@ -91,23 +104,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Escape')
       await expect(permissions).toBeHidden()
       await expect(permission).toBeFocused()
-      await workspace.click()
-      const projects = page.getByRole('dialog', { name: labels.workspace.title })
-      await expect(projects).toBeVisible()
-      await projects.getByRole('button', { name: labels.workspace.close, exact: true }).click()
+      const projects = await openDirectoryPicker()
+      await projects.getByRole('button', { name: location.close, exact: true }).click()
       await expect(projects).toHaveCount(0)
-      await expect(workspace).toBeFocused()
-      await workspace.click()
-      await expect(projects).toBeVisible()
+      await expect(locationButton).toBeFocused()
+      await openDirectoryPicker()
       await page.keyboard.press('Escape')
       await expect(projects).toHaveCount(0)
-      await expect(workspace).toBeFocused()
-      await workspace.click()
-      await projects.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
-      await expect(projects).toHaveCount(0)
-      await expect(
-        landing.locator('.hbar-web-pre-session-controls > .hbar-pre-session-choice-picker > button'),
-      ).toBeFocused()
+      await expect(locationButton).toBeFocused()
+      const directoryPicker = await openDirectoryPicker()
+      await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
+      await expect(locationButton).toBeFocused()
       await expect(editor).toHaveValue(originalText)
       expect(await count()).toBe(initialCount)
       await expect(page.getByRole('tab')).toHaveCount(0)

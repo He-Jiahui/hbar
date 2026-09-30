@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+test.use({ actionTimeout: 10_000 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab effort selection is Host-confirmed before the first Run: ${locale}`, async ({ browser }) => {
@@ -17,6 +20,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
+    const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -40,11 +44,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const message = `Review this first with effort ${locale}`
       await prompt.fill(message)
-      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-      await page
-        .getByRole('dialog', { name: labels.workspace.title })
-        .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
-        .click()
+      const locationTrigger = landing.locator('.hbar-pre-session-location-picker > button')
+      await locationTrigger.click()
+      const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRootBeforeDirectory.isVisible())
+        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      const directoryPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+      await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
       await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
       await page
         .getByRole('dialog', { name: labels.model.title })

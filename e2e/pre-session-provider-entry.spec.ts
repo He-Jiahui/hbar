@@ -9,7 +9,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+test.use({ actionTimeout: 10_000 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`providerless first-send routes to Settings without losing its Goal draft: ${locale}`, async ({ browser }) => {
@@ -21,6 +24,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
+    const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -43,11 +47,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const objective = `Keep the providerless Goal draft ${locale}`
       await prompt.fill(objective)
-      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-      await page
-        .getByRole('dialog', { name: labels.workspace.title })
-        .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
-        .click()
+      const locationTrigger = landing.locator('.hbar-pre-session-location-picker > button')
+      await locationTrigger.click()
+      const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRootBeforeDirectory.isVisible())
+        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      const directoryPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+      await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
       const approval = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
       await approval.click()
       await page
@@ -93,9 +103,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(prompt).toHaveValue(objective)
       await expect(landing.getByRole('button', { name: copy.session.intent.cancelGoal })).toBeVisible()
       await expect(approval).toHaveAttribute('data-choice', 'deny')
-      await expect(
-        landing.getByRole('button', { name: labels.workspace.trigger(host.ready.workspaceName) }),
-      ).toBeVisible()
+      await expect(locationTrigger).toHaveAccessibleName(
+        new RegExp(`^${location.trigger(host.ready.workspaceName, null, false)}`),
+      )
       await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
       await page
         .getByRole('dialog', { name: labels.model.title })
@@ -132,6 +142,7 @@ test('failed no-tab model read offers Retry without creating a Session or losing
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 720 } })
   const copy = getShellCopy('en-US')
   const labels = preSessionCopy('en-US')
+  const location = preSessionLaunchCopy('en-US').location
   const faultCode = `MODEL_READ_FAILED_${'LONG_UNBROKEN_ERROR_'.repeat(6)}`
   let host: WebSessionHost | undefined
   try {
@@ -178,11 +189,16 @@ test('failed no-tab model read offers Retry without creating a Session or losing
     await prompt.fill(message)
     await expect(landing.getByRole('alert')).toContainText(labels.modelReadFailed)
     await expect(landing.getByRole('alert')).not.toContainText(faultCode)
-    await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-    await page
-      .getByRole('dialog', { name: labels.workspace.title })
-      .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
-      .click()
+    await landing.locator('.hbar-pre-session-location-picker > button').click()
+    const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+    if (await locationRootBeforeDirectory.isVisible())
+      await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+    const directoryPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+    await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+    const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+    await expect(locationRoot).toBeVisible()
+    await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+    await expect(locationRoot).toBeHidden()
     await expect(landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })).toBeDisabled()
     expect(await count()).toBe(1)
     await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
@@ -211,6 +227,7 @@ test('first-send model preflight catches a catalog change before Session creatio
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 900 } })
   const copy = getShellCopy('en-US')
   const labels = preSessionCopy('en-US')
+  const location = preSessionLaunchCopy('en-US').location
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -226,11 +243,16 @@ test('first-send model preflight catches a catalog change before Session creatio
     const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
     const message = 'Plan after a provider catalog change'
     await prompt.fill(message)
-    await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-    await page
-      .getByRole('dialog', { name: labels.workspace.title })
-      .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
-      .click()
+    await landing.locator('.hbar-pre-session-location-picker > button').click()
+    const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+    if (await locationRootBeforeDirectory.isVisible())
+      await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+    const directoryPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+    await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+    const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+    await expect(locationRoot).toBeVisible()
+    await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+    await expect(locationRoot).toBeHidden()
     await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
     await page
       .getByRole('dialog', { name: labels.model.title })

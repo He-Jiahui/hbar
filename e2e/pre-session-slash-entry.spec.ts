@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+test.use({ actionTimeout: 10_000 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab slash actions stay local and keep the first-send draft: ${locale}`, async ({ browser }) => {
@@ -17,6 +20,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
+    const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -30,6 +34,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const landing = page.locator('.hbar-pre-session-landing')
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const send = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
+      const locationTrigger = landing.locator('.hbar-pre-session-location-picker > button')
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
@@ -56,11 +61,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(prompt).toHaveValue('')
       expect(await count()).toBe(1)
 
-      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-      await page
-        .getByRole('dialog', { name: labels.workspace.title })
-        .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
-        .click()
+      await locationTrigger.click()
+      const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRootBeforeDirectory.isVisible())
+        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      const directoryPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+      await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
       await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
       await landing
         .getByRole('group', { name: copy.session.addMenu.menu })
@@ -97,9 +107,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expect(landing).toBeVisible()
       await expect(prompt).toHaveValue('')
-      await expect(
-        landing.getByRole('button', { name: labels.workspace.trigger(host.ready.workspaceName) }),
-      ).toBeVisible()
+      await expect(locationTrigger).toHaveAccessibleName(
+        new RegExp(`^${location.trigger(host.ready.workspaceName, null, false)}`),
+      )
 
       await prompt.fill('/goal only after session')
       await expect(send).toBeDisabled()
