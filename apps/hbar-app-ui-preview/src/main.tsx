@@ -12,6 +12,9 @@ import {
 import { CommandPreviewHost } from './CommandPreviewHost'
 import { EmptyStatePreviewHost } from './EmptyStatePreviewHost'
 import { SupportTicketPreviewHost } from './SupportTicketPreviewHost'
+import { SupportThreadPreviewHost } from './SupportThreadPreviewHost'
+import { createSupportThreadPreviewCopy } from './supportThreadPreviewCopy'
+import { createSupportThreadReferenceFixtures } from '../../../tests/fixtures/hbar-app-ui-support-thread-reference-fixtures'
 import { createSupportTicketPreviewCopy, localizeSupportTicketPreviewContent } from './supportTicketPreviewCopy'
 import './empty-state-preview.css'
 import {
@@ -227,7 +230,6 @@ import {
   createHbarAppUiNotificationSystemFixture,
 } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
 import { HBAR_APP_UI_MOBILE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-mobile-fixtures'
-import { HBAR_APP_UI_SUPPORT_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-support-fixtures'
 import {
   createHbarAppUiWizardLocalizedFixtures,
   createHbarAppUiWizardOverflowFixtures,
@@ -681,8 +683,10 @@ function PreviewApp() {
   )
   const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])
   const supportLocale = useMemo(() => new URLSearchParams(window.location.search).get('supportFixture') === 'localized' ? 'de' : 'en', [])
-  const supportContent = useMemo(() => localizeSupportTicketPreviewContent(HBAR_APP_UI_SUPPORT_FIXTURES, supportLocale), [supportLocale])
+  const supportContent = useMemo(() => localizeSupportTicketPreviewContent(createSupportThreadReferenceFixtures(supportLocale), supportLocale), [supportLocale])
   const supportTicketCopy = useMemo(() => createSupportTicketPreviewCopy(supportLocale), [supportLocale])
+  const supportThreadCopy = useMemo(() => createSupportThreadPreviewCopy(supportLocale), [supportLocale])
+  const supportReplyOutcome = useMemo(() => new URLSearchParams(window.location.search).get('supportReplyOutcome') === 'failed' ? 'failed' : 'confirmed', [])
   const supportTicketOutcome = useMemo(() => new URLSearchParams(window.location.search).get('supportOutcome') === 'failed' ? 'failed' : 'confirmed', [])
   const wizardContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('wizardFixture')
@@ -927,6 +931,7 @@ function PreviewApp() {
                                                     <HbarAppUiNotificationsProvider content={notificationsContent}>
                                                       <HbarAppUiMobileProvider content={mobileContent}>
                                                         <HbarAppUiSupportProvider content={supportContent}>
+                                                          <SupportThreadPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportThreadCopy} replyPreviewOutcome={supportReplyOutcome}>
                                                           <SupportTicketPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportTicketCopy} submitPreviewOutcome={supportTicketOutcome}>
                                                           <WizardPreviewHost content={wizardContent}>
                                                             <HbarAppUiOnboardingProvider content={onboardingContent}>
@@ -1177,6 +1182,7 @@ function PreviewApp() {
                                                             </HbarAppUiOnboardingProvider>
                                                           </WizardPreviewHost>
                                                           </SupportTicketPreviewHost>
+                                                          </SupportThreadPreviewHost>
                                                         </HbarAppUiSupportProvider>
                                                       </HbarAppUiMobileProvider>
                                                     </HbarAppUiNotificationsProvider>
@@ -1372,6 +1378,7 @@ function PreviewApp() {
                                                               >
                                                                 <HbarAppUiMobileProvider content={mobileContent}>
                                                                   <HbarAppUiSupportProvider content={supportContent}>
+                                                                    <SupportThreadPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportThreadCopy} replyPreviewOutcome={supportReplyOutcome}>
                                                                     <SupportTicketPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportTicketCopy} submitPreviewOutcome={supportTicketOutcome}>
                                                                     <WizardPreviewHost content={wizardContent}>
                                                                       <HbarAppUiOnboardingProvider
@@ -1646,6 +1653,7 @@ function PreviewApp() {
                                                                       </HbarAppUiOnboardingProvider>
                                                                     </WizardPreviewHost>
                                                                     </SupportTicketPreviewHost>
+                                                                    </SupportThreadPreviewHost>
                                                                   </HbarAppUiSupportProvider>
                                                                 </HbarAppUiMobileProvider>
                                                               </HbarAppUiNotificationsProvider>

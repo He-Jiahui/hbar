@@ -1033,3 +1033,24 @@ owner 回执，失败保留可编辑草稿，确认文案明确“没有创建�
 类型检查、限定 ESLint、Host 内容守卫与包/预览构建通过。整份 `support.tsx` 的
 内容守卫仍报告两个 HEAD 中已存在、位于 Thread 3 的 `You` 字面文案，未将这项
 既存差距伪报为全文件通过；本轮仅受控 ticket 范围闭环。
+
+Support 3 本轮按功能/合理布局标准完成参考会话：缓存 `full-static-v10` 的六条
+消息、两条附件、四组 `dl` 时间线、相关链接与权限注记由独立 Host fixture 提供。
+受控参考分支不添加原版没有的标题/解决按钮；需状态操作的显式宿主可选择显示，
+legacy API 保留。回复由 Zustand owner 管理，400ms 只模拟本地确认；等待不清草稿，
+失败仍可编辑，连续确认追加独立消息，不再覆盖上一条回复。文案/当前用户标记由
+宿主提供，语言更新不清领域草稿；上界由宿主列表容量确定，本地追加最多 20 条，
+到界明确提示。请求捕获 threadId 与 owner ticket，清理拒绝迟到确认。
+
+10 项相关模型/SSR/内容测试、92 个断言通过，覆盖失败恢复、取消、隔离、容量和
+同页标签关系。`bun scripts/verify-hbar-app-ui-support-thread-core.ts` 在已构建
+5193 预览抽查失败保留、连续两次本地确认与 320px 长德语。检查发现既存家族样式
+把窄屏 aside 排到前面，并将消息 pane 压成零高度；独立 reference CSS 改为 flex
+流、正常消息高度和“消息/回复在前，时间线在后”，没有坐标或固定内容高度。
+首条消息、发送按钮和相关链接可见/可达，无横溢和 page/console error；代表图在
+`artifacts/support-thread-core-review/`。其余同构消息和手势由实现推导，不跑逐按钮
+矩阵，未签 fresh strict，也没有真正发送消息或改变远端工单。
+
+根/子仓类型检查、限定类型感知 ESLint、样式/content/icon/flow 守卫以及包 bundle/
+声明和生产预览构建通过。此前 Thread 3 的两处 `You` 硬编码已改为宿主 metadata；
+本轮全份 support 内容守卫通过，不将其它 Support 变体业务接入一并写成完成。
