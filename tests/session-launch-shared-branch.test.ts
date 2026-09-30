@@ -251,3 +251,56 @@ test('the accepted shared binding follows the workspace path and tolerates later
   })
   expect(await f.service.workspaceForRun(f.session.id, f.workspace.path)).toBe(f.repository)
 })
+
+test('A-to-B-to-A shared continuation follows the current checkout without silently switching back', async () => {
+  const f = await fixture()
+  const branchA = await addBranch(f.repository)
+  await gitOk(f.repository, ['branch', 'feature/other', 'main'])
+  const branchB = {
+    ref: 'refs/heads/feature/other',
+    tipOid: await gitOk(f.repository, ['rev-parse', 'refs/heads/feature/other']),
+  }
+  const revisionA = await selectSharedBranch(f.store, f.session.id, branchA)
+  await f.service.prepare(f.session.id, revisionA)
+  const acceptedA = await f.store.call(
+    'enqueue',
+    f.session.id,
+    'first-A',
+    { text: 'first A', images: [] },
+    'test-model',
+    undefined,
+    await f.service.bindForRun(f.session.id, undefined, revisionA),
+  )
+  await f.store.call('setRun', acceptedA.id, 'completed')
+
+  const second = await f.store.call('createSession', f.workspace.id, 'shared branch B')
+  const revisionB = await selectSharedBranch(f.store, second.id, branchB)
+  await f.service.prepare(second.id, revisionB)
+  const acceptedB = await f.store.call(
+    'enqueue',
+    second.id,
+    'first-B',
+    { text: 'first B', images: [] },
+    'test-model',
+    undefined,
+    await f.service.bindForRun(second.id, undefined, revisionB),
+  )
+  await f.store.call('setRun', acceptedB.id, 'completed')
+
+  expect(await gitOk(f.repository, ['symbolic-ref', '--quiet', 'HEAD'])).toBe(branchB.ref)
+  const continuedA = await f.service.bindForRun(f.session.id)
+  expect(continuedA).toMatchObject({ targetPath: f.repository, selection: { mode: 'shared-branch', branch: branchA } })
+  const nextA = await f.store.call(
+    'enqueue',
+    f.session.id,
+    'continue-A',
+    { text: 'continue A', images: [] },
+    'test-model',
+    undefined,
+    continuedA,
+  )
+  expect(nextA.status).toBe('queued')
+  expect(await f.service.workspaceForRun(f.session.id, f.workspace.path)).toBe(f.repository)
+  expect(await gitOk(f.repository, ['symbolic-ref', '--quiet', 'HEAD'])).toBe(branchB.ref)
+  expect(await readFile(join(f.repository, 'README.md'), 'utf8')).toBe('main\n')
+})

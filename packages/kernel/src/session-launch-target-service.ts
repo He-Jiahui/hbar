@@ -1784,26 +1784,12 @@ export class SessionLaunchTargetService {
   private async verifyBoundTarget(runtime: SessionLaunchTargetRuntimeSnapshot, signal?: AbortSignal): Promise<void> {
     const binding = runtime.binding
     if (!binding) return
-    if (binding.selection.mode === 'shared-current') {
+    // A shared branch is an initial launch choice, not a permanent execution pin.
+    // After acceptance, shared sessions follow this checkout just like shared-current.
+    if (binding.selection.mode === 'shared-current' || binding.selection.mode === 'shared-branch') {
       const workspace = await this.storage.call('workspace', runtime.target.workspaceId)
       if (!samePath(await realpath(workspace.path), binding.targetPath))
         throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The frozen shared workspace path changed')
-      return
-    }
-    if (binding.selection.mode === 'shared-branch') {
-      const operationSignal = signal ?? new AbortController().signal
-      const workspace = await this.storage.call('workspace', runtime.target.workspaceId)
-      if (!samePath(await realpath(workspace.path), binding.targetPath))
-        throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The frozen shared workspace path changed')
-      const checkoutRoot = await this.resolveCheckoutRoot(binding.targetPath, operationSignal)
-      if (!checkoutRoot.isRepository)
-        throw new HbarError(
-          'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
-          'The frozen shared workspace is no longer a Git repository',
-        )
-      const state = await this.readSharedCheckoutState(checkoutRoot.path, binding.selection.branch.ref, operationSignal)
-      if (state.branchRef !== binding.selection.branch.ref)
-        throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Frozen shared branch changed')
       return
     }
     const managed = await this.managedPaths(
