@@ -108,7 +108,7 @@ test('provider list and dialog render Host descriptions without exposing a crede
     expect(list).toContain('Manage model connections, defaults, and credentials.')
     expect(list).toContain('Visible provider')
     expect(list).toContain('OpenAI Responses')
-    expect(list).toContain('Default: visible-model')
+    expect(list).toContain('Primary model: visible-model')
     expect(list).toContain('1 model')
     expect(list).toContain('Credential configured')
     expect(list).toContain('Edit Visible provider')

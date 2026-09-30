@@ -654,10 +654,29 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     empty: choose('尚未配置供应商。', 'No providers configured.'),
     add: choose('添加供应商', 'Add provider'),
     edit: (name) => choose(`编辑 ${name}`, `Edit ${name}`),
+    editAction: choose('编辑', 'Edit'),
     actions: (name) => choose(`${name} 的操作`, `Actions for ${name}`),
     remove: (name) => choose(`删除 ${name}`, `Delete ${name}`),
     protocol: (value) => protocolNames[value] ?? value,
-    defaultModel: (model) => choose(`默认模型：${model}`, `Default: ${model}`),
+    primaryModel: (model) => choose(`主模型：${model}`, `Primary model: ${model}`),
+    setDefault: choose('设为默认', 'Set default'),
+    setDefaultFor: (name, model) =>
+      choose(`将 ${name} 的 ${model} 设为全局默认`, `Set ${model} from ${name} as the global default`),
+    globalDefault: (model) => choose(`全局默认 · ${model}`, `Global default · ${model}`),
+    settingDefault: (name, model) =>
+      choose(`正在将 ${name} 的 ${model} 设为全局默认…`, `Setting ${model} from ${name} as the global default…`),
+    setDefaultError: (code) =>
+      code === 'RESULT_UNKNOWN'
+        ? choose(
+            '切换结果尚未确认。请核对结果，无需再次切换。',
+            'The result is not confirmed. Reconcile the result without switching again.',
+          )
+        : choose(`无法切换全局默认：${code}`, `Cannot switch the global default: ${code}`),
+    reconcileDefault: choose('核对切换结果', 'Reconcile result'),
+    reconcileDefaultFor: (name, model) =>
+      choose(`核对 ${name} 的 ${model} 的默认切换结果`, `Reconcile the default switch to ${model} from ${name}`),
+    reconcilingDefault: (name, model) =>
+      choose(`正在核对 ${name} 的 ${model} 的切换结果…`, `Reconciling the switch to ${model} from ${name}…`),
     modelCount: (count) =>
       choose(`${number.format(count)} 个模型`, `${number.format(count)} ${count === 1 ? 'model' : 'models'}`),
     hidden: choose('已隐藏', 'Hidden'),
