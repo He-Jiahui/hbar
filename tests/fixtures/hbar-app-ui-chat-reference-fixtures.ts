@@ -1,11 +1,15 @@
 import type { HbarAppUiChatContent } from '../../packages/hbar-app-ui/src/index'
 import { HBAR_APP_UI_CHAT_FIXTURES } from './hbar-app-ui-chat-fixtures'
+import { createChatDirectReferenceFixture } from './hbar-app-ui-chat-direct-reference-fixtures'
+import { createChatSocialReferenceFixture } from './hbar-app-ui-chat-social-reference-fixtures'
+import { createChatSupportReferenceFixture } from './hbar-app-ui-chat-support-reference-fixtures'
+import { createChatGroupReferenceFixture } from './hbar-app-ui-chat-group-reference-fixtures'
+import { createChatLiveReferenceFixture } from './hbar-app-ui-chat-live-reference-fixtures'
 
-/** Source-aligned Team/Direct records; the remaining flows retain their explicitly partial legacy layout. */
+/** Independent source layouts supplied by the preview/test Host, not embedded in the component. */
 export function createChatReferencePreviewFixtures(locale: 'en' | 'de-long' = 'en'): HbarAppUiChatContent {
   const team = HBAR_APP_UI_CHAT_FIXTURES.team
-  const direct = HBAR_APP_UI_CHAT_FIXTURES.direct
-  if (!team || !direct) throw new Error('Expected the team and direct chat preview fixtures')
+  if (!team) throw new Error('Expected the team chat preview fixture')
   const german = locale === 'de-long'
   return {
     ...HBAR_APP_UI_CHAT_FIXTURES,
@@ -69,77 +73,10 @@ export function createChatReferencePreviewFixtures(locale: 'en' | 'de-long' = 'e
         memberCount: '18',
       },
     },
-    direct: {
-      ...direct,
-      labels: {
-        ...direct.labels,
-        title: german ? 'Direkte Unterhaltungen' : 'Messages',
-        detail: german ? 'Unterhaltungen mit Ihrem Team' : 'Direct conversations',
-        conversationDetail: german ? 'Gerade aktiv' : 'Active now',
-        send: german ? 'Nachricht senden' : 'Send message',
-        placeholder: (contact) =>
-          german ? `Eine Nachricht an ${contact} schreiben und auf lokale Bestätigung warten` : `Message ${contact}`,
-        emptyContacts: german ? 'Noch keine Kontakte' : 'No contacts',
-        emptyMessages: german ? 'Noch keine Nachrichten in dieser Unterhaltung' : 'No messages yet',
-      },
-      contacts: [
-        {
-          id: 'sofia',
-          name: 'Sofia Alvarez',
-          initials: 'SA',
-          meta: 'Sent the revised copy deck',
-          status: 'Active now',
-        },
-        { id: 'marcus', name: 'Marcus Bell', initials: 'MB', meta: "Works for me, let's ship it" },
-        { id: 'priya', name: 'Priya Nandakumar', initials: 'PN', meta: 'Photo' },
-        { id: 'wei', name: 'Wei Chen', initials: 'WC', meta: "I'll pick this up Monday" },
-        { id: 'tomas', name: 'Tomás Guerrero', initials: 'TG', meta: 'Thanks for the review' },
-      ],
-      initialContactId: 'sofia',
-      messages: [
-        {
-          id: 'copy-deck',
-          contactId: 'sofia',
-          author: 'Sofia Alvarez',
-          initials: 'SA',
-          body: 'Morning. The revised copy deck is in the shared folder, second tab has the shorter variants.',
-          meta: '09:28',
-        },
-        {
-          id: 'headline',
-          contactId: 'sofia',
-          author: german ? 'Sie' : 'You',
-          initials: 'YO',
-          body: 'Got it. The shorter headline reads much better on mobile.',
-          meta: '09:31',
-          outgoing: true,
-        },
-        {
-          id: 'subhead',
-          contactId: 'sofia',
-          author: german ? 'Sie' : 'You',
-          initials: 'YO',
-          body: 'One ask: can the subhead drop the second clause? It wraps to three lines at 375.',
-          meta: '09:31',
-          outgoing: true,
-        },
-        {
-          id: 're-export',
-          contactId: 'sofia',
-          author: 'Sofia Alvarez',
-          initials: 'SA',
-          body: 'Easy. I will trim it and re-export both light and dark.',
-          meta: '09:38',
-        },
-        {
-          id: 'lock-file',
-          contactId: 'sofia',
-          author: 'Sofia Alvarez',
-          initials: 'SA',
-          body: 'Anything else before I lock the file?',
-          meta: '09:41',
-        },
-      ],
-    },
+    direct: createChatDirectReferenceFixture(locale),
+    social: createChatSocialReferenceFixture(locale),
+    support: createChatSupportReferenceFixture(locale),
+    group: createChatGroupReferenceFixture(locale),
+    live: createChatLiveReferenceFixture(locale),
   }
 }

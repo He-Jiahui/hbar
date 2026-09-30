@@ -99,6 +99,11 @@ function ChatPreviewOwner({
   const pendingSends = useStore(store, (state) => state.pendingSends)
   const rating = useStore(store, (state) => state.rating)
   const selectedQuickReplyId = useStore(store, (state) => state.selectedQuickReplyId)
+  const directQuery = useStore(store, (state) => state.directQuery)
+  const socialSortOrder = useStore(store, (state) => state.socialSortOrder)
+  const likedIds = useStore(store, (state) => state.likedIds)
+  const selectedReactionIds = useStore(store, (state) => state.selectedReactionIds)
+  const followed = useStore(store, (state) => state.followed)
   const copy = createChatPreviewCopy(locale)
 
   useLayoutEffect(() => {
@@ -208,6 +213,22 @@ function ChatPreviewOwner({
   }
 
   const activeComposerTarget = activeTargetId ?? ''
+  const socialLocalMessages =
+    content.social && spec.variant === 3
+      ? (conversations.find((conversation) => conversation.targetId === content.social?.post.id)?.messages ?? [])
+      : []
+  const supportSourceMessages = content.support
+    ? (content.support.referenceLayout?.messages ??
+      content.support.referenceFlow?.messages ?? [content.support.assistant])
+    : []
+  const groupLocalMessages =
+    content.group && spec.variant === 5
+      ? (conversations.find((conversation) => conversation.targetId === spec.id)?.messages ?? [])
+      : []
+  const liveLocalMessages =
+    content.live && spec.variant === 6
+      ? (conversations.find((conversation) => conversation.targetId === content.live?.chatTabId)?.messages ?? [])
+      : []
   const projectedContent: HbarAppUiChatContent = {
     ...content,
     team:
@@ -230,11 +251,16 @@ function ChatPreviewOwner({
             ...content.direct,
             messages: appendDirectMessages(content.direct.messages, conversations, copy),
             referenceFlow: {
+              ...(content.direct.referenceFlow ?? {}),
               contactId: activeComposerTarget,
               onContactChange: (contactId) => {
                 if (activeOwnerRef.current) store.getState().setActiveTarget(contactId)
               },
               composer: composer(activeComposerTarget),
+              query: directQuery,
+              onQueryChange: (query) => {
+                if (activeOwnerRef.current) store.getState().setDirectQuery(query)
+              },
             },
           }
         : content.direct,
@@ -242,12 +268,40 @@ function ChatPreviewOwner({
       content.social && spec.variant === 3
         ? {
             ...content.social,
-            replies: appendMessages(
-              content.social.replies,
-              conversations.find((conversation) => conversation.targetId === content.social?.post.id)?.messages ?? [],
-              copy,
-            ),
-            referenceFlow: { composer: composer(content.social.post.id) },
+            replies: appendMessages(content.social.replies, socialLocalMessages, copy),
+            ...(content.social.referenceLayout
+              ? {
+                  referenceLayout: {
+                    ...content.social.referenceLayout,
+                    replyCount: content.social.referenceLayout.replyCount + socialLocalMessages.length,
+                  },
+                }
+              : {}),
+            referenceFlow: {
+              ...(content.social.referenceFlow ?? {}),
+              composer: composer(content.social.post.id),
+              sortOrder: socialSortOrder,
+              likedIds,
+              onSortChange: (order) => {
+                if (!activeOwnerRef.current) return
+                store.getState().setSocialSortOrder(order)
+                notify(
+                  'social-sort',
+                  serializeIntent({
+                    targetId: content.social?.post.id ?? '',
+                    sortOrder: order,
+                    outcome: 'intent-only',
+                  }),
+                )
+              },
+              onToggleLike: (messageId) => {
+                if (!activeOwnerRef.current || !store.getState().toggleSocialLike(messageId)) return
+                notify(
+                  'social-toggle-like',
+                  serializeIntent({ targetId: content.social?.post.id ?? '', messageId, outcome: 'intent-only' }),
+                )
+              },
+            },
           }
         : content.social,
     support:
@@ -258,7 +312,7 @@ function ChatPreviewOwner({
               ...(content.support.referenceFlow ?? {}),
               composer: composer(content.support.assistant.id),
               messages: appendMessages(
-                content.support.referenceFlow?.messages ?? [content.support.assistant],
+                supportSourceMessages,
                 conversations.find((conversation) => conversation.targetId === content.support?.assistant.id)
                   ?.messages ?? [],
                 copy,
@@ -293,29 +347,45 @@ function ChatPreviewOwner({
       content.group && spec.variant === 5
         ? {
             ...content.group,
-            messages: appendMessages(
-              content.group.messages,
-              conversations.find((conversation) => conversation.targetId === spec.id)?.messages ?? [],
-              copy,
-            ),
-            referenceFlow: { composer: composer(spec.id) },
+            messages: appendMessages(content.group.messages, groupLocalMessages, copy),
+            referenceFlow: {
+              ...(content.group.referenceFlow ?? {}),
+              composer: composer(spec.id),
+              selectedReactionIds,
+              onToggleReaction: (reactionId) => {
+                if (!activeOwnerRef.current || !store.getState().toggleGroupReaction(reactionId)) return
+                notify(
+                  'group-toggle-reaction',
+                  serializeIntent({ targetId: spec.id, reactionId, outcome: 'intent-only' }),
+                )
+              },
+            },
           }
         : content.group,
     live:
       content.live && spec.variant === 6
         ? {
             ...content.live,
-            messages: appendMessages(
-              content.live.messages,
-              conversations.find((conversation) => conversation.targetId === content.live?.chatTabId)?.messages ?? [],
-              copy,
-            ),
+            messages: appendMessages(content.live.messages, liveLocalMessages, copy),
             referenceFlow: {
+              ...(content.live.referenceFlow ?? {}),
               tabId: activeComposerTarget,
               onTabChange: (tabId) => {
                 if (activeOwnerRef.current) store.getState().setActiveTarget(tabId)
               },
               composer: composer(activeComposerTarget),
+              followed,
+              onFollowChange: (nextFollowed) => {
+                if (!activeOwnerRef.current || !store.getState().setFollowed(nextFollowed)) return
+                notify(
+                  'live-follow',
+                  serializeIntent({
+                    targetId: content.live?.chatTabId ?? '',
+                    followed: String(nextFollowed),
+                    outcome: 'intent-only',
+                  }),
+                )
+              },
             },
           }
         : content.live,

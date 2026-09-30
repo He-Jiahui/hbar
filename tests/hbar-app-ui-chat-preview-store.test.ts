@@ -21,6 +21,13 @@ function seed(overrides: Partial<ChatPreviewSeed> = {}): ChatPreviewSeed {
     quickReplyIds: [],
     initialRating: 0,
     maximumRating: 0,
+    initialDirectQuery: '',
+    initialSocialSortOrder: 'relevant',
+    socialMessageIds: [],
+    initialLikedIds: [],
+    groupReactionIds: [],
+    initialSelectedReactionIds: [],
+    initialFollowed: false,
     ...overrides,
   }
 }
@@ -174,5 +181,92 @@ describe('Chat preview store', () => {
     expect(store.getState().selectQuickReply('connection')).toBe(true)
     expect(store.getState().selectQuickReply('removed')).toBe(false)
     expect(store.getState().selectedQuickReplyId).toBe('connection')
+  })
+
+  test('keeps direct search separate from conversation selection and copy refreshes', () => {
+    const store = createChatPreviewStore(
+      seed({
+        targets: [
+          { id: 'sofia', maxLocalMessages: 2, sendable: true, initialDraft: '' },
+          { id: 'marcus', maxLocalMessages: 2, sendable: true, initialDraft: '' },
+        ],
+      }),
+    )
+    store.getState().setActiveTarget('marcus')
+    store.getState().setDirectQuery('Sofia')
+    expect(store.getState().activeTargetId).toBe('marcus')
+
+    store.getState().reconcileSeed(
+      seed({
+        targets: [
+          { id: 'sofia', maxLocalMessages: 2, sendable: true, initialDraft: '' },
+          { id: 'marcus', maxLocalMessages: 2, sendable: true, initialDraft: '' },
+        ],
+        initialDirectQuery: 'translated copy refresh',
+      }),
+    )
+
+    expect(store.getState()).toMatchObject({ activeTargetId: 'marcus', directQuery: 'Sofia' })
+  })
+
+  test('sorts and toggles social likes only for current IDs, pruning evicted local replies', () => {
+    const store = createChatPreviewStore(
+      seed({
+        variantId: 'hbar-app-ui-chat-3',
+        variant: 3,
+        initialTargetId: 'post-billing',
+        targets: [{ id: 'post-billing', maxLocalMessages: 1, sendable: true, initialDraft: '' }],
+        initialSocialSortOrder: 'relevant',
+        socialMessageIds: ['post-billing', 'marcus-reply', 'sofia-reply', 'amelia-nested', 'marcus-reply'],
+        initialLikedIds: ['post-billing', 'removed-message', 'post-billing'],
+      }),
+    )
+    const state = store.getState()
+    expect(state.socialMessageIds).toEqual(['post-billing', 'marcus-reply', 'sofia-reply', 'amelia-nested'])
+    expect(state.likedIds).toEqual(['post-billing'])
+    expect(state.toggleSocialLike('stale-message')).toBe(false)
+    expect(state.toggleSocialLike('sofia-reply')).toBe(true)
+    state.setSocialSortOrder('recent')
+
+    state.setDraft('post-billing', 'First local reply')
+    const first = state.startSend('post-billing')
+    expect(store.getState().completeSend(first?.requestId ?? '')).toBe(true)
+    const firstLocalId = first?.requestId ?? ''
+    expect(store.getState().toggleSocialLike(firstLocalId)).toBe(true)
+
+    store.getState().setDraft('post-billing', 'Second local reply')
+    const second = store.getState().startSend('post-billing')
+    expect(store.getState().completeSend(second?.requestId ?? '')).toBe(true)
+    expect(store.getState()).toMatchObject({ socialSortOrder: 'recent' })
+    expect(store.getState().socialMessageIds).not.toContain(firstLocalId)
+    expect(store.getState().likedIds).not.toContain(firstLocalId)
+  })
+
+  test('keeps group reaction and live follow selections domain-bound', () => {
+    const group = createChatPreviewStore(
+      seed({
+        variantId: 'hbar-app-ui-chat-5',
+        variant: 5,
+        initialTargetId: 'hbar-app-ui-chat-5',
+        targets: [{ id: 'hbar-app-ui-chat-5', maxLocalMessages: 2, sendable: true, initialDraft: '' }],
+        groupReactionIds: ['priya-fire', 'priya-heart', 'tomas-hundred', 'naomi-pray', 'priya-fire'],
+        initialSelectedReactionIds: ['priya-fire', 'removed-reaction', 'priya-fire'],
+      }),
+    )
+    expect(group.getState().groupReactionIds).toEqual(['priya-fire', 'priya-heart', 'tomas-hundred', 'naomi-pray'])
+    expect(group.getState().selectedReactionIds).toEqual(['priya-fire'])
+    expect(group.getState().toggleGroupReaction('removed-reaction')).toBe(false)
+    expect(group.getState().toggleGroupReaction('priya-heart')).toBe(true)
+
+    const live = createChatPreviewStore(
+      seed({
+        variantId: 'hbar-app-ui-chat-6',
+        variant: 6,
+        initialFollowed: false,
+      }),
+    )
+    expect(live.getState().setFollowed(true)).toBe(true)
+    live.getState().reconcileSeed(seed({ variantId: 'hbar-app-ui-chat-6', variant: 6, initialFollowed: false }))
+    expect(live.getState().followed).toBe(true)
   })
 })

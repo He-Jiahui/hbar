@@ -624,6 +624,44 @@ claim of source/local visual acceptance. The focused family regression passes
 55 tests and 442 assertions; root/Lumen typechecks, scoped lint/format/content/icon
 checks, preview build and direct Lumen Vite/declaration builds also pass.
 
+### Chat 2–6 practical reference integration
+
+The remaining Chat reference branches now have independent, host-owned layouts:
+Direct conversation search and incoming/outgoing bubbles; a social post with its
+composer before sorted replies and a nested reply; the full four-message support
+history with minimize/restore and a binary helpful vote; a message-only group
+transcript with image/document attachment cards and reactions; and eight inline
+live-chat rows with Follow. The group reference intentionally has no invented
+participant header or composer, and the live reference has no legacy tabs or
+viewer list. Existing generic content remains compatible.
+
+The preview Host keeps search, target-specific drafts, sort, likes, reactions and
+follow state in Zustand. Local confirmation remains a preview-only message, not
+delivery or read receipt; Direct read indicators require an explicit `read` field.
+Support capacity accounts for all four source records, and evicted local social
+replies also retire their like IDs. Content-grown social threads do not shrink
+their reply list into a zero-height slot; More replies stays after the last row.
+Narrow support widgets grow naturally and use the outer pane's scrolling.
+
+Verification is focused on the new mechanisms: the
+[reference core check](../scripts/verify-hbar-app-ui-chat-reference-core.ts)
+samples search/selection, like/sort, minimize/restore/helpful, a reaction and
+Follow, plus narrow long-copy Direct/social flow. The
+[shared composer regression](../scripts/verify-hbar-app-ui-chat-core.ts)
+retains pending/confirmation/failure and captured-target coverage without
+replaying every family/button. Both production-preview checks pass with no
+console/page errors or horizontal overflow. The 38 focused tests/306 assertions,
+root/Lumen types, scoped lint/style/content/icon/flow guards and preview/Lumen
+builds pass for this increment; the existing large-preview-chunk warning remains.
+
+The structural reference is the authorized `full-static-v10` cache, not a fresh
+source/local strict ledger. Calls, attachment selection, sharing, download and
+thread expansion emit named requests only; no remote result is claimed. The
+incompatible installed/pinned pnpm versions are unchanged; Lumen verification
+uses the existing direct TypeScript/Vite/declaration tools, not a claim that the
+standard pinned-pnpm workflow passed. Practical delivery does not imply that
+the overall 38-category/300-variant goal is complete.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

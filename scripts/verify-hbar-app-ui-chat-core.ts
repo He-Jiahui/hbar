@@ -39,28 +39,30 @@ try {
 
   // Direct conversations exercise target capture: an acknowledgement never appears in the newly selected contact.
   await page.goto(url(2), { waitUntil: 'domcontentloaded' })
-  await page.getByRole('textbox').first().fill('Only Sofia should receive this local preview')
+  await page.locator('[data-hbar-app-ui-field="draft"]').fill('Only Sofia should receive this local preview')
   await page.getByRole('button', { name: 'Send message', exact: true }).click()
   await page.getByRole('button', { name: /Marcus Bell/ }).click()
   await page.clock.runFor(2000)
   await expect(page.getByText('Only Sofia should receive this local preview', { exact: true })).toHaveCount(0)
-  await page.getByRole('textbox').first().fill('Marcus draft survives switching')
+  await page.locator('[data-hbar-app-ui-field="draft"]').fill('Marcus draft survives switching')
   await page.getByRole('button', { name: /Sofia Alvarez/ }).click()
   await expect(page.getByText('Only Sofia should receive this local preview', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Marcus Bell/ }).click()
-  await expect(page.getByRole('textbox').first()).toHaveValue('Marcus draft survives switching')
+  await expect(page.locator('[data-hbar-app-ui-field="draft"]')).toHaveValue('Marcus draft survives switching')
 
   await page.goto(url(2, 'failed'), { waitUntil: 'domcontentloaded' })
-  await page.getByRole('textbox').first().fill('A failed preview must keep this draft')
+  await page.locator('[data-hbar-app-ui-field="draft"]').fill('A failed preview must keep this draft')
   await page.getByRole('button', { name: 'Send message', exact: true }).click()
   await page.clock.runFor(2000)
   await expect(page.getByRole('alert')).toBeVisible()
-  await expect(page.getByRole('textbox').first()).toHaveValue('A failed preview must keep this draft')
+  await expect(page.locator('[data-hbar-app-ui-field="draft"]')).toHaveValue('A failed preview must keep this draft')
 
-  for (const variant of [3, 4, 5, 6]) {
+  for (const variant of [3, 4, 6]) {
     await page.goto(url(variant), { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('textbox').first()).toBeVisible()
   }
+  await page.goto(url(5), { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('[data-hbar-app-ui-field="draft"]')).toHaveCount(0)
 
   await page.setViewportSize({ width: 320, height: 520 })
   await page.goto(url(1, undefined, 'localized'), { waitUntil: 'domcontentloaded' })
@@ -70,7 +72,7 @@ try {
   await page.screenshot({ path: `${output}/team-localized-narrow.png`, fullPage: true })
   expect(errors).toEqual([])
   console.log(
-    'Chat practical core passed: reference Team structure, shared composer pending/confirmation/failure, captured Direct target and per-contact drafts, other family mounts and narrow long-copy reachability. Other-family reference fidelity and remote delivery are not claimed.',
+    'Chat shared practical core passed: reference Team structure, composer pending/confirmation/failure, captured Direct target and per-contact drafts, remaining mounts (source Group is message-only), and narrow Team reachability. Chat2–6 new structures are checked separately; remote delivery is not claimed.',
   )
 } finally {
   await browser.close()

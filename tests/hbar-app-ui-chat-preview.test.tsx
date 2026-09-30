@@ -19,13 +19,18 @@ function renderChat(
 }
 
 describe('Chat preview Host', () => {
-  test('renders controlled composer flows for all six existing public variants', () => {
+  test('keeps controlled composers on sendable variants and leaves source Group chat messages-only', () => {
     const markup = Array.from({ length: 6 }, (_, index) => renderChat(index + 1))
 
     markup.forEach((html, index) => {
       expect(html).toContain(`data-lumen-variant="${index + 1}"`)
-      expect(html).toContain('data-hbar-app-ui-action="send"')
-      if (index !== 3) expect(html).toContain('lumen-chat-composer-stack')
+      if (index === 4) {
+        expect(html).not.toContain('data-hbar-app-ui-action="send"')
+        expect(html).not.toContain('lumen-chat-composer-stack')
+      } else {
+        expect(html).toContain('data-hbar-app-ui-action="send"')
+        expect(html).toContain('lumen-chat-composer-stack')
+      }
     })
   })
 
@@ -55,6 +60,26 @@ describe('Chat preview Host', () => {
     expect(html).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     expect(html).not.toContain('Added to this preview only')
     expect(html).not.toContain('Support assistant')
+    expect(html).toContain('data-hbar-app-ui-field="conversation-search"')
+    expect(html).toContain('data-hbar-app-ui-field="draft"')
+  })
+
+  test('renders the eight-row Live source flow without legacy tab or viewer controls', () => {
+    const english = renderChat(6)
+    const german = renderChat(6, 'de-long')
+
+    expect(english).toContain('Live: designing dense interfaces')
+    expect(english).toContain('1,284 watching · 41 min in')
+    expect(english).toContain('Pinned by Junie Park')
+    expect(english).toContain('data-hbar-app-ui-region="live-messages"')
+    expect(english.match(/class="lumen-chat-live-reference-message"/g) ?? []).toHaveLength(8)
+    expect(english).toContain('data-hbar-app-ui-action="live:toggle-follow"')
+    expect(english).toContain('Follow')
+    expect(english).not.toContain('role="tablist"')
+    expect(english).not.toContain('lumen-chat-viewers')
+    expect(german).toContain('Gestaltung dichter Oberflächen')
+    expect(german).toContain('Diesem Live-Stream folgen')
+    expect(german).toContain('Die Folien und die Beispieldatei')
   })
 
   test('localizes pending, confirmed, and failure feedback without delivery claims', () => {
