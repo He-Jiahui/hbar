@@ -830,12 +830,20 @@ export class Kernel {
     modelId: string,
     command?: RunCommandRecord,
     signal?: AbortSignal,
+    expectedLaunchTargetRevision?: number,
   ) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
     input = { ...input, files }
+    if (expectedLaunchTargetRevision !== undefined) {
+      const target = await this.getSessionLaunchTarget(sessionId)
+      if (target.revision !== expectedLaunchTargetRevision)
+        throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+      if (target.resolution.status !== 'ready')
+        throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
+    }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
     input = {
       ...input,
@@ -860,11 +868,15 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
-      const run = await this.withSessionLaunchTargetLock(sessionId, async () => {
-        const binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal)
-        signal?.throwIfAborted()
-        return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
-      }, signal)
+      const run = await this.withSessionLaunchTargetLock(
+        sessionId,
+        async () => {
+          const binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
+          signal?.throwIfAborted()
+          return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+        },
+        signal,
+      )
       if (run.status === 'queued') {
         if (run.queuedEvent) {
           // Only a newly accepted turn clears unresolved interactive requests.

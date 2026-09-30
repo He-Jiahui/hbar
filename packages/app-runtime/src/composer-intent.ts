@@ -123,6 +123,7 @@ const goalRunInput = sessionInput.extend({
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
   expectedGoalId: idSchema,
   modelId: idSchema,
+  expectedLaunchTargetRevision: z.number().int().nonnegative().safe().optional(),
   thinking: thinkingLevelSchema.optional(),
   expectedPermissionRevision: z.number().int().nonnegative().optional(),
   expectedDraftRevision: z.number().int().nonnegative(),
@@ -529,6 +530,15 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   local.register(composerIntentCommands['composerIntent.submit'], async (input, execution) => {
     const { sessionId } = input
     assertFree(sessionId)
+    const priorSubmission = submissions.get(sessionId)
+    if (
+      priorSubmission?.status === 'partial' &&
+      priorSubmission.preparedGoalId &&
+      priorSubmission.intent === entry(sessionId).intent &&
+      input.expectedLaunchTargetRevision !== undefined &&
+      input.expectedLaunchTargetRevision !== priorSubmission.request.expectedLaunchTargetRevision
+    )
+      throw new CommandError('GOAL_SUBMISSION_CHANGED', 'The prepared Goal belongs to the captured launch target')
     const navigation = options.navigation.getSnapshot()
     const assertSelectedNavigation = () => {
       if (!input.requireSelectedSession) return
@@ -582,6 +592,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         mode: capturedMode,
         source: 'user',
       },
+      ...(input.expectedLaunchTargetRevision === undefined
+        ? {}
+        : { expectedLaunchTargetRevision: input.expectedLaunchTargetRevision }),
     }
     if (
       current.intent === 'goal' &&
@@ -620,8 +633,16 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     } finally {
       preparations.delete(sessionId)
     }
-    const fingerprint = JSON.stringify([request, input.goalTokenBudget ?? null])
     let pending = submissions.get(sessionId)
+    if (
+      pending?.status === 'partial' &&
+      pending.preparedGoalId &&
+      pending.intent === current.intent &&
+      pending.request.expectedLaunchTargetRevision !== undefined &&
+      request.expectedLaunchTargetRevision === undefined
+    )
+      request = { ...request, expectedLaunchTargetRevision: pending.request.expectedLaunchTargetRevision }
+    const fingerprint = JSON.stringify([request, input.goalTokenBudget ?? null])
     if (pending && (pending.fingerprint !== fingerprint || pending.intent !== current.intent)) {
       if (
         pending.status === 'partial' &&
@@ -886,7 +907,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       previous?.intent === 'goalSlash' &&
       (previous.preparedGoalId !== input.expectedGoalId ||
         previous.slashDraft?.revision !== input.expectedDraftRevision ||
-        previous.slashDraft.text !== input.draftText)
+        previous.slashDraft.text !== input.draftText ||
+        (input.expectedLaunchTargetRevision !== undefined &&
+          previous.request.expectedLaunchTargetRevision !== input.expectedLaunchTargetRevision))
     )
       throw new CommandError('GOAL_SUBMISSION_CHANGED', 'Repair the original Goal command before starting another')
     preparations.add(sessionId)
@@ -923,6 +946,10 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       )
         throw new CommandError('GOAL_CONFLICT', 'The confirmed Goal changed before execution')
       if (target) options.preparation?.assertCanPrepare(target)
+      const expectedLaunchTargetRevision =
+        previous?.status === 'partial' && previous.intent === 'goalSlash'
+          ? previous.request.expectedLaunchTargetRevision
+          : input.expectedLaunchTargetRevision
       const request: SubmitRunInput = {
         sessionId,
         modelId: input.modelId,
@@ -935,12 +962,18 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           ...(input.thinking ? { thinking: input.thinking } : {}),
           ...(permission ? { approval: permission.approval } : {}),
         },
+        ...(expectedLaunchTargetRevision === undefined ? {} : { expectedLaunchTargetRevision }),
       }
       pending = {
         key: crypto.randomUUID(),
         revision: entry(sessionId).revision,
         intent: 'goalSlash',
-        fingerprint: JSON.stringify([input.expectedGoalId, input.objective, input.draftText]),
+        fingerprint: JSON.stringify([
+          input.expectedGoalId,
+          input.objective,
+          input.draftText,
+          expectedLaunchTargetRevision ?? null,
+        ]),
         request,
         tokenBudget: undefined,
         permission,

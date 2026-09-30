@@ -103,14 +103,19 @@ export interface SessionLaunchTargetPreparationUpdate {
   errorMessage?: string
 }
 
-/** Internal Host-only binding; the absolute path is never part of a public command result. */
-export interface SessionLaunchTargetBindingInput {
+interface SessionLaunchTargetBindingFields {
   sessionId: string
   expectedRevision: number
   selection: SessionLaunchSelection
   targetPath: string
   branch: string | null
   head: string | null
+}
+
+/** Internal Host-only binding; the absolute path is never part of a public command result. */
+export interface SessionLaunchTargetBindingInput extends SessionLaunchTargetBindingFields {
+  /** Require the exact prepared resolution in the same transaction that accepts a Run. */
+  requirePreparedTarget?: true
 }
 
 export interface SessionLaunchTargetResolutionRecord extends SessionLaunchTargetPreparationInput {
@@ -121,7 +126,7 @@ export interface SessionLaunchTargetResolutionRecord extends SessionLaunchTarget
   updatedAt: number
 }
 
-export interface SessionLaunchTargetBinding extends SessionLaunchTargetBindingInput {
+export interface SessionLaunchTargetBinding extends SessionLaunchTargetBindingFields {
   boundRunId: string
   boundAt: number
 }

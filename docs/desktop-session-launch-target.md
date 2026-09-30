@@ -158,7 +158,7 @@ Changed 使用 `sessionGit.status/diff` 的 execution-root 相对路径与严格
 
 Client 的 `SessionLaunchTargetPreparationManager` 是独立的认证传输适配器，不选择 cwd、不调用旧慢准备、不提交 Run。写入派发后的本地 abort、丢失响应或无法校验的 ack 保持 RESULT_UNKNOWN；停止观察不等于远程取消。start 重试使用原键，查询核对原操作，状态版本用于后续投影抑制旧响应。
 
-该 API 子功能的验证结果记录在对应提交正文中，使用临时 Host／Git／SQLite 和配对 Client，未操作用户项目或付费 provider。它尚未注入 pre-session ViewModel，完整首次发送 handoff、就近进度／取消恢复 UI、最终 expected-target Run 受理检查仍是后续接缝；没有为此新增可见 Prepare 按钮。前面的同步准备时长记录描述旧 API，不能当作新 start 的响应时长证明，也不能把这次契约接入称为 native 桌面体验已经交付。
+该 API 子功能的验证结果记录在对应提交正文中，使用临时 Host／Git／SQLite 和配对 Client，未操作用户项目或付费 provider。它尚未注入 pre-session ViewModel，完整首次发送 handoff 与就近进度／取消恢复 UI 仍是后续接缝；没有为此新增可见 Prepare 按钮。最终 expected-target Run 受理检查已在下面的独立切片中验证，但仍需由首次发送 handoff 提供捕获的版本。前面的同步准备时长记录描述旧 API，不能当作新 start 的响应时长证明，也不能把这次契约接入称为 native 桌面体验已经交付。
 
 ## 启动前的只读分支发现
 
@@ -169,3 +169,13 @@ Client 的 `SessionLaunchTargetPreparationManager` 是独立的认证传输适�
 每条分支分别表达 sharedCurrent 和 isolatedBase 的可用性：其他 worktree 已检出的分支不能用于共享切换，但可以作为派生隔离分支的起点。读取 worktree 状态失败时，共享切换显示 unknown，不猜测 available。这是给后续 Location 入口使用的数据事实，**不是现有 hbar 隔离准备已经改成参考 base-ref 语义的声明**；共享 selected-branch、隔离派生分支、参考式即时 New branch 创建及可编辑 Location 仍需独立实现。
 
 验证包括真实 Git 状态、5,001 refs 的扫描边界、Unicode 归一化和游标失效，以及公开配对 Client → Host 的读取流程。后者核对查询前后零新增 Session、原 HEAD／分支不变、工作区无新增文件；独立 Client 测试还覆盖预取消、迟到错误、错 workspace 和超量／泄漏路径响应。结果与检查边界记录在对应提交正文中，未进行 native 验收或参考仓库的真实分支写入。
+
+## 首次 Run 的已准备版本校验
+
+`run.submit` 增加可选的安全非负整数 `expectedLaunchTargetRevision`。提供该版本时，Kernel 先读取持久 target，拒绝旧版本或尚未 ready 的位置；随后在 session target lock 内核对同一版本、selection 与 ready resolution，并检查 shared 真实路径或 isolated worktree 的真实路径／分支／HEAD。此路径不调用旧 `prepare`，不会为了接受 Run 自动修复同版本的 readiness downgrade 或外部改变的 worktree。未提供字段的调用保留既有兼容流程，不填入虚构的版本 0。
+
+Host-only binding candidate 携带 `requirePreparedTarget: true`，Storage 在首次 binding＋Run enqueue 的同一事务中再次要求精确 ready row；即使验证与事务之间 readiness 被撤销，也没有 Run 或 queued event。该标记经过严格 runtime schema 校验并在持久化前剥离，不出现在公共 DTO 或已存 binding 中。既有已接受的 Run receipt 与 replay 仍遵循原 idempotency 行为。expected revision 纳入 Run input fingerprint；Goal、Goal slash 的部分失败重试保留原版本和 Run key，显式不同版本被拒绝。
+
+Root 独立复核 **9 文件、94 tests／738 assertions，0 failures**：新的 admission 10／58（10.43s）、既有 run binding 1／43、target service 13／59、target storage 4／33、run commands 8／52、composer intent 24／133、reconciliation 17／219、preparation Client＋target reader 17／141。Host 重测试逐文件使用 `--timeout 20000`；覆盖 shared 同版本状态竞态、隔离首次接受、准备后真实 HEAD 改变且不修复／不接受 Run、关闭时中止 Git 而不改变独立 caller signal、错误 private flag、版本 CAS、幂等和旧流程。夹具只使用临时 Host／Git／SQLite 和 local-fixture 模型。
+
+九条变更代码路径的 full-flag explicit strict TypeScript、scoped ESLint 零警告和 diff 检查通过。七条已格式化代码／测试路径的 Prettier 通过；Kernel index 与 target Storage 的完整文件检查仍失败，Root 独立对 HEAD 原文运行也退出 1，因此只保留本功能差异，不夹带全文件格式化。早期 grouped 五文件测试在默认 5s timeout 下有 32 pass／2 timeout，并出现 killed-child／EBUSY 清理日志；两个受影响文件最终逐文件重跑通过，早期运行不计作绿色验收。新测试早期 Worker promise 拒绝匹配曾未完成，改为直接 await／catch 的局部错误码断言后逐例和完整 suite 通过；不据此宣称全局 Bun 缺陷。全仓 typecheck、rendered React 缺依赖和 native 验收边界保持上面的未通过／未运行记录。本切片没有新 UI，也没有接入首次 Send，不能宣称 Location 已交付。

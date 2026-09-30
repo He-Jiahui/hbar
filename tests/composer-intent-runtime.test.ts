@@ -157,11 +157,12 @@ function fixture() {
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
   })
-  const submit = (sessionId: string, text = 'Ship it') =>
+  const submit = (sessionId: string, text = 'Ship it', expectedLaunchTargetRevision?: number) =>
     local.execute('composerIntent.submit', {
       sessionId,
       modelId: 'provider/model',
       input: { text, images: [] },
+      ...(expectedLaunchTargetRevision === undefined ? {} : { expectedLaunchTargetRevision }),
     })
   const intent = (sessionId: string, intent: 'default' | 'goal' | 'plan') =>
     local.execute('composerIntent.setIntent', { sessionId, intent })
@@ -212,8 +213,32 @@ test('composer intent is a per-session draft, cancellation never clears a Goal, 
     await f.submit('one')
     await f.submit('two')
     expect(f.calls.map((call) => submitRunInputSchema.parse(call.input).input.mode)).toEqual(['default', 'plan'])
+    for (const call of f.calls.filter((item) => item.name === 'run.submit'))
+      expect(submitRunInputSchema.parse(call.input)).not.toHaveProperty('expectedLaunchTargetRevision')
     expect(f.value('one').goal).not.toBeNull()
     expect(f.composer.reader.getSnapshot().entries.two?.intent).toBe('default')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('optional launch-target revision is validated and reaches Run without changing ordinary requests', async () => {
+  const f = fixture()
+  try {
+    const ordinary = { sessionId: 'one', modelId: 'provider/model', input: { text: 'Ship it', images: [] } }
+    expect(submitRunInputSchema.parse(ordinary)).not.toHaveProperty('expectedLaunchTargetRevision')
+    expect(submitRunInputSchema.safeParse({ ...ordinary, expectedLaunchTargetRevision: -1 }).success).toBe(false)
+    expect(submitRunInputSchema.safeParse({ ...ordinary, expectedLaunchTargetRevision: 0.5 }).success).toBe(false)
+    expect(
+      submitRunInputSchema.safeParse({
+        ...ordinary,
+        expectedLaunchTargetRevision: Number.MAX_SAFE_INTEGER + 1,
+      }).success,
+    ).toBe(false)
+
+    await f.submit('one', 'Ship it', 0)
+    const run = f.calls.find((call) => call.name === 'run.submit')
+    expect(submitRunInputSchema.parse(run?.input).expectedLaunchTargetRevision).toBe(0)
   } finally {
     f.dispose()
   }
@@ -225,19 +250,24 @@ test('confirmed Goal plus failed Run stays partial; retry reuses the Goal and Ru
     await f.intent('one', 'goal')
     await f.local.execute('draft.setText', { sessionId: 'one', text: 'Ship it' })
     f.failures({ run: 'known' })
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    await expect(f.submit('one', 'Ship it', 7)).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
     expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({
       status: 'partial',
       phase: 'run',
       preparedGoalId: 'goal-1',
     })
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('Ship it')
+    await expect(f.submit('one', 'Ship it', 8)).rejects.toMatchObject({ code: 'GOAL_SUBMISSION_CHANGED' })
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(1)
     f.failures({ run: null })
+    // A normal composer retry may omit the internal capture; it must keep the original fence.
     await f.submit('one')
     expect(f.calls.filter((call) => call.name === 'goal.create')).toHaveLength(1)
     const runs = f.calls.filter((call) => call.name === 'run.submit')
     expect(runs).toHaveLength(2)
     expect(runs[0]?.key).toBe(runs[1]?.key)
+    expect(submitRunInputSchema.parse(runs[0]?.input).expectedLaunchTargetRevision).toBe(7)
+    expect(submitRunInputSchema.parse(runs[1]?.input).expectedLaunchTargetRevision).toBe(7)
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
     expect(f.composer.reader.getSnapshot().entries.one?.submission.status).toBe('idle')
   } finally {
@@ -250,7 +280,7 @@ test('uncertain Goal creation is read-reconciled and requires an explicit retry 
   try {
     await f.intent('one', 'goal')
     f.failures({ create: 'after' })
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await expect(f.submit('one', 'Ship it', 11)).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
     await expect(f.submit('one')).rejects.toMatchObject({ code: 'BUSY' })
     await expect(f.intent('one', 'default')).rejects.toMatchObject({ code: 'BUSY' })
     expect(f.calls).toHaveLength(1)
@@ -259,6 +289,10 @@ test('uncertain Goal creation is read-reconciled and requires an explicit retry 
     expect(f.calls).toHaveLength(1)
     await f.submit('one')
     expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      11,
+    )
   } finally {
     f.dispose()
   }
@@ -302,10 +336,14 @@ test('uncertain Run acceptance uses the existing draft receipt reconciliation wi
     await f.intent('one', 'goal')
     await f.local.execute('draft.setText', { sessionId: 'one', text: 'Ship it' })
     f.failures({ run: 'unknown' })
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await expect(f.submit('one', 'Ship it', 13)).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
     expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({ status: 'unknown', phase: 'run' })
     await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
     expect(f.calls).toHaveLength(2)
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      13,
+    )
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
     expect(f.composer.reader.getSnapshot().entries.one?.intent).toBe('default')
   } finally {
@@ -415,6 +453,7 @@ test('confirmed Goal slash starts one Goal Run with its objective and consumes o
       source: 'user',
       mode: 'default',
     })
+    expect(submitRunInputSchema.parse(run?.input)).not.toHaveProperty('expectedLaunchTargetRevision')
     expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
   } finally {
@@ -432,6 +471,7 @@ test('failed Goal kickoff retains the saved Goal and slash draft for an explicit
       sessionId: 'one',
       objective: 'First',
       modelId: 'provider/model',
+      expectedLaunchTargetRevision: 17,
       expectedDraftRevision: revision,
       draftText: '/goal First',
     }
@@ -447,6 +487,13 @@ test('failed Goal kickoff retains the saved Goal and slash draft for an explicit
     expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({ status: 'partial', phase: 'run' })
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('/goal First')
     f.failures({ run: null })
+    await expect(
+      f.local.execute('composerIntent.startGoalRun', {
+        ...input,
+        expectedGoalId: created.goalId,
+        expectedLaunchTargetRevision: 18,
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_SUBMISSION_CHANGED' })
     const repeated = (await f.local.execute('composerIntent.commandGoal', {
       sessionId: 'one',
       action: 'set',
@@ -454,9 +501,18 @@ test('failed Goal kickoff retains the saved Goal and slash draft for an explicit
       expectedGoalId: created.goalId,
     })) as { goalId: string }
     expect(repeated.goalId).toBe(created.goalId)
-    await f.local.execute('composerIntent.startGoalRun', { ...input, expectedGoalId: repeated.goalId })
+    await f.local.execute('composerIntent.startGoalRun', {
+      sessionId: input.sessionId,
+      objective: input.objective,
+      expectedGoalId: repeated.goalId,
+      modelId: input.modelId,
+      expectedDraftRevision: input.expectedDraftRevision,
+      draftText: input.draftText,
+    })
     expect(f.calls.filter((call) => call.name === 'goal.create')).toHaveLength(1)
     expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(2)
+    for (const run of f.calls.filter((call) => call.name === 'run.submit'))
+      expect(submitRunInputSchema.parse(run.input).expectedLaunchTargetRevision).toBe(17)
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
   } finally {
     f.dispose()
@@ -479,6 +535,7 @@ test('uncertain Goal kickoff reconciles the original Run receipt without a dupli
       objective: 'First',
       expectedGoalId: created.goalId,
       modelId: 'provider/model',
+      expectedLaunchTargetRevision: 19,
       expectedDraftRevision: revision,
       draftText: '/goal First',
     }
@@ -489,6 +546,10 @@ test('uncertain Goal kickoff reconciles the original Run receipt without a dupli
     await expect(f.local.execute('composerIntent.startGoalRun', input)).rejects.toMatchObject({ code: 'BUSY' })
     await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
     expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      19,
+    )
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
   } finally {
     f.dispose()
@@ -712,12 +773,16 @@ test('pending sends are duplicate guarded and old-session completion cannot clea
   try {
     await f.intent('one', 'plan')
     f.gates({ run: gate.promise })
-    const submission = f.submit('one')
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'BUSY' })
+    const submission = f.submit('one', 'Ship it', 23)
+    await expect(f.submit('one', 'Ship it', 23)).rejects.toMatchObject({ code: 'BUSY' })
     f.select('two')
     await f.intent('two', 'goal')
     gate.resolve()
     await submission
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      23,
+    )
     expect(f.composer.reader.getSnapshot().entries.two?.intent).toBe('goal')
     expect(f.calls).toHaveLength(1)
   } finally {

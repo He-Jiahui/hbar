@@ -113,6 +113,10 @@ function samePath(left: string, right: string): boolean {
   return process.platform === 'win32' ? a.toLocaleLowerCase() === b.toLocaleLowerCase() : a === b
 }
 
+function sameSelection(left: SessionLaunchSelection, right: SessionLaunchSelection): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
 function abortError() {
   return new HbarError('USER_CANCELLED', 'Launch-target preparation was cancelled; no worktree was removed')
 }
@@ -442,12 +446,22 @@ export class SessionLaunchTargetService {
     return this.get(sessionId)
   }
 
-  bindForRun(sessionId: string, signal?: AbortSignal): Promise<SessionLaunchTargetBindingInput> {
-    return this.trackOperation(() => this.bindForRunInternal(sessionId, signal))
+  bindForRun(
+    sessionId: string,
+    signal?: AbortSignal,
+    expectedLaunchTargetRevision?: number,
+  ): Promise<SessionLaunchTargetBindingInput> {
+    return this.trackOperation(() => this.bindForRunInternal(sessionId, signal, expectedLaunchTargetRevision))
   }
 
-  private async bindForRunInternal(sessionId: string, signal?: AbortSignal): Promise<SessionLaunchTargetBindingInput> {
+  private async bindForRunInternal(
+    sessionId: string,
+    signal?: AbortSignal,
+    expectedLaunchTargetRevision?: number,
+  ): Promise<SessionLaunchTargetBindingInput> {
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
+    if (expectedLaunchTargetRevision !== undefined)
+      return this.bindPreparedTargetForRun(sessionId, expectedLaunchTargetRevision, runtime, signal)
     if (runtime.binding) {
       await this.verifyBoundTarget(runtime, signal)
       return this.bindingInput(runtime.binding)
@@ -455,10 +469,13 @@ export class SessionLaunchTargetService {
     const target = runtime.target
     if (target.locked)
       throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The accepted session target could not be reconciled')
-    const prepared = await this.prepare(sessionId, target.revision, signal)
-    if (prepared.revision !== target.revision)
+    const bindingRevision = target.revision
+    const prepared = await this.prepare(sessionId, bindingRevision, signal)
+    if (prepared.revision !== bindingRevision)
       throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
     const ready = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
+    if (ready.target.revision !== bindingRevision)
+      throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
     if (!ready.resolution || ready.resolution.state !== 'ready')
       throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
     return {
@@ -468,6 +485,89 @@ export class SessionLaunchTargetService {
       targetPath: ready.resolution.targetPath,
       branch: ready.resolution.branch,
       head: ready.resolution.resolvedHead,
+    }
+  }
+
+  private async bindPreparedTargetForRun(
+    sessionId: string,
+    expectedRevision: number,
+    runtime: SessionLaunchTargetRuntimeSnapshot,
+    signal?: AbortSignal,
+  ): Promise<SessionLaunchTargetBindingInput> {
+    if (runtime.target.revision !== expectedRevision)
+      throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+    if (runtime.binding) {
+      if (runtime.binding.expectedRevision !== expectedRevision)
+        throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+      await this.verifyBoundTarget(runtime, signal)
+      return this.bindingInput(runtime.binding, true)
+    }
+    if (runtime.target.locked)
+      throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The accepted session target could not be reconciled')
+
+    const initial = runtime.resolution
+    if (
+      !initial ||
+      initial.state !== 'ready' ||
+      initial.expectedRevision !== expectedRevision ||
+      !sameSelection(initial.selection, runtime.target.selection)
+    )
+      throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
+
+    const verificationSignal = signal
+      ? AbortSignal.any([signal, this.closingController.signal])
+      : this.closingController.signal
+    verificationSignal.throwIfAborted()
+    const session = await this.storage.call('session', sessionId)
+    const workspace = await this.storage.call('workspace', session.workspaceId)
+    if (initial.selection.mode === 'shared-current') {
+      let sharedPath: string
+      try {
+        sharedPath = await realpath(workspace.path)
+      } catch {
+        throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The prepared shared workspace is unavailable')
+      }
+      if (!samePath(sharedPath, initial.targetPath) || initial.branch !== null || initial.resolvedHead !== null)
+        throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The prepared shared target no longer matches')
+    } else {
+      const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, verificationSignal)
+      if (!samePath(managed.targetPath, initial.targetPath))
+        throw new HbarError('SESSION_LAUNCH_TARGET_INVALID_ROOT', 'Prepared worktree path is not Host managed')
+      await this.verifyPreparedWorktree(managed, initial, verificationSignal)
+    }
+    verificationSignal.throwIfAborted()
+
+    const verified = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
+    if (verified.target.revision !== expectedRevision || !sameSelection(verified.target.selection, initial.selection))
+      throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+    if (verified.binding) {
+      if (verified.binding.expectedRevision !== expectedRevision)
+        throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+      await this.verifyBoundTarget(verified, signal)
+      return this.bindingInput(verified.binding, true)
+    }
+    if (verified.target.locked)
+      throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The accepted session target could not be reconciled')
+    const ready = verified.resolution
+    if (
+      !ready ||
+      ready.state !== 'ready' ||
+      ready.expectedRevision !== expectedRevision ||
+      !sameSelection(ready.selection, initial.selection) ||
+      !samePath(ready.targetPath, initial.targetPath) ||
+      ready.branch !== initial.branch ||
+      ready.resolvedHead !== initial.resolvedHead
+    )
+      throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
+
+    return {
+      sessionId,
+      expectedRevision,
+      selection: ready.selection,
+      targetPath: ready.targetPath,
+      branch: ready.branch,
+      head: ready.resolvedHead,
+      requirePreparedTarget: true,
     }
   }
 
@@ -522,7 +622,10 @@ export class SessionLaunchTargetService {
     ])
   }
 
-  private bindingInput(binding: SessionLaunchTargetBinding): SessionLaunchTargetBindingInput {
+  private bindingInput(
+    binding: SessionLaunchTargetBinding,
+    requirePreparedTarget = false,
+  ): SessionLaunchTargetBindingInput {
     return {
       sessionId: binding.sessionId,
       expectedRevision: binding.expectedRevision,
@@ -530,6 +633,7 @@ export class SessionLaunchTargetService {
       targetPath: binding.targetPath,
       branch: binding.branch,
       head: binding.head,
+      ...(requirePreparedTarget ? { requirePreparedTarget: true } : {}),
     }
   }
 

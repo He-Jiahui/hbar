@@ -93,7 +93,15 @@ export function createRunCommands(kernel: Kernel) {
       }
       if (prior) return prior
       try {
-        const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command, context.signal)
+        const run = await kernel.submit(
+          input.sessionId,
+          requestId,
+          input.input,
+          input.modelId,
+          command,
+          context.signal,
+          input.expectedLaunchTargetRevision,
+        )
         return accepted(run, command)
       } catch (error) {
         // Admission may have committed before the response was lost. Inspect the canonical queued fact.

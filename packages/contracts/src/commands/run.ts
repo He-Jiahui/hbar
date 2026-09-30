@@ -44,6 +44,7 @@ export const submitRunInputSchema = z.strictObject({
   sessionId: idSchema,
   modelId: idSchema,
   input: inputSchema,
+  expectedLaunchTargetRevision: z.number().int().nonnegative().safe().optional(),
 })
 export const retryRunInputSchema = z.strictObject({
   sessionId: idSchema,

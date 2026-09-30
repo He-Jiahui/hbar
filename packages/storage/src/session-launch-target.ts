@@ -119,13 +119,18 @@ const preparationUpdateSchema = z.strictObject({
   errorCode: z.string().min(1).max(128).optional(),
   errorMessage: z.string().max(1_000).optional(),
 })
-const bindingInputSchema = z.strictObject({
+const bindingFieldsSchema = {
   sessionId: idSchema,
   expectedRevision: z.number().int().nonnegative().safe(),
   selection: sessionLaunchSelectionSchema,
   targetPath: z.string().min(1).max(4_000),
   branch: z.string().min(1).max(1_000).nullable(),
   head: headSchema,
+}
+const bindingInputSchema = z.strictObject(bindingFieldsSchema)
+const bindingCandidateSchema = z.strictObject({
+  ...bindingFieldsSchema,
+  requirePreparedTarget: z.literal(true).optional(),
 })
 
 function invalidState(): never {
@@ -148,6 +153,16 @@ function sameRequest(left: SessionLaunchTargetSetInput, right: SessionLaunchTarg
 
 function sameSelection(left: SessionLaunchSelection, right: SessionLaunchSelection): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function parseBindingCandidate(raw: unknown): {
+  binding: Omit<SessionLaunchTargetBindingInput, 'requirePreparedTarget'>
+  requirePreparedTarget: boolean
+} {
+  const parsed = bindingCandidateSchema.safeParse(raw)
+  if (!parsed.success) throw new HbarError('INVALID_INPUT', 'Invalid session launch target binding')
+  const { requirePreparedTarget, ...fields } = parsed.data
+  return { binding: fields, requirePreparedTarget: requirePreparedTarget === true }
 }
 
 export function createSessionLaunchTargetStorage(db: Database) {
@@ -455,16 +470,16 @@ export function createSessionLaunchTargetStorage(db: Database) {
   }
 
   function validateReplayBinding(sessionId: string, candidate: SessionLaunchTargetBindingInput): void {
-    const parsed = bindingInputSchema.safeParse(candidate)
-    if (!parsed.success || parsed.data.sessionId !== sessionId)
+    const parsed = parseBindingCandidate(candidate)
+    if (parsed.binding.sessionId !== sessionId)
       throw new HbarError('INVALID_INPUT', 'Invalid session launch target binding')
     const prior = readBinding(sessionId)
     if (!prior) throw new HbarError('INVALID_STATE', 'Accepted Run has no session launch target binding')
     if (
-      prior.expectedRevision !== parsed.data.expectedRevision ||
-      !sameSelection(prior.selection, parsed.data.selection) ||
-      prior.targetPath !== parsed.data.targetPath ||
-      prior.branch !== parsed.data.branch
+      prior.expectedRevision !== parsed.binding.expectedRevision ||
+      !sameSelection(prior.selection, parsed.binding.selection) ||
+      prior.targetPath !== parsed.binding.targetPath ||
+      prior.branch !== parsed.binding.branch
     )
       throw new HbarError('IDEMPOTENCY_CONFLICT', 'Accepted Run is bound to another launch target')
   }
@@ -485,28 +500,44 @@ export function createSessionLaunchTargetStorage(db: Database) {
       throw new HbarError('BUSY', 'Wait for the current launch-target preparation before accepting a Run')
     const current = read(sessionId)
     const selected = candidate
-      ? bindingInputSchema.safeParse(candidate)
-      : bindingInputSchema.safeParse({
-          sessionId,
-          expectedRevision: current.revision,
-          selection: current.selection,
-          targetPath: workspacePath,
-          branch: null,
-          head: null,
-        })
-    if (!selected.success || selected.data.sessionId !== sessionId)
+      ? parseBindingCandidate(candidate)
+      : {
+          binding: bindingInputSchema.parse({
+            sessionId,
+            expectedRevision: current.revision,
+            selection: current.selection,
+            targetPath: workspacePath,
+            branch: null,
+            head: null,
+          }),
+          requirePreparedTarget: false,
+        }
+    if (selected.binding.sessionId !== sessionId)
       throw new HbarError('INVALID_INPUT', 'Invalid session launch target binding')
-    const binding = selected.data
+    const binding = selected.binding
     if (
       current.locked ||
       current.revision !== binding.expectedRevision ||
       !sameSelection(current.selection, binding.selection)
     )
       throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed before Run acceptance')
+    if (selected.requirePreparedTarget) {
+      const row = resolutionRow(sessionId, binding.expectedRevision)
+      const resolution = row ? parseResolution(row) : null
+      if (
+        !resolution ||
+        resolution.state !== 'ready' ||
+        !sameSelection(resolution.selection, binding.selection) ||
+        resolution.targetPath !== binding.targetPath ||
+        resolution.branch !== binding.branch ||
+        resolution.resolvedHead !== binding.head
+      )
+        throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
+    }
     if (binding.selection.mode === 'shared-current') {
       if (binding.targetPath !== workspacePath || binding.branch !== null)
         throw new HbarError('INVALID_INPUT', 'Shared launch target must resolve to the current workspace')
-    } else {
+    } else if (!selected.requirePreparedTarget) {
       const ready = resolutionRow(sessionId, binding.expectedRevision)
       if (
         !ready ||
