@@ -348,6 +348,12 @@ function isOverlaySelector(path, selector) {
     /^\.hbar-pre-session-choice-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
   )
     return true
+  // cc-haha Location: only the observed trigger overlay / narrow bottom-sheet shell floats.
+  if (
+    /packages\/app-react\/src\/pre-session-location-picker\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-pre-session-location-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+  )
+    return true
   // cc-haha AgentManager uses the shared trigger-anchored model selector.
   // Only hbar's top-layer Agent model menu, never its flowing options, floats.
   if (
@@ -968,6 +974,17 @@ inset-inline-end: 0;
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const locationPath = 'packages/app-react/src/pre-session-location-picker.css'
+  if (validateCss(locationPath, '.hbar-pre-session-location-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Location overlay shell must allow positioning')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-pre-session-location-popover'],
+    [locationPath, '.hbar-pre-session-location-popover > button'],
+    [locationPath, '.hbar-pre-session-location-row'],
+  ]) {
+    if (!validateCss(path, `${selector} { position: fixed; top: 0; }`).length)
+      throw new Error('Location overlay exception must not permit positioned content')
+  }
   const preSessionChoicePath = 'packages/app-react/src/pre-session-choice-picker.css'
   if (validateCss(preSessionChoicePath, '.hbar-pre-session-choice-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed pre-session model popover container')

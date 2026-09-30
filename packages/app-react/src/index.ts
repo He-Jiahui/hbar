@@ -82,6 +82,17 @@ export {
 export { HbarPreSessionApprovalPicker, type HbarPreSessionApprovalPickerProps } from './pre-session-approval-picker'
 export { HbarPreSessionThinkingPicker, type HbarPreSessionThinkingPickerProps } from './pre-session-thinking-picker'
 export {
+  HbarPreSessionLocationPicker,
+  launchSelectionBranchName,
+  type HbarPreSessionLocationLabels,
+  type HbarPreSessionLocationPickerProps,
+} from './pre-session-location-picker'
+export {
+  HbarPreSessionLaunchStatus,
+  firstSendIsLocked,
+  type HbarPreSessionLaunchStatusLabels,
+} from './pre-session-launch-status'
+export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
   type HbarSettingsGroupIcon,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Folder, Sparkles, Target, X } from 'lucide-react'
+import { Sparkles, Target, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
@@ -8,6 +8,9 @@ import {
   HbarPreSessionLanding,
   HbarPreSessionSlashEditor,
   HbarPreSessionThinkingPicker,
+  HbarPreSessionLocationPicker,
+  HbarPreSessionLaunchStatus,
+  firstSendIsLocked,
   localSlashCommand,
   useHbarRuntime,
   useHbarRuntimeState,
@@ -18,8 +21,10 @@ import { modelCommands } from '@hbar/contracts/commands/models'
 import { workspacePageSchema } from '@hbar/contracts/directory'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { ThinkingLevel } from '@hbar/contracts'
+import type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { preSessionCopy } from './pre-session-copy'
+import { preSessionLaunchCopy } from './pre-session-launch-copy'
 import './PreSessionLanding.css'
 
 export function WebPreSessionLanding({
@@ -37,11 +42,13 @@ export function WebPreSessionLanding({
   const directory = useHbarRuntimeState(runtime.state.directory)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const preSessionDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  const launchBranches = useHbarRuntimeState(runtime.state.preSessionLaunchBranches)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const draft = preSessionDrafts[draftId]
   const shell = getShellCopy(locale)
   const labels = preSessionCopy(locale)
+  const launchLabels = preSessionLaunchCopy(locale)
   const [text, setText] = useState('')
   const [path, setPath] = useState('')
   const [pathError, setPathError] = useState<string | null>(null)
@@ -58,9 +65,11 @@ export function WebPreSessionLanding({
   const [workspaceCursor, setWorkspaceCursor] = useState<string | null>(null)
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [reconciling, setReconciling] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
   const [goalError, setGoalError] = useState<string | null>(null)
+  const [locationOpen, setLocationOpen] = useState(false)
+  const [branchSearch, setBranchSearch] = useState('')
+  const [locationRefresh, setLocationRefresh] = useState(0)
   const openPromise = useRef<Promise<unknown> | null>(null)
   const writes = useRef<Promise<unknown>>(Promise.resolve())
   const alive = useRef(true)
@@ -83,6 +92,8 @@ export function WebPreSessionLanding({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (mountLease.current !== lease) return
         if (runtime.state.presentation.getSnapshot().page.kind === 'settings') return
+        const firstSend = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+        if (firstSend?.sessionId && firstSend.phase !== 'accepted') return
         void settledWrites
           .catch(() => undefined)
           .then(() => runtime.commands.execute('preSessionDraft.close', { draftId }))
@@ -145,6 +156,20 @@ export function WebPreSessionLanding({
     }
   }, [connected, runtime])
 
+  useEffect(() => {
+    if (!connected || !locationOpen || !draft?.workspaceId) return
+    const workspaceId = draft.workspaceId
+    const timeout = setTimeout(
+      () => {
+        void runtime.commands
+          .execute('preSessionLaunchBranches.load', { workspaceId, search: branchSearch })
+          .catch(() => undefined)
+      },
+      branchSearch ? 150 : 0,
+    )
+    return () => clearTimeout(timeout)
+  }, [branchSearch, connected, draft?.workspaceId, locationOpen, locationRefresh, runtime])
+
   function queue<T>(action: () => Promise<T>): Promise<T> {
     const next = writes.current
       .catch(() => undefined)
@@ -188,6 +213,17 @@ export function WebPreSessionLanding({
       await runtime.commands.execute('preSessionDraft.setModel', {
         draftId,
         modelId,
+        expectedRevision: current.revision,
+      })
+    })
+
+  const chooseLaunchSelection = (selection: SessionLaunchSelection) =>
+    queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setLaunchSelection', {
+        draftId,
+        selection,
         expectedRevision: current.revision,
       })
     })
@@ -344,7 +380,6 @@ export function WebPreSessionLanding({
       !draft ||
       openingProviders ||
       submitting ||
-      reconciling ||
       ['preparing', 'creating', 'configuring', 'submitting', 'unknown'].includes(draft.phase)
     )
       return
@@ -380,19 +415,7 @@ export function WebPreSessionLanding({
       })
   }
 
-  const reconcile = () => {
-    if (reconciling) return
-    setReconciling(true)
-    void runtime.commands
-      .execute('preSessionDraft.reconcile', { draftId })
-      .catch(() => undefined)
-      .finally(() => {
-        if (alive.current) setReconciling(false)
-      })
-  }
-
-  const busy =
-    submitting || reconciling || ['preparing', 'creating', 'configuring', 'submitting'].includes(draft?.phase ?? '')
+  const busy = submitting || firstSendIsLocked(draft)
   const localSlash = localSlashCommand(text, ['model', 'settings'])
   const unsupportedSlash =
     !localSlash &&
@@ -421,17 +444,39 @@ export function WebPreSessionLanding({
   }))
   const modelLabels = modelError ? { ...labels.model, empty: labels.modelReadFailed } : labels.model
   const workspaceControl = (
-    <HbarPreSessionChoicePicker
-      icon={Folder}
-      labels={labels.workspace}
-      items={workspaceChoices}
-      selectedId={draft?.workspaceId ?? null}
+    <HbarPreSessionLocationPicker
+      labels={launchLabels.location}
+      directories={workspaceChoices}
+      workspaceId={draft?.workspaceId ?? null}
+      selection={draft?.launchSelection ?? { mode: 'shared-current' }}
+      page={launchBranches.workspaceId === draft?.workspaceId ? launchBranches.page : null}
+      error={launchBranches.workspaceId === draft?.workspaceId ? launchBranches.error : null}
       disabled={!connected || busy || draft?.phase === 'unknown'}
-      loading={loadingWorkspaces}
-      hasMore={workspaceCursor !== null}
-      onMore={loadMoreWorkspaces}
-      onChoose={chooseWorkspace}
-      extra={(closePicker) => (
+      loading={
+        loadingWorkspaces || (launchBranches.workspaceId === draft?.workspaceId && launchBranches.status === 'loading')
+      }
+      hasMoreDirectories={workspaceCursor !== null}
+      onMoreDirectories={loadMoreWorkspaces}
+      onWorkspace={chooseWorkspace}
+      onSelection={chooseLaunchSelection}
+      onOpen={() => {
+        setLocationOpen(true)
+        setBranchSearch('')
+        setLocationRefresh((current) => current + 1)
+      }}
+      onClose={() => setLocationOpen(false)}
+      onSearch={setBranchSearch}
+      onMoreBranches={() => {
+        if (draft?.workspaceId && launchBranches.page?.nextCursor)
+          void runtime.commands
+            .execute('preSessionLaunchBranches.load', {
+              workspaceId: draft.workspaceId,
+              search: branchSearch,
+              cursor: launchBranches.page.nextCursor,
+            })
+            .catch(() => undefined)
+      }}
+      directoryExtra={(closePicker) => (
         <LumenFrame className="hbar-web-pre-session-path">
           <LumenFrame as="label" htmlFor="hbar-pre-session-path">
             {labels.path}
@@ -637,24 +682,15 @@ export function WebPreSessionLanding({
                 ? labels.error(draft.error)
                 : undefined,
         context:
-          preparedGoal || modelGuidance || unsupportedSlash || draft?.phase === 'unknown' ? (
+          preparedGoal || modelGuidance || unsupportedSlash || (draft && draft.phase !== 'idle') ? (
             <>
+              {draft && <HbarPreSessionLaunchStatus draft={draft} labels={launchLabels.status} connected={connected} />}
               {preparedGoal}
               {modelGuidance}
               {unsupportedSlash && (
                 <LumenText as="p" role="status">
                   {labels.slashRequiresSession}
                 </LumenText>
-              )}
-              {draft?.phase === 'unknown' && (
-                <LumenFrame className="hbar-web-pre-session-recovery">
-                  <LumenText as="p" role="alert">
-                    {labels.error(draft.error ?? 'RESULT_UNKNOWN')}
-                  </LumenText>
-                  <LumenButton type="button" size="s" disabled={!connected || reconciling} onClick={reconcile}>
-                    {labels.checking}
-                  </LumenButton>
-                </LumenFrame>
               )}
             </>
           ) : undefined,

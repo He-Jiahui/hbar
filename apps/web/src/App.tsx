@@ -54,6 +54,8 @@ import {
   createGitCommandClient,
   createRunCommandClient,
   createSessionLaunchTargetReader,
+  createSessionLaunchTargetPreparationManager,
+  createSessionLaunchBranchesReader,
   createSessionSearchCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
@@ -70,6 +72,7 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import { WebPreSessionLanding } from './PreSessionLanding'
+import { preSessionLaunchCopy } from './pre-session-launch-copy'
 import type { WebLanguageController } from './language'
 import type { WebZoomController } from './app-zoom'
 import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
@@ -255,6 +258,8 @@ function createRuntime(
     },
     files: createFileCommandClient(client),
     sessionLaunchTargets: createSessionLaunchTargetReader(client),
+    sessionLaunchTargetPreparation: createSessionLaunchTargetPreparationManager(client),
+    sessionLaunchBranches: createSessionLaunchBranchesReader(client),
     agents: createAgentCommandClient(client),
     goals,
     goalEvents: {
@@ -515,6 +520,13 @@ function WorkspaceBodyContent({
     error: null,
   })
   const landingDraftId = useRef<string | null>(null)
+  const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  useEffect(() => {
+    for (const draft of Object.values(firstSendDrafts)) {
+      if (draft.phase === 'accepted')
+        void runtime.commands.execute('preSessionDraft.close', { draftId: draft.draftId }).catch(() => undefined)
+    }
+  }, [firstSendDrafts, runtime])
   const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
   useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
   useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
@@ -524,6 +536,8 @@ function WorkspaceBodyContent({
     if (!session || !landingDraftId.current) return
     const draftId = landingDraftId.current
     landingDraftId.current = null
+    const firstSend = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+    if (firstSend?.sessionId === session.id && firstSend.phase !== 'accepted') return
     void runtime.commands.execute('preSessionDraft.close', { draftId }).catch(() => undefined)
   }, [runtime, session])
   if (presentation.page.kind === 'status')
@@ -647,6 +661,7 @@ function WorkspaceBodyContent({
         workspacePath={sessionWorkspace?.path}
         sessionWorkspaceId={session.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
+        firstSendLabels={preSessionLaunchCopy(locale).status}
         labels={copy.session}
         describeTool={createSessionToolPresenter(locale)}
         sendBehavior={selectedSendBehavior}

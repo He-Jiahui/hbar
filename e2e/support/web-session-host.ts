@@ -124,6 +124,8 @@ function bunExecutable(): string {
 export async function startWebSessionHost(
   options: Readonly<{
     root: string
+    /** Isolated-worktree fixtures keep Host storage outside the repository. */
+    home?: string
     port?: number
     sessionCount?: number
     historyCount?: number
@@ -136,6 +138,7 @@ export async function startWebSessionHost(
     env: {
       ...process.env,
       HBAR_E2E_DATA_ROOT: options.root,
+      HBAR_E2E_HOME: options.home ?? '',
       HBAR_E2E_HOST_PORT: String(port),
       HBAR_E2E_SESSION_COUNT: String(options.sessionCount ?? 1),
       HBAR_E2E_HISTORY_COUNT: String(options.historyCount ?? 0),

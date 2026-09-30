@@ -64,6 +64,11 @@ import {
 } from './composer-attachments'
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
+import {
+  HbarPreSessionLaunchStatus,
+  firstSendIsLocked,
+  type HbarPreSessionLaunchStatusLabels,
+} from './pre-session-launch-status'
 import { useSessionFind } from './session-find'
 import { HbarSessionStopNotice, useSessionStopAction } from './session-stop'
 import { sessionStopCanCancel } from './session-stop-model'
@@ -163,6 +168,7 @@ export interface HbarSessionWorkspaceProps {
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
   readonly showFilesInHeader?: boolean | undefined
   readonly navigationAccessory?: ReactNode | undefined
+  readonly firstSendLabels?: HbarPreSessionLaunchStatusLabels | undefined
   readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
   readonly images?: HbarSessionImagesOptions | undefined
   readonly modelMenuPresentation?: 'native' | 'web' | undefined
@@ -211,6 +217,7 @@ function SessionWorkspaceContent({
   files,
   showFilesInHeader = true,
   navigationAccessory,
+  firstSendLabels,
   projectContextLabels,
   images,
   modelMenuPresentation,
@@ -224,6 +231,7 @@ function SessionWorkspaceContent({
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const messageFork = useHbarRuntimeState(runtime.state.messageFork)
   const drafts = useHbarRuntimeState(runtime.state.drafts)
+  const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
   const interactions = useHbarRuntimeState(runtime.state.interactions)
   const questionnaires = useHbarRuntimeState(runtime.state.questionnaires)
   const runActions = useHbarRuntimeState(runtime.state.runActions)
@@ -238,6 +246,15 @@ function SessionWorkspaceContent({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
+  const firstSendDraft = Object.values(firstSendDrafts).find(
+    (entry) =>
+      entry.sessionId === sessionId &&
+      entry.capturedWorkspaceId === sessionWorkspaceId &&
+      entry.error !== 'GOAL_PREPARED' &&
+      entry.phase !== 'accepted' &&
+      entry.phase !== 'idle',
+  )
+  const firstSendLocked = firstSendIsLocked(firstSendDraft)
   const slashLabels = useMemo<HbarComposerSlashLabels>(() => {
     const profiles =
       agentComposer.profileCatalog.status === 'ready'
@@ -267,7 +284,7 @@ function SessionWorkspaceContent({
     executionAccess,
     sessionId && navigation.workspaceId === sessionWorkspaceId ? { sessionId, workspaceId: sessionWorkspaceId } : null,
   )
-  const canPrepare = preparationStatus === 'ready'
+  const canPrepare = preparationStatus === 'ready' && !firstSendLocked
   const draft = sessionId ? drafts[sessionId] : undefined
   const agentAction = sessionId ? agentComposer.actions[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
@@ -490,6 +507,15 @@ function SessionWorkspaceContent({
     }
   }
   const submitLatest = async (targetSessionId: string, targetWorkspaceId: string) => {
+    if (
+      Object.values(runtime.state.preSessionDrafts.getSnapshot()).some(
+        (entry) =>
+          entry.sessionId === targetSessionId &&
+          entry.capturedWorkspaceId === targetWorkspaceId &&
+          firstSendIsLocked(entry),
+      )
+    )
+      return
     const pending = composerWrite.current
     if (pending?.sessionId === targetSessionId) {
       try {
@@ -722,6 +748,7 @@ function SessionWorkspaceContent({
   const canAddAttachments =
     attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
   const canOpenSlash =
+    !firstSendLocked &&
     Boolean(files && sessionId && navigation.workspaceId && connected) &&
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
@@ -1463,11 +1490,12 @@ function SessionWorkspaceContent({
               />
             ) : undefined
           }
-          disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
+          disabled={!connected || firstSendLocked || timeline.status === 'loading' || timeline.status === 'error'}
           submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
           uploading={(draft?.uploading ?? 0) > 0}
           canAddAttachments={canAddAttachments}
           canSubmit={
+            !firstSendLocked &&
             (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
             (localSlashCommand(draft?.text ?? '', slashIds)
               ? localSlashCanSubmit({
@@ -1525,7 +1553,9 @@ function SessionWorkspaceContent({
                   hostDefault={composerPermission.hostDefault}
                   defaultAvailable={composerPermission.available}
                   connected={connected}
-                  disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                  disabled={
+                    firstSendLocked || draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending
+                  }
                   runActive={Boolean(activeRun)}
                   canPrepare={canPrepare}
                   labels={labels.permissionPicker}
@@ -1594,7 +1624,10 @@ function SessionWorkspaceContent({
                 sessionId={sessionId}
                 connected={connected}
                 disabled={
-                  draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
+                  firstSendLocked ||
+                  draft?.status === 'submitting' ||
+                  draft?.status === 'unknown' ||
+                  Boolean(permissionEntry?.locked)
                 }
                 canPrepare={canPrepare}
                 labels={labels.intent}
@@ -1603,6 +1636,14 @@ function SessionWorkspaceContent({
           }
           context={
             <>
+              {firstSendDraft && firstSendLabels && (
+                <HbarPreSessionLaunchStatus
+                  key={firstSendDraft.draftId}
+                  draft={firstSendDraft}
+                  labels={firstSendLabels}
+                  connected={connected}
+                />
+              )}
               <HbarQueuedUserRuns
                 state={queuedUserRuns}
                 sessionId={sessionId}
@@ -1667,6 +1708,7 @@ function SessionWorkspaceContent({
                 connected={connected}
                 runActive={Boolean(activeRun)}
                 disabled={
+                  firstSendLocked ||
                   draft?.status === 'submitting' ||
                   draft?.status === 'unknown' ||
                   intentPending ||

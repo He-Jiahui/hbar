@@ -21,7 +21,12 @@ for (const arguments_ of [
 ])
   execFileSync('git', arguments_, { cwd: root, stdio: 'ignore', windowsHide: true })
 
-const kernel = await Kernel.create({ home: `${root}/data`, workspace: root, demo: true, secrets: new MemorySecrets() })
+const kernel = await Kernel.create({
+  home: process.env.HBAR_E2E_HOME || `${root}/data`,
+  workspace: root,
+  demo: true,
+  secrets: new MemorySecrets(),
+})
 if (process.env.HBAR_E2E_GOAL_AUTO_CONTINUE === '0')
   await kernel.changePlugin('goal.codex', true, { autoContinue: false })
 const workspace = (await kernel.storage.call('workspaces'))[0]!
