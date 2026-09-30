@@ -3,6 +3,8 @@ import {
   createImageViewer,
   createImageThumbnails,
   isSessionImageRequestCurrent,
+  isPreSessionImageRequestCurrent,
+  projectPreSessionDraftImages,
   projectSessionDraftImages,
   projectSessionMessageImages,
   type ImageResourcePort,
@@ -67,6 +69,7 @@ export function createSessionImagesModelScope(
   runtime: HbarRuntimeView,
   resources: ImageResourcePort | undefined,
   hostIdentity: string | null,
+  preSessionDraftId: string | null = null,
 ) {
   const available = resources !== undefined && hostIdentity !== null && hostIdentity.length > 0
   const thumbnails = new Set<ThumbnailModel>()
@@ -79,14 +82,33 @@ export function createSessionImagesModelScope(
       timeline: runtime.state.timeline.getSnapshot(),
     }
   }
+  const preSessionMembership = () => ({
+    activeDraftId: runtime.state.navigation.getSnapshot().sessionId === null ? preSessionDraftId : null,
+    draft: preSessionDraftId ? runtime.state.preSessionDrafts.getSnapshot()[preSessionDraftId] : null,
+  })
   const current = (request: ImageViewerRequest) =>
-    scopeLife.live() && isSessionImageRequestCurrent(request, membership())
+    scopeLife.live() &&
+    (request.source.kind === 'pre-session-draft'
+      ? isPreSessionImageRequestCurrent(request, preSessionMembership())
+      : preSessionDraftId === null && isSessionImageRequestCurrent(request, membership()))
   const gallery = available && resources ? createImageViewer({ resources, isCurrent: current }) : null
   const reader = gallery?.reader ?? constantReader(closed)
   const canonical = (target: SessionImageProjection): SessionImageProjection | null => {
     if (!available || !hostIdentity || !scopeLife.live()) return null
-    const facts = membership()
     const source = target.request.source
+    if (source.kind === 'pre-session-draft') {
+      const facts = preSessionMembership()
+      if (facts.activeDraftId !== source.draftId || !facts.draft || source.draftRevision > facts.draft.revision)
+        return null
+      try {
+        const next = projectPreSessionDraftImages({ hostIdentity, draft: facts.draft })
+        return next?.sourceId === target.sourceId ? next : null
+      } catch {
+        return null
+      }
+    }
+    if (preSessionDraftId !== null) return null
+    const facts = membership()
     if (facts.activeSessionId !== source.sessionId) return null
     try {
       let next: SessionImageProjection | null
@@ -118,8 +140,9 @@ export function createSessionImagesModelScope(
       if (!available) return () => {}
       const off = [
         runtime.state.navigation.subscribe(sync),
-        runtime.state.drafts.subscribe(sync),
-        runtime.state.timeline.subscribe(sync),
+        ...(preSessionDraftId
+          ? [runtime.state.preSessionDrafts.subscribe(sync)]
+          : [runtime.state.drafts.subscribe(sync), runtime.state.timeline.subscribe(sync)]),
       ]
       off.push(
         reader.subscribe(() => {
@@ -254,17 +277,19 @@ const ImagesContext = createContext<Scope | null>(null)
 export interface HbarSessionImagesModelProviderProps {
   readonly resources?: ImageResourcePort | undefined
   readonly hostIdentity: string | null
+  readonly preSessionDraftId?: string | undefined
   readonly children: ReactNode
 }
 export function HbarSessionImagesModelProvider({
   resources,
   hostIdentity,
+  preSessionDraftId,
   children,
 }: HbarSessionImagesModelProviderProps) {
   const runtime = useHbarRuntime()
   const scope = useMemo(
-    () => createSessionImagesModelScope(runtime, resources, hostIdentity),
-    [runtime, resources, hostIdentity],
+    () => createSessionImagesModelScope(runtime, resources, hostIdentity, preSessionDraftId),
+    [runtime, resources, hostIdentity, preSessionDraftId],
   )
   useEffect(() => scope.retain(), [scope])
   return <ImagesContext.Provider value={scope}>{children}</ImagesContext.Provider>

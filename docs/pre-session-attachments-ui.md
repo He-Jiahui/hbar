@@ -19,10 +19,11 @@ existing broad repository typecheck remains red for unrelated Lumen/app-shell
 fixtures and is not a passing gate. Native Tauri file dialogs and paid providers
 were not exercised.
 
-Captures: [desktop](../artifacts/pre-session-attachments/plan-en-US-1440.png),
-[narrow](../artifacts/pre-session-attachments/goal-zh-CN-320.png).
-These base captures show name chips; no-tab image thumbnail/gallery presentation
-is a separate follow-up and is not claimed by this acceptance.
+This was the name-chip stage of the implementation. Its screenshot paths were
+refreshed during the subsequent photo-preview work, so they are not immutable
+base-build evidence. Current images and gallery acceptance are recorded in
+[the photo UI follow-up](pre-session-images-ui.md); the base build and test
+results above remain the historical acceptance of the intake/send feature.
 
 ## Reference basis
 

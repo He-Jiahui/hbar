@@ -9,6 +9,7 @@ export type {
   WorkspaceDisplayNameFeedbackProps,
 } from './workspace-display-names'
 export type { HbarSessionImageLabels, HbarSessionImagesOptions } from './session-images'
+export { HbarSessionImageLayer, HbarPreSessionDraftImageAttachments } from './session-images'
 export {
   HbarSessionImagesModelProvider,
   useSessionImageGallery,

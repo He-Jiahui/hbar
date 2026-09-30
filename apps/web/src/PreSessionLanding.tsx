@@ -4,6 +4,8 @@ import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lume
 import {
   HbarComposerAddMenu,
   HbarComposerAttachmentTransfers,
+  HbarSessionImageLayer,
+  HbarPreSessionDraftImageAttachments,
   HbarPreSessionApprovalPicker,
   HbarPreSessionChoicePicker,
   HbarPreSessionLanding,
@@ -18,6 +20,7 @@ import {
   useHbarRuntime,
   useHbarRuntimeState,
   type HbarSessionAttachmentSelection,
+  type HbarSessionImagesOptions,
   type PreSessionLocalSlashCommand,
 } from '@hbar/app-react'
 import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanMode } from '@hbar/app-runtime'
@@ -38,12 +41,14 @@ export function WebPreSessionLanding({
   connected,
   sendBehavior,
   prepareAttachment,
+  images,
 }: {
   readonly draftId: string
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly sendBehavior: 'enter' | 'modifierEnter' | null
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
+  readonly images?: HbarSessionImagesOptions | undefined
 }) {
   const runtime = useHbarRuntime()
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -715,145 +720,167 @@ export function WebPreSessionLanding({
       </LumenFrame>
     ) : null
   return (
-    <HbarPreSessionLanding
-      attachmentDrop={{ enabled: attachmentIntakeEnabled, label: attachmentLabels.drop, onAdd: addAttachments }}
-      labels={
-        draft?.intent === 'goal'
-          ? {
-              ...shell.preSession,
-              prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.goalPlaceholder },
-            }
-          : draft?.planMode === 'plan'
+    <HbarSessionImageLayer options={images} preSessionDraftId={draftId}>
+      <HbarPreSessionLanding
+        attachmentDrop={{ enabled: attachmentIntakeEnabled, label: attachmentLabels.drop, onAdd: addAttachments }}
+        labels={
+          draft?.intent === 'goal'
             ? {
                 ...shell.preSession,
-                prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },
+                prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.goalPlaceholder },
               }
-            : shell.preSession
-      }
-      composer={{
-        value: text,
-        attachments: (draft?.attachments ?? []).map((attachment) => ({
-          id: attachment.artifact.id,
-          kind: attachment.kind,
-          name: attachment.artifact.name,
-        })),
-        disabled: !connected || !draft,
-        submitting: busy,
-        uploading: (draft?.uploading ?? 0) > 0,
-        canSubmit:
-          Boolean(
-            !busy &&
-            attachmentTransfers.length === 0 &&
-            draft?.phase !== 'unknown' &&
-            (localSlash
-              ? draft?.attachments.length === 0 && (draft?.intent !== 'goal' || Boolean(text.trim()))
-              : draft?.workspaceId &&
-                !modelsLoading &&
-                !modelError &&
-                models.length > 0 &&
-                (text.trim() || (draft?.intent !== 'goal' && Boolean(draft?.attachments.length)))),
-          ) && !unsupportedSlash,
-        error: attachmentActionError
-          ? attachmentLabels.error(attachmentActionError)
-          : draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
-            ? attachmentLabels.error(draft.uploadError)
-            : slashRouteError
-              ? slashRouteError === 'ATTACHMENTS'
-                ? shell.session.slash.error('ATTACHMENTS')
-                : labels.slashActionFailed
-              : goalError
-                ? labels.goalError(goalError)
-                : openError
-                  ? labels.error(openError)
-                  : draft?.phase !== 'unknown' && draft?.error
-                    ? labels.error(draft.error)
-                    : undefined,
-        context:
-          preparedGoal ||
-          modelGuidance ||
-          unsupportedSlash ||
-          attachmentTransfers.length > 0 ||
-          (draft && draft.phase !== 'idle') ? (
-            <>
-              <HbarComposerAttachmentTransfers
-                transfers={attachmentTransfers}
-                labels={attachmentLabels}
-                connected={connected}
-                onRemove={(item) =>
-                  runAttachmentCommand(() =>
-                    runtime.commands.execute('preSessionDraft.removeAttachmentTransfer', {
-                      draftId,
-                      reservationId: item.id,
-                      ownerRevision: item.ownerRevision,
-                    }),
-                  )
+            : draft?.planMode === 'plan'
+              ? {
+                  ...shell.preSession,
+                  prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },
                 }
-                onReconcile={(item) =>
+              : shell.preSession
+        }
+        composer={{
+          value: text,
+          attachments: (draft?.attachments ?? []).map((attachment) => ({
+            id: attachment.artifact.id,
+            kind: attachment.kind,
+            name: attachment.artifact.name,
+          })),
+          attachmentContent:
+            images && draft?.attachments.length ? (
+              <HbarPreSessionDraftImageAttachments
+                draft={draft}
+                removeLabel={shell.preSession.prompt.removeAttachment}
+                removeDisabled={!connected || busy || draft.phase === 'unknown'}
+                onRemove={(artifactId, kind) =>
                   runAttachmentCommand(() =>
-                    runtime.commands.execute('preSessionDraft.reconcileAttachment', {
+                    runtime.commands.execute('preSessionDraft.removeAttachment', {
                       draftId,
-                      reservationId: item.id,
-                      ownerRevision: item.ownerRevision,
-                    }),
-                  )
-                }
-                onAccept={(item) =>
-                  runAttachmentCommand(() =>
-                    runtime.commands.execute('preSessionDraft.acceptReadyAttachment', {
-                      draftId,
-                      reservationId: item.id,
-                      ownerRevision: item.ownerRevision,
+                      kind,
+                      artifactId,
                       expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
                     }),
                   )
                 }
               />
-              {draft && <HbarPreSessionLaunchStatus draft={draft} labels={launchLabels.status} connected={connected} />}
-              {preparedGoal}
-              {modelGuidance}
-              {unsupportedSlash && (
-                <LumenText as="p" role="status">
-                  {labels.slashRequiresSession}
-                </LumenText>
-              )}
-            </>
-          ) : undefined,
-        controls: (
-          <LumenFrame className="hbar-web-pre-session-controls">
-            {goalControl}
-            {approvalControl}
-            {workspaceControl}
-          </LumenFrame>
-        ),
-        modelPicker: modelControls,
-        editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
-          <HbarPreSessionSlashEditor
-            editorRef={editor}
-            value={text}
-            inputLabel={inputLabel}
-            placeholder={placeholder}
-            disabled={disabled || busy || draft?.phase === 'unknown'}
-            sendBehavior={sendBehavior}
-            labels={slashLabels}
-            slashOpenRequest={slashOpenRequest}
-            onChange={writeText}
-            onSubmit={onSubmit}
-            onLocalCommand={executeLocalSlash}
-          />
-        ),
-        onChange: writeText,
-        onRemoveAttachment: (artifactId, kind) =>
-          runAttachmentCommand(() =>
-            runtime.commands.execute('preSessionDraft.removeAttachment', {
-              draftId,
-              kind,
-              artifactId,
-              expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
-            }),
+            ) : undefined,
+          disabled: !connected || !draft,
+          submitting: busy,
+          uploading: (draft?.uploading ?? 0) > 0,
+          canSubmit:
+            Boolean(
+              !busy &&
+              attachmentTransfers.length === 0 &&
+              draft?.phase !== 'unknown' &&
+              (localSlash
+                ? draft?.attachments.length === 0 && (draft?.intent !== 'goal' || Boolean(text.trim()))
+                : draft?.workspaceId &&
+                  !modelsLoading &&
+                  !modelError &&
+                  models.length > 0 &&
+                  (text.trim() || (draft?.intent !== 'goal' && Boolean(draft?.attachments.length)))),
+            ) && !unsupportedSlash,
+          error: attachmentActionError
+            ? attachmentLabels.error(attachmentActionError)
+            : draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
+              ? attachmentLabels.error(draft.uploadError)
+              : slashRouteError
+                ? slashRouteError === 'ATTACHMENTS'
+                  ? shell.session.slash.error('ATTACHMENTS')
+                  : labels.slashActionFailed
+                : goalError
+                  ? labels.goalError(goalError)
+                  : openError
+                    ? labels.error(openError)
+                    : draft?.phase !== 'unknown' && draft?.error
+                      ? labels.error(draft.error)
+                      : undefined,
+          context:
+            preparedGoal ||
+            modelGuidance ||
+            unsupportedSlash ||
+            attachmentTransfers.length > 0 ||
+            (draft && draft.phase !== 'idle') ? (
+              <>
+                <HbarComposerAttachmentTransfers
+                  transfers={attachmentTransfers}
+                  labels={attachmentLabels}
+                  connected={connected}
+                  onRemove={(item) =>
+                    runAttachmentCommand(() =>
+                      runtime.commands.execute('preSessionDraft.removeAttachmentTransfer', {
+                        draftId,
+                        reservationId: item.id,
+                        ownerRevision: item.ownerRevision,
+                      }),
+                    )
+                  }
+                  onReconcile={(item) =>
+                    runAttachmentCommand(() =>
+                      runtime.commands.execute('preSessionDraft.reconcileAttachment', {
+                        draftId,
+                        reservationId: item.id,
+                        ownerRevision: item.ownerRevision,
+                      }),
+                    )
+                  }
+                  onAccept={(item) =>
+                    runAttachmentCommand(() =>
+                      runtime.commands.execute('preSessionDraft.acceptReadyAttachment', {
+                        draftId,
+                        reservationId: item.id,
+                        ownerRevision: item.ownerRevision,
+                        expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
+                      }),
+                    )
+                  }
+                />
+                {draft && (
+                  <HbarPreSessionLaunchStatus draft={draft} labels={launchLabels.status} connected={connected} />
+                )}
+                {preparedGoal}
+                {modelGuidance}
+                {unsupportedSlash && (
+                  <LumenText as="p" role="status">
+                    {labels.slashRequiresSession}
+                  </LumenText>
+                )}
+              </>
+            ) : undefined,
+          controls: (
+            <LumenFrame className="hbar-web-pre-session-controls">
+              {goalControl}
+              {approvalControl}
+              {workspaceControl}
+            </LumenFrame>
           ),
-        onSubmit: submit,
-      }}
-    />
+          modelPicker: modelControls,
+          editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
+            <HbarPreSessionSlashEditor
+              editorRef={editor}
+              value={text}
+              inputLabel={inputLabel}
+              placeholder={placeholder}
+              disabled={disabled || busy || draft?.phase === 'unknown'}
+              sendBehavior={sendBehavior}
+              labels={slashLabels}
+              slashOpenRequest={slashOpenRequest}
+              onChange={writeText}
+              onSubmit={onSubmit}
+              onLocalCommand={executeLocalSlash}
+            />
+          ),
+          onChange: writeText,
+          onRemoveAttachment: (artifactId, kind) =>
+            runAttachmentCommand(() =>
+              runtime.commands.execute('preSessionDraft.removeAttachment', {
+                draftId,
+                kind,
+                artifactId,
+                expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
+              }),
+            ),
+          onSubmit: submit,
+        }}
+      />
+    </HbarSessionImageLayer>
   )
 }
 

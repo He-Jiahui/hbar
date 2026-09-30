@@ -739,6 +739,7 @@ function WorkspaceBodyContent({
       connected={connected}
       sendBehavior={selectedSendBehavior}
       prepareAttachment={prepareAttachment}
+      images={images}
     />
   )
 }
