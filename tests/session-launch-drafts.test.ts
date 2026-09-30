@@ -251,10 +251,17 @@ test('preparation uses the captured session/selection and returns its confirmed 
       expectedRevision: 0,
       selection: { mode: 'shared-branch', branch: { ref: 'refs/heads/main', tipOid: 'a'.repeat(40) } },
     })
+    const phases: string[] = []
+    const unsubscribe = f.state.subscribe(() => {
+      const phase = f.state.getSnapshot().entries[session.id]?.phase
+      if (phase) phases.push(phase)
+    })
     const ready = await f.commands.execute('sessionLaunchDraft.prepare', {
       sessionId: session.id,
       expectedRevision: 1,
     })
+    unsubscribe()
+    expect(phases).toEqual(['preparing', 'ready'])
     expect(ready).toMatchObject({
       sessionId: session.id,
       workspaceId: session.workspaceId,

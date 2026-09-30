@@ -438,6 +438,9 @@ export function createSessionLaunchDrafts(
           const preparation = initialPreparation('ready', target.revision)
           return replacePreparationState({ ...currentEntry, hostRevision: target.revision }, preparation, null)
         }
+        // A fresh adapter has no receipt to recover. Reconciling it would publish
+        // idle between preparing and ready and briefly unlock the Location UI.
+        const needsRecovery = preparation !== undefined && preparation.getRecoveryStage() !== 'launchPreparation'
         if (!preparation) {
           preparation = createPreparation(currentEntry)
           preparations.set(input.sessionId, preparation)
@@ -450,7 +453,7 @@ export function createSessionLaunchDrafts(
           preparation: initialPreparation('preparing', null),
         }
         publish(working)
-        if (preparation.getRecoveryStage() !== 'launchPreparation') {
+        if (needsRecovery) {
           const recovered = await preparation.reconcile(input.sessionId, execution.signal)
           const recoveredEntry = replacePreparationState(current(input.sessionId) ?? currentEntry, recovered)
           if (recovered.phase === 'ready') return recoveredEntry
