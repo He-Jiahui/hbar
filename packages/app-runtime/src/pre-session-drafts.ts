@@ -1266,6 +1266,37 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     return { draftId, revision: value.revision }
   })
 
+  local.register(
+    preSessionDraftCommands['preSessionDraft.setEntryMode'],
+    ({ draftId, mode, expectedRevision, text }) => {
+      const current = entry(draftId)
+      requireEditable(draftId, current)
+      checkRevision(current, expectedRevision)
+      if (mode === 'goal' && !options.sessionGoalsAvailable)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Goal commands are unavailable')
+      if (mode === 'plan' && !options.sessionPlanModeAvailable)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Plan mode commands are unavailable')
+      const intent = mode === 'goal' ? 'goal' : 'default'
+      const planMode = mode === 'plan' ? 'plan' : 'default'
+      const nextText = text ?? current.text
+      if (current.intent === intent && current.planMode === planMode && current.text === nextText)
+        return { draftId, revision: current.revision }
+      const value: PreSessionDraftState = {
+        ...current,
+        intent,
+        planMode,
+        text: nextText,
+        revision: current.revision + 1,
+        phase: current.phase === 'failed' ? 'idle' : current.phase,
+        unknownStage: null,
+        error: null,
+        accepted: null,
+      }
+      publish(value)
+      return { draftId, revision: value.revision }
+    },
+  )
+
   local.register(preSessionDraftCommands['preSessionDraft.submit'], async (input, execution) => {
     const current = entry(input.draftId)
     if (current.phase === 'accepted' && current.accepted && current.sessionId)

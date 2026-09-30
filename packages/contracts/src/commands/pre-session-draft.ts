@@ -138,6 +138,16 @@ export const preSessionDraftCommands = {
     z.strictObject({ draftId, intent: preSessionIntentSchema, expectedRevision: revision }),
     result,
   ),
+  'preSessionDraft.setEntryMode': defineCommand(
+    metadata('preSessionDraft.setEntryMode'),
+    z.strictObject({
+      draftId,
+      mode: z.enum(['default', 'goal', 'plan']),
+      expectedRevision: revision,
+      text: z.string().max(200_000).optional(),
+    }),
+    result,
+  ),
   'preSessionDraft.setWorkspace': defineCommand(
     metadata('preSessionDraft.setWorkspace'),
     z.strictObject({ draftId, workspaceId: idSchema, expectedRevision: revision }),

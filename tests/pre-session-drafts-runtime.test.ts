@@ -2582,6 +2582,85 @@ test('Goal intent is capability-gated and mutually exclusive with pre-session Pl
   }
 })
 
+test('first-send entry choices switch Goal and Plan atomically without changing the draft or creating a Session', async () => {
+  const f = fixture({ planMode: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep this objective',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    const result = await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+      draftId: target.draftId,
+      mode: 'plan',
+      expectedRevision: before.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      intent: 'default',
+      planMode: 'plan',
+      text: before.text,
+      workspaceId: before.workspaceId,
+      modelId: before.modelId,
+      approvalChoice: before.approvalChoice,
+      revision: before.revision + 1,
+    })
+    const goal = await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+      draftId: target.draftId,
+      mode: 'goal',
+      text: 'A slash objective',
+      expectedRevision: result.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      intent: 'goal',
+      planMode: 'default',
+      text: 'A slash objective',
+      revision: result.revision + 1,
+    })
+    expect(
+      await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+        draftId: target.draftId,
+        mode: 'goal',
+        expectedRevision: goal.revision,
+      }),
+    ).toEqual(goal)
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+        draftId: target.draftId,
+        mode: 'plan',
+        expectedRevision: before.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(f.createCalls).toEqual([])
+    expect(f.goalCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('first-send entry choices reject unavailable modes without changing text or preparation', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'Keep this text' })
+    const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    for (const mode of ['goal', 'plan'] as const) {
+      await expect(
+        f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+          draftId: target.draftId,
+          mode,
+          text: 'Do not replace',
+          expectedRevision: target.revision,
+        }),
+      ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
+      expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toEqual(before)
+    }
+    expect(f.createCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 test('pre-session Goal creates one Goal and submits one ordinary Run with inherited Host policy', async () => {
   const f = fixture({ sessionSettings: true, planMode: true, goals: true })
   try {
