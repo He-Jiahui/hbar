@@ -45,10 +45,11 @@ export interface UsageMemberPreviewState {
 }
 export const USAGE_MEMBER_PAGE_SIZE = 50
 function unique<T extends { readonly id: string }>(records: readonly T[]): readonly T[] {
-  return [...new Map(records.map((record) => [record.id, record])).values()]
+  return [...new Map(records.filter((record) => record.id.trim()).map((record) => [record.id, record])).values()]
 }
 function matching(state: Pick<UsageMemberPreviewState, 'records' | 'teams' | 'teamId' | 'query'>) {
-  const filter = state.teams.find((team) => team.id === state.teamId)?.filterId
+  const rawFilter = state.teams.find((team) => team.id === state.teamId)?.filterId
+  const filter = rawFilter?.trim() ? rawFilter : undefined
   return state.records.filter(
     (row) => (!filter || row.teamId === filter) && row.name.toLowerCase().includes(state.query.toLowerCase()),
   )
@@ -60,14 +61,16 @@ export function createUsageMemberPreviewStore(
   teams: readonly UsageMemberTeam[],
   records: readonly UsageMemberRecord[],
 ) {
+  const initialTeams = unique(teams)
+  const initialRecords = unique(records)
   return createStore<UsageMemberPreviewState>((set, get) => ({
-    records: unique(records),
-    teams: unique(teams),
-    teamId: teams[0]?.id,
+    records: initialRecords,
+    teams: initialTeams,
+    teamId: initialTeams[0]?.id,
     query: '',
     page: 0,
     select(id) {
-      if (get().teams.some((team) => team.id === id)) set({ teamId: id, page: 0 })
+      if (id.trim() && get().teams.some((team) => team.id === id)) set({ teamId: id, page: 0 })
     },
     search(query) {
       set({ query, page: 0 })

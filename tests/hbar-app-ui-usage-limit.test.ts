@@ -87,6 +87,23 @@ test('replacement reconciles missing and duplicate IDs while callbacks retain th
   expect(empty.panel!.footer.action).toBeUndefined()
 })
 
+test('whitespace-only tier and metric IDs are omitted and selection falls back to a valid tier', () => {
+  const validTier = { ...USAGE_LIMIT_TIERS[0]!, id: ' tier-1 ' }
+  const blankTier = { ...validTier, id: ' \t ' }
+  const validMetric = USAGE_LIMIT_METRICS[0]!
+  const blankMetric = { ...validMetric, id: ' ' }
+  const store = createUsageLimitPreviewStore([blankTier, validTier], [blankMetric, validMetric])
+  expect(store.getState().tiers.map((tier) => tier.id)).toEqual([' tier-1 '])
+  expect(store.getState().metrics.map((metric) => metric.id)).toEqual([validMetric.id])
+  expect(store.getState().tierId).toBe(' tier-1 ')
+  const previous = store.getState()
+  previous.select(' ')
+  expect(store.getState()).toBe(previous)
+  store.getState().replace([blankTier], [blankMetric])
+  expect(store.getState().tierId).toBeUndefined()
+  expect(store.getState().metrics).toEqual([])
+})
+
 test('localized status and footer are host copy, and a request does not fabricate UI success', () => {
   const fixture = usageLimitFixture('localized'),
     store = createUsageLimitPreviewStore(fixture.tiers, fixture.metrics)

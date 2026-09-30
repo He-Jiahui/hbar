@@ -67,6 +67,24 @@ test('thresholds and switches change independently and stale callbacks keep thei
   expect(store.getState()).toBe(previous)
 })
 
+test('whitespace-only alert IDs are omitted while valid IDs remain exact targets', () => {
+  const validThreshold = { ...USAGE_BUDGET_THRESHOLDS[0]!, id: ' threshold ' }
+  const validSetting = { ...USAGE_BUDGET_SETTINGS[0]!, id: ' setting ' }
+  const store = createUsageBudgetPreviewStore(
+    USAGE_BUDGET_FACTS,
+    [{ ...validThreshold, id: ' ' }, validThreshold],
+    [{ ...validSetting, id: ' \t ' }, validSetting],
+  )
+  expect(store.getState().thresholds.map((item) => item.id)).toEqual([' threshold '])
+  expect(store.getState().settings.map((item) => item.id)).toEqual([' setting '])
+  const previous = store.getState()
+  previous.setThreshold(' ', true)
+  previous.setSetting(' \t ', true)
+  expect(store.getState()).toBe(previous)
+  previous.setThreshold(' threshold ', false)
+  expect(store.getState().thresholds[0]?.checked).toBe(false)
+})
+
 test('empty, one, normal, boundary and above-bound choices grow without silently dropping content', () => {
   for (const [thresholdCount, settingCount] of [
     [0, 0],

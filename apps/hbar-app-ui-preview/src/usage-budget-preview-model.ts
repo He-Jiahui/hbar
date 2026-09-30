@@ -46,7 +46,7 @@ export interface UsageBudgetPreviewState {
   ) => void
 }
 function unique<T extends { readonly id: string }>(items: readonly T[]): readonly T[] {
-  return [...new Map(items.map((item) => [item.id, item])).values()]
+  return [...new Map(items.filter((item) => item.id.trim()).map((item) => [item.id, item])).values()]
 }
 function finite(value: number, fallback: number) {
   return Number.isFinite(value) ? value : fallback

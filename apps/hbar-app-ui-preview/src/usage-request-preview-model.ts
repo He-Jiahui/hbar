@@ -49,7 +49,7 @@ export interface UsageRequestPreviewState {
 }
 export const USAGE_REQUEST_PAGE_SIZE = 50
 function unique(records: readonly UsageRequestFact[]) {
-  return [...new Map(records.map((row) => [row.id, row])).values()]
+  return [...new Map(records.filter((row) => row.id.trim()).map((row) => [row.id, row])).values()]
 }
 function matching(state: Pick<UsageRequestPreviewState, 'records' | 'filter'>) {
   return state.records.filter((row) => state.filter === 'all' || row.status === state.filter)
@@ -68,7 +68,8 @@ export function createUsageRequestPreviewStore(records: readonly UsageRequestFac
       if (id === 'all' || id === 'capped' || id === 'error') set({ filter: id, page: 0 })
     },
     toggle(id) {
-      if (get().records.some((row) => row.id === id)) set({ expandedId: get().expandedId === id ? null : id })
+      if (id.trim() && get().records.some((row) => row.id === id))
+        set({ expandedId: get().expandedId === id ? null : id })
     },
     next() {
       set({ page: Math.min(lastPage(matching(get()).length), get().page + 1) })

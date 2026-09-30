@@ -99,6 +99,21 @@ test('duplicate records update in place and host replacement clamps stale pages'
   expect(store.getState().page).toBe(0)
 })
 
+test('whitespace-only model IDs are removed without trimming valid IDs', () => {
+  const first = USAGE_MODEL_RECORDS[0]!
+  const blank = { ...first, row: { ...first.row, id: ' \t ' } }
+  const padded = { ...first, row: { ...first.row, id: ' model ' } }
+  const store = createUsageModelPreviewStore([blank, padded])
+  expect(store.getState().records.map((record) => record.row.id)).toEqual([' model '])
+  expect(
+    projectUsageModelPreview(store.getState(), USAGE_MODEL_FIXTURE, {
+      previous: 'Previous',
+      next: 'Next',
+      page: (current, total) => `${current}/${total}`,
+    }).table?.rows[0]?.id,
+  ).toBe(' model ')
+})
+
 test('localized table preserves separate mobile summaries, native sort tabs and passive bars', () => {
   const fixture = modelSpendFixture('localized'),
     store = createUsageModelPreviewStore(fixture.records)

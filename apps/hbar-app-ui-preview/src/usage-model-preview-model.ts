@@ -17,7 +17,9 @@ export interface UsageModelPreviewState {
 }
 export const USAGE_MODEL_PAGE_SIZE = 50
 function unique(records: readonly UsageModelPreviewRecord[]): readonly UsageModelPreviewRecord[] {
-  return [...new Map(records.map((record) => [record.row.id, record])).values()]
+  return [
+    ...new Map(records.filter((record) => record.row.id.trim()).map((record) => [record.row.id, record])).values(),
+  ]
 }
 function lastPage(records: readonly UsageModelPreviewRecord[]): number {
   return Math.max(0, Math.ceil(records.length / USAGE_MODEL_PAGE_SIZE) - 1)

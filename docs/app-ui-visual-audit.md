@@ -1219,3 +1219,29 @@ Agent Plan 1–6 本轮复用已有六种独立结构及四个 Zustand Host 模�
 类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
 生产预览构建通过。根类型检查期间其它图片任务的暂态错误已在最终检查中消失，
 本轮未修改其文件。使用授权缓存，不重标旧严格审计或声称 fresh strict 全量完成。
+
+AI Usage 1–8 本轮复用已有八种结构及 overview/model/limit/member/budget/overage/request
+七个 Zustand Host 模型。预览只在所属类别挂载，owner 按变体与夹具隔离，切换重置本地
+状态；可选 presentation 由 Host 提供 EN/DE 就近反馈，旧 API 与默认内容保持兼容。
+集合过滤空白 ID，保留有效 ID 原文与既有 last-record-wins 合并语义，初始选项和失效
+选择继续由模型归一化。新增意图模型拒绝其它 owner、空白、移除和重复的当前目标。
+
+完整授权 context 与缓存保留范围/点详情、模型排序、tier、团队搜索、预算滑块/开关、
+套餐单选和请求披露。参考中的 Request increase、Upgrade、Stay 和 Details 没有真实
+服务转换证据；本轮只报告预览请求，不伪造 quota、持久策略、导航、支付或计费成功。
+本地 tier/cap/套餐选择可供预览，原始 spend、usage 和已发生的请求事实不会因此改写。
+相关来源提交包括 `b3c167ae`、`2114d9cd`、`006fdc2d`、`8ad27c06`、`cdf12be0`、
+`aa2ba2d2`、`9e72d0f7`、`5325196d`；不把 full-static 的裁切当作结构缺失。
+
+preview-scoped flex 样式解除普通内容强制高度与外壳裁切，长标题、表内摘要、成员姓名、
+脚注和按钮按内容换行；短配额集合自然增长，不为十三条资源强造滚动容器。图表保留
+真实绘图视口及显式横向滚动，模型/成员/请求超 50 条由 Host 分页，既有原生表与窄屏
+摘要仍分工清楚。三张代表图已目视检查，没有阻断使用的布局问题。
+
+`bun scripts/verify-hbar-app-ui-usage.ts` 已收敛为八种结构各一次与核心机制抽查，窄屏
+只取德语成员列表和紧凑卡，超容量只取一个 32 点图表；未重跑按钮/主题/宽度排列。
+34 条检查记录通过，代表图位于 `artifacts/ai-usage-core-review/`，无 page/console
+error 或页面横溢。61 项模型/SSR/兼容测试、507 个断言通过；根/子仓类型、限定
+ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览
+构建通过。根测试夹具排除可选 presentation，仍专门提供八种数据契约。使用授权缓存，
+不重标旧严格审计或声称 fresh strict 全量完成，也没有真实服务验收声明。

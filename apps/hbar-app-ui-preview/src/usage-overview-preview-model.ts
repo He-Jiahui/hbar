@@ -13,7 +13,7 @@ export interface UsageOverviewPreviewState {
   readonly select: (id: string) => void
 }
 function unique(datasets: readonly UsageOverviewPreviewDataset[]): readonly UsageOverviewPreviewDataset[] {
-  return [...new Map(datasets.map((entry) => [entry.id, entry])).values()]
+  return [...new Map(datasets.filter((entry) => entry.id.trim()).map((entry) => [entry.id, entry])).values()]
 }
 export function createUsageOverviewPreviewStore(datasets: readonly UsageOverviewPreviewDataset[], activeId = '7d') {
   const initial = unique(datasets)

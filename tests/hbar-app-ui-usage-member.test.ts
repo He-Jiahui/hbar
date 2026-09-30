@@ -89,6 +89,23 @@ test('replacement reconciles duplicate IDs, removed teams and pages without stal
   expect(projectUsageMemberPreview(store.getState(), USAGE_MEMBER_COPY).members!.team).toBeUndefined()
 })
 
+test('blank member/team IDs are ignored and whitespace team filters behave as no filter', () => {
+  const validTeam = { id: ' team ', label: 'All members', filterId: ' \t ' }
+  const blankTeam = { ...validTeam, id: ' ' }
+  const validMember = { ...USAGE_MEMBER_RECORDS[0]!, id: ' member ' }
+  const blankMember = { ...validMember, id: ' \t ' }
+  const store = createUsageMemberPreviewStore([blankTeam, validTeam], [blankMember, validMember])
+  expect(store.getState().teams.map((team) => team.id)).toEqual([' team '])
+  expect(store.getState().records.map((member) => member.id)).toEqual([' member '])
+  expect(store.getState().teamId).toBe(' team ')
+  expect(projectUsageMemberPreview(store.getState(), USAGE_MEMBER_COPY).members?.rows.map((row) => row.id)).toEqual([
+    ' member ',
+  ])
+  const previous = store.getState()
+  previous.select(' ')
+  expect(store.getState()).toBe(previous)
+})
+
 test('member renderer preserves source semantic order, native search, team tabs and passive rows', () => {
   const html = renderToStaticMarkup(createElement(HbarAppUiSeatUsage, USAGE_MEMBER_FIXTURE))
   expect(html).toContain('<h2>Usage by member</h2>')

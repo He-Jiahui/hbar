@@ -17,7 +17,9 @@ const meter = (id: string, label: string, value: string, progress: number, detai
   progressLabel: `${label} utilisation`,
   tone: 'accent',
 })
-export const USAGE_FIXTURES: { [K in keyof HbarAppUiUsageContent]-?: NonNullable<HbarAppUiUsageContent[K]> } = {
+export const USAGE_FIXTURES: {
+  [K in Exclude<keyof HbarAppUiUsageContent, 'presentation'>]-?: NonNullable<HbarAppUiUsageContent[K]>
+} = {
   overview: USAGE_OVERVIEW_FIXTURE,
   modelSpend: USAGE_MODEL_FIXTURE,
   rateLimits: USAGE_LIMIT_FIXTURE,

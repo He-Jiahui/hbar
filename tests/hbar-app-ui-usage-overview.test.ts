@@ -70,6 +70,19 @@ test('duplicate IDs use the newest record and remain stable after reordering', (
   expect(html).toContain('Updated')
 })
 
+test('whitespace-only range IDs are ignored while padded valid IDs remain exact', () => {
+  const original = USAGE_OVERVIEW_DATASETS[0]!
+  const valid = { ...original, id: ' range ' }
+  const blank = { ...original, id: ' \t ' }
+  const store = createUsageOverviewPreviewStore([blank, valid], ' ')
+  expect(store.getState().datasets.map((entry) => entry.id)).toEqual([' range '])
+  expect(store.getState().activeId).toBe(' range ')
+  const previous = store.getState()
+  previous.select(' \t ')
+  expect(store.getState()).toBe(previous)
+  expect(projectUsageOverviewPreview(store.getState(), 'Range')?.range?.value).toBe(' range ')
+})
+
 test('host-localized copy, empty, one, normal, boundary and over-bound series render without dropped points', () => {
   const content = usageOverviewDatasets('localized')[0]!.content
   for (const count of [0, 1, 7, 31, 32]) {

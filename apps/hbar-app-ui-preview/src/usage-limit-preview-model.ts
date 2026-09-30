@@ -34,22 +34,25 @@ export interface UsageLimitPreviewState {
   readonly replace: (tiers: readonly UsageLimitTier[], metrics: readonly UsageLimitMetric[]) => void
 }
 function unique<T extends { readonly id: string }>(rows: readonly T[]): readonly T[] {
-  return [...new Map(rows.map((row) => [row.id, row])).values()]
+  return [...new Map(rows.filter((row) => row.id.trim()).map((row) => [row.id, row])).values()]
 }
 export function createUsageLimitPreviewStore(tiers: readonly UsageLimitTier[], metrics: readonly UsageLimitMetric[]) {
+  const initialTiers = unique(tiers)
+  const initialMetrics = unique(metrics)
   return createStore<UsageLimitPreviewState>((set, get) => ({
-    tiers: unique(tiers),
-    metrics: unique(metrics),
-    tierId: tiers[0]?.id,
+    tiers: initialTiers,
+    metrics: initialMetrics,
+    tierId: initialTiers[0]?.id,
     select(id) {
       if (get().tiers.some((tier) => tier.id === id)) set({ tierId: id })
     },
     replace(nextTiers, nextMetrics) {
       const tiers = unique(nextTiers)
+      const currentTierId = get().tierId
       set({
         tiers,
         metrics: unique(nextMetrics),
-        tierId: tiers.some((tier) => tier.id === get().tierId) ? get().tierId : tiers[0]?.id,
+        tierId: tiers.some((tier) => tier.id === currentTierId) ? currentTierId : tiers[0]?.id,
       })
     },
   }))

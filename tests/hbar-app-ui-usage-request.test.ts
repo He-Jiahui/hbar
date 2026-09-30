@@ -73,6 +73,20 @@ test('duplicate and stale IDs reconcile, and callbacks stay bound to their origi
   expect(store.getState().expandedId).toBeNull()
 })
 
+test('whitespace-only request IDs are ignored while padded request IDs remain exact', () => {
+  const record = USAGE_REQUEST_FACTS[0]!
+  const blank = { ...record, id: ' \t ' }
+  const valid = { ...record, id: ' request ' }
+  const store = createUsageRequestPreviewStore([blank, valid], ' ')
+  expect(store.getState().records.map((row) => row.id)).toEqual([' request '])
+  expect(store.getState().expandedId).toBeNull()
+  const before = store.getState()
+  before.toggle(' ')
+  expect(store.getState()).toBe(before)
+  before.toggle(' request ')
+  expect(store.getState().expandedId).toBe(' request ')
+})
+
 test('page replacement and filters clamp pages while totals stay based on all matching rows', () => {
   const fixture = usageRequestFixture('overflow')
   const store = createUsageRequestPreviewStore(fixture.records, fixture.expandedId)

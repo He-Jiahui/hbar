@@ -61,6 +61,20 @@ test('replacement deduplicates IDs and safely falls back; old callbacks retain t
   expect(store.getState().selectedId).toBeNull()
 })
 
+test('whitespace-only plans cannot be selected and padded valid IDs stay exact', () => {
+  const plan = USAGE_OVERAGE_PLANS[0]!
+  const valid = { ...plan, id: ' plan ' }
+  const blank = { ...plan, id: ' \t ' }
+  const store = createUsageOveragePreviewStore([blank, valid], ' ')
+  expect(store.getState().plans.map((item) => item.id)).toEqual([' plan '])
+  expect(store.getState().selectedId).toBe(' plan ')
+  const previous = store.getState()
+  previous.select(' ')
+  expect(store.getState()).toBe(previous)
+  store.getState().replace([blank])
+  expect(store.getState().selectedId).toBeNull()
+})
+
 test('empty, one, normal, boundary and above-bound plan lists and benefits render without data loss', () => {
   for (const count of [0, 1, 2, 6, 7]) {
     const plans = Array.from({ length: count }, (_, i) => ({

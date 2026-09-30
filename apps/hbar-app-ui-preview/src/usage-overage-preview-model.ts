@@ -19,7 +19,7 @@ export interface UsageOveragePreviewState {
   readonly replace: (plans: readonly LumenUsageOveragePlan[]) => void
 }
 function unique(plans: readonly LumenUsageOveragePlan[]) {
-  return [...new Map(plans.map((plan) => [plan.id, plan])).values()]
+  return [...new Map(plans.filter((plan) => plan.id.trim()).map((plan) => [plan.id, plan])).values()]
 }
 export function createUsageOveragePreviewStore(plans: readonly LumenUsageOveragePlan[], initialId?: string) {
   const records = unique(plans)
@@ -29,7 +29,7 @@ export function createUsageOveragePreviewStore(plans: readonly LumenUsageOverage
     plans: records,
     selectedId: initial?.id ?? null,
     select(id) {
-      if (get().selectedId !== id && get().plans.some((plan) => plan.id === id && !plan.disabled))
+      if (id.trim() && get().selectedId !== id && get().plans.some((plan) => plan.id === id && !plan.disabled))
         set({ selectedId: id })
     },
     replace(next) {
