@@ -1076,6 +1076,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     workspaceTabs: Object.freeze({
       capture: workspaceTabs.capture,
       closeCaptured: workspaceTabs.closeCaptured,
+      replaceCapturedSession: workspaceTabs.replaceCapturedSession,
       select: workspaceTabs.select,
       move: workspaceTabs.move,
       whenIdle: workspaceTabs.whenIdle,
