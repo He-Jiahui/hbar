@@ -97,6 +97,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(branches.getByRole('button', { name: new RegExp('feature/location') })).toBeEnabled()
       await page.screenshot({ path: join(screenshotRoot, 'branches.png') })
       await branches.getByRole('button', { name: new RegExp('feature/location') }).click()
+      dialog = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByRole('button', { name: new RegExp(`^${location.branch}`) })).toBeFocused()
       await expect(trigger).toHaveAccessibleName(location.trigger(host.ready.workspaceName, 'feature/location', true))
       expect(await count()).toBe(1)
       expect(
@@ -106,6 +109,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           windowsHide: true,
         }).trim(),
       ).toBe(originalBranch)
+      await dialog.getByRole('button', { name: location.close, exact: true }).click()
       await landing.getByRole('button', { name: labels.model.trigger(null), exact: true }).click()
       await page
         .getByRole('dialog', { name: labels.model.title })

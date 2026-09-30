@@ -93,8 +93,10 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
   const id = useId()
   const titleId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
+  const branchTrigger = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
   const restoreFocus = useRef(false)
+  const restoreBranchFocus = useRef(false)
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'root' | 'directory' | 'branch' | 'new-branch'>('root')
   const [query, setQuery] = useState('')
@@ -107,6 +109,15 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
     restoreFocus.current = false
     trigger.current?.focus()
   }, [open, pending])
+  useEffect(() => {
+    if (!open) {
+      restoreBranchFocus.current = false
+      return
+    }
+    if (view !== 'root' || pending || !restoreBranchFocus.current || !branchTrigger.current) return
+    restoreBranchFocus.current = false
+    branchTrigger.current.focus()
+  }, [open, pending, view, page])
   const directory = props.directories.find((item) => item.id === props.workspaceId) ?? null
   const head = page?.repository.kind === 'repository' ? page.repository.head : null
   const isolated = selection.mode === 'isolated-worktree'
@@ -329,6 +340,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
               </LumenButton>
               {page?.repository.kind === 'repository' && (
                 <LumenButton
+                  ref={branchTrigger}
                   type="button"
                   variant="text"
                   indicator="none"
@@ -640,7 +652,11 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
                                       mode: 'shared-branch',
                                       branch: { ref: branch.ref, tipOid: branch.tipOid },
                                     }),
-                              close,
+                              () => {
+                                restoreBranchFocus.current = true
+                                setView('root')
+                                setQuery('')
+                              },
                             )
                           }
                         >
