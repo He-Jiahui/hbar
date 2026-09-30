@@ -8,7 +8,7 @@ import type {
 } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import type { DraftAttachmentTransfer, PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { DraftAttachmentTransfer, PromptAttachment, PromptWorkspaceContext } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import type { AttachmentUploadInput, SessionFileTarget } from '@hbar/contracts/commands/files'
 import type {
@@ -769,6 +769,8 @@ export interface SessionDraftState {
   readonly sessionId: string
   readonly text: string
   readonly mentions: readonly Readonly<import('@hbar/contracts/commands/draft').PromptMention>[]
+  /** Optional only for compatibility with older in-memory typed fixtures; Runtime initial state is always []. */
+  readonly workspaceContexts?: readonly Readonly<PromptWorkspaceContext>[]
   readonly attachments: readonly Readonly<PromptAttachment>[]
   readonly attachmentTransfers: readonly SessionAttachmentTransfer[]
   readonly uploading: number

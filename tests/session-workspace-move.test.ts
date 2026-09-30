@@ -1,7 +1,12 @@
 import { expect, test } from 'bun:test'
 import { CommandError, CommandRegistry, createCommandClient, type CommandExecutor } from '@hbar/commands'
 import { directoryCommands, navigationCommands } from '@hbar/contracts/commands'
-import { draftCommands, type PromptAttachment, type PromptMention } from '@hbar/contracts/commands/draft'
+import {
+  draftCommands,
+  type PromptAttachment,
+  type PromptMention,
+  type PromptWorkspaceContext,
+} from '@hbar/contracts/commands/draft'
 import type { Session, SessionSnapshot, ThinkingLevel, Workspace } from '@hbar/contracts'
 import { createState } from '../packages/app-runtime/src/state'
 import { composerIntentCommands } from '../packages/app-runtime/src/composer-intent'
@@ -63,6 +68,19 @@ const mention: PromptMention = {
   directory: false,
 }
 const attachment: PromptAttachment = { kind: 'file', artifact: sourceArtifact }
+const workspaceContext: PromptWorkspaceContext = {
+  id: '5eaec25d-348e-49dc-96e7-4162bb9eff4a',
+  kind: 'diff-comment',
+  workspaceId: sourceWorkspace.id,
+  path: 'src/main.ts',
+  lineStart: 8,
+  lineEnd: 9,
+  quote: 'return value',
+  cached: false,
+  diffSide: 'new',
+  hunkId: 'hunk:12',
+  note: 'Keep this source snapshot scoped to its original workspace.',
+}
 
 function emptySnapshot(session: Session): SessionSnapshot {
   return {
@@ -120,6 +138,7 @@ function fixture(
     readonly pendingTransfer?: boolean
     readonly createUnknownOnce?: boolean
     readonly permissionUnknownOnce?: boolean
+    readonly workspaceContexts?: readonly PromptWorkspaceContext[]
     readonly targetModel?: ReturnType<typeof modelConfiguration>
   } = {},
 ) {
@@ -127,6 +146,7 @@ function fixture(
     sessionId: sourceSession.id,
     text: 'Use @guide.txt',
     mentions: [mention],
+    ...(input.workspaceContexts ? { workspaceContexts: input.workspaceContexts } : {}),
     attachments: [attachment],
     attachmentTransfers: input.pendingTransfer
       ? [
@@ -329,6 +349,7 @@ function fixture(
         sessionId,
         text,
         mentions,
+        workspaceContexts: current?.workspaceContexts ?? [],
         attachments: current?.attachments ?? [],
         attachmentTransfers: [],
         uploading: 0,
@@ -348,6 +369,21 @@ function fixture(
       throw new CommandError('VERSION_CONFLICT', 'Draft revision changed')
     if (!current) throw new CommandError('INVALID_STATE', 'The target draft was not initialized')
     drafts.replace({ ...drafts.reader.getSnapshot(), [sessionId]: { ...current, attachments, revision: revision + 1 } })
+    return { sessionId, revision: revision + 1 }
+  })
+  local.register(draftCommands['draft.setWorkspaceContexts'], ({ sessionId, workspaceContexts, expectedRevision }) => {
+    const current = drafts.reader.getSnapshot()[sessionId]
+    const revision = current?.revision ?? 0
+    if (revision !== expectedRevision) throw new CommandError('VERSION_CONFLICT', 'Draft revision changed')
+    drafts.replace({
+      ...drafts.reader.getSnapshot(),
+      [sessionId]: {
+        ...(current ?? sourceDraft),
+        sessionId,
+        workspaceContexts,
+        revision: revision + 1,
+      },
+    })
     return { sessionId, revision: revision + 1 }
   })
   local.register(composerModelCommands['composerModel.refresh'], ({ sessionId }) => ({ sessionId }))
@@ -525,7 +561,7 @@ function fixture(
 }
 
 test('moves the canonical draft and confirmed settings, then replaces its tab before archiving', async () => {
-  const f = fixture({ sourceIntent: 'default', sourceMode: 'plan' })
+  const f = fixture({ sourceIntent: 'default', sourceMode: 'plan', workspaceContexts: [workspaceContext] })
   const result = await f.client.execute('sessionWorkspaceMove.move', {
     sessionId: sourceSession.id,
     workspaceId: sourceWorkspace.id,
@@ -540,6 +576,7 @@ test('moves the canonical draft and confirmed settings, then replaces its tab be
   expect(targetDraft).toMatchObject({
     text: f.sourceDraft.text,
     mentions: [{ ...mention, workspaceId: targetWorkspace.id }],
+    workspaceContexts: [workspaceContext],
     attachments: [attachment],
   })
   expect(targetDraft?.attachments[0]?.artifact.id).toBe(sourceArtifact.id)

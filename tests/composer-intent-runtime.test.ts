@@ -3,6 +3,7 @@ import { CommandError, CommandRegistry, type ExecuteOptions } from '@hbar/comman
 import { goalPlanCommands, type GoalPlanChange, type GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import { runAcceptedSchema, submitRunInputSchema, type RunAccepted } from '@hbar/contracts/commands/run'
 import type { ThreadGoal } from '@hbar/contracts'
+import type { PromptWorkspaceContextInput, PromptMention } from '@hbar/contracts/commands/draft'
 import { createComposerIntent } from '../packages/app-runtime/src/composer-intent'
 import { createDrafts } from '../packages/app-runtime/src/drafts'
 import { createState } from '../packages/app-runtime/src/state'
@@ -149,9 +150,17 @@ function fixture() {
     onSubscriberError: () => {},
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,
+    serializeGoalObjective: drafts.serializeGoalObjective,
     consumeGoalSlashDraft: (sessionId, revision, text) => {
       const current = drafts.reader.getSnapshot()[sessionId]
-      if (current?.revision === revision && current.text === text)
+      if (
+        current?.revision === revision &&
+        current.text === text &&
+        !current.workspaceContexts?.length &&
+        !current.mentions.length &&
+        !current.attachments.length &&
+        !current.attachmentTransfers.length
+      )
         void local.execute('draft.setContent', { sessionId, text: '', mentions: [], expectedRevision: revision })
     },
     reconcileRun: async (sessionId) =>
@@ -217,6 +226,61 @@ test('composer intent is a per-session draft, cancellation never clears a Goal, 
       expect(submitRunInputSchema.parse(call.input)).not.toHaveProperty('expectedLaunchTargetRevision')
     expect(f.value('one').goal).not.toBeNull()
     expect(f.composer.reader.getSnapshot().entries.two?.intent).toBe('default')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal intent uses plain mention text as its objective while Run receives the quoted workspace context', async () => {
+  const f = fixture()
+  const mention: PromptMention = {
+    start: 8,
+    end: 17,
+    label: 'entry.ts',
+    path: 'src/entry.ts',
+    workspaceId: 'w',
+    directory: false,
+  }
+  const context: PromptWorkspaceContextInput = {
+    kind: 'source-selection',
+    workspaceId: 'w',
+    path: 'src/entry.ts',
+    lineStart: 5,
+    lineEnd: 5,
+    quote: 'const value = 1',
+    sha256: 'c'.repeat(64),
+  }
+  try {
+    f.select('one')
+    await f.intent('one', 'goal')
+    await f.local.execute('draft.setContent', {
+      sessionId: 'one',
+      text: 'Look at @entry.ts',
+      mentions: [mention],
+      expectedRevision: 0,
+    })
+    await f.local.execute('draft.addWorkspaceContext', {
+      sessionId: 'one',
+      context,
+      expectedRevision: 1,
+    })
+
+    await f.local.execute('composerIntent.submit', {
+      sessionId: 'one',
+      modelId: 'provider/model',
+      input: { text: 'Look at @entry.ts', images: [] },
+      expectedDraftRevision: 2,
+    })
+
+    const goalInput = goalPlanCommands['goal.create'].input.parse(
+      f.calls.find((call) => call.name === 'goal.create')?.input,
+    )
+    const runInput = submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)
+    expect(goalInput.objective).toBe('Look at @"src/entry.ts"')
+    expect(runInput.input.text).toContain('Look at @"src/entry.ts"')
+    expect(runInput.input.text).toContain('Referenced workspace context:')
+    expect(runInput.input.text).toContain('const value = 1')
+    expect(f.drafts.reader.getSnapshot().one).toMatchObject({ text: '', workspaceContexts: [] })
   } finally {
     f.dispose()
   }

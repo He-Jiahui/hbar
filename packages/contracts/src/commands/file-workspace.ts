@@ -4,6 +4,34 @@ import { sessionFileTargetSchema } from './files'
 
 const instanceId = z.string().min(1).max(160)
 const previewId = z.string().uuid()
+const sourceSelection = {
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  startOffset: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 * 1024 * 1024),
+  endOffset: z
+    .number()
+    .int()
+    .positive()
+    .max(2 * 1024 * 1024),
+}
+const contextNote = z.string().trim().min(1).max(4000)
+const fileComposerContextSelectionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('source-selection'), ...sourceSelection }),
+  z.strictObject({ kind: z.literal('source-comment'), ...sourceSelection, note: contextNote }),
+  z.strictObject({
+    kind: z.literal('diff-comment'),
+    cached: z.boolean(),
+    expectedText: z.string().max(2 * 1024 * 1024),
+    rowStart: z.number().int().nonnegative(),
+    rowEnd: z.number().int().nonnegative(),
+    diffSide: z.enum(['old', 'new']),
+    note: contextNote,
+  }),
+])
+export type FileComposerContextSelection = z.infer<typeof fileComposerContextSelectionSchema>
 const sourceTarget = {
   sourceSessionId: z.string().min(1).max(160).nullable().optional(),
   sessionTarget: sessionFileTargetSchema.nullable().optional(),
@@ -75,6 +103,7 @@ export const fileWorkspaceCommands = {
       workbenchTabInstanceKey: z.string().uuid().optional(),
       expectedRevision: z.number().int().nonnegative(),
       sessionTarget: sessionFileTargetSchema.nullable().optional(),
+      context: fileComposerContextSelectionSchema.optional(),
     }),
     z.strictObject({
       sessionId: z.string().min(1).max(160),
@@ -106,7 +135,12 @@ export const fileWorkspaceCommands = {
   ),
   'fileWorkspace.filterChanges': defineCommand(
     metadata('fileWorkspace.filterChanges'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), filter: z.string().max(4000), ...sourceTarget }),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      filter: z.string().max(4000),
+      ...sourceTarget,
+    }),
     summary,
   ),
   'fileWorkspace.pageChanges': defineCommand(
@@ -145,22 +179,42 @@ export const fileWorkspaceCommands = {
   ),
   'fileWorkspace.toggleTree': defineCommand(
     metadata('fileWorkspace.toggleTree'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), path: z.string().min(1).max(4000), ...sourceTarget }),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      path: z.string().min(1).max(4000),
+      ...sourceTarget,
+    }),
     summary,
   ),
   'fileWorkspace.refreshTree': defineCommand(
     metadata('fileWorkspace.refreshTree'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), path: z.string().min(1).max(4000), ...sourceTarget }),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      path: z.string().min(1).max(4000),
+      ...sourceTarget,
+    }),
     summary,
   ),
   'fileWorkspace.loadMoreTree': defineCommand(
     metadata('fileWorkspace.loadMoreTree'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), path: z.string().min(1).max(4000), ...sourceTarget }),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      path: z.string().min(1).max(4000),
+      ...sourceTarget,
+    }),
     summary,
   ),
   'fileWorkspace.filterTree': defineCommand(
     metadata('fileWorkspace.filterTree'),
-    z.strictObject({ instanceId, workspaceId: z.string().min(1).max(160), filter: z.string().max(160), ...sourceTarget }),
+    z.strictObject({
+      instanceId,
+      workspaceId: z.string().min(1).max(160),
+      filter: z.string().max(160),
+      ...sourceTarget,
+    }),
     summary,
   ),
   'fileWorkspace.refresh': defineCommand(

@@ -14,6 +14,7 @@ import {
   sameSessionFileTarget,
 } from './file-workspace-documents'
 import { isWorkspaceRelativePath, validateMentions } from './composer-mentions'
+import { captureFileWorkspaceContext } from './file-context-selection'
 import {
   createFileWorkspaceChanges,
   emptyFileChanges,
@@ -102,8 +103,7 @@ export function createFileWorkspace(
             return [id, entry]
           changed = true
           const previews = entry.previews.flatMap((preview): FileWorkspacePreviewState[] =>
-            preview.kind === 'document' &&
-            fileDocumentKey(entry.workspaceId, preview.path, entry.sessionTarget) === key
+            preview.kind === 'document' && fileDocumentKey(entry.workspaceId, preview.path, entry.sessionTarget) === key
               ? document
                 ? [{ ...preview, document }]
                 : []
@@ -163,16 +163,16 @@ export function createFileWorkspace(
     const parsed = sessionLaunchTargetSchema.safeParse(response)
     if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Session file-target response is invalid')
     const launchTarget = parsed.data
-    if (
-      launchTarget.sessionId !== currentSourceSessionId ||
-      launchTarget.workspaceId !== targetPanel.workspaceId
-    )
+    if (launchTarget.sessionId !== currentSourceSessionId || launchTarget.workspaceId !== targetPanel.workspaceId)
       throw new CommandError('STALE_TARGET', 'The session target belongs to another workspace')
     if (launchTarget.selection.mode === 'isolated-worktree' && !launchTarget.locked) {
       const failure = launchTarget.resolution
       if (failure.status === 'failed' || failure.status === 'cancelled' || failure.status === 'reconciling')
         throw new CommandError(failure.code, failure.message)
-      throw new CommandError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Run this session once before opening its isolated files')
+      throw new CommandError(
+        'SESSION_LAUNCH_TARGET_UNRESOLVED',
+        'Run this session once before opening its isolated files',
+      )
     }
     return { sessionId: launchTarget.sessionId, expectedRevision: launchTarget.revision }
   }
@@ -316,36 +316,41 @@ export function createFileWorkspace(
         throw new CommandError('TARGET_CHANGED', 'The original Files session changed')
       const sameTarget = Boolean(current && sameOwner && sameSessionFileTarget(current.sessionTarget, sessionTarget))
       if (!sameTarget) changes.cancel(instanceId)
-      const previews = sameTarget && current
-        ? current.previews.map((preview) =>
-            preview.kind === 'document'
-              ? { ...preview, document: documents.get(target.workspaceId, preview.path, sessionTarget) ?? preview.document }
-              : preview,
-          )
-        : []
-      const restored = sameTarget && current
-        ? projectFileEntry({
-            ...current,
-            path: requestedPath,
-            sourceSessionId: ownerSessionId,
-            sessionTarget,
-            previews,
-          })
-        : {
-            ...loading,
-            sessionTarget,
-            previews: [],
-            activePreviewId: null,
-            view: 'browser' as const,
-            browserMode: 'all' as const,
-            documentMode: 'preview' as const,
-            changes: emptyFileChanges(),
-            diff: null,
-            tree: emptyFileTree(),
-            items: [],
-            nextCursor: null,
-            document: null,
-          }
+      const previews =
+        sameTarget && current
+          ? current.previews.map((preview) =>
+              preview.kind === 'document'
+                ? {
+                    ...preview,
+                    document: documents.get(target.workspaceId, preview.path, sessionTarget) ?? preview.document,
+                  }
+                : preview,
+            )
+          : []
+      const restored =
+        sameTarget && current
+          ? projectFileEntry({
+              ...current,
+              path: requestedPath,
+              sourceSessionId: ownerSessionId,
+              sessionTarget,
+              previews,
+            })
+          : {
+              ...loading,
+              sessionTarget,
+              previews: [],
+              activePreviewId: null,
+              view: 'browser' as const,
+              browserMode: 'all' as const,
+              documentMode: 'preview' as const,
+              changes: emptyFileChanges(),
+              diff: null,
+              tree: emptyFileTree(),
+              items: [],
+              nextCursor: null,
+              document: null,
+            }
       const keepPreview = preservePreview && sameTarget && restored.view !== 'browser'
       const scopedLoading: FileWorkspaceEntryState = {
         ...restored,
@@ -364,12 +369,16 @@ export function createFileWorkspace(
         error: null,
       }
       replace(scopedLoading)
-      const page = await requireClient().execute('file.list', {
-        workspaceId: target.workspaceId,
-        ...(sessionTarget ? { sessionTarget } : {}),
-        path: requestedPath,
-        limit: PAGE_SIZE,
-      }, signal ? { signal } : undefined)
+      const page = await requireClient().execute(
+        'file.list',
+        {
+          workspaceId: target.workspaceId,
+          ...(sessionTarget ? { sessionTarget } : {}),
+          path: requestedPath,
+          limit: PAGE_SIZE,
+        },
+        signal ? { signal } : undefined,
+      )
       if (!matchesTarget(instanceId, target.workspaceId, ownerSessionId, sessionTarget, generation))
         throw new CommandError('RESULT_UNKNOWN', 'File listing was superseded')
       const latest = state.reader.getSnapshot().entries[instanceId] ?? scopedLoading
@@ -394,13 +403,17 @@ export function createFileWorkspace(
     if (entry.workspaceId !== target.workspaceId || entry.sourceSessionId !== sourceSessionId(instanceId))
       throw new CommandError('RESULT_UNKNOWN', 'Refresh panel target')
     const generation = generations.get(instanceId) ?? 0
-    const page = await requireClient().execute('file.list', {
-      workspaceId: target.workspaceId!,
-      ...(entry.sessionTarget ? { sessionTarget: entry.sessionTarget } : {}),
-      path: entry.path,
-      after: entry.nextCursor,
-      limit: PAGE_SIZE,
-    }, signal ? { signal } : undefined)
+    const page = await requireClient().execute(
+      'file.list',
+      {
+        workspaceId: target.workspaceId!,
+        ...(entry.sessionTarget ? { sessionTarget: entry.sessionTarget } : {}),
+        path: entry.path,
+        after: entry.nextCursor,
+        limit: PAGE_SIZE,
+      },
+      signal ? { signal } : undefined,
+    )
     if (!matchesTarget(instanceId, target.workspaceId, entry.sourceSessionId, entry.sessionTarget, generation))
       throw new CommandError('RESULT_UNKNOWN', 'File listing was superseded')
     const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
@@ -695,6 +708,8 @@ export function createFileWorkspace(
         throw new CommandError('TARGET_CHANGED', 'The Files workbench tab changed')
       }
       const entry = requireEntry(input.instanceId, input.workspaceId, input)
+      if (input.context && !input.previewId)
+        throw new CommandError('INVALID_INPUT', 'A source preview identity is required for a selected context')
       if (input.previewId && entry.activePreviewId !== input.previewId)
         throw new CommandError('TARGET_CHANGED', 'The original file preview changed')
       if (!isWorkspaceRelativePath(input.path) || canonicalFilePath(input.path) !== input.path)
@@ -719,7 +734,8 @@ export function createFileWorkspace(
         throw new CommandError('VERSION_CONFLICT', 'The original composer draft changed')
       if (draft?.status === 'submitting' || draft?.status === 'unknown')
         throw new CommandError('BUSY', 'The original composer has a pending submission')
-      return draft
+      if (input.context) captureFileWorkspaceContext(entry, input.path, input.context)
+      return { draft, entry }
     }
     assertTarget()
     // A cached directory entry is not proof that the source still exists. Fail closed offline.
@@ -734,7 +750,26 @@ export function createFileWorkspace(
       )
     if (!session || session.archived || session.workspaceId !== input.workspaceId)
       throw new CommandError('SESSION_NOT_FOUND', 'The original Session is unavailable')
-    const draft = assertTarget()
+    const { draft, entry } = assertTarget()
+    if (input.context) {
+      const result = draftCommands['draft.addWorkspaceContext'].output.parse(
+        await local.execute(
+          'draft.addWorkspaceContext',
+          {
+            sessionId: input.sourceSessionId,
+            expectedRevision: input.expectedRevision,
+            context: captureFileWorkspaceContext(entry, input.path, input.context),
+          },
+          { signal: execution.signal },
+        ),
+      )
+      return {
+        sessionId: input.sourceSessionId,
+        sessionTitle: session.title,
+        revision: result.revision,
+        added: result.added,
+      }
+    }
     const existing = draft?.mentions.find(
       (mention) => mention.workspaceId === input.workspaceId && mention.path === input.path,
     )
@@ -773,59 +808,50 @@ export function createFileWorkspace(
     )
     return { sessionId: input.sourceSessionId, sessionTitle: session.title, revision: result.revision, added: true }
   })
-  local.register(
-    fileWorkspaceCommands['fileWorkspace.setBrowserMode'],
-    async (input) => {
-      const { instanceId, workspaceId, mode, preservePreview } = input
-      requireEntry(instanceId, workspaceId, input)
-      generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
-      if (mode === 'changed') {
-        tree.cancelAll(instanceId)
-        return summary(await changes.load(instanceId, workspaceId, preservePreview))
-      }
-      changes.cancelList(instanceId)
+  local.register(fileWorkspaceCommands['fileWorkspace.setBrowserMode'], async (input) => {
+    const { instanceId, workspaceId, mode, preservePreview } = input
+    requireEntry(instanceId, workspaceId, input)
+    generations.set(instanceId, (generations.get(instanceId) ?? 0) + 1)
+    if (mode === 'changed') {
       tree.cancelAll(instanceId)
-      const latest = requireEntry(instanceId, workspaceId, input)
-      if (latest.status !== 'ready' || latest.tree.revalidateOnOpen)
-        return load(instanceId, undefined, preservePreview, input.sourceSessionId)
-      const next = {
-        ...latest,
-        activePreviewId: preservePreview ? latest.activePreviewId : null,
-        browserMode: 'all' as const,
-      }
-      replace(next)
-      if (next.tree.filter.trim()) tree.search(instanceId, workspaceId, next.tree.filter)
-      return summary(next)
-    },
-  )
+      return summary(await changes.load(instanceId, workspaceId, preservePreview))
+    }
+    changes.cancelList(instanceId)
+    tree.cancelAll(instanceId)
+    const latest = requireEntry(instanceId, workspaceId, input)
+    if (latest.status !== 'ready' || latest.tree.revalidateOnOpen)
+      return load(instanceId, undefined, preservePreview, input.sourceSessionId)
+    const next = {
+      ...latest,
+      activePreviewId: preservePreview ? latest.activePreviewId : null,
+      browserMode: 'all' as const,
+    }
+    replace(next)
+    if (next.tree.filter.trim()) tree.search(instanceId, workspaceId, next.tree.filter)
+    return summary(next)
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.toggleTree'], async (input) => {
     requireEntry(input.instanceId, input.workspaceId, input)
     return summary(await tree.toggle(input.instanceId, input.workspaceId, input.path))
-  },
-  )
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.refreshTree'], async (input) => {
     requireEntry(input.instanceId, input.workspaceId, input)
     return summary(await tree.refresh(input.instanceId, input.workspaceId, input.path))
-  },
-  )
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.loadMoreTree'], async (input) => {
     requireEntry(input.instanceId, input.workspaceId, input)
     return summary(await tree.more(input.instanceId, input.workspaceId, input.path))
-  },
-  )
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.filterTree'], (input) => {
     const { instanceId, workspaceId, filter } = input
     requireEntry(instanceId, workspaceId, input)
     tree.search(instanceId, workspaceId, filter)
     return summary(requireEntry(instanceId, workspaceId, input))
   })
-  local.register(
-    fileWorkspaceCommands['fileWorkspace.refreshChanges'],
-    async (input) => {
-      requireEntry(input.instanceId, input.workspaceId, input)
-      return summary(await changes.load(input.instanceId, input.workspaceId, input.preservePreview))
-    },
-  )
+  local.register(fileWorkspaceCommands['fileWorkspace.refreshChanges'], async (input) => {
+    requireEntry(input.instanceId, input.workspaceId, input)
+    return summary(await changes.load(input.instanceId, input.workspaceId, input.preservePreview))
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.filterChanges'], (input) => {
     const { instanceId, workspaceId, filter } = input
     const entry = requireEntry(instanceId, workspaceId, input)
@@ -841,55 +867,39 @@ export function createFileWorkspace(
     replace(next)
     return summary(next)
   })
-  local.register(
-    fileWorkspaceCommands['fileWorkspace.openChange'],
-    async (input) => {
-      const { instanceId, workspaceId, path, cached } = input
-      const entry = requireEntry(instanceId, workspaceId, input)
-      assertPreview(entry, input)
-      return summary(await changes.open(instanceId, workspaceId, path, cached))
-    },
-  )
-  local.register(
-    fileWorkspaceCommands['fileWorkspace.setDocumentMode'],
-    (input) => {
-      const { instanceId, workspaceId, path, mode } = input
-      const entry = requireEntry(instanceId, workspaceId, input)
-      assertPreview(entry, input)
-      if (entry.view !== 'document' || entry.document?.path !== canonicalFilePath(path))
-        throw new CommandError('VERSION_CONFLICT', 'File view belongs to another document')
-      const next = projectFileEntry({
-        ...entry,
-        previews: entry.previews.map((preview) =>
-          preview.id === entry.activePreviewId && preview.kind === 'document'
-            ? { ...preview, documentMode: mode }
-            : preview,
-        ),
-      })
-      replace(next)
-      return summary(next)
-    },
-  )
+  local.register(fileWorkspaceCommands['fileWorkspace.openChange'], async (input) => {
+    const { instanceId, workspaceId, path, cached } = input
+    const entry = requireEntry(instanceId, workspaceId, input)
+    assertPreview(entry, input)
+    return summary(await changes.open(instanceId, workspaceId, path, cached))
+  })
+  local.register(fileWorkspaceCommands['fileWorkspace.setDocumentMode'], (input) => {
+    const { instanceId, workspaceId, path, mode } = input
+    const entry = requireEntry(instanceId, workspaceId, input)
+    assertPreview(entry, input)
+    if (entry.view !== 'document' || entry.document?.path !== canonicalFilePath(path))
+      throw new CommandError('VERSION_CONFLICT', 'File view belongs to another document')
+    const next = projectFileEntry({
+      ...entry,
+      previews: entry.previews.map((preview) =>
+        preview.id === entry.activePreviewId && preview.kind === 'document'
+          ? { ...preview, documentMode: mode }
+          : preview,
+      ),
+    })
+    replace(next)
+    return summary(next)
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.refresh'], (input, execution) =>
     load(input.instanceId, undefined, input.preservePreview, input.sourceSessionId, execution.signal),
   )
   local.register(fileWorkspaceCommands['fileWorkspace.loadMore'], (input, execution) =>
     loadMore(input.instanceId, input, execution.signal),
   )
-  local.register(
-    fileWorkspaceCommands['fileWorkspace.openEntry'],
-    (input, execution) => {
-      if (input.workspaceId) requireEntry(input.instanceId, input.workspaceId, input)
-      return openEntry(
-        input.instanceId,
-        input.path,
-        input.directory,
-        input.preservePreview,
-        input,
-        execution.signal,
-      )
-    },
-  )
+  local.register(fileWorkspaceCommands['fileWorkspace.openEntry'], (input, execution) => {
+    if (input.workspaceId) requireEntry(input.instanceId, input.workspaceId, input)
+    return openEntry(input.instanceId, input.path, input.directory, input.preservePreview, input, execution.signal)
+  })
   local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], (input) => showBrowser(input.instanceId, input))
   local.register(fileWorkspaceCommands['fileWorkspace.setText'], (input) =>
     action(input.instanceId, () => setText(input.instanceId, input.text, input), input),

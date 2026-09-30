@@ -71,6 +71,13 @@ export interface ComposerIntentOptions {
   /** Delegate to the existing draft module so its draft revision and receipt rules remain authoritative. */
   readonly executeRun: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>
   readonly serializeDraft?: (sessionId: string, revision: number, workspaceId: string, displayText: string) => string
+  /** Goal objectives contain the user's text and file mentions, never appended workspace quote snapshots. */
+  readonly serializeGoalObjective?: (
+    sessionId: string,
+    revision: number,
+    workspaceId: string,
+    displayText: string,
+  ) => string
   readonly reconcileRun: (sessionId: string) => Promise<RunAccepted | null>
   readonly getSettledReceipt?: (sessionId: string, key: string) => RunAccepted | null
   readonly permissions?: Pick<
@@ -160,6 +167,7 @@ type Submission = {
   readonly intent: ComposerIntent | 'goalSlash'
   readonly fingerprint: string
   readonly request: SubmitRunInput
+  readonly goalObjective: string | null
   readonly tokenBudget: number | undefined
   permission: ComposerPermissionSubmission | null
   baselineGoalId: string | null
@@ -557,6 +565,17 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         ? input.input.text
         : options.serializeDraft!(sessionId, input.expectedDraftRevision, navigation.workspaceId!, input.input.text)
     const current = entry(sessionId)
+    const submittedGoalObjective =
+      current.intent !== 'goal'
+        ? null
+        : input.expectedDraftRevision === undefined
+          ? input.input.text
+          : (options.serializeGoalObjective ?? options.serializeDraft)!(
+              sessionId,
+              input.expectedDraftRevision,
+              navigation.workspaceId!,
+              input.input.text,
+            )
     if (
       !state.reader.getSnapshot().entries[sessionId] &&
       Object.keys(state.reader.getSnapshot().entries).length >= MAX_ENTRIES
@@ -598,7 +617,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     }
     if (
       current.intent === 'goal' &&
-      (!request.input.text.trim() || request.input.text.trim().length > MAX_GOAL_OBJECTIVE_LENGTH)
+      (!submittedGoalObjective?.trim() || submittedGoalObjective.trim().length > MAX_GOAL_OBJECTIVE_LENGTH)
     )
       throw new CommandError('GOAL_INVALID', 'A Goal requires a bounded non-empty objective')
     // Capture policy before Goal reads/creation and reserve this composer while the default read is pending.
@@ -670,6 +689,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         intent: current.intent,
         fingerprint,
         request,
+        goalObjective: submittedGoalObjective?.trim() ?? null,
         tokenBudget: input.goalTokenBudget,
         permission,
         baselineGoalId: null,
@@ -701,13 +721,13 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           writeStarted = true
           const created = await requireGoals().execute('goal.create', {
             sessionId,
-            objective: request.input.text.trim(),
+            objective: pending.goalObjective ?? request.input.text.trim(),
             ...(pending.tokenBudget === undefined ? {} : { tokenBudget: pending.tokenBudget }),
           })
           if (
             !created.goal?.goalId ||
             created.goal.threadId !== sessionId ||
-            created.goal.objective !== request.input.text.trim() ||
+            created.goal.objective !== (pending.goalObjective ?? request.input.text.trim()) ||
             created.goal.status !== 'active'
           )
             throw new CommandError('INVALID_OUTPUT', 'Created Goal has no matching identity')
@@ -982,6 +1002,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         preparedGoalId: input.expectedGoalId,
         phase: 'run',
         status: 'submitting',
+        goalObjective: null,
         slashDraft: { revision: input.expectedDraftRevision, text: input.draftText },
       }
       submissions.set(sessionId, pending)
@@ -1106,7 +1127,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           value.goal?.goalId &&
           value.goal.goalId !== pending.baselineGoalId &&
           value.goalSeq > pending.baselineGoalSeq &&
-          value.goal.objective === pending.request.input.text.trim() &&
+          value.goal.objective === (pending.goalObjective ?? pending.request.input.text.trim()) &&
           value.goal.status === 'active' &&
           (pending.tokenBudget === undefined || value.goal.tokenBudget === pending.tokenBudget)
         ) {

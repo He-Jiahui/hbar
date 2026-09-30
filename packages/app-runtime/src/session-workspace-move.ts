@@ -6,7 +6,7 @@ import {
   type ExecuteOptions,
 } from '@hbar/commands'
 import { idSchema } from '@hbar/contracts'
-import type { PromptAttachment, PromptMention } from '@hbar/contracts/commands/draft'
+import type { PromptAttachment, PromptMention, PromptWorkspaceContext } from '@hbar/contracts/commands/draft'
 import { fileCommands, workspaceFilePageSchema } from '@hbar/contracts/commands/files'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import type { SessionSnapshot } from '@hbar/contracts'
@@ -16,6 +16,7 @@ import type { ComposerIntentState, ComposerIntent } from './composer-intent'
 import type { ComposerPermissionState, ComposerPermissionChoice } from './composer-permission'
 import type { ComposerPlanModeState } from './composer-plan-mode'
 import { createState, type StateReader } from './state'
+import { workspaceContextSemanticKey } from './composer-workspace-contexts'
 import type { WorkspaceTabCloseTarget } from './workspace-tab-close'
 import type { DraftsState, NavigationState, SessionControlsState, SessionTimelineState } from './types'
 
@@ -93,6 +94,7 @@ interface CapturedDraft {
   readonly revision: number
   readonly text: string
   readonly mentions: readonly PromptMention[]
+  readonly workspaceContexts: readonly PromptWorkspaceContext[]
   readonly attachments: readonly PromptAttachment[]
 }
 
@@ -188,6 +190,7 @@ function captureDraft(drafts: StateReader<DraftsState>, sessionId: string): Capt
     revision: draft?.revision ?? 0,
     text: draft?.text ?? '',
     mentions: (draft?.mentions ?? []).map((item) => ({ ...item })),
+    workspaceContexts: (draft?.workspaceContexts ?? []).map((item) => ({ ...item })),
     attachments: (draft?.attachments ?? []).map((item) => ({ ...item, artifact: { ...item.artifact } })),
   }
 }
@@ -197,7 +200,23 @@ function sameDraft(left: CapturedDraft, right: CapturedDraft): boolean {
     left.revision === right.revision &&
     left.text === right.text &&
     JSON.stringify(left.mentions) === JSON.stringify(right.mentions) &&
+    sameWorkspaceContexts(left.workspaceContexts, right.workspaceContexts) &&
     JSON.stringify(left.attachments) === JSON.stringify(right.attachments)
+  )
+}
+
+function sameWorkspaceContexts(
+  left: readonly PromptWorkspaceContext[],
+  right: readonly PromptWorkspaceContext[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((context, index) => {
+      const candidate = right[index]
+      return (
+        candidate?.id === context.id && workspaceContextSemanticKey(candidate) === workspaceContextSemanticKey(context)
+      )
+    })
   )
 }
 
@@ -649,6 +668,31 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
         const seeded = options.drafts.getSnapshot()[targetSessionId]
         if (!seeded || JSON.stringify(seeded.attachments) !== JSON.stringify(attachments))
           throw new CommandError('INVALID_OUTPUT', 'The target attachments were not confirmed')
+      }
+    }
+
+    const finalDraft = options.drafts.getSnapshot()[targetSessionId]
+    const workspaceContexts = operation.sourceDraft.workspaceContexts
+    if (!sameWorkspaceContexts(finalDraft?.workspaceContexts ?? [], workspaceContexts)) {
+      if (finalDraft?.workspaceContexts?.length)
+        throw new CommandError(
+          'VERSION_CONFLICT',
+          'The target workspace contexts changed before source contexts were copied',
+        )
+      if (workspaceContexts.length) {
+        await local.execute(
+          'draft.setWorkspaceContexts',
+          {
+            sessionId: targetSessionId,
+            workspaceContexts,
+            expectedRevision: finalDraft?.revision ?? 0,
+          },
+          { signal },
+        )
+        requireCurrent(operation, signal, selection)
+        const seeded = options.drafts.getSnapshot()[targetSessionId]
+        if (!sameWorkspaceContexts(seeded?.workspaceContexts ?? [], workspaceContexts))
+          throw new CommandError('INVALID_OUTPUT', 'The original workspace contexts were not confirmed')
       }
     }
   }

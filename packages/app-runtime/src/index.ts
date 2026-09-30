@@ -15,6 +15,7 @@ import { preSessionDraftCommands } from '@hbar/contracts/commands/pre-session-dr
 export type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 export type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
 export type { SessionLaunchBranchesPage } from '@hbar/contracts/commands/session-launch-branches'
+export type { PromptWorkspaceContext, PromptWorkspaceContextInput } from '@hbar/contracts/commands/draft'
 import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
 import { runActionCommands } from '@hbar/contracts/commands/run-action'
 export { runActionCommands } from '@hbar/contracts/commands/run-action'
@@ -29,6 +30,9 @@ import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { commandPaletteCommands } from '@hbar/contracts/commands/command-palette'
 import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
 export type { SessionFileTarget } from '@hbar/contracts/commands/files'
+export type { FileComposerContextSelection } from '@hbar/contracts/commands/file-workspace'
+export { projectWorkspaceDiffRows, selectWorkspaceDiffRange } from './file-context-selection'
+export type { WorkspaceDiffRow, WorkspaceDiffRange } from './file-context-selection'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
@@ -683,12 +687,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,
+    serializeGoalObjective: drafts.serializeGoalObjective,
     consumeGoalSlashDraft: (sessionId, revision, text) => {
       const current = drafts.reader.getSnapshot()[sessionId]
       if (
         current?.revision !== revision ||
         current.text !== text ||
         current.mentions.length ||
+        current.workspaceContexts?.length ||
         current.attachments.length ||
         current.attachmentTransfers.length ||
         current.status === 'unknown' ||

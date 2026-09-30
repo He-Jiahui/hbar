@@ -16,8 +16,67 @@ export const promptMentionSchema = z.strictObject({
   workspaceId: idSchema,
   directory: z.boolean(),
 })
+export const MAX_PROMPT_WORKSPACE_CONTEXTS = 12
+export const MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH = 20_000
+export const MAX_PROMPT_WORKSPACE_CONTEXT_NOTE_LENGTH = 4_000
+export const MAX_PROMPT_WORKSPACE_CONTEXT_SERIALIZED_LENGTH = 200_000
+const promptWorkspaceContextRange = {
+  workspaceId: idSchema,
+  path: z.string().min(1).max(4000),
+  lineStart: z.number().int().positive(),
+  lineEnd: z.number().int().positive(),
+  quote: z
+    .string()
+    .min(1)
+    .max(MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH)
+    .refine((value) => !!value.trim()),
+}
+const promptWorkspaceContextInputVariants = [
+  z.strictObject({
+    kind: z.literal('source-selection'),
+    ...promptWorkspaceContextRange,
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  }),
+  z.strictObject({
+    kind: z.literal('source-comment'),
+    ...promptWorkspaceContextRange,
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+    note: z.string().trim().min(1).max(MAX_PROMPT_WORKSPACE_CONTEXT_NOTE_LENGTH),
+  }),
+  z.strictObject({
+    kind: z.literal('diff-comment'),
+    ...promptWorkspaceContextRange,
+    cached: z.boolean(),
+    diffSide: z.enum(['old', 'new']),
+    hunkId: z.string().min(1).max(256),
+    note: z.string().trim().min(1).max(MAX_PROMPT_WORKSPACE_CONTEXT_NOTE_LENGTH),
+  }),
+] as const
+const promptWorkspaceContextVariants = [
+  promptWorkspaceContextInputVariants[0].extend({ id: z.string().uuid() }),
+  promptWorkspaceContextInputVariants[1].extend({ id: z.string().uuid() }),
+  promptWorkspaceContextInputVariants[2].extend({ id: z.string().uuid() }),
+] as const
+const validateWorkspaceContextRange = (
+  context: { readonly lineStart: number; readonly lineEnd: number },
+  refinement: z.RefinementCtx,
+) => {
+  if (context.lineEnd < context.lineStart)
+    refinement.addIssue({ code: z.ZodIssueCode.custom, path: ['lineEnd'], message: 'Line range end precedes start' })
+}
+export const promptWorkspaceContextInputSchema = z
+  .discriminatedUnion('kind', promptWorkspaceContextInputVariants)
+  .superRefine(validateWorkspaceContextRange)
+export const promptWorkspaceContextSchema = z
+  .discriminatedUnion('kind', promptWorkspaceContextVariants)
+  .superRefine(validateWorkspaceContextRange)
+export const promptWorkspaceContextsSchema = z.array(promptWorkspaceContextSchema).max(MAX_PROMPT_WORKSPACE_CONTEXTS)
 const draftResultSchema = z.strictObject({ sessionId: idSchema, revision: z.number().int().nonnegative() })
 const attachmentResultSchema = draftResultSchema.extend({ attachment: promptAttachmentSchema })
+const workspaceContextResultSchema = draftResultSchema.extend({
+  added: z.boolean(),
+  context: promptWorkspaceContextSchema,
+})
 export const draftAttachmentTransferStatusSchema = z.enum([
   'preparing',
   'uploading',
@@ -79,6 +138,33 @@ export const draftCommands = {
       sessionId: idSchema,
       text: z.string().max(200_000),
       mentions: z.array(promptMentionSchema).max(40),
+      expectedRevision: z.number().int().nonnegative(),
+    }),
+    draftResultSchema,
+  ),
+  'draft.addWorkspaceContext': defineCommand(
+    metadata('draft.addWorkspaceContext'),
+    z.strictObject({
+      sessionId: idSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      context: promptWorkspaceContextInputSchema,
+    }),
+    workspaceContextResultSchema,
+  ),
+  'draft.removeWorkspaceContext': defineCommand(
+    metadata('draft.removeWorkspaceContext'),
+    z.strictObject({
+      sessionId: idSchema,
+      contextId: z.string().uuid(),
+      expectedRevision: z.number().int().nonnegative(),
+    }),
+    draftResultSchema.extend({ removed: z.boolean() }),
+  ),
+  'draft.setWorkspaceContexts': defineCommand(
+    metadata('draft.setWorkspaceContexts'),
+    z.strictObject({
+      sessionId: idSchema,
+      workspaceContexts: promptWorkspaceContextsSchema,
       expectedRevision: z.number().int().nonnegative(),
     }),
     draftResultSchema,
@@ -177,6 +263,8 @@ export const draftCommands = {
 
 export type PromptAttachment = z.output<typeof promptAttachmentSchema>
 export type PromptMention = z.output<typeof promptMentionSchema>
+export type PromptWorkspaceContext = z.output<typeof promptWorkspaceContextSchema>
+export type PromptWorkspaceContextInput = z.output<typeof promptWorkspaceContextInputSchema>
 export type DraftAttachmentTransfer = Readonly<z.output<typeof draftAttachmentTransferSchema>>
 export type AttachmentReservationTarget = Readonly<z.output<typeof attachmentReservationTargetSchema>>
 export type AttachmentSelectionReservation = Readonly<z.output<typeof attachmentSelectionReservationSchema>>
