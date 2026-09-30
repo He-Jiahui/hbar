@@ -1277,3 +1277,34 @@ thread/composer。仅两个窄屏样本、一个文档树真实滚动样本、�
 和生产预览构建通过。新增 Inbox 测试回调修正为 fixture 的双参数契约；浏览器定位
 修正为所属响应式区域和正确环境数据，不为脚本而改变正常视图。未重跑或重标旧严格
 按钮/主题/视口排列，也不声称 fresh strict 全量或真实服务验收。
+
+App Sidebar 1–7 本轮保留已有七种独立侧栏结构，把 `main.tsx` 中跨变体存留的
+工作区/栏目 React 选择迁入所属 Zustand Host。模型只在 app-sidebar 类别挂载，
+变体与原有七种夹具参数组成拥有边界，切换重新初始化；只生成当前详细夹具。
+可选 presentation 保留旧默认 DOM，由 Host 提供 EN/DE 预览请求反馈。请求按当前
+内容的精确 action/target 对验证，栏目替换会清除旧页面意图并拒绝迟到目标；空白、
+失效、其它 owner 和当前重复请求均不接受。公共 helper 保留 first-wins 与有效 ID 原文。
+
+来源使用已授权缓存 `app-sidebar-{1..7}-iteration-v{51,62,68,75,83,89,91}`，
+查看七种 desktop/tablet/mobile 与相关 context；关联子仓结构提交包括 primary
+`731835d333`、workspace `4831a2b47e`、dual `890c503d94`、full `cb490a05ac`，
+根既有 primary/full 测试和审计提交为 `cde74f94`、`3a1f727a`。第一种无搜索，
+3–5 的搜索只保存输入、不过滤导航或文档；第三种更换工作区身份而保留原导航，
+第四种更换所属页面组。树披露与菜单、rail hover/focus 浮层、drawer 打开关闭保持
+原有局部行为。文件复制/删除/新建、账号和服务动作仅记录请求，不伪造业务成功。
+已有链接保留同页 fragment，不把无外部导航写成完全没有原生锚点行为。
+
+侧栏属于有界布局，新增 scoped flex 包装只为 notice 留出自然空间，原 pane 占据
+剩余画布；不改内部正常流或已证实覆盖层。默认短导航保持原结构，压力集合继续
+使用明确 pane-scroll；第七种 65 项的末项经实际滚动可达，footer 不被列表挤走。
+三张代表图已目视检查，没有阻断使用的布局问题。第六种只验证触发器键盘打开，
+不将现有组件没有实现的焦点陷阱/自动恢复写成完成。
+
+新增 `bun scripts/verify-hbar-app-ui-app-sidebar.ts`，七种结构各取一个核心路径，
+只取两个窄屏样本、一个真实长列表滚动样本和三张图，不扩展逐按钮/主题/视口矩阵。
+14 条核心检查记录通过，图在 `artifacts/app-sidebar-core-review/`，无 page/console
+error 或页面横溢。50 项模型/SSR/公共契约测试、339 个断言通过；根/子仓类型、
+限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
+生产预览构建通过。构建保留既有 chunk-size 警告，未升级或安装工具链，使用本地
+已装二进制，不宣称执行固定 pnpm 版本或 MUI proptypes/docs 工作流。未重跑或
+重标旧严格审计，未触碰根已有 `AppSidebarSurface.css` 与其它用户未提交改动。

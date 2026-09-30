@@ -65,6 +65,7 @@ import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import './usage-preview.css'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
+import { AppSidebarPreviewHost } from './AppSidebarPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -77,7 +78,6 @@ import { Maximize2, Moon, RotateCcw, Search, Sun, X } from 'lucide-react'
 import {
   HBAR_APP_UI_CATEGORIES,
   HBAR_APP_UI_CATEGORY_COUNTS,
-  HbarAppUiAppSidebarProvider,
   HbarAppUiAiChatProvider,
   HbarAppUiAgentActivityProvider,
   HbarAppUiPaywallProvider,
@@ -244,13 +244,6 @@ import {
 } from '../../../tests/fixtures/hbar-app-ui-wizard-fixtures'
 import { HBAR_APP_UI_APP_SHELL_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-shell-fixtures'
 import { HBAR_APP_UI_APP_SIDEBAR_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-fixtures'
-import { appSidebarPrimaryFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-primary-fixtures'
-import { appSidebarRailFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-rail-fixtures'
-import { appSidebarWorkspaceFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-workspace-fixtures'
-import { appSidebarDualFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-dual-fixtures'
-import { appSidebarTreeFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-tree-fixtures'
-import { appSidebarDrawerFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-drawer-fixtures'
-import { appSidebarFullFixture } from '../../../tests/fixtures/hbar-app-ui-app-sidebar-full-fixtures'
 import {
   createHbarAppUiAiChatLocalizedFixtures,
   HBAR_APP_UI_AI_CHAT_FIXTURES,
@@ -312,8 +305,6 @@ function PreviewApp() {
   const [viewport, setViewport] = useState<Viewport>('desktop')
   const [eventLog, setEventLog] = useState<readonly HbarAppUiEvent[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [appSidebarWorkspaceId, setAppSidebarWorkspaceId] = useState('northwind')
-  const [appSidebarDualSectionId, setAppSidebarDualSectionId] = useState('automations')
   const previewRef = useRef<HTMLDivElement>(null)
   const isolated = useMemo(() => new URLSearchParams(window.location.search).get('mode') === 'isolated', [])
   const editorContent = useMemo(() => {
@@ -719,27 +710,7 @@ function PreviewApp() {
         : HBAR_APP_UI_WIZARD_FIXTURES
   }, [])
   const appShellContent = useMemo(() => HBAR_APP_UI_APP_SHELL_FIXTURES, [])
-  const appSidebarContent = useMemo(
-    () => ({
-      ...HBAR_APP_UI_APP_SIDEBAR_FIXTURES,
-      primary: appSidebarPrimaryFixture(new URLSearchParams(window.location.search).get('appSidebarFixture')),
-      railPreview: appSidebarRailFixture(new URLSearchParams(window.location.search).get('appSidebarRailFixture')),
-      workspacePreview: appSidebarWorkspaceFixture(
-        new URLSearchParams(window.location.search).get('appSidebarWorkspaceFixture'),
-        appSidebarWorkspaceId,
-      ),
-      dualPreview: appSidebarDualFixture(
-        new URLSearchParams(window.location.search).get('appSidebarDualFixture'),
-        appSidebarDualSectionId,
-      ),
-      treePreview: appSidebarTreeFixture(new URLSearchParams(window.location.search).get('appSidebarTreeFixture')),
-      drawerPreview: appSidebarDrawerFixture(
-        new URLSearchParams(window.location.search).get('appSidebarDrawerFixture'),
-      ),
-      fullPreview: appSidebarFullFixture(new URLSearchParams(window.location.search).get('appSidebarFullFixture')),
-    }),
-    [appSidebarWorkspaceId, appSidebarDualSectionId],
-  )
+  const appSidebarContent = useMemo(() => HBAR_APP_UI_APP_SIDEBAR_FIXTURES, [])
   const aiChatContent = useMemo(
     () =>
       new URLSearchParams(window.location.search).get('aiChatFixture') === 'localized'
@@ -881,12 +852,6 @@ function PreviewApp() {
   }
 
   const handleAction = (event: HbarAppUiEvent) => {
-    if (event.variantId === 'hbar-app-ui-app-sidebar-3' && event.actionId === 'workspace' && event.value) {
-      setAppSidebarWorkspaceId(event.value)
-    }
-    if (event.variantId === 'hbar-app-ui-app-sidebar-4' && event.actionId === 'section' && event.value) {
-      setAppSidebarDualSectionId(event.value)
-    }
     setEventLog((current) => [event, ...current].slice(0, 12))
   }
 
@@ -920,7 +885,7 @@ function PreviewApp() {
           <KanbanPreviewHost content={kanbanContent}>
             <HbarAppUiAiChatProvider content={aiChatContent}>
               <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
-              <HbarAppUiAppSidebarProvider content={appSidebarContent}>
+              <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
                     <FeedbackPreviewHost content={feedbackContent}>
@@ -1275,7 +1240,7 @@ function PreviewApp() {
                     </FeedbackPreviewHost>
                   </HbarAppUiFileManagerProvider>
                 </AppShellPreviewHost>
-              </HbarAppUiAppSidebarProvider>
+              </AppSidebarPreviewHost>
               </AiChatReferencePreviewHost>
             </HbarAppUiAiChatProvider>
           </KanbanPreviewHost>
@@ -1410,7 +1375,7 @@ function PreviewApp() {
                     <KanbanPreviewHost content={kanbanContent}>
                       <HbarAppUiAiChatProvider content={aiChatContent}>
                         <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
-                        <HbarAppUiAppSidebarProvider content={appSidebarContent}>
+                        <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
                           <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                             <HbarAppUiFileManagerProvider content={fileManagerContent}>
                               <FeedbackPreviewHost content={feedbackContent}>
@@ -1789,7 +1754,7 @@ function PreviewApp() {
                               </FeedbackPreviewHost>
                             </HbarAppUiFileManagerProvider>
                           </AppShellPreviewHost>
-                        </HbarAppUiAppSidebarProvider>
+                        </AppSidebarPreviewHost>
                         </AiChatReferencePreviewHost>
                       </HbarAppUiAiChatProvider>
                     </KanbanPreviewHost>
