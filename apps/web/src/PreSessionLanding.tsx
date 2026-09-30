@@ -661,8 +661,8 @@ export function WebPreSessionLanding({
         controls: (
           <LumenFrame className="hbar-web-pre-session-controls">
             {goalControl}
-            {workspaceControl}
             {approvalControl}
+            {workspaceControl}
           </LumenFrame>
         ),
         modelPicker: modelControls,

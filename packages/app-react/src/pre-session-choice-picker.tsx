@@ -75,9 +75,17 @@ export function HbarPreSessionChoicePicker({
   const trigger = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
   const lastOpenRequest = useRef(openRequest)
+  const restoreDialogFocus = useRef(false)
   const unique = useMemo(() => visiblePreSessionChoices(items, '', items.length).rows, [items])
   const selected = unique.find((item) => item.id === selectedId) ?? null
   const { rows, remaining } = visiblePreSessionChoices(items, query, limit)
+  useEffect(() => {
+    if (placement !== 'dialog' || open || !restoreDialogFocus.current) return
+    restoreDialogFocus.current = false
+    // A modal still makes the trigger inert until React commits its removal.
+    // Restore from this closed-state effect, not before setOpen(false) settles.
+    trigger.current?.focus()
+  }, [open, placement])
   useEffect(() => {
     if (lastOpenRequest.current === openRequest) return
     lastOpenRequest.current = openRequest
@@ -108,9 +116,12 @@ export function HbarPreSessionChoicePicker({
   const close = () => {
     if (pendingId !== null) return
     if (placement === 'composer') popup.current?.hidePopover()
-    else setOpen(false)
+    else {
+      restoreDialogFocus.current = true
+      setOpen(false)
+    }
     reset()
-    trigger.current?.focus()
+    if (placement === 'composer') trigger.current?.focus()
   }
   const content = (
     <LumenFrame className="hbar-pre-session-choice-content">
@@ -147,9 +158,12 @@ export function HbarPreSessionChoicePicker({
                 .then(() => {
                   setPendingId(null)
                   if (placement === 'composer') popup.current?.hidePopover()
-                  else setOpen(false)
+                  else {
+                    restoreDialogFocus.current = true
+                    setOpen(false)
+                  }
                   reset()
-                  trigger.current?.focus()
+                  if (placement === 'composer') trigger.current?.focus()
                 })
                 .catch((reason: unknown) => {
                   setPendingId(null)

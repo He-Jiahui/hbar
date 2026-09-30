@@ -134,6 +134,18 @@ Changed 使用 `sessionGit.status/diff` 的 execution-root 相对路径与严格
 6. 子 Agent／Fork 的执行位置需要单独闭环。当前普通 Agent child 按 parent 的注册 workspace 创建，patchTask 也从 `sessions.workspace(parent.workspaceId)` 同步源文件，不能据此宣称已经继承隔离父会话的实际目录。另需核对正常 Git branch mutation 与首次 launch selection 的关系；当前绑定核对要求原分支名，不应在 UI 上无说明地承诺任意 branch switch 后可以继续。
 7. 如需支持 monorepo 子目录的隔离会话，应持久保存仓库 root 和受限 execution cwd，并让模型、工具、Files、Git 与子 Agent 使用后者；先验证 scope 不扩大，再解除目前的明确拒绝。
 
-参考的 Location 选择更新 parent-owned choice 后关闭，工作树准备发生在 first Send；不要为适配当前 API 凭空增加一个可见 Prepare 按钮。hbar 的空 composer 是尚无 sessionId 的 pre-session draft，未来应先把 launch choice 纳入其版本化契约，在首次发送时幂等移交给物化会话，再启动可查询、可取消的准备任务。prepare operation、launch revision、request／idempotency key 与 Run receipt 是不同事实；遗失受理回执应核对原键，取消需等 Git 已结算才可标记终态，重启 reconcile 不得重做未知副作用。这是下一切片的设计约束，尚未实现。
+参考的 Location 选择更新 parent-owned choice 后关闭，工作树准备发生在 first Send；不要为适配当前 API 凭空增加一个可见 Prepare 按钮。hbar 的空 composer 是尚无 sessionId 的 pre-session draft；版本化本地 choice 已完成下面的独立切片，仍需在首次发送时幂等移交给物化会话，再启动可查询、可取消的准备任务。prepare operation、launch revision、request／idempotency key 与 Run receipt 是不同事实；遗失受理回执应核对原键，取消需等 Git 已结算才可标记终态，重启 reconcile 不得重做未知副作用。完整 handoff 仍未实现。
+
+### 空会话的阅读顺序与关闭后焦点
+
+`13c4f9f0` 已将 launch selection 纳入版本化本地 draft 和不可变首次发送 capture：同一选择不额外增版本，更换工作区重置位置但保留文本、模型／thinking、权限和 Plan／Goal。缺少准备 handoff 时，isolated Send 在创建 Session 前明确失败，不忽略用户选择而发送到 shared checkout。该本地切片的 pre-session、Goal、Plan mode／choice 回归为 83 tests／466 assertions；strict 和 scoped lint 通过。它还不是完整 Location 或隔离首发闭环。
+
+随后按有效参考的工具行层级，将可见控件顺序校正为加号 → 权限／Plan → 项目选择 → 模型。DOM／Tab 顺序随正常 flex 流变化，不用 CSS `order` 掩盖可访问阅读顺序；这一步仍使用原有项目对话框，尚未添加 Branch／worktree 根菜单，也没有复制参考的主题色或去掉现有 Lumen lamp 样式。
+
+新的 production Web＋临时真实 Host 验证最初发现一个实际焦点故障：项目对话框关闭时，`pre-session-choice-picker` 在 `setOpen(false)` 提交之前调用 trigger.focus，外部按钮仍被 native modal 标为 inert。该同步恢复代码可追溯到 `7312b8c1`，当前 `LumenDialog.showModal` 实现与两种语言的浏览器复现证明了这次故障；未对历史 revision 做浏览器对比，不能称该提交是已证实的故障引入点。修复将 dialog 的显式关闭／成功选择恢复延后到关闭状态的 React effect，初始 closed render 不抢焦点；composer Popover 的现有同步关闭保持不变。
+
+修复后 `e2e/composer-launch-order.spec.ts` **2 cases／9.8s** 通过：en-US／zh-CN 的 1440、900、390、320px，实际 Tab 顺序、各触发器可见、无 document 横向溢出；权限 Escape、项目 Close／Escape／成功选择均回原触发器；原草稿保留，零新增 Session／tab。八张截图位于隔离 checkout `artifacts/composer-launch-order/`，人工核对英文 1440 与中文 320；初始两种语言的失败 trace／PNG／context 保留在 `initial-dialog-focus-failure/`。该测试未调用付费模型、修改用户配置或进行 native 验收，自有 browser／preview／Host 已释放。
+
+这三个 UI／E2E 文件的 full-flag explicit strict TypeScript、scoped ESLint 零警告及 staged diff 检查通过；choice-picker／新 E2E／文档的 Prettier 通过。`PreSessionLanding.tsx` 格式检查仍有告警，独立检查当前 HEAD 的原始文件也退出 1；该文件本次只调换两个 JSX children，没有夹带历史全文件格式化。两个 TSX 的 flow／content／icon guards 通过，生产 Web build 通过并保留既有 2.37MB chunk 警告。rendered choice-picker suite 仍在测试执行前因 pinned `hbar-ui` 缺少 `prop-types` 失败（0 pass／1 fail／1 error）；未安装依赖，也不把浏览器绿色结果表述成全仓检查通过。
 
 隔离分支的全仓 TypeScript 检查尚受根测试 fixture 的 `@lumen/app-ui` 解析基线影响；变更文件的 explicit strict TypeScript 与 targeted lint 另行运行并记录，不能把 scoped gate 表述成全仓通过。主工作区同时存在其他任务的 Kernel、manifest 和 UI 改动，未清除、自动暂存或夹带它们；集成必须单独核对。
