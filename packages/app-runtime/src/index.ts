@@ -16,6 +16,7 @@ export type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-
 export type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
 export type { SessionLaunchBranchesPage } from '@hbar/contracts/commands/session-launch-branches'
 export type { PromptWorkspaceContext, PromptWorkspaceContextInput } from '@hbar/contracts/commands/draft'
+export { MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH } from '@hbar/contracts/commands/draft'
 import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
 import { runActionCommands } from '@hbar/contracts/commands/run-action'
 export { runActionCommands } from '@hbar/contracts/commands/run-action'

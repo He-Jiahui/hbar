@@ -39,6 +39,12 @@ import {
   type HbarMessageForkAction,
 } from './session-message'
 import { projectSessionMessages, projectSessionTimelineSequence } from './session-message-model'
+import { conversationMessageExpectedText, type ConversationSelectionSubmission } from './conversation-selection-model'
+import {
+  HbarConversationSelection,
+  useConversationSelectionKeyboardOwner,
+  type HbarConversationSelectionLabels,
+} from './conversation-selection'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
@@ -118,6 +124,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly prompt: LumenPromptLabels
   readonly attachments: HbarComposerAttachmentLabels
   readonly workspaceContexts: HbarComposerWorkspaceContextLabels
+  readonly conversationSelection: HbarConversationSelectionLabels
   readonly mentions: HbarComposerMentionLabels
   readonly slash: HbarComposerSlashLabels
   readonly addMenu: HbarComposerAddMenuLabels
@@ -307,6 +314,7 @@ function SessionWorkspaceContent({
       .catch(() => undefined)
   }, [connected, navigation.workspaceId, runtime.commands, sessionId])
   const find = useSessionFind(timeline, labels.find)
+  useConversationSelectionKeyboardOwner(find.workspaceRef)
   const preparationStatus = sessionPreparationStatus(
     executionAccess,
     sessionId && navigation.workspaceId === sessionWorkspaceId ? { sessionId, workspaceId: sessionWorkspaceId } : null,
@@ -334,6 +342,28 @@ function SessionWorkspaceContent({
   const permissionEntry = sessionId ? composerPermission.entries[sessionId] : undefined
   const planModeEntry = sessionId ? composerPlanMode.entries[sessionId] : undefined
   const intentPending = intentEntry?.submission.status === 'submitting' || intentEntry?.submission.status === 'unknown'
+  const activeSessionTab = tabs.items.find((tab) => tab.id === tabs.activeId)
+  const activeConversationOwner =
+    navigation.status === 'idle' &&
+    Boolean(sessionId) &&
+    navigation.sessionId === sessionId &&
+    navigation.workspaceId === sessionWorkspaceId &&
+    presentation.page.kind === 'session' &&
+    (tabs.activeId === null
+      ? activeSessionTab === undefined
+      : activeSessionTab?.kind === 'session' &&
+        activeSessionTab.sessionId === sessionId &&
+        activeSessionTab.workspaceId === sessionWorkspaceId)
+  const conversationSelectionEnabled =
+    connected &&
+    activeConversationOwner &&
+    timeline.sessionId === sessionId &&
+    timeline.status === 'ready' &&
+    !workspaceMoveLocked &&
+    !firstSendLocked &&
+    !intentPending &&
+    draft?.status !== 'submitting' &&
+    draft?.status !== 'unknown'
   const intent = intentEntry?.intent ?? 'default'
   const model = controls.sessionId === sessionId ? controls.model : null
   const configured = model?.status === 'configured' && model.modelId !== null
@@ -1140,15 +1170,67 @@ function SessionWorkspaceContent({
         : {}),
     }
   }
+  const addConversationSelection = async (input: ConversationSelectionSubmission): Promise<boolean> => {
+    const currentNavigation = runtime.state.navigation.getSnapshot()
+    const currentTabs = runtime.state.workspaceTabs.getSnapshot()
+    const currentTab = currentTabs.items.find((tab) => tab.id === currentTabs.activeId)
+    const currentPresentation = runtime.state.presentation.getSnapshot()
+    const currentTimeline = runtime.state.timeline.getSnapshot()
+    const currentDraft = runtime.state.drafts.getSnapshot()[input.sessionId]
+    const currentIntent = runtime.state.composerIntent.getSnapshot().entries[input.sessionId]
+    const currentMoves = runtime.state.sessionWorkspaceMove.getSnapshot()
+    const currentMove =
+      currentMoves.entries[input.sessionId] ??
+      Object.values(currentMoves.entries).find((entry) => entry.targetSessionId === input.sessionId)
+    const currentFirstSend = Object.values(runtime.state.preSessionDrafts.getSnapshot()).find(
+      (entry) =>
+        entry.sessionId === input.sessionId &&
+        entry.capturedWorkspaceId === sessionWorkspaceId &&
+        entry.error !== 'GOAL_PREPARED' &&
+        entry.phase !== 'accepted' &&
+        entry.phase !== 'idle',
+    )
+    const currentOwner =
+      currentNavigation.status === 'idle' &&
+      currentNavigation.sessionId === input.sessionId &&
+      currentNavigation.workspaceId === sessionWorkspaceId &&
+      currentPresentation.page.kind === 'session' &&
+      (currentTabs.activeId === null
+        ? currentTab === undefined
+        : currentTab?.kind === 'session' &&
+          currentTab.sessionId === input.sessionId &&
+          currentTab.workspaceId === sessionWorkspaceId)
+    const moveLocked = Boolean(
+      currentMove &&
+      currentMove.status !== 'succeeded' &&
+      (currentMove.status === 'busy' ||
+        currentMove.status === 'unknown' ||
+        currentMove.status === 'paused' ||
+        currentMove.targetSessionId !== null),
+    )
+    if (!connected) throw new RuntimeCommandError('HOST_DISCONNECTED', 'Conversation selection is unavailable')
+    if (
+      !currentOwner ||
+      !sessionId ||
+      input.sessionId !== sessionId ||
+      currentTimeline.sessionId !== input.sessionId ||
+      currentTimeline.status !== 'ready'
+    )
+      throw new RuntimeCommandError('STALE_TARGET', 'The selected conversation target is no longer active')
+    if (
+      moveLocked ||
+      firstSendIsLocked(currentFirstSend) ||
+      ['submitting', 'unknown'].includes(currentDraft?.status ?? '') ||
+      ['submitting', 'unknown'].includes(currentIntent?.submission.status ?? '')
+    )
+      throw new RuntimeCommandError('BUSY', 'The Session draft is busy')
+
+    await runtime.commands.execute('draft.addConversationSelection', input)
+    return true
+  }
   const messageRows: LumenMessageProps[] = [
-    ...projectedMessages.map(({ message, blocks, results }) => ({
-      id: message.id,
-      role: message.role,
-      author: labels.author[message.role],
-      avatar: labels.avatar[message.role],
-      appearance: 'transcript' as const,
-      copyLabel: labels.copy,
-      children:
+    ...projectedMessages.map(({ message, blocks, results }) => {
+      const body =
         proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
           <HbarProposedPlanMessage
             copyOwner={runtime}
@@ -1207,28 +1289,56 @@ function SessionWorkspaceContent({
             describeTool={describeTool}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
           />
-        ),
-      actions:
-        (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
-        forkActionFor(message) ||
-        messageFork.actions[forkKey(message)]?.status === 'created' ? (
-          <HbarMessageActionBar
+        )
+      const expectedText = conversationMessageExpectedText(message.content)
+      const selectableRole = message.role === 'user' || message.role === 'assistant' ? message.role : null
+      const children =
+        selectableRole && expectedText.trim() ? (
+          <HbarConversationSelection
             sessionId={message.sessionId}
             messageId={message.id}
-            content={message.content}
-            labels={labels.messageActions}
-            copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
-            fork={forkActionFor(message)}
-            metadata={
-              <LumenText as="span">
-                {messageFork.actions[forkKey(message)]?.status === 'created'
-                  ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
-                  : labels.timestamp(message.createdAt)}
-              </LumenText>
-            }
-          />
-        ) : null,
-    })),
+            sourceRole={selectableRole}
+            expectedText={expectedText}
+            expectedRevision={drafts[message.sessionId]?.revision ?? 0}
+            enabled={conversationSelectionEnabled && message.sessionId === sessionId}
+            labels={labels.conversationSelection}
+            onAdd={addConversationSelection}
+          >
+            {body}
+          </HbarConversationSelection>
+        ) : (
+          body
+        )
+      return {
+        id: message.id,
+        role: message.role,
+        author: labels.author[message.role],
+        avatar: labels.avatar[message.role],
+        appearance: 'transcript' as const,
+        copyLabel: labels.copy,
+        children,
+        actions:
+          (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
+          forkActionFor(message) ||
+          messageFork.actions[forkKey(message)]?.status === 'created' ? (
+            <HbarMessageActionBar
+              sessionId={message.sessionId}
+              messageId={message.id}
+              content={message.content}
+              labels={labels.messageActions}
+              copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
+              fork={forkActionFor(message)}
+              metadata={
+                <LumenText as="span">
+                  {messageFork.actions[forkKey(message)]?.status === 'created'
+                    ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
+                    : labels.timestamp(message.createdAt)}
+                </LumenText>
+              }
+            />
+          ) : null,
+      }
+    }),
     ...Object.values(timeline.streams).map((stream) => ({
       id: stream.id,
       role: 'assistant' as const,
