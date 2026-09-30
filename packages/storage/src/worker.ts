@@ -17,9 +17,14 @@ import { z } from 'zod'
 import {
   workspaceSchema,
   sessionSchema,
+  workspaceActivityListInputSchema,
+  workspaceActivityPageSchema,
+  workspaceActivityCursorSchema,
+  workspaceActivityItemSchema,
   workspaceListInputSchema,
   sessionListInputSchema,
 } from '@hbar/contracts/directory'
+import type { WorkspaceActivityListInput, WorkspaceActivityPage } from '@hbar/contracts/directory'
 import {
   queuedRunEditableInputSchema,
   queuedRunEditableSchema,
@@ -70,7 +75,35 @@ const db = new Database(options.path, { create: true, strict: true })
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
-const LATEST_SCHEMA_VERSION = 12
+const WORKSPACE_ACTIVITY_SQL = `
+  CREATE TABLE IF NOT EXISTS directory_activity_revision(
+    id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>=0)
+  );
+  INSERT OR IGNORE INTO directory_activity_revision(id,revision) VALUES(1,0);
+  CREATE INDEX IF NOT EXISTS sessions_workspace_archived_created_id
+    ON sessions(workspaceId,archived,createdAt DESC,id ASC);
+  CREATE INDEX IF NOT EXISTS sessions_workspace_archived_updated_id
+    ON sessions(workspaceId,archived,updatedAt DESC,id ASC);
+  CREATE TRIGGER IF NOT EXISTS directory_activity_workspace_insert
+    AFTER INSERT ON workspaces
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_workspace_update
+    AFTER UPDATE OF id,path,name,createdAt ON workspaces
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_workspace_delete
+    AFTER DELETE ON workspaces
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_insert
+    AFTER INSERT ON sessions
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_update
+    AFTER UPDATE OF workspaceId,archived,createdAt,updatedAt ON sessions
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_delete
+    AFTER DELETE ON sessions
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+`
+const LATEST_SCHEMA_VERSION = 13
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -225,6 +258,18 @@ if (schemaVersion < 12)
     }
   }).immediate()
 
+if (schemaVersion < 13)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 12) {
+      db.exec(WORKSPACE_ACTIVITY_SQL)
+      db.exec('PRAGMA user_version=13;')
+    } else if (current < 13 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
 const sessionSearch = createSessionSearchStorage(
@@ -310,6 +355,105 @@ function queuedRunContentRevision(runId: string): number {
   if (seq === null || seq === undefined)
     throw new HbarError('RUN_JOURNAL_MISSING', 'Queued Run has no content revision event')
   return seq
+}
+const WORKSPACE_ACTIVITY_COLUMNS_SQL = `
+  w.id,w.path,w.name,w.createdAt,
+  (SELECT s.createdAt FROM sessions s
+    WHERE s.workspaceId=w.id AND s.archived=0
+    ORDER BY s.createdAt DESC,s.id ASC LIMIT 1) AS latestSessionCreatedAt,
+  (SELECT s.updatedAt FROM sessions s
+    WHERE s.workspaceId=w.id AND s.archived=0
+    ORDER BY s.updatedAt DESC,s.id ASC LIMIT 1) AS latestSessionUpdatedAt
+`
+
+function parseWorkspaceActivityItem(value: unknown) {
+  const row = z.record(z.string(), z.unknown()).parse(value)
+  return workspaceActivityItemSchema.parse({
+    workspace: {
+      id: row.id,
+      path: row.path,
+      name: row.name,
+      createdAt: row.createdAt,
+    },
+    latestSessionCreatedAt: row.latestSessionCreatedAt,
+    latestSessionUpdatedAt: row.latestSessionUpdatedAt,
+  })
+}
+
+function workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActivityPage {
+  const parsedInput = workspaceActivityListInputSchema.safeParse(input)
+  if (!parsedInput.success) throw new HbarError('INVALID_INPUT', 'Invalid workspace activity query')
+  const { sortBy, cursor, limit, includeWorkspaceIds = [] } = parsedInput.data
+  const selectedTimestamp = sortBy === 'createdAt' ? 'latestSessionCreatedAt' : 'latestSessionUpdatedAt'
+  return db.transaction(() => {
+    const revisionRow = db
+      .query<{ revision: number }, []>('SELECT revision FROM directory_activity_revision WHERE id=1')
+      .get()
+    if (!revisionRow || !Number.isSafeInteger(revisionRow.revision) || revisionRow.revision < 0)
+      throw new HbarError('INVALID_STATE', 'Workspace activity revision is unavailable')
+    const { revision } = revisionRow
+    if (cursor && cursor.revision !== revision)
+      throw new HbarError('STALE_CURSOR', 'Workspace activity changed; restart the listing')
+
+    const pageRows = z.array(z.record(z.string(), z.unknown())).parse(
+      db
+        .query(
+          `WITH activity AS MATERIALIZED (
+               SELECT ${WORKSPACE_ACTIVITY_COLUMNS_SQL}
+               FROM workspaces w
+             )
+             SELECT id,path,name,createdAt,latestSessionCreatedAt,latestSessionUpdatedAt,
+                    ${selectedTimestamp} AS sortTimestamp
+             FROM activity
+             WHERE ? IS NULL
+                OR ((? IS NULL AND sortTimestamp IS NULL AND id > ?)
+                    OR (? IS NOT NULL AND (sortTimestamp IS NULL OR sortTimestamp < ?
+                        OR (sortTimestamp = ? AND id > ?))))
+             ORDER BY (sortTimestamp IS NULL) ASC,sortTimestamp DESC,id ASC
+             LIMIT ?`,
+        )
+        .all(
+          cursor?.workspaceId ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.workspaceId ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.workspaceId ?? null,
+          limit + 1,
+        ),
+    )
+    const pageItems = pageRows.slice(0, limit).map(parseWorkspaceActivityItem)
+    const pageIds = new Set(pageItems.map((item) => item.workspace.id))
+    const requestedIds = includeWorkspaceIds.filter((id) => !pageIds.has(id))
+    const includedItems =
+      requestedIds.length === 0
+        ? []
+        : z
+            .array(z.record(z.string(), z.unknown()))
+            .parse(
+              db
+                .query(
+                  `SELECT ${WORKSPACE_ACTIVITY_COLUMNS_SQL}
+                   FROM workspaces w
+                   WHERE w.id IN (${requestedIds.map(() => '?').join(',')})
+                   ORDER BY w.id`,
+                )
+                .all(...requestedIds),
+            )
+            .map(parseWorkspaceActivityItem)
+    const lastItem = pageItems.at(-1)
+    const nextCursor =
+      pageRows.length > limit && lastItem
+        ? workspaceActivityCursorSchema.parse({
+            sortBy,
+            revision,
+            timestamp: sortBy === 'createdAt' ? lastItem.latestSessionCreatedAt : lastItem.latestSessionUpdatedAt,
+            workspaceId: lastItem.workspace.id,
+          })
+        : null
+    return workspaceActivityPageSchema.parse({ revision, items: pageItems, includedItems, nextCursor })
+  })()
 }
 function messageRow(row: Row): Message {
   return {
@@ -529,7 +673,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 12 }),
+  ready: () => ({ version: 13 }),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,
@@ -561,6 +705,7 @@ const methods: StorageMethods = {
     const items = rows.slice(0, limit)
     return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
   },
+  workspaceActivityPage: (input) => workspaceActivityPage(input),
   sessionPage(input) {
     const { workspaceId, after, title, includeArchived, limit } = sessionListInputSchema.parse(input)
     methods.workspace(workspaceId)

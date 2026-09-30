@@ -19,6 +19,58 @@ export const sessionSchema = z.strictObject({
 })
 export type Workspace = z.infer<typeof workspaceSchema>
 export type Session = z.infer<typeof sessionSchema>
+export const workspaceActivitySortSchema = z.enum(['createdAt', 'updatedAt'])
+const workspaceActivityTimestampSchema = z.number().int().nonnegative().safe()
+const workspaceActivityRevisionSchema = z.number().int().nonnegative().safe()
+export const workspaceActivityCursorSchema = z.strictObject({
+  sortBy: workspaceActivitySortSchema,
+  revision: workspaceActivityRevisionSchema,
+  timestamp: workspaceActivityTimestampSchema.nullable(),
+  workspaceId: entityId,
+})
+export const workspaceActivityListInputSchema = z
+  .strictObject({
+    sortBy: workspaceActivitySortSchema.default('updatedAt'),
+    cursor: workspaceActivityCursorSchema.optional(),
+    limit: z.number().int().min(1).max(200).default(60),
+    /** Bounded summaries let a sidebar order pinned rows outside the visible page. */
+    includeWorkspaceIds: z.array(entityId).max(20).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.cursor && value.cursor.sortBy !== value.sortBy)
+      context.addIssue({ code: 'custom', message: 'Workspace activity cursor sort does not match the request' })
+    if (value.includeWorkspaceIds && new Set(value.includeWorkspaceIds).size !== value.includeWorkspaceIds.length)
+      context.addIssue({ code: 'custom', message: 'Workspace activity IDs must be unique' })
+  })
+export const workspaceActivityItemSchema = z.strictObject({
+  workspace: workspaceSchema,
+  latestSessionCreatedAt: workspaceActivityTimestampSchema.nullable(),
+  latestSessionUpdatedAt: workspaceActivityTimestampSchema.nullable(),
+})
+export const workspaceActivityPageSchema = z
+  .strictObject({
+    revision: workspaceActivityRevisionSchema,
+    items: z.array(workspaceActivityItemSchema).max(200),
+    /** Requested workspace summaries outside `items`; they do not affect page order or cursor. */
+    includedItems: z.array(workspaceActivityItemSchema).max(20),
+    nextCursor: workspaceActivityCursorSchema.nullable(),
+  })
+  .superRefine((value, context) => {
+    const ids = [...value.items, ...value.includedItems].map((item) => item.workspace.id)
+    if (new Set(ids).size !== ids.length)
+      context.addIssue({ code: 'custom', message: 'Workspace activity page contains duplicate workspaces' })
+    if (
+      value.nextCursor &&
+      (value.nextCursor.revision !== value.revision ||
+        !value.items.some((item) => item.workspace.id === value.nextCursor?.workspaceId))
+    )
+      context.addIssue({ code: 'custom', message: 'Workspace activity cursor does not match its page' })
+  })
+export type WorkspaceActivitySortBy = z.infer<typeof workspaceActivitySortSchema>
+export type WorkspaceActivityCursor = z.infer<typeof workspaceActivityCursorSchema>
+export type WorkspaceActivityListInput = z.input<typeof workspaceActivityListInputSchema>
+export type WorkspaceActivityItem = z.infer<typeof workspaceActivityItemSchema>
+export type WorkspaceActivityPage = z.infer<typeof workspaceActivityPageSchema>
 export const workspaceListInputSchema = z.strictObject({
   after: entityId.optional(),
   limit: z.number().int().min(1).max(200).default(60),

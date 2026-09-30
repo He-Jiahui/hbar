@@ -319,6 +319,7 @@ export class Kernel {
     this.permissionSettings = new SettingsService(this.storage)
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
+      workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
       sessionPage: (input) => this.storage.call('sessionPage', input),
       findWorkspace: (id) => this.storage.call('findWorkspace', id),
       findSession: (id) => this.storage.call('findSession', id),
@@ -483,7 +484,11 @@ export class Kernel {
         if (!provider) throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         if (provider.protocol === 'mock' && !this.options.demo)
           throw new HbarError('DEMO_DISABLED', 'Fixture models are disabled')
-        if (!direct && provider.models.length > 1 && !provider.models.some((model) => `${provider.id}/${model.id}` === id))
+        if (
+          !direct &&
+          provider.models.length > 1 &&
+          !provider.models.some((model) => `${provider.id}/${model.id}` === id)
+        )
           throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         return resolveProviderModel(provider, id)
       },
@@ -646,29 +651,32 @@ export class Kernel {
   }
   async models(options: { includeHidden?: boolean } = {}): Promise<ModelInfo[]> {
     const providers = (await this.storage.call('providers')).filter(
-      (provider) =>
-        (provider.protocol !== 'mock' || this.options.demo) && (options.includeHidden || provider.visible),
+      (provider) => (provider.protocol !== 'mock' || this.options.demo) && (options.includeHidden || provider.visible),
     )
-    return (await Promise.all(
-      providers.map(async (provider) => {
-        const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
-        return provider.models.filter((model) => options.includeHidden || model.visible).map((model) => ({
-          ...provider,
-          ...model,
-          id: modelSelectionId(provider.id, model.id, provider.models.length),
-          name: provider.name,
-          visible: provider.visible,
-          model: model.id,
-          providerId: provider.id,
-          providerName: provider.name,
-          providerVisible: provider.visible,
-          modelId: model.id,
-          modelName: model.name,
-          modelVisible: model.visible,
-          hasKey,
-        }))
-      }),
-    )).flat()
+    return (
+      await Promise.all(
+        providers.map(async (provider) => {
+          const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
+          return provider.models
+            .filter((model) => options.includeHidden || model.visible)
+            .map((model) => ({
+              ...provider,
+              ...model,
+              id: modelSelectionId(provider.id, model.id, provider.models.length),
+              name: provider.name,
+              visible: provider.visible,
+              model: model.id,
+              providerId: provider.id,
+              providerName: provider.name,
+              providerVisible: provider.visible,
+              modelId: model.id,
+              modelName: model.name,
+              modelVisible: model.visible,
+              hasKey,
+            }))
+        }),
+      )
+    ).flat()
   }
   async providerProfiles() {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
@@ -1510,12 +1518,18 @@ export class Kernel {
     const run = await this.storage.call('run', request.runId)
     if (run.sessionId !== request.sessionId)
       throw new HbarError('USER_INPUT_INVALID', 'User input request does not belong to the current session')
-    if (request.questions.some((question, index) => request.questions.findIndex((item) => item.id === question.id) !== index))
+    if (
+      request.questions.some(
+        (question, index) => request.questions.findIndex((item) => item.id === question.id) !== index,
+      )
+    )
       throw new HbarError('USER_INPUT_INVALID', 'Question ids must be unique')
-    if (request.questions.some((question) => {
-      const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
-      return new Set(labels).size !== labels.length
-    }))
+    if (
+      request.questions.some((question) => {
+        const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
+        return new Set(labels).size !== labels.length
+      })
+    )
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
     if (this.userInputs.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
@@ -1544,7 +1558,8 @@ export class Kernel {
         console.error('Failed to persist user input resolution:', appendError)
       }
       this.publish({ method: 'user_input.resolved', params: data })
-      if (response === undefined) reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+      if (response === undefined)
+        reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
       else resolve(response)
       return true
     }
@@ -1707,7 +1722,13 @@ export class Kernel {
       this.maintenance = false
     }
   }
-  private async compactInternal(sessionId: string, model: ProviderConfig, signal: AbortSignal, runId?: string, workspaceOverride?: Workspace) {
+  private async compactInternal(
+    sessionId: string,
+    model: ProviderConfig,
+    signal: AbortSignal,
+    runId?: string,
+    workspaceOverride?: Workspace,
+  ) {
     const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     let boundary = -1
