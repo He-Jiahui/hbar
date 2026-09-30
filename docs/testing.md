@@ -18,6 +18,12 @@ bun test ./tests/reactbits-pro-audit.test.ts ./tests/reactbits-pro-audit-browser
 
 审计浏览器状态探针独立在 `reactbits-pro-audit-browser-state.test.ts`。两个用例共享一次 Chrome 启动/关闭，各自使用独立 BrowserContext/Page，并在 `finally` 中释放 context；复用进程不复用 DOM 或状态。行为测试仍各有 20 秒预算，进程生命周期 hook 单独有界于 30 秒，不删除原有的 checkbox/switch/select/progress/meter 断言。此调整修复了相关提交 `20aeb93` 的 fixture 在完成功能断言后因 Chrome 退出仍占用单测预算而超时的问题，不改变生产捕获协议或来源验收标准。
 
+协议 17 的静态视口／内容范围回归另见下面两个定向文件：真实 DOM 区分 hidden 裁切、最近 pane 滚动、更高层不能解除近层裁切、viewport 隐藏和非渲染内容；本地 PNG fixture 确认等尺寸视口直接比较，不把 692px intrinsic root 缩放成 640px 视口。来源或本地不可达区域是独立硬门禁，即使图片相同或存在签核也不能覆盖。Chrome 和临时目录都在有界生命周期中释放；这些测试不代替现场来源证据，也不增加按钮×布局回放。
+
+```text
+bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-static-canvas.test.ts --timeout 20000
+```
+
 `bun run build && bun run test:e2e` 使用 Vite preview 和 Edge/Playwright，覆盖无 Host 时的中英文桌面/窄屏外壳、Ctrl+K 本地命令目录、命令关闭后的导航、刷新、旧 localStorage 隔离和明确失败状态。真实临时 Host 场景覆盖选择会话、文件 compare-and-write、通用 descriptor 预算表单、发送/审批/取消、可靠 Usage、真实工具结算/并发/耗时统计、三层设置动态内容、ProviderDialog 凭据保存、Session Monitoring、子 Agent、目标/计划、扩展/技能以及 Performance/Usage/Git 状态中心。连接 Host 后还会切换到 390×844，逐项重开上述工具，检查水平溢出和 AppSidebar/Main 几何重叠。组件库的受控交互测试和独立预览验证脚本继续保留。
 
 专注工作流的验证矩阵和定向命令见[专注工作流](workflows.md#迁移与验证)。`tests/compiled-cli.test.ts` 真实编译 standalone CLI，检查内嵌 Host、原生查询、Workflow、隔离补丁以及 Windows 进程拓扑；`e2e/workflow-focus.spec.ts` 用真实 Host 检查桌面和窄屏的单一 Agent Plan、当前焦点、显式人工模式与 Evidence 回读。

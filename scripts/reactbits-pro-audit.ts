@@ -4,6 +4,7 @@ import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { renderAuditEvidencePage } from './reactbits-audit-evidence-page'
+import { readAuditContentGeometry, type AuditContentGeometry } from './reactbits-audit-content-geometry'
 import { auditSamplingPlan, sampledInteractionIds } from './reactbits-audit-sampling'
 import { includesLumenAuditFile, lumenDependencyFiles } from './reactbits-audit-scope'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
@@ -150,6 +151,7 @@ export type SemanticSnapshot = Readonly<{
   horizontalOverflow: boolean
   axSnapshot: string
   progressStates?: readonly ProgressSemanticState[] | undefined
+  contentGeometry?: AuditContentGeometry | undefined
   observedScroll?: Readonly<{ top: number; left: number; maximum: number }> | undefined
   tree: readonly Readonly<{
     tag: string
@@ -175,6 +177,7 @@ type CaptureRecord = Readonly<{
   sourceUrl: string
   contextScreenshot: string
   screenshot: string
+  viewportScreenshot?: string
   snapshot: string
   referenceCanvas?: ReferenceCanvas
   errors: readonly string[]
@@ -212,6 +215,7 @@ type StructureComparison = Readonly<{
     controlCountMatched: boolean
     controlShapeMatched: boolean
     rootGeometryMatched: boolean
+    contentGeometry: ReturnType<typeof assessStaticContentGeometry>
     truncationFree: boolean
     overflowFree: boolean
     errors: readonly string[]
@@ -255,6 +259,47 @@ export function rootGeometryMatches(
     Math.abs(local.width - source.width) / source.width <= 0.05 &&
     Math.abs(local.height - source.height) / source.height <= 0.08
   )
+}
+
+export function assessStaticContentGeometry(
+  source: AuditContentGeometry | undefined,
+  local: AuditContentGeometry | undefined,
+  sourceCanvas: ReferenceCanvas | undefined,
+  localCanvas: ReferenceCanvas | undefined,
+  viewportScreenshotsPresent: boolean,
+): Readonly<{
+  complete: boolean
+  viewportMatched: boolean
+  extentMatched: boolean
+  sourceClippingFree: boolean
+  localClippingFree: boolean
+  failures: readonly string[]
+}> {
+  const complete = Boolean(source && local && sourceCanvas && localCanvas)
+  const sameSize = (left: { width: number; height: number }, right: { width: number; height: number }) =>
+    left.width > 0 && left.height > 0 && left.width === right.width && left.height === right.height
+  const viewportMatched = Boolean(
+    source &&
+    local &&
+    sourceCanvas &&
+    localCanvas &&
+    sameSize(source.viewport, sourceCanvas) &&
+    sameSize(local.viewport, localCanvas) &&
+    sameSize(sourceCanvas, localCanvas),
+  )
+  const extentMatched = Boolean(source && local && rootGeometryMatches(source.extent, local.extent))
+  const sourceClippingFree = Boolean(source && !source.clippedRegions.some((clip) => clip.unreachable))
+  const localClippingFree = Boolean(local && !local.clippedRegions.some((clip) => clip.unreachable))
+  const failures: string[] = []
+  if (!complete) failures.push('content-geometry-missing')
+  else {
+    if (!viewportMatched) failures.push('viewport-geometry-mismatch')
+    if (!extentMatched) failures.push('content-extent-mismatch')
+    if (!sourceClippingFree) failures.push('source-content-clipped')
+    if (!localClippingFree) failures.push('local-content-clipped')
+  }
+  if (!viewportScreenshotsPresent) failures.push('viewport-screenshot-missing')
+  return { complete, viewportMatched, extentMatched, sourceClippingFree, localClippingFree, failures }
 }
 
 export function interactionFeedbackMatches(sourceChangedPixelRatio: number, localChangedPixelRatio: number): boolean {
@@ -541,7 +586,7 @@ export function manualReviewGate(
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const localPreviewUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
 const browserArguments = auditBrowserArguments(process.env.HBAR_APP_UI_CHROME_HTTP1 === '1')
-const captureProtocolVersion = 16
+const captureProtocolVersion = 17
 const interactionProtocolVersion = 37
 
 export function auditBrowserArguments(http1: boolean): string[] {
@@ -705,12 +750,14 @@ async function copyCachedSourceRecord(
     if (absolute !== target) await copyFile(absolute, target)
     return target
   }
-  const [screenshot, contextScreenshot, snapshot] = await Promise.all([
+  if (!record.viewportScreenshot) throw new Error(`Cached source viewport PNG is missing for ${record.id}`)
+  const [screenshot, contextScreenshot, viewportScreenshot, snapshot] = await Promise.all([
     copyArtifact(record.screenshot),
     copyArtifact(record.contextScreenshot),
+    copyArtifact(record.viewportScreenshot),
     copyArtifact(record.snapshot),
   ])
-  return { ...record, screenshot, contextScreenshot, snapshot }
+  return { ...record, screenshot, contextScreenshot, viewportScreenshot, snapshot }
 }
 
 function stableHash(value: unknown): string {
@@ -741,6 +788,8 @@ async function manualReviewFingerprint(
         )
         if (!local)
           throw new Error(`Missing local screenshot for manual review: ${id}/${source.theme}/${source.viewport}`)
+        if (!source.viewportScreenshot || !local.viewportScreenshot)
+          throw new Error(`Missing viewport screenshot for manual review: ${id}/${source.theme}/${source.viewport}`)
         const screenshotHash = async (path: string) =>
           createHash('sha256')
             .update(new Uint8Array(await Bun.file(path).arrayBuffer()))
@@ -750,6 +799,10 @@ async function manualReviewFingerprint(
           viewport: source.viewport,
           source: await screenshotHash(source.screenshot),
           local: await screenshotHash(local.screenshot),
+          sourceViewport: await screenshotHash(source.viewportScreenshot),
+          localViewport: await screenshotHash(local.viewportScreenshot),
+          sourceSnapshot: await screenshotHash(source.snapshot),
+          localSnapshot: await screenshotHash(local.snapshot),
         }
       }),
   )
@@ -1756,6 +1809,39 @@ async function screenshotStable(locator: Locator, path: string): Promise<void> {
   throw lastError instanceof Error ? lastError : new Error(`Could not capture stable screenshot: ${path}`)
 }
 
+async function screenshotReferenceViewport(
+  page: Page,
+  frame: Frame,
+  canvas: ReferenceCanvas,
+  path: string,
+): Promise<void> {
+  const iframe = await frame.frameElement()
+  const origin = await iframe.evaluate((element) => {
+    const box = element as HTMLElement
+    const rect = box.getBoundingClientRect()
+    return { x: rect.x + box.clientLeft, y: rect.y + box.clientTop }
+  })
+  const outer = page.viewportSize()
+  const actual = await readReferenceCanvas(frame)
+  if (actual.width !== canvas.width || actual.height !== canvas.height)
+    throw new Error(`The reference viewport changed before capture: ${path}`)
+  if (
+    !outer ||
+    origin.x < 0 ||
+    origin.y < 0 ||
+    origin.x + canvas.width > outer.width ||
+    origin.y + canvas.height > outer.height
+  )
+    throw new Error(`The isolated reference viewport does not fit its outer capture canvas: ${path}`)
+  // Capture the iframe's real viewport, not its intrinsic root or a resized PNG.
+  // Do not change content height or overflow to manufacture a matching footprint.
+  await page.screenshot({
+    path,
+    animations: 'disabled',
+    clip: { ...origin, width: canvas.width, height: canvas.height },
+  })
+}
+
 async function waitForReferenceCodeHighlight(root: Locator): Promise<void> {
   // The live preview first paints raw code and asynchronously replaces it with
   // highlighted tokens. A before screenshot during that transition invents a
@@ -1814,10 +1900,15 @@ async function captureSource(
   await ensureDirectory(directory)
   const screenshot = join(directory, `${viewport.id}.png`)
   const contextScreenshot = join(directory, `${viewport.id}-context.png`)
+  const viewportScreenshot = join(directory, `${viewport.id}-viewport.png`)
   const snapshot = join(directory, `${viewport.id}.json`)
+  await screenshotReferenceViewport(page, frame, referenceCanvas, viewportScreenshot)
   await screenshotStable(root, screenshot)
   await page.screenshot({ path: contextScreenshot, animations: 'disabled' })
-  const semantic = await snapshotRoot(frame, selector)
+  const semantic = {
+    ...(await snapshotRoot(frame, selector)),
+    contentGeometry: await root.evaluate(readAuditContentGeometry),
+  }
   await writeJson(snapshot, semantic)
   return {
     kind: 'source',
@@ -1831,6 +1922,7 @@ async function captureSource(
     sourceUrl: referenceUrl,
     contextScreenshot,
     screenshot,
+    viewportScreenshot,
     snapshot,
     referenceCanvas,
     errors: pageErrors.slice(errorStart),
@@ -1871,10 +1963,15 @@ async function captureLocal(
   await ensureDirectory(directory)
   const screenshot = join(directory, `${viewport.id}.png`)
   const contextScreenshot = join(directory, `${viewport.id}-context.png`)
+  const viewportScreenshot = join(directory, `${viewport.id}-viewport.png`)
   const snapshot = join(directory, `${viewport.id}.json`)
+  await page.screenshot({ path: viewportScreenshot, animations: 'disabled' })
   await screenshotStable(root, screenshot)
   await page.screenshot({ path: contextScreenshot, animations: 'disabled' })
-  const semantic = await localSnapshot(page, selector)
+  const semantic = {
+    ...(await localSnapshot(page, selector)),
+    contentGeometry: await root.evaluate(readAuditContentGeometry),
+  }
   await writeJson(snapshot, semantic)
   return {
     kind: 'local',
@@ -1888,6 +1985,7 @@ async function captureLocal(
     sourceUrl: target,
     contextScreenshot,
     screenshot,
+    viewportScreenshot,
     snapshot,
     referenceCanvas,
     errors: pageErrors.slice(errorStart),
@@ -6417,6 +6515,19 @@ async function runCompare(options: AuditOptions): Promise<void> {
     if (record.kind !== 'source' || !localRecord) continue
     const sourceSnapshot = await readJson<SemanticSnapshot>(record.snapshot)
     const localSnapshotValue = await readJson<SemanticSnapshot>(localRecord.snapshot)
+    const viewportScreenshotsPresent = Boolean(
+      record.viewportScreenshot &&
+      localRecord.viewportScreenshot &&
+      (await Bun.file(record.viewportScreenshot).exists()) &&
+      (await Bun.file(localRecord.viewportScreenshot).exists()),
+    )
+    const contentGeometry = assessStaticContentGeometry(
+      sourceSnapshot.contentGeometry,
+      localSnapshotValue.contentGeometry,
+      record.referenceCanvas,
+      localRecord.referenceCanvas,
+      viewportScreenshotsPresent,
+    )
     const sourceVisibleControls = visibleControls(sourceSnapshot)
     const localVisibleControls = visibleControls(localSnapshotValue)
     const expected = expectedInteractions.get(record.id) ?? []
@@ -6452,11 +6563,13 @@ async function runCompare(options: AuditOptions): Promise<void> {
       viewport: record.viewport,
       source: {
         screenshot: record.screenshot,
+        viewportScreenshot: record.viewportScreenshot ?? '',
         contextScreenshot: record.contextScreenshot,
         snapshot: record.snapshot,
       },
       local: {
         screenshot: localRecord.screenshot,
+        viewportScreenshot: localRecord.viewportScreenshot ?? '',
         contextScreenshot: localRecord.contextScreenshot,
         snapshot: localRecord.snapshot,
       },
@@ -6466,6 +6579,9 @@ async function runCompare(options: AuditOptions): Promise<void> {
         widthDelta: localSnapshotValue.rootRect.width - sourceSnapshot.rootRect.width,
         heightDelta: localSnapshotValue.rootRect.height - sourceSnapshot.rootRect.height,
         rootGeometryMatched: rootGeometryMatches(sourceSnapshot.rootRect, localSnapshotValue.rootRect),
+        contentGeometry,
+        sourceContentGeometry: sourceSnapshot.contentGeometry,
+        localContentGeometry: localSnapshotValue.contentGeometry,
         sourceControls: sourceVisibleControls.length,
         localControls: localVisibleControls.length,
         sourceTextLength: sourceSnapshot.bodyTextLength,
@@ -6516,7 +6632,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
   }
   const structuralFailures: Array<{ id: string; theme: string; viewport: string; reason: string }> =
     comparisons.flatMap((comparison) => {
-      const failures: string[] = []
+      const failures: string[] = [...comparison.structure.contentGeometry.failures]
       if (!comparison.structure.controlCountMatched) failures.push('control-count-mismatch')
       if (!comparison.structure.controlShapeMatched) failures.push('control-shape-mismatch')
       if (!comparison.structure.semanticRoleTreeMatched) failures.push('semantic-role-tree-mismatch')
@@ -6712,10 +6828,15 @@ async function runCompare(options: AuditOptions): Promise<void> {
       [
         ...comparisons.map((comparison) => ({
           label: `${comparison.id} / ${comparison.theme} / ${comparison.viewport} / static`,
-          status: 'Static source/local pair',
+          status:
+            comparison.structure.contentGeometry.failures.length > 0
+              ? `Static viewport pair; ${comparison.structure.contentGeometry.failures.join(', ')}`
+              : 'Static viewport pair; intrinsic roots and content geometry retained separately',
           images: [
-            { label: 'React Bits Pro — original', path: evidencePath(comparison.source.screenshot) },
-            { label: 'Lumen — local', path: evidencePath(comparison.local.screenshot) },
+            { label: 'React Bits Pro — actual viewport', path: evidencePath(comparison.source.viewportScreenshot) },
+            { label: 'Lumen — actual viewport', path: evidencePath(comparison.local.viewportScreenshot) },
+            { label: 'React Bits Pro — intrinsic root', path: evidencePath(comparison.source.screenshot) },
+            { label: 'Lumen — intrinsic root', path: evidencePath(comparison.local.screenshot) },
           ],
         })),
         ...interactionReport.results.map((result) => ({

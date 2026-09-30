@@ -1,9 +1,11 @@
 """Compare the captured React Bits Pro and lumen-app-ui component images.
 
 The audit intentionally keeps source and local screenshots as separate artifacts.
-This report normalizes each pair to the source component dimensions so that visual
-error remains measurable even when the two implementations have different intrinsic
-sizes. Raw dimensions and aspect ratios are retained to make layout drift explicit.
+Protocol 17 static captures compare the actual, equal-sized reference viewport PNGs
+without resizing. Intrinsic root images remain separate evidence, and legacy static
+or protocol 37 interaction diagnostics retain explicitly labelled normalization.
+Pixel similarity alone does not prove content extent or clipping-free reachability;
+those are independent gates in the TypeScript structure report.
 """
 
 from __future__ import annotations
@@ -29,9 +31,15 @@ def resized_array(image: Image.Image, size: tuple[int, int]) -> np.ndarray:
     return np.asarray(image.resize(size, Image.Resampling.LANCZOS), dtype=np.float32)
 
 
-def diff_image(source: Image.Image, local: Image.Image) -> Image.Image:
+def diff_image(source: Image.Image, local: Image.Image, *, require_same_size: bool = False) -> Image.Image:
     source_rgb = source.convert("RGB")
-    local_rgb = local.resize(source_rgb.size, Image.Resampling.LANCZOS).convert("RGB")
+    if require_same_size and source.size != local.size:
+        raise ValueError(f"Viewport PNG dimensions differ: source={source.size}, local={local.size}")
+    local_rgb = (
+        local.convert("RGB")
+        if require_same_size
+        else local.resize(source_rgb.size, Image.Resampling.LANCZOS).convert("RGB")
+    )
     diff = ImageChops.difference(source_rgb, local_rgb)
     amplified = diff.point(lambda value: min(255, value * 3))
     canvas = Image.new("RGB", source_rgb.size, "white")
@@ -39,18 +47,23 @@ def diff_image(source: Image.Image, local: Image.Image) -> Image.Image:
     return canvas
 
 
-def compare_pair(source_path: Path, local_path: Path, diff_path: Path) -> dict[str, object]:
+def compare_pair(
+    source_path: Path, local_path: Path, diff_path: Path, *, require_same_size: bool = False
+) -> dict[str, object]:
     source = load_rgb(source_path)
     local = load_rgb(local_path)
-    source_array = resized_array(source, source.size)
-    local_array = resized_array(local, source.size)
+    if require_same_size and source.size != local.size:
+        raise ValueError(f"Viewport PNG dimensions differ: source={source.size}, local={local.size}")
+    source_array = np.asarray(source, dtype=np.float32)
+    local_array = np.asarray(local, dtype=np.float32) if require_same_size else resized_array(local, source.size)
     difference = np.abs(source_array - local_array)
     mae = float(difference.mean() / 255.0)
     rmse = float(math.sqrt(np.square(source_array - local_array).mean()) / 255.0)
     changed = np.any(difference >= 12.0, axis=2)
     diff_path.parent.mkdir(parents=True, exist_ok=True)
-    diff_image(source, local).save(diff_path)
+    diff_image(source, local, require_same_size=require_same_size).save(diff_path)
     return {
+        "comparisonMode": "viewport-exact" if require_same_size else "intrinsic-normalized-legacy",
         "source": {"width": source.width, "height": source.height},
         "local": {"width": local.width, "height": local.height},
         "aspectRatioDelta": round(abs(source.width / source.height - local.width / local.height), 6),
@@ -61,6 +74,76 @@ def compare_pair(source_path: Path, local_path: Path, diff_path: Path) -> dict[s
         "changedPixelRatio": round(float(changed.mean()), 6),
         "diff": str(diff_path),
     }
+
+
+def collect_static(root: Path) -> tuple[list[dict[str, object]], list[dict[str, str]]]:
+    manifest_path = root / "capture-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    pairs: list[dict[str, object]] = []
+    missing: list[dict[str, str]] = []
+    if manifest.get("captureProtocolVersion", 0) >= 17:
+        records = manifest["records"]
+        local_records = {
+            (record["id"], record["theme"], record["viewport"]): record
+            for record in records if record["kind"] == "local"
+        }
+        for source_record in records:
+            if source_record["kind"] != "source":
+                continue
+            key = (source_record["id"], source_record["theme"], source_record["viewport"])
+            local_record = local_records.get(key)
+            if not local_record:
+                raise ValueError(f"Missing local viewport record: {key}")
+            if not source_record.get("viewportScreenshot") or not local_record.get("viewportScreenshot"):
+                raise ValueError(f"Protocol 17 requires explicit viewport PNGs: {key}")
+            source_path = Path(source_record["viewportScreenshot"])
+            local_path = Path(local_record["viewportScreenshot"])
+            if not source_path.is_file() or not local_path.is_file():
+                raise ValueError(f"Missing viewport PNG: source={source_path}, local={local_path}")
+            expected = source_record.get("referenceCanvas")
+            if not expected:
+                raise ValueError(f"Missing reference viewport dimensions: {key}")
+            expected_size = (expected["width"], expected["height"])
+            for kind, path in (("source", source_path), ("local", local_path)):
+                with Image.open(path) as image:
+                    if image.size != expected_size:
+                        raise ValueError(
+                            f"{kind} viewport PNG does not match reference canvas: "
+                            f"{image.size} != {expected_size}, {key}"
+                        )
+            variant, theme, viewport = key
+            metrics = compare_pair(
+                source_path, local_path, root / "diff" / variant / theme / f"{viewport}-viewport.png",
+                require_same_size=True,
+            )
+            pairs.append({
+                "id": variant, "theme": theme, "viewport": viewport,
+                "sourceViewport": str(source_path), "localViewport": str(local_path),
+                **metrics,
+            })
+        return pairs, missing
+
+    # Historical diagnostics only: the TypeScript acceptance gate rejects old
+    # capture protocols. Do not relabel these normalized roots as viewport evidence.
+    source_root = root / "source"
+    local_root = root / "local"
+    if source_root.exists():
+        for source_path in sorted(source_root.glob("*/**/*.png")):
+            relative = source_path.relative_to(source_root)
+            local_path = local_root / relative
+            if Path(relative.parts[-1]).stem not in VIEWPORTS:
+                continue
+            if not local_path.exists():
+                missing.append({"source": str(source_path), "local": str(local_path)})
+                continue
+            variant, theme, filename = relative.parts
+            metrics = compare_pair(source_path, local_path, root / "diff" / variant / theme / filename)
+            pairs.append({
+                "id": variant, "theme": theme, "viewport": Path(filename).stem,
+                "sourceRoot": str(source_path), "localRoot": str(local_path),
+                **metrics,
+            })
+    return pairs, missing
 
 
 def control_feedback_ratio(case_root: Path, kind: str) -> float | None:
@@ -162,33 +245,7 @@ def main() -> None:
     parser.add_argument("--root", required=True, type=Path)
     args = parser.parse_args()
     root: Path = args.root.resolve()
-    source_root = root / "source"
-    local_root = root / "local"
-    pairs: list[dict[str, object]] = []
-    missing: list[dict[str, str]] = []
-    if source_root.exists():
-        for source_path in sorted(source_root.glob("*/**/*.png")):
-            relative = source_path.relative_to(source_root)
-            local_path = local_root / relative
-            if Path(relative.parts[-1]).stem not in VIEWPORTS:
-                continue
-            if not local_path.exists():
-                missing.append({"source": str(source_path), "local": str(local_path)})
-                continue
-            variant, theme, filename = relative.parts
-            viewport = Path(filename).stem
-            diff_path = root / "diff" / variant / theme / filename
-            metrics = compare_pair(source_path, local_path, diff_path)
-            pairs.append(
-                {
-                    "id": variant,
-                    "theme": theme,
-                    "viewport": viewport,
-                    "source": str(source_path),
-                    "local": str(local_path),
-                    **metrics,
-                }
-            )
+    pairs, missing = collect_static(root)
     interaction_pairs = collect_interactions(root)
     report = {
         "schemaVersion": 1,

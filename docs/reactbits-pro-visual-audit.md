@@ -24,11 +24,13 @@ Authentication 1 的居中登录卡片按实时原版重建了语义表单、原
 
 Authentication 2 的选样计划更新为 **5 个安全代表案例**：切入 SSO、返回 email，以及 email 无效／有效与非空 domain 的提交可用性。官方可见预览在 2026-09-29 确认两个独立草稿及保留行为、桌面中心列和窄屏正常流页脚；没有触发真实 Continue、社交认证、Create account 或法律导航。宿主受控投影和独立 Zustand 草稿模型已接入，非受控旧 API 保留；请求记录原始 mode、draft、provider ID，结果标为 `authentication-and-navigation-unverified`。本地生产版本完成八组静态截图、320×420 页脚可达、德语长文案与 17 项 provider 键盘滚动；换语言保留草稿和唯一回调由隔离内存浏览器验证。同构按钮、其他手势和重复主题排列据此推断，不写成逐项实测。`authentication-2-final-v4` 是历史 14/33 协议缓存，本轮可见观测和本地产物不是当前 16/37 strict 源站配对，仍待严格签核。
 
-同日 `authentication-2-3-current-v1` 随后完成 Authentication 2 的 8 组静态配对和 5 个原始状态差量匹配；strict 仅在 dark/light stress 的根框几何失败。source 是 286×640，本地内容框是 286×692，但双方 header 均为 y=0..56、主区为 56..644、footer 为 644..692；控件 9/9、语义角色、零截断及横向溢出检查一致。source PNG 截取 iframe 的 `#preview-root`，因此没有画出根框外的页脚；本地截图目标是自增长内容框。52/640=8.125% 略超根几何 8% 门槛，不能据此压回固定高度，也不调整门槛掩盖失败。后续需统一对比画布边界，并单列内容范围及页脚滚动可达性；本次产物不能证明源站框外页脚可达，仍无 strict 签核。对应实现提交是 `4acac7d7`，该 scoped CSS 自提交后未改动。
+同日 `authentication-2-3-current-v1` 随后完成 Authentication 2 的 8 组静态配对和 5 个原始状态差量匹配；当时 strict 只报告 dark/light stress 根框几何失败。source 是 286×640，本地内容框是 286×692，但双方 header 均为 y=0..56、主区为 56..644、footer 为 644..692；控件 9/9、语义角色、旧文本截断检查及横向溢出检查一致。源根框截图未画出 footer，而本地截图包含自增长内容；52/640=8.125% 略超根几何 8% 门槛。后续单次现场滚动观测 `artifacts/authentication-canvas-probe/source-visible-observation.json` 在 `2026-09-30T00:22:44.705Z` 确认：来源根内第一层 `overflow:hidden`、clientHeight 640／scrollHeight 692，footer 是 y=644..692，document scrollHeight 640，滚动前后 scrollTop 都为 0，footer 仍不可达。它是实际来源裁切，不只是截图边界不一致；不能把来源压成 640px 的缺陷复制给本地，也不能调整 8% 门槛或以等尺寸图片冒充通过。该探针仅读取可见 DOM／计算几何并滚动一次，未输入表单、认证或导航。对应本地实现提交是 `4acac7d7`，scoped CSS 自提交后未改动；参考一致性与关键内容不裁切的冲突仍未签核。
 
 Authentication 3 的计划也更新为 **5 个安全代表案例**：下一引语、上一引语边界循环、第三点直选、空密码显隐与邮箱编辑；不触发来源登录、社交认证、辅助导航或密码输入。2026-09-29 的实际 iframe 观测确认双栏、表单／引语／三指标层级和 1023 隐藏／1024 显示 aside 的内容断点。受控视图无镜像草稿和定时器，独立 Zustand Host 管理内存密码、显隐、稳定 ID 与轮播；请求只保留当前邮箱和引语 ID，旧 owner 失效，认证和导航结果明确未验证。默认桌面中心列 360×434、320px 列 272×454，短宿主自然增长。指标标签恢复来源的单行省略，完整宿主文本仍保留在 DOM、可访问名称与 title；来源挤压 SVG 的缺陷不复制，保留 16px 图标，该差异不归入主题白名单。生产浏览器按机制验证断点一次、长德文真实边界、17 项数据和 320×420 页脚、原生键盘请求且无密码日志／页面异常；人工截图复核发现并修复了 divider 的继承 nowrap 裁切。历史 `full-static-v10`／`full-interactions-v4` 仅供参考，不能代替当前签核。
 
 `authentication-3-current-v3` 曾有直选和 next 的 2 项 `visual-feedback-mismatch`：来源省略 Mina 的较长指标标签，本地换行使引语体高度与变化幅度不同。后续 `authentication-3-metric-flow-r1` 复用同日 `authentication-2-3-current-v1` 的 protocol 16 源站画布并重采修正后的生产实现，8 组结构、5 个 protocol 37 原始状态差量和视觉反馈均匹配；strict 只剩 `manual-review-required`，ledger 为 `needs-review` 而不是已通过。另以实际 286px iframe 宽度验证默认 provider 的 36px 按钮／20px 单行文字、自然两行页脚及其底边；缩减紧凑水平 padding，仍保留 16px 图标和长译文自然增长。SSR 回归保留完整长指标文本及 17 项数据，7 tests／54 assertions 通过。本地库类型、库构建、声明构建和生产预览构建使用已安装 CLI 通过；子仓库要求的 pnpm 12.3.4 与当前 11.19.0 不一致，未把 pnpm 工作流记为通过。人工查看仍确认窄屏原版的图标坍缩与本地 16px 图标不等价，没有主题豁免或签核；机器结果不消除这个已知差异。
+
+当前协议 17 的现场证据是 `authentication-2-3-viewport-v17-r1`（静态 manifest 时间 `2026-09-30T01:09:28.254Z`）：重新访问两个真实变体 iframe，32 条 source/local 静态记录组成 16 组配对，并按原有协议 37 计划完成 10 个安全交互配对；交互状态和反馈全匹配、缺失 0、page／console errors 0。16 组实际视口 PNG 均以 `viewport-exact` 比较，未缩放 intrinsic root。新门禁报告 Authentication 2 的来源页脚在两主题 mobile 356px 下裁掉 12px、stress 286px 下裁掉 52px；相应本地 extent 652／692px 且滚动可达，双方完整内容 extent 一致。四项 `source-content-clipped` 和保留的两项 stress `root-geometry-mismatch` 使它仍为 `needs-fix`；不能因为初始视口图片接近而签核。Authentication 3 八组结构、内容范围和裁切检查及五个交互均匹配，仍为 `needs-review`，窄屏图标差异未被签核。读取器、独立门禁和 PNG 比较的定向回归为 13 tests／62 assertions；连同现有审计、目录和状态探针共 117 tests／625 assertions 通过，root typecheck／scoped lint／Python compile 通过。没有为了协议升级重复未改机制的全按钮矩阵；旧 16 产物保留为历史，不重标为 17。
 
 已配置计划的 Lumen 实现指纹从当前组件及 Provider 入口跟随相对依赖，并继续包含全部全局 CSS/JSON、公开入口和注册文件、hbar wrapper、预览宿主与 fixture。依赖清单写入 `implementation-scope.json`。其他未渲染组件的 TSX 改动不再令当前变体自动失效；共享样式、实际依赖和宿主输入变化仍需重新评估。未配置的旧穷举诊断保留整树指纹，不默默遗漏依赖。
 
@@ -103,7 +105,7 @@ Plan 4 保留原生具名表格、行标题、双层框、三个指标卡及 `ma
 - 语义快照：组件根节点尺寸、水平溢出、前五层 DOM 结构、控件的实际矩形与 name/role/disabled/expanded/pressed/selected/state。动作差分取控件自身矩形，不依赖它恰好落在 DOM 树的前五层。
 - 交互截图：选样计划中的每个动作在独立浏览器上下文中分别打开源 iframe 与本地预览并保留 before/after。同构控件与等价原生输入方式不强制重复执行。只读的 `progressbar`、`status`、`banner` 等 ARIA 角色参与语义树比较，不冒充可操作控件。
 - 状态路径：核对会显露不同内容或控件的关键状态，例如 Stop、Jump、Cancel retry 和队列清空；为它们选择能区分反馈的路径。仅历史排列不同、但共用同一转换的路径可以归组。响应式交互优先选布局机制改变的边界，不要求每条路径重复四视口、两主题。
-- 反馈比较：对静态图和交互图计算尺寸差、归一化 MAE/RMSE、变化像素比例，并比较源/本地交互前后反馈幅度。
+- 反馈比较：协议 17 的静态图直接比较真实、同尺寸的 iframe／本地视口 PNG，不缩放 intrinsic root；缺图或 PNG 与实际画布尺寸不符直接失败。另保留 intrinsic root 原图和原有宽 5%／高 8% 根几何门禁，以及独立的可渲染内容 extent、裁切 owner、client／scroll 指标和滚动归属。来源或本地语义区域／scroll pane 被不可滚父容器裁切，各自报告 `source-content-clipped`／`local-content-clipped`；相同视口像素、相同内容 extent 或人工签核均不能覆盖失败。读取器不采集文案、输入值或源码；不滚动／点击每个控件来测量。单行省略与非渲染后代不伪造内容高度，最近 scroll owner 可吸收正常溢出，但更高层的滚动不能掩盖近层 hidden。协议 37 交互反馈及抽样计划不变，仍计算原前后图片的 MAE/RMSE、变化像素比例和反馈幅度；历史 root 归一化诊断显式标为 `intrinsic-normalized-legacy`，不作为协议 17 视口证据。
 - 验收门禁：静态结构、已选关键反馈和其成对截图须通过；推断范围须有可核对的理由。机器通过后复核整体布局与有意义的变化，再签核为按选样计划通过。不能把采样通过写成每个按钮均实测，也不能把一个变体推断成全部 300 个通过。
 
 Agent Approval 1 还显式覆盖 `inline-request-open`：真实点击 Show request 后，逐一回放 Hide request、Reject、Delete 12 projects 的指针与键盘动作，以及可聚焦请求代码块的 hover、focus、左右方向键和 Home/End 滚动，核对卡片替换、后续消息和非视觉播报。展开/收起/Escape 与两种初始状态下的决策均须保留独立证据；不能用关闭态的按钮测试替代打开态。
@@ -174,11 +176,11 @@ bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/
 阻断时不生成假的 iframe 或交互结果，不绕过安全检查。正常完成 live 命令时此文件更新为 `available`。
 单变体调试可用 `--source-inventory <已捕获清单路径>` 避免每次重新访问 38 个类别页；
 此模式仍实时捕获变体 iframe，完整 `audit` 不复用旧清单。`--local-only` 的缓存还必须包含
-iframe 实际画布宽高、舞台 padding 和当前完整根节点采集协议版本；旧的内部 pane 裁剪缓存会被拒绝，不能据此宣称几何或交互验收通过。
+iframe 实际画布宽高、舞台 padding、当前协议 17、独立 viewport PNG 与 content geometry；旧的协议 16 或内部 pane 裁剪缓存会被拒绝，不从 intrinsic root 缩放／重标出新的视口证据。
 捕获、交互和比较必须使用同一输出目录、同一 `--variants` / 视口 / 主题集合与源清单；
 `--cases` 仅用于精确调试，结果标记为 `selected-cases`，不能产生完整交互通过结果。
 `review` 每次只签一个明确 ID，不接受批量自动签核；必须先完成完整矩阵并运行 `compare`。
-签核存于被 Git 忽略的 `manual-review.json`，绑定本地实现、源目录、八组原始截图内容、
+签核存于被 Git 忽略的 `manual-review.json`，绑定本地实现、源目录、八组 intrinsic／viewport 原始截图和几何快照内容、
 所有动作结果与逐案视觉反馈。原图或反馈变化会使签核失效并回到 `needs-review`；
 代码或源目录变化还会使机器证据过期，必须重新采集与回放，状态为 `needs-fix`；
 `--strict` 在人工签核缺失时也会失败，不把机器绿灯当作完成。
