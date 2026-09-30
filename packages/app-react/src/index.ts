@@ -66,6 +66,14 @@ export {
 } from './pre-session-landing'
 export { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 export {
+  addComposerAttachments,
+  type AttachmentInputTarget,
+  type ComposerAttachmentInputTarget,
+  type ComposerAttachmentInputOptions,
+  type PreSessionAttachmentInputTarget,
+} from './composer-attachment-input'
+export { HbarComposerAttachmentTransfers, type HbarComposerAttachmentLabels } from './composer-attachments'
+export {
   HbarPreSessionSlashEditor,
   type HbarPreSessionSlashEditorProps,
   type PreSessionLocalSlashCommand,

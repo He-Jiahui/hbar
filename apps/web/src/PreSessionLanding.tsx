@@ -3,6 +3,7 @@ import { Sparkles, Target, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
+  HbarComposerAttachmentTransfers,
   HbarPreSessionApprovalPicker,
   HbarPreSessionChoicePicker,
   HbarPreSessionLanding,
@@ -10,11 +11,13 @@ import {
   HbarPreSessionThinkingPicker,
   HbarPreSessionLocationPicker,
   HbarPreSessionLaunchStatus,
+  addComposerAttachments,
   firstSendIsLocked,
   localGoalSlash,
   localSlashCommand,
   useHbarRuntime,
   useHbarRuntimeState,
+  type HbarSessionAttachmentSelection,
   type PreSessionLocalSlashCommand,
 } from '@hbar/app-react'
 import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanMode } from '@hbar/app-runtime'
@@ -26,6 +29,7 @@ import type { SessionLaunchSelection } from '@hbar/contracts/commands/session-la
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { preSessionCopy } from './pre-session-copy'
 import { preSessionLaunchCopy } from './pre-session-launch-copy'
+import { composerAttachmentCopy } from './composer-attachment-copy'
 import './PreSessionLanding.css'
 
 export function WebPreSessionLanding({
@@ -33,11 +37,13 @@ export function WebPreSessionLanding({
   locale,
   connected,
   sendBehavior,
+  prepareAttachment,
 }: {
   readonly draftId: string
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly sendBehavior: 'enter' | 'modifierEnter' | null
+  readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
 }) {
   const runtime = useHbarRuntime()
   const directory = useHbarRuntimeState(runtime.state.directory)
@@ -51,6 +57,7 @@ export function WebPreSessionLanding({
   const shell = getShellCopy(locale)
   const labels = preSessionCopy(locale)
   const launchLabels = preSessionLaunchCopy(locale)
+  const attachmentLabels = composerAttachmentCopy((chinese, english) => (locale === 'zh-CN' ? chinese : english))
   const [text, setText] = useState('')
   const [path, setPath] = useState('')
   const [pathError, setPathError] = useState<string | null>(null)
@@ -69,6 +76,7 @@ export function WebPreSessionLanding({
   const [submitting, setSubmitting] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
   const [goalError, setGoalError] = useState<string | null>(null)
+  const [attachmentActionError, setAttachmentActionError] = useState<string | null>(null)
   const [locationOpen, setLocationOpen] = useState(false)
   const [branchSearch, setBranchSearch] = useState('')
   const [locationRefresh, setLocationRefresh] = useState(0)
@@ -389,6 +397,10 @@ export function WebPreSessionLanding({
       ['preparing', 'creating', 'configuring', 'submitting', 'unknown'].includes(draft.phase)
     )
       return
+    if (draft.attachments.length > 0 || draft.attachmentTransfers.length > 0) {
+      setSlashRouteError('ATTACHMENTS')
+      return
+    }
     if (localSlashCommand(text, ['model', 'settings', 'goal']) !== command) return
     if (command === 'goal') {
       const action = localGoalSlash(text)
@@ -430,6 +442,28 @@ export function WebPreSessionLanding({
   }
 
   const busy = submitting || firstSendIsLocked(draft)
+  const attachmentTransfers = draft?.attachmentTransfers ?? []
+  const attachmentIntakeEnabled = Boolean(
+    connected &&
+    draft &&
+    prepareAttachment &&
+    !busy &&
+    draft.phase !== 'unknown' &&
+    !attachmentTransfers.some((item) => item.status === 'unknown' || item.status === 'reconciling') &&
+    draft.attachments.length + attachmentTransfers.length < 12,
+  )
+  const addAttachments = (files: readonly File[]) => {
+    if (!draft || !prepareAttachment || !attachmentIntakeEnabled) return
+    void addComposerAttachments(runtime, { draftId, revision: draft.revision }, files, prepareAttachment, {
+      // Only reservation joins the text-write queue; file preparation and upload stay independent.
+      reserve: (operation) => queue(operation),
+      currentRevision: () => runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? draft.revision,
+    }).catch(() => undefined)
+  }
+  const runAttachmentCommand = (operation: () => Promise<unknown>) => {
+    setAttachmentActionError(null)
+    void operation().catch((reason: unknown) => setAttachmentActionError(code(reason)))
+  }
   const localSlash = localSlashCommand(text, ['model', 'settings', 'goal'])
   const unsupportedSlash =
     !localSlash &&
@@ -626,7 +660,8 @@ export function WebPreSessionLanding({
     <LumenFrame className="hbar-web-pre-session-goal-controls">
       <HbarComposerAddMenu
         labels={{ ...shell.session.addMenu, slashUnavailable: labels.slashUnavailable }}
-        canAddFiles={false}
+        canAddFiles={attachmentIntakeEnabled}
+        onFiles={prepareAttachment ? addAttachments : undefined}
         canOpenSlash={connected && Boolean(draft) && !busy && draft?.phase !== 'unknown'}
         onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
         goalAction={{
@@ -681,6 +716,7 @@ export function WebPreSessionLanding({
     ) : null
   return (
     <HbarPreSessionLanding
+      attachmentDrop={{ enabled: attachmentIntakeEnabled, label: attachmentLabels.drop, onAdd: addAttachments }}
       labels={
         draft?.intent === 'goal'
           ? {
@@ -696,28 +732,82 @@ export function WebPreSessionLanding({
       }
       composer={{
         value: text,
-        attachments: [],
+        attachments: (draft?.attachments ?? []).map((attachment) => ({
+          id: attachment.artifact.id,
+          kind: attachment.kind,
+          name: attachment.artifact.name,
+        })),
         disabled: !connected || !draft,
         submitting: busy,
-        uploading: false,
+        uploading: (draft?.uploading ?? 0) > 0,
         canSubmit:
           Boolean(
             !busy &&
+            attachmentTransfers.length === 0 &&
             draft?.phase !== 'unknown' &&
-            (localSlash || (draft?.workspaceId && text.trim() && !modelsLoading && !modelError && models.length > 0)),
+            (localSlash
+              ? draft?.attachments.length === 0 && (draft?.intent !== 'goal' || Boolean(text.trim()))
+              : draft?.workspaceId &&
+                !modelsLoading &&
+                !modelError &&
+                models.length > 0 &&
+                (text.trim() || (draft?.intent !== 'goal' && Boolean(draft?.attachments.length)))),
           ) && !unsupportedSlash,
-        error: slashRouteError
-          ? labels.slashActionFailed
-          : goalError
-            ? labels.goalError(goalError)
-            : openError
-              ? labels.error(openError)
-              : draft?.phase !== 'unknown' && draft?.error
-                ? labels.error(draft.error)
-                : undefined,
+        error: attachmentActionError
+          ? attachmentLabels.error(attachmentActionError)
+          : draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
+            ? attachmentLabels.error(draft.uploadError)
+            : slashRouteError
+              ? slashRouteError === 'ATTACHMENTS'
+                ? shell.session.slash.error('ATTACHMENTS')
+                : labels.slashActionFailed
+              : goalError
+                ? labels.goalError(goalError)
+                : openError
+                  ? labels.error(openError)
+                  : draft?.phase !== 'unknown' && draft?.error
+                    ? labels.error(draft.error)
+                    : undefined,
         context:
-          preparedGoal || modelGuidance || unsupportedSlash || (draft && draft.phase !== 'idle') ? (
+          preparedGoal ||
+          modelGuidance ||
+          unsupportedSlash ||
+          attachmentTransfers.length > 0 ||
+          (draft && draft.phase !== 'idle') ? (
             <>
+              <HbarComposerAttachmentTransfers
+                transfers={attachmentTransfers}
+                labels={attachmentLabels}
+                connected={connected}
+                onRemove={(item) =>
+                  runAttachmentCommand(() =>
+                    runtime.commands.execute('preSessionDraft.removeAttachmentTransfer', {
+                      draftId,
+                      reservationId: item.id,
+                      ownerRevision: item.ownerRevision,
+                    }),
+                  )
+                }
+                onReconcile={(item) =>
+                  runAttachmentCommand(() =>
+                    runtime.commands.execute('preSessionDraft.reconcileAttachment', {
+                      draftId,
+                      reservationId: item.id,
+                      ownerRevision: item.ownerRevision,
+                    }),
+                  )
+                }
+                onAccept={(item) =>
+                  runAttachmentCommand(() =>
+                    runtime.commands.execute('preSessionDraft.acceptReadyAttachment', {
+                      draftId,
+                      reservationId: item.id,
+                      ownerRevision: item.ownerRevision,
+                      expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
+                    }),
+                  )
+                }
+              />
               {draft && <HbarPreSessionLaunchStatus draft={draft} labels={launchLabels.status} connected={connected} />}
               {preparedGoal}
               {modelGuidance}
@@ -752,7 +842,15 @@ export function WebPreSessionLanding({
           />
         ),
         onChange: writeText,
-        onRemoveAttachment: () => undefined,
+        onRemoveAttachment: (artifactId, kind) =>
+          runAttachmentCommand(() =>
+            runtime.commands.execute('preSessionDraft.removeAttachment', {
+              draftId,
+              kind,
+              artifactId,
+              expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
+            }),
+          ),
         onSubmit: submit,
       }}
     />
