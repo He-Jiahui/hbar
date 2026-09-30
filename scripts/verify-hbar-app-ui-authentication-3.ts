@@ -58,6 +58,7 @@ async function inspectFlow(page: Page) {
       providers: providers.map((provider) => ({
         height: provider.getBoundingClientRect().height,
         text: provider.textContent?.trim(),
+        captionHeight: provider.querySelector('span:last-child')?.getBoundingClientRect().height,
         icons: Array.from(provider.querySelectorAll('svg')).map((icon) => ({
           width: icon.getBoundingClientRect().width,
           height: icon.getBoundingClientRect().height,
@@ -94,6 +95,7 @@ async function run() {
       ['boundary-hidden', 1023, 'light'],
       ['boundary-shown', 1024, 'light'],
       ['narrow', 320, 'dark'],
+      ['iframe-stress', 286, 'light'],
     ] as const) {
       await page.setViewportSize({ width, height: 640 })
       await page.goto(url({ theme }), { waitUntil: 'networkidle' })
@@ -102,8 +104,9 @@ async function run() {
       assert(flow.nativeOptionalFields && flow.nativeEnabledSubmit, 'Native source form semantics changed')
       assert(flow.aside.display === (width < 1024 ? 'none' : 'flex'), 'Content-width split boundary changed')
       assert(
-        flow.input.height === 36 && flow.providers.every((provider) => provider.height === 36),
-        'Default native control dimensions changed',
+        flow.input.height === 36 &&
+          flow.providers.every((provider) => provider.height === 36 && provider.captionHeight === 20),
+        `${name}: default native control dimensions changed: ${JSON.stringify(flow.providers)}`,
       )
       assert(
         flow.providers.map((provider) => provider.text).join('/') === 'Google/Apple/GitHub',
@@ -116,7 +119,11 @@ async function run() {
         ),
         'Canonical inline icons were hidden or distorted',
       )
-      assert(Math.abs(flow.footer.top - 588) <= 1, 'Default footer does not follow the source flow')
+      const expectedFooterHeight = name === 'iframe-stress' ? 40 : 20
+      assert(
+        Math.abs(flow.footer.bottom - 608) <= 1 && flow.footer.height === expectedFooterHeight,
+        `${name}: default footer does not follow the observed source wrapping: ${JSON.stringify(flow.footer)}`,
+      )
       if (name === 'desktop')
         assert(
           flow.column.width === 360 && flow.column.height === 434 && flow.heading.fontWeight === '500',
@@ -131,6 +138,29 @@ async function run() {
 
     await page.setViewportSize({ width: 1071, height: 640 })
     await page.goto(url({ theme: 'light' }), { waitUntil: 'networkidle' })
+    const metricLabels = await panel.locator('.hbar-app-ui-auth-quote-metric p + p').evaluateAll((labels) =>
+      labels.map((label) => {
+        const style = getComputedStyle(label)
+        return {
+          text: label.textContent?.trim(),
+          title: label.getAttribute('title'),
+          height: label.getBoundingClientRect().height,
+          whiteSpace: style.whiteSpace,
+          textOverflow: style.textOverflow,
+        }
+      }),
+    )
+    assert(
+      metricLabels.length === 3 &&
+        metricLabels.every(
+          (label) =>
+            label.text === label.title &&
+            label.height === 16 &&
+            label.whiteSpace === 'nowrap' &&
+            label.textOverflow === 'ellipsis',
+        ),
+      'Observed metric-label flow or full Host disclosure changed',
+    )
     await panel.getByRole('textbox', { name: 'Work email', exact: true }).fill('audit@example.invalid')
     const password = panel.getByLabel('Password', { exact: true })
     await password.fill('local-fixture-only')
@@ -226,6 +256,7 @@ async function run() {
       acceptance: 'local-flow-and-host-integration-only; not current strict source/local acceptance',
       observations,
       representativeDraftAndSelection: true,
+      metricLabels,
       shortHeight,
       longCopy,
       overflowCounts: { providers: 17, stories: 17, metrics: 17 },

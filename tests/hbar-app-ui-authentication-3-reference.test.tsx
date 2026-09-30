@@ -105,6 +105,33 @@ describe('Authentication 3 controlled quote reference', () => {
     expect(first).not.toContain(second.text)
   })
 
+  test('retains complete long Host metric labels and all supplied metric cards', () => {
+    const quote = HBAR_APP_UI_AUTHENTICATION_FIXTURES.quote
+    const first = quote?.quotes[0]
+    if (!quote || !first) throw new Error('Expected source quote list')
+    const longLabel = 'Weekly hours saved across every connected team after the first month of adoption'
+    const metrics = Array.from({ length: 17 }, (_, index) => ({
+      label: index === 8 ? longLabel : `Host metric label ${index + 1}`,
+      value: `Host metric value ${index + 1}`,
+    }))
+    const content = withFlow(
+      {},
+      {
+        ...HBAR_APP_UI_AUTHENTICATION_FIXTURES,
+        quote: {
+          ...quote,
+          quotes: [{ ...first, metrics }, ...quote.quotes.slice(1)],
+        },
+      },
+    )
+    const markup = render(content)
+
+    expect(markup).toContain(`title="${longLabel}"`)
+    expect(markup).toContain(`>${longLabel}</p>`)
+    expect(markup.match(/class="hbar-app-ui-auth-quote-metric"/g) ?? []).toHaveLength(17)
+    expect(markup).toContain('Host metric value 17')
+  })
+
   test('retains the typed empty state and every overflow story control', () => {
     const quote = HBAR_APP_UI_AUTHENTICATION_FIXTURES.quote
     const first = quote?.quotes[0]
