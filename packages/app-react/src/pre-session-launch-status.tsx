@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import { useHbarRuntime } from './runtime'
+import { firstSendNeedsContinue } from './pre-session-launch-model'
 export { firstSendIsLocked } from './pre-session-launch-model'
 import './pre-session-launch-status.css'
 
@@ -32,14 +33,16 @@ export function HbarPreSessionLaunchStatus({
   const [error, setError] = useState<string | null>(null)
   const preparation = draft.launchPreparation
   const paused = preparation?.phase === 'paused-navigation'
+  const needsContinue = firstSendNeedsContinue(draft)
   const cancelled = draft.error === 'CANCELLED' || preparation?.phase === 'cancelled'
   const cancelRequested = preparation?.cancelRequested && !cancelled
   const inFlight = ['preparing', 'creating', 'configuring', 'submitting'].includes(draft.phase)
   const recoverableLaunch = draft.unknownStage?.startsWith('launch')
   const canContinue =
-    !cancelRequested && (paused || (recoverableLaunch && ['ready', 'reconciling'].includes(preparation?.phase ?? '')))
+    !cancelRequested &&
+    (needsContinue || (recoverableLaunch && ['ready', 'reconciling'].includes(preparation?.phase ?? '')))
   const canCancel =
-    !cancelled && !cancelRequested && draft.phase !== 'submitting' && (inFlight || paused || recoverableLaunch)
+    !cancelled && !cancelRequested && draft.phase !== 'submitting' && (inFlight || needsContinue || recoverableLaunch)
   const perform = (
     command:
       'preSessionDraft.cancel' | 'preSessionDraft.continue' | 'preSessionDraft.reconcile' | 'preSessionDraft.close',
@@ -67,7 +70,7 @@ export function HbarPreSessionLaunchStatus({
     ? labels.cancelRequested
     : cancelled
       ? labels.cancelled
-      : paused
+      : needsContinue
         ? labels.paused
         : draft.phase === 'unknown'
           ? labels.unknown
@@ -110,7 +113,7 @@ export function HbarPreSessionLaunchStatus({
             {labels.cancel}
           </LumenButton>
         )}
-        {draft.phase === 'failed' && !paused && (
+        {draft.phase === 'failed' && !needsContinue && (
           <LumenButton type="button" size="s" disabled={pending} onClick={() => perform('preSessionDraft.close')}>
             {labels.dismiss}
           </LumenButton>

@@ -11,3 +11,5 @@
 验证：`e2e/pre-session-location.spec.ts` 在英文 1440×900、中文 390×900 的生产 Web + 临时 Host 上通过 2 cases（12.9s）。核对菜单选择不新增 Session、不移动原 HEAD，首次发送仅接受一个 local-fixture Run，持久 target 为 derived、ready、locked，实际 branch 为生成分支；页面无 JS 错误或水平溢出，并验证选择后焦点恢复。Root 查看 desktop Location、narrow 分支列表和选择后的 composer 截图。strict TypeScript、零警告 ESLint、flow/icon/content guards 与 2 个纯模型测试（14 assertions）通过。
 
 最初的真实失败包含选择后焦点未恢复（已修正）与夹具把 Host home 放在 Git repo 内（路径保护正确拒绝；夹具改为同一自有临时目录下的两个并列目录）。早期模型 locator/reader 方法拼写错误未作为产品故障或通过结果。SSR 组件测试被既有 `prop-types`/`react-is` 缺失阻断，最终组件验收使用生产浏览器，纯模型单测不加载 MUI。全仓 typecheck 仍有既有 preview/模块解析诊断；未安装依赖、未运行原生窗口 smoke，未修改真实用户配置或付费调用。
+
+后续恢复入口修正：Host 准备在核对结果后已 ready 时，Runtime 仍要求原首次发送的显式 Continue（`CONTINUE_REQUIRED`），不是普通失败。View 保持原草稿的发送锁，显示继续／取消，不提供无效的关闭提示。修正后的纯模型与 Runtime 回归为 48 tests／321 assertions 通过，strict/lint 和 Web build 通过；未额外扩展浏览器故障注入矩阵。

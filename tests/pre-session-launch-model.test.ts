@@ -1,5 +1,9 @@
 import { expect, test } from 'bun:test'
-import { firstSendIsLocked, launchSelectionBranchName } from '../packages/app-react/src/pre-session-launch-model'
+import {
+  firstSendIsLocked,
+  firstSendNeedsContinue,
+  launchSelectionBranchName,
+} from '../packages/app-react/src/pre-session-launch-model'
 import { preSessionDraftStateSchema, type PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 
 test('launch labels keep base branch distinct from shared and legacy execution selections', () => {
@@ -49,4 +53,15 @@ test('first-send ownership locks duplicate composer submissions until accepted, 
   for (const phase of ['idle', 'failed', 'accepted'] as const) expect(firstSendIsLocked(draft(phase))).toBe(false)
   expect(firstSendIsLocked(draft('failed', true))).toBe(true)
   expect(firstSendIsLocked(undefined)).toBe(false)
+})
+
+test('ready after result reconciliation still belongs to the original explicit Continue flow', () => {
+  const ready = preSessionDraftStateSchema.parse({
+    ...draft('failed'),
+    error: 'CONTINUE_REQUIRED',
+    launchPreparation: { phase: 'ready', targetRevision: 1, snapshot: null, error: null, cancelRequested: false },
+  })
+  expect(firstSendNeedsContinue(ready)).toBe(true)
+  expect(firstSendIsLocked(ready)).toBe(true)
+  expect(firstSendNeedsContinue(draft('failed'))).toBe(false)
 })
