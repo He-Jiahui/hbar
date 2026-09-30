@@ -9,6 +9,14 @@ const controlled = new Map<string, string>([
   ['agent-plan:2', '面板滚动；Web 沿用协议 100 步上限'],
   ['settings-form:3', '宿主提供有限偏好选项；随内容增长，失效选项不回退'],
   ['authentication:6', '验证码长度由协议/宿主提供；表单随内容增长，计时和验证结果归宿主'],
+  ['billing:1', '宿主账单/指标与查询；原生表格独立滚动，不截断超容量记录'],
+  ['billing:2', '宿主套餐/开关/草稿；flex 卡片，本地确认与失败恢复归 Zustand'],
+  ['billing:3', '已观察 Customer/Terms 表单；宿主原生字段与草稿，后续步骤只派请求'],
+  ['billing:4', '宿主六订阅/重试记录；原生表格，Zustand 展开 ID，重试只派请求'],
+  ['billing:5', '宿主四档选择及对应摘要；flex 双栏到单栏，后续步骤只派请求'],
+  ['billing:6', '宿主支付方式/联系人；主选项等待本地确认，不代表支付后端变更'],
+  ['billing:7', '宿主周期/用量；原生 roving tabs，保留 120% 语义，不虚构周期数据'],
+  ['billing:8', '宿主四行发票/活动/收款信息；原生表格内横滚，aside 正常流堆叠'],
   ...[1, 2, 3, 4, 5, 6].map((variant): [string, string] => [
     `command-menu:${variant}`,
     variant === 4

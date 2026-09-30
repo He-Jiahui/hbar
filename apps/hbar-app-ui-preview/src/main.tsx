@@ -16,6 +16,7 @@ import { createChatReferencePreviewFixtures } from '../../../tests/fixtures/hbar
 import { SupportTicketPreviewHost } from './SupportTicketPreviewHost'
 import { SupportThreadPreviewHost } from './SupportThreadPreviewHost'
 import { SupportReferencePreviewHost } from './SupportReferencePreviewHost'
+import { BillingReferencePreviewHost } from './BillingReferencePreviewHost'
 import { createSupportThreadPreviewCopy } from './supportThreadPreviewCopy'
 import { createSupportReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-support-reference-fixtures'
 import { createSupportTicketPreviewCopy, localizeSupportTicketPreviewContent } from './supportTicketPreviewCopy'
@@ -183,11 +184,7 @@ import {
   createHbarAppUiAuthenticationSignInFixture,
   HBAR_APP_UI_AUTHENTICATION_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-authentication-fixtures'
-import {
-  createHbarAppUiBillingLocalizedFixtures,
-  createHbarAppUiBillingOverflowFixtures,
-  HBAR_APP_UI_BILLING_FIXTURES,
-} from '../../../tests/fixtures/hbar-app-ui-billing-fixtures'
+import { createBillingReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-billing-reference-fixtures'
 import {
   createHbarAppUiIntegrationsLocalizedFixtures,
   createHbarAppUiIntegrationsOverflowFixtures,
@@ -516,17 +513,21 @@ function PreviewApp() {
       scenario === 'password' || scenario === 'invalid' ? scenario : 'source',
     )
   }, [])
-  const billingContent = useMemo(() => {
-    switch (new URLSearchParams(window.location.search).get('billingFixture')) {
-      case 'overflow':
-        return createHbarAppUiBillingOverflowFixtures()
-      case 'localized':
-        return createHbarAppUiBillingLocalizedFixtures()
-      case null:
-      default:
-        return HBAR_APP_UI_BILLING_FIXTURES
-    }
-  }, [])
+  const billingLocale = useMemo(
+    () => new URLSearchParams(window.location.search).get('billingFixture') === 'localized' ? 'de' : 'en',
+    [],
+  )
+  const billingOutcome = useMemo(
+    () => new URLSearchParams(window.location.search).get('billingOutcome') === 'failed' ? 'failed' : 'confirmed',
+    [],
+  )
+  const billingContent = useMemo(
+    () => createBillingReferencePreviewFixtures(
+      billingLocale === 'de' ? 'de-long' : 'en',
+      new URLSearchParams(window.location.search).get('billingFixture') === 'overflow',
+    ),
+    [billingLocale],
+  )
   const integrationsContent = useMemo(() => {
     switch (new URLSearchParams(window.location.search).get('integrationsFixture')) {
       case 'overflow':
@@ -922,6 +923,13 @@ function PreviewApp() {
                             onAction={handleAction}
                           >
                             <HbarAppUiBillingProvider content={billingContent}>
+                              <BillingReferencePreviewHost
+                                content={billingContent}
+                                spec={selected.spec}
+                                onAction={handleAction}
+                                locale={billingLocale}
+                                outcome={billingOutcome}
+                              >
                               <HbarAppUiIntegrationProvider content={integrationsContent}>
                                 <CommentsPreviewHost content={commentsContent}>
                                   <SchedulingPreviewHost content={schedulingContent}>
@@ -1206,6 +1214,7 @@ function PreviewApp() {
                                   </SchedulingPreviewHost>
                                 </CommentsPreviewHost>
                               </HbarAppUiIntegrationProvider>
+                              </BillingReferencePreviewHost>
                             </HbarAppUiBillingProvider>
                           </AuthenticationReferencePreviewHost>
                         </SettingsForm2PreviewHost>
@@ -1371,6 +1380,13 @@ function PreviewApp() {
                                       onAction={handleAction}
                                     >
                                       <HbarAppUiBillingProvider content={billingContent}>
+                                        <BillingReferencePreviewHost
+                                          content={billingContent}
+                                          spec={selected.spec}
+                                          onAction={handleAction}
+                                          locale={billingLocale}
+                                          outcome={billingOutcome}
+                                        >
                                         <HbarAppUiIntegrationProvider content={integrationsContent}>
                                           <CommentsPreviewHost content={commentsContent}>
                                             <SchedulingPreviewHost content={schedulingContent}>
@@ -1681,6 +1697,7 @@ function PreviewApp() {
                                             </SchedulingPreviewHost>
                                           </CommentsPreviewHost>
                                         </HbarAppUiIntegrationProvider>
+                                        </BillingReferencePreviewHost>
                                       </HbarAppUiBillingProvider>
                                     </AuthenticationReferencePreviewHost>
                                   </SettingsForm2PreviewHost>

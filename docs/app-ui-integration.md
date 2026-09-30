@@ -697,6 +697,51 @@ chunk warning and incompatible installed/pinned pnpm versions are unchanged;
 direct existing tools do not imply that the pinned-pnpm workflow passed. The
 overall 38-category/300-variant goal remains in progress.
 
+### Billing 1–8 practical reference integration
+
+All eight Billing reference branches are now dispatched separately from the
+compatible generic fallbacks. Statement keeps its balance, four metrics and
+eight-row native ledger; Plans keeps three flex columns and native switches;
+Invoice Composer supplies the observed Customer/Terms form with ten native
+fields. Recovery keeps three metric summaries, six native table rows and the
+initial three-attempt expansion. Change Plan projects four native choices and
+their Host-supplied proration summaries. Payment Methods keeps three methods,
+two contacts, address and tax information. Usage uses a native roving tablist,
+four meters and the unabridged 120% overage text. Invoice Detail keeps the
+observed four-row native table, totals, activity and collection aside, without
+adding an unobserved invoice header or toolbar.
+
+The preview Host owns query, flags, drafts, expansion and selection in one
+Zustand owner per surface. Saves and primary-method selection capture immutable
+preview tickets, reject duplicate/stale confirmations, retain edits on failure
+or cancellation and reconcile retired IDs or changed field constraints.
+Confirmation explicitly says nothing was published, persisted or changed at a
+payment processor. Compound flag IDs are collision-safe; repeated record IDs
+keep the first record and collections are not silently truncated at their
+declared expected maximum.
+
+The [practical core check](../scripts/verify-hbar-app-ui-billing-reference-core.ts),
+also reached by the established `app-ui:billing:verify` entry, mounts all eight
+structures once and samples search, captured save, retained draft, expansion,
+plan-summary replacement, primary-method projection and keyboard tabs. One
+narrow long-copy form and one narrow internally scrolling table cover the two
+different responsive mechanisms; these samples have no console/page errors or
+page-level horizontal overflow. Screenshot review confirms broadly normal
+layout, not pixel-level equivalence or every button/theme/viewport combination.
+
+The 30 focused Billing SSR/store tests and 270 assertions, root/Lumen types,
+scoped lint/style/format and content/icon/flow guards, production preview build
+and direct Lumen package/declaration builds pass. Reference structure comes from
+the authorized `full-static-v10` cache; the observed Starter summary also agrees
+with the cached `full-interactions-v4` selection result. Invoice Next, Change
+Plan Continue/Cancel, exports, edits and payment/retry actions emit requests
+only. Later wizard steps and their source feedback are unverified, and no real
+invoice, retry or charge has been sent. This is not a fresh strict source/local
+ledger or final desktop/backend acceptance. The existing preview chunk warning
+and incompatible installed/pinned pnpm versions remain; direct existing tools
+do not imply the pinned-pnpm workflow passed. The 38-category/300-variant goal
+remains in progress.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
