@@ -129,6 +129,15 @@ describe('Paywall 3 source reference', () => {
     expect(html).toContain('disabled=""')
     expect(html).toContain('aria-hidden="true"')
     expect(html).toContain('lumen-paywall3-feature-check')
+
+    const localized = render(referenceModel('yearly', 'de'))
+    const proActionStart = localized.indexOf('data-paywall3-plan-action="pro"')
+    const proActionEnd = localized.indexOf('>', proActionStart)
+    expect(localized.slice(proActionStart, proActionEnd)).toContain('data-lumen-variant="solid"')
+    expect(localized.slice(proActionStart, proActionEnd)).toContain('data-tone="primary"')
+    expect(localized.slice(localized.indexOf('data-paywall3-plan-id="starter"'), proActionStart)).toContain(
+      'disabled=""',
+    )
   })
 
   test('preserves localized long copy and renders empty, boundary and scroll-list cases', () => {

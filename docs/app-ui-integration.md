@@ -624,6 +624,46 @@ claim of source/local visual acceptance. The focused family regression passes
 55 tests and 442 assertions; root/Lumen typechecks, scoped lint/format/content/icon
 checks, preview build and direct Lumen Vite/declaration builds also pass.
 
+### Paywall 1–7 practical category closure
+
+The seven existing source-shaped surfaces are retained rather than rebuilt:
+article membership lock, feature gate, billing-period plan comparison, passive
+quota notice, retained-data trial card, email reader gate and administrator
+request. The current delivery standard is practical functionality and broadly
+normal flow, not another every-button/theme/viewport matrix. The historical
+source observations and strict gaps above remain historical; this closure does
+not convert them into fresh source/local paired evidence.
+
+One material correction makes the recommended-plan CTA independent of copy.
+Child commit `5f3cdf53fe` introduced a comparison between localized badge text
+and the technical string `recommended`; the Host actually supplies `Recommended`
+or `Empfohlen`. The view now derives recommendation from non-current badge
+presence, matching the existing semantic badge kind. A German-label regression
+checks primary/solid treatment while retaining the disabled current plan.
+Current Paywall 6/7 scoped lint findings are also corrected without changing
+their public API or DOM behavior: React namespace imports, braces and typed
+named-region props retain the keyboard-scrollable assurance pane.
+
+Run the [practical category check](../scripts/verify-hbar-app-ui-paywall-reference-core.ts)
+with `bun scripts/verify-hbar-app-ui-paywall-reference-core.ts` against the built
+preview on port 5193. It mounts all seven structures once and samples only
+distinct mechanisms: period/price/note changes, native email validity and a
+retained request draft, and a target-named administrator request. Two narrow
+samples cover wrapping plan cards and long-copy content/actions. Equivalent
+passive rows and request buttons are inferred from their shared implementation,
+not individually replayed in every layout. Screenshots and browser diagnostics
+are written to `artifacts/paywall-reference-core-review`.
+
+Upgrade, comparison, login, top-up, reactivation, mail and administrator actions
+remain requests; no purchase, delivery, approval or restored access is asserted.
+The current focused family regression (56 tests / 465 assertions), root/Lumen
+typechecks, scoped lint and format, production preview and direct Lumen
+package/declaration builds pass.
+The existing preview chunk warning and installed/pinned pnpm mismatch remain;
+direct existing tools do not prove the pinned-pnpm workflow. These seven rows
+now meet the practical function/layout standard, while the full 38-category/
+300-variant objective continues and strict/backend acceptance stays separate.
+
 ### Chat 2–6 practical reference integration
 
 The remaining Chat reference branches now have independent, host-owned layouts:
