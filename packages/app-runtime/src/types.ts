@@ -12,9 +12,11 @@ import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import type { AttachmentUploadInput, SessionFileTarget } from '@hbar/contracts/commands/files'
 import type {
+  SessionLaunchSelection,
   SessionLaunchTargetPreparationManager,
   SessionLaunchTargetReader,
 } from '@hbar/contracts/commands/session-launch-target'
+import type { PreSessionLaunchPreparationState } from '@hbar/contracts/commands/pre-session-draft'
 import type {
   SessionLaunchBranchesManager,
   SessionLaunchBranchesReader,
@@ -890,6 +892,27 @@ export interface SessionTimelinePort {
     cursor: number,
     onUpdate: (update: SessionTimelineUpdate) => void,
   ): Promise<() => void | Promise<void>>
+}
+
+/** A local, session-scoped launch choice for an existing Session before its first Run. */
+export interface SessionLaunchDraftEntry {
+  readonly sessionId: string
+  readonly workspaceId: string
+  /** Compare-and-set revision for the local choice, independent of Host target revision. */
+  readonly revision: number
+  /** Host target revision captured at open/last confirmed selection receipt. */
+  readonly hostRevision: number
+  readonly selection: SessionLaunchSelection
+  readonly phase: PreSessionLaunchPreparationState['phase']
+  /** Host revision usable by `run.submit.expectedLaunchTargetRevision` only after ready. */
+  readonly targetRevision: number | null
+  readonly error: string | null
+  readonly preparation: PreSessionLaunchPreparationState
+}
+
+export interface SessionLaunchDraftState {
+  readonly available: boolean
+  readonly entries: Readonly<Record<string, Readonly<SessionLaunchDraftEntry>>>
 }
 
 export interface SessionTimelineState {

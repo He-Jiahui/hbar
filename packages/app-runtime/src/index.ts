@@ -88,6 +88,7 @@ import {
   createPreSessionLaunchBranchCreation,
   preSessionLaunchBranchCreationCommands,
 } from './pre-session-launch-branch-creation'
+import { createSessionLaunchDrafts, sessionLaunchDraftCommands } from './session-launch-drafts'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
@@ -215,6 +216,8 @@ export type {
   GlobalSettingsStartup,
   RunCommandPort,
   SessionDraftState,
+  SessionLaunchDraftEntry,
+  SessionLaunchDraftState,
   PreSessionDraftsState,
   SessionAttachmentUpload,
   SessionControlsState,
@@ -289,6 +292,7 @@ export type {
 export { composerPlanModeCommands } from './composer-plan-mode'
 export { composerPlanChoiceCommands } from './composer-plan-choice'
 export type { ComposerPlanModeState, ComposerPlanModeEntry, ComposerPlanMode } from './composer-plan-mode'
+export { sessionLaunchDraftCommands } from './session-launch-drafts'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 export type {
   SessionArchiveState,
@@ -336,6 +340,7 @@ const runtimeCommands = {
   ...sessionMessageForkCommands,
   ...preSessionLaunchBranchesCommands,
   ...preSessionLaunchBranchCreationCommands,
+  ...sessionLaunchDraftCommands,
   ...systemDiagnosticsCommands,
 }
 
@@ -522,6 +527,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const sessionLaunchDrafts = createSessionLaunchDrafts(local, {
+    queries: directory.queries,
+    ...(options.timeline ? { timeline: options.timeline } : {}),
+    ...(options.sessionLaunchTargetPreparation ? { preparation: options.sessionLaunchTargetPreparation } : {}),
+    navigation: navigation.reader,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const isCurrentRunActive = (sessionId: string) => {
     const current = timeline.reader.getSnapshot()
     return (
@@ -865,6 +878,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(preSessionDraftCommands, name) ||
+        Object.hasOwn(sessionLaunchDraftCommands, name) ||
         Object.hasOwn(preSessionLaunchBranchesCommands, name) ||
         Object.hasOwn(preSessionLaunchBranchCreationCommands, name) ||
         Object.hasOwn(runActionCommands, name) ||
@@ -948,6 +962,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       surfaces: surfaces.reader,
       presentation: presentation.reader,
       timeline: timeline.reader,
+      sessionLaunchDrafts: sessionLaunchDrafts.reader,
       goalHistory: goalHistory.reader,
       activity: activityWorkspace.reader,
       queuedUserRuns: queuedUserRuns.reader,
@@ -1016,6 +1031,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       agentComposer.dispose()
       preSessionLaunchBranchCreation.dispose()
       preSessionDrafts.dispose()
+      sessionLaunchDrafts.dispose()
       preSessionLaunchBranches.dispose()
       local.dispose()
       platform.dispose()
