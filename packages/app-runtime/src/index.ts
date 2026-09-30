@@ -858,6 +858,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
     composerModel.invalidateModels,
+    controls.settingsCommitted,
   )
   const fileWorkspace = createFileWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed, {
     tabs: workspaceTabs.reader,

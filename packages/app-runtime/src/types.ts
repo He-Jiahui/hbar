@@ -73,7 +73,8 @@ import type {
   ProviderPresetSummary,
   ProviderProfile,
 } from '@hbar/contracts/commands/configuration'
-import type { ThinkingLevel } from '@hbar/contracts'
+import type { ProviderGlobalDefaultAction } from '@hbar/contracts/commands/provider-editor'
+import type { ProviderConfig, ThinkingLevel } from '@hbar/contracts'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 import type { PlanProposalRequestText } from './plan-proposal-actions'
 
@@ -733,8 +734,25 @@ export interface ProviderSettingsState {
   readonly description: Readonly<ProviderEditorDescription> | null
   readonly listSchema: Readonly<CompiledKeyedList> | null
   readonly list: Readonly<KeyedListState> | null
-  readonly profiles: Readonly<Record<string, Readonly<ProviderProfile>>>
+  readonly profiles: Readonly<Record<string, Readonly<ProviderSettingsProfile>>>
+  readonly globalDefault: Readonly<ProviderGlobalDefaultState>
+  readonly globalDefaultAction: Readonly<ProviderGlobalDefaultAction>
   readonly editor: Readonly<ProviderEditorState> | null
+  readonly error: string | null
+}
+
+export interface ProviderSettingsProfile extends Omit<ProviderProfile, 'provider'> {
+  readonly provider: Readonly<ProviderConfig>
+}
+
+export interface ProviderGlobalDefaultState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
+  readonly modelSelectionId: string | null
+  readonly providerId: string | null
+  readonly providerName: string | null
+  readonly modelId: string | null
+  readonly modelName: string | null
+  readonly selectable: boolean
   readonly error: string | null
 }
 export interface RunCommandPort extends CommandExecutor {

@@ -3,6 +3,7 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { thinkingLevelSchema } from '../index'
 
 const editorIdSchema = z.string().min(1).max(512)
+const providerIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
 const summarySchema = z.strictObject({
   status: z.enum(['idle', 'loading', 'ready', 'error']),
   editorId: editorIdSchema.nullable(),
@@ -10,6 +11,12 @@ const summarySchema = z.strictObject({
   formStatus: z.enum(['idle', 'submitting', 'succeeded', 'failed', 'unknown']).nullable(),
   revision: z.number().int().nonnegative(),
   dirty: z.array(z.string()),
+  error: z.string().nullable(),
+})
+const globalDefaultActionSchema = z.strictObject({
+  status: z.enum(['idle', 'submitting', 'succeeded', 'failed', 'unknown']),
+  providerId: providerIdSchema.nullable(),
+  modelSelectionId: z.string().min(1).max(512).nullable(),
   error: z.string().nullable(),
 })
 const metadata = (id: string) => ({
@@ -92,6 +99,16 @@ export const providerEditorCommands = {
     z.strictObject({ editorId: editorIdSchema, modelId: z.string().min(1).max(160) }),
     summarySchema,
   ),
+  'providerEditor.setGlobalDefault': defineCommand(
+    metadata('providerEditor.setGlobalDefault'),
+    z.strictObject({ providerId: providerIdSchema }),
+    globalDefaultActionSchema,
+  ),
+  'providerEditor.reconcileGlobalDefault': defineCommand(
+    metadata('providerEditor.reconcileGlobalDefault'),
+    z.strictObject({}),
+    globalDefaultActionSchema,
+  ),
   'providerEditor.addModel': defineCommand(
     metadata('providerEditor.addModel'),
     z.strictObject({ editorId: editorIdSchema, modelId: z.string().min(1).max(160) }),
@@ -158,3 +175,5 @@ export const providerEditorCommands = {
     summarySchema,
   ),
 }
+
+export type ProviderGlobalDefaultAction = z.output<typeof globalDefaultActionSchema>
