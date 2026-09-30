@@ -8,7 +8,11 @@ const oid = 'a'.repeat(40)
 function page(workspaceId = 'workspace-a', name = 'main'): SessionLaunchBranchesPage {
   return {
     workspaceId,
-    repository: { kind: 'repository', head: { kind: 'branch', name: 'main', ref: 'refs/heads/main', oid } },
+    repository: {
+      kind: 'repository',
+      workspaceScope: 'repository-root',
+      head: { kind: 'branch', name: 'main', ref: 'refs/heads/main', oid },
+    },
     branches: [
       {
         name,
@@ -51,7 +55,7 @@ test('branch discovery is a fresh registered-workspace query with bounded defaul
     protocol: 1,
     requestId: 'branches-request',
     commandId: 'sessionLaunchBranches.list',
-    commandVersion: 1,
+    commandVersion: 2,
     input: { workspaceId: 'workspace-a', search: '', limit: 25 },
   })
   expect(calls[1]).not.toHaveProperty('idempotencyKey')
@@ -109,6 +113,41 @@ test('strict query replies reject wrong workspace, leaked paths, ref mismatch an
     { ...base, branches: [{ ...branch, ref: 'refs/heads/another' }] },
     {
       ...base,
+      repository: {
+        kind: 'repository',
+        head: base.repository.kind === 'repository' ? base.repository.head : undefined,
+      },
+    },
+    {
+      ...base,
+      branches: [
+        {
+          ...branch,
+          availability: {
+            sharedCurrent: { state: 'available' },
+            isolatedBase: { state: 'disabled', reason: 'repository-root-required' },
+          },
+        },
+      ],
+    },
+    {
+      ...base,
+      repository: {
+        kind: 'repository',
+        workspaceScope: 'repository-subdirectory',
+        head: base.repository.kind === 'repository' ? base.repository.head : undefined,
+      },
+    },
+    {
+      ...base,
+      repository: {
+        kind: 'repository',
+        workspaceScope: 'unknown',
+        head: base.repository.kind === 'repository' ? base.repository.head : undefined,
+      },
+    },
+    {
+      ...base,
       branches: Array.from({ length: 51 }, (_, index) => ({
         ...branch,
         name: `branch-${index}`,
@@ -122,7 +161,8 @@ test('strict query replies reject wrong workspace, leaked paths, ref mismatch an
       return replies.shift()
     },
   })
-  for (let index = 0; index < 6; index++)
+  const replyCount = replies.length
+  for (let index = 0; index < replyCount; index++)
     await expect(reader.list({ workspaceId: 'workspace-a' })).rejects.toMatchObject({ code: 'INVALID_OUTPUT' })
 })
 
@@ -135,10 +175,18 @@ test('empty, detached and unborn facts remain distinct rather than selecting a f
       nextCursor: null,
       incomplete: false,
     },
-    { ...page(), repository: { kind: 'repository', head: { kind: 'detached', oid } }, branches: [] },
     {
       ...page(),
-      repository: { kind: 'repository', head: { kind: 'unborn', ref: 'refs/heads/main', name: 'main' } },
+      repository: { kind: 'repository', workspaceScope: 'repository-root', head: { kind: 'detached', oid } },
+      branches: [],
+    },
+    {
+      ...page(),
+      repository: {
+        kind: 'repository',
+        workspaceScope: 'repository-root',
+        head: { kind: 'unborn', ref: 'refs/heads/main', name: 'main' },
+      },
       branches: [],
     },
   ]

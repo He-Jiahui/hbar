@@ -168,6 +168,12 @@ Client 的 `SessionLaunchTargetPreparationManager` 是独立的认证传输适�
 
 每条分支分别表达 sharedCurrent 和 isolatedBase 的可用性：其他 worktree 已检出的分支不能用于共享切换，但可以作为派生隔离分支的起点。读取 worktree 状态失败时，共享切换显示 unknown，不猜测 available。这是给后续 Location 入口使用的数据事实，**不是现有 hbar 隔离准备已经改成参考 base-ref 语义的声明**；共享 selected-branch、隔离派生分支、参考式即时 New branch 创建及可编辑 Location 仍需独立实现。
 
+后续 v2 修正将 `repository.workspaceScope` 作为必填的 path-free 事实，区分 `repository-root` 与 `repository-subdirectory`。Git 插件比较注册 workspace 的 canonical realpath 和 Git root；指向仓库根的 junction／symlink 仍表示 root，不向客户端公开路径。当前隔离准备明确不支持注册子目录，因此其所有 `isolatedBase` 均返回 disabled／`repository-root-required`，不先显示 available 再到首次发送时报错。根目录的分支仍可作为 base，包括正在其他 worktree checkout 的分支；这不改 legacy `existing` 的直接 checkout 语义，也不解除子目录准备限制。共享 availability 只描述 Git worktree 占用事实，不构成跨会话 active Run 或 Files 草稿安全授权。
+
+命令版本升为 2，v1 请求明确返回 `VERSION_MISMATCH`；现有公开 Client factory 使用 v2 定义，旧 SDK 缺少 topology 不混跑。Kernel 在使用 SDK snapshot 前严格校验 scope、HEAD／ref、数组上限、重复 refs 与多余字段，缺失／未知 scope、超量或泄漏路径均返回 typed `INVALID_OUTPUT`，不推断默认可用。公开 page 同时校验每条 availability 与 scope 一致，空 repository page 也保留 scope。cursor 指纹包含完整已校验 snapshot，因此 topology 变化使原 cursor 失效。
+
+Root 独立验证三个 focused files 为 **20 tests／158 assertions，0 failures，37.74s**，包含真实 root／subdirectory／canonical junction、非仓库与失败、未知／缺失 SDK scope、page 矛盾、v1 拒绝和配对 v2 Client→Host；查询前后 refs／HEAD 不变，零新增 Session。执行 `bun test --timeout 20000`，5,001 refs 用例仍使用其既有显式 60s fixture budget（本轮 22.72s），未扩大产品 15s command deadline。首轮 agent 默认 5s 运行有测试 timeout，后续按仓库 20s 配置重跑通过，不把首轮计作绿色结果或归因为特定系统负载。七条变更代码路径 full-flag explicit strict TypeScript、scoped ESLint 零警告与 diff 检查通过；五条常规文件的 Prettier 通过，Git／SDK 两个大源文件撤销无关 formatter churn 后只保留一个功能 hunk，其 HEAD 完整格式检查仍失败。本修正尚无 Location UI 接线、native 验收或真正的派生 base-ref 准备交付。
+
 验证包括真实 Git 状态、5,001 refs 的扫描边界、Unicode 归一化和游标失效，以及公开配对 Client → Host 的读取流程。后者核对查询前后零新增 Session、原 HEAD／分支不变、工作区无新增文件；独立 Client 测试还覆盖预取消、迟到错误、错 workspace 和超量／泄漏路径响应。结果与检查边界记录在对应提交正文中，未进行 native 验收或参考仓库的真实分支写入。
 
 ## 首次 Run 的已准备版本校验

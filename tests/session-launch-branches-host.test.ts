@@ -58,17 +58,32 @@ test('public paired Client discovers registered workspace branches without creat
     await client.pair(host.pairing.code, 'branch discovery fixture')
     const workspace = (await kernel.storage.call('workspaces'))[0]
     if (!workspace) throw new Error('Fixture workspace missing')
+    const nestedPath = join(repository, 'nested workspace')
+    await mkdir(nestedPath)
+    const nestedWorkspace = await kernel.storage.call('createWorkspace', nestedPath, 'nested workspace')
     expect(await kernel.storage.call('sessions')).toEqual([])
     expect(await client.call('command.describe', { commandId: 'sessionLaunchBranches.list' })).toMatchObject({
-      metadata: { kind: 'query', stateEffect: 'none', scope: 'workspace', visibility: 'internal' },
+      metadata: { kind: 'query', version: 2, stateEffect: 'none', scope: 'workspace', visibility: 'internal' },
     })
 
     const reader = createSessionLaunchBranchesReader(client)
+    const refsBefore = await git(repository, ['for-each-ref', '--format=%(refname)%00%(objectname)', 'refs/heads'])
     const page = await reader.list({ workspaceId: workspace.id, search: '中文', limit: 1 })
     expect(page).toMatchObject({
       workspaceId: workspace.id,
-      repository: { kind: 'repository', head: { kind: 'branch', name: 'main', oid: originalHead } },
-      branches: [{ name: 'feature/中文', ref: 'refs/heads/feature/中文', current: false }],
+      repository: {
+        kind: 'repository',
+        workspaceScope: 'repository-root',
+        head: { kind: 'branch', name: 'main', oid: originalHead },
+      },
+      branches: [
+        {
+          name: 'feature/中文',
+          ref: 'refs/heads/feature/中文',
+          current: false,
+          availability: { isolatedBase: { state: 'available' } },
+        },
+      ],
       incomplete: false,
       nextCursor: null,
     })
@@ -80,6 +95,19 @@ test('public paired Client discovers registered workspace branches without creat
     const second = await reader.list({ workspaceId: workspace.id, limit: 1, cursor: first.nextCursor })
     expect(second.branches[0]?.name).not.toBe(first.branches[0]?.name)
     expect(second.nextCursor).toBeNull()
+    const nestedPage = await reader.list({ workspaceId: nestedWorkspace.id })
+    expect(nestedPage).toMatchObject({
+      repository: { kind: 'repository', workspaceScope: 'repository-subdirectory' },
+    })
+    expect(nestedPage.branches.length).toBeGreaterThan(0)
+    expect(
+      nestedPage.branches.every(
+        (branch) =>
+          branch.availability.isolatedBase.state === 'disabled' &&
+          branch.availability.isolatedBase.reason === 'repository-root-required',
+      ),
+    ).toBeTrue()
+    expect(JSON.stringify(nestedPage)).not.toContain(repository)
     await expect(reader.list({ workspaceId: 'missing-workspace' })).rejects.toMatchObject({ code: 'NOT_FOUND' })
     await expect(
       client.call('command.execute', {
@@ -87,12 +115,24 @@ test('public paired Client discovers registered workspace branches without creat
         requestId: crypto.randomUUID(),
         commandId: 'sessionLaunchBranches.list',
         commandVersion: 1,
+        input: { workspaceId: workspace.id },
+      }),
+    ).rejects.toMatchObject({ code: 'VERSION_MISMATCH' })
+    await expect(
+      client.call('command.execute', {
+        protocol: 1,
+        requestId: crypto.randomUUID(),
+        commandId: 'sessionLaunchBranches.list',
+        commandVersion: 2,
         input: { workspaceId: workspace.id, cwd: root },
       }),
     ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
     expect(await kernel.storage.call('sessions')).toEqual([])
     expect(await git(repository, ['symbolic-ref', '--short', 'HEAD'])).toBe('main')
     expect(await git(repository, ['rev-parse', 'HEAD'])).toBe(originalHead)
+    expect(await git(repository, ['for-each-ref', '--format=%(refname)%00%(objectname)', 'refs/heads'])).toBe(
+      refsBefore,
+    )
     expect(await git(repository, ['status', '--porcelain'])).toBe('')
   } finally {
     client?.disconnect()

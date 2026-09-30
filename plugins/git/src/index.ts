@@ -1044,7 +1044,12 @@ export class GitRuntime implements GitService {
     })
 
     return {
-      repository: { kind: 'repository', head },
+      repository: {
+        kind: 'repository',
+        workspaceScope:
+          relative(repositoryRoot, canonicalWorkspace) === '' ? 'repository-root' : 'repository-subdirectory',
+        head,
+      },
       branches: projectedBranches,
       incomplete: refsSnapshot.incomplete || refsOverCap || refsResult.truncated,
     }

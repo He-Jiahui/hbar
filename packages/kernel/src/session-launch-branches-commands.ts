@@ -3,13 +3,64 @@ import { CommandError, CommandRegistry, createCommandClient } from '@hbar/comman
 import { HbarError, idSchema } from '@hbar/contracts'
 import {
   sessionLaunchBranchesCommands,
+  sessionLaunchBranchHeadSchema,
   sessionLaunchBranchesPageSchema,
 } from '@hbar/contracts/commands/session-launch-branches'
-import type { GitLaunchBranchSnapshot, GitService } from '@hbar/plugin-sdk'
+import type { GitService } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
 import { z } from 'zod'
 
 const MAX_LAUNCH_BRANCH_REFS = 5_000
+const gitObjectIdSchema = z.union([z.string().regex(/^[0-9a-f]{40}$/i), z.string().regex(/^[0-9a-f]{64}$/i)])
+const gitLaunchBranchSnapshotSchema = z
+  .strictObject({
+    repository: z.discriminatedUnion('kind', [
+      z.strictObject({ kind: z.literal('not-repository') }),
+      z.strictObject({
+        kind: z.literal('repository'),
+        workspaceScope: z.enum(['repository-root', 'repository-subdirectory']),
+        head: sessionLaunchBranchHeadSchema,
+      }),
+    ]),
+    branches: z
+      .array(
+        z
+          .strictObject({
+            name: z.string().min(1).max(1_000),
+            ref: z
+              .string()
+              .min('refs/heads/'.length + 1)
+              .max(1_011)
+              .startsWith('refs/heads/'),
+            oid: gitObjectIdSchema,
+            current: z.boolean(),
+            worktree: z.enum(['current', 'elsewhere', 'available', 'unknown']),
+          })
+          .refine((branch) => branch.ref.slice('refs/heads/'.length) === branch.name),
+      )
+      .max(MAX_LAUNCH_BRANCH_REFS),
+    incomplete: z.boolean(),
+  })
+  .superRefine((snapshot, context) => {
+    if (snapshot.repository.kind === 'not-repository') {
+      if (snapshot.branches.length > 0 || snapshot.incomplete)
+        context.addIssue({ code: 'custom', path: ['repository'], message: 'Non-repository snapshots must be empty' })
+      return
+    }
+
+    const head = snapshot.repository.head
+    if ((head.kind === 'branch' || head.kind === 'unborn') && head.ref.slice('refs/heads/'.length) !== head.name)
+      context.addIssue({ code: 'custom', path: ['repository', 'head'], message: 'Head name must match its Git ref' })
+
+    const refs = new Set<string>()
+    for (const [index, branch] of snapshot.branches.entries()) {
+      if (refs.has(branch.ref))
+        context.addIssue({ code: 'custom', path: ['branches', index, 'ref'], message: 'Duplicate local branch ref' })
+      refs.add(branch.ref)
+    }
+  })
+type ValidatedGitLaunchBranchSnapshot = z.infer<typeof gitLaunchBranchSnapshotSchema>
+
 const cursorPayloadSchema = z.strictObject({
   version: z.literal(1),
   workspaceId: idSchema,
@@ -44,7 +95,7 @@ function encodeCursor(payload: CursorPayload): string {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
 }
 
-function snapshotFingerprint(snapshot: GitLaunchBranchSnapshot): string {
+function snapshotFingerprint(snapshot: ValidatedGitLaunchBranchSnapshot): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
 }
 
@@ -56,16 +107,30 @@ function normalizeSearch(search: string): string {
   return search.normalize('NFC').toLowerCase()
 }
 
-function sharedCurrentAvailability(worktree: GitLaunchBranchSnapshot['branches'][number]['worktree']) {
+function sharedCurrentAvailability(worktree: ValidatedGitLaunchBranchSnapshot['branches'][number]['worktree']) {
   if (worktree === 'elsewhere') return { state: 'disabled' as const, reason: 'checked-out-elsewhere' as const }
   if (worktree === 'unknown') return { state: 'unknown' as const, reason: 'worktree-state-unavailable' as const }
   return { state: 'available' as const }
 }
 
+function invalidSnapshot(): CommandError {
+  return new CommandError('INVALID_OUTPUT', 'Git returned an invalid launch branch snapshot')
+}
+
+function validateSnapshot(value: unknown): ValidatedGitLaunchBranchSnapshot {
+  try {
+    const result = gitLaunchBranchSnapshotSchema.safeParse(value)
+    if (!result.success) throw invalidSnapshot()
+    return result.data
+  } catch {
+    throw invalidSnapshot()
+  }
+}
+
 function projectPage(
   workspaceId: string,
-  snapshot: GitLaunchBranchSnapshot,
-  branches: GitLaunchBranchSnapshot['branches'][number][],
+  snapshot: ValidatedGitLaunchBranchSnapshot,
+  branches: ValidatedGitLaunchBranchSnapshot['branches'][number][],
   nextCursor: string | null,
 ) {
   return sessionLaunchBranchesPageSchema.parse({
@@ -78,7 +143,10 @@ function projectPage(
       current: branch.current,
       availability: {
         sharedCurrent: sharedCurrentAvailability(branch.worktree),
-        isolatedBase: { state: 'available' as const },
+        isolatedBase:
+          snapshot.repository.kind === 'repository' && snapshot.repository.workspaceScope === 'repository-subdirectory'
+            ? { state: 'disabled' as const, reason: 'repository-root-required' as const }
+            : { state: 'available' as const },
       },
     })),
     nextCursor,
@@ -112,8 +180,9 @@ export function createSessionLaunchBranchesCommands(
 
       const workspace = await storage.call('workspace', input.workspaceId)
       context.signal.throwIfAborted()
-      const snapshot = await git.launchBranchSnapshot(workspace.path, context.signal)
+      const rawSnapshot: unknown = await git.launchBranchSnapshot(workspace.path, context.signal)
       context.signal.throwIfAborted()
+      const snapshot = validateSnapshot(rawSnapshot)
       const fingerprint = snapshotFingerprint(snapshot)
       if (cursor && cursor.snapshot !== fingerprint) throw invalidCursor()
       if (snapshot.repository.kind === 'not-repository') return projectPage(input.workspaceId, snapshot, [], null)

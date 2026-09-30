@@ -395,7 +395,14 @@ export interface GitLaunchBranchReference {
 
 /** A bounded local-ref view for pre-session launch selection; it never contains filesystem paths. */
 export interface GitLaunchBranchSnapshot {
-  readonly repository: { kind: 'not-repository' } | { kind: 'repository'; head: GitLaunchBranchHead }
+  readonly repository:
+    | { kind: 'not-repository' }
+    | {
+        kind: 'repository'
+        /** Whether the registered workspace itself is the Git root or a subdirectory. */
+        workspaceScope: 'repository-root' | 'repository-subdirectory'
+        head: GitLaunchBranchHead
+      }
   readonly branches: readonly GitLaunchBranchReference[]
   readonly incomplete: boolean
 }

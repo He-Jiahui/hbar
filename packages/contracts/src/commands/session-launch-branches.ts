@@ -22,6 +22,10 @@ const sharedCurrentAvailabilitySchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('disabled'), reason: z.literal('checked-out-elsewhere') }),
   z.strictObject({ state: z.literal('unknown'), reason: z.literal('worktree-state-unavailable') }),
 ])
+const isolatedBaseAvailabilitySchema = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('available') }),
+  z.strictObject({ state: z.literal('disabled'), reason: z.literal('repository-root-required') }),
+])
 
 export const sessionLaunchBranchSchema = z
   .strictObject({
@@ -33,7 +37,7 @@ export const sessionLaunchBranchSchema = z
       /** A shared-workspace switch is blocked only when another worktree owns the branch. */
       sharedCurrent: sharedCurrentAvailabilitySchema,
       /** Isolated launch creates a new branch from this ref, so checkout elsewhere is allowed. */
-      isolatedBase: z.strictObject({ state: z.literal('available') }),
+      isolatedBase: isolatedBaseAvailabilitySchema,
     }),
   })
   .refine((value) => value.ref.slice('refs/heads/'.length) === value.name)
@@ -50,7 +54,11 @@ const snapshotPageSchema = z.strictObject({
   workspaceId: idSchema,
   repository: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('not-repository') }),
-    z.strictObject({ kind: z.literal('repository'), head: sessionLaunchBranchHeadSchema }),
+    z.strictObject({
+      kind: z.literal('repository'),
+      workspaceScope: z.enum(['repository-root', 'repository-subdirectory']),
+      head: sessionLaunchBranchHeadSchema,
+    }),
   ]),
   branches: z.array(sessionLaunchBranchSchema).max(50),
   nextCursor: z.string().min(1).max(2_048).nullable(),
@@ -74,6 +82,24 @@ export const sessionLaunchBranchesPageSchema = snapshotPageSchema.superRefine((p
     page.repository.head.ref.slice('refs/heads/'.length) !== page.repository.head.name
   )
     context.addIssue({ code: 'custom', path: ['repository', 'head'], message: 'Head name must match its Git ref' })
+  if (page.repository.kind === 'repository') {
+    const subdirectory = page.repository.workspaceScope === 'repository-subdirectory'
+    for (const [index, branch] of page.branches.entries()) {
+      const availability = branch.availability.isolatedBase
+      if ((subdirectory && availability.state !== 'disabled') || (!subdirectory && availability.state !== 'available'))
+        context.addIssue({
+          code: 'custom',
+          path: ['branches', index, 'availability', 'isolatedBase'],
+          message: 'Isolated-base availability must match the registered workspace repository scope',
+        })
+    }
+    const refs = new Set<string>()
+    for (const [index, branch] of page.branches.entries()) {
+      if (refs.has(branch.ref))
+        context.addIssue({ code: 'custom', path: ['branches', index, 'ref'], message: 'Duplicate local branch ref' })
+      refs.add(branch.ref)
+    }
+  }
 })
 
 export type SessionLaunchBranchesInput = z.infer<typeof sessionLaunchBranchesInputSchema>
@@ -96,7 +122,7 @@ export interface SessionLaunchBranchesReader {
 
 const metadata = {
   id: 'sessionLaunchBranches.list',
-  version: 1,
+  version: 2,
   owner: 'hbar.session-launch-branches',
   kind: 'query' as const,
   execution: 'host' as const,
