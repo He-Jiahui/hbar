@@ -87,6 +87,7 @@ import { createPreSessionLaunchBranches, preSessionLaunchBranchesCommands } from
 import {
   createPreSessionLaunchBranchCreation,
   preSessionLaunchBranchCreationCommands,
+  sessionLaunchBranchCreationCommands,
 } from './pre-session-launch-branch-creation'
 import { createSessionLaunchDrafts, sessionLaunchDraftCommands } from './session-launch-drafts'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
@@ -119,7 +120,10 @@ export { sessionRosterRefreshCommands } from './session-roster-refresh'
 export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
 export { PRE_SESSION_LAUNCH_BRANCHES_PAGE_SIZE, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
 export type { PreSessionLaunchBranchesState } from './pre-session-launch-branches'
-export { preSessionLaunchBranchCreationCommands } from './pre-session-launch-branch-creation'
+export {
+  preSessionLaunchBranchCreationCommands,
+  sessionLaunchBranchCreationCommands,
+} from './pre-session-launch-branch-creation'
 export type {
   PreSessionLaunchBranchCreationEntry,
   PreSessionLaunchBranchCreationState,
@@ -340,6 +344,7 @@ const runtimeCommands = {
   ...sessionMessageForkCommands,
   ...preSessionLaunchBranchesCommands,
   ...preSessionLaunchBranchCreationCommands,
+  ...sessionLaunchBranchCreationCommands,
   ...sessionLaunchDraftCommands,
   ...systemDiagnosticsCommands,
 }
@@ -532,6 +537,56 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.timeline ? { timeline: options.timeline } : {}),
     ...(options.sessionLaunchTargetPreparation ? { preparation: options.sessionLaunchTargetPreparation } : {}),
     navigation: navigation.reader,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const sessionLaunchBranchCreation = createPreSessionLaunchBranchCreation(local, {
+    commandFamily: 'session',
+    ...(options.sessionLaunchBranches ? { reader: options.sessionLaunchBranches } : {}),
+    ...(options.sessionLaunchBranchCreation ? { manager: options.sessionLaunchBranchCreation } : {}),
+    choice: {
+      read(sessionId) {
+        const entry = sessionLaunchDrafts.reader.getSnapshot().entries[sessionId]
+        if (!entry) return undefined
+        const selected = navigation.reader.getSnapshot()
+        const access = sessionExecutionAccess.get({ sessionId, workspaceId: entry.workspaceId })
+        const history = timeline.reader.getSnapshot()
+        return {
+          workspaceId: entry.workspaceId,
+          revision: entry.revision,
+          launchSelection: entry.selection,
+          editError:
+            selected.status !== 'idle' || selected.sessionId !== sessionId || selected.workspaceId !== entry.workspaceId
+              ? 'STALE_TARGET'
+              : access.kind === 'archived'
+                ? 'SESSION_ARCHIVED'
+                : access.kind !== 'ready'
+                  ? 'SESSION_UNVERIFIED'
+                  : [
+                        'selection',
+                        'starting',
+                        'queued',
+                        'preparing',
+                        'cancel-requested',
+                        'reconciling',
+                        'unknown',
+                        'paused-navigation',
+                      ].includes(entry.phase)
+                    ? 'BUSY'
+                    : history.sessionId === sessionId &&
+                        (history.messages.length > 0 || history.runs.length > 0 || history.hasOlder)
+                      ? 'STALE_TARGET'
+                      : null,
+        }
+      },
+      async setSelection(sessionId, selection, expectedRevision) {
+        await local.execute(sessionLaunchDraftCommands['sessionLaunchDraft.setSelection'].metadata.id, {
+          sessionId,
+          selection,
+          expectedRevision,
+        })
+      },
+    },
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -881,6 +936,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionLaunchDraftCommands, name) ||
         Object.hasOwn(preSessionLaunchBranchesCommands, name) ||
         Object.hasOwn(preSessionLaunchBranchCreationCommands, name) ||
+        Object.hasOwn(sessionLaunchBranchCreationCommands, name) ||
         Object.hasOwn(runActionCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(interactionRecoveryCommands, name) ||
@@ -963,6 +1019,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       presentation: presentation.reader,
       timeline: timeline.reader,
       sessionLaunchDrafts: sessionLaunchDrafts.reader,
+      sessionLaunchBranchCreation: sessionLaunchBranchCreation.reader,
       goalHistory: goalHistory.reader,
       activity: activityWorkspace.reader,
       queuedUserRuns: queuedUserRuns.reader,
@@ -1030,6 +1087,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       activityWorkspace.dispose()
       agentComposer.dispose()
       preSessionLaunchBranchCreation.dispose()
+      sessionLaunchBranchCreation.dispose()
       preSessionDrafts.dispose()
       sessionLaunchDrafts.dispose()
       preSessionLaunchBranches.dispose()
