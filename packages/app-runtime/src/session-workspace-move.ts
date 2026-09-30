@@ -229,6 +229,10 @@ function terminalModelState(state: SessionControlsState, sessionId: string): boo
   return state.sessionId === sessionId && (state.model !== null || state.errors.model !== null)
 }
 
+function isSessionSettingSource(source: string, sessionId: string): boolean {
+  return source === 'session' || source === `settings:session:${sessionId}`
+}
+
 function waitFor<Value>(
   reader: StateReader<unknown>,
   read: () => Value | undefined,
@@ -474,18 +478,10 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
       )
     if (sourceControls.model.status === 'unavailable')
       throw new CommandError('MODEL_NOT_FOUND', 'Resolve the unavailable source model before moving this Session')
-    const hasSessionModel = ['session', `settings:session:${operation.sourceSessionId}`].includes(
-      sourceControls.model.sources.model,
-    )
-    const hasSessionThinking = ['session', `settings:session:${operation.sourceSessionId}`].includes(
-      sourceControls.model.sources.thinkingLevel,
-    )
+    const hasConfiguredModel = sourceControls.model.status === 'configured'
     operation.sourceModel = {
-      modelId: hasSessionModel && sourceControls.model.status === 'configured' ? sourceControls.model.modelId : null,
-      thinkingLevel:
-        (hasSessionModel || hasSessionThinking) && sourceControls.model.status === 'configured'
-          ? sourceControls.model.thinkingLevel
-          : null,
+      modelId: hasConfiguredModel ? sourceControls.model.modelId : null,
+      thinkingLevel: hasConfiguredModel ? sourceControls.model.thinkingLevel : null,
     }
 
     const permission = options.permissions.getSnapshot()
@@ -726,8 +722,12 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
     if (!current.model || current.model.status !== 'configured')
       throw new CommandError('RESULT_UNKNOWN', 'The original model write could not be confirmed')
     if (
-      (operation.sourceModel?.modelId !== null && current.model.modelId !== operation.sourceModel?.modelId) ||
-      (step === 'thinking' && current.model.thinkingLevel !== operation.sourceModel?.thinkingLevel)
+      (step === 'model' &&
+        (current.model.modelId !== operation.sourceModel?.modelId ||
+          !isSessionSettingSource(current.model.sources.model, target))) ||
+      (step === 'thinking' &&
+        (current.model.thinkingLevel !== operation.sourceModel?.thinkingLevel ||
+          !isSessionSettingSource(current.model.sources.thinkingLevel, target)))
     )
       throw new CommandError('VERSION_CONFLICT', 'The original model receipt does not match the captured settings')
     operation.steps.add(step)
@@ -763,7 +763,8 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
       throw new CommandError('MODEL_NOT_READY', 'The target model settings could not be confirmed')
     const currentBeforeModel = options.controls.getSnapshot().model
     if (!currentBeforeModel) throw new CommandError('MODEL_NOT_READY', 'Target model settings are unavailable')
-    if (desired.modelId !== null && currentBeforeModel.modelId !== desired.modelId) {
+    const targetHasSessionModel = isSessionSettingSource(currentBeforeModel.sources.model, target)
+    if (desired.modelId !== null && (currentBeforeModel.modelId !== desired.modelId || !targetHasSessionModel)) {
       if (operation.steps.has('model'))
         throw new CommandError('VERSION_CONFLICT', 'The confirmed target model changed during this move')
       operation.writeInFlight = 'model'
@@ -775,7 +776,10 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
           const value = options.controls.getSnapshot()
           return value.model?.sessionId === target ? value.model : undefined
         },
-        (value) => value.status === 'configured' && value.modelId === desired.modelId,
+        (value) =>
+          value.status === 'configured' &&
+          value.modelId === desired.modelId &&
+          isSessionSettingSource(value.sources.model, target),
         signal,
         'Target model selection',
       )
@@ -785,8 +789,16 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
       configuration = options.controls.getSnapshot().model
       if (!configuration) throw new CommandError('MODEL_NOT_READY', 'The target model selection was not confirmed')
     }
-    if (desired.modelId === null || configuration.modelId === desired.modelId) operation.steps.add('model')
-    if (desired.thinkingLevel !== null && configuration.thinkingLevel !== desired.thinkingLevel) {
+    if (
+      desired.modelId === null ||
+      (configuration.modelId === desired.modelId && isSessionSettingSource(configuration.sources.model, target))
+    )
+      operation.steps.add('model')
+    const targetHasSessionThinking = isSessionSettingSource(configuration.sources.thinkingLevel, target)
+    if (
+      desired.thinkingLevel !== null &&
+      (configuration.thinkingLevel !== desired.thinkingLevel || !targetHasSessionThinking)
+    ) {
       if (operation.steps.has('thinking'))
         throw new CommandError('VERSION_CONFLICT', 'The confirmed target thinking setting changed during this move')
       operation.writeInFlight = 'thinking'
@@ -799,7 +811,10 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
       await waitFor(
         options.controls,
         () => options.controls.getSnapshot().model,
-        (value) => value?.sessionId === target && value.thinkingLevel === desired.thinkingLevel,
+        (value) =>
+          value?.sessionId === target &&
+          value.thinkingLevel === desired.thinkingLevel &&
+          isSessionSettingSource(value.sources.thinkingLevel, target),
         signal,
         'Target thinking setting',
       )
@@ -807,7 +822,11 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
       operation.steps.add('thinking')
       operation.writeInFlight = null
     }
-    if (configuration.thinkingLevel === desired.thinkingLevel) operation.steps.add('thinking')
+    if (
+      configuration.thinkingLevel === desired.thinkingLevel &&
+      isSessionSettingSource(configuration.sources.thinkingLevel, target)
+    )
+      operation.steps.add('thinking')
   }
 
   async function applyPermission(operation: Operation, signal: AbortSignal): Promise<void> {

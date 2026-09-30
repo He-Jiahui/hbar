@@ -2,6 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import {
   createConfigurationCommandClient,
   createModelCommandClient,
+  createSettingsCommandClient,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -309,5 +310,140 @@ test('narrow Chinese Location moves the draft without overflowing or retaining t
     if (host) await stopWebSessionHost(host)
     await removeTempFixture(root, 'hbar-session-move-narrow-source-')
     await removeTempFixture(targetContainer, 'hbar-session-move-narrow-target-container-')
+  }
+})
+
+test('Location preserves the displayed Workspace-inherited model and thinking as new Session choices', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(120_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-session-move-inherited-source-'))
+  const targetContainer = await mkdtemp(join(tmpdir(), 'hbar-session-move-inherited-target-'))
+  const targetRoot = join(targetContainer, 'Different Model Defaults')
+  await mkdir(targetRoot)
+  let context: BrowserContext | undefined
+  let host: WebSessionHost | undefined
+  try {
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    const sessions = createWorkspaceSessionCommandClient(host.client)
+    const models = createModelCommandClient(host.client)
+    const settings = createSettingsCommandClient(host.client)
+    const targetWorkspace = await sessions.execute('workspace.create', { path: targetRoot })
+    await createConfigurationCommandClient(host.client).execute('provider.save', {
+      provider: {
+        id: 'inherited-move-fixture',
+        name: 'Inherited move fixture',
+        protocol: 'mock',
+        baseUrl: 'http://127.0.0.1',
+        model: 'inherited-model',
+        reasoning: true,
+        models: [
+          {
+            id: 'inherited-model',
+            name: 'Workspace inherited model',
+            thinkingLevels: ['low', 'medium', 'high'],
+            defaultThinkingLevel: 'low',
+          },
+        ],
+      },
+    })
+    const catalog = await models.execute('model.list', {})
+    const inherited = catalog.find((model) => model.providerId === 'inherited-move-fixture')!
+    const destinationDefault = catalog.find((model) => model.id === 'local-fixture')!
+    const sourceScope = { kind: 'workspace' as const, targetId: host.ready.workspaceId }
+    const targetScope = { kind: 'workspace' as const, targetId: targetWorkspace.id }
+    const sourceSettings = await settings.execute('settings.get', { scope: sourceScope })
+    await settings.execute(
+      'settings.apply',
+      {
+        scope: sourceScope,
+        schemaVersion: sourceSettings.schemaVersion,
+        baselineRevisions: sourceSettings.revisions,
+        changes: [
+          { op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: inherited.id },
+          { op: 'set', path: [{ kind: 'field', name: 'provider.thinkingLevel' }], value: 'high' },
+        ],
+      },
+      { idempotencyKey: 'source-workspace-model' },
+    )
+    const targetSettings = await settings.execute('settings.get', { scope: targetScope })
+    await settings.execute(
+      'settings.apply',
+      {
+        scope: targetScope,
+        schemaVersion: targetSettings.schemaVersion,
+        baselineRevisions: targetSettings.revisions,
+        changes: [
+          { op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: destinationDefault.id },
+          {
+            op: 'set',
+            path: [{ kind: 'field', name: 'provider.thinkingLevel' }],
+            value: destinationDefault.defaultThinkingLevel,
+          },
+        ],
+      },
+      { idempotencyKey: 'destination-workspace-model' },
+    )
+    const destinationBefore = await settings.execute('settings.get', { scope: targetScope })
+    // The Host fixture seeds a Session override. Clear only that temporary
+    // fixture override so this case genuinely starts from Workspace settings.
+    const sessionScope = { kind: 'session' as const, targetId: host.ready.sessionId }
+    const sessionSettings = await settings.execute('settings.get', { scope: sessionScope })
+    await settings.execute(
+      'settings.apply',
+      {
+        scope: sessionScope,
+        schemaVersion: sessionSettings.schemaVersion,
+        baselineRevisions: sessionSettings.revisions,
+        changes: [
+          { op: 'unset', path: [{ kind: 'field', name: 'provider.model' }] },
+          { op: 'unset', path: [{ kind: 'field', name: 'provider.thinkingLevel' }] },
+        ],
+      },
+      { idempotencyKey: 'clear-fixture-session-override' },
+    )
+    const sourceModel = await models.execute('session.getModel', { sessionId: host.ready.sessionId })
+    expect(sourceModel.sources.model).toBe(`settings:workspace:${host.ready.workspaceId}`)
+    expect(sourceModel.sources.thinkingLevel).toBe(`settings:workspace:${host.ready.workspaceId}`)
+    const connected = await connectPage(browser, host, 'en-US')
+    context = connected.context
+    const { page, errors } = connected
+    const copy = getShellCopy('en-US')
+    await openHostSession(page, host, 'en-US')
+    const modelTrigger = page.locator('.hbar-composer-model-trigger')
+    const thinking = page.locator('.hbar-composer-thinking-trigger')
+    await expect(modelTrigger).toContainText(inherited.modelName)
+    await expect(thinking).toHaveText(copy.session.modelPicker.thinkingLevel('high'))
+    const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+    await prompt.fill('Keep the selected model while moving this draft.')
+    await page.screenshot({ path: testInfo.outputPath('source-inherited-model-1440.png') })
+    await openLocationTarget(page, targetWorkspace.name, preSessionLaunchCopy('en-US').location, async (name) => {
+      await page.screenshot({ path: testInfo.outputPath(`inherited-${name}-1440.png`) })
+    })
+    await expect(page.locator('.hbar-session-workspace-move-status:visible').first()).toContainText(
+      sessionWorkspaceMoveCopy('en-US').succeeded(targetWorkspace.name),
+    )
+    await expect(modelTrigger).toContainText(inherited.modelName)
+    await expect(thinking).toHaveText(copy.session.modelPicker.thinkingLevel('high'))
+    await expectComposerText(prompt, 'Keep the selected model while moving this draft.')
+    const targetPage = await sessions.execute('session.list', { workspaceId: targetWorkspace.id, limit: 100 })
+    expect(targetPage.items).toHaveLength(1)
+    const targetModel = await models.execute('session.getModel', { sessionId: targetPage.items[0]!.id })
+    expect(targetModel.modelId).toBe(inherited.id)
+    expect(targetModel.thinkingLevel).toBe('high')
+    expect(targetModel.sources).toEqual({
+      model: `settings:session:${targetPage.items[0]!.id}`,
+      thinkingLevel: `settings:session:${targetPage.items[0]!.id}`,
+    })
+    const destinationAfter = await settings.execute('settings.get', { scope: targetScope })
+    expect(destinationAfter.revisions).toEqual(destinationBefore.revisions)
+    expect(destinationAfter.resolution).toEqual(destinationBefore.resolution)
+    await page.screenshot({ path: testInfo.outputPath('target-preserved-model-1440.png') })
+    expect(errors).toEqual([])
+  } finally {
+    await context?.close()
+    if (host) await stopWebSessionHost(host)
+    await removeTempFixture(root, 'hbar-session-move-inherited-source-')
+    await removeTempFixture(targetContainer, 'hbar-session-move-inherited-target-')
   }
 })

@@ -139,6 +139,7 @@ function fixture(
     readonly createUnknownOnce?: boolean
     readonly permissionUnknownOnce?: boolean
     readonly workspaceContexts?: readonly PromptWorkspaceContext[]
+    readonly sourceModel?: ReturnType<typeof modelConfiguration>
     readonly targetModel?: ReturnType<typeof modelConfiguration>
   } = {},
 ) {
@@ -181,7 +182,7 @@ function fixture(
     {
       sessionId: sourceSession.id,
       status: 'ready',
-      model: modelConfiguration(sourceSession.id, { thinking: 'high' }),
+      model: input.sourceModel ?? modelConfiguration(sourceSession.id, { thinking: 'high' }),
       usage: null,
       budget: null,
       errors: { model: null, usage: null, budget: null },
@@ -588,6 +589,48 @@ test('moves the canonical draft and confirmed settings, then replaces its tab be
   expect(f.events.indexOf('replace-tab')).toBeLessThan(f.events.indexOf('archive'))
   expect(f.events.indexOf('archive')).toBeLessThan(f.events.indexOf('release-source-choices'))
   expect(f.sessions.get(sourceSession.id)?.archived).toBe(true)
+  f.runtime.dispose()
+})
+
+test('preserves a Workspace-inherited effective model and thinking selection over different destination defaults', async () => {
+  const sourceWorkspaceModel = modelConfiguration(sourceSession.id, {
+    id: 'workspace-source-model',
+    thinking: 'high',
+    modelSource: `settings:workspace:${sourceWorkspace.id}`,
+    thinkingSource: `settings:workspace:${sourceWorkspace.id}`,
+  })
+  const destinationWorkspaceModel = modelConfiguration('target-session', {
+    id: 'workspace-target-model',
+    thinking: 'low',
+    modelSource: `settings:workspace:${targetWorkspace.id}`,
+    thinkingSource: `settings:workspace:${targetWorkspace.id}`,
+  })
+  const f = fixture({
+    sourceIntent: 'default',
+    sourceMode: 'default',
+    sourceModel: sourceWorkspaceModel,
+    targetModel: destinationWorkspaceModel,
+  })
+
+  const result = await f.client.execute('sessionWorkspaceMove.move', {
+    sessionId: sourceSession.id,
+    workspaceId: sourceWorkspace.id,
+    targetWorkspaceId: targetWorkspace.id,
+    expectedDraftRevision: 4,
+    confirmAllow: true,
+  })
+
+  expect(result.status).toBe('succeeded')
+  expect(f.modelWrites).toEqual(['model', 'thinking'])
+  expect(f.states.controls.reader.getSnapshot().model).toMatchObject({
+    sessionId: 'target-session',
+    status: 'configured',
+    modelId: 'workspace-source-model',
+    thinkingLevel: 'high',
+    sources: { model: 'session', thinkingLevel: 'session' },
+  })
+  expect(f.states.controls.reader.getSnapshot().model?.modelId).not.toBe(destinationWorkspaceModel.modelId)
+  expect(f.states.controls.reader.getSnapshot().model?.thinkingLevel).not.toBe(destinationWorkspaceModel.thinkingLevel)
   f.runtime.dispose()
 })
 
