@@ -24,9 +24,19 @@ export const sessionLaunchTargetResolutionSchema = z.discriminatedUnion('status'
   z.strictObject({ status: z.literal('failed'), code: z.string().min(1).max(128), message: z.string().max(1_000) }),
 ])
 
-/** Only a Host-derived shared checkout or an isolated session worktree can be selected. */
+/** Paths stay Host-owned; a shared branch choice captures the local ref and its observed tip. */
 export const sessionLaunchSelectionSchema = z.discriminatedUnion('mode', [
   z.strictObject({ mode: z.literal('shared-current') }),
+  z.strictObject({
+    mode: z.literal('shared-branch'),
+    branch: z.strictObject({
+      ref: localBranchRefSchema,
+      tipOid: z
+        .string()
+        .regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i)
+        .toLowerCase(),
+    }),
+  }),
   z.strictObject({
     mode: z.literal('isolated-worktree'),
     branch: z.discriminatedUnion('kind', [
@@ -57,6 +67,15 @@ export const sessionLaunchTargetSchema = z
     if (target.selection.mode === 'shared-current') {
       if (target.resolution.branch !== null)
         context.addIssue({ code: 'custom', path: ['resolution', 'branch'], message: 'Shared targets have no branch' })
+      return
+    }
+    if (target.selection.mode === 'shared-branch') {
+      if (target.resolution.branch !== target.selection.branch.ref.slice('refs/heads/'.length))
+        context.addIssue({
+          code: 'custom',
+          path: ['resolution', 'branch'],
+          message: 'Resolved shared branch must match the captured local ref',
+        })
       return
     }
     if (target.selection.branch.kind === 'derived') {
@@ -219,7 +238,7 @@ export interface SessionLaunchTargetPreparationManager {
 
 const metadata = (id: string, kind: 'query' | 'command') => ({
   id,
-  version: 2,
+  version: 3,
   owner: 'hbar.session-launch-target',
   kind,
   execution: 'host' as const,

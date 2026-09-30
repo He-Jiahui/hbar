@@ -42,7 +42,7 @@ function execute(client: HbarClient, commandId: string, input: unknown, idempote
     protocol: 1,
     requestId: crypto.randomUUID(),
     commandId,
-    commandVersion: 2,
+    commandVersion: 3,
     ...(idempotencyKey ? { idempotencyKey } : {}),
     input,
   })
@@ -52,7 +52,7 @@ test('public Host command validates a revisioned selection, supports receipt rec
   const f = await fixture()
   for (const definition of Object.values(sessionLaunchTargetCommands)) {
     expect(describeCommand(definition).metadata).toMatchObject({
-      version: 2,
+      version: 3,
       execution: 'host',
       scope: 'session',
       owner: 'hbar.session-launch-target',
@@ -93,7 +93,7 @@ test('public Host command validates a revisioned selection, supports receipt rec
       protocol: 1,
       requestId: crypto.randomUUID(),
       commandId: 'sessionLaunchTarget.set',
-      commandVersion: 2,
+      commandVersion: 3,
       idempotencyKey: 'untrusted-path',
       input: {
         sessionId: f.session.id,

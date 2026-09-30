@@ -96,6 +96,7 @@ function isUnknown(error: unknown): boolean {
 function freezeSelection(selection: SessionLaunchSelection): SessionLaunchSelection {
   const parsed = sessionLaunchSelectionSchema.parse(selection)
   if (parsed.mode === 'shared-current') return Object.freeze(parsed)
+  if (parsed.mode === 'shared-branch') return Object.freeze({ ...parsed, branch: Object.freeze({ ...parsed.branch }) })
   return Object.freeze({ ...parsed, branch: Object.freeze({ ...parsed.branch }) })
 }
 

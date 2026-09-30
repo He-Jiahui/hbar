@@ -285,6 +285,8 @@ export class Kernel {
   private readonly permissionSettings: SettingsService
   private admissions = 0
   private readonly sessionLaunchTargetLocks = new Map<string, Promise<void>>()
+  private readonly sharedCheckoutLocks = new Map<string, Promise<void>>()
+  private sharedCheckoutWaiters = 0
   private closing = false
   private readyForRuns = false
   recovered = 0
@@ -293,14 +295,23 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
-    this.sessionLaunchTargets = new SessionLaunchTargetService(this.storage, options.layout)
+    this.sessionLaunchTargets = new SessionLaunchTargetService(
+      this.storage,
+      options.layout,
+      undefined,
+      (_sessionId, targetPath, signal) => this.assertSharedCheckoutIdle(targetPath, signal),
+    )
     this.sessionLaunchPreparations = new SessionLaunchTargetPreparationService(
       this.storage,
       {
         prepare: (sessionId, revision, signal) => this.prepareSessionLaunchTarget(sessionId, revision, signal),
         reconcile: (sessionId, revision, signal) => this.reconcileSessionLaunchTarget(sessionId, revision, signal),
         reconcileCancellation: (sessionId, revision, signal) =>
-          this.sessionLaunchTargets.reconcileCancelledPreparation(sessionId, revision, signal),
+          this.withSharedCheckoutLock(
+            sessionId,
+            () => this.sessionLaunchTargets.reconcileCancelledPreparation(sessionId, revision, signal),
+            signal,
+          ),
         readTarget: (sessionId) => this.getSessionLaunchTarget(sessionId),
       },
       () => this.changed('session-launch-target'),
@@ -780,6 +791,59 @@ export class Kernel {
       )
     }
   }
+  private sharedCheckoutKey(path: string): string {
+    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '')
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized
+  }
+
+  /** One checkout lock covers both preparation and bind+enqueue, including sibling sessions. */
+  private async withSharedCheckoutLock<Value>(
+    sessionId: string,
+    action: () => Promise<Value>,
+    signal?: AbortSignal,
+  ): Promise<Value> {
+    signal?.throwIfAborted()
+    const session = await this.storage.call('session', sessionId)
+    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const root = await this.sessionLaunchTargets.checkoutRootForWorkspace(workspace.path, signal)
+    const key = this.sharedCheckoutKey(root)
+    if (this.sharedCheckoutWaiters >= 64) throw new HbarError('BUSY', 'Shared checkout admission capacity is full')
+    this.sharedCheckoutWaiters++
+    const previous = this.sharedCheckoutLocks.get(key) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolveGate) => {
+      release = resolveGate
+    })
+    const tail = previous.then(() => gate)
+    this.sharedCheckoutLocks.set(key, tail)
+    try {
+      await waitForSessionLaunchTargetLock(previous, signal)
+      signal?.throwIfAborted()
+      return await action()
+    } finally {
+      this.sharedCheckoutWaiters--
+      release()
+      void tail.then(
+        () => {
+          if (this.sharedCheckoutLocks.get(key) === tail) this.sharedCheckoutLocks.delete(key)
+        },
+        () => {
+          if (this.sharedCheckoutLocks.get(key) === tail) this.sharedCheckoutLocks.delete(key)
+        },
+      )
+    }
+  }
+
+  private async assertSharedCheckoutIdle(targetPath: string, signal: AbortSignal): Promise<void> {
+    const root = this.sharedCheckoutKey(await this.sessionLaunchTargets.checkoutRootForWorkspace(targetPath, signal))
+    for (const path of await this.storage.call('activeSharedCheckoutPaths')) {
+      signal.throwIfAborted()
+      const activeRoot = await this.sessionLaunchTargets.checkoutRootForWorkspace(path, signal)
+      if (this.sharedCheckoutKey(activeRoot) === root)
+        throw new HbarError('BUSY', 'Wait for shared checkout tasks to finish before switching branches')
+    }
+  }
+
   async getSessionLaunchTarget(sessionId: string) {
     return this.sessionLaunchTargets.get(sessionId)
   }
@@ -789,14 +853,24 @@ export class Kernel {
   async prepareSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
     return this.withSessionLaunchTargetLock(
       sessionId,
-      () => this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          () => this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+          signal,
+        ),
       signal,
     )
   }
   async reconcileSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
     return this.withSessionLaunchTargetLock(
       sessionId,
-      () => this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          () => this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+          signal,
+        ),
       signal,
     )
   }
@@ -870,11 +944,20 @@ export class Kernel {
       }
       const run = await this.withSessionLaunchTargetLock(
         sessionId,
-        async () => {
-          const binding = await this.sessionLaunchTargets.bindForRun(sessionId, signal, expectedLaunchTargetRevision)
-          signal?.throwIfAborted()
-          return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
-        },
+        () =>
+          this.withSharedCheckoutLock(
+            sessionId,
+            async () => {
+              const binding = await this.sessionLaunchTargets.bindForRun(
+                sessionId,
+                signal,
+                expectedLaunchTargetRevision,
+              )
+              signal?.throwIfAborted()
+              return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+            },
+            signal,
+          ),
         signal,
       )
       if (run.status === 'queued') {

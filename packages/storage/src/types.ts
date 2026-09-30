@@ -241,6 +241,7 @@ export interface StorageMethods {
   sessionLaunchTarget(sessionId: string): SessionLaunchTarget
   sessionLaunchTargetRuntime(sessionId: string): SessionLaunchTargetRuntimeSnapshot
   sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
+  activeSharedCheckoutPaths(): string[]
   setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
   sessionLaunchTargetReceipt(input: SessionLaunchTargetReceiptLookup): SessionLaunchTargetSetReceipt | null
   startSessionLaunchTargetPreparation(

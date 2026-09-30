@@ -135,6 +135,102 @@ test('expected shared-current binding requires its exact ready resolution in the
   expect((await kernel.storage.call('sessionLaunchTargetRuntime', session.id)).binding).toBeNull()
 })
 
+test('a queued sibling in the same checkout blocks shared switching from a registered subdirectory', async () => {
+  const { kernel, workspace } = await fixture()
+  const tipOid = await git(workspace.path, ['rev-parse', 'HEAD'])
+  await git(workspace.path, ['branch', 'feature/shared-target'])
+  const first = await kernel.createSession(workspace.id, 'queued shared work')
+  await kernel.prepareSessionLaunchTarget(first.id, 0)
+  await enqueue(
+    kernel,
+    first.id,
+    'queued-blocker',
+    await kernel.sessionLaunchTargets.bindForRun(first.id, undefined, 0),
+  )
+  const directory = join(workspace.path, 'nested')
+  await mkdir(directory)
+  const nested = await kernel.createWorkspace(directory)
+  const second = await kernel.createSession(nested.id, 'shared branch choice')
+  await kernel.setSessionLaunchTarget({
+    actorId: 'shared-test',
+    idempotencyKey: 'shared-from-nested',
+    sessionId: second.id,
+    expectedRevision: 0,
+    selection: { mode: 'shared-branch', branch: { ref: 'refs/heads/feature/shared-target', tipOid } },
+  })
+  expect(await git(workspace.path, ['branch', '--show-current'])).toBe('main')
+  await expectErrorCode(kernel.prepareSessionLaunchTarget(second.id, 1), 'BUSY')
+  expect(await git(workspace.path, ['branch', '--show-current'])).toBe('main')
+  expect((await kernel.storage.call('sessionLaunchTargetRuntime', second.id)).binding).toBeNull()
+  expect(await kernel.storage.call('activeSharedCheckoutPaths')).toEqual([workspace.path])
+})
+
+test('shared checkout lock keeps a sibling switch behind Run bind+enqueue', async () => {
+  const { kernel, workspace } = await fixture()
+  await kernel.setPermissionMode('allow')
+  const tipOid = await git(workspace.path, ['rev-parse', 'HEAD'])
+  await git(workspace.path, ['branch', 'feature/after-admission'])
+  const first = await kernel.createSession(workspace.id, 'admitting run')
+  const second = await kernel.createSession(workspace.id, 'concurrent shared switch')
+  await kernel.prepareSessionLaunchTarget(first.id, 0)
+  await kernel.setSessionLaunchTarget({
+    actorId: 'shared-test',
+    idempotencyKey: 'race-shared-choice',
+    sessionId: second.id,
+    expectedRevision: 0,
+    selection: { mode: 'shared-branch', branch: { ref: 'refs/heads/feature/after-admission', tipOid } },
+  })
+  let releaseEnqueue!: () => void
+  let enteredEnqueue!: () => void
+  let releaseRun!: () => void
+  const enqueueGate = new Promise<void>((resolveGate) => {
+    releaseEnqueue = resolveGate
+  })
+  const enqueueEntered = new Promise<void>((resolveGate) => {
+    enteredEnqueue = resolveGate
+  })
+  const runGate = new Promise<void>((resolveGate) => {
+    releaseRun = resolveGate
+  })
+  const stopHoldingRun = kernel.hooks.on('run.start', async ({ sessionId }) => {
+    if (sessionId === first.id) await runGate
+  })
+  const original = kernel.storage.call.bind(kernel.storage)
+  kernel.storage.call = async <Method extends keyof StorageMethods>(
+    method: Method,
+    ...args: Parameters<StorageMethods[Method]>
+  ): Promise<ReturnType<StorageMethods[Method]>> => {
+    if (method === 'enqueue' && args[0] === first.id) {
+      enteredEnqueue()
+      await enqueueGate
+    }
+    return original(method, ...args)
+  }
+  let submitted: ReturnType<Kernel['submit']> | undefined
+  let preparing: Promise<unknown> | undefined
+  try {
+    submitted = kernel.submit(first.id, 'shared-admission-race', input, 'local-fixture', undefined, undefined, 0)
+    await enqueueEntered
+    preparing = expectErrorCode(kernel.prepareSessionLaunchTarget(second.id, 1), 'BUSY')
+    releaseEnqueue()
+    await submitted
+    await preparing
+    expect(await git(workspace.path, ['branch', '--show-current'])).toBe('main')
+    expect((await kernel.storage.call('sessionLaunchTargetRuntime', first.id)).binding?.selection).toEqual({
+      mode: 'shared-current',
+    })
+    expect((await kernel.storage.call('sessionLaunchTargetRuntime', second.id)).binding).toBeNull()
+  } finally {
+    releaseEnqueue()
+    releaseRun()
+    await stopHoldingRun()
+    kernel.storage.call = original
+    await submitted?.catch(() => undefined)
+    await preparing?.catch(() => undefined)
+    await kernel.waitForIdle()
+  }
+})
+
 test('expected bind does not repair a same-revision readiness downgrade after its initial snapshot', async () => {
   const { kernel, workspace } = await fixture()
   const session = await kernel.createSession(workspace.id, 'verification race')

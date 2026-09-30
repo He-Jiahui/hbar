@@ -151,6 +151,22 @@ function context(mayContinue: () => boolean = () => true) {
   return { mayContinue }
 }
 
+test('captures an independent immutable shared ref and canonical tip before async preparation', () => {
+  const selection = {
+    mode: 'shared-branch' as const,
+    branch: { ref: 'refs/heads/feature/shared', tipOid: 'A'.repeat(40) },
+  }
+  const captured = capturePreSessionLaunchPreparation('workspace-1', selection, keys)
+  selection.branch.ref = 'refs/heads/later-choice'
+  expect(captured.selection).toEqual({
+    mode: 'shared-branch',
+    branch: { ref: 'refs/heads/feature/shared', tipOid: 'a'.repeat(40) },
+  })
+  expect(Object.isFrozen(captured.selection)).toBe(true)
+  if (captured.selection.mode !== 'shared-branch') throw new Error('Shared choice was not captured')
+  expect(Object.isFrozen(captured.selection.branch)).toBe(true)
+})
+
 test('captures immutable launch choice and uses the actual no-op receipt revision', async () => {
   const f = fixture()
   const captured = capture()

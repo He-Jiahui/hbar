@@ -45,6 +45,19 @@ interface PreparedTarget {
   head: string | null
 }
 
+interface SharedCheckoutState {
+  branchRef: string | null
+  head: string | null
+  selectedRefHead: string | null
+}
+
+interface CheckoutRootResult {
+  path: string
+  isRepository: boolean
+}
+
+export type SharedBranchCheckoutGuard = (sessionId: string, checkoutRoot: string, signal: AbortSignal) => Promise<void>
+
 interface GitWaiter {
   signal: AbortSignal
   resolve: (release: () => void) => void
@@ -121,6 +134,7 @@ function sameSelection(left: SessionLaunchSelection, right: SessionLaunchSelecti
 
 function worktreeBranchName(selection: SessionLaunchSelection, sessionId: string, revision: number): string | null {
   if (selection.mode === 'shared-current') return null
+  if (selection.mode === 'shared-branch') return selection.branch.ref.slice('refs/heads/'.length)
   if (selection.branch.kind !== 'derived') return selection.branch.name
   const hash = createHash('sha256').update(`${sessionId}\0${revision}`).digest('hex')
   return sessionLaunchDerivedBranchNameSchema.parse(`hbar/session-launch/${hash}`)
@@ -257,6 +271,7 @@ export class SessionLaunchTargetService {
     private readonly storage: StoragePort,
     private readonly layout: PathLayout,
     private readonly executeGit = runGit,
+    private readonly guardSharedBranchCheckout?: SharedBranchCheckoutGuard,
   ) {}
 
   async get(sessionId: string): Promise<SessionLaunchTarget> {
@@ -271,6 +286,23 @@ export class SessionLaunchTargetService {
     selection: SessionLaunchSelection
   }) {
     return this.storage.call('setSessionLaunchTarget', input)
+  }
+
+  checkoutRootForWorkspace(workspacePath: string, signal?: AbortSignal): Promise<string> {
+    return this.trackOperation(async () => {
+      const canonicalWorkspace = await realpath(workspacePath)
+      try {
+        const result = await this.resolveCheckoutRoot(canonicalWorkspace, signal ?? new AbortController().signal)
+        return result.path
+      } catch (error) {
+        if (
+          signal?.aborted ||
+          (error instanceof HbarError && ['HOST_SHUTTING_DOWN', 'USER_CANCELLED'].includes(error.code))
+        )
+          throw error
+        return canonicalWorkspace
+      }
+    })
   }
 
   private trackOperation<Value>(action: () => Promise<Value>): Promise<Value> {
@@ -298,6 +330,72 @@ export class SessionLaunchTargetService {
     } finally {
       release()
     }
+  }
+
+  private async resolveCheckoutRoot(workspacePath: string, signal: AbortSignal): Promise<CheckoutRootResult> {
+    const canonicalWorkspace = await realpath(workspacePath)
+    const result = await this.git(canonicalWorkspace, ['rev-parse', '--show-toplevel'], signal)
+    if (result.code !== 0) {
+      const diagnostic = `${result.stderr}\n${result.stdout}`
+      if (/not a git repository/i.test(diagnostic)) return { path: canonicalWorkspace, isRepository: false }
+      throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git could not identify the registered workspace checkout')
+    }
+    const rootText = result.stdout.trim()
+    if (!rootText) throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git returned an empty checkout root')
+    const checkoutRoot = await realpath(isAbsolute(rootText) ? rootText : resolve(canonicalWorkspace, rootText))
+    if (!inside(checkoutRoot, canonicalWorkspace))
+      throw new HbarError('GIT_REPOSITORY_SCOPE', 'The workspace is outside its Git checkout root')
+    return { path: checkoutRoot, isRepository: true }
+  }
+
+  private async readSharedCheckoutState(
+    checkoutRoot: string,
+    ref: string,
+    signal: AbortSignal,
+  ): Promise<SharedCheckoutState> {
+    const branchName = ref.slice('refs/heads/'.length)
+    const [symbolic, head, selectedRefHead] = await Promise.all([
+      this.git(checkoutRoot, ['symbolic-ref', '--quiet', 'HEAD'], signal),
+      this.git(checkoutRoot, ['rev-parse', '--verify', '--quiet', '--end-of-options', 'HEAD^{commit}'], signal),
+      this.tryResolveBranchHead(checkoutRoot, branchName, signal),
+    ])
+    if (symbolic.code !== 0 && symbolic.code !== 1)
+      throw new HbarError('GIT_OPERATION_FAILED', 'Git could not inspect the current shared branch')
+    const headValue = head.code === 0 ? head.stdout.trim() : null
+    if (headValue !== null && !HEAD_PATTERN.test(headValue))
+      throw new HbarError('GIT_OPERATION_FAILED', 'Git returned an invalid shared HEAD')
+    return {
+      branchRef: symbolic.code === 0 ? symbolic.stdout.trim() || null : null,
+      head: headValue?.toLowerCase() ?? null,
+      selectedRefHead,
+    }
+  }
+
+  private sharedBranchIsReady(state: SharedCheckoutState, intent: SessionLaunchTargetResolutionRecord): boolean {
+    const selection = intent.selection
+    if (selection.mode !== 'shared-branch') return false
+    const expectedHead = selection.branch.tipOid.toLowerCase()
+    return (
+      state.branchRef === selection.branch.ref &&
+      state.head === expectedHead &&
+      state.selectedRefHead === expectedHead &&
+      intent.branch === selection.branch.ref.slice('refs/heads/'.length) &&
+      intent.requestedHead?.toLowerCase() === expectedHead
+    )
+  }
+
+  private async persistSharedBranchReconciliation(
+    intent: SessionLaunchTargetResolutionRecord,
+    message: string,
+  ): Promise<void> {
+    await this.storage.call('updateSessionLaunchTargetPreparation', {
+      sessionId: intent.sessionId,
+      revision: intent.expectedRevision,
+      targetPath: intent.targetPath,
+      state: 'reconciling',
+      errorCode: 'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+      errorMessage: message,
+    })
   }
 
   async prepare(sessionId: string, expectedRevision: number, signal?: AbortSignal): Promise<SessionLaunchTarget> {
@@ -384,6 +482,23 @@ export class SessionLaunchTargetService {
       if (intent.selection.mode === 'shared-current') return runtime.target
       const session = await this.storage.call('session', sessionId)
       const workspace = await this.storage.call('workspace', session.workspaceId)
+      if (intent.selection.mode === 'shared-branch') {
+        try {
+          await this.verifyPreparedSharedBranch(workspace.path, intent, signal)
+          return runtime.target
+        } catch (error) {
+          await this.storeFailure(
+            intent,
+            error instanceof HbarError
+              ? error
+              : new HbarError(
+                  'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+                  'Prepared shared branch could not be verified',
+                ),
+          )
+          throw error
+        }
+      }
       const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, signal)
       try {
         await this.verifyPreparedWorktree(managed, intent, signal)
@@ -410,6 +525,8 @@ export class SessionLaunchTargetService {
       })
       return this.get(sessionId)
     }
+
+    if (intent.selection.mode === 'shared-branch') return this.reconcileCancelledSharedBranch(intent, signal)
 
     const session = await this.storage.call('session', sessionId)
     const workspace = await this.storage.call('workspace', session.workspaceId)
@@ -538,6 +655,8 @@ export class SessionLaunchTargetService {
       }
       if (!samePath(sharedPath, initial.targetPath) || initial.branch !== null || initial.resolvedHead !== null)
         throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The prepared shared target no longer matches')
+    } else if (initial.selection.mode === 'shared-branch') {
+      await this.verifyPreparedSharedBranch(workspace.path, initial, verificationSignal)
     } else {
       const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, verificationSignal)
       if (!samePath(managed.targetPath, initial.targetPath))
@@ -683,6 +802,16 @@ export class SessionLaunchTargetService {
         })
       return this.get(sessionId)
     }
+
+    if (runtime.target.selection.mode === 'shared-branch')
+      return this.prepareSharedBranchInternal(
+        sessionId,
+        expectedRevision,
+        workspace.path,
+        runtime.target.selection,
+        runtime.resolution,
+        signal,
+      )
 
     const selection = runtime.target.selection
     const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, signal)
@@ -865,6 +994,316 @@ export class SessionLaunchTargetService {
     }
   }
 
+  private async prepareSharedBranchInternal(
+    sessionId: string,
+    expectedRevision: number,
+    workspacePath: string,
+    selection: Extract<SessionLaunchSelection, { mode: 'shared-branch' }>,
+    prior: SessionLaunchTargetResolutionRecord | null,
+    signal: AbortSignal,
+  ): Promise<SessionLaunchTarget> {
+    const branch = selection.branch.ref.slice('refs/heads/'.length)
+    const requestedHead = selection.branch.tipOid.toLowerCase()
+    const targetPath = await realpath(workspacePath)
+    let checkout: CheckoutRootResult
+    try {
+      checkout = await this.resolveCheckoutRoot(targetPath, signal)
+      if (!checkout.isRepository)
+        throw new HbarError('GIT_NOT_REPOSITORY', 'The selected shared branch is not in a Git repository')
+      const branchHead = await this.resolveLocalBranchRefHead(checkout.path, selection.branch.ref, signal)
+      if (branchHead !== requestedHead)
+        throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'The selected local branch moved; refresh and choose it again')
+      const worktrees = await this.listWorktrees(checkout.path, signal)
+      this.assertBranchAvailable(worktrees, branch, checkout.path)
+    } catch (error) {
+      if (signal.aborted) throw signalFailure(signal)
+      await this.recordPreflightFailure(sessionId, expectedRevision, selection, targetPath, requestedHead, error)
+      throw error
+    }
+
+    if (prior?.state === 'ready') {
+      try {
+        await this.verifyPreparedSharedBranch(workspacePath, prior, signal)
+      } catch (error) {
+        await this.storeFailure(
+          prior,
+          error instanceof HbarError
+            ? error
+            : new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED', 'Prepared shared branch could not be verified'),
+        )
+        throw error
+      }
+      return this.get(sessionId)
+    }
+
+    const hadAmbiguousIntent =
+      prior !== null && ['preparing', 'reconciling'].includes(prior.state) && sameSelection(prior.selection, selection)
+    const intent = await this.storage.call('beginSessionLaunchTargetPreparation', {
+      sessionId,
+      expectedRevision,
+      selection,
+      targetPath,
+      branch,
+      requestedHead,
+    })
+    if (intent.state === 'ready') {
+      try {
+        await this.verifyPreparedSharedBranch(workspacePath, intent, signal)
+      } catch (error) {
+        await this.storeFailure(
+          intent,
+          error instanceof HbarError
+            ? error
+            : new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED', 'Prepared shared branch could not be verified'),
+        )
+        throw error
+      }
+      return this.get(sessionId)
+    }
+
+    if (hadAmbiguousIntent) {
+      const state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, signal).catch(() => null)
+      if (state && this.sharedBranchIsReady(state, intent)) {
+        await this.storage.call('updateSessionLaunchTargetPreparation', {
+          sessionId,
+          revision: expectedRevision,
+          targetPath,
+          state: 'ready',
+          resolvedHead: state.head,
+        })
+        return this.get(sessionId)
+      }
+      await this.persistSharedBranchReconciliation(
+        intent,
+        'Git did not confirm the shared checkout; inspect the current branch before continuing',
+      )
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+        'The shared branch checkout is ambiguous; reconcile before retrying',
+      )
+    }
+
+    let mutationAttempted = false
+    try {
+      let state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, signal)
+      if (this.sharedBranchIsReady(state, intent)) {
+        await this.storage.call('updateSessionLaunchTargetPreparation', {
+          sessionId,
+          revision: expectedRevision,
+          targetPath,
+          state: 'ready',
+          resolvedHead: state.head,
+        })
+        return this.get(sessionId)
+      }
+      if (state.selectedRefHead !== requestedHead)
+        throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'The selected local branch moved before checkout')
+      if (state.branchRef === selection.branch.ref && state.head !== requestedHead)
+        throw new HbarError(
+          'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+          'The current shared branch does not match its captured tip',
+        )
+
+      signal.throwIfAborted()
+      await this.guardSharedBranchCheckout?.(sessionId, checkout.path, signal)
+      signal.throwIfAborted()
+
+      const latestHead = await this.resolveLocalBranchRefHead(checkout.path, selection.branch.ref, signal)
+      if (latestHead !== requestedHead)
+        throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'The selected local branch moved before checkout')
+      state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, signal)
+      if (this.sharedBranchIsReady(state, intent)) {
+        await this.storage.call('updateSessionLaunchTargetPreparation', {
+          sessionId,
+          revision: expectedRevision,
+          targetPath,
+          state: 'ready',
+          resolvedHead: state.head,
+        })
+        return this.get(sessionId)
+      }
+
+      const hooksPath = join(this.layout.dataRoot, `.hbar-disabled-hooks-${crypto.randomUUID()}`)
+      await this.assertTargetPathAbsent(hooksPath)
+      mutationAttempted = true
+      const result = await this.git(
+        checkout.path,
+        ['-c', `core.hooksPath=${hooksPath}`, 'switch', '--no-guess', '--', branch],
+        signal,
+      )
+      if (result.code !== 0)
+        throw new HbarError('GIT_OPERATION_FAILED', 'Git could not switch the shared workspace to the selected branch')
+      state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, signal)
+      if (!this.sharedBranchIsReady(state, intent))
+        throw new HbarError(
+          'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+          'Git did not confirm the selected shared branch tip',
+        )
+      await this.storage.call('updateSessionLaunchTargetPreparation', {
+        sessionId,
+        revision: expectedRevision,
+        targetPath,
+        state: 'ready',
+        resolvedHead: state.head,
+      })
+      signal.throwIfAborted()
+      return this.get(sessionId)
+    } catch (error) {
+      if (!mutationAttempted) {
+        if (error instanceof HbarError && (error.code === 'USER_CANCELLED' || error.code === 'HOST_SHUTTING_DOWN')) {
+          await this.storage.call('updateSessionLaunchTargetPreparation', {
+            sessionId,
+            revision: expectedRevision,
+            targetPath,
+            state: error.code === 'USER_CANCELLED' ? 'cancelled' : 'reconciling',
+            errorCode: error.code,
+            errorMessage: error.message.slice(0, 1_000),
+          })
+        } else {
+          await this.storeFailure(
+            intent,
+            error instanceof HbarError
+              ? error
+              : new HbarError('SESSION_LAUNCH_TARGET_PREPARATION_FAILED', 'Host could not prepare the shared branch'),
+          )
+        }
+        throw error
+      }
+
+      const ready = await this.reconcileSharedBranchAfterMutation(intent, error)
+      if (ready) {
+        if (signal.aborted) throw signalFailure(signal)
+        return this.get(sessionId)
+      }
+      if (signal.aborted) throw signalFailure(signal)
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+        'Git may have changed the shared branch; inspect it before continuing',
+      )
+    }
+  }
+
+  private async reconcileCancelledSharedBranch(
+    intent: SessionLaunchTargetResolutionRecord,
+    signal: AbortSignal,
+  ): Promise<SessionLaunchTarget> {
+    const checkout = await this.resolveCheckoutRoot(intent.targetPath, signal)
+    if (!checkout.isRepository) {
+      await this.persistSharedBranchReconciliation(
+        intent,
+        'The shared Git checkout could not be inspected after cancellation',
+      )
+      return this.get(intent.sessionId)
+    }
+    const selection = intent.selection
+    if (selection.mode !== 'shared-branch') return this.get(intent.sessionId)
+    try {
+      const state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, signal)
+      if (this.sharedBranchIsReady(state, intent)) {
+        await this.storage.call('updateSessionLaunchTargetPreparation', {
+          sessionId: intent.sessionId,
+          revision: intent.expectedRevision,
+          targetPath: intent.targetPath,
+          state: 'ready',
+          resolvedHead: state.head,
+        })
+      } else {
+        await this.persistSharedBranchReconciliation(
+          intent,
+          'Cancellation cannot confirm whether the shared checkout changed; inspect the current branch',
+        )
+      }
+    } catch {
+      await this.persistSharedBranchReconciliation(
+        intent,
+        'Cancellation could not inspect the shared checkout; reconcile before continuing',
+      )
+    }
+    return this.get(intent.sessionId)
+  }
+
+  private async reconcileSharedBranchAfterMutation(
+    intent: SessionLaunchTargetResolutionRecord,
+    _cause: unknown,
+  ): Promise<boolean> {
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () =>
+        controller.abort(
+          new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED', 'Shared branch reconciliation exceeded 15 seconds'),
+        ),
+      RECONCILIATION_TIMEOUT_MS,
+    )
+    const onShutdown = () => controller.abort(this.closingController.signal.reason)
+    this.closingController.signal.addEventListener('abort', onShutdown, { once: true })
+    if (this.closingController.signal.aborted) onShutdown()
+    try {
+      const selection = intent.selection
+      if (selection.mode !== 'shared-branch') return false
+      const checkout = await this.resolveCheckoutRoot(intent.targetPath, controller.signal)
+      if (!checkout.isRepository) return false
+      const state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, controller.signal)
+      if (this.sharedBranchIsReady(state, intent)) {
+        await this.storage.call('updateSessionLaunchTargetPreparation', {
+          sessionId: intent.sessionId,
+          revision: intent.expectedRevision,
+          targetPath: intent.targetPath,
+          state: 'ready',
+          resolvedHead: state.head,
+        })
+        return true
+      }
+      await this.persistSharedBranchReconciliation(
+        intent,
+        'Git did not confirm the selected shared branch; inspect the current checkout before continuing',
+      )
+      return false
+    } catch {
+      await this.persistSharedBranchReconciliation(
+        intent,
+        'Git did not confirm the shared branch result; reconcile before continuing',
+      ).catch(() => undefined)
+      return false
+    } finally {
+      clearTimeout(timeout)
+      this.closingController.signal.removeEventListener('abort', onShutdown)
+    }
+  }
+
+  private async verifyPreparedSharedBranch(
+    workspacePath: string,
+    intent: SessionLaunchTargetResolutionRecord,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const selection = intent.selection
+    if (selection.mode !== 'shared-branch' || !intent.branch || !intent.resolvedHead)
+      throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared shared branch is incomplete')
+    if (intent.branch !== selection.branch.ref.slice('refs/heads/'.length))
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+        'Prepared shared branch differs from its selection',
+      )
+    const canonicalWorkspace = await realpath(workspacePath)
+    if (!samePath(canonicalWorkspace, intent.targetPath))
+      throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared shared workspace path changed')
+    const checkout = await this.resolveCheckoutRoot(canonicalWorkspace, signal)
+    if (!checkout.isRepository)
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+        'Prepared shared workspace is no longer a Git repository',
+      )
+    const state = await this.readSharedCheckoutState(checkout.path, selection.branch.ref, signal)
+    if (
+      !this.sharedBranchIsReady(state, intent) ||
+      state.head !== intent.resolvedHead.toLowerCase() ||
+      intent.resolvedHead.toLowerCase() !== selection.branch.tipOid.toLowerCase()
+    )
+      throw new HbarError(
+        'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+        'Prepared shared branch no longer matches its captured tip',
+      )
+  }
+
   private async managedPaths(sessionId: string, revision: number, workspacePath: string, signal: AbortSignal) {
     const root = await realpath(this.layout.worktrees)
     const dataRoot = await realpath(this.layout.dataRoot)
@@ -1027,6 +1466,16 @@ export class SessionLaunchTargetService {
     const value = output(result, 'BRANCH_NOT_FOUND', 'The selected branch does not exist in this repository')
     if (!HEAD_PATTERN.test(value))
       throw new HbarError('GIT_OPERATION_FAILED', 'Git returned an invalid commit identifier')
+    return value.toLowerCase()
+  }
+
+  private async resolveLocalBranchRefHead(repository: string, ref: string, signal: AbortSignal): Promise<string> {
+    const valid = await this.git(repository, ['check-ref-format', ref], signal)
+    if (valid.code !== 0) throw new HbarError('GIT_INVALID_BRANCH', 'The selected local branch ref is invalid')
+    const result = await this.git(repository, ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`], signal)
+    const value = output(result, 'BRANCH_NOT_FOUND', 'The selected local branch does not exist in this repository')
+    if (!HEAD_PATTERN.test(value))
+      throw new HbarError('GIT_OPERATION_FAILED', 'Git returned an invalid local branch commit identifier')
     return value.toLowerCase()
   }
 
@@ -1283,6 +1732,7 @@ export class SessionLaunchTargetService {
       'BRANCH_EXISTS',
       'BRANCH_NOT_FOUND',
       'GIT_INVALID_BRANCH',
+      'GIT_BRANCH_BASE_CHANGED',
       'GIT_REF_NOT_FOUND',
       'GIT_NOT_REPOSITORY',
       'SESSION_LAUNCH_TARGET_PATH_OCCUPIED',
@@ -1338,6 +1788,22 @@ export class SessionLaunchTargetService {
       const workspace = await this.storage.call('workspace', runtime.target.workspaceId)
       if (!samePath(await realpath(workspace.path), binding.targetPath))
         throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The frozen shared workspace path changed')
+      return
+    }
+    if (binding.selection.mode === 'shared-branch') {
+      const operationSignal = signal ?? new AbortController().signal
+      const workspace = await this.storage.call('workspace', runtime.target.workspaceId)
+      if (!samePath(await realpath(workspace.path), binding.targetPath))
+        throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'The frozen shared workspace path changed')
+      const checkoutRoot = await this.resolveCheckoutRoot(binding.targetPath, operationSignal)
+      if (!checkoutRoot.isRepository)
+        throw new HbarError(
+          'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+          'The frozen shared workspace is no longer a Git repository',
+        )
+      const state = await this.readSharedCheckoutState(checkoutRoot.path, binding.selection.branch.ref, operationSignal)
+      if (state.branchRef !== binding.selection.branch.ref)
+        throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Frozen shared branch changed')
       return
     }
     const managed = await this.managedPaths(

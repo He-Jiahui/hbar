@@ -105,6 +105,7 @@ const headSchema = z
   .nullable()
 function selectedBranchMatches(selection: SessionLaunchSelection, branch: string | null): boolean {
   if (selection.mode === 'shared-current') return branch === null
+  if (selection.mode === 'shared-branch') return branch === selection.branch.ref.slice('refs/heads/'.length)
   if (selection.branch.kind === 'derived') return sessionLaunchDerivedBranchNameSchema.safeParse(branch).success
   return branch === selection.branch.name
 }
@@ -119,7 +120,9 @@ const preparationInputSchema = z
     requestedHead: headSchema,
   })
   .refine(
-    (input) => selectedBranchMatches(input.selection, input.branch),
+    (input) =>
+      selectedBranchMatches(input.selection, input.branch) &&
+      (input.selection.mode !== 'shared-branch' || input.requestedHead === input.selection.branch.tipOid),
     'Preparation branch must match the selected target',
   )
 const preparationUpdateSchema = z.strictObject({
@@ -545,7 +548,7 @@ export function createSessionLaunchTargetStorage(db: Database) {
       !sameSelection(current.selection, binding.selection)
     )
       throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed before Run acceptance')
-    if (selected.requirePreparedTarget) {
+    if (selected.requirePreparedTarget || binding.selection.mode === 'shared-branch') {
       const row = resolutionRow(sessionId, binding.expectedRevision)
       const resolution = row ? parseResolution(row) : null
       if (
@@ -561,6 +564,13 @@ export function createSessionLaunchTargetStorage(db: Database) {
     if (binding.selection.mode === 'shared-current') {
       if (binding.targetPath !== workspacePath || binding.branch !== null)
         throw new HbarError('INVALID_INPUT', 'Shared launch target must resolve to the current workspace')
+    } else if (binding.selection.mode === 'shared-branch') {
+      if (
+        binding.targetPath !== workspacePath ||
+        !selectedBranchMatches(binding.selection, binding.branch) ||
+        binding.head !== binding.selection.branch.tipOid
+      )
+        throw new HbarError('INVALID_INPUT', 'Shared branch target must resolve to the captured workspace branch')
     } else if (!selected.requirePreparedTarget) {
       const ready = resolutionRow(sessionId, binding.expectedRevision)
       if (
@@ -593,6 +603,20 @@ export function createSessionLaunchTargetStorage(db: Database) {
     read,
     runtime,
     bindingForPath,
+    activeSharedCheckoutPaths: (): string[] => {
+      const rows = db
+        .query<{ path: string }, []>(
+          `SELECT DISTINCT COALESCE(b.targetPath,w.path) AS path FROM runs r
+         JOIN sessions s ON s.id=r.sessionId JOIN workspaces w ON w.id=s.workspaceId
+         LEFT JOIN session_launch_target_bindings b ON b.sessionId=s.id
+         WHERE r.status IN ('queued','running','waiting_approval')
+           AND (b.sessionId IS NULL OR json_extract(b.selectionJson,'$.mode')!='isolated-worktree')
+         LIMIT 65`,
+        )
+        .all()
+      if (rows.length > 64) throw new HbarError('BUSY', 'Too many active shared checkouts to safely switch branches')
+      return rows.map((row) => row.path)
+    },
     set,
     receipt,
     beginPreparation,

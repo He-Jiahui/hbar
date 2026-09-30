@@ -73,9 +73,27 @@ function inspect(path: string, action: (db: Database) => void) {
   }
 }
 
-test('contract accepts only host-resolved modes and branch choices, never a client path or shared switch', () => {
+test('contract accepts captured local shared branches and Host-resolved worktrees, never a client path', () => {
   expect(sessionLaunchSelectionSchema.safeParse({ mode: 'shared-current' }).success).toBeTrue()
   expect(sessionLaunchSelectionSchema.safeParse(selection('feature/target')).success).toBeTrue()
+  expect(
+    sessionLaunchSelectionSchema.safeParse({
+      mode: 'shared-branch',
+      branch: { ref: 'refs/heads/feature/target', tipOid: 'a'.repeat(40) },
+    }).success,
+  ).toBeTrue()
+  expect(
+    sessionLaunchSelectionSchema.safeParse({
+      mode: 'shared-branch',
+      branch: { ref: 'refs/remotes/origin/main', tipOid: 'a'.repeat(40) },
+    }).success,
+  ).toBeFalse()
+  expect(
+    sessionLaunchSelectionSchema.safeParse({
+      mode: 'shared-branch',
+      branch: { ref: 'refs/heads/main', tipOid: 'a'.repeat(41) },
+    }).success,
+  ).toBeFalse()
   expect(
     sessionLaunchSelectionSchema.safeParse({
       mode: 'isolated-worktree',
@@ -101,6 +119,72 @@ test('contract accepts only host-resolved modes and branch choices, never a clie
     { mode: 'isolated-worktree', branch: { kind: 'new', name: 'feature/new', force: true } },
   ])
     expect(sessionLaunchSelectionSchema.safeParse(invalid).success).toBeFalse()
+})
+
+test('shared-branch binds only the ready captured ref at the workspace path and reports queued shared work', async () => {
+  const f = await fixture()
+  const chosen = {
+    mode: 'shared-branch' as const,
+    branch: { ref: 'refs/heads/feature/target', tipOid: 'a'.repeat(40) },
+  }
+  await f.store.call('setSessionLaunchTarget', {
+    actorId: 'shared-test',
+    idempotencyKey: 'choose-shared',
+    ...request(f.first.id, chosen),
+  })
+  const binding = {
+    sessionId: f.first.id,
+    expectedRevision: 1,
+    selection: chosen,
+    targetPath: f.workspace.path,
+    branch: 'feature/target',
+    head: chosen.branch.tipOid,
+  }
+  await failure(
+    f.store.call(
+      'enqueue',
+      f.first.id,
+      'unprepared-shared',
+      { text: 'hello', images: [] },
+      'demo/mock',
+      undefined,
+      binding,
+    ),
+    'SESSION_LAUNCH_TARGET_UNRESOLVED',
+  )
+  await f.store.call('beginSessionLaunchTargetPreparation', {
+    sessionId: f.first.id,
+    expectedRevision: 1,
+    selection: chosen,
+    targetPath: f.workspace.path,
+    branch: 'feature/target',
+    requestedHead: chosen.branch.tipOid,
+  })
+  await f.store.call('updateSessionLaunchTargetPreparation', {
+    sessionId: f.first.id,
+    revision: 1,
+    targetPath: f.workspace.path,
+    state: 'ready',
+    resolvedHead: chosen.branch.tipOid,
+  })
+  await failure(
+    f.store.call('enqueue', f.first.id, 'wrong-path', { text: 'hello', images: [] }, 'demo/mock', undefined, {
+      ...binding,
+      targetPath: join(f.root, 'other'),
+    }),
+    'SESSION_LAUNCH_TARGET_UNRESOLVED',
+  )
+  await f.store.call(
+    'enqueue',
+    f.first.id,
+    'prepared-shared',
+    { text: 'hello', images: [] },
+    'demo/mock',
+    undefined,
+    binding,
+  )
+  expect((await f.store.call('sessionLaunchTargetRuntime', f.first.id)).binding).toMatchObject(binding)
+  expect(await f.store.call('activeSharedCheckoutPaths')).toEqual([f.workspace.path])
 })
 
 test('revisioned selections are session-owned, durable, idempotent, and lock after first accepted Run', async () => {

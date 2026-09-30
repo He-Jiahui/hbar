@@ -650,6 +650,7 @@ const methods: StorageMethods = {
   sessionLaunchTarget: sessionLaunchTarget.read,
   sessionLaunchTargetRuntime: sessionLaunchTarget.runtime,
   sessionLaunchTargetBindingForPath: sessionLaunchTarget.bindingForPath,
+  activeSharedCheckoutPaths: sessionLaunchTarget.activeSharedCheckoutPaths,
   setSessionLaunchTarget: sessionLaunchTarget.set,
   sessionLaunchTargetReceipt: sessionLaunchTarget.receipt,
   startSessionLaunchTargetPreparation: sessionLaunchTargetPreparations.start,
