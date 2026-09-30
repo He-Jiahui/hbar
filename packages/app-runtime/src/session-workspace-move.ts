@@ -166,6 +166,8 @@ export interface SessionWorkspaceMoveOptions {
     readonly targetWorkspaceId: string
   }) => void | Promise<void>
   readonly hasChildSessions: (sourceSessionId: string, signal: AbortSignal) => Promise<boolean>
+  /** Release only client launch-choice owners after source archival is confirmed. */
+  readonly releaseSourceChoices?: (sourceSessionId: string, signal: AbortSignal) => Promise<void>
   readonly onSubscriberError: (error: unknown) => void
   readonly isDisposed?: () => boolean
 }
@@ -1011,6 +1013,9 @@ export function createSessionWorkspaceMove(local: CommandRegistry, options: Sess
     }
     if (options.navigation.getSnapshot() !== operation.navigationFence)
       throw new CommandError('STALE_TARGET', 'Navigation changed while archiving the source Session')
+    requireCurrent(operation, signal, 'target')
+    await options.releaseSourceChoices?.(operation.sourceSessionId, signal)
+    requireCurrent(operation, signal, 'target')
     publish(operation, 'succeeded', 'complete')
   }
 

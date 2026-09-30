@@ -24,7 +24,7 @@ The Runtime creates the destination Session with one stable idempotency key. If 
 
 After a model, permission, or Plan write becomes unknown, Continue uses the existing reconcile command and checks the confirmed reader state. It does not issue another setting write for an unresolved operation. A settings read that is still unknown or differs from the captured source choice leaves the source unarchived.
 
-The target draft is seeded before the Runtime selects the target Session. Once all draft and setting facts are confirmed, it replaces the captured source tab in place, then archives the source. The source draft remains available under its original Session ID.
+The target draft is seeded before the Runtime selects the target Session. Once all draft and setting facts are confirmed, it replaces the captured source tab in place, then archives the source. After archive confirmation, the composition root releases only the source's local launch-choice and completed branch-creation owners through their existing close/cancel commands, preventing repeated moves from consuming the 32 launch-draft slots. Unresolved source branch creation must be reconciled or adopted before the move. The canonical source draft remains available under its original Session ID; no Host branch or worktree is deleted.
 
 `sessionWorkspaceMove.cancel` stops the local workflow from starting further steps and never deletes a Session, draft, or artifact. Cancellation is logical: an already dispatched Host command or the timeline snapshot request may still finish remotely. If Session creation was in flight, continue can recover its outcome with the original key. No Run is created or submitted by this workflow.
 

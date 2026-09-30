@@ -949,6 +949,14 @@ export function createAppRuntime(options: RuntimeOptions) {
       capture: workspaceTabs.capture,
       finishReplacement: workspaceTabs.replaceCapturedSession,
     },
+    releaseSourceChoices: async (sourceSessionId, signal) => {
+      if (sessionLaunchBranchCreation.reader.getSnapshot().entries[sourceSessionId])
+        await local.execute('sessionLaunchBranchCreation.cancel', { draftId: sourceSessionId }, { signal })
+      if (sessionLaunchBranchCreation.reader.getSnapshot().entries[sourceSessionId])
+        throw new CommandError('BUSY', 'The source branch operation still needs its launch-choice owner')
+      if (sessionLaunchDrafts.reader.getSnapshot().entries[sourceSessionId])
+        await local.execute('sessionLaunchDraft.close', { sessionId: sourceSessionId }, { signal })
+    },
     assertEligible: ({ sourceSessionId, sourceWorkspaceId }) => {
       if (sessionExecutionAccess.get({ sessionId: sourceSessionId, workspaceId: sourceWorkspaceId }).kind !== 'ready')
         throw new CommandError('SESSION_UNVERIFIED', 'The source Session cannot be prepared')
@@ -957,6 +965,9 @@ export function createAppRuntime(options: RuntimeOptions) {
       const launch = sessionLaunchDrafts.reader.getSnapshot().entries[sourceSessionId]
       if (launch && !['idle', 'ready', 'failed', 'cancelled'].includes(launch.phase))
         throw new CommandError('BUSY', 'Resolve the source launch preparation before moving')
+      const branchCreation = sessionLaunchBranchCreation.reader.getSnapshot().entries[sourceSessionId]
+      if (branchCreation && ['capturing', 'creating', 'unknown', 'verified', 'created'].includes(branchCreation.phase))
+        throw new CommandError('BUSY', 'Resolve or adopt the source branch creation before moving')
       if (
         Object.values(preSessionDrafts.reader.getSnapshot()).some(
           (entry) => entry.sessionId === sourceSessionId && entry.phase !== 'accepted',

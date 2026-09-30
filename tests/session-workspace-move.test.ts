@@ -490,6 +490,11 @@ function fixture(
     },
     filesQuery: fileQuery,
     hasChildSessions: async () => false,
+    async releaseSourceChoices(sessionId) {
+      expect(sessionId).toBe(sourceSession.id)
+      expect(sessions.get(sessionId)?.archived).toBe(true)
+      events.push('release-source-choices')
+    },
     tabs: {
       capture: (ids) =>
         ids.includes(sourceSession.id)
@@ -544,6 +549,7 @@ test('moves the canonical draft and confirmed settings, then replaces its tab be
   expect(f.states.planModes.reader.getSnapshot().entries['target-session']?.mode).toBe('plan')
   expect(f.states.composerIntent.reader.getSnapshot().entries['target-session']?.intent).toBe('default')
   expect(f.events.indexOf('replace-tab')).toBeLessThan(f.events.indexOf('archive'))
+  expect(f.events.indexOf('archive')).toBeLessThan(f.events.indexOf('release-source-choices'))
   expect(f.sessions.get(sourceSession.id)?.archived).toBe(true)
   f.runtime.dispose()
 })
@@ -597,6 +603,7 @@ test('pending attachment transfers stop before Session creation', async () => {
   expect(f.runtime.reader.getSnapshot().entries[sourceSession.id]?.error).toBe('BUSY')
   expect(f.createCount()).toBe(0)
   expect(f.states.drafts.reader.getSnapshot()[sourceSession.id]?.attachmentTransfers).toHaveLength(1)
+  expect(f.events).not.toContain('release-source-choices')
   f.runtime.dispose()
 })
 
