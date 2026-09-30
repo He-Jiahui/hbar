@@ -1,0 +1,12 @@
+/* The preview canvas grows with the component; only declared panes own scrolling. */
+.hbar-app-ui-isolated-canvas:has(.lumen-tool-calls-controlled-root) {
+  display: flex;
+  flex-direction: column;
+  block-size: auto;
+  overflow: visible;
+}
+
+.hbar-app-ui-preview-component-canvas:has(.lumen-tool-calls-controlled-root) {
+  display: flex;
+  flex-direction: column;
+}

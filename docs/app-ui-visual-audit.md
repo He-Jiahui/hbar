@@ -1140,3 +1140,30 @@ Source 1 只有 Stop 入口，缺少来源 after，点击只报告意图，不�
 content/icon/flow 守卫、格式、包 bundle/声明和生产预览构建通过。历史 Stop 转换来自
 `d149f12254` / `1f219d7f84`，本轮将其归属与服务结果区分；旧严格证据不重标为本次通过。
 来源仍为授权缓存与 context 图，没有声称 fresh strict 全量或正式宿主业务已验收。
+
+Tool Calls 1–6 本轮保留六种已有结构，补齐可选 `LumenToolCallsViewModel` 与类型化意图。
+调用披露、活动筛选、文件披露、输出流和权限预览值由所属 Host 的 Zustand 管理；
+请求使用 group/item 的独立 ID，不拼接后解析目标。空白/重复 ID 被过滤，失效目标
+不改变其他记录，同 owner 刷新会清理旧状态，来源权限值变更会覆盖本地预览值。
+旧调用与薄 wrapper 继续兼容，公共新类型从 `@lumen/app-ui` 提供。
+
+授权缓存的 AX/after 证明调用互斥展开、文件收起、View request 内联 JSON 与开关变化；
+恢复参数/结果的连续阅读结构，并保留七条原生 `href="#"` 结果链接、只读活动行与
+stdout/stderr 的关联 tabpanel。来源结果链接点击没有导航，Approve/Reject 缺少 after
+证据，故审批、Stop、Retry、Copy 仅就近报告预览请求，不改变 pending/已有调用事实、
+执行工具、开启页面或写剪贴板。第二条 migration 的详情仅由预览 Host 提供已知元数据，
+不把它宣称为已捕获的原始请求 payload。
+
+受控样式采用正常 flex 流，移除受控视图中的 grid/绝对定位重试按钮和强制内容高度；
+pane-scroll 由视口范围限定，content-grown 权限列表自然增长。修正 LumenSurface
+外层/内容层的选择器归属与宽度，保证短输出也占用所属面板宽度，不靠内容长度决定。
+长代码的横向滚动属于代码行，普通标签/描述/请求 JSON 可正常换行。
+
+`bun scripts/verify-hbar-app-ui-tool-calls.ts` 对六种结构各检查一次，抽查披露、失败
+筛选、stderr、请求 JSON/本地开关及无服务结果的意图反馈；共享 pane-scroll 只取
+一个超容量样本，窄屏只取文件 diff 与德语权限列表，不逐按钮/主题/宽度重复验收。
+代表图位于 `artifacts/tool-calls-core-review/`，page/console errors 为零、无页面横溢。
+21 项相关模型/SSR/兼容测试与 167 个断言通过；根/子仓类型、限定 ESLint/Stylelint、
+content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览构建通过。
+子仓提交 `6dbcfe0e56`，此前内容入口来自 `c684d81305`；使用授权参考缓存与 context，
+没有重跑或声称 fresh strict 全量审计，也没有真实审批、执行或重试能力的验收声明。

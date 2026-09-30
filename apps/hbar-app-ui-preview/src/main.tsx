@@ -21,6 +21,8 @@ import { IntegrationReferencePreviewHost } from './IntegrationReferencePreviewHo
 import { AiChatReferencePreviewHost } from './AiChatReferencePreviewHost'
 import { PromptReferencePreviewHost } from './PromptReferencePreviewHost'
 import { AgentActivityPreviewHost } from './AgentActivityPreviewHost'
+import { ToolCallsPreviewHost } from './ToolCallsPreviewHost'
+import './tool-calls-preview.css'
 import './agent-activity-preview.css'
 import './prompt-reference-preview.css'
 import { createPromptReferenceFixture } from './promptReferencePreviewFixtures'
@@ -95,7 +97,6 @@ import {
   HbarAppUiFilteringProvider,
   HbarAppUiMonitoringProvider,
   HbarAppUiNavbarProvider,
-  HbarAppUiToolCallsProvider,
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
@@ -1010,8 +1011,11 @@ function PreviewApp() {
                                                                               onAction={handleAction}
                                                                               localized={agentActivityLocalized}
                                                                             >
-                                                                            <HbarAppUiToolCallsProvider
+                                                                            <ToolCallsPreviewHost
                                                                               content={toolCallsContent}
+                                                                              spec={selected.spec}
+                                                                              onAction={handleAction}
+                                                                              localized={new URLSearchParams(window.location.search).get('toolCallsFixture') === 'localized'}
                                                                             >
                                                                               <HbarAppUiNavbarProvider
                                                                                 content={navbarContent}
@@ -1218,7 +1222,7 @@ function PreviewApp() {
                                                                                   </ShellPreviewHost>
                                                                                 </EditorPreviewHost>
                                                                               </HbarAppUiNavbarProvider>
-                                                                            </HbarAppUiToolCallsProvider>
+                                                                            </ToolCallsPreviewHost>
                                                                             </AgentActivityPreviewHost>
                                                                           </HbarAppUiAgentActivityProvider>
                                                                         </ApprovalPreviewHost>
@@ -1501,8 +1505,11 @@ function PreviewApp() {
                                                                                         onAction={handleAction}
                                                                                         localized={agentActivityLocalized}
                                                                                       >
-                                                                                      <HbarAppUiToolCallsProvider
+                                                                                      <ToolCallsPreviewHost
                                                                                         content={toolCallsContent}
+                                                                                        spec={selected.spec}
+                                                                                        onAction={handleAction}
+                                                                                        localized={new URLSearchParams(window.location.search).get('toolCallsFixture') === 'localized'}
                                                                                       >
                                                                                         <HbarAppUiNavbarProvider
                                                                                           content={navbarContent}
@@ -1725,7 +1732,7 @@ function PreviewApp() {
                                                                                             </ShellPreviewHost>
                                                                                           </EditorPreviewHost>
                                                                                         </HbarAppUiNavbarProvider>
-                                                                                      </HbarAppUiToolCallsProvider>
+                                                                                      </ToolCallsPreviewHost>
                                                                                       </AgentActivityPreviewHost>
                                                                                     </HbarAppUiAgentActivityProvider>
                                                                                   </ApprovalPreviewHost>
