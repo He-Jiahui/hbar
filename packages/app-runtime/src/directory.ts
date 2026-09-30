@@ -34,6 +34,11 @@ function olderThanFloor(item: Session | null, floor: SessionVersionFloor | undef
   )
 }
 
+/** Validate paged project discovery through the Runtime facade before it reaches a View. */
+export function parseWorkspacePage(value: unknown): z.output<typeof workspacePageSchema> {
+  return decode(workspacePageSchema, value)
+}
+
 export function createDirectoryModule(
   options: RuntimeOptions,
   navigation: StateReader<NavigationState>,
