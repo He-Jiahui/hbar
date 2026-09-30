@@ -1,13 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, X, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, X, type LucideIcon } from 'lucide-react'
 import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { groupPreSessionChoices, visiblePreSessionChoices } from './pre-session-choice-model'
+import type { HbarPreSessionChoice } from './pre-session-choice-model'
 import './pre-session-choice-picker.css'
 
-export interface HbarPreSessionChoice {
-  readonly id: string
-  readonly label: string
-  readonly detail?: string
-}
+export { visiblePreSessionChoices } from './pre-session-choice-model'
+export type { HbarPreSessionChoice } from './pre-session-choice-model'
 
 export interface HbarPreSessionChoiceLabels {
   readonly title: string
@@ -39,17 +38,6 @@ export interface HbarPreSessionChoicePickerProps {
 /** Host-supplied choices reveal in 60-row increments, with explicit remote pagination. */
 export const PRE_SESSION_CHOICE_PAGE_SIZE = 60
 
-export function visiblePreSessionChoices(items: readonly HbarPreSessionChoice[], query: string, limit: number) {
-  const seen = new Set<string>()
-  const filtered = items.filter((item) => {
-    if (seen.has(item.id)) return false
-    seen.add(item.id)
-    const text = `${item.label} ${item.detail ?? ''}`.toLocaleLowerCase()
-    return text.includes(query.trim().toLocaleLowerCase())
-  })
-  return { rows: filtered.slice(0, limit), remaining: Math.max(0, filtered.length - limit) }
-}
-
 export function HbarPreSessionChoicePicker({
   icon,
   labels,
@@ -78,7 +66,9 @@ export function HbarPreSessionChoicePicker({
   const restoreDialogFocus = useRef(false)
   const unique = useMemo(() => visiblePreSessionChoices(items, '', items.length).rows, [items])
   const selected = unique.find((item) => item.id === selectedId) ?? null
-  const { rows, remaining } = visiblePreSessionChoices(items, query, limit)
+  const selectedTriggerLabel = selected?.triggerLabel ?? selected?.label ?? null
+  const { rows, remaining } = visiblePreSessionChoices(items, query, limit, selectedId)
+  const sections = groupPreSessionChoices(rows)
   useEffect(() => {
     if (placement !== 'dialog' || open || !restoreDialogFocus.current) return
     restoreDialogFocus.current = false
@@ -123,6 +113,56 @@ export function HbarPreSessionChoicePicker({
     reset()
     if (placement === 'composer') trigger.current?.focus()
   }
+  const renderChoice = (item: HbarPreSessionChoice) => (
+    <LumenButton
+      key={item.id}
+      type="button"
+      variant="text"
+      indicator="none"
+      className="hbar-pre-session-choice-row"
+      data-grouped-choice={item.group ? 'true' : undefined}
+      aria-current={item.id === selectedId ? 'true' : undefined}
+      disabled={pendingId !== null}
+      onClick={() => {
+        setPendingId(item.id)
+        setError(null)
+        void Promise.resolve(onChoose(item.id))
+          .then(() => {
+            setPendingId(null)
+            if (placement === 'composer') popup.current?.hidePopover()
+            else {
+              restoreDialogFocus.current = true
+              setOpen(false)
+            }
+            reset()
+            if (placement === 'composer') trigger.current?.focus()
+          })
+          .catch((reason: unknown) => {
+            setPendingId(null)
+            setError(
+              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                ? reason.code
+                : 'EXECUTION_FAILED',
+            )
+          })
+      }}
+    >
+      {item.group ? (
+        <>
+          <LumenFrame className="hbar-pre-session-choice-row-content">
+            <LumenText as="strong">{item.label}</LumenText>
+            {item.detail && <LumenText as="small">{item.detail}</LumenText>}
+          </LumenFrame>
+          {item.id === selectedId && <LumenIcon icon={Check} tier="sm" aria-hidden="true" />}
+        </>
+      ) : (
+        <>
+          <LumenText as="strong">{item.label}</LumenText>
+          {item.detail && <LumenText as="small">{item.detail}</LumenText>}
+        </>
+      )}
+    </LumenButton>
+  )
   const content = (
     <LumenFrame className="hbar-pre-session-choice-content">
       <LumenInput
@@ -142,43 +182,23 @@ export function HbarPreSessionChoicePicker({
         }}
       />
       <LumenFrame className="hbar-pre-session-choice-list" aria-label={labels.title}>
-        {rows.map((item) => (
-          <LumenButton
-            key={item.id}
-            type="button"
-            variant="text"
-            indicator="none"
-            className="hbar-pre-session-choice-row"
-            aria-current={item.id === selectedId ? 'true' : undefined}
-            disabled={pendingId !== null}
-            onClick={() => {
-              setPendingId(item.id)
-              setError(null)
-              void Promise.resolve(onChoose(item.id))
-                .then(() => {
-                  setPendingId(null)
-                  if (placement === 'composer') popup.current?.hidePopover()
-                  else {
-                    restoreDialogFocus.current = true
-                    setOpen(false)
-                  }
-                  reset()
-                  if (placement === 'composer') trigger.current?.focus()
-                })
-                .catch((reason: unknown) => {
-                  setPendingId(null)
-                  setError(
-                    reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-                      ? reason.code
-                      : 'EXECUTION_FAILED',
-                  )
-                })
-            }}
-          >
-            <LumenText as="strong">{item.label}</LumenText>
-            {item.detail && <LumenText as="small">{item.detail}</LumenText>}
-          </LumenButton>
-        ))}
+        {sections.flatMap((section) =>
+          section.label
+            ? [
+                <LumenFrame
+                  key={section.key}
+                  role="group"
+                  aria-label={section.label}
+                  className="hbar-pre-session-choice-group"
+                >
+                  <LumenText as="span" className="hbar-pre-session-choice-group-label">
+                    {section.label}
+                  </LumenText>
+                  {section.items.map(renderChoice)}
+                </LumenFrame>,
+              ]
+            : section.items.map(renderChoice),
+        )}
         {rows.length === 0 && <LumenText as="p">{unique.length === 0 ? labels.empty : labels.noMatches}</LumenText>}
         {(remaining > 0 || hasMore) && onMore && (
           <LumenButton
@@ -214,12 +234,12 @@ export function HbarPreSessionChoicePicker({
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={labels.trigger(selected?.label ?? null)}
+        aria-label={labels.trigger(selectedTriggerLabel)}
         popoverTarget={placement === 'composer' ? popupId : undefined}
         onClick={placement === 'dialog' ? () => setOpen(true) : undefined}
       >
         <LumenIcon icon={icon} tier="sm" />
-        <LumenText as="span">{selected?.label ?? labels.title}</LumenText>
+        <LumenText as="span">{selectedTriggerLabel ?? labels.title}</LumenText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       {placement === 'composer' ? (

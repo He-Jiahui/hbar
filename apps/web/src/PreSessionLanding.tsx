@@ -439,8 +439,11 @@ export function WebPreSessionLanding({
   }))
   const modelChoices = models.map((model) => ({
     id: model.id,
-    label: labels.modelName(model.providerName, model.modelName),
+    label: model.modelName,
     detail: shell.session.modelPicker.capability(model),
+    searchText: model.modelId,
+    triggerLabel: labels.modelName(model.providerName, model.modelName),
+    group: { id: model.providerId, label: model.providerName },
   }))
   const modelLabels = modelError ? { ...labels.model, empty: labels.modelReadFailed } : labels.model
   const workspaceControl = (
