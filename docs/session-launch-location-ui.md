@@ -76,6 +76,21 @@ slice does not verify project-row/Ctrl+N creation, attachment/mention sends,
 the separate `/agent` launch path, or browser branch creation from this newly
 connected existing-Session entrance.
 
+A follow-up boundary check after `70115ecf` caught direct command/Host-contract
+imports in the new Session Location UI and the related existing launch
+components. The View now imports launch DTOs and `RuntimeCommandError` through
+the app-runtime public entry; the File workspace's session-target DTO uses the
+same facade. No dependency rule was relaxed. The workspace boundary guard and
+focused launch projection/core/branch suites passed 13/13 (72 assertions).
+The separate Web composition-root test could not bundle its shared UI imports
+because this checkout lacks packages including `prop-types`, `react-is`,
+`clsx`, and Emotion; dependencies were not installed and that check is not
+claimed as passing.
+Scoped strict TypeScript and ESLint passed after the facade correction. Prettier
+passed on the changed launch files; the File workspace's pre-existing two
+formatting hunks were preserved so its one type-import correction does not
+include unrelated mechanical edits.
+
 Browser captures are written outside Playwright's temporary output at
 `artifacts/session-launch-location/{en-US,zh-CN}/` when that focused spec is
 run. They document this Hbar flow only; earlier CC reference captures used a

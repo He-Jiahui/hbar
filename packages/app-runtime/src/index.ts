@@ -6,10 +6,15 @@ import {
   tokenizeCommand,
   type ExecuteOptions,
 } from '@hbar/commands'
+/** Public application error for View-side validation without reaching into command infrastructure. */
+export { CommandError as RuntimeCommandError } from '@hbar/commands'
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
 import { preSessionDraftCommands } from '@hbar/contracts/commands/pre-session-draft'
+export type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
+export type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
+export type { SessionLaunchBranchesPage } from '@hbar/contracts/commands/session-launch-branches'
 import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
 import { runActionCommands } from '@hbar/contracts/commands/run-action'
 export { runActionCommands } from '@hbar/contracts/commands/run-action'
@@ -23,6 +28,7 @@ import { providerEditorCommands } from '@hbar/contracts/commands/provider-editor
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { commandPaletteCommands } from '@hbar/contracts/commands/command-palette'
 import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
+export type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'

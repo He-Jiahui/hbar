@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CommandError } from '@hbar/commands'
-import type { SessionLaunchDraftEntry } from '@hbar/app-runtime'
-import type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
+import { RuntimeCommandError, type SessionLaunchDraftEntry, type SessionLaunchSelection } from '@hbar/app-runtime'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { HbarPreSessionLocationPicker, type HbarPreSessionLocationLabels } from './pre-session-location-picker'
 import type { HbarPreSessionLaunchStatusLabels } from './pre-session-launch-status'
@@ -105,7 +103,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
   const chooseSelection = async (selection: SessionLaunchSelection) => {
     const captured = runtime.state.sessionLaunchDrafts.getSnapshot().entries[props.sessionId]
     if (!captured || captured.workspaceId !== props.workspaceId)
-      throw new CommandError('STALE_TARGET', 'Session launch Location is no longer available')
+      throw new RuntimeCommandError('STALE_TARGET', 'Session launch Location is no longer available')
     await runtime.commands.execute('sessionLaunchDraft.setSelection', {
       sessionId: props.sessionId,
       expectedRevision: captured.revision,
@@ -173,7 +171,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
         }}
         onClose={() => setLocationOpen(false)}
         onWorkspace={async () => {
-          throw new CommandError('CAPABILITY_UNAVAILABLE', 'An existing Session cannot change workspaces')
+          throw new RuntimeCommandError('CAPABILITY_UNAVAILABLE', 'An existing Session cannot change workspaces')
         }}
         onSelection={chooseSelection}
         onSearch={setBranchSearch}

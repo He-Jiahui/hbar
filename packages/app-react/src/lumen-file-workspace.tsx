@@ -14,7 +14,7 @@ import {
   LumenToolPane,
   type LumenWorkspaceFileLabels,
 } from '@lumen/app-ui'
-import type { SessionFileTarget } from '@hbar/contracts/commands/files'
+import type { SessionFileTarget } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './file-workspace-changes'
 import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'

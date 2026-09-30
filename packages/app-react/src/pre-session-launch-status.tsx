@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
-import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
+import type { PreSessionDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime } from './runtime'
 import { firstSendNeedsContinue } from './pre-session-launch-model'
 export { firstSendIsLocked } from './pre-session-launch-model'

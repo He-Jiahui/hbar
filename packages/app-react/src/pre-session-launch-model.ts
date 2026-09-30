@@ -1,5 +1,4 @@
-import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
-import type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
+import type { PreSessionDraftState, SessionLaunchSelection } from '@hbar/app-runtime'
 
 export function firstSendNeedsContinue(draft: PreSessionDraftState | undefined): boolean {
   return Boolean(

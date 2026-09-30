@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CommandError } from '@hbar/commands'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListChecks, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -16,6 +15,7 @@ import {
   type LumenRunActivityStatus,
 } from '@lumen/app-ui'
 import {
+  RuntimeCommandError,
   messageForkActionKey,
   planProposalActionKey,
   projectSessionDecisions,
@@ -394,7 +394,7 @@ function SessionWorkspaceContent({
     expectedDraftRevision: number,
   ): Promise<number> => {
     if (!runtime.state.sessionLaunchDrafts.getSnapshot().available)
-      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Location preparation is unavailable')
+      throw new RuntimeCommandError('CAPABILITY_UNAVAILABLE', 'Session Location preparation is unavailable')
     const selected = runtime.state.navigation.getSnapshot()
     const latestDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
     const sessionTimeline = runtime.state.timeline.getSnapshot()
@@ -415,7 +415,7 @@ function SessionWorkspaceContent({
       Object.keys(sessionTimeline.streams).length > 0 ||
       ['submitting', 'unknown'].includes(intentSubmission ?? '')
     )
-      throw new CommandError('SESSION_LAUNCH_TARGET_LOCKED', 'This Session is no longer empty')
+      throw new RuntimeCommandError('SESSION_LAUNCH_TARGET_LOCKED', 'This Session is no longer empty')
     const existing = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
     const entry: SessionLaunchDraftEntry =
       existing ??
@@ -424,7 +424,7 @@ function SessionWorkspaceContent({
         workspaceId: targetWorkspaceId,
       }))
     if (entry.workspaceId !== targetWorkspaceId || entry.sessionId !== targetSessionId)
-      throw new CommandError('STALE_TARGET', 'Launch choice belongs to another Session or Workspace')
+      throw new RuntimeCommandError('STALE_TARGET', 'Launch choice belongs to another Session or Workspace')
     const prepared = await runtime.commands.execute('sessionLaunchDraft.prepare', {
       sessionId: targetSessionId,
       expectedRevision: entry.revision,
@@ -443,7 +443,7 @@ function SessionWorkspaceContent({
       currentNavigation.workspaceId !== targetWorkspaceId ||
       currentDraft?.revision !== expectedDraftRevision
     )
-      throw new CommandError(
+      throw new RuntimeCommandError(
         prepared.error ?? current?.error ?? 'STALE_TARGET',
         'First-send launch preparation is not ready',
       )
@@ -900,7 +900,7 @@ function SessionWorkspaceContent({
             (currentPlanMode?.status !== 'ready' ||
               currentPlanMode.mode !== planModeState.entries[targetSessionId]?.mode))
         )
-          throw new CommandError('VERSION_CONFLICT', 'Composer choices changed during first-send preparation')
+          throw new RuntimeCommandError('VERSION_CONFLICT', 'Composer choices changed during first-send preparation')
         await runtime.commands.execute('composerIntent.submit', {
           ...submitInput,
           expectedLaunchTargetRevision,
