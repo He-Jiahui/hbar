@@ -6,6 +6,7 @@ import {
   sessionLaunchTargetSchema,
   sessionLaunchTargetSetInputSchema,
   sessionLaunchTargetSetReceiptSchema,
+  sessionLaunchDerivedBranchNameSchema,
   type SessionLaunchTarget,
   type SessionLaunchSelection,
   type SessionLaunchTargetSetInput,
@@ -102,14 +103,25 @@ const headSchema = z
   .string()
   .regex(/^[0-9a-f]{40,64}$/i)
   .nullable()
-const preparationInputSchema = z.strictObject({
-  sessionId: idSchema,
-  expectedRevision: z.number().int().nonnegative().safe(),
-  selection: sessionLaunchSelectionSchema,
-  targetPath: z.string().min(1).max(4_000),
-  branch: z.string().min(1).max(1_000).nullable(),
-  requestedHead: headSchema,
-})
+function selectedBranchMatches(selection: SessionLaunchSelection, branch: string | null): boolean {
+  if (selection.mode === 'shared-current') return branch === null
+  if (selection.branch.kind === 'derived') return sessionLaunchDerivedBranchNameSchema.safeParse(branch).success
+  return branch === selection.branch.name
+}
+
+const preparationInputSchema = z
+  .strictObject({
+    sessionId: idSchema,
+    expectedRevision: z.number().int().nonnegative().safe(),
+    selection: sessionLaunchSelectionSchema,
+    targetPath: z.string().min(1).max(4_000),
+    branch: z.string().min(1).max(1_000).nullable(),
+    requestedHead: headSchema,
+  })
+  .refine(
+    (input) => selectedBranchMatches(input.selection, input.branch),
+    'Preparation branch must match the selected target',
+  )
 const preparationUpdateSchema = z.strictObject({
   sessionId: idSchema,
   revision: z.number().int().nonnegative().safe(),
@@ -127,7 +139,14 @@ const bindingFieldsSchema = {
   branch: z.string().min(1).max(1_000).nullable(),
   head: headSchema,
 }
-const bindingInputSchema = z.strictObject(bindingFieldsSchema)
+const bindingInputSchema = z
+  .strictObject(bindingFieldsSchema)
+  .refine(
+    (input) =>
+      selectedBranchMatches(input.selection, input.branch) &&
+      (input.selection.mode === 'shared-current' ? input.head === null : input.head !== null),
+    'Binding branch and head must match the selected target',
+  )
 const bindingCandidateSchema = z.strictObject({
   ...bindingFieldsSchema,
   requirePreparedTarget: z.literal(true).optional(),
@@ -255,7 +274,9 @@ export function createSessionLaunchTargetStorage(db: Database) {
   function read(sessionId: string): SessionLaunchTarget {
     const owner = session(sessionId)
     const row = db
-      .query<TargetRow, [string]>('SELECT revision,selectionJson,updatedAt FROM session_launch_targets WHERE sessionId=?')
+      .query<TargetRow, [string]>(
+        'SELECT revision,selectionJson,updatedAt FROM session_launch_targets WHERE sessionId=?',
+      )
       .get(sessionId)
     const selection = row ? sessionLaunchSelectionSchema.safeParse(storedJson(row.selectionJson)) : null
     if (selection && !selection.success) return invalidState()
@@ -338,9 +359,13 @@ export function createSessionLaunchTargetStorage(db: Database) {
         }
 
         const owner = session(input.sessionId)
-        if (owner.archived) throw new HbarError('SESSION_ARCHIVED', 'Restore the session before changing its launch target')
+        if (owner.archived)
+          throw new HbarError('SESSION_ARCHIVED', 'Restore the session before changing its launch target')
         if (hasRuns(input.sessionId))
-          throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The launch target is locked after the first accepted Run')
+          throw new HbarError(
+            'SESSION_LAUNCH_TARGET_LOCKED',
+            'The launch target is locked after the first accepted Run',
+          )
 
         const current = read(input.sessionId)
         if (current.revision !== input.expectedRevision)
@@ -385,8 +410,7 @@ export function createSessionLaunchTargetStorage(db: Database) {
     const parsed = preparationInputSchema.safeParse(raw)
     if (!parsed.success) throw new HbarError('INVALID_INPUT', 'Invalid session launch target preparation')
     const input = parsed.data
-    const expectedBranch = input.selection.mode === 'isolated-worktree' ? input.selection.branch.name : null
-    if (input.branch !== expectedBranch)
+    if (!selectedBranchMatches(input.selection, input.branch))
       throw new HbarError('INVALID_INPUT', 'Preparation branch does not match the selected launch target')
     const now = Date.now()
     return db

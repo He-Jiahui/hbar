@@ -37,17 +37,12 @@ async function fixture() {
   return { root, kernel, host, client, workspace, session }
 }
 
-function execute(
-  client: HbarClient,
-  commandId: string,
-  input: unknown,
-  idempotencyKey?: string,
-) {
+function execute(client: HbarClient, commandId: string, input: unknown, idempotencyKey?: string) {
   return client.call('command.execute', {
     protocol: 1,
     requestId: crypto.randomUUID(),
     commandId,
-    commandVersion: 1,
+    commandVersion: 2,
     ...(idempotencyKey ? { idempotencyKey } : {}),
     input,
   })
@@ -57,6 +52,7 @@ test('public Host command validates a revisioned selection, supports receipt rec
   const f = await fixture()
   for (const definition of Object.values(sessionLaunchTargetCommands)) {
     expect(describeCommand(definition).metadata).toMatchObject({
+      version: 2,
       execution: 'host',
       scope: 'session',
       owner: 'hbar.session-launch-target',
@@ -76,33 +72,53 @@ test('public Host command validates a revisioned selection, supports receipt rec
   const request = {
     sessionId: f.session.id,
     expectedRevision: 0,
-    selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'feature/launch', startPoint: 'main' } },
+    selection: { mode: 'isolated-worktree', branch: { kind: 'derived', baseRef: 'refs/heads/main' } },
   }
   const receipt = await execute(f.client, 'sessionLaunchTarget.set', request, 'select-launch-target')
   expect(receipt).toMatchObject({ request, revision: 1, changed: true })
-  expect(await execute(f.client, 'sessionLaunchTarget.receipt', {
-    sessionId: f.session.id,
-    idempotencyKey: 'select-launch-target',
-  })).toEqual(receipt)
+  expect(
+    await execute(f.client, 'sessionLaunchTarget.receipt', {
+      sessionId: f.session.id,
+      idempotencyKey: 'select-launch-target',
+    }),
+  ).toEqual(receipt)
   expect(await targetReader.read(f.session.id)).toMatchObject({
     revision: 1,
     selection: request.selection,
     locked: false,
   })
 
-  const invalidPath = await f.client.call('command.execute', {
-    protocol: 1,
-    requestId: crypto.randomUUID(),
-    commandId: 'sessionLaunchTarget.set',
-    commandVersion: 1,
-    idempotencyKey: 'untrusted-path',
-    input: {
-      sessionId: f.session.id,
-      expectedRevision: 1,
-      selection: { mode: 'isolated-worktree', path: 'D:/untrusted', branch: { kind: 'existing', name: 'main' } },
-    },
-  }).then(() => null, (error: unknown) => error)
+  const invalidPath = await f.client
+    .call('command.execute', {
+      protocol: 1,
+      requestId: crypto.randomUUID(),
+      commandId: 'sessionLaunchTarget.set',
+      commandVersion: 2,
+      idempotencyKey: 'untrusted-path',
+      input: {
+        sessionId: f.session.id,
+        expectedRevision: 1,
+        selection: { mode: 'isolated-worktree', path: 'D:/untrusted', branch: { kind: 'existing', name: 'main' } },
+      },
+    })
+    .then(
+      () => null,
+      (error: unknown) => error,
+    )
   expect(invalidPath).toMatchObject({ code: 'INVALID_INPUT' })
+  const oldVersion = await f.client
+    .call('command.execute', {
+      protocol: 1,
+      requestId: crypto.randomUUID(),
+      commandId: 'sessionLaunchTarget.get',
+      commandVersion: 1,
+      input: { sessionId: f.session.id },
+    })
+    .then(
+      () => null,
+      (error: unknown) => error,
+    )
+  expect(oldVersion).toMatchObject({ code: 'VERSION_MISMATCH' })
 })
 
 test('typed Client preparation manager drives the additive Host API without accepting a Run', async () => {

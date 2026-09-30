@@ -178,6 +178,16 @@ Root 独立验证三个 focused files 为 **20 tests／158 assertions，0 failur
 
 ## 首次 Run 的已准备版本校验
 
+后续交付更新：Runtime 的首次发送准备链路已在 `891293f5` 接入；Location 的可见入口与成套 Web 验收由后续独立切片记录。下文“尚无 UI”的描述保留为当时阶段的验收边界。
+
+### 隔离工作树的基准分支派生
+
+新增 `isolated-worktree.branch: { kind: 'derived', baseRef: 'refs/heads/<local-name>' }`。Host 冻结所选本地 ref 的 commit OID，并按 session/revision 生成稳定的 `hbar/session-launch/<sha256>` 分支。首次准备从该 OID 建立独立工作树，不移动原分支或共享 checkout；当前分支与已在其他工作树使用的分支均可作为基准。持久 intent、ready resolution 和 Run binding 记录实际生成的分支，不把 baseRef 冒充执行分支。旧 `existing`／`new` 语义和原有子目录限制保持不变。
+
+Target 命令版本升为 v2，旧 v1 明确拒绝；selection JSON 与现有 branch/head 列已足够表达，不增加数据库迁移。既有取消／丢失 Git 结果恢复仍不删除已创建的工作树或 ref。
+
+本切片的 agent 聚焦验证为 58 tests／471 assertions，Root 另行执行 service、Run admission 和真实 Run binding 三个文件，25 tests／182 assertions 通过。变更文件 strict TypeScript、ESLint 零警告、格式与 diff 检查通过；尚不以此宣称可见 Location 首次发送 E2E 已通过。
+
 `run.submit` 增加可选的安全非负整数 `expectedLaunchTargetRevision`。提供该版本时，Kernel 先读取持久 target，拒绝旧版本或尚未 ready 的位置；随后在 session target lock 内核对同一版本、selection 与 ready resolution，并检查 shared 真实路径或 isolated worktree 的真实路径／分支／HEAD。此路径不调用旧 `prepare`，不会为了接受 Run 自动修复同版本的 readiness downgrade 或外部改变的 worktree。未提供字段的调用保留既有兼容流程，不填入虚构的版本 0。
 
 Host-only binding candidate 携带 `requirePreparedTarget: true`，Storage 在首次 binding＋Run enqueue 的同一事务中再次要求精确 ready row；即使验证与事务之间 readiness 被撤销，也没有 Run 或 queued event。该标记经过严格 runtime schema 校验并在持久化前剥离，不出现在公共 DTO 或已存 binding 中。既有已接受的 Run receipt 与 replay 仍遵循原 idempotency 行为。expected revision 纳入 Run input fingerprint；Goal、Goal slash 的部分失败重试保留原版本和 Run key，显式不同版本被拒绝。

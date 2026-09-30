@@ -1,8 +1,10 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { lstat, mkdir, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { PathLayout, StoragePort } from '@hbar/storage'
 import { HbarError } from '@hbar/contracts'
+import { sessionLaunchDerivedBranchNameSchema } from '@hbar/contracts/commands/session-launch-target'
 import type { SessionLaunchSelection, SessionLaunchTarget } from '@hbar/contracts/commands/session-launch-target'
 import type {
   SessionLaunchTargetBinding,
@@ -115,6 +117,13 @@ function samePath(left: string, right: string): boolean {
 
 function sameSelection(left: SessionLaunchSelection, right: SessionLaunchSelection): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function worktreeBranchName(selection: SessionLaunchSelection, sessionId: string, revision: number): string | null {
+  if (selection.mode === 'shared-current') return null
+  if (selection.branch.kind !== 'derived') return selection.branch.name
+  const hash = createHash('sha256').update(`${sessionId}\0${revision}`).digest('hex')
+  return sessionLaunchDerivedBranchNameSchema.parse(`hbar/session-launch/${hash}`)
 }
 
 function abortError() {
@@ -677,6 +686,8 @@ export class SessionLaunchTargetService {
 
     const selection = runtime.target.selection
     const managed = await this.managedPaths(sessionId, expectedRevision, workspace.path, signal)
+    const branch = worktreeBranchName(selection, sessionId, expectedRevision)
+    if (!branch) throw new HbarError('INVALID_STATE', 'Isolated launch target has no branch')
     runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
     let prior = runtime.resolution
     if (prior?.state === 'ready') {
@@ -701,22 +712,52 @@ export class SessionLaunchTargetService {
     }
 
     let requestedHead: string | null = null
-    let partialBranch = Boolean(prior && ['preparing', 'reconciling'].includes(prior.state))
+    let partialBranch = false
     try {
       const worktrees = await this.listWorktrees(managed.gitRoot, signal)
       if (selection.branch.kind === 'existing') {
         requestedHead = await this.resolveBranchHead(managed.gitRoot, selection.branch.name, signal)
         this.assertBranchAvailable(worktrees, selection.branch.name, managed.targetPath)
-      } else {
+      } else if (selection.branch.kind === 'new') {
         requestedHead = await this.resolveCommit(managed.gitRoot, selection.branch.startPoint ?? 'HEAD', signal)
         const branchHead = await this.tryResolveBranchHead(managed.gitRoot, selection.branch.name, signal)
-        if (branchHead && !(partialBranch && branchHead === requestedHead))
+        const recoverable =
+          prior !== null &&
+          ['preparing', 'reconciling'].includes(prior.state) &&
+          sameSelection(prior.selection, selection) &&
+          prior.branch === branch &&
+          branchHead === prior.requestedHead
+        const recoverableHead = recoverable && prior !== null ? prior.requestedHead : null
+        if (branchHead && !recoverable)
           throw new HbarError(
             'BRANCH_EXISTS',
             'The selected new branch already exists; choose it as an existing branch',
           )
-        if (branchHead) partialBranch = true
+        if (recoverableHead) {
+          requestedHead = recoverableHead
+          partialBranch = true
+        }
         this.assertBranchAvailable(worktrees, selection.branch.name, managed.targetPath)
+      } else {
+        const reusableBaseHead =
+          prior !== null &&
+          ['preparing', 'reconciling', 'cancelled'].includes(prior.state) &&
+          sameSelection(prior.selection, selection) &&
+          prior.branch === branch &&
+          prior.requestedHead !== null
+            ? prior.requestedHead
+            : null
+        requestedHead =
+          reusableBaseHead ??
+          (await this.resolveBranchHead(managed.gitRoot, selection.branch.baseRef.slice('refs/heads/'.length), signal))
+        const branchHead = await this.tryResolveBranchHead(managed.gitRoot, branch, signal)
+        const partialDerivedBranch = reusableBaseHead !== null && branchHead === requestedHead
+        if (branchHead && !partialDerivedBranch)
+          throw new HbarError('BRANCH_EXISTS', 'The generated session branch already exists')
+        if (partialDerivedBranch) {
+          partialBranch = true
+          this.assertBranchAvailable(worktrees, branch, managed.targetPath)
+        }
       }
       await this.assertTargetPathAvailable(managed, worktrees)
     } catch (error) {
@@ -738,7 +779,7 @@ export class SessionLaunchTargetService {
       expectedRevision,
       selection,
       targetPath: managed.targetPath,
-      branch: selection.branch.name,
+      branch,
       requestedHead,
     })
     if (intent.state === 'ready') {
@@ -756,6 +797,13 @@ export class SessionLaunchTargetService {
       return this.get(sessionId)
     }
 
+    const targetHead = intent.requestedHead
+    if (!targetHead) {
+      const error = new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared target has no captured commit')
+      await this.storeFailure(intent, error)
+      throw error
+    }
+
     let mutationAttempted = false
     try {
       await this.assertSessionRootSafe(managed.root, managed.sessionRoot)
@@ -764,26 +812,18 @@ export class SessionLaunchTargetService {
       await this.assertTargetPathAbsent(managed.targetPath)
       const hooksPath = join(managed.sessionRoot, `.hbar-disabled-hooks-${crypto.randomUUID()}`)
       await this.assertTargetPathAbsent(hooksPath)
+      const createsBranch = selection.branch.kind === 'new' || selection.branch.kind === 'derived'
       const args =
-        selection.branch.kind === 'new' && !partialBranch
-          ? [
-              '-c',
-              `core.hooksPath=${hooksPath}`,
-              'worktree',
-              'add',
-              '-b',
-              selection.branch.name,
-              managed.targetPath,
-              requestedHead!,
-            ]
-          : ['-c', `core.hooksPath=${hooksPath}`, 'worktree', 'add', managed.targetPath, selection.branch.name]
+        createsBranch && !partialBranch
+          ? ['-c', `core.hooksPath=${hooksPath}`, 'worktree', 'add', '-b', branch, managed.targetPath, targetHead]
+          : ['-c', `core.hooksPath=${hooksPath}`, 'worktree', 'add', managed.targetPath, branch]
       signal.throwIfAborted()
       mutationAttempted = true
       const result = await this.git(managed.gitRoot, args, signal)
       if (result.code !== 0)
         throw new HbarError('GIT_OPERATION_FAILED', 'Git could not create the selected managed worktree')
-      const inspected = await this.inspectTarget(managed, selection.branch.name, signal)
-      if (inspected.head !== requestedHead)
+      const inspected = await this.inspectTarget(managed, branch, signal)
+      if (inspected.head !== targetHead)
         throw new HbarError(
           'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
           'The worktree branch changed while it was being prepared',
@@ -1056,11 +1096,13 @@ export class SessionLaunchTargetService {
   ): Promise<boolean> {
     const selection = intent.selection
     if (selection.mode !== 'isolated-worktree') return false
+    const branch = intent.branch
+    if (!branch) throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared branch is missing')
     try {
       const worktrees = await this.listWorktrees(managed.gitRoot, signal)
       const entry = worktrees.find((item) => samePath(item.path, intent.targetPath))
       if (entry) {
-        const inspected = await this.inspectTarget(managed, selection.branch.name, signal)
+        const inspected = await this.inspectTarget(managed, branch, signal)
         if (
           entry.head?.toLowerCase() !== intent.requestedHead?.toLowerCase() ||
           inspected.head !== intent.requestedHead?.toLowerCase()
@@ -1079,13 +1121,13 @@ export class SessionLaunchTargetService {
         return true
       }
       await this.assertTargetPathAbsent(intent.targetPath)
-      const branchHead = await this.tryResolveBranchHead(managed.gitRoot, selection.branch.name, signal)
+      const branchHead = await this.tryResolveBranchHead(managed.gitRoot, branch, signal)
       if (branchHead && branchHead !== intent.requestedHead?.toLowerCase())
         throw new HbarError(
           'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
           'The prepared branch has moved from its persisted starting point',
         )
-      const used = worktrees.find((item) => item.branch === `refs/heads/${selection.branch.name}`)
+      const used = worktrees.find((item) => item.branch === `refs/heads/${branch}`)
       if (used) throw new HbarError('BRANCH_IN_USE', 'The selected branch is already checked out in another worktree')
       return false
     } catch (error) {
@@ -1116,6 +1158,14 @@ export class SessionLaunchTargetService {
   ): Promise<'ready' | 'unknown' | 'failed'> {
     const selection = intent.selection
     if (selection.mode !== 'isolated-worktree') return 'failed'
+    const branch = intent.branch
+    if (!branch) {
+      await this.storeFailure(
+        intent,
+        new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared branch is missing'),
+      )
+      return 'failed'
+    }
     const controller = new AbortController()
     const timeout = setTimeout(
       () =>
@@ -1132,7 +1182,7 @@ export class SessionLaunchTargetService {
       const worktrees = await this.listWorktrees(managed.gitRoot, signal)
       const entry = worktrees.find((item) => samePath(item.path, intent.targetPath))
       if (entry) {
-        const inspected = await this.inspectTarget(managed, selection.branch.name, signal)
+        const inspected = await this.inspectTarget(managed, branch, signal)
         if (
           entry.head?.toLowerCase() === intent.requestedHead?.toLowerCase() &&
           inspected.head === intent.requestedHead?.toLowerCase()
@@ -1164,9 +1214,9 @@ export class SessionLaunchTargetService {
       } catch (pathError) {
         if ((pathError as NodeJS.ErrnoException).code !== 'ENOENT') throw pathError
       }
-      const branchHead = await this.tryResolveBranchHead(managed.gitRoot, selection.branch.name, signal)
+      const branchHead = await this.tryResolveBranchHead(managed.gitRoot, branch, signal)
       const used = await this.listWorktrees(managed.gitRoot, signal)
-      if (used.some((item) => item.branch === `refs/heads/${selection.branch.name}`)) {
+      if (used.some((item) => item.branch === `refs/heads/${branch}`)) {
         const conflict = new HbarError(
           'BRANCH_IN_USE',
           'The selected branch is already checked out in another worktree',
@@ -1245,7 +1295,7 @@ export class SessionLaunchTargetService {
         expectedRevision: revision,
         selection,
         targetPath,
-        branch: selection.mode === 'isolated-worktree' ? selection.branch.name : null,
+        branch: worktreeBranchName(selection, sessionId, revision),
         requestedHead,
       })
       await this.storeFailure(intent, error)
@@ -1272,7 +1322,8 @@ export class SessionLaunchTargetService {
     signal: AbortSignal,
   ) {
     if (intent.selection.mode !== 'isolated-worktree') return
-    const inspected = await this.inspectTarget(managed, intent.selection.branch.name, signal)
+    if (!intent.branch) throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Prepared branch is missing')
+    const inspected = await this.inspectTarget(managed, intent.branch, signal)
     if (!intent.resolvedHead || inspected.head !== intent.resolvedHead.toLowerCase())
       throw new HbarError(
         'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
@@ -1297,12 +1348,10 @@ export class SessionLaunchTargetService {
     )
     if (!samePath(managed.targetPath, binding.targetPath))
       throw new HbarError('SESSION_LAUNCH_TARGET_INVALID_ROOT', 'Frozen worktree path is not Host managed')
+    if (!binding.branch)
+      throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Frozen worktree branch is missing')
     try {
-      const inspected = await this.inspectTarget(
-        managed,
-        binding.selection.branch.name,
-        signal ?? new AbortController().signal,
-      )
+      const inspected = await this.inspectTarget(managed, binding.branch, signal ?? new AbortController().signal)
       if (inspected.branch !== binding.branch)
         throw new HbarError('SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT', 'Frozen worktree branch changed')
     } catch (error) {

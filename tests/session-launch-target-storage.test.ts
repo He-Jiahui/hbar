@@ -82,6 +82,18 @@ test('contract accepts only host-resolved modes and branch choices, never a clie
       branch: { kind: 'new', name: 'feature/new', startPoint: 'main' },
     }).success,
   ).toBeTrue()
+  expect(
+    sessionLaunchSelectionSchema.safeParse({
+      mode: 'isolated-worktree',
+      branch: { kind: 'derived', baseRef: 'refs/heads/feature/base' },
+    }).success,
+  ).toBeTrue()
+  expect(
+    sessionLaunchSelectionSchema.safeParse({
+      mode: 'isolated-worktree',
+      branch: { kind: 'derived', baseRef: 'refs/remotes/origin/main' },
+    }).success,
+  ).toBeFalse()
   for (const invalid of [
     { mode: 'shared-current', path: 'D:/untrusted' },
     { mode: 'shared-branch-switch', branch: 'feature/target' },

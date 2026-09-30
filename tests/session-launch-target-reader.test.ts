@@ -47,7 +47,7 @@ test('launch-target reader asks the Host for each exact revision without cache, 
     protocol: 1,
     requestId: 'reader-request',
     commandId: 'sessionLaunchTarget.get',
-    commandVersion: 1,
+    commandVersion: 2,
     input: { sessionId: 'session-a' },
   })
   expect(calls[1]).toMatchObject({ commandId: 'sessionLaunchTarget.get', input: { sessionId: 'session-a' } })

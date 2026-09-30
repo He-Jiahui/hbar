@@ -196,7 +196,7 @@ test('expected isolated-ready target binds the verified worktree on first Run wi
       idempotencyKey: 'select-isolated-ready-target',
       sessionId: session.id,
       expectedRevision: 0,
-      selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'feature/expected-ready' } },
+      selection: { mode: 'isolated-worktree', branch: { kind: 'derived', baseRef: 'refs/heads/main' } },
     })
     await kernel.prepareSessionLaunchTarget(session.id, 1)
     preparationCalls = countPreparation(kernel)
@@ -215,7 +215,7 @@ test('expected isolated-ready target binds the verified worktree on first Run wi
     expect(runtime.binding).toMatchObject({
       expectedRevision: 1,
       targetPath: prepared.targetPath,
-      branch: 'feature/expected-ready',
+      branch: prepared.branch,
       head: prepared.resolvedHead,
       boundRunId: accepted.operationId,
     })

@@ -76,20 +76,18 @@ interface GitResult {
   stderr: string
 }
 
-function recordingDriver(
-  observations: Map<
-    string,
-    {
-      cwd: string
-      system: string
-      toolText: string
-      findText: string
-      searchText: string
-      foreignText: string | null
-      secretText: string | null
-    }
-  >,
-) {
+interface DriverObservation {
+  cwd: string
+  system: string
+  toolText: string
+  findText: string
+  searchText: string
+  gitText: string
+  foreignText: string | null
+  secretText: string | null
+}
+
+function recordingDriver(observations: Map<string, DriverObservation>) {
   return definePlugin({
     manifest: {
       id: 'driver.pi',
@@ -112,6 +110,7 @@ function recordingDriver(
             { pattern: 'only in session', literal: true, include: ['target-only.txt'] },
             `search-${input.session.id}`,
           )
+          const gitInfo = await input.execute('git_info', {}, `git-${input.session.id}`)
           const foreignPath = foreignPaths.get(input.session.id)
           const foreign = foreignPath
             ? await input.execute('read_file', { path: foreignPath }, `foreign-${input.session.id}`)
@@ -125,6 +124,7 @@ function recordingDriver(
             toolText: result.text,
             findText: found.text,
             searchText: searched.text,
+            gitText: gitInfo.text,
             foreignText: foreign?.text ?? null,
             secretText: secret?.text ?? null,
           })
@@ -140,18 +140,7 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   const root = await mkdtemp(join(tmpdir(), prefix))
   const repository = join(root, 'repository')
   const dataRoot = join(root, 'host-data')
-  const observations = new Map<
-    string,
-    {
-      cwd: string
-      system: string
-      toolText: string
-      findText: string
-      searchText: string
-      foreignText: string | null
-      secretText: string | null
-    }
-  >()
+  const observations = new Map<string, DriverObservation>()
   const driver = recordingDriver(observations)
   await mkdir(repository)
   await git(repository, ['init', '-q', '-b', 'main'])
@@ -189,7 +178,7 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
     expectedRevision: 0,
     selection: {
       mode: 'isolated-worktree',
-      branch: { kind: 'new', name: 'feature/session-a', startPoint: 'main' },
+      branch: { kind: 'derived', baseRef: 'refs/heads/main' },
     },
   })
 
@@ -260,7 +249,10 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   await kernel.prepareSessionLaunchTarget(sessionA.id, 1)
   const runtimeA = await kernel.storage.call('sessionLaunchTargetRuntime', sessionA.id)
   const targetA = runtimeA.resolution?.targetPath
-  if (!targetA) throw new Error('Prepared session worktree path was not persisted')
+  const branchA = runtimeA.resolution?.branch
+  if (!targetA || !branchA) throw new Error('Prepared session worktree target was not persisted')
+  expect(branchA).toMatch(/^hbar\/session-launch\/[0-9a-f]{64}$/)
+  expect(await git(targetA, ['branch', '--show-current'])).toBe(branchA)
   await writeFile(join(targetA, 'target-only.txt'), 'only in session A\n')
 
   await kernel.setSessionLaunchTarget({
@@ -326,12 +318,14 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   expect(observationA?.toolText).toContain('only in session A')
   expect(observationA?.findText).toContain('target-only.txt')
   expect(observationA?.searchText).toContain('only in session A')
+  expect(observationA?.gitText).toContain(branchA)
   expect(observationA?.foreignText).toContain('outside the workspace')
   expect(observationA?.secretText).toContain('outside the workspace')
   expect(observationB?.cwd).toBe(repository)
   expect(observationB?.system).toContain(`Work in ${repository}.`)
   expect(observationB?.toolText).toContain('ENOENT')
   expect(observationB?.toolText).not.toContain('only in session A')
+  expect(observationB?.gitText).toContain('"branch":"main"')
   expect(await git(repository, ['branch', '--show-current'])).toBe('main')
   expect(await git(repository, ['rev-parse', 'HEAD'])).toBe(sharedHead)
   expect(await readFile(join(repository, 'shared-only.txt'), 'utf8')).toBe('shared marker\n')
@@ -341,10 +335,10 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   const bindingB = await kernel.storage.call('sessionLaunchTargetRuntime', sessionB.id)
   expect(bindingA.binding).toMatchObject({
     targetPath: targetA,
-    branch: 'feature/session-a',
+    branch: branchA,
     boundRunId: runA.id,
   })
-  expect(bindingA.target).toMatchObject({ locked: true, resolution: { status: 'ready', branch: 'feature/session-a' } })
+  expect(bindingA.target).toMatchObject({ locked: true, resolution: { status: 'ready', branch: branchA } })
   expect(bindingB.binding).toMatchObject({ targetPath: repository, branch: null, boundRunId: runB.id })
 
   await kernel.close()
@@ -361,7 +355,7 @@ test('first accepted Run atomically binds session target; driver/tool cwd and re
   expect(observations.get(sessionA.id)?.cwd).toBe(targetA)
   expect((await kernel.storage.call('sessionLaunchTargetRuntime', sessionA.id)).binding).toMatchObject({
     targetPath: targetA,
-    branch: 'feature/session-a',
+    branch: branchA,
   })
   expect((await git(repository, ['worktree', 'list', '--porcelain'])).match(/^worktree /gm)).toHaveLength(3)
 

@@ -93,7 +93,7 @@ test('preparation manager is narrow and every call preserves exact owner, revisi
   await manager.reconcilePreparation(input, options)
   expect(calls).toHaveLength(7)
   for (const call of calls) {
-    expect(call).toMatchObject({ protocol: 1, commandVersion: 1 })
+    expect(call).toMatchObject({ protocol: 1, commandVersion: 2 })
     expect(call).not.toHaveProperty('actorId')
     expect(call).not.toHaveProperty('cwd')
     expect(call.commandId).not.toBe('sessionLaunchTarget.prepare')

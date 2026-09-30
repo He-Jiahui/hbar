@@ -149,6 +149,69 @@ test('new session worktree is Host-data-root managed, idempotent, and leaves the
   expect((await gitOk(f.repository, ['worktree', 'list', '--porcelain'])).match(/^worktree /gm)).toHaveLength(2)
 })
 
+test('derived worktrees use a captured local base OID without moving the current or checked-out base branch', async () => {
+  const f = await fixture()
+  await gitOk(f.repository, ['branch', 'feature/base-elsewhere'])
+  const heldPath = join(f.root, 'held-base-worktree')
+  await gitOk(f.repository, ['worktree', 'add', '-q', heldPath, 'feature/base-elsewhere'])
+  const mainHead = await gitOk(f.repository, ['rev-parse', 'refs/heads/main'])
+  const heldHead = await gitOk(f.repository, ['rev-parse', 'refs/heads/feature/base-elsewhere'])
+
+  await select(f.store, f.session.id, {
+    mode: 'isolated-worktree',
+    branch: { kind: 'derived', baseRef: 'refs/heads/main' },
+  })
+  const currentBaseTarget = await f.service.prepare(f.session.id, 1)
+  const currentBranch = currentBaseTarget.resolution.status === 'ready' ? currentBaseTarget.resolution.branch : null
+  if (!currentBranch) throw new Error('Expected the prepared target to expose its generated branch')
+  expect(currentBranch).toMatch(/^hbar\/session-launch\/[0-9a-f]{64}$/)
+  const currentResolution = (await f.store.call('sessionLaunchTargetRuntime', f.session.id)).resolution
+  expect(currentResolution).toMatchObject({
+    state: 'ready',
+    branch: currentBranch,
+    requestedHead: mainHead,
+    resolvedHead: mainHead,
+  })
+  expect(await gitOk(currentResolution!.targetPath, ['branch', '--show-current'])).toBe(currentBranch)
+  expect(await gitOk(currentResolution!.targetPath, ['rev-parse', 'HEAD'])).toBe(mainHead)
+
+  const elsewhereSession = await f.store.call('createSession', f.workspace.id, 'derived from checked-out branch')
+  await select(f.store, elsewhereSession.id, {
+    mode: 'isolated-worktree',
+    branch: { kind: 'derived', baseRef: 'refs/heads/feature/base-elsewhere' },
+  })
+  const elsewhereTarget = await f.service.prepare(elsewhereSession.id, 1)
+  const elsewhereBranch = elsewhereTarget.resolution.status === 'ready' ? elsewhereTarget.resolution.branch : null
+  if (!elsewhereBranch) throw new Error('Expected the prepared target to expose its generated branch')
+  expect(elsewhereBranch).toMatch(/^hbar\/session-launch\/[0-9a-f]{64}$/)
+  expect(elsewhereBranch).not.toBe(currentBranch)
+  const elsewhereResolution = (await f.store.call('sessionLaunchTargetRuntime', elsewhereSession.id)).resolution
+  expect(elsewhereResolution).toMatchObject({
+    state: 'ready',
+    branch: elsewhereBranch,
+    requestedHead: heldHead,
+    resolvedHead: heldHead,
+  })
+  expect(await gitOk(elsewhereResolution!.targetPath, ['branch', '--show-current'])).toBe(elsewhereBranch)
+  expect(await gitOk(elsewhereResolution!.targetPath, ['rev-parse', 'HEAD'])).toBe(heldHead)
+
+  const subdirectory = join(f.repository, 'packages', 'nested')
+  await mkdir(subdirectory, { recursive: true })
+  const nestedWorkspace = await f.store.call('createWorkspace', subdirectory, 'nested')
+  const nestedSession = await f.store.call('createSession', nestedWorkspace.id, 'derived from subdirectory')
+  await select(f.store, nestedSession.id, {
+    mode: 'isolated-worktree',
+    branch: { kind: 'derived', baseRef: 'refs/heads/main' },
+  })
+  await expectCode(f.service.prepare(nestedSession.id, 1), 'SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED')
+
+  expect(await gitOk(f.repository, ['symbolic-ref', '--short', 'HEAD'])).toBe('main')
+  expect(await gitOk(f.repository, ['rev-parse', 'HEAD'])).toBe(mainHead)
+  expect(await gitOk(f.repository, ['rev-parse', 'refs/heads/main'])).toBe(mainHead)
+  expect(await gitOk(f.repository, ['rev-parse', 'refs/heads/feature/base-elsewhere'])).toBe(heldHead)
+  expect(await gitOk(heldPath, ['branch', '--show-current'])).toBe('feature/base-elsewhere')
+})
+
 test('porcelain -z keeps Unicode and spaces in managed paths during restart reconciliation', async () => {
   const f = await fixture(undefined, 'Host Data 数据')
   await select(f.store, f.session.id, {
@@ -446,7 +509,7 @@ test('restart reconcile handles a lost result after -b created the branch but be
   const f = await fixture()
   const choice: SessionLaunchSelection = {
     mode: 'isolated-worktree',
-    branch: { kind: 'new', name: 'feature/reconcile', startPoint: 'main' },
+    branch: { kind: 'derived', baseRef: 'refs/heads/main' },
   }
   await select(f.store, f.session.id, choice)
   let lostFirstAdd = true
@@ -464,24 +527,26 @@ test('restart reconcile handles a lost result after -b created the branch but be
   resources[resources.length - 1]!.service = service
 
   await expectCode(service.prepare(f.session.id, 1), 'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED')
+  const interrupted = await f.store.call('sessionLaunchTargetRuntime', f.session.id)
+  const generatedBranch = interrupted.resolution?.branch
+  if (!generatedBranch) throw new Error('Expected the interrupted intent to persist its generated branch')
+  expect(generatedBranch).toMatch(/^hbar\/session-launch\/[0-9a-f]{64}$/)
   expect(await service.get(f.session.id)).toMatchObject({ resolution: { status: 'reconciling' } })
   expect(await gitOk(f.repository, ['branch', '--show-current'])).toBe('main')
 
   const resumed = new SessionLaunchTargetService(f.store, f.layout)
   resources[resources.length - 1]!.service = resumed
   expect(await resumed.reconcile(f.session.id, 1)).toMatchObject({
-    resolution: { status: 'ready', branch: 'feature/reconcile' },
+    resolution: { status: 'ready', branch: generatedBranch },
   })
-  expect(await gitOk(join(f.layout.worktrees, f.session.id, 'r1'), ['branch', '--show-current'])).toBe(
-    'feature/reconcile',
-  )
+  expect(await gitOk(join(f.layout.worktrees, f.session.id, 'r1'), ['branch', '--show-current'])).toBe(generatedBranch)
 })
 
 test('cancel after Git created a worktree stops acceptance but preserves and reports the created target', async () => {
   const f = await fixture()
   await select(f.store, f.session.id, {
     mode: 'isolated-worktree',
-    branch: { kind: 'new', name: 'feature/cancelled', startPoint: 'main' },
+    branch: { kind: 'derived', baseRef: 'refs/heads/main' },
   })
   let didCreate!: () => void
   let release!: () => void
@@ -509,9 +574,12 @@ test('cancel after Git created a worktree stops acceptance but preserves and rep
   expect(await preparation).toMatchObject({ code: 'USER_CANCELLED' })
   const targetPath = join(f.layout.worktrees, f.session.id, 'r1')
   expect(await lstat(targetPath)).toBeDefined()
-  expect(await service.get(f.session.id)).toMatchObject({
-    resolution: { status: 'ready', branch: 'feature/cancelled' },
-  })
+  const ready = await service.get(f.session.id)
+  expect(ready.resolution).toMatchObject({ status: 'ready' })
+  if (ready.resolution.status !== 'ready' || !ready.resolution.branch)
+    throw new Error('Cancelled derived worktree was not retained as ready')
+  expect(ready.resolution.branch).toMatch(/^hbar\/session-launch\/[0-9a-f]{64}$/)
+  expect(await gitOk(targetPath, ['branch', '--show-current'])).toBe(ready.resolution.branch)
   expect(await gitOk(f.repository, ['branch', '--show-current'])).toBe('main')
 })
 

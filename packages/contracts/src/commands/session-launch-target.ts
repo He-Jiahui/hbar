@@ -4,6 +4,12 @@ import { idSchema } from '../index'
 
 const revisionSchema = z.number().int().nonnegative().safe()
 const branchNameSchema = z.string().trim().min(1).max(1_000)
+const localBranchRefSchema = z
+  .string()
+  .min('refs/heads/'.length + 1)
+  .max(1_011)
+  .startsWith('refs/heads/')
+export const sessionLaunchDerivedBranchNameSchema = z.string().regex(/^hbar\/session-launch\/[0-9a-f]{64}$/)
 
 export const sessionLaunchTargetResolutionSchema = z.discriminatedUnion('status', [
   z.strictObject({ status: z.literal('idle') }),
@@ -30,20 +36,45 @@ export const sessionLaunchSelectionSchema = z.discriminatedUnion('mode', [
         name: branchNameSchema,
         startPoint: branchNameSchema.optional(),
       }),
+      z.strictObject({ kind: z.literal('derived'), baseRef: localBranchRefSchema }),
     ]),
   }),
 ])
 
 /** A revisioned user choice. Filesystem paths are deliberately absent from the client contract. */
-export const sessionLaunchTargetSchema = z.strictObject({
-  sessionId: idSchema,
-  workspaceId: idSchema,
-  revision: revisionSchema,
-  selection: sessionLaunchSelectionSchema,
-  locked: z.boolean(),
-  resolution: sessionLaunchTargetResolutionSchema,
-  updatedAt: z.number().int().nonnegative(),
-})
+export const sessionLaunchTargetSchema = z
+  .strictObject({
+    sessionId: idSchema,
+    workspaceId: idSchema,
+    revision: revisionSchema,
+    selection: sessionLaunchSelectionSchema,
+    locked: z.boolean(),
+    resolution: sessionLaunchTargetResolutionSchema,
+    updatedAt: z.number().int().nonnegative(),
+  })
+  .superRefine((target, context) => {
+    if (target.resolution.status !== 'ready') return
+    if (target.selection.mode === 'shared-current') {
+      if (target.resolution.branch !== null)
+        context.addIssue({ code: 'custom', path: ['resolution', 'branch'], message: 'Shared targets have no branch' })
+      return
+    }
+    if (target.selection.branch.kind === 'derived') {
+      if (!sessionLaunchDerivedBranchNameSchema.safeParse(target.resolution.branch).success)
+        context.addIssue({
+          code: 'custom',
+          path: ['resolution', 'branch'],
+          message: 'Derived targets must resolve to their generated branch',
+        })
+      return
+    }
+    if (target.resolution.branch !== target.selection.branch.name)
+      context.addIssue({
+        code: 'custom',
+        path: ['resolution', 'branch'],
+        message: 'Resolved branch must match the selected branch',
+      })
+  })
 
 export const sessionLaunchTargetGetInputSchema = z.strictObject({ sessionId: idSchema })
 export const sessionLaunchTargetSetInputSchema = z.strictObject({
@@ -188,7 +219,7 @@ export interface SessionLaunchTargetPreparationManager {
 
 const metadata = (id: string, kind: 'query' | 'command') => ({
   id,
-  version: 1,
+  version: 2,
   owner: 'hbar.session-launch-target',
   kind,
   execution: 'host' as const,
