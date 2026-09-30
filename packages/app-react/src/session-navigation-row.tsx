@@ -133,6 +133,39 @@ export function SessionNavigationRow({
   const wasEditing = useRef(false)
   const restoreFocus = useRef(false)
   const copy = labels.renameEditor
+  const openActions = (): boolean => {
+    if (batchSelecting || editing || archiving) return false
+    const menu = row.current?.querySelector<HTMLDetailsElement>('details.lumen-action-menu')
+    if (!menu) return false
+    menu.open = true
+    queueMicrotask(() => menu.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus())
+    return true
+  }
+  useEffect(() => {
+    const owner = row.current
+    if (!owner) return
+    let removeOutside = () => {}
+    const toggled = (event: Event) => {
+      if (!(event.target instanceof HTMLDetailsElement) || !event.target.matches('details.lumen-action-menu')) return
+      removeOutside()
+      const menu = event.target
+      if (!menu.open) return
+      const document = owner.ownerDocument
+      const dismiss = (pointer: PointerEvent) => {
+        if (pointer.target instanceof Node && !menu.contains(pointer.target)) {
+          menu.open = false
+          removeOutside()
+        }
+      }
+      document.addEventListener('pointerdown', dismiss, true)
+      removeOutside = () => document.removeEventListener('pointerdown', dismiss, true)
+    }
+    owner.addEventListener('toggle', toggled, true)
+    return () => {
+      removeOutside()
+      owner.removeEventListener('toggle', toggled, true)
+    }
+  }, [])
   const invoke = (operation: 'submit' | 'cancel' | 'reconcile') => {
     void runtime.commands
       .execute(`sessionRename.${operation}`, { sessionId: session.id, revision: rename.revision })
@@ -162,7 +195,19 @@ export function SessionNavigationRow({
       data-batch-selected={batchSelected || undefined}
       data-session-id={session.id}
       data-editing={editing || undefined}
+      onContextMenu={(event) => {
+        if (event.target instanceof Element && event.target.closest('details, input, textarea')) return
+        if (openActions()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+      }}
       onKeyDown={(event) => {
+        if ((event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) && openActions()) {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
         if (event.key === 'Escape' && batchSelecting && onExitBatchSelection) {
           event.preventDefault()
           event.stopPropagation()
