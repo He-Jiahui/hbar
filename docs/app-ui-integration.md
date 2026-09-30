@@ -19,11 +19,18 @@ The production entry is `hbar-app-ui`. Gallery hosts explicitly import
 `hbar-app-ui/catalog`; the 300 existing variant IDs remain stable. Production
 dependencies are checked by `tests/hbar-app-ui-entrypoints.test.ts`.
 
-Registration is not visual acceptance. A variant is only considered fully
-accepted after the live React Bits Pro audit in [app-ui-visual-audit.md](app-ui-visual-audit.md)
-has source/local records for every configured viewport and theme, every discovered
-interaction, no structural hard-gate failure, no page/console error, and a passed
-entry in the generated `review-ledger.json`. The audit commands are
+Registration is not acceptance. Since the user's 2026-09-29 adjustment, current
+preview delivery uses core functionality, source-semantic structure, reasonable
+flow layout and reachable key content. Shared controls and unchanged layouts may
+be inferred from implementation and representative cases; per-button and full
+theme/viewport matrices are not a prerequisite. The evidence and remaining gaps
+are recorded separately in [app-ui-visual-audit.md](app-ui-visual-audit.md) and
+[the variant inventory](app-ui-variant-inventory.md), never as real service delivery.
+
+Optional strict reference acceptance still requires source/local records for every
+configured viewport/theme and sampled interaction, no structural hard-gate failure,
+no page/console error, and a passed entry in the generated `review-ledger.json`.
+Practical delivery does not fabricate that strict status. The retained audit commands are
 `bun run app-ui:reactbits:discover`, `bun run app-ui:reactbits:audit`, and the
 development filters documented in that guide.
 
