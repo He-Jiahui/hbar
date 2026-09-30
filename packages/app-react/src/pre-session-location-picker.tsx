@@ -78,9 +78,10 @@ export interface HbarPreSessionLocationPickerProps {
   readonly disabled: boolean
   readonly hasMoreDirectories: boolean
   readonly directoryExtra?: (close: () => void) => ReactNode
+  readonly statusExtra?: ReactNode
   readonly onOpen: () => void
   readonly onClose: () => void
-  readonly onWorkspace: (id: string) => Promise<void>
+  readonly onWorkspace: (id: string) => Promise<void | false>
   readonly onSelection: (selection: SessionLaunchSelection) => Promise<void>
   readonly onSearch: (search: string) => void
   readonly onMoreBranches: () => void
@@ -170,7 +171,10 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
         )
       })
   }
-  const run = (action: () => Promise<void>, after: () => void) => runResult(action, after)
+  const run = (action: () => Promise<void | false>, after: () => void) =>
+    runResult(action, (result) => {
+      if (result !== false) after()
+    })
   const startBranchForm = () => {
     setView('new-branch')
     const unresolvedName =
@@ -322,6 +326,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
             <LumenIcon icon={X} tier="sm" />
           </LumenButton>
         </LumenFrame>
+        {props.statusExtra}
         <LumenFrame className="hbar-pre-session-location-body">
           {view === 'root' ? (
             <>

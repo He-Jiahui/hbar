@@ -99,7 +99,7 @@ export function preSessionLaunchCopy(locale: ShellLocale): {
         '分支已创建，但当前工作位置已更改。请从分支列表中检查并选择。',
         'The branch was created, but the selected location changed. Review and select it from the branch list.',
       ),
-      loading: choose('正在读取分支…', 'Loading branches…'),
+      loading: choose('正在读取工作位置…', 'Loading workspace details…'),
       retry: choose('重试', 'Retry'),
       more: choose('加载更多', 'Load more'),
       back: choose('返回工作位置', 'Back to Location'),

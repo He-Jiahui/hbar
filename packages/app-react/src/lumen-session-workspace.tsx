@@ -234,6 +234,7 @@ function SessionWorkspaceContent({
   const timeline = useHbarRuntimeState(runtime.state.timeline)
   const queuedUserRuns = useHbarRuntimeState(runtime.state.queuedUserRuns)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const workspaceMoves = useHbarRuntimeState(runtime.state.sessionWorkspaceMove)
   const messageFork = useHbarRuntimeState(runtime.state.messageFork)
   const drafts = useHbarRuntimeState(runtime.state.drafts)
   const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
@@ -252,6 +253,18 @@ function SessionWorkspaceContent({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
+  const workspaceMoveEntry = sessionId
+    ? (workspaceMoves.entries[sessionId] ??
+      Object.values(workspaceMoves.entries).find((entry) => entry.targetSessionId === sessionId))
+    : undefined
+  const workspaceMoveLocked = Boolean(
+    workspaceMoveEntry &&
+    workspaceMoveEntry.status !== 'succeeded' &&
+    (workspaceMoveEntry.status === 'busy' ||
+      workspaceMoveEntry.status === 'unknown' ||
+      workspaceMoveEntry.status === 'paused' ||
+      workspaceMoveEntry.targetSessionId !== null),
+  )
   const firstSendDraft = Object.values(firstSendDrafts).find(
     (entry) =>
       entry.sessionId === sessionId &&
@@ -290,7 +303,7 @@ function SessionWorkspaceContent({
     executionAccess,
     sessionId && navigation.workspaceId === sessionWorkspaceId ? { sessionId, workspaceId: sessionWorkspaceId } : null,
   )
-  const canPrepare = preparationStatus === 'ready' && !firstSendLocked
+  const canPrepare = preparationStatus === 'ready' && !firstSendLocked && !workspaceMoveLocked
   const draft = sessionId ? drafts[sessionId] : undefined
   const agentAction = sessionId ? agentComposer.actions[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
@@ -925,6 +938,7 @@ function SessionWorkspaceContent({
   const attachmentIntakeEnabled =
     Boolean(prepareAttachment) &&
     canPrepare &&
+    !workspaceMoveLocked &&
     connected &&
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
@@ -936,6 +950,7 @@ function SessionWorkspaceContent({
     attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
   const canOpenSlash =
     !firstSendLocked &&
+    !workspaceMoveLocked &&
     Boolean(files && sessionId && navigation.workspaceId && connected) &&
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
@@ -1678,7 +1693,8 @@ function SessionWorkspaceContent({
                 removeDisabled={
                   draft.status === 'submitting' ||
                   draft.status === 'unknown' ||
-                  intentEntry?.submission.status === 'submitting'
+                  intentEntry?.submission.status === 'submitting' ||
+                  workspaceMoveLocked
                 }
                 onRemove={(id, kind) =>
                   invoke('draft.removeAttachment', {
@@ -1691,12 +1707,19 @@ function SessionWorkspaceContent({
               />
             ) : undefined
           }
-          disabled={!connected || firstSendLocked || timeline.status === 'loading' || timeline.status === 'error'}
+          disabled={
+            !connected ||
+            firstSendLocked ||
+            workspaceMoveLocked ||
+            timeline.status === 'loading' ||
+            timeline.status === 'error'
+          }
           submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
           uploading={(draft?.uploading ?? 0) > 0}
           canAddAttachments={canAddAttachments}
           canSubmit={
             !firstSendLocked &&
+            !workspaceMoveLocked &&
             (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
             (localSlashCommand(draft?.text ?? '', slashIds)
               ? localSlashCanSubmit({
@@ -1755,7 +1778,11 @@ function SessionWorkspaceContent({
                   defaultAvailable={composerPermission.available}
                   connected={connected}
                   disabled={
-                    firstSendLocked || draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending
+                    workspaceMoveLocked ||
+                    firstSendLocked ||
+                    draft?.status === 'submitting' ||
+                    draft?.status === 'unknown' ||
+                    intentPending
                   }
                   runActive={Boolean(activeRun)}
                   canPrepare={canPrepare}
@@ -1827,6 +1854,7 @@ function SessionWorkspaceContent({
                 sessionId={sessionId}
                 connected={connected}
                 disabled={
+                  workspaceMoveLocked ||
                   firstSendLocked ||
                   draft?.status === 'submitting' ||
                   draft?.status === 'unknown' ||
@@ -1916,13 +1944,14 @@ function SessionWorkspaceContent({
                 connected={connected}
                 runActive={Boolean(activeRun)}
                 disabled={
+                  workspaceMoveLocked ||
                   firstSendLocked ||
                   draft?.status === 'submitting' ||
                   draft?.status === 'unknown' ||
                   intentPending ||
                   Boolean(activeRun && canPrepare)
                 }
-                canSelect={canPrepare && !activeRun}
+                canSelect={canPrepare && !activeRun && !workspaceMoveLocked}
                 labels={labels.modelPicker}
                 menuPresentation={modelMenuPresentation}
                 openRequest={modelOpenRequest}

@@ -99,6 +99,7 @@ import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
+import { sessionWorkspaceMoveCopy } from './session-workspace-move-copy'
 import { chatSearchCopy, chatSearchErrorCopy } from './chat-search-copy'
 import { createWebChatSearchController, type WebChatSearchController } from './chat-search-controller'
 import { createHostChatSearchPort } from './chat-search-port'
@@ -676,6 +677,7 @@ function WorkspaceBodyContent({
             connected={connected}
             labels={preSessionLaunchCopy(locale).location}
             statusLabels={preSessionLaunchCopy(locale).status}
+            moveLabels={sessionWorkspaceMoveCopy(locale)}
           />
         )}
         labels={copy.session}
