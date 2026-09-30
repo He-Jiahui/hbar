@@ -20,6 +20,8 @@ import { BillingReferencePreviewHost } from './BillingReferencePreviewHost'
 import { IntegrationReferencePreviewHost } from './IntegrationReferencePreviewHost'
 import { AiChatReferencePreviewHost } from './AiChatReferencePreviewHost'
 import { PromptReferencePreviewHost } from './PromptReferencePreviewHost'
+import { AgentActivityPreviewHost } from './AgentActivityPreviewHost'
+import './agent-activity-preview.css'
 import './prompt-reference-preview.css'
 import { createPromptReferenceFixture } from './promptReferencePreviewFixtures'
 import { createAiChatReferencePreviewFixture } from './aiChatReferencePreviewFixtures'
@@ -332,6 +334,8 @@ function PreviewApp() {
         return HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES
     }
   }, [])
+  const agentActivityLocalized =
+    new URLSearchParams(window.location.search).get('agentActivityFixture') === 'localized'
   const agentApprovalContent = useMemo(() => {
     switch (new URLSearchParams(window.location.search).get('agentApprovalFixture')) {
       case 'overflow':
@@ -1000,6 +1004,12 @@ function PreviewApp() {
                                                                           <HbarAppUiAgentActivityProvider
                                                                             content={agentActivityContent}
                                                                           >
+                                                                            <AgentActivityPreviewHost
+                                                                              content={agentActivityContent}
+                                                                              spec={selected.spec}
+                                                                              onAction={handleAction}
+                                                                              localized={agentActivityLocalized}
+                                                                            >
                                                                             <HbarAppUiToolCallsProvider
                                                                               content={toolCallsContent}
                                                                             >
@@ -1209,6 +1219,7 @@ function PreviewApp() {
                                                                                 </EditorPreviewHost>
                                                                               </HbarAppUiNavbarProvider>
                                                                             </HbarAppUiToolCallsProvider>
+                                                                            </AgentActivityPreviewHost>
                                                                           </HbarAppUiAgentActivityProvider>
                                                                         </ApprovalPreviewHost>
                                                                       </PlanPreviewHost>
@@ -1484,6 +1495,12 @@ function PreviewApp() {
                                                                                     <HbarAppUiAgentActivityProvider
                                                                                       content={agentActivityContent}
                                                                                     >
+                                                                                      <AgentActivityPreviewHost
+                                                                                        content={agentActivityContent}
+                                                                                        spec={selected.spec}
+                                                                                        onAction={handleAction}
+                                                                                        localized={agentActivityLocalized}
+                                                                                      >
                                                                                       <HbarAppUiToolCallsProvider
                                                                                         content={toolCallsContent}
                                                                                       >
@@ -1709,6 +1726,7 @@ function PreviewApp() {
                                                                                           </EditorPreviewHost>
                                                                                         </HbarAppUiNavbarProvider>
                                                                                       </HbarAppUiToolCallsProvider>
+                                                                                      </AgentActivityPreviewHost>
                                                                                     </HbarAppUiAgentActivityProvider>
                                                                                   </ApprovalPreviewHost>
                                                                                 </PlanPreviewHost>

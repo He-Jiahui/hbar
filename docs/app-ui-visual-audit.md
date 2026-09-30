@@ -1116,3 +1116,27 @@ content/icon/flow 守卫和 flow 自测试、包 bundle/声明与生产预览构
 来源使用已授权缓存：第 7 变体普通裁切只包含 footer，已从完整 context 图恢复结构；
 未将缺失的源控件截图当成无功能，也未重写或冒称 fresh strict 证据。未捕获的命令、
 强度、上下文和环境选项明确是 Host 本地预览数据，没有实际 provider、麦克风或上传服务。
+
+Agent Activity 1–7 本轮在已有七个独立结构上补齐受控边界，不重写已符合参考的内容。
+可选 `LumenAgentActivityViewModel` 接收 Host 的组展开、筛选、日志数量/阶段和停止/
+重试预览状态；旧调用保持兼容。每个预览 owner 的 Zustand 保存 ID 与值，计时器
+由 Host 持有、取消释放，最多追加已提供的两行快照，不生成日志或真实服务结果。
+Source 3 的 Stop/Run again 和 Source 7 的 Retry/Cancel retry 有实际 after 证据，
+保留它们的本地 UI 转换，同时明确“Preview stopped/Replay preview”及“本地预览请求”。
+输入、已有尝试、输出和历史事实不改变；没有真实停止、重启、重试或文件下载。
+Source 1 只有 Stop 入口，缺少来源 after，点击只报告意图，不自行把运行事实改成 Stopped。
+
+新增受控样式使用 flex/内容增长，pane-scroll 的最大范围来自当前视口可用空间，
+不把截图正文高度强加给工作台。保留原生桌面历史表格、窄屏元数据卡片和真正的
+内层日志滚动；修正共享列表规则覆盖显示断点、卡片顶部操作位置，以及旧隐藏 term
+脱离 scroll pane 后把 844px 窄屏页面撑到 1309px 的问题。隐藏标签现在属于其滚动 pane，
+实际文档恢复为 844px；不定位普通正文或牺牲可访问文本。
+
+`bun scripts/verify-hbar-app-ui-agent-activity.ts` 已收敛为实用检查：七种结构一次，
+抽查组折叠、原 run 的重跑意图、severity 筛选、冻结日志与追尾、Retry/Cancel 和
+下载意图；只追加窄屏历史卡片与德语失败详情两种布局，不做按钮/主题/宽度排列。
+代表图在 `artifacts/agent-activity-core-review/`，page/console errors 为零、无横溢。
+17 项模型/受控 SSR/兼容测试与 215 个断言通过；根/子仓类型、限定 ESLint、样式 lint、
+content/icon/flow 守卫、格式、包 bundle/声明和生产预览构建通过。历史 Stop 转换来自
+`d149f12254` / `1f219d7f84`，本轮将其归属与服务结果区分；旧严格证据不重标为本次通过。
+来源仍为授权缓存与 context 图，没有声称 fresh strict 全量或正式宿主业务已验收。

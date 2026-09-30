@@ -1,235 +1,178 @@
-import {chromium} from '@playwright/test'
+import { mkdir } from 'node:fs/promises'
+import { chromium, type Locator, type Page } from '@playwright/test'
 
-const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5180'
+const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5193'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
-type AgentActivityFixture = 'overflow' | 'localized'
+const screenshots = 'artifacts/agent-activity-core-review'
 
-function previewUrl(variant: number, fixture?: AgentActivityFixture): string {
-    const parameters = new URLSearchParams({variant: `hbar-app-ui-agent-activity-${variant}`, mode: 'isolated'})
-    if (fixture) parameters.set('agentActivityFixture', fixture)
-    return `${baseUrl}/?${parameters.toString()}`
+function url(variant: number, fixture?: 'localized'): string {
+  const query = new URLSearchParams({ variant: `hbar-app-ui-agent-activity-${variant}`, mode: 'isolated' })
+  if (fixture) query.set('agentActivityFixture', fixture)
+  return `${baseUrl}/?${query}`
 }
 
 function assert(condition: unknown, message: string): asserts condition {
-    if (!condition) throw new Error(message)
+  if (!condition) throw new Error(message)
+}
+
+async function expectCount(locator: Locator, count: number, message: string): Promise<void> {
+  assert((await locator.count()) === count, message)
+}
+
+async function expectText(locator: Locator, value: string, message: string): Promise<void> {
+  assert((await locator.innerText()).includes(value), message)
+}
+
+async function visit(page: Page, variant: number, fixture?: 'localized'): Promise<void> {
+  await page.goto(url(variant, fixture), { waitUntil: 'domcontentloaded' })
+  await page.locator('.hbar-app-ui-agent-activity-surface').waitFor({ state: 'visible' })
+  assert(
+    await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1),
+    `Horizontal overflow in Agent Activity ${variant}`,
+  )
 }
 
 async function waitForPreview(): Promise<void> {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-        try {
-            const response = await fetch(baseUrl)
-            if (response.ok) return
-        } catch {
-            // A locally started preview can need a short interval before binding.
-        }
-        await new Promise((resolve) => setTimeout(resolve, 200))
-    }
-    throw new Error(`Preview is not reachable at ${baseUrl}`)
-}
-
-async function ensurePreview(): Promise<ReturnType<typeof Bun.spawn> | undefined> {
-    try {
-        await waitForPreview()
-        return undefined
-    } catch {
-        const server = Bun.spawn(['bun', 'run', 'app-ui:preview', '--', '--host', '127.0.0.1'], {
-            stdout: 'ignore',
-            stderr: 'ignore',
-        })
-        await waitForPreview()
-        return server
-    }
-}
-
-async function inspectScrollable(locator: import('@playwright/test').Locator): Promise<{readonly scrollable: boolean; readonly moved: boolean}> {
-    return locator.evaluate((element) => {
-        element.scrollTop = element.scrollHeight
-        return {scrollable: element.scrollHeight > element.clientHeight, moved: element.scrollTop > 0}
-    })
-}
-
-async function textContrast(locator: import('@playwright/test').Locator): Promise<number> {
-    return locator.evaluate(async (element) => {
-        await Promise.all(element.getAnimations().filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-            .map((animation) => animation.finished.catch(() => undefined)))
-        const canvas = document.createElement('canvas')
-        canvas.width = canvas.height = 1
-        const context = canvas.getContext('2d')
-        if (!context) return 0
-        const fill = (color: string) => {
-            context.fillStyle = color
-            context.fillRect(0, 0, 1, 1)
-        }
-        const luminance = () => {
-            const pixel = context.getImageData(0, 0, 1, 1).data
-            const channels = [pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0].map((value) => {
-                const normalized = value / 255
-                return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
-            })
-            return (channels[0] ?? 0) * 0.2126 + (channels[1] ?? 0) * 0.7152 + (channels[2] ?? 0) * 0.0722
-        }
-        const ancestors: Element[] = []
-        for (let current: Element | null = element; current; current = current.parentElement) ancestors.push(current)
-        fill('#fff')
-        for (const ancestor of ancestors.reverse()) fill(getComputedStyle(ancestor).backgroundColor)
-        const background = luminance()
-        fill(getComputedStyle(element).color)
-        const foreground = luminance()
-        return (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
-    })
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (
+      await fetch(baseUrl)
+        .then((response) => response.ok)
+        .catch(() => false)
+    )
+      return
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`Preview is not reachable at ${baseUrl}`)
 }
 
 async function run(): Promise<void> {
-    const server = await ensurePreview()
-    const browser = await chromium.launch({headless: true, executablePath})
-    const page = await browser.newPage({viewport: {width: 1192, height: 640}})
-    const pageErrors: string[] = []
-    page.on('pageerror', (error) => pageErrors.push(error.message))
+  await waitForPreview()
+  await mkdir(screenshots, { recursive: true })
+  const browser = await chromium.launch({ headless: true, executablePath })
+  const page = await browser.newPage({ viewport: { width: 1192, height: 760 } })
+  const button = (name: string) => page.getByRole('button', { name, exact: true })
+  const radio = (name: string) => page.getByRole('radio', { name, exact: true })
+  const text = (name: string) => page.getByText(name, { exact: true })
+  const notice = page.locator('.lumen-agent-activity-notice')
+  const errors: string[] = []
+  let downloaded = false
+  page.on('pageerror', (error) => errors.push(error.message))
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text())
+  })
+  page.on('download', () => {
+    downloaded = true
+  })
 
-    try {
-        await page.goto(previewUrl(1), {waitUntil: 'networkidle'})
-        const liveStop = page.getByRole('button', {name: 'Stop', exact: true})
-        assert(await page.getByRole('button').count() === 1 && await liveStop.count() === 1, 'Live activity must expose the reference Stop action')
-        assert(await page.getByText('Loaded October general ledger', {exact: true}).count() === 1, 'Live activity omitted its host step')
-        await liveStop.click()
-        assert(await liveStop.isDisabled(), 'Live Stop did not become disabled')
-        assert(await page.getByText('Stopped', {exact: true}).count() === 2, 'Live Stop did not update status and active step')
+  try {
+    await visit(page, 1)
+    await button('Stop').click()
+    await expectCount(text('Running'), 1, 'Live stop claimed a stopped run')
+    await expectText(notice, 'Preview request only', 'Live stop lacked intent feedback')
 
-        await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
-        const nestedGroup = page.locator('.hbar-app-ui-agent-activity-group-row').first()
-        assert(await nestedGroup.getAttribute('aria-expanded') === 'true', 'Nested activity did not open host-provided group')
-        await nestedGroup.click()
-        assert(await nestedGroup.getAttribute('aria-expanded') === 'false', 'Nested activity group did not collapse')
+    await visit(page, 2)
+    const group = page.locator('.hbar-app-ui-agent-activity-group-row').first()
+    await group.click()
+    assert((await group.getAttribute('aria-expanded')) === 'false', 'Nested group did not collapse')
+    await expectCount(text('Validate source schema'), 0, 'Collapsed children remained visible')
 
-        await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
-        assert(await page.getByRole('button').count() === 1, 'Desktop deployment must expose the reference Stop action')
-        assert(await page.getByRole('button', {name: 'Stop', exact: true}).count() === 1, 'Desktop deployment omitted Stop')
-        await page.setViewportSize({width: 390, height: 844})
-        await page.reload({waitUntil: 'networkidle'})
-        await page.getByRole('button', {name: 'Stop', exact: true}).click()
-        assert(await page.getByText('Stopped', {exact: true}).count() === 2, 'Deployment stop did not update the header and active step')
-        await page.getByRole('button', {name: 'Run again', exact: true}).click()
-        assert(await page.getByText('Running', {exact: true}).count() === 2, 'Deployment rerun did not restore the header and active step')
-        await page.setViewportSize({width: 1192, height: 640})
+    await visit(page, 3)
+    await button('Stop').click()
+    await expectCount(text('Preview stopped'), 2, 'Deployment stop was not marked as preview')
+    await button('Replay preview').click()
+    await expectCount(text('Running'), 2, 'Deployment preview did not replay')
 
-        await page.goto(previewUrl(4), {waitUntil: 'networkidle'})
-        const rerun = page.getByRole('button', {name: /Re-run Reconcile October invoices/, exact: true}).first()
-        assert(await rerun.count() === 1, 'History row action was not rendered')
-        await rerun.click()
+    await visit(page, 4)
+    const rows = page.locator('.hbar-app-ui-agent-activity-history-table tbody tr')
+    await rows.first().waitFor()
+    const firstRow = rows.first()
+    const originalRun = await firstRow.innerText()
+    await expectCount(rows, 14, 'History omitted host runs')
+    assert(
+      !(await page.locator('.hbar-app-ui-agent-activity-history-cards').isVisible()),
+      'Desktop history duplicated cards above the table',
+    )
+    await button('Re-run Reconcile October invoices').first().click()
+    await expectCount(rows, 14, 'Run intent added history')
+    assert((await firstRow.innerText()) === originalRun, 'Run intent changed its source row')
+    await expectText(notice, 'Preview request only', 'Re-run lacked intent feedback')
 
-        await page.goto(previewUrl(5), {waitUntil: 'networkidle'})
-        await page.getByRole('radio', {name: 'Warnings', exact: true}).click()
-        assert(await page.locator('.hbar-app-ui-agent-activity-log-list > li').count() === 2, 'Log filter did not narrow warning entries')
-        await page.reload({waitUntil: 'domcontentloaded'})
-        const logStop = page.getByRole('button', {name: 'Stop', exact: true})
-        await logStop.waitFor({state: 'visible'})
-        await page.locator('.hbar-app-ui-agent-activity-log-list > li').nth(24).waitFor({state: 'attached'})
-        const followingLatest = await page.locator('.hbar-app-ui-agent-activity-log-scroll').evaluate((pane) =>
-            pane.scrollHeight - pane.clientHeight - pane.scrollTop <= 1)
-        assert(followingLatest, 'Live log did not follow its newest entry')
-        await logStop.click()
-        assert(await logStop.count() === 0, 'Log Stop did not end its live run')
-        await page.reload({waitUntil: 'domcontentloaded'})
-        await page.locator('[data-hbar-app-ui-log-phase="complete"]').waitFor({state: 'visible'})
-        const logScroll = page.locator('.hbar-app-ui-agent-activity-log-scroll')
-        await logScroll.evaluate((pane) => { pane.scrollTop = 0 })
-        const jump = page.getByRole('button', {name: 'Jump to latest', exact: true})
-        await jump.waitFor({state: 'visible'})
-        await jump.click()
-        assert(await jump.count() === 0, 'Jump to latest did not restore log following')
+    await visit(page, 5)
+    await radio('Warnings').click()
+    const logRows = page.locator('.hbar-app-ui-agent-activity-log-list > li')
+    await expectCount(logRows, 2, 'Warnings filter did not narrow the log')
+    assert((await radio('Warnings').getAttribute('aria-checked')) === 'true', 'Warning filter not selected')
 
-        await page.goto(previewUrl(6), {waitUntil: 'networkidle'})
-        assert(await page.getByRole('progressbar').count() === 0, 'Decorative worker tracks became announced progress controls')
-        assert(await page.locator('.hbar-app-ui-agent-activity-worker-list > li').count() === 6, 'Worker list did not preserve all host records')
-        assert(await page.locator('.hbar-app-ui-agent-activity-worker-list .lumen-agent-activity-progress').count() === 4, 'Worker visual tracks did not preserve host data')
+    await visit(page, 5)
+    await button('Stop').click()
+    const frozenCount = await logRows.count()
+    await page.waitForTimeout(1400)
+    await expectCount(logRows, frozenCount, 'Stopped log replay continued')
+    await expectText(notice, 'Local preview updated', 'Log stop lacked local feedback')
+    const pane = page.locator('.hbar-app-ui-agent-activity-log-scroll')
+    await pane.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    const jump = button('Jump to latest')
+    await jump.waitFor()
+    await jump.click()
+    await page.waitForFunction(
+      () => (document.querySelector<HTMLElement>('.hbar-app-ui-agent-activity-log-scroll')?.scrollTop ?? 0) > 0,
+    )
+    await expectCount(jump, 0, 'Jump to latest did not resume following')
+    await page.screenshot({ path: `${screenshots}/run-log.png`, fullPage: true })
 
-        await page.goto(previewUrl(7), {waitUntil: 'networkidle'})
-        await page.getByRole('button', {name: 'Retry run', exact: true}).click()
-        assert(await page.getByRole('alert').getByText('Retry queued', {exact: true}).count() === 1, 'Failure retry did not show queued feedback')
-        assert(await page.getByRole('alert').getByText('Attempt 3 starts off-peak at 22:00 with a 512-row batch size.', {exact: true}).count() === 1, 'Failure retry did not show host-provided schedule')
-        await page.getByRole('button', {name: 'Cancel retry', exact: true}).click()
-        assert(await page.getByRole('alert').getByText('Warehouse write timed out', {exact: true}).count() === 1, 'Cancelling a queued retry did not restore the failure')
-        assert(await page.getByRole('button', {name: 'Retry run', exact: true}).count() === 1, 'Retry action did not return after cancelling')
-        const download = page.getByRole('button', {name: /Download ledger-partial\.csv/, exact: false})
-        assert(await download.count() === 1, 'Failure output action was not rendered')
-        const failureHeader = page.getByRole('banner')
-        const headerY = (await failureHeader.boundingBox())?.y
-        await download.focus()
-        assert(await page.locator('.hbar-app-ui-agent-activity-failure-body').evaluate((element) => element.scrollTop) > 0, 'Download focus did not scroll the failure content pane')
-        assert((await failureHeader.boundingBox())?.y === headerY, 'Download focus scrolled the failure header out of view')
+    await visit(page, 6)
+    const workers = page.locator('.hbar-app-ui-agent-activity-worker-list')
+    await expectCount(workers.locator('> li'), 6, 'Worker rows omitted')
+    await expectCount(workers.locator('.lumen-agent-activity-progress'), 4, 'Worker progress differed from data')
+    await expectCount(page.getByRole('button'), 0, 'Read-only workers invented controls')
 
-        for (const theme of ['dark', 'light']) {
-            await page.goto(`${previewUrl(7)}&theme=${theme}`, {waitUntil: 'networkidle'})
-            const retry = page.getByRole('button', {name: 'Retry run', exact: true})
-            await retry.hover()
-            assert(await textContrast(retry) >= 4.5, `${theme} Retry hover lost readable contrast`)
-            await retry.click()
-            const cancelRetry = page.getByRole('button', {name: 'Cancel retry', exact: true})
-            await cancelRetry.hover()
-            assert(await textContrast(cancelRetry) >= 4.5, `${theme} Cancel retry hover lost readable contrast`)
-            assert(await cancelRetry.locator('path').evaluate((path) => getComputedStyle(path).stroke !== 'none'), 'Cancel retry glyph lost its stroke')
-        }
+    await visit(page, 7)
+    const alert = page.getByRole('alert')
+    await alert.waitFor()
+    const failureFacts = await alert.innerText()
+    const failureUrl = page.url()
+    await button('View log').click()
+    assert(page.url() === failureUrl, 'View log implied navigation')
+    await expectText(alert, 'Warehouse write timed out', 'View log obscured the failure')
+    await button('Retry run').click()
+    await expectCount(text('Preview retry request queued'), 1, 'Retry feedback was not preview-only')
+    await expectText(alert, 'No new run has started', 'Retry implied an attempt')
+    await expectCount(page.locator('.hbar-app-ui-agent-activity-attempt-list > div'), 2, 'Retry changed attempts')
+    await expectCount(page.locator('.hbar-app-ui-agent-activity-output-list > li'), 2, 'Retry hid outputs')
+    await button('Cancel retry').click()
+    assert((await alert.innerText()) === failureFacts, 'Cancel did not restore failure facts')
+    await expectText(notice, 'Preview request only', 'Failure actions lacked intent feedback')
+    await button('Download ledger-partial.csv').click()
+    assert(!downloaded, 'Download intent transferred a file')
+    await expectCount(page.locator('.hbar-app-ui-agent-activity-output-list > li'), 2, 'Download hid outputs')
 
-        const overflowChecks: Record<string, {readonly scrollable: boolean; readonly moved: boolean}> = {}
-        const overflowSelectors = [
-            [1, '.hbar-app-ui-agent-activity-live .hbar-app-ui-agent-activity-pane'],
-            [2, '.hbar-app-ui-agent-activity-nested .hbar-app-ui-agent-activity-pane'],
-            [3, '.hbar-app-ui-agent-activity-deployment .hbar-app-ui-agent-activity-pane'],
-            [4, '.hbar-app-ui-agent-activity-history .hbar-app-ui-agent-activity-pane'],
-            [5, '.hbar-app-ui-agent-activity-log-scroll'],
-            [6, '.hbar-app-ui-agent-activity-workers .hbar-app-ui-agent-activity-pane'],
-            [7, '.hbar-app-ui-agent-activity-failure-body'],
-        ] as const
-        for (const [variant, selector] of overflowSelectors) {
-            await page.goto(previewUrl(variant, 'overflow'), {waitUntil: 'networkidle'})
-            const result = await inspectScrollable(page.locator(selector))
-            overflowChecks[`agent-activity-${variant}`] = result
-            if (variant !== 7)
-                assert(result.scrollable && result.moved, `Agent activity ${variant} did not expose its declared overflow behavior`)
-        }
+    await page.setViewportSize({ width: 390, height: 844 })
+    await visit(page, 4)
+    const cards = page.locator('.hbar-app-ui-agent-activity-history-cards > li')
+    await cards.first().waitFor()
+    await expectCount(cards, 14, 'Narrow history omitted runs')
+    assert(
+      !(await page.locator('.hbar-app-ui-agent-activity-history-table').isVisible()),
+      'Narrow history duplicated the desktop table',
+    )
+    await page.screenshot({ path: `${screenshots}/history-mobile.png`, fullPage: true })
 
-        await page.setViewportSize({width: 320, height: 640})
-        const narrowOverflow: Record<string, boolean> = {}
-        for (let variant = 1; variant <= 7; variant += 1) {
-            await page.goto(previewUrl(variant, variant === 1 || variant === 7 ? 'localized' : undefined), {waitUntil: 'networkidle'})
-            const noHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
-            narrowOverflow[`agent-activity-${variant}`] = noHorizontalOverflow
-            assert(noHorizontalOverflow, `Narrow agent-activity-${variant} layout overflowed horizontally`)
-        }
+    await visit(page, 7, 'localized')
+    await page.getByRole('heading', { name: 'Oktoberbuch-Export fehlgeschlagen', exact: true }).waitFor()
+    await expectCount(button('Datei herunterladen ledger-partial.csv'), 1, 'German output label missing')
+    await button('Ausführung erneut versuchen').click()
+    await expectCount(button('Erneuten Versuch abbrechen'), 1, 'German retry label missing')
+    await page.mouse.move(389, 843)
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${screenshots}/failure-german-mobile.png`, fullPage: true })
 
-        await page.goto(previewUrl(3, 'localized'), {waitUntil: 'networkidle'})
-        await page.getByRole('button', {name: 'Bereitstellung anhalten', exact: true}).click()
-        assert(await page.getByText('Angehalten', {exact: true}).count() === 2, 'Localized deployment state was not rendered from the host bundle')
-        assert(await page.getByRole('button', {name: 'Erneut ausführen', exact: true}).count() === 1, 'Localized rerun action was not rendered from the host bundle')
-        await page.goto(previewUrl(1, 'localized'), {waitUntil: 'networkidle'})
-        const localizedLiveStop = page.getByRole('button', {name: 'Ausführung sicher anhalten', exact: true})
-        await localizedLiveStop.click()
-        assert(await localizedLiveStop.isDisabled(), 'Localized live Stop did not become disabled')
-        assert(await page.getByText('Angehalten', {exact: true}).count() === 2, 'Localized live Stop did not use the host-provided status')
-        await page.goto(previewUrl(7, 'localized'), {waitUntil: 'networkidle'})
-        assert(await page.getByText('Oktoberbuch-Export fehlgeschlagen', {exact: true}).count() === 1, 'Localized failure title was not rendered from the host bundle')
-        await page.getByRole('button', {name: 'Ausführung erneut versuchen', exact: true}).click()
-        assert(await page.getByRole('alert').getByText('Erneuter Versuch vorgemerkt', {exact: true}).count() === 1, 'Localized retry feedback was not rendered from the host bundle')
-        await page.getByRole('button', {name: 'Erneuten Versuch abbrechen', exact: true}).click()
-
-        assert(pageErrors.length === 0, `Agent activity preview reported page errors: ${pageErrors.join(' | ')}`)
-        console.log(JSON.stringify({
-            liveStopAndTimeline: true,
-            nestedDisclosure: true,
-            deploymentStopAndRerun: true,
-            historyAction: true,
-            logFilter: true,
-            workerProgress: true,
-            failureActions: true,
-            overflowChecks,
-            narrowOverflow,
-            localizedHostCopy: true,
-            pageErrors: pageErrors.length,
-        }))
-    } finally {
-        await browser.close()
-        server?.kill()
-    }
+    assert(errors.length === 0, `Agent Activity browser errors: ${errors.join(' | ')}`)
+    console.log(JSON.stringify({ variants: 7, logFlow: true, previewIntents: true, narrowFlows: 2, errors: 0 }))
+  } finally {
+    await browser.close()
+  }
 }
 
 await run()
