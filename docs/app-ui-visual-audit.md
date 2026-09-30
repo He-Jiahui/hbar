@@ -962,3 +962,14 @@ flow/content measures 覆盖 desktop 1086×560、stress 286×560 与长德文
 区间格式已核对。根预览入口及变体清单保留各自的既有未格式化区域，不夹带整份
 重排。本机 pnpm 11.19.0 不满足子仓 12.3.4，未再安装或切换包管理器，不能称
 其标准 package-manager 工作流通过。
+
+Authentication 5 的邮件链接预览已采用 Lumen `c34dd24e01` 的可选受控契约，
+缺省 legacy API 保留。专用 Zustand owner 管理邮箱、form/sent、错误和倒计时；
+更换文案不清空草稿，替换初始场景退休原 owner，离开页面释放定时器。发送与重发
+仅记录 `mail-and-navigation-unverified` 请求，sent 面板是本地预览投影，不是邮件送达。
+三个固定摘要行和字段/按钮沿用既有 flex 自然流，不为像素差异重新建立布局。
+
+按最新交付标准，三项模型/投影测试与一次构建后邮件流程检查覆盖无效邮箱、原生
+Enter、摘要更新和倒计时结束；320px 长德语表单无横向溢出，默认桌面与窄屏代表图
+保存在 `artifacts/authentication-core-review/`。来源沿用已保存的真实可见结构，
+共享样式与其余手势直接推导；本轮没有追加源站外部动作、逐按钮或 strict 矩阵。

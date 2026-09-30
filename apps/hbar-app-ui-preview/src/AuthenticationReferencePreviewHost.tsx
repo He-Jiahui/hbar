@@ -4,6 +4,7 @@ import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { Authentication2PreviewHost } from './Authentication2PreviewHost'
 import { Authentication3PreviewHost } from './Authentication3PreviewHost'
 import { Authentication4PreviewHost } from './Authentication4PreviewHost'
+import { Authentication5PreviewHost } from './Authentication5PreviewHost'
 import { AuthenticationPreviewHost } from './AuthenticationPreviewHost'
 import type { Authentication2PreviewFixture } from './authentication2PreviewFixtures'
 import type { Authentication3PreviewFixture } from './authentication3PreviewFixtures'
@@ -25,6 +26,7 @@ export function AuthenticationReferencePreviewHost(props: AuthenticationReferenc
       return <Authentication3PreviewHost {...props} referenceFixture={props.quoteReferenceFixture} />
     if (props.spec.variant === 4 && props.twoStepReferenceFixture)
       return <Authentication4PreviewHost {...props} referenceFixture={props.twoStepReferenceFixture} />
+    if (props.spec.variant === 5 && props.content.magicLink) return <Authentication5PreviewHost {...props} />
   }
   return <AuthenticationPreviewHost {...props} />
 }
