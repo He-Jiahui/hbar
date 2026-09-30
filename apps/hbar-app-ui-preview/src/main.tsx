@@ -19,6 +19,9 @@ import { SupportReferencePreviewHost } from './SupportReferencePreviewHost'
 import { BillingReferencePreviewHost } from './BillingReferencePreviewHost'
 import { IntegrationReferencePreviewHost } from './IntegrationReferencePreviewHost'
 import { AiChatReferencePreviewHost } from './AiChatReferencePreviewHost'
+import { PromptReferencePreviewHost } from './PromptReferencePreviewHost'
+import './prompt-reference-preview.css'
+import { createPromptReferenceFixture } from './promptReferencePreviewFixtures'
 import { createAiChatReferencePreviewFixture } from './aiChatReferencePreviewFixtures'
 import { createSupportThreadPreviewCopy } from './supportThreadPreviewCopy'
 import { createSupportReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-support-reference-fixtures'
@@ -564,6 +567,12 @@ function PreviewApp() {
         : HBAR_APP_UI_PROMPT_INPUT_FIXTURES,
     [],
   )
+  const promptReferenceLocale =
+    new URLSearchParams(window.location.search).get('promptInputFixture') === 'localized' ? 'zh' : 'en'
+  const promptReference = useMemo(
+    () => createPromptReferenceFixture(selected.spec.variant, promptReferenceLocale),
+    [selected.spec.variant, promptReferenceLocale],
+  )
   const cardContent = useMemo(() => HBAR_APP_UI_CARD_FIXTURES, [])
   const dataTableContent = useMemo(() => HBAR_APP_UI_DATA_TABLE_FIXTURES, [])
   const dashboardContent = useMemo(() => HBAR_APP_UI_DASHBOARD_FIXTURES, [])
@@ -947,6 +956,13 @@ function PreviewApp() {
                                     <HbarAppUiChatProvider content={chatContent}>
                                       <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
                                       <HbarAppUiPromptInputProvider content={promptInputContent}>
+                                        <PromptReferencePreviewHost
+                                          content={promptInputContent}
+                                          reference={promptReference}
+                                          locale={promptReferenceLocale}
+                                          spec={selected.spec}
+                                          onAction={handleAction}
+                                        >
                                         <HbarAppUiCardProvider content={cardContent}>
                                           <HbarAppUiDataTableProvider content={dataTableContent}>
                                             <HbarAppUiDashboardProvider content={dashboardContent}>
@@ -1219,6 +1235,7 @@ function PreviewApp() {
                                             </HbarAppUiDashboardProvider>
                                           </HbarAppUiDataTableProvider>
                                         </HbarAppUiCardProvider>
+                                        </PromptReferencePreviewHost>
                                       </HbarAppUiPromptInputProvider>
                                       </ChatPreviewHost>
                                     </HbarAppUiChatProvider>
@@ -1413,6 +1430,13 @@ function PreviewApp() {
                                               <HbarAppUiChatProvider content={chatContent}>
                                                 <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
                                                 <HbarAppUiPromptInputProvider content={promptInputContent}>
+                                                  <PromptReferencePreviewHost
+                                                    content={promptInputContent}
+                                                    reference={promptReference}
+                                                    locale={promptReferenceLocale}
+                                                    spec={selected.spec}
+                                                    onAction={handleAction}
+                                                  >
                                                   <HbarAppUiCardProvider content={cardContent}>
                                                     <HbarAppUiDataTableProvider content={dataTableContent}>
                                                       <HbarAppUiDashboardProvider content={dashboardContent}>
@@ -1711,6 +1735,7 @@ function PreviewApp() {
                                                       </HbarAppUiDashboardProvider>
                                                     </HbarAppUiDataTableProvider>
                                                   </HbarAppUiCardProvider>
+                                                  </PromptReferencePreviewHost>
                                                 </HbarAppUiPromptInputProvider>
                                                 </ChatPreviewHost>
                                               </HbarAppUiChatProvider>

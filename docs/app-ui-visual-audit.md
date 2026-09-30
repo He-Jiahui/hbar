@@ -1096,3 +1096,23 @@ pane-scroll 高度来自所属预览 pane 的百分比，窄屏工件采用正�
 flow 守卫、Stylelint、包 bundle/声明与生产预览构建通过。来源仍为已授权缓存，
 未签 fresh strict；无源 after 证据的工件切换、request 披露与 voice phase 仅是
 明确的本地预览推导。没有真实发送、复制、下载、文件打开、审批或录音服务结果。
+
+Prompt Input 1–7 本轮采用同一实用交付标准闭环，增加独立参考内容联合类型与 View，
+保留旧接口。七个变体分别恢复富附件消息、带 Search 的长草稿、输入区后的四个
+建议、连续模板句子与变量、输入区后的上传附件、独立上下文 chip、就近的模式/
+环境/模型工具栏。文案、列表与选项由 Host 提供；Zustand 只保存 owner 的值与 ID。
+发送与 Run 不清空输入，重试不伪造上传成功，文件选择只报告数量，不读取或上传文件。
+
+`bun scripts/verify-hbar-app-ui-prompt-reference-core.ts` 对七种结构各挂载一次，
+抽查共有草稿/模型菜单、建议预填、模板验证、失败重试、上下文移除与键盘发送。
+中文变量表单与模式工具栏各跑一次窄屏，不逐按钮、主题或布局排列重复验证。
+代表图位于 `artifacts/prompt-reference-core-review/`，无 page/console error 或页面
+横溢。统一复核修正了源免责声明被临时反馈覆盖，以及短提示框顶贴预览边缘会压缩
+上方菜单空间的问题；画布用正常 flex/auto flow 居中并随内容增长，不固定正文高度。
+
+22 项参考模型/SSR/兼容测试、213 个断言通过；根/子仓类型、限定 ESLint、Stylelint、
+content/icon/flow 守卫和 flow 自测试、包 bundle/声明与生产预览构建通过。原入口
+`302f507331` 的嵌套图标条件与无括号分支作等价 lint 修正，兼容测试仍通过。
+来源使用已授权缓存：第 7 变体普通裁切只包含 footer，已从完整 context 图恢复结构；
+未将缺失的源控件截图当成无功能，也未重写或冒称 fresh strict 证据。未捕获的命令、
+强度、上下文和环境选项明确是 Host 本地预览数据，没有实际 provider、麦克风或上传服务。

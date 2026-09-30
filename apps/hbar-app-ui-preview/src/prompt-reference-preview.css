@@ -1,0 +1,12 @@
+/* The prompt is content-grown; the preview owns centering and can grow with it. */
+.hbar-app-ui-isolated-canvas:has(> .lumen-prompt-reference-surface) {
+  display: flex;
+  flex-direction: column;
+  block-size: auto;
+  overflow: visible;
+}
+
+.hbar-app-ui-preview-component-canvas:has(> .lumen-prompt-reference-surface) {
+  display: flex;
+  flex-direction: column;
+}

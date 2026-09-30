@@ -89,6 +89,16 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Prompt Input 1 model evidence shows the menu above the toolbar trigger.
+  // Other bounded choice menus reuse that observed container, never float their options.
+  if (/packages\/lumen-app-ui\/src\/prompt-input\/primitives\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-prompt-reference-choice-menu',
+      ".lumen-prompt-reference-choice-menu[data-anchor='above']",
+      ".lumen-prompt-reference-choice-menu[data-anchor='below']",
+    ])
+    if (overlays.has(selector.trim())) return true
+  }
   // AI Chat 4/9: cached model lists overlap messages below/above their trigger.
   // The exception covers only the listbox container, never its options or anchor.
   if (/packages\/lumen-app-ui\/src\/ai-chat\/primitives\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -610,6 +620,12 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const promptPath = 'packages/lumen-app-ui/src/prompt-input/primitives.css'
+  const promptMenu = '.lumen-prompt-reference-choice-menu { position: absolute; inset-block-end: 100%; }'
+  if (validateCss(promptPath, promptMenu).length || !validateCss('other.css', promptMenu).length)
+    throw new Error('Prompt choice overlay must be exact and path-scoped')
+  if (!validateCss(promptPath, '.lumen-prompt-reference-choice-menu > button { position: absolute; left: 0; }').length)
+    throw new Error('Prompt choice options must remain in flow')
   const aiChatPath = 'packages/lumen-app-ui/src/ai-chat/primitives.css'
   const aiChatMenuCss =
     ".lumen-ai-chat-reference-model-menu { position: absolute; inset-inline-start: 0; } .lumen-ai-chat-reference-model-menu[data-anchor='above'] { inset-block-end: 100%; }"
