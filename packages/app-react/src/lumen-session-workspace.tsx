@@ -56,7 +56,13 @@ import {
   useHbarSessionProjectContext,
   type HbarSessionProjectContextLabels,
 } from './session-project-context'
-import { localAgentSlash, localGoalSlash, localSlashCanSubmit, localSlashCommand } from './composer-slash'
+import {
+  localAgentSlash,
+  localGoalSlash,
+  localSlashCanSubmit,
+  localSlashCommand,
+  type LocalSlashCommand,
+} from './composer-slash'
 import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import {
@@ -497,6 +503,8 @@ function SessionWorkspaceContent({
     objective?: string
   } | null>(null)
   const slashIds = slashLabels.commands.map((item) => item.id)
+  const sessionSlashSubmitCandidates: readonly LocalSlashCommand[] = ['model', 'settings', 'agents', 'cost', 'help']
+  const submitSlashCommands = sessionSlashSubmitCandidates.filter((command) => slashIds.includes(command))
   useEffect(() => {
     pendingModelSlash.current = null
     localSlashInFlight.current = false
@@ -1681,6 +1689,7 @@ function SessionWorkspaceContent({
                     placeholder={placeholder}
                     labels={labels.mentions}
                     slashLabels={slashLabels}
+                    submitSlashCommands={submitSlashCommands}
                     slashOpenRequest={slashOpenRequest}
                     focusRequest={editorFocusRequest}
                     sendBehavior={sendBehavior}

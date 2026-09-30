@@ -1,6 +1,26 @@
 export type LocalSlashCommand = 'model' | 'settings' | 'goal' | 'agent' | `agent ${string}` | 'agents' | 'cost' | 'help'
 const unsupportedGoalArguments = new Set(['status', 'pause', 'resume', 'complete'])
 
+/** Execute only a fully typed, selected, Host-enabled slash item on the configured send key. */
+export function shouldSubmitExactSlashOnSend(input: {
+  readonly text: string
+  readonly activeTerm: string
+  readonly selectedCommand: LocalSlashCommand | undefined
+  readonly availableCommands: readonly LocalSlashCommand[]
+  readonly submitCommands: readonly LocalSlashCommand[]
+  readonly sendShortcut: boolean
+}): boolean {
+  const command = input.selectedCommand
+  return Boolean(
+    input.sendShortcut &&
+    command &&
+    input.activeTerm === command &&
+    input.availableCommands.includes(command) &&
+    input.submitCommands.includes(command) &&
+    input.text.trim() === `/${command}`,
+  )
+}
+
 /** Only an entire standalone composer command is a local action. */
 export function localSlashCommand(text: string, available: readonly LocalSlashCommand[]): LocalSlashCommand | null {
   const value = text.trim()

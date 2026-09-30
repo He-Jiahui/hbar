@@ -1388,7 +1388,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         { id: 'help', label: '/help', description: choose('浏览可用命令', 'Browse available commands') },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
-      hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),
+      hint: choose(
+        '↑↓ 选择 · Tab 补全 · 发送键确认 · Esc 关闭',
+        '↑↓ Select · Tab complete · Send shortcut confirms · Esc close',
+      ),
       agentProfile: (profileId) => ({
         label: `/agent ${profileId}`,
         description: agentProfileDescriptions[profileId],

@@ -10,7 +10,13 @@ import {
 } from 'react'
 import { LumenFrame, LumenTextarea } from '@lumen/app-ui'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
-import { localSlashCommand, slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
+import {
+  localSlashCommand,
+  shouldSubmitExactSlashOnSend,
+  slashMatches,
+  slashTokenAt,
+  type LocalSlashCommand,
+} from './composer-slash'
 import './composer-mention-editor.css'
 import './pre-session-slash-editor.css'
 
@@ -212,6 +218,22 @@ export function HbarPreSessionSlashEditor({
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
         const command = matches[activeIndex]
+        if (
+          event.key === 'Enter' &&
+          shouldSubmitExactSlashOnSend({
+            text: value,
+            activeTerm: slashTrigger?.term ?? '',
+            selectedCommand: command,
+            availableCommands,
+            submitCommands: availableCommands,
+            sendShortcut: isSubmitShortcut(event, sendBehavior),
+          })
+        ) {
+          event.preventDefault()
+          setActiveSlash(null)
+          submit()
+          return
+        }
         if (command) {
           event.preventDefault()
           chooseSlashCommand(command)

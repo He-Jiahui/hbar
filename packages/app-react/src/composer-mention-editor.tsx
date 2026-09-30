@@ -12,7 +12,7 @@ import {
 } from '@hbar/app-runtime'
 import { mapMentionSpans, nearestMentionBoundary } from './composer-mention-model'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
-import { slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
+import { shouldSubmitExactSlashOnSend, slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
 import './composer-mention-editor.css'
 
 const MAX_ROWS = 50
@@ -63,6 +63,8 @@ export interface HbarComposerMentionEditorProps {
   readonly files: { execute(name: string, input: unknown): Promise<unknown> }
   readonly onContent: (text: string, mentions: readonly PromptMention[], revision: number) => Promise<unknown>
   readonly onSubmit: () => void
+  /** Local exact commands that the owning Session route can safely confirm from its send key. */
+  readonly submitSlashCommands?: readonly LocalSlashCommand[] | undefined
   /** Monotonic request from the composer plus menu; local commands remain standalone-only. */
   readonly slashOpenRequest?: number | undefined
   /** Monotonic focus request after a nearby composer action is confirmed. */
@@ -289,7 +291,19 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
       const slashChoices = slash ? slashMatches(slash.term, availableSlash()) : []
       const slashChoice = slashChoices[Math.min(slashSelectedRef.current, slashChoices.length - 1)]
       if (slash && slashChoice) {
-        chooseSlashRef.current(slashChoice)
+        if (
+          shouldSubmitExactSlashOnSend({
+            text: editor.state.doc.toString(),
+            activeTerm: slash.term,
+            selectedCommand: slashChoice,
+            availableCommands: availableSlash(),
+            submitCommands: propsRef.current.submitSlashCommands ?? [],
+            sendShortcut: send,
+          })
+        ) {
+          setSlashTrigger(null)
+          propsRef.current.onSubmit()
+        } else chooseSlashRef.current(slashChoice)
         return true
       }
       const menu = searchRef.current
