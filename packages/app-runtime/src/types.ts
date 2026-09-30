@@ -8,7 +8,7 @@ import type {
 } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import type { PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { DraftAttachmentTransfer, PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import type { AttachmentUploadInput, SessionFileTarget } from '@hbar/contracts/commands/files'
 import type {
@@ -763,19 +763,7 @@ export interface ActivityWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<ActivityWorkspaceEntryState>>>
 }
 
-export interface SessionAttachmentTransfer {
-  readonly id: string
-  readonly ownerRevision: number
-  readonly originalOperationId: string | null
-  readonly name: string
-  readonly mime: string
-  readonly size: number
-  readonly status: 'preparing' | 'uploading' | 'failed' | 'unknown' | 'reconciling' | 'ready'
-  readonly kind: 'image' | 'file'
-  readonly upload: AttachmentUploadInput | null
-  readonly confirmed: PromptAttachment | null
-  readonly error: string | null
-}
+export type SessionAttachmentTransfer = DraftAttachmentTransfer
 
 export interface SessionDraftState {
   readonly sessionId: string

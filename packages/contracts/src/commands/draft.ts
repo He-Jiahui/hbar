@@ -18,12 +18,32 @@ export const promptMentionSchema = z.strictObject({
 })
 const draftResultSchema = z.strictObject({ sessionId: idSchema, revision: z.number().int().nonnegative() })
 const attachmentResultSchema = draftResultSchema.extend({ attachment: promptAttachmentSchema })
-const attachmentReservationTarget = z.strictObject({
-  sessionId: idSchema,
+export const draftAttachmentTransferStatusSchema = z.enum([
+  'preparing',
+  'uploading',
+  'failed',
+  'unknown',
+  'reconciling',
+  'ready',
+])
+export const draftAttachmentTransferSchema = z.strictObject({
+  id: idSchema,
+  ownerRevision: z.number().int().nonnegative(),
+  originalOperationId: idSchema.nullable(),
+  name: z.string().max(240),
+  mime: z.string().max(120),
+  size: z.number().int().nonnegative().safe(),
+  status: draftAttachmentTransferStatusSchema,
+  kind: z.enum(['image', 'file']),
+  upload: attachmentUploadInputSchema.nullable(),
+  confirmed: promptAttachmentSchema.nullable(),
+  error: z.string().max(200).nullable(),
+})
+export const attachmentReservationTargetSchema = z.strictObject({
   reservationId: idSchema,
   ownerRevision: z.number().int().nonnegative(),
 })
-const attachmentReservationSchema = z.strictObject({
+export const attachmentSelectionReservationSchema = z.strictObject({
   reservationId: idSchema,
   ownerRevision: z.number().int().nonnegative(),
   preparing: z.boolean(),
@@ -97,31 +117,40 @@ export const draftCommands = {
         .min(1)
         .max(12),
     }),
-    draftResultSchema.extend({ reservations: z.array(attachmentReservationSchema).max(12) }),
+    draftResultSchema.extend({ reservations: z.array(attachmentSelectionReservationSchema).max(12) }),
   ),
   'draft.uploadAttachment': defineCommand(
     metadata('draft.uploadAttachment'),
-    attachmentReservationTarget.extend({ kind: z.enum(['image', 'file']), upload: attachmentUploadInputSchema }),
+    z
+      .strictObject({ sessionId: idSchema })
+      .merge(attachmentReservationTargetSchema)
+      .extend({ kind: z.enum(['image', 'file']), upload: attachmentUploadInputSchema }),
     attachmentResultSchema,
   ),
   'draft.failAttachmentPreparation': defineCommand(
     metadata('draft.failAttachmentPreparation'),
-    attachmentReservationTarget.extend({ error: z.string().min(1).max(200) }),
+    z
+      .strictObject({ sessionId: idSchema })
+      .merge(attachmentReservationTargetSchema)
+      .extend({ error: z.string().min(1).max(200) }),
     draftResultSchema,
   ),
   'draft.removeAttachmentTransfer': defineCommand(
     metadata('draft.removeAttachmentTransfer'),
-    attachmentReservationTarget,
+    z.strictObject({ sessionId: idSchema }).merge(attachmentReservationTargetSchema),
     draftResultSchema,
   ),
   'draft.reconcileAttachment': defineCommand(
     metadata('draft.reconcileAttachment'),
-    attachmentReservationTarget,
+    z.strictObject({ sessionId: idSchema }).merge(attachmentReservationTargetSchema),
     draftResultSchema,
   ),
   'draft.acceptReadyAttachment': defineCommand(
     metadata('draft.acceptReadyAttachment'),
-    attachmentReservationTarget.extend({ expectedRevision: z.number().int().nonnegative() }),
+    z
+      .strictObject({ sessionId: idSchema })
+      .merge(attachmentReservationTargetSchema)
+      .extend({ expectedRevision: z.number().int().nonnegative() }),
     draftResultSchema,
   ),
   'draft.removeAttachment': defineCommand(
@@ -148,3 +177,6 @@ export const draftCommands = {
 
 export type PromptAttachment = z.output<typeof promptAttachmentSchema>
 export type PromptMention = z.output<typeof promptMentionSchema>
+export type DraftAttachmentTransfer = Readonly<z.output<typeof draftAttachmentTransferSchema>>
+export type AttachmentReservationTarget = Readonly<z.output<typeof attachmentReservationTargetSchema>>
+export type AttachmentSelectionReservation = Readonly<z.output<typeof attachmentSelectionReservationSchema>>

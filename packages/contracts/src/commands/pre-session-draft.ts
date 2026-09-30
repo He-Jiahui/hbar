@@ -6,6 +6,13 @@ import {
   sessionLaunchTargetPreparationSnapshotSchema,
   type SessionLaunchSelection,
 } from './session-launch-target'
+import {
+  attachmentReservationTargetSchema,
+  attachmentSelectionReservationSchema,
+  draftAttachmentTransferSchema,
+  promptAttachmentSchema,
+} from './draft'
+import { attachmentUploadInputSchema } from './files'
 import { runAcceptedSchema } from './run'
 
 const metadata = (id: string, kind: 'command' | 'query' = 'command') => ({
@@ -26,6 +33,8 @@ const metadata = (id: string, kind: 'command' | 'query' = 'command') => ({
 const draftId = z.string().uuid()
 const revision = z.number().int().nonnegative()
 const workspaceId = idSchema.nullable()
+const attachmentDraftResultSchema = z.strictObject({ draftId, revision })
+const attachmentTarget = z.strictObject({ draftId }).merge(attachmentReservationTargetSchema)
 export const preSessionApprovalChoiceSchema = z.enum(['inherit', 'ask', 'deny', 'allow'])
 export const preSessionPlanModeSchema = z.enum(['default', 'plan'])
 export const preSessionIntentSchema = z.enum(['default', 'goal'])
@@ -56,6 +65,10 @@ export const preSessionDraftStateSchema = z.strictObject({
   draftId,
   workspaceId,
   text: z.string().max(200_000),
+  attachments: z.array(promptAttachmentSchema).max(12).default([]),
+  attachmentTransfers: z.array(draftAttachmentTransferSchema).max(12).default([]),
+  uploading: z.number().int().nonnegative().default(0),
+  uploadError: z.string().max(200).nullable().default(null),
   launchSelection: sessionLaunchSelectionSchema,
   modelId: idSchema.nullable(),
   thinkingLevel: thinkingLevelSchema.nullable(),
@@ -97,6 +110,64 @@ export const preSessionDraftCommands = {
     metadata('preSessionDraft.setText'),
     z.strictObject({ draftId, text: z.string().max(200_000), expectedRevision: revision }),
     result,
+  ),
+  'preSessionDraft.reserveAttachments': defineCommand(
+    metadata('preSessionDraft.reserveAttachments'),
+    z.strictObject({
+      draftId,
+      expectedRevision: revision,
+      files: z
+        .array(
+          z.strictObject({
+            name: z.string().max(4096),
+            mime: z.string().max(256),
+            size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+          }),
+        )
+        .min(1)
+        .max(12),
+    }),
+    attachmentDraftResultSchema.extend({ reservations: z.array(attachmentSelectionReservationSchema).max(12) }),
+  ),
+  'preSessionDraft.uploadAttachment': defineCommand(
+    metadata('preSessionDraft.uploadAttachment'),
+    attachmentTarget.extend({ kind: z.enum(['image', 'file']), upload: attachmentUploadInputSchema }),
+    attachmentDraftResultSchema.extend({ attachment: promptAttachmentSchema }),
+  ),
+  'preSessionDraft.failAttachmentPreparation': defineCommand(
+    metadata('preSessionDraft.failAttachmentPreparation'),
+    attachmentTarget.extend({ error: z.string().min(1).max(200) }),
+    attachmentDraftResultSchema,
+  ),
+  'preSessionDraft.removeAttachmentTransfer': defineCommand(
+    metadata('preSessionDraft.removeAttachmentTransfer'),
+    attachmentTarget,
+    attachmentDraftResultSchema,
+  ),
+  'preSessionDraft.reconcileAttachment': defineCommand(
+    metadata('preSessionDraft.reconcileAttachment'),
+    attachmentTarget,
+    attachmentDraftResultSchema,
+  ),
+  'preSessionDraft.acceptReadyAttachment': defineCommand(
+    metadata('preSessionDraft.acceptReadyAttachment'),
+    attachmentTarget.extend({ expectedRevision: revision }),
+    attachmentDraftResultSchema,
+  ),
+  'preSessionDraft.removeAttachment': defineCommand(
+    metadata('preSessionDraft.removeAttachment'),
+    z.strictObject({
+      draftId,
+      kind: z.enum(['image', 'file']),
+      artifactId: z.string().regex(/^[a-f0-9]{64}$/),
+      expectedRevision: revision,
+    }),
+    attachmentDraftResultSchema,
+  ),
+  'preSessionDraft.reportAttachmentError': defineCommand(
+    metadata('preSessionDraft.reportAttachmentError'),
+    z.strictObject({ draftId, error: z.string().min(1).max(200) }),
+    attachmentDraftResultSchema,
   ),
   'preSessionDraft.setLaunchSelection': defineCommand(
     metadata('preSessionDraft.setLaunchSelection'),
@@ -185,6 +256,7 @@ export const preSessionDraftCommands = {
 }
 
 export type PreSessionDraftState = z.output<typeof preSessionDraftStateSchema>
+export type PreSessionAttachmentCommandTarget = z.output<typeof attachmentTarget>
 export type PreSessionLaunchPreparationState = z.output<typeof preSessionLaunchPreparationStateSchema>
 export type PreSessionDraftLaunchSelection = SessionLaunchSelection
 export type PreSessionApprovalChoice = z.output<typeof preSessionApprovalChoiceSchema>

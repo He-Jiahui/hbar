@@ -10,6 +10,8 @@ import {
   type ModelWriteResult,
 } from '@hbar/contracts/commands/models'
 import { runCommands, type RunAccepted } from '@hbar/contracts/commands/run'
+import { attachmentUploadInputSchema, type AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import type { ArtifactRef } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { settingsCommands, type SettingsReceipt, type SettingsSnapshot } from '@hbar/contracts/commands/settings'
 import {
@@ -283,10 +285,13 @@ function fixture(
   const permissionWrites: { key: string; sessionId: string; choice: 'ask' | 'deny' | 'allow' | 'inherit' }[] = []
   const planModeWrites: { key: string; sessionId: string; mode: 'default' | 'plan' }[] = []
   const goalCalls: { sessionId: string; objective: string }[] = []
+  const uploadCalls: AttachmentUploadInput[] = []
   const runCalls: {
     sessionId: string
     key: string
     text: string
+    images: ArtifactRef[]
+    files: ArtifactRef[]
     launchTargetRevision?: number
     thinkingLevel: ModelConfiguration['thinkingLevel']
     approval: 'ask' | 'deny' | 'allow' | undefined
@@ -475,6 +480,8 @@ function fixture(
         sessionId: input.sessionId,
         key,
         text: input.input.text,
+        images: input.input.images,
+        files: input.input.files ?? [],
         ...(input.expectedLaunchTargetRevision === undefined
           ? {}
           : { launchTargetRevision: input.expectedLaunchTargetRevision }),
@@ -741,6 +748,14 @@ function fixture(
     workspaces: workspaceCommands,
     models: modelCommandsPort,
     run,
+    attachments: {
+      async execute(name, raw) {
+        if (name !== 'attachment.upload') throw new Error(`Unexpected attachment command: ${name}`)
+        const input = attachmentUploadInputSchema.parse(raw)
+        uploadCalls.push(input)
+        return { id: input.sha256, name: input.name, mime: input.mime, size: input.size }
+      },
+    },
     ...(options.sessionLaunchTargetPreparation
       ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
       : {}),
@@ -776,6 +791,7 @@ function fixture(
     runtime,
     createCalls,
     runCalls,
+    uploadCalls,
     modelWrites,
     permissionWrites,
     planModeWrites,
@@ -919,6 +935,174 @@ async function createDraft(
   }
   return { draftId, revision }
 }
+
+async function attachBeforeSession(
+  runtime: ReturnType<typeof fixture>['runtime'],
+  draftId: string,
+  kind: 'image' | 'file',
+) {
+  const upload: AttachmentUploadInput = {
+    sourceId: `source-${kind}`,
+    sha256: (kind === 'image' ? 'a' : 'b').repeat(64),
+    name: kind === 'image' ? 'reference.png' : 'notes.txt',
+    mime: kind === 'image' ? 'image/png' : 'text/plain',
+    size: 4,
+  }
+  const draft = runtime.view.state.preSessionDrafts.getSnapshot()[draftId]!
+  const reserved = await runtime.view.commands.execute('preSessionDraft.reserveAttachments', {
+    draftId,
+    expectedRevision: draft.revision,
+    files: [{ name: upload.name, mime: upload.mime, size: upload.size }],
+  })
+  const reservation = reserved.reservations[0]!
+  const result = await runtime.view.commands.execute('preSessionDraft.uploadAttachment', {
+    draftId,
+    reservationId: reservation.reservationId,
+    ownerRevision: reservation.ownerRevision,
+    kind,
+    upload,
+  })
+  return result.attachment
+}
+
+test('no-tab file selection creates no Session, survives Workspace choice, and permits an attachment-only first Run', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: null, text: '', modelId: model.id })
+    const attachment = await attachBeforeSession(f.runtime, target.draftId, 'file')
+    expect(f.uploadCalls).toHaveLength(1)
+    expect(f.createCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+    const attached = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    expect(attached.attachments).toEqual([attachment])
+    await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId: target.draftId,
+      workspaceId: 'workspace-a',
+      expectedRevision: attached.revision,
+    })
+    const ready = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    expect(ready.attachments).toEqual([attachment])
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: ready.revision,
+    })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ sessionId: 'session-1', text: '', files: [attachment.artifact], images: [] })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      attachments: [],
+      attachmentTransfers: [],
+    })
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.attachments).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('first Goal requires objective text and carries both confirmed image and file into its single first Run', async () => {
+  const f = fixture({ goals: true, planMode: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    const image = await attachBeforeSession(f.runtime, target.draftId, 'image')
+    const file = await attachBeforeSession(f.runtime, target.draftId, 'file')
+    const attached = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: attached.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(f.createCalls).toEqual([])
+    await f.runtime.view.commands.execute('preSessionDraft.setText', {
+      draftId: target.draftId,
+      expectedRevision: attached.revision,
+      text: 'Implement the attached reference',
+    })
+    const ready = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: ready.revision,
+    })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.goalCalls).toEqual([{ sessionId: 'session-1', objective: 'Implement the attached reference' }])
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ images: [image.artifact], files: [file.artifact] })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('unresolved pre-session attachment preparation blocks first Send without creating a Session', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'Keep my file', modelId: model.id })
+    const reserved = await f.runtime.view.commands.execute('preSessionDraft.reserveAttachments', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+      files: [{ name: 'notes.txt', mime: 'text/plain', size: 4 }],
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: reserved.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'ATTACHMENT_PENDING' })
+    expect(f.createCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.attachmentTransfers).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('navigation loss after first Session creation preserves the captured attachments in both canonical drafts', async () => {
+  const f = fixture()
+  const held = f.holdNextCreate()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep this reference',
+      modelId: model.id,
+    })
+    const image = await attachBeforeSession(f.runtime, target.draftId, 'image')
+    const ready = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    const sending = f.runtime.view.commands
+      .execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: ready.revision,
+      })
+      .catch((error: unknown) => error)
+    await held.entered
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.attachments).toEqual([image])
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.removeAttachment', {
+        draftId: target.draftId,
+        expectedRevision: ready.revision,
+        kind: 'image',
+        artifactId: image.artifact.id,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    held.release()
+    expect(await sending).toMatchObject({ code: 'STALE_TARGET' })
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']).toMatchObject({
+      text: 'Keep this reference',
+      attachments: [image],
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.attachments).toEqual([image])
+  } finally {
+    held.release()
+    f.runtime.dispose()
+  }
+})
 
 test('pre-session drafts are local/idempotent and refuse a first send without a Workspace', async () => {
   const f = fixture()

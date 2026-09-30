@@ -12,6 +12,7 @@ import {
   type SessionLaunchSelection,
 } from '@hbar/contracts/commands/session-launch-target'
 import { runAcceptedSchema, type RunAccepted } from '@hbar/contracts/commands/run'
+import { promptAttachmentSchema, type PromptAttachment } from '@hbar/contracts/commands/draft'
 import { createState, type StateReader } from './state'
 import type { DraftsState, NavigationState, RunCommandPort, SessionControlsState } from './types'
 import type { DirectoryQueries } from './directory'
@@ -19,6 +20,7 @@ import type { WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
 import type { ComposerPermissionEntry, ComposerPermissionState } from './composer-permission'
 import type { ComposerPlanModeEntry, ComposerPlanModeState } from './composer-plan-mode'
 import type { ComposerIntentState } from './composer-intent'
+import { registerPreSessionAttachments } from './pre-session-attachments'
 import {
   capturePreSessionLaunchPreparation,
   PreSessionLaunchPreparation,
@@ -53,6 +55,7 @@ interface PendingSubmission {
   readonly workspaceId: string
   readonly revision: number
   readonly text: string
+  readonly attachments: readonly PromptAttachment[]
   readonly launchSelection: SessionLaunchSelection
   readonly requestedModelId: string | null
   readonly requestedThinkingLevel: PreSessionDraftState['thinkingLevel']
@@ -96,6 +99,8 @@ interface PreSessionDraftOptions {
   ) => Promise<Session>
   readonly workspaces?: CommandExecutor
   readonly models?: CommandExecutor
+  readonly attachments?: CommandExecutor
+  readonly files?: CommandExecutor
   readonly run?: RunCommandPort
   readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   readonly onSubscriberError: (error: unknown) => void
@@ -112,6 +117,10 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     draftId,
     workspaceId,
     text: '',
+    attachments: [],
+    attachmentTransfers: [],
+    uploading: 0,
+    uploadError: null,
     launchSelection: { mode: 'shared-current' },
     modelId: null,
     thinkingLevel: null,
@@ -190,6 +199,14 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     if (current.error === 'GOAL_PREPARED')
       throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
   }
+  registerPreSessionAttachments(local, {
+    read: entry,
+    replace: (_draftId, value) => publish(value),
+    assertEditable: requireEditable,
+    uploads: options.attachments,
+    queries: options.files,
+    isDisposed: () => disposed || options.isDisposed(),
+  })
   const requireCapabilities = (
     approvalChoice: PreSessionDraftState['approvalChoice'],
     planMode: PreSessionDraftState['planMode'],
@@ -297,7 +314,15 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const sessionId = operation.sessionId
     if (!sessionId) throw new CommandError('INVALID_STATE', 'The Session identity is missing')
     const current = options.drafts.getSnapshot()[sessionId]
-    if (current?.text === operation.text) return
+    const sameAttachments = (attachments: readonly PromptAttachment[]) =>
+      JSON.stringify(attachments) === JSON.stringify(operation.attachments)
+    if (
+      current?.text === operation.text &&
+      sameAttachments(current.attachments) &&
+      current.mentions.length === 0 &&
+      current.attachmentTransfers.length === 0
+    )
+      return
     if (
       current &&
       (current.text ||
@@ -311,10 +336,24 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       text: operation.text,
       expectedRevision: current?.revision ?? 0,
     })
-    const seeded = options.drafts.getSnapshot()[sessionId]
-    if (!seeded || seeded.text !== operation.text)
+    const textSeeded = options.drafts.getSnapshot()[sessionId]
+    if (!textSeeded || textSeeded.text !== operation.text)
       throw new CommandError('INVALID_OUTPUT', 'First message did not reach the Session composer draft')
+    if (operation.attachments.length > 0)
+      await local.execute('draft.setAttachments', {
+        sessionId,
+        attachments: [...operation.attachments],
+        expectedRevision: textSeeded.revision,
+      })
+    const seeded = options.drafts.getSnapshot()[sessionId]
+    if (!seeded || seeded.text !== operation.text || !sameAttachments(seeded.attachments))
+      throw new CommandError('INVALID_OUTPUT', 'First message attachments did not reach the Session composer draft')
   }
+  const capturedInput = (operation: PendingSubmission) => ({
+    text: operation.text,
+    images: operation.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),
+    files: operation.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
+  })
   const setPhase = (
     operation: PendingSubmission,
     phase: PreSessionDraftState['phase'],
@@ -585,7 +624,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
             ? {}
             : { expectedLaunchTargetRevision: operation.launchTargetRevision }),
           requireSelectedSession: true,
-          input: { text: operation.text, images: [], files: [] },
+          input: capturedInput(operation),
         },
         { idempotencyKey: operation.runKey },
       ),
@@ -723,7 +762,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
             ...(operation.launchTargetRevision === null
               ? {}
               : { expectedLaunchTargetRevision: operation.launchTargetRevision }),
-            input: { text: operation.text, images: [], files: [] },
+            input: capturedInput(operation),
           },
           { idempotencyKey: operation.runKey },
         ),
@@ -750,7 +789,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const clear = current.revision === operation.revision
     publish({
       ...operationState(current, operation, 'accepted', null, null, accepted),
-      ...(clear ? { text: '', revision: current.revision + 1 } : {}),
+      ...(clear ? { text: '', attachments: [], uploadError: null, revision: current.revision + 1 } : {}),
       modelId: operation.modelId ?? current.modelId,
     })
     pending.delete(operation.draftId)
@@ -1307,7 +1346,10 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     checkRevision(current, input.expectedRevision)
     const workspaceId = current.workspaceId
     if (!workspaceId) throw new CommandError('WORKSPACE_REQUIRED', 'Choose a Workspace before sending')
-    if (!current.text.trim()) throw new CommandError('INVALID_INPUT', 'A first message must contain text')
+    if (current.attachmentTransfers.length > 0)
+      throw new CommandError('ATTACHMENT_PENDING', 'Resolve the selected attachment transfers before first Send')
+    if (!current.text.trim() && (current.intent === 'goal' || current.attachments.length === 0))
+      throw new CommandError('INVALID_INPUT', 'A first message needs text or attachments; a Goal needs objective text')
     if (current.error === 'GOAL_PREPARED')
       throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
     requireCapabilities(current.approvalChoice, current.planMode, current.intent)
@@ -1345,6 +1387,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       workspaceId,
       revision: current.revision,
       text: current.text,
+      attachments: current.attachments.map((item) => promptAttachmentSchema.parse(item)),
       launchSelection: launchCapture.selection,
       requestedModelId,
       requestedThinkingLevel: current.thinkingLevel,

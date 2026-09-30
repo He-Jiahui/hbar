@@ -808,6 +808,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     queries: directory.queries,
     tabs: workspaceTabs.hooks,
     createSession: directory.createSession,
+    ...(options.attachments ? { attachments: options.attachments } : {}),
+    ...(options.files ? { files: options.files } : {}),
     ...(options.workspaces ? { workspaces: options.workspaces } : {}),
     ...(options.models ? { models: options.models } : {}),
     ...(options.run ? { run: options.run } : {}),
