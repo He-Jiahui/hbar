@@ -87,6 +87,7 @@ export { createConfigurationCommands, HBAR_PROVIDER_EDITOR_DESCRIPTION } from '.
 export { createGitCommands } from './git-commands'
 export { createWorkspaceSessionCommands } from './workspace-session-commands'
 export { createSessionLaunchTargetCommands } from './session-launch-target-commands'
+export { createSessionLaunchBranchesCommands } from './session-launch-branches-commands'
 export { SessionLaunchTargetService } from './session-launch-target-service'
 import { SessionLaunchTargetService } from './session-launch-target-service'
 export { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'

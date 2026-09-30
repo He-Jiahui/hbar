@@ -159,3 +159,13 @@ Changed 使用 `sessionGit.status/diff` 的 execution-root 相对路径与严格
 Client 的 `SessionLaunchTargetPreparationManager` 是独立的认证传输适配器，不选择 cwd、不调用旧慢准备、不提交 Run。写入派发后的本地 abort、丢失响应或无法校验的 ack 保持 RESULT_UNKNOWN；停止观察不等于远程取消。start 重试使用原键，查询核对原操作，状态版本用于后续投影抑制旧响应。
 
 该 API 子功能的验证结果记录在对应提交正文中，使用临时 Host／Git／SQLite 和配对 Client，未操作用户项目或付费 provider。它尚未注入 pre-session ViewModel，完整首次发送 handoff、就近进度／取消恢复 UI、最终 expected-target Run 受理检查仍是后续接缝；没有为此新增可见 Prepare 按钮。前面的同步准备时长记录描述旧 API，不能当作新 start 的响应时长证明，也不能把这次契约接入称为 native 桌面体验已经交付。
+
+## 启动前的只读分支发现
+
+`sessionLaunchBranches.list` 经 Host 组合根注册，Client 使用独立的 `SessionLaunchBranchesReader.list`。输入只有注册的 workspace ID、字面子串 search、分页 limit 和不透明 cursor；不接受 session、cwd 或任意路径，也不创建 Session、切换 HEAD、创建分支或工作树。Host 根据持久 workspace 的目录查询 Git，区分非仓库、attached、detached、unborn 和特殊 symbolic HEAD，不把读取失败伪装成空仓库。
+
+每页默认 25 条、最多 50 条；本地 refs/heads 按稳定 refname 排序扫描最多 5,000 条，超过边界显式报告 incomplete。cursor 绑定 workspace、NFC／小写归一化后的字面 search 和本次 Git 视图指纹；refs、HEAD 或 worktree 状态变化使旧 cursor 失效。remote refs 尚未支持，incomplete 也不是下一页已经涵盖未扫描尾部的承诺。
+
+每条分支分别表达 sharedCurrent 和 isolatedBase 的可用性：其他 worktree 已检出的分支不能用于共享切换，但可以作为派生隔离分支的起点。读取 worktree 状态失败时，共享切换显示 unknown，不猜测 available。这是给后续 Location 入口使用的数据事实，**不是现有 hbar 隔离准备已经改成参考 base-ref 语义的声明**；共享 selected-branch、隔离派生分支、参考式即时 New branch 创建及可编辑 Location 仍需独立实现。
+
+验证包括真实 Git 状态、5,001 refs 的扫描边界、Unicode 归一化和游标失效，以及公开配对 Client → Host 的读取流程。后者核对查询前后零新增 Session、原 HEAD／分支不变、工作区无新增文件；独立 Client 测试还覆盖预取消、迟到错误、错 workspace 和超量／泄漏路径响应。结果与检查边界记录在对应提交正文中，未进行 native 验收或参考仓库的真实分支写入。

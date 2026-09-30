@@ -34,6 +34,7 @@ import { clientPersistenceCommands } from './client-persistence'
 import { terminalApplicationCommands } from './terminal-application'
 import { sessionTimelineCommands } from './session-timeline'
 import { sessionLaunchTargetCommands } from './session-launch-target'
+import { sessionLaunchBranchesCommands } from './session-launch-branches'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -252,6 +253,16 @@ export { clientPersistenceCommands } from './client-persistence'
 export { terminalApplicationCommands } from './terminal-application'
 export { sessionTimelineCommands } from './session-timeline'
 export { sessionLaunchTargetCommands } from './session-launch-target'
+export { sessionLaunchBranchesCommands } from './session-launch-branches'
+export type {
+  SessionLaunchBranchesInput,
+  SessionLaunchBranchesRequest,
+  SessionLaunchBranchHead,
+  SessionLaunchBranch,
+  SessionLaunchBranchesPage,
+  SessionLaunchBranchesReader,
+  SessionLaunchBranchesReadOptions,
+} from './session-launch-branches'
 export type {
   SessionLaunchSelection,
   SessionLaunchTarget,
@@ -298,4 +309,5 @@ export const applicationCommands = {
   ...terminalApplicationCommands,
   ...sessionTimelineCommands,
   ...sessionLaunchTargetCommands,
+  ...sessionLaunchBranchesCommands,
 }

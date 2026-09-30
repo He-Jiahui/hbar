@@ -34,6 +34,13 @@ export { createConfigurationCommandClient } from './configuration'
 export { createGitCommandClient } from './git'
 export { createSessionLaunchTargetReader, type SessionLaunchTargetReadTransport } from './session-launch-target'
 export { createSessionLaunchTargetPreparationManager } from './session-launch-target-preparation'
+export { createSessionLaunchBranchesReader } from './session-launch-branches'
+export type {
+  SessionLaunchBranchesReader,
+  SessionLaunchBranchesReadOptions,
+  SessionLaunchBranchesRequest,
+  SessionLaunchBranchesPage,
+} from '@hbar/contracts/commands/session-launch-branches'
 export type {
   SessionLaunchTargetReader,
   SessionLaunchTargetReadOptions,

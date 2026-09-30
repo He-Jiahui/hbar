@@ -16,6 +16,7 @@ import {
   createGitCommands,
   createWorkspaceSessionCommands,
   createSessionLaunchTargetCommands,
+  createSessionLaunchBranchesCommands,
   createBudgetCommands,
   createFileCommands,
   createGoalPlanCommands,
@@ -35,6 +36,7 @@ import { configurationCommands as configurationDefinitions } from '@hbar/contrac
 import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
 import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
 import { sessionLaunchTargetCommands as sessionLaunchTargetDefinitions } from '@hbar/contracts/commands/session-launch-target'
+import { sessionLaunchBranchesCommands as sessionLaunchBranchesDefinitions } from '@hbar/contracts/commands/session-launch-branches'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
 import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
@@ -145,6 +147,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
     kernel.changed('session-launch-target'),
   )
+  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
+    kernel.storage,
+    kernel.plugins.get<GitService>('git'),
+  )
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'), {
     resolveSessionPath: (sessionId, workspacePath, signal) =>
@@ -178,6 +184,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: sessionSearchDefinitions, service: sessionSearchCommands },
     { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
     { definitions: sessionLaunchTargetDefinitions, service: sessionLaunchTargetCommands },
+    { definitions: sessionLaunchBranchesDefinitions, service: sessionLaunchBranchesCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
@@ -1187,6 +1194,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       gitCommands.dispose()
       workspaceSessionCommands.dispose()
       sessionLaunchTargetCommands.dispose()
+      sessionLaunchBranchesCommands.dispose()
       await sessionSearchCommands.dispose()
       budgetCommands.dispose()
       fileCommands.dispose()

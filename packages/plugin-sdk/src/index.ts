@@ -378,6 +378,28 @@ export type GitWorktreeOperation =
   | { operation?: 'list' | undefined }
   | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
   | { operation: 'remove'; path: string; force?: boolean | undefined }
+
+export type GitLaunchBranchHead =
+  | { kind: 'branch'; ref: string; name: string; oid: string }
+  | { kind: 'detached'; oid: string }
+  | { kind: 'unborn'; ref: string; name: string }
+  | { kind: 'symbolic'; ref: string; oid: string | null }
+
+export interface GitLaunchBranchReference {
+  readonly name: string
+  readonly ref: string
+  readonly oid: string
+  readonly current: boolean
+  readonly worktree: 'current' | 'elsewhere' | 'available' | 'unknown'
+}
+
+/** A bounded local-ref view for pre-session launch selection; it never contains filesystem paths. */
+export interface GitLaunchBranchSnapshot {
+  readonly repository: { kind: 'not-repository' } | { kind: 'repository'; head: GitLaunchBranchHead }
+  readonly branches: readonly GitLaunchBranchReference[]
+  readonly incomplete: boolean
+}
+
 export interface GitService {
   info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
@@ -395,6 +417,7 @@ export interface GitService {
     operation?: GitWorktreeOperation,
     signal?: AbortSignal,
   ): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
+  launchBranchSnapshot(cwd?: string, signal?: AbortSignal): Promise<GitLaunchBranchSnapshot>
   diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {

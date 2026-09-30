@@ -109,6 +109,7 @@ function service(overrides: Partial<GitService> = {}): GitService {
     commit: async () => commit,
     branch: async () => [],
     worktree: async () => [],
+    launchBranchSnapshot: async () => ({ repository: { kind: 'not-repository' }, branches: [], incomplete: false }),
     diffToRemote: async () => null,
     ...overrides,
   }
