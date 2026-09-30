@@ -1,7 +1,11 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, thinkingLevelSchema, type ThinkingLevel } from '../index'
-import { sessionLaunchSelectionSchema, type SessionLaunchSelection } from './session-launch-target'
+import {
+  sessionLaunchSelectionSchema,
+  sessionLaunchTargetPreparationSnapshotSchema,
+  type SessionLaunchSelection,
+} from './session-launch-target'
 import { runAcceptedSchema } from './run'
 
 const metadata = (id: string, kind: 'command' | 'query' = 'command') => ({
@@ -27,6 +31,27 @@ export const preSessionPlanModeSchema = z.enum(['default', 'plan'])
 export const preSessionIntentSchema = z.enum(['default', 'goal'])
 const result = z.strictObject({ draftId, revision })
 
+export const preSessionLaunchPreparationStateSchema = z.strictObject({
+  phase: z.enum([
+    'idle',
+    'selection',
+    'starting',
+    'queued',
+    'preparing',
+    'cancel-requested',
+    'reconciling',
+    'ready',
+    'cancelled',
+    'failed',
+    'unknown',
+    'paused-navigation',
+  ]),
+  targetRevision: z.number().int().nonnegative().safe().nullable(),
+  snapshot: sessionLaunchTargetPreparationSnapshotSchema.nullable(),
+  error: z.string().max(128).nullable(),
+  cancelRequested: z.boolean(),
+})
+
 export const preSessionDraftStateSchema = z.strictObject({
   draftId,
   workspaceId,
@@ -39,12 +64,25 @@ export const preSessionDraftStateSchema = z.strictObject({
   intent: preSessionIntentSchema,
   revision,
   phase: z.enum(['idle', 'preparing', 'creating', 'configuring', 'submitting', 'unknown', 'failed', 'accepted']),
-  unknownStage: z.enum(['create', 'model', 'approval', 'planMode', 'goal', 'run']).nullable(),
+  unknownStage: z
+    .enum([
+      'create',
+      'launchSelection',
+      'launchStart',
+      'launchPreparation',
+      'model',
+      'approval',
+      'planMode',
+      'goal',
+      'run',
+    ])
+    .nullable(),
   error: z.string().nullable(),
   sessionId: idSchema.nullable(),
   capturedWorkspaceId: idSchema.nullable(),
   capturedRevision: revision.nullable(),
   capturedLaunchSelection: sessionLaunchSelectionSchema.nullable(),
+  launchPreparation: preSessionLaunchPreparationStateSchema.nullable(),
   operationId: idSchema.nullable(),
   accepted: runAcceptedSchema.nullable(),
 })
@@ -119,6 +157,16 @@ export const preSessionDraftCommands = {
     z.strictObject({ draftId }),
     preSessionDraftStateSchema,
   ),
+  'preSessionDraft.continue': defineCommand(
+    metadata('preSessionDraft.continue'),
+    z.strictObject({ draftId, expectedRevision: revision }),
+    preSessionDraftStateSchema,
+  ),
+  'preSessionDraft.cancel': defineCommand(
+    metadata('preSessionDraft.cancel'),
+    z.strictObject({ draftId, expectedRevision: revision }),
+    preSessionDraftStateSchema,
+  ),
   'preSessionDraft.close': defineCommand(
     metadata('preSessionDraft.close'),
     z.strictObject({ draftId }),
@@ -127,6 +175,7 @@ export const preSessionDraftCommands = {
 }
 
 export type PreSessionDraftState = z.output<typeof preSessionDraftStateSchema>
+export type PreSessionLaunchPreparationState = z.output<typeof preSessionLaunchPreparationStateSchema>
 export type PreSessionDraftLaunchSelection = SessionLaunchSelection
 export type PreSessionApprovalChoice = z.output<typeof preSessionApprovalChoiceSchema>
 export type PreSessionPlanMode = z.output<typeof preSessionPlanModeSchema>

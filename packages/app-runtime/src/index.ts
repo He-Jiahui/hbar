@@ -707,6 +707,9 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.workspaces ? { workspaces: options.workspaces } : {}),
     ...(options.models ? { models: options.models } : {}),
     ...(options.run ? { run: options.run } : {}),
+    ...(options.sessionLaunchTargetPreparation
+      ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
+      : {}),
     onSubscriberError,
     isDisposed: () => disposed,
   })

@@ -12,6 +12,14 @@ import {
 import { runCommands, type RunAccepted } from '@hbar/contracts/commands/run'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { settingsCommands, type SettingsReceipt, type SettingsSnapshot } from '@hbar/contracts/commands/settings'
+import {
+  sessionLaunchTargetPreparationSnapshotSchema,
+  type SessionLaunchSelection,
+  type SessionLaunchTargetPreparationManager,
+  type SessionLaunchTargetPreparationSnapshot,
+  type SessionLaunchTargetSetInput,
+  type SessionLaunchTargetSetReceipt,
+} from '@hbar/contracts/commands/session-launch-target'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { encodePath } from '@hbar/schema-core'
@@ -89,12 +97,163 @@ function gate() {
   return { promise, release: open, entered: started, markEntered: entered }
 }
 
+function launchPreparationManager(
+  options: {
+    readonly initialRevision?: number
+    readonly initialSelection?: SessionLaunchSelection
+    readonly statuses?: readonly SessionLaunchTargetPreparationSnapshot['status'][]
+    readonly cancelStatus?: SessionLaunchTargetPreparationSnapshot['status']
+    readonly readGate?: ReturnType<typeof gate>
+    readonly startError?: CommandError
+  } = {},
+) {
+  let revision = options.initialRevision ?? 23
+  let selection = options.initialSelection ?? ({ mode: 'shared-current' } as const)
+  let operation: SessionLaunchTargetPreparationSnapshot | null = null
+  let operationVersion = 0
+  let readIndex = 0
+  const receipts = new Map<string, SessionLaunchTargetSetReceipt>()
+  const starts = new Map<
+    string,
+    { operationId: string; sessionId: string; workspaceId: string; targetRevision: number }
+  >()
+  const calls: {
+    readonly readTargets: string[]
+    readonly selections: { readonly input: SessionLaunchTargetSetInput; readonly key: string }[]
+    readonly starts: { readonly sessionId: string; readonly expectedRevision: number; readonly key: string }[]
+    readonly reads: string[]
+    readonly cancellations: string[]
+    readonly reconciliations: string[]
+  } = {
+    readTargets: [],
+    selections: [],
+    starts: [],
+    reads: [],
+    cancellations: [],
+    reconciliations: [],
+  }
+  const makeSnapshot = (
+    status: SessionLaunchTargetPreparationSnapshot['status'],
+    base?: SessionLaunchTargetPreparationSnapshot,
+  ): SessionLaunchTargetPreparationSnapshot => {
+    if (!base) throw new Error('Preparation snapshot has no accepted start')
+    operationVersion += 1
+    return sessionLaunchTargetPreparationSnapshotSchema.parse({
+      schemaVersion: 1,
+      operationId: base.operationId,
+      sessionId: base.sessionId,
+      workspaceId: base.workspaceId,
+      targetRevision: base.targetRevision,
+      operationVersion,
+      createdAt: base.createdAt,
+      updatedAt: base.updatedAt + 1,
+      status,
+      ...(status === 'failed' || status === 'reconciling'
+        ? { error: { code: 'GIT_FAILED', message: 'Preparation fixture state' } }
+        : {}),
+    })
+  }
+  const manager: SessionLaunchTargetPreparationManager = {
+    async readTarget(sessionId) {
+      calls.readTargets.push(sessionId)
+      return {
+        sessionId,
+        workspaceId: 'workspace-a',
+        revision,
+        selection,
+        locked: false,
+        resolution: { status: 'idle' },
+        updatedAt: 1,
+      }
+    },
+    async setSelection(input, writeOptions) {
+      calls.selections.push({ input, key: writeOptions.idempotencyKey })
+      const existing = receipts.get(writeOptions.idempotencyKey)
+      if (existing) return existing
+      if (input.expectedRevision !== revision)
+        throw new CommandError('VERSION_CONFLICT', 'Launch target revision changed')
+      const changed = JSON.stringify(selection) !== JSON.stringify(input.selection)
+      if (changed) {
+        selection = input.selection
+        revision += 1
+      }
+      const receipt = {
+        commitId: writeOptions.idempotencyKey,
+        request: input,
+        revision,
+        changed,
+        updatedAt: 2,
+      }
+      receipts.set(writeOptions.idempotencyKey, receipt)
+      return receipt
+    },
+    async readSelectionReceipt(input) {
+      return receipts.get(input.idempotencyKey) ?? null
+    },
+    async startPreparation(input, writeOptions) {
+      calls.starts.push({ ...input, key: writeOptions.idempotencyKey })
+      if (options.startError) throw options.startError
+      const existing = starts.get(writeOptions.idempotencyKey)
+      if (existing) return existing
+      if (input.expectedRevision !== revision)
+        throw new CommandError('VERSION_CONFLICT', 'Launch target revision changed before preparation')
+      const receipt = {
+        operationId: 'launch-operation-1',
+        sessionId: input.sessionId,
+        workspaceId: 'workspace-a',
+        targetRevision: input.expectedRevision,
+      }
+      starts.set(writeOptions.idempotencyKey, receipt)
+      operationVersion = 1
+      operation = sessionLaunchTargetPreparationSnapshotSchema.parse({
+        schemaVersion: 1,
+        ...receipt,
+        operationVersion,
+        status: 'queued',
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      return receipt
+    },
+    async readPreparation(input) {
+      calls.reads.push(input.operationId)
+      options.readGate?.markEntered()
+      if (options.readGate) await options.readGate.promise
+      if (!operation || operation.operationId !== input.operationId)
+        throw new CommandError('NOT_FOUND', 'Preparation operation was not found')
+      const statuses = options.statuses ?? ['ready']
+      const next = statuses[Math.min(readIndex, statuses.length - 1)] ?? operation.status
+      readIndex += 1
+      if (next === operation.status) return operation
+      operation = makeSnapshot(next, operation)
+      return operation
+    },
+    async cancelPreparation(input) {
+      calls.cancellations.push(input.operationId)
+      if (!operation || operation.operationId !== input.operationId)
+        throw new CommandError('NOT_FOUND', 'Preparation operation was not found')
+      const status = options.cancelStatus ?? 'cancelled'
+      operation = makeSnapshot(status, operation)
+      return operation
+    },
+    async reconcilePreparation(input) {
+      calls.reconciliations.push(input.operationId)
+      if (!operation || operation.operationId !== input.operationId)
+        throw new CommandError('NOT_FOUND', 'Preparation operation was not found')
+      operation = makeSnapshot('preparing', operation)
+      return operation
+    },
+  }
+  return { manager, calls }
+}
+
 function fixture(
   options: {
     readonly sessionSettings?: boolean
     readonly invalidateApprovalOnWrite?: boolean
     readonly planMode?: boolean
     readonly goals?: boolean
+    readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   } = {},
 ) {
   const workspaces = new Map([workspace('workspace-a'), workspace('workspace-b')].map((value) => [value.id, value]))
@@ -128,6 +287,7 @@ function fixture(
     sessionId: string
     key: string
     text: string
+    launchTargetRevision?: number
     thinkingLevel: ModelConfiguration['thinkingLevel']
     approval: 'ask' | 'deny' | 'allow' | undefined
     mode: 'default' | 'plan' | undefined
@@ -315,6 +475,9 @@ function fixture(
         sessionId: input.sessionId,
         key,
         text: input.input.text,
+        ...(input.expectedLaunchTargetRevision === undefined
+          ? {}
+          : { launchTargetRevision: input.expectedLaunchTargetRevision }),
         thinkingLevel: models.get(input.sessionId)?.thinkingLevel ?? null,
         approval: input.input.approval,
         mode: input.input.mode,
@@ -578,6 +741,9 @@ function fixture(
     workspaces: workspaceCommands,
     models: modelCommandsPort,
     run,
+    ...(options.sessionLaunchTargetPreparation
+      ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
+      : {}),
     ...(options.sessionSettings ? { settings: sessionSettings, configuration } : {}),
     ...(options.planMode ? { planMode: configuration } : {}),
     ...(options.goals ? { goals: goalPort } : {}),
@@ -860,6 +1026,300 @@ test('launch selection is revisioned, opening it creates no Session, and isolate
       intent: 'goal',
     })
   } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('launch selection equality is value-based and the draft owns an immutable parsed copy', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'immutable selection input' })
+    const submittedSelection: {
+      mode: 'isolated-worktree'
+      branch: { kind: 'new'; name: string; startPoint: string }
+    } = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/value-equality', startPoint: 'main' },
+    }
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: submittedSelection,
+      expectedRevision: target.revision,
+    })
+    expect(selected.revision).toBe(target.revision + 1)
+
+    submittedSelection.branch.name = 'feature/caller-mutated-after-submit'
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.launchSelection).toEqual({
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/value-equality', startPoint: 'main' },
+    })
+
+    const semanticallyEqual = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: {
+        branch: { startPoint: 'main', name: 'feature/value-equality', kind: 'new' },
+        mode: 'isolated-worktree',
+      },
+      expectedRevision: selected.revision,
+    })
+    expect(semanticallyEqual).toEqual(selected)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.revision).toBe(selected.revision)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('first Send waits for Host preparation and passes the actual target revision to Run', async () => {
+  const launch = launchPreparationManager({ initialRevision: 37, statuses: ['preparing', 'ready'] })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'prepare before the first Run',
+      modelId: model.id,
+    })
+    const launchSelection = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/runtime-launch', startPoint: 'main' },
+    } as const
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: launchSelection,
+      expectedRevision: target.revision,
+    })
+    const accepted = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: selected.revision,
+    })
+
+    expect(accepted).toMatchObject({ sessionId: 'session-1', accepted: { status: 'accepted' } })
+    expect(launch.calls.readTargets).toEqual(['session-1'])
+    expect(launch.calls.selections).toHaveLength(1)
+    expect(launch.calls.selections[0]).toMatchObject({
+      input: { sessionId: 'session-1', expectedRevision: 37, selection: launchSelection },
+    })
+    expect(launch.calls.starts).toHaveLength(1)
+    expect(launch.calls.starts[0]).toMatchObject({ sessionId: 'session-1', expectedRevision: 38 })
+    expect(launch.calls.starts[0]?.key.length).toBeGreaterThan(0)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ text: 'prepare before the first Run', launchTargetRevision: 38 })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      sessionId: 'session-1',
+      launchPreparation: { phase: 'ready', targetRevision: 38 },
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('an unknown first Run reconciles only its original Run receipt after target preparation', async () => {
+  const launch = launchPreparationManager({ initialRevision: 41 })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  f.unknownRun(true)
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'retain the original prepared request',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const unknown = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    expect(unknown).toMatchObject({
+      phase: 'unknown',
+      unknownStage: 'run',
+      text: 'retain the original prepared request',
+    })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ launchTargetRevision: 41 })
+
+    const reconciled = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(reconciled).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      launchPreparation: { phase: 'ready', targetRevision: 41 },
+    })
+    expect(f.runCalls).toHaveLength(1)
+    expect(launch.calls.starts).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('Cancel after Run handoff reconciles the original Run receipt, not launch preparation', async () => {
+  const launch = launchPreparationManager({ initialRevision: 43 })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  f.unknownRun(true)
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Run owns cancellation after handoff',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const current = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    const reconciled = await f.runtime.view.commands.execute('preSessionDraft.cancel', {
+      draftId: target.draftId,
+      expectedRevision: current?.revision ?? target.revision,
+    })
+    expect(reconciled).toMatchObject({ phase: 'accepted', text: '', sessionId: 'session-1' })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ launchTargetRevision: 43 })
+    expect(launch.calls.cancellations).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('cancel during preparation prevents first Run and preserves the created Session draft', async () => {
+  const readGate = gate()
+  const launch = launchPreparationManager({ readGate, statuses: ['preparing'], cancelStatus: 'cancelled' })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this after cancelling preparation',
+      modelId: model.id,
+    })
+    const submission = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await readGate.entered
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe('keep this after cancelling preparation')
+
+    const current = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    const cancelled = await f.runtime.view.commands.execute('preSessionDraft.cancel', {
+      draftId: target.draftId,
+      expectedRevision: current?.revision ?? target.revision,
+    })
+    expect(cancelled).toMatchObject({
+      phase: 'failed',
+      error: 'CANCELLED',
+      text: 'keep this after cancelling preparation',
+      sessionId: 'session-1',
+      launchPreparation: { phase: 'cancelled', cancelRequested: true },
+    })
+    expect(launch.calls.cancellations).toEqual(['launch-operation-1'])
+    expect(f.runCalls).toEqual([])
+    await expect(submission).rejects.toMatchObject({ code: 'CANCELLED' })
+  } finally {
+    readGate.release()
+    f.runtime.dispose()
+  }
+})
+
+test('ready preparation after navigation loss waits for explicit selection and Continue', async () => {
+  const readGate = gate()
+  const launch = launchPreparationManager({ readGate, statuses: ['ready'] })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'continue only after selecting the captured Session',
+      modelId: model.id,
+    })
+    const submission = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await readGate.entered
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    readGate.release()
+    await expect(submission).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'STALE_TARGET',
+      launchPreparation: { phase: 'paused-navigation', snapshot: { status: 'ready' } },
+    })
+
+    const paused = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(paused).toMatchObject({ phase: 'failed', error: 'STALE_TARGET' })
+    expect(f.runCalls).toEqual([])
+    await f.runtime.view.commands.execute('app.setSession', { sessionId: 'session-1', workspaceId: 'workspace-a' })
+    const continued = await f.runtime.view.commands.execute('preSessionDraft.continue', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(continued).toMatchObject({ phase: 'accepted', text: '' })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ launchTargetRevision: 23 })
+  } finally {
+    readGate.release()
+    f.runtime.dispose()
+  }
+})
+
+test('Host preparation BUSY keeps the created Session and seeded draft without Run', async () => {
+  const launch = launchPreparationManager({ startError: new CommandError('BUSY', 'Preparation queue is full') })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this in the newly created Session',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    expect(f.sessions.size).toBe(1)
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe('keep this in the newly created Session')
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'BUSY',
+      sessionId: 'session-1',
+      text: 'keep this in the newly created Session',
+    })
+    expect(f.runCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('closing the view while preparation is observed does not remotely cancel it', async () => {
+  const readGate = gate()
+  const launch = launchPreparationManager({ readGate, statuses: ['ready'] })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'continue in the background after closing the view',
+      modelId: model.id,
+    })
+    const submission = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await readGate.entered
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.close', { draftId: target.draftId }),
+    ).resolves.toEqual({
+      draftId: target.draftId,
+      closed: false,
+    })
+    expect(launch.calls.cancellations).toEqual([])
+    readGate.release()
+    await expect(submission).resolves.toMatchObject({ sessionId: 'session-1', accepted: { status: 'accepted' } })
+    expect(launch.calls.cancellations).toEqual([])
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toBeUndefined()
+  } finally {
+    readGate.release()
     f.runtime.dispose()
   }
 })

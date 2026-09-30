@@ -11,7 +11,10 @@ import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/bud
 import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import type { AttachmentUploadInput, SessionFileTarget } from '@hbar/contracts/commands/files'
-import type { SessionLaunchTargetReader } from '@hbar/contracts/commands/session-launch-target'
+import type {
+  SessionLaunchTargetPreparationManager,
+  SessionLaunchTargetReader,
+} from '@hbar/contracts/commands/session-launch-target'
 import type {
   ActiveOperationsPage,
   QueuedRunEditTextReceipt,
@@ -155,6 +158,8 @@ export interface RuntimeOptions {
   readonly files?: CommandExecutor
   /** Host-authoritative target revisions; absence does not authorize a shared-session fallback. */
   readonly sessionLaunchTargets?: SessionLaunchTargetReader
+  /** Durable first-send preparation; separate from the legacy read-only target projection. */
+  readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
   /** Transport lifetime for Goal reads; a reconnect is not confirmation of an unknown action. */

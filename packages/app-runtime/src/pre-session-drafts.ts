@@ -8,6 +8,7 @@ import {
 } from '@hbar/contracts/commands/pre-session-draft'
 import {
   sessionLaunchSelectionSchema,
+  type SessionLaunchTargetPreparationManager,
   type SessionLaunchSelection,
 } from '@hbar/contracts/commands/session-launch-target'
 import { runAcceptedSchema, type RunAccepted } from '@hbar/contracts/commands/run'
@@ -18,6 +19,11 @@ import type { WorkspaceTabNavigationHooks } from './workspace-tabs-runtime'
 import type { ComposerPermissionEntry, ComposerPermissionState } from './composer-permission'
 import type { ComposerPlanModeEntry, ComposerPlanModeState } from './composer-plan-mode'
 import type { ComposerIntentState } from './composer-intent'
+import {
+  capturePreSessionLaunchPreparation,
+  PreSessionLaunchPreparation,
+  type PreSessionLaunchPreparationKeys,
+} from './pre-session-launch-preparation'
 
 const MAX_DRAFTS = 100
 const MAX_PENDING = 32
@@ -41,6 +47,9 @@ interface PendingSubmission {
   readonly draftId: string
   readonly createKey: string
   readonly runKey: string
+  readonly launchKeys: PreSessionLaunchPreparationKeys
+  readonly launchPreparation: PreSessionLaunchPreparation | null
+  observationSignal: AbortSignal
   readonly workspaceId: string
   readonly revision: number
   readonly text: string
@@ -51,14 +60,21 @@ interface PendingSubmission {
   readonly planMode: PreSessionDraftState['planMode']
   readonly intent: PreSessionDraftState['intent']
   navigationFence: Readonly<NavigationState>
-  stage: 'create' | 'model' | 'approval' | 'planMode' | 'goal' | 'run'
+  stage: 'create' | 'launch' | 'model' | 'approval' | 'planMode' | 'goal' | 'run'
   sessionId: string | null
+  launchTargetRevision: number | null
   modelId: string | null
   thinkingWriteStarted: boolean
   thinkingWriteReceiptConfirmed: boolean
   approvalWriteStarted: boolean
   inFlight: boolean
   closeRequested: boolean
+  cancelRequested: boolean
+  pausedForNavigation: boolean
+  requiresExplicitContinue: boolean
+  handoffStarted: boolean
+  readonly observationController: AbortController
+  activeAttemptController: AbortController | null
 }
 
 interface PreSessionDraftOptions {
@@ -81,6 +97,7 @@ interface PreSessionDraftOptions {
   readonly workspaces?: CommandExecutor
   readonly models?: CommandExecutor
   readonly run?: RunCommandPort
+  readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   readonly onSubscriberError: (error: unknown) => void
   readonly isDisposed: () => boolean
 }
@@ -109,6 +126,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     capturedWorkspaceId: null,
     capturedRevision: null,
     capturedLaunchSelection: null,
+    launchPreparation: null,
     operationId: null,
     accepted: null,
   }
@@ -131,19 +149,17 @@ function operationState(
     capturedWorkspaceId: pending.workspaceId,
     capturedRevision: pending.revision,
     capturedLaunchSelection: pending.launchSelection,
+    launchPreparation: pending.launchPreparation?.getState() ?? current.launchPreparation,
     operationId: accepted?.operationId ?? current.operationId,
     accepted,
   }
 }
 
 function sameLaunchSelection(left: SessionLaunchSelection, right: SessionLaunchSelection): boolean {
-  if (left.mode !== right.mode) return false
-  if (left.mode === 'shared-current') return true
-  if (right.mode !== 'isolated-worktree' || left.branch.kind !== right.branch.kind) return false
-  if (left.branch.kind === 'existing' && right.branch.kind === 'existing') return left.branch.name === right.branch.name
-  if (left.branch.kind === 'new' && right.branch.kind === 'new')
-    return left.branch.name === right.branch.name && left.branch.startPoint === right.branch.startPoint
-  return false
+  return (
+    JSON.stringify(sessionLaunchSelectionSchema.parse(left)) ===
+    JSON.stringify(sessionLaunchSelectionSchema.parse(right))
+  )
 }
 
 export function createPreSessionDrafts(local: CommandRegistry, options: PreSessionDraftOptions) {
@@ -234,12 +250,26 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       stopWaitingForCancellation()
     }
   }
+  const pauseForNavigation = (operation: PendingSubmission): void => {
+    operation.pausedForNavigation = true
+    operation.requiresExplicitContinue = true
+    operation.launchPreparation?.pauseNavigation()
+    setPhase(operation, 'failed', 'STALE_TARGET')
+  }
+  const navigationMatches = (operation: PendingSubmission): boolean => {
+    const current = options.navigation.getSnapshot()
+    return current === operation.navigationFence && current.status === 'idle'
+  }
   const ensureSelected = async (operation: PendingSubmission): Promise<void> => {
     const sessionId = operation.sessionId
     if (!sessionId) throw new CommandError('INVALID_STATE', 'The Session identity is missing')
     const current = options.navigation.getSnapshot()
-    if (current !== operation.navigationFence || current.status !== 'idle')
+    if (operation.cancelRequested && !operation.handoffStarted)
+      throw new CommandError('CANCELLED', 'The first submission was cancelled before Run handoff')
+    if (current !== operation.navigationFence || current.status !== 'idle') {
+      pauseForNavigation(operation)
       throw new CommandError('STALE_TARGET', 'Navigation changed while preparing the first Run')
+    }
     if (current.sessionId === sessionId && current.workspaceId === operation.workspaceId && current.status === 'idle')
       return
     await local.execute('app.setSession', { sessionId, workspaceId: operation.workspaceId })
@@ -248,14 +278,20 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       selected.sessionId !== sessionId ||
       selected.workspaceId !== operation.workspaceId ||
       selected.status !== 'idle'
-    )
+    ) {
+      pauseForNavigation(operation)
       throw new CommandError('STALE_TARGET', 'Created Session could not be selected for its first Run')
+    }
     operation.navigationFence = selected
   }
   const assertSelectionFence = (operation: PendingSubmission): void => {
+    if (operation.cancelRequested && !operation.handoffStarted)
+      throw new CommandError('CANCELLED', 'The first submission was cancelled before Run handoff')
     const current = options.navigation.getSnapshot()
-    if (current !== operation.navigationFence || current.status !== 'idle')
+    if (current !== operation.navigationFence || current.status !== 'idle') {
+      pauseForNavigation(operation)
       throw new CommandError('STALE_TARGET', 'Navigation changed while preparing the first Run')
+    }
   }
   const seedSessionDraft = async (operation: PendingSubmission): Promise<void> => {
     const sessionId = operation.sessionId
@@ -537,6 +573,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
 
     assertSelectionFence(operation)
     setPhase(operation, 'submitting')
+    operation.handoffStarted = true
     const accepted = runAcceptedSchema.parse(
       await local.execute(
         'composerIntent.submit',
@@ -544,6 +581,9 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
           sessionId,
           modelId,
           expectedIntentRevision: composer.revision,
+          ...(operation.launchTargetRevision === null
+            ? {}
+            : { expectedLaunchTargetRevision: operation.launchTargetRevision }),
           requireSelectedSession: true,
           input: { text: operation.text, images: [], files: [] },
         },
@@ -574,6 +614,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
   const continueSubmission = async (
     operation: PendingSubmission,
     reconcilingUnknownCreate = false,
+    allowLaunchReconcile = false,
   ): Promise<RunAccepted> => {
     requireCapabilities(operation.approvalChoice, operation.planMode, operation.intent)
     if (operation.stage === 'create') {
@@ -587,9 +628,45 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         throw new CommandError('INVALID_OUTPUT', 'Created Session does not match its captured Workspace')
       operation.sessionId = created.id
       options.tabs.commitCreation(operation.createKey, created)
-      operation.stage = 'model'
+      operation.stage = operation.launchPreparation ? 'launch' : 'model'
       setPhase(operation, 'configuring')
       await seedSessionDraft(operation)
+      if (operation.cancelRequested) {
+        throw new CommandError('CANCELLED', 'First submission was cancelled after Session creation')
+      }
+      await ensureSelected(operation)
+    }
+
+    if (operation.stage === 'launch') {
+      const sessionId = operation.sessionId
+      const launchPreparation = operation.launchPreparation
+      if (!sessionId || !launchPreparation)
+        throw new CommandError('INVALID_STATE', 'Launch preparation is unavailable for the captured Session')
+      await ensureSelected(operation)
+      await seedSessionDraft(operation)
+      assertSelectionFence(operation)
+      setPhase(operation, 'preparing')
+      const result = allowLaunchReconcile
+        ? await launchPreparation.continue(sessionId, {
+            signal: operation.observationSignal,
+            mayContinue: () => navigationMatches(operation) && !operation.cancelRequested,
+          })
+        : await launchPreparation.prepare(sessionId, {
+            signal: operation.observationSignal,
+            mayContinue: () => navigationMatches(operation) && !operation.cancelRequested,
+          })
+      setPhase(operation, 'preparing')
+      if (result.kind === 'paused-navigation') {
+        pauseForNavigation(operation)
+        throw new CommandError('STALE_TARGET', 'Navigation changed while preparing the first Run')
+      }
+      if (result.kind === 'cancel-requested' || result.kind === 'cancelled')
+        throw new CommandError('CANCELLED', 'Launch preparation was cancelled; first Run was not submitted')
+      if (result.kind === 'failed')
+        throw new CommandError(launchPreparation.getState().error ?? 'EXECUTION_FAILED', 'Launch preparation failed')
+      operation.launchTargetRevision = result.snapshot.targetRevision
+      assertSelectionFence(operation)
+      operation.stage = 'model'
     }
 
     if (operation.stage === 'model') {
@@ -636,10 +713,18 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       if (!sessionId || !modelId) throw new CommandError('INVALID_STATE', 'First Run setup is incomplete')
       assertSelectionFence(operation)
       setPhase(operation, 'submitting')
+      operation.handoffStarted = true
       const accepted = runAcceptedSchema.parse(
         await local.execute(
           'composerIntent.submit',
-          { sessionId, modelId, input: { text: operation.text, images: [], files: [] } },
+          {
+            sessionId,
+            modelId,
+            ...(operation.launchTargetRevision === null
+              ? {}
+              : { expectedLaunchTargetRevision: operation.launchTargetRevision }),
+            input: { text: operation.text, images: [], files: [] },
+          },
           { idempotencyKey: operation.runKey },
         ),
       )
@@ -712,10 +797,24 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     }
   }
 
-  const run = async (operation: PendingSubmission, reconcile: boolean): Promise<RunAccepted> => {
+  const run = async (
+    operation: PendingSubmission,
+    reconcile: boolean,
+    allowLaunchReconcile = false,
+    signal?: AbortSignal,
+  ): Promise<RunAccepted> => {
     if (operation.inFlight) throw new CommandError('BUSY', 'The original first submission is still in flight')
     if (reconcile && !['unknown', 'failed'].includes(entry(operation.draftId).phase))
       throw new CommandError('INVALID_STATE', 'The first submission does not need reconciliation')
+    if (!operation.activeAttemptController) {
+      const controller = new AbortController()
+      operation.activeAttemptController = controller
+      operation.observationSignal = AbortSignal.any(
+        signal
+          ? [operation.observationController.signal, controller.signal, signal]
+          : [operation.observationController.signal, controller.signal],
+      )
+    }
     operation.inFlight = true
     try {
       if (reconcile && operation.stage === 'model') {
@@ -763,7 +862,22 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         }
       }
 
-      const accepted = await continueSubmission(operation, reconcile && operation.stage === 'create')
+      if (
+        reconcile &&
+        operation.cancelRequested &&
+        !operation.handoffStarted &&
+        operation.stage !== 'create' &&
+        operation.stage !== 'launch'
+      ) {
+        finishCancelled(operation)
+        throw new CommandError('CANCELLED', 'The first submission was cancelled before Run handoff')
+      }
+
+      const accepted = await continueSubmission(
+        operation,
+        reconcile && operation.stage === 'create',
+        allowLaunchReconcile,
+      )
       settle(operation, accepted)
       return accepted
     } catch (error) {
@@ -789,8 +903,41 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         uncertain = unknownGoalOperation
       }
       if (pending.get(operation.draftId) === operation) {
-        if (uncertain) setPhase(operation, 'unknown', code, operation.stage)
-        else if (
+        const preparation = operation.launchPreparation?.getState()
+        const cancelledLaunchPending =
+          operation.cancelRequested &&
+          !operation.handoffStarted &&
+          operation.stage === 'launch' &&
+          (preparation?.phase === 'cancel-requested' || preparation?.phase === 'unknown')
+        const cancellationNeedsRecovery =
+          operation.cancelRequested &&
+          !operation.handoffStarted &&
+          (cancelledLaunchPending ||
+            (operation.stage === 'create' && uncertain) ||
+            (operation.stage !== 'launch' && operation.stage !== 'create' && uncertain))
+        if (cancellationNeedsRecovery) {
+          const unknownStage =
+            operation.stage === 'launch'
+              ? (operation.launchPreparation?.getRecoveryStage() ?? 'launchPreparation')
+              : operation.stage
+          setPhase(operation, 'unknown', code, unknownStage)
+        } else if (operation.cancelRequested && !operation.handoffStarted) {
+          if (operation.stage === 'create') options.tabs.settleCreation(operation.createKey, false)
+          if (operation.closeRequested) {
+            const next = { ...state.reader.getSnapshot() }
+            delete next[operation.draftId]
+            state.replace(next)
+          } else setPhase(operation, 'failed', 'CANCELLED')
+          pending.delete(operation.draftId)
+        } else if (operation.pausedForNavigation && !operation.handoffStarted) {
+          setPhase(operation, 'failed', 'STALE_TARGET')
+        } else if (uncertain) {
+          const unknownStage =
+            operation.stage === 'launch'
+              ? (operation.launchPreparation?.getRecoveryStage() ?? 'launchPreparation')
+              : operation.stage
+          setPhase(operation, 'unknown', code, unknownStage)
+        } else if (
           operation.stage === 'goal' &&
           composerIntent?.submission.status === 'partial' &&
           composerIntent.submission.preparedGoalId
@@ -807,6 +954,79 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
           }
           pending.delete(operation.draftId)
         }
+      }
+      throw error
+    } finally {
+      operation.inFlight = false
+      const controller = operation.activeAttemptController
+      operation.activeAttemptController = null
+      controller?.abort()
+    }
+  }
+
+  const finishCancelled = (operation: PendingSubmission, error = 'CANCELLED'): PreSessionDraftState => {
+    const current = state.reader.getSnapshot()[operation.draftId]
+    if (current) setPhase(operation, 'failed', error)
+    pending.delete(operation.draftId)
+    if (operation.closeRequested) {
+      const next = { ...state.reader.getSnapshot() }
+      delete next[operation.draftId]
+      state.replace(next)
+      return current ?? initial(operation.draftId, operation.workspaceId)
+    }
+    return state.reader.getSnapshot()[operation.draftId] ?? initial(operation.draftId, operation.workspaceId)
+  }
+
+  const reconcileLaunchPreparation = async (operation: PendingSubmission): Promise<PreSessionDraftState> => {
+    const sessionId = operation.sessionId
+    const launchPreparation = operation.launchPreparation
+    if (!sessionId || !launchPreparation)
+      throw new CommandError('INVALID_STATE', 'Launch preparation has no captured Session')
+    if (operation.inFlight) throw new CommandError('BUSY', 'Launch preparation is still being observed')
+    operation.inFlight = true
+    try {
+      if (operation.pausedForNavigation || operation.requiresExplicitContinue) {
+        await launchPreparation.refresh(operation.observationController.signal)
+      } else {
+        await launchPreparation.reconcile(sessionId, operation.observationController.signal)
+      }
+      const launchState = launchPreparation.getState()
+      if (operation.cancelRequested) {
+        if (launchState.phase !== 'cancelled' && launchState.phase !== 'failed') {
+          const outcome = await launchPreparation.cancel()
+          if (outcome.kind === 'cancel-requested') {
+            setPhase(operation, 'unknown', 'CANCEL_REQUESTED', launchPreparation.getRecoveryStage())
+            return entry(operation.draftId)
+          }
+          if (outcome.kind === 'failed')
+            return finishCancelled(operation, launchPreparation.getState().error ?? 'EXECUTION_FAILED')
+        }
+        return finishCancelled(operation)
+      }
+      if (launchState.phase === 'cancelled') return finishCancelled(operation)
+      if (launchState.phase === 'failed') {
+        const error = launchState.error ?? 'EXECUTION_FAILED'
+        setPhase(operation, 'failed', error)
+        pending.delete(operation.draftId)
+        return entry(operation.draftId)
+      }
+      if (launchState.phase === 'ready') {
+        operation.launchTargetRevision = launchState.targetRevision
+        operation.requiresExplicitContinue = true
+        if (!navigationMatches(operation)) pauseForNavigation(operation)
+        else setPhase(operation, 'failed', 'CONTINUE_REQUIRED')
+        return entry(operation.draftId)
+      }
+      setPhase(operation, 'unknown', 'RESULT_UNKNOWN', launchPreparation.getRecoveryStage())
+      return entry(operation.draftId)
+    } catch (error) {
+      if (operation.cancelRequested) {
+        const launchState = launchPreparation.getState()
+        if (launchState.phase === 'cancelled' || launchState.phase === 'failed') return finishCancelled(operation)
+        setPhase(operation, 'unknown', 'CANCEL_REQUESTED', launchPreparation.getRecoveryStage())
+      } else {
+        const current = state.reader.getSnapshot()[operation.draftId]
+        if (current) setPhase(operation, 'unknown', errorCode(error), launchPreparation.getRecoveryStage())
       }
       throw error
     } finally {
@@ -1060,42 +1280,71 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     if (current.error === 'GOAL_PREPARED')
       throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
     requireCapabilities(current.approvalChoice, current.planMode, current.intent)
-    if (current.launchSelection.mode !== 'shared-current')
+    if (current.launchSelection.mode !== 'shared-current' && !options.sessionLaunchTargetPreparation)
       throw new CommandError(
         'CAPABILITY_UNAVAILABLE',
         'Session launch-target preparation is unavailable for the selected target',
       )
     if (pending.size >= MAX_PENDING) throw new CommandError('BUSY', 'Too many first submissions are pending')
     const requestedModelId = input.modelId ?? current.modelId
+    const launchKeys = Object.freeze({
+      setSelection: crypto.randomUUID(),
+      start: crypto.randomUUID(),
+      cancel: crypto.randomUUID(),
+      reconcile: crypto.randomUUID(),
+    })
+    const launchCapture = capturePreSessionLaunchPreparation(workspaceId, current.launchSelection, launchKeys)
+    const observationController = new AbortController()
+    const activeAttemptController = new AbortController()
+    const observationSignal = AbortSignal.any([
+      execution.signal,
+      observationController.signal,
+      activeAttemptController.signal,
+    ])
+    const launchPreparation = options.sessionLaunchTargetPreparation
+      ? new PreSessionLaunchPreparation(options.sessionLaunchTargetPreparation, launchCapture)
+      : null
     const operation: PendingSubmission = {
       draftId: input.draftId,
       createKey: current.sessionId ? '' : crypto.randomUUID(),
       runKey: crypto.randomUUID(),
+      launchKeys,
+      launchPreparation,
+      observationSignal,
       workspaceId,
       revision: current.revision,
       text: current.text,
-      launchSelection: sessionLaunchSelectionSchema.parse(current.launchSelection),
+      launchSelection: launchCapture.selection,
       requestedModelId,
       requestedThinkingLevel: current.thinkingLevel,
       approvalChoice: current.approvalChoice,
       planMode: current.planMode,
       intent: current.intent,
       navigationFence: options.navigation.getSnapshot(),
-      stage: current.sessionId ? 'model' : 'create',
+      stage: current.sessionId ? (launchPreparation ? 'launch' : 'model') : 'create',
       sessionId: current.sessionId,
+      launchTargetRevision: null,
       modelId: requestedModelId,
       thinkingWriteStarted: false,
       thinkingWriteReceiptConfirmed: false,
       approvalWriteStarted: false,
       inFlight: false,
       closeRequested: false,
+      cancelRequested: false,
+      pausedForNavigation: false,
+      requiresExplicitContinue: false,
+      handoffStarted: false,
+      observationController,
+      activeAttemptController,
     }
     pending.set(input.draftId, operation)
     setPhase(operation, 'preparing')
     operation.inFlight = true
     try {
-      const catalog = await readModelCatalog(execution.signal)
-      if (execution.signal.aborted) throw new CommandError('CANCELLED', 'Model catalog preflight was cancelled')
+      const catalog = await readModelCatalog(observationSignal)
+      if (observationSignal.aborted) throw new CommandError('CANCELLED', 'Model catalog preflight was cancelled')
+      if (operation.cancelRequested)
+        throw new CommandError('CANCELLED', 'First submission was cancelled before creation')
       if (operation.closeRequested)
         throw new CommandError('CANCELLED', 'Pre-session draft was closed before Session creation')
       if (requestedModelId && !catalog.some((model) => model.id === requestedModelId))
@@ -1114,7 +1363,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         const next = { ...state.reader.getSnapshot() }
         delete next[input.draftId]
         state.replace(next)
-      } else setPhase(operation, 'failed', errorCode(error))
+      } else setPhase(operation, 'failed', operation.cancelRequested ? 'CANCELLED' : errorCode(error))
       pending.delete(input.draftId)
       throw error
     } finally {
@@ -1132,13 +1381,114 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const operation = pending.get(draftId)
     if (!operation) throw new CommandError('INVALID_STATE', 'No first submission is available to reconcile')
     if (operation.inFlight) throw new CommandError('BUSY', 'The original first submission is still in flight')
-    if (operation.stage === 'goal') return reconcileGoalPreparation(operation)
-    const accepted = await run(operation, true)
+    if (operation.stage === 'launch') return reconcileLaunchPreparation(operation)
+    if (operation.stage === 'goal') {
+      const sessionId = operation.sessionId
+      const composer = sessionId ? options.composerIntents.getSnapshot().entries[sessionId] : undefined
+      if (operation.handoffStarted && composer?.submission.status === 'unknown' && composer.submission.phase === 'run')
+        operation.stage = 'run'
+      else if (composer?.submission.status === 'partial' || composer?.submission.phase !== 'run')
+        return reconcileGoalPreparation(operation)
+    }
+    let accepted: RunAccepted
+    try {
+      accepted = await run(operation, true)
+    } catch (error) {
+      if (operation.cancelRequested && !pending.has(draftId)) return entry(draftId)
+      throw error
+    }
     const settled = state.reader.getSnapshot()[draftId]
     return (
       settled ?? operationState(initial(draftId, operation.workspaceId), operation, 'accepted', null, null, accepted)
     )
   })
+
+  local.register(
+    preSessionDraftCommands['preSessionDraft.continue'],
+    async ({ draftId, expectedRevision }, execution) => {
+      const current = entry(draftId)
+      checkRevision(current, expectedRevision)
+      if (current.phase === 'accepted') return current
+      const operation = pending.get(draftId)
+      if (!operation) throw new CommandError('INVALID_STATE', 'No first submission is available to continue')
+      if (operation.inFlight) throw new CommandError('BUSY', 'The original first submission is still in flight')
+      if (operation.handoffStarted)
+        throw new CommandError('RESULT_UNKNOWN', 'Reconcile the original Run receipt instead')
+      if (operation.cancelRequested) throw new CommandError('CANCELLED', 'The first submission was cancelled')
+      if (!operation.requiresExplicitContinue && operation.stage !== 'launch')
+        throw new CommandError('INVALID_STATE', 'The first submission is not paused for explicit continuation')
+      const sessionId = operation.sessionId
+      const navigation = options.navigation.getSnapshot()
+      if (
+        !sessionId ||
+        navigation.status !== 'idle' ||
+        navigation.sessionId !== sessionId ||
+        navigation.workspaceId !== operation.workspaceId
+      )
+        throw new CommandError('STALE_TARGET', 'Select the captured Session and Workspace before continuing')
+      operation.navigationFence = navigation
+      operation.pausedForNavigation = false
+      operation.requiresExplicitContinue = false
+      await run(operation, false, operation.stage === 'launch', execution.signal)
+      return entry(draftId)
+    },
+  )
+
+  local.register(
+    preSessionDraftCommands['preSessionDraft.cancel'],
+    async ({ draftId, expectedRevision }, execution) => {
+      const current = entry(draftId)
+      checkRevision(current, expectedRevision)
+      if (current.phase === 'accepted') return current
+      const operation = pending.get(draftId)
+      if (!operation) {
+        if (current.phase === 'failed' && current.error === 'CANCELLED') return current
+        throw new CommandError('INVALID_STATE', 'No first submission is available to cancel')
+      }
+
+      if (operation.handoffStarted) {
+        if (operation.inFlight) return current
+        if (operation.stage === 'goal') {
+          const sessionId = operation.sessionId
+          const composer = sessionId ? options.composerIntents.getSnapshot().entries[sessionId] : undefined
+          if (composer?.submission.status === 'unknown' && composer.submission.phase === 'run') operation.stage = 'run'
+          else if (current.phase === 'unknown') return reconcileGoalPreparation(operation)
+        }
+        if (operation.stage === 'run' && current.phase === 'unknown') {
+          await run(operation, true, false, execution.signal)
+          return entry(draftId)
+        }
+        return current
+      }
+
+      operation.cancelRequested = true
+      operation.activeAttemptController?.abort(new CommandError('CANCELLED', 'First submission was cancelled'))
+      if (operation.launchPreparation) {
+        const outcome = await operation.launchPreparation.cancel()
+        if (outcome.kind === 'failed')
+          return finishCancelled(operation, operation.launchPreparation.getState().error ?? 'EXECUTION_FAILED')
+        if (outcome.kind === 'cancelled') return finishCancelled(operation)
+        if (!operation.inFlight)
+          setPhase(operation, 'unknown', 'CANCEL_REQUESTED', operation.launchPreparation.getRecoveryStage())
+        return entry(draftId)
+      }
+
+      if (operation.inFlight) {
+        setPhase(
+          operation,
+          current.phase === 'unknown' ? 'unknown' : 'preparing',
+          current.phase === 'unknown' ? current.error : null,
+          current.phase === 'unknown' ? current.unknownStage : null,
+        )
+        return entry(draftId)
+      }
+      if (current.phase === 'unknown') {
+        setPhase(operation, 'unknown', 'CANCEL_REQUESTED', current.unknownStage)
+        return entry(draftId)
+      }
+      return finishCancelled(operation)
+    },
+  )
 
   local.register(preSessionDraftCommands['preSessionDraft.close'], ({ draftId }) => {
     const current = state.reader.getSnapshot()[draftId]
@@ -1172,6 +1522,11 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     dispose() {
       disposed = true
       unsubscribeComposerIntents()
+      for (const operation of pending.values()) {
+        operation.observationController.abort()
+        operation.activeAttemptController?.abort()
+        operation.launchPreparation?.dispose()
+      }
       pending.clear()
       state.dispose()
     },
