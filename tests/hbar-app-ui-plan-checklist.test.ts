@@ -96,6 +96,33 @@ describe('host-owned checklist run and independent disclosure', () => {
     expect(projectChecklistPreviewContent(store.getState())).toBeUndefined()
     expect(createChecklistPreviewStore(content).getState().paused).toBe(false)
   })
+  test('rejects blank run targets and host busy/progress refreshes replace local pause', () => {
+    const content = fixture()
+    const invalid = createChecklistPreviewStore({ ...content, runId: ' ' })
+    invalid.getState().pause(' ', true)
+    expect(invalid.getState().paused).toBe(false)
+
+    const store = createChecklistPreviewStore(content)
+    store.getState().pause(content.runId, true)
+    store.getState().replace({ ...content, busy: true })
+    expect(store.getState().paused).toBe(content.paused)
+    store.getState().replace(content)
+    expect(store.getState().paused).toBe(content.paused)
+
+    store.getState().pause(content.runId, true)
+    const running = content.steps.find((step) => step.state === 'running')
+    const queued = content.steps.find((step) => step.state === 'queued')
+    if (!running || !queued) throw new Error('Running and queued steps required')
+    const steps = content.steps.map((step) =>
+      step.id === running.id
+        ? { ...step, state: 'done' as const }
+        : step.id === queued.id
+          ? { ...step, state: 'running' as const }
+          : step,
+    )
+    store.getState().replace({ ...content, steps })
+    expect(store.getState().paused).toBe(content.paused)
+  })
   test('deduplicates stable IDs and retains over-capacity data with a declared scroll owner', () => {
     const content = fixture()
     expect(render({ ...content, steps: [...content.steps, content.steps[0]!] }).match(/<li\b/g)).toHaveLength(7)

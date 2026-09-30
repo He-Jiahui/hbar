@@ -99,6 +99,38 @@ describe('plan summary controlled goal and run workflow', () => {
     stale.onSave()
     expect(view(store)).toBeUndefined()
   })
+  test('busy refresh owns edit/run mode without discarding a local draft', () => {
+    const content = fixture()
+    const interaction = content.interaction
+    if (!interaction) throw new Error('Workflow required')
+    const store = createPlanSummaryPreviewStore(content)
+    workflow(store).onEdit()
+    workflow(store).onDraftChange('Keep this draft available for recovery')
+    store.getState().replace({ ...content, interaction: { ...interaction, busy: true, error: 'Saving failed' } })
+    expect(workflow(store).editing).toBe(false)
+    expect(workflow(store).draft).toBe('Keep this draft available for recovery')
+    store.getState().replace(content)
+    expect(workflow(store).editing).toBe(false)
+    expect(workflow(store).draft).toBe('Keep this draft available for recovery')
+
+    workflow(store).onEdit()
+    workflow(store).onCancel()
+    workflow(store).onRun()
+    expect(workflow(store).running).toBe(true)
+    store.getState().replace({ ...content, interaction: { ...interaction, busy: true } })
+    expect(workflow(store).running).toBe(false)
+    store.getState().replace(content)
+    expect(workflow(store).running).toBe(false)
+
+    const blankPlan = createPlanSummaryPreviewStore({
+      ...content,
+      interaction: { ...interaction, planId: ' ' },
+    })
+    workflow(blankPlan).onEdit()
+    workflow(blankPlan).onRun()
+    expect(workflow(blankPlan).editing).toBe(interaction.editing)
+    expect(workflow(blankPlan).running).toBe(interaction.running)
+  })
   test('retains empty, one, boundary, over-bound and first duplicate records without clipping data', () => {
     const content = fixture(),
       row = content.breakdown[0],

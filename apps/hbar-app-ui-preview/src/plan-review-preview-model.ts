@@ -22,17 +22,21 @@ export interface PlanReviewPreviewState {
 function unique(steps: readonly HbarAppUiAgentPlanStep[]) {
   const seen = new Set<string>()
   return steps.filter((step) => {
-    if (seen.has(step.id)) return false
+    if (!step.id.trim() || seen.has(step.id)) return false
     seen.add(step.id)
     return true
   })
+}
+
+function hasId(id: string): boolean {
+  return id.trim().length > 0
 }
 
 function editable(
   state: PlanReviewPreviewState,
   planId: string,
 ): state is PlanReviewPreviewState & { readonly content: HbarAppUiAgentPlanEditableContent } {
-  return state.content?.planId === planId && !state.content.busy && !state.running
+  return hasId(planId) && state.content?.planId === planId && !state.content.busy && !state.running
 }
 
 export function createPlanReviewPreviewStore(content: Content, createId: () => string = () => crypto.randomUUID()) {
@@ -45,13 +49,17 @@ export function createPlanReviewPreviewStore(content: Content, createId: () => s
     replace(next) {
       const current = get()
       if (current.content === next) return
-      const same = next?.planId === current.content?.planId
+      const same = Boolean(hasId(next?.planId ?? '') && next?.planId === current.content?.planId)
       const sameSteps = same && next?.steps === current.content?.steps
+      const busyChanged = next?.busy !== current.content?.busy
       set({
         content: next,
         steps: sameSteps ? current.steps : unique(next?.steps ?? []),
         draft: same && next?.draft === current.content?.draft ? current.draft : (next?.draft ?? ''),
-        running: same && next?.running === current.content?.running ? current.running : (next?.running ?? false),
+        running:
+          same && !busyChanged && next?.running === current.content?.running
+            ? current.running
+            : (next?.running ?? false),
         announcement: sameSteps ? current.announcement : undefined,
       })
     },
@@ -65,7 +73,7 @@ export function createPlanReviewPreviewStore(content: Content, createId: () => s
       const title = current.draft.trim()
       if (!title) return
       const id = createId()
-      if (!id || current.steps.some((step) => step.id === id)) return
+      if (!hasId(id) || current.steps.some((step) => step.id === id)) return
       set({
         steps: [...current.steps, { id, title, state: 'queued', stateLabel: current.content.labels.newStepStateLabel }],
         draft: '',
@@ -74,7 +82,7 @@ export function createPlanReviewPreviewStore(content: Content, createId: () => s
     },
     move(planId, stepId, direction) {
       const current = get()
-      if (!editable(current, planId)) return
+      if (!editable(current, planId) || !hasId(stepId)) return
       const index = current.steps.findIndex((step) => step.id === stepId)
       const target = index + direction
       const item = current.steps[index]
@@ -87,7 +95,7 @@ export function createPlanReviewPreviewStore(content: Content, createId: () => s
     },
     toggleSkip(planId, stepId) {
       const current = get()
-      if (!editable(current, planId) || !current.steps.some((step) => step.id === stepId)) return
+      if (!editable(current, planId) || !hasId(stepId) || !current.steps.some((step) => step.id === stepId)) return
       set({
         steps: current.steps.map((step) =>
           step.id === stepId ? { ...step, state: step.state === 'skipped' ? 'queued' : 'skipped' } : step,
@@ -96,7 +104,7 @@ export function createPlanReviewPreviewStore(content: Content, createId: () => s
     },
     setRunning(planId, running) {
       const current = get()
-      if (current.content?.planId !== planId || current.content.busy) return
+      if (!hasId(planId) || current.content?.planId !== planId || current.content.busy) return
       if (running && (!current.content.canSubmit || !current.steps.some((step) => step.state !== 'skipped'))) return
       set({ running })
     },

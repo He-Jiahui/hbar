@@ -4,6 +4,10 @@ import type { HbarAppUiAgentPlanTreeContent, HbarAppUiAgentPlanGroup } from 'hba
 type Content = HbarAppUiAgentPlanTreeContent | undefined
 type Target = Readonly<{ groupId: string; stepId: string }>
 
+function hasId(id: string): boolean {
+  return id.trim().length > 0
+}
+
 export interface PlanTreePreviewState {
   readonly content: Content
   readonly retried: readonly Target[]
@@ -18,15 +22,24 @@ export function createPlanTreePreviewStore(content: Content) {
     replace(next) {
       const current = get()
       if (current.content === next) return
+      const sameRun = Boolean(next?.runId.trim() && next.runId === current.content?.runId)
+      const sameGroups = next?.groups === current.content?.groups
+      const sameBusyState = next?.busy === current.content?.busy
       set({
         content: next,
-        retried:
-          next?.runId === current.content?.runId && next?.groups === current.content?.groups ? current.retried : [],
+        retried: sameRun && sameGroups && sameBusyState ? current.retried : [],
       })
     },
     retry(runId, groupId, stepId) {
       const current = get()
-      if (current.content?.runId !== runId || current.content.busy) return
+      if (
+        !hasId(runId) ||
+        !hasId(groupId) ||
+        !hasId(stepId) ||
+        current.content?.runId !== runId ||
+        current.content.busy
+      )
+        return
       const step = current.content.groups
         .find((group) => group.id === groupId)
         ?.items.find((item) => item.id === stepId)

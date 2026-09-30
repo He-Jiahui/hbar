@@ -2,6 +2,10 @@ import { createStore } from 'zustand/vanilla'
 import type { HbarAppUiAgentPlanSummaryContent } from 'hbar-app-ui/catalog'
 
 type Content = HbarAppUiAgentPlanSummaryContent | undefined
+
+function hasId(id: string): boolean {
+  return id.trim().length > 0
+}
 export interface PlanSummaryPreviewState {
   readonly content: Content
   readonly goal: string
@@ -16,7 +20,7 @@ export interface PlanSummaryPreviewState {
   readonly setRunning: (planId: string, running: boolean) => void
 }
 function owns(state: PlanSummaryPreviewState, planId: string): boolean {
-  return state.content?.interaction?.planId === planId && !state.content.interaction.busy
+  return hasId(planId) && state.content?.interaction?.planId === planId && !state.content.interaction.busy
 }
 export function createPlanSummaryPreviewStore(content: Content) {
   return createStore<PlanSummaryPreviewState>((set, get) => ({
@@ -28,8 +32,10 @@ export function createPlanSummaryPreviewStore(content: Content) {
     replace(next) {
       const previous = get()
       if (previous.content === next) return
-      const same = next?.interaction?.planId === previous.content?.interaction?.planId
+      const same =
+        hasId(next?.interaction?.planId ?? '') && next?.interaction?.planId === previous.content?.interaction?.planId
       const sameGoal = same && next?.goal === previous.content?.goal
+      const busyChanged = next?.interaction?.busy !== previous.content?.interaction?.busy
       set({
         content: next,
         goal: sameGoal ? previous.goal : (next?.goal ?? ''),
@@ -38,11 +44,14 @@ export function createPlanSummaryPreviewStore(content: Content) {
             ? previous.draft
             : (next?.interaction?.draft ?? ''),
         editing:
-          sameGoal && next?.interaction?.editing === previous.content?.interaction?.editing
+          sameGoal &&
+          !busyChanged &&
+          next?.interaction?.draft === previous.content?.interaction?.draft &&
+          next?.interaction?.editing === previous.content?.interaction?.editing
             ? previous.editing
             : (next?.interaction?.editing ?? false),
         running:
-          same && next?.interaction?.running === previous.content?.interaction?.running
+          same && !busyChanged && next?.interaction?.running === previous.content?.interaction?.running
             ? previous.running
             : (next?.interaction?.running ?? false),
       })

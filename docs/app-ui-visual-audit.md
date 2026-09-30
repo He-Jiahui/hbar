@@ -1192,3 +1192,30 @@ page/console error 或页面横溢。44 项相关模型/受控 SSR/兼容测试�
 根/子仓类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/
 声明与生产预览构建通过。仍按用户要求不跑逐按钮/主题/宽度排列；来源为已授权缓存，
 没有重标旧严格证据或声称 fresh strict 全量验收。
+
+Agent Plan 1–6 本轮复用已有六种独立结构及四个 Zustand Host 模型；不重做已经符合
+参考的七步清单、九步审阅、四组树、耗时表、三阶段看板和摘要。预览 owner 按变体
+隔离，仅给匹配变体投影本地状态；空白 run/plan/group/step ID 与重复生成 ID 不产生
+动作，busy/权威运行目标刷新清理旧暂停或运行 phase，安全的摘要草稿继续保留。
+默认 API/内容不变，新的 presentation 仅选择自然内容流和 Host 就近反馈。
+
+完整授权缓存 `agent-plan-1-final-v26`、`agent-plan-3-reviewed-v26` 与
+`agent-plan-6-summary-flow-v26` 证明暂停/恢复、失败步骤转为 Running、目标编辑/
+保存/取消及 Run/Stop 的 UI 转换；不能仅用 full-static 裁切或误匹配的第一个控件
+快照否定这些交互。相关实现来源为 `ac9525a0`、`91a393ef`、`0d044b62` 和子仓
+`4cc8b11d00`。本轮保留转换形状，但 EN/DE 文案明确本地预览、重试请求与无工具
+启动，不伪造文件修改、测试、命令执行、真实取消或计费；进度、耗时、工具和估算
+仍由 Host 内容提供。耗时表与看板保留只读语义，不添加参考中没有的选择或拖拽。
+
+新增 preview-scoped flex 样式解除普通正文的强制 100% 高度与外壳裁切，长标题与
+状态自然换行，摘要脚注及按钮在窄屏按内容排列；仅声明 pane-scroll 的列表使用
+所属滚动范围。三阶段看板保持桌面并排、窄屏顺序堆叠，记录不因屏幕一次装不下而
+删除。保留来源已证实的边缘渐隐覆盖层，不定位普通正文，也不按截图坐标摆放。
+
+`bun scripts/verify-hbar-app-ui-agent-plan.ts` 已收敛为六种结构一次与共享机制抽查，
+两种窄屏取堆叠看板和德语摘要，超容量只取一个所属 pane 样本；未扩展按钮/主题/
+视口排列。34 条核心检查记录通过，代表图位于 `artifacts/agent-plan-core-review/`，
+无 page/console error 或页面横溢。54 项模型/SSR/兼容测试、488 个断言通过；根/子仓
+类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
+生产预览构建通过。根类型检查期间其它图片任务的暂态错误已在最终检查中消失，
+本轮未修改其文件。使用授权缓存，不重标旧严格审计或声称 fresh strict 全量完成。

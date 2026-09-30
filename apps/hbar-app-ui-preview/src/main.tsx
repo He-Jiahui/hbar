@@ -65,6 +65,7 @@ import { previewLayoutStyle } from './preview-layout'
 import { UsagePreviewHost } from './UsagePreviewHost'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
+import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
 import { FeedbackPreviewHost } from './FeedbackPreviewHost'
 import { ApprovalPreviewHost } from './ApprovalPreviewHost'
@@ -999,7 +1000,11 @@ function PreviewApp() {
                                                                               onAction={handleAction} referenceFixture={paywall6ReferenceFixture}>
                                                                               <Paywall7PreviewHost content={paywallContent} spec={selected.spec}
                                                                                 onAction={handleAction} referenceFixture={paywall7ReferenceFixture}>
-                                                                      <PlanPreviewHost content={agentPlanContent}>
+                                                                      <PlanPreviewHost
+                                                                        content={agentPlanContent}
+                                                                        spec={selected.spec}
+                                                                        localized={new URLSearchParams(window.location.search).get('agentPlanFixture') === 'localized'}
+                                                                      >
                                                                         <ApprovalPreviewHost
                                                                           content={agentApprovalContent}
                                                                           spec={selected.spec}
@@ -1495,6 +1500,8 @@ function PreviewApp() {
                                                                                           onAction={handleAction} referenceFixture={paywall7ReferenceFixture}>
                                                                                 <PlanPreviewHost
                                                                                   content={agentPlanContent}
+                                                                                  spec={selected.spec}
+                                                                                  localized={new URLSearchParams(window.location.search).get('agentPlanFixture') === 'localized'}
                                                                                 >
                                                                                   <ApprovalPreviewHost
                                                                                     content={agentApprovalContent}

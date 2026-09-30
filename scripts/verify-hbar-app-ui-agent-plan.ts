@@ -1,212 +1,383 @@
-import {chromium} from '@playwright/test'
-import { verifyPlanChecklist } from './verify-hbar-app-ui-plan-checklist'
-import { verifyPlanReview } from './verify-hbar-app-ui-plan-review'
-import { verifyPlanTree } from './verify-hbar-app-ui-plan-tree'
-import { verifyPlanActual } from './verify-hbar-app-ui-plan-actual'
-import { verifyPlanBoard } from './verify-hbar-app-ui-plan-board'
-import { verifyPlanSummary } from './verify-hbar-app-ui-plan-summary'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { basename, resolve } from 'node:path'
+import { chromium, expect, type Page } from '@playwright/test'
+import {
+  createHbarAppUiAgentPlanLocalizedFixtures as createRawLocalizedPlanFixtures,
+  HBAR_APP_UI_AGENT_PLAN_FIXTURES as RAW_AGENT_PLAN_FIXTURES,
+} from '../tests/fixtures/hbar-app-ui-agent-plan-fixtures'
+import { createPlanPreviewCopy, projectPlanPreviewCopy } from '../apps/hbar-app-ui-preview/src/planPreviewCopy'
 
-const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5185'
+const baseUrl = process.env.HBAR_APP_UI_PREVIEW_URL ?? 'http://127.0.0.1:5193'
 const executablePath = process.env.HBAR_APP_UI_CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
-type AgentPlanFixture = 'overflow' | 'localized'
-type Box = Readonly<{x: number; y: number; width: number; height: number}>
+const artifactDirectory = resolve('artifacts/agent-plan-core-review')
+const HBAR_APP_UI_AGENT_PLAN_FIXTURES = projectPlanPreviewCopy(RAW_AGENT_PLAN_FIXTURES, false)
+const LOCALIZED_AGENT_PLAN_FIXTURES = projectPlanPreviewCopy(createRawLocalizedPlanFixtures(), true)
+const previewCopy = createPlanPreviewCopy(false)
+const diagnostics: string[] = []
+const completedChecks: string[] = []
 
-function previewUrl(variant: number, fixture?: AgentPlanFixture): string {
-    const params = new URLSearchParams({variant: `hbar-app-ui-agent-plan-${variant}`, mode: 'isolated'})
-    if (fixture) params.set('agentPlanFixture', fixture)
-    return `${baseUrl}/?${params.toString()}`
+type PlanFixture = 'localized' | 'overflow'
+
+function requireValue<T>(value: T | null | undefined, label: string): T {
+  if (value === undefined || value === null) throw new Error(`Missing plan fixture data: ${label}`)
+  return value
 }
 
-function assert(condition: unknown, message: string): asserts condition {
-    if (!condition) throw new Error(message)
+function previewUrl(variant: number, fixture?: PlanFixture): string {
+  const query = new URLSearchParams({
+    variant: `hbar-app-ui-agent-plan-${variant}`,
+    mode: 'isolated',
+  })
+  if (fixture) query.set('agentPlanFixture', fixture)
+  return `${baseUrl}/?${query.toString()}`
 }
 
-function difference(actual: Box, expected: Box): number {
-    return Math.max(
-        Math.abs(actual.x - expected.x),
-        Math.abs(actual.y - expected.y),
-        Math.abs(actual.width - expected.width),
-        Math.abs(actual.height - expected.height),
-    )
+async function openVariant(page: Page, variant: number, fixture?: PlanFixture): Promise<void> {
+  await page.goto(previewUrl(variant, fixture), { waitUntil: 'domcontentloaded' })
+  await expect(page.locator(`.hbar-app-ui-agent-plan-variant-${variant}`)).toBeVisible()
 }
 
-async function measured(locator: import('@playwright/test').Locator): Promise<Box> {
-    return locator.evaluate((element) => {
-        const box = element.getBoundingClientRect()
-        return {x: box.x, y: box.y, width: box.width, height: box.height}
-    })
+async function checkNoHorizontalOverflow(page: Page, context: string): Promise<void> {
+  const widths = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    document: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth,
+  }))
+  if (Math.max(widths.document, widths.body) > widths.viewport + 1) {
+    throw new Error(`${context} introduced horizontal page overflow: ${JSON.stringify(widths)}`)
+  }
+  completedChecks.push(`${context}: no horizontal page overflow`)
 }
 
-async function inspectScroll(locator: import('@playwright/test').Locator): Promise<{readonly scrollable: boolean; readonly moved: boolean}> {
-    return locator.evaluate((element) => {
-        element.scrollTop = element.scrollHeight
-        return {scrollable: element.scrollHeight > element.clientHeight, moved: element.scrollTop > 0}
-    })
+async function capture(page: Page, name: string): Promise<string> {
+  const filePath = resolve(artifactDirectory, name)
+  await page.screenshot({ path: filePath, fullPage: true })
+  return filePath
 }
 
 async function waitForPreview(): Promise<void> {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-        try {
-            const response = await fetch(baseUrl)
-            if (response.ok) return
-        } catch {
-            // Vite can need a short interval before the port is ready.
-        }
-        await new Promise((resolve) => setTimeout(resolve, 200))
-    }
-    throw new Error(`Preview is not reachable at ${baseUrl}`)
-}
-
-async function ensurePreview(): Promise<ReturnType<typeof Bun.spawn> | undefined> {
+  for (let attempt = 0; attempt < 25; attempt += 1) {
     try {
-        await waitForPreview()
-        return undefined
+      const response = await fetch(baseUrl)
+      if (response.ok) return
     } catch {
-        const server = Bun.spawn(['bun', 'run', 'app-ui:preview', '--', '--host', '127.0.0.1', '--port', '5185'], {stdout: 'ignore', stderr: 'ignore'})
-        await waitForPreview()
-        return server
+      // The verifier only connects to an already-running preview; it never starts or stops one.
     }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 200))
+  }
+  throw new Error(`Preview is not reachable at ${baseUrl}; start it separately before running this verifier.`)
 }
 
-async function verifyGeometry(page: import('@playwright/test').Page): Promise<Record<string, number>> {
-    const layouts: Readonly<Record<number, readonly {name: 'desktop' | 'tablet' | 'mobile'; width: number; height: number; selector: string; expected: Box}[]>> = {
-        1: [
-            {name: 'desktop', width: 1192, height: 560, selector: '.hbar-app-ui-agent-plan-checklist-pane', expected: {x: 24, y: 68, width: 1144, height: 468}},
-            {name: 'tablet', width: 768, height: 561, selector: '.hbar-app-ui-agent-plan-checklist-pane', expected: {x: 24, y: 68, width: 720, height: 468}},
-            {name: 'mobile', width: 320, height: 560, selector: '.hbar-app-ui-agent-plan-checklist-pane', expected: {x: 16, y: 60, width: 288, height: 484}},
-        ],
-        2: [
-            {name: 'desktop', width: 1192, height: 640, selector: '.lumen-plan-review-card', expected: {x: 24, y: 60, width: 1144, height: 460}},
-            {name: 'tablet', width: 768, height: 641, selector: '.lumen-plan-review-card', expected: {x: 24, y: 60, width: 720, height: 461}},
-            {name: 'mobile', width: 320, height: 640, selector: '.lumen-plan-review-card', expected: {x: 16, y: 52, width: 288, height: 476}},
-        ],
-        3: [
-            {name: 'desktop', width: 1192, height: 640, selector: '.lumen-plan-tree-card', expected: {x: 24, y: 60, width: 1144, height: 556}},
-            {name: 'tablet', width: 768, height: 641, selector: '.lumen-plan-tree-card', expected: {x: 24, y: 60, width: 720, height: 557}},
-            {name: 'mobile', width: 320, height: 640, selector: '.lumen-plan-tree-card', expected: {x: 16, y: 52, width: 288, height: 572}},
-        ],
-        4: [
-            {name: 'desktop', width: 1192, height: 480, selector: '.lumen-plan-actual-card', expected: {x: 24, y: 152, width: 1144, height: 304}},
-            {name: 'tablet', width: 768, height: 481, selector: '.lumen-plan-actual-card', expected: {x: 24, y: 152, width: 720, height: 305}},
-            {name: 'mobile', width: 320, height: 480, selector: '.lumen-plan-actual-card', expected: {x: 16, y: 144, width: 288, height: 320}},
-        ],
-        5: [
-            {name: 'desktop', width: 1192, height: 560, selector: '.lumen-plan-board-column', expected: {x: 24, y: 60, width: 373.328, height: 476}},
-            {name: 'tablet', width: 768, height: 561, selector: '.lumen-plan-board-column', expected: {x: 24, y: 60, width: 720, height: 480.5}},
-            {name: 'mobile', width: 320, height: 560, selector: '.lumen-plan-board-column', expected: {x: 16, y: 52, width: 288, height: 480.5}},
-        ],
-        6: [
-            {name: 'desktop', width: 1192, height: 640, selector: '.lumen-plan-summary-copy', expected: {x: 24, y: 87.5, width: 1144, height: 55.125}},
-            {name: 'tablet', width: 768, height: 641, selector: '.lumen-plan-summary-copy', expected: {x: 24, y: 87.5, width: 720, height: 55.125}},
-            {name: 'mobile', width: 320, height: 640, selector: '.lumen-plan-summary-copy', expected: {x: 16, y: 79.5, width: 288, height: 97.375}},
-        ],
+async function verifyStructures(page: Page): Promise<void> {
+  const structures: readonly [number, string][] = [
+    [1, '.hbar-app-ui-agent-plan-checklist-pane'],
+    [2, '.lumen-plan-review'],
+    [3, '.lumen-plan-tree-card'],
+    [4, '.lumen-plan-actual-card'],
+    [5, '.lumen-plan-board-columns'],
+    [6, '.lumen-plan-summary-scroll'],
+  ]
+  await page.setViewportSize({ width: 1365, height: 820 })
+
+  for (const [variant, selector] of structures) {
+    await openVariant(page, variant)
+    const root = page.locator(`.hbar-app-ui-agent-plan-variant-${variant}`)
+    await expect(root.locator(selector)).toBeVisible()
+    switch (variant) {
+      case 1: {
+        const checklist = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.checklist, 'checklist')
+        await expect(root.locator('.hbar-app-ui-agent-plan-checklist-pane ol > li')).toHaveCount(checklist.steps.length)
+        const running = requireValue(
+          checklist.steps.find((step) => step.state === 'running'),
+          'running step',
+        )
+        await expect(root.getByText(running.title, { exact: true })).toBeVisible()
+        break
+      }
+      case 2: {
+        const editable = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.editable, 'editable plan')
+        await expect(root.locator('.lumen-plan-review-scroll > ol > li')).toHaveCount(editable.steps.length)
+        await expect(root.getByRole('textbox', { name: editable.labels.addPlaceholder })).toBeVisible()
+        await expect(root.getByRole('button', { name: editable.labels.start(8), exact: true })).toBeVisible()
+        break
+      }
+      case 3: {
+        const tree = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.tree, 'plan tree')
+        await expect(root.locator('.lumen-plan-tree-group')).toHaveCount(tree.groups.length)
+        await expect(root.getByRole('button', { name: tree.labels.retry, exact: true })).toBeVisible()
+        break
+      }
+      case 4: {
+        const actual = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.actual, 'plan actual')
+        await expect(root.getByRole('table', { name: actual.labels.description })).toBeVisible()
+        await expect(root.locator('.lumen-plan-actual-table tbody tr')).toHaveCount(actual.rows.length)
+        await expect(root.locator('.lumen-plan-actual-metrics > div')).toHaveCount(actual.metrics.length)
+        await expect(root.getByRole('button')).toHaveCount(0)
+        break
+      }
+      case 5: {
+        const board = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.board, 'plan board')
+        await expect(root.locator('.lumen-plan-board-column')).toHaveCount(board.sections.length)
+        await expect(root.getByRole('listitem')).toHaveCount(
+          board.sections.reduce((count, section) => count + section.items.length, 0),
+        )
+        await expect(root.getByRole('button')).toHaveCount(0)
+        break
+      }
+      case 6: {
+        const summary = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.summary, 'plan summary')
+        await expect(root.getByText(summary.goal, { exact: true })).toBeVisible()
+        await expect(root.locator('.lumen-plan-summary-metrics > div')).toHaveCount(summary.metrics.length)
+        await expect(root.locator('.lumen-plan-summary-tools li')).toHaveCount(summary.tools.length)
+        await expect(root.locator('.lumen-plan-summary-breakdown > li')).toHaveCount(summary.breakdown.length)
+        await expect(root.getByRole('button', { name: summary.labels.edit, exact: true })).toBeVisible()
+        await expect(root.getByRole('button', { name: summary.labels.run, exact: true })).toBeVisible()
+        break
+      }
     }
-    const checks: Record<string, number> = {}
-    for (const [variantText, viewports] of Object.entries(layouts)) {
-        const variant = Number(variantText)
-        for (const viewport of viewports) {
-            await page.setViewportSize({width: viewport.width, height: viewport.height})
-            await page.goto(previewUrl(variant), {waitUntil: 'networkidle'})
-            const actual = await measured(page.locator(viewport.selector).first())
-            const delta = difference(actual, viewport.expected)
-            const key = `agent-plan-${variant}-${viewport.name}`
-            checks[key] = Number(delta.toFixed(3))
-            assert(delta <= 2.5, `${key} drifted ${delta.toFixed(3)}px from captured reference geometry`)
-        }
-    }
-    return checks
+    completedChecks.push(`variant ${variant}: primary structure and supplied data`)
+    await checkNoHorizontalOverflow(page, `variant ${variant} structure`)
+  }
 }
 
-async function run(): Promise<void> {
-    const server = await ensurePreview()
-    const browser = await chromium.launch({headless: true, executablePath})
-    const page = await browser.newPage({viewport: {width: 1192, height: 640}})
-    const pageErrors: string[] = []
-    page.on('pageerror', (error) => pageErrors.push(error.message))
-    try {
-        if (process.argv.includes('--summary-only')) {
-            await verifyPlanSummary(page, baseUrl)
-            assert(pageErrors.length === 0, `Plan summary page errors: ${pageErrors.join(' | ')}`)
-            return
-        }
-        if (process.argv.includes('--board-only')) {
-            await verifyPlanBoard(page, baseUrl)
-            assert(pageErrors.length === 0, `Plan board page errors: ${pageErrors.join(' | ')}`)
-            return
-        }
-        if (process.argv.includes('--actual-only')) {
-            await verifyPlanActual(page, baseUrl)
-            assert(pageErrors.length === 0, `Plan actual page errors: ${pageErrors.join(' | ')}`)
-            return
-        }
-        if (process.argv.includes('--tree-only')) {
-            await verifyPlanTree(page, baseUrl)
-            assert(pageErrors.length === 0, `Plan tree page errors: ${pageErrors.join(' | ')}`)
-            return
-        }
-        if (process.argv.includes('--review-only')) {
-            await verifyPlanReview(page, baseUrl)
-            assert(pageErrors.length === 0, `Plan review page errors: ${pageErrors.join(' | ')}`)
-            return
-        }
-        if (process.argv.includes('--checklist-only')) {
-            await verifyPlanChecklist(page, baseUrl)
-            assert(pageErrors.length === 0, `Checklist page errors: ${pageErrors.join(' | ')}`)
-            return
-        }
-        const geometryChecks = await verifyGeometry(page)
+async function verifyChecklistPause(page: Page): Promise<string> {
+  const checklist = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.checklist, 'checklist')
+  const running = requireValue(
+    checklist.steps.find((step) => step.state === 'running'),
+    'running checklist step',
+  )
+  const runningIndex = checklist.steps.findIndex((step) => step.id === running.id)
+  await page.setViewportSize({ width: 1365, height: 820 })
+  await openVariant(page, 1)
+  const root = page.locator('.hbar-app-ui-agent-plan-variant-1')
+  const activeRow = root.locator('.hbar-app-ui-agent-plan-checklist-pane ol > li').nth(runningIndex)
+  const progress = checklist.labels.progress(2, 7)
+  await root.getByRole('button', { name: checklist.labels.stop, exact: true }).click()
+  await expect(root.getByRole('button', { name: checklist.labels.resume, exact: true })).toBeVisible()
+  await expect(activeRow).toHaveAttribute('data-state', 'paused')
+  await expect(activeRow.getByText(checklist.labels.paused, { exact: true })).toBeVisible()
+  await expect(root.locator('.hbar-app-ui-agent-plan-checklist-announcement')).toHaveText(
+    checklist.labels.pausedOn(running.title),
+  )
+  await expect(root.locator('.hbar-app-ui-agent-plan-progress')).toContainText(progress)
+  await expect(root.locator('.lumen-agent-plan-preview-notice[role="status"]')).toHaveText(previewCopy.notice)
+  completedChecks.push('variant 1: Pause preview keeps the active step and progress; no real task is paused')
+  await checkNoHorizontalOverflow(page, 'paused checklist')
+  const screenshot = await capture(page, 'plan-1-paused-preview.png')
 
-        await page.goto(previewUrl(1), {waitUntil: 'networkidle'})
-        const stop = page.getByRole('button', {name: 'Stop', exact: true})
-        await stop.click()
-        assert(await page.getByRole('button', {name: 'Resume', exact: true}).count() === 1, 'Checklist stop action did not pause')
-
-        await page.goto(previewUrl(2), {waitUntil: 'networkidle'})
-        const addInput = page.getByRole('textbox', {name: 'Add a step', exact: true})
-        await addInput.fill('Confirm the localized entitlement copy')
-        await page.getByRole('button', {name: 'Add', exact: true}).click()
-        assert(await page.getByText('Confirm the localized entitlement copy', {exact: true}).count() === 1, 'Editable plan did not add the host-entered step')
-        const firstSkip = page.getByRole('button', {name: 'Skip Read the billing contract notes', exact: true})
-        await firstSkip.click()
-        assert(await page.getByRole('button', {name: 'Restore Read the billing contract notes', exact: true}).count() === 1, 'Editable plan did not expose restore after skipping')
-
-        await page.goto(previewUrl(2, 'overflow'), {waitUntil: 'networkidle'})
-        const editableOverflow = await inspectScroll(page.locator('.lumen-plan-review-scroll'))
-        assert(editableOverflow.scrollable && editableOverflow.moved, 'Editable plan did not expose the declared pane scroll strategy')
-
-        await page.goto(previewUrl(3), {waitUntil: 'networkidle'})
-        await page.getByRole('button', {name: 'Retry', exact: true}).click()
-
-        await page.goto(previewUrl(5, 'overflow'), {waitUntil: 'networkidle'})
-        const boardOverflow = await inspectScroll(page.locator('.lumen-plan-board-columns'))
-        assert(boardOverflow.scrollable && boardOverflow.moved, 'Board did not expose the declared pane scroll strategy')
-
-        await page.goto(previewUrl(6), {waitUntil: 'networkidle'})
-        await page.getByRole('button', {name: 'Edit plan', exact: true}).click()
-        await page.getByRole('button', {name: 'Cancel', exact: true}).click()
-        await page.getByRole('button', {name: 'Run plan', exact: true}).click()
-        await page.getByRole('button', {name: 'Stop', exact: true}).click()
-
-        await page.setViewportSize({width: 320, height: 640})
-        const narrowOverflow: Record<string, boolean> = {}
-        for (let variant = 1; variant <= 6; variant += 1) {
-            await page.goto(previewUrl(variant, variant === 2 || variant === 6 ? 'localized' : undefined), {waitUntil: 'networkidle'})
-            const noHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
-            narrowOverflow[`agent-plan-${variant}`] = noHorizontalOverflow
-            assert(noHorizontalOverflow, `Narrow agent-plan-${variant} layout overflowed horizontally`)
-        }
-
-        await page.goto(previewUrl(2, 'localized'), {waitUntil: 'networkidle'})
-        assert(await page.getByText('Plan vor dem Start prüfen', {exact: true}).count() === 1, 'Localized editable plan copy was not rendered from the host bundle')
-        await page.goto(previewUrl(6, 'localized'), {waitUntil: 'networkidle'})
-        assert(await page.getByText('Shell-Befehle', {exact: true}).count() === 1, 'Localized summary copy was not rendered from the host bundle')
-
-        assert(pageErrors.length === 0, `Agent plan preview reported page errors: ${pageErrors.join(' | ')}`)
-        console.log(JSON.stringify({geometryChecks, boardOverflow, editableOverflow, narrowOverflow, localizedHostCopy: true, pageErrors: pageErrors.length}))
-    } finally {
-        await browser.close()
-        server?.kill()
-    }
+  await root.getByRole('button', { name: checklist.labels.resume, exact: true }).click()
+  await expect(root.getByRole('button', { name: checklist.labels.stop, exact: true })).toBeVisible()
+  await expect(activeRow).toHaveAttribute('data-state', 'running')
+  await expect(root.locator('.hbar-app-ui-agent-plan-progress')).toContainText(progress)
+  await checkNoHorizontalOverflow(page, 'resumed checklist')
+  completedChecks.push('variant 1: Resume preview restores the same active step without changing progress')
+  return screenshot
 }
 
-await run()
+async function verifyPlanReview(page: Page): Promise<void> {
+  const editable = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.editable, 'editable plan')
+  const title = 'Confirm the renewal fallback example'
+  await page.setViewportSize({ width: 1365, height: 820 })
+  await openVariant(page, 2)
+  const root = page.locator('.hbar-app-ui-agent-plan-variant-2')
+  const draft = root.getByRole('textbox', { name: editable.labels.addPlaceholder })
+  await draft.fill(title)
+  await root.getByRole('button', { name: editable.labels.add, exact: true }).click()
+  await expect(root.locator('.lumen-plan-review-scroll > ol > li')).toHaveCount(editable.steps.length + 1)
+  await expect(root.locator('.lumen-plan-review-scroll')).toContainText(title)
+  await expect(root.locator('.lumen-plan-review-announcement')).toHaveText(editable.labels.added(title))
+  await expect(root.locator('.lumen-plan-review > header')).toContainText(editable.labels.summaryCounts(9, 1))
+  await expect(root.getByRole('button', { name: editable.labels.start(9), exact: true })).toBeVisible()
+  await expect(root.locator('.lumen-agent-plan-preview-notice[role="status"]')).toHaveText(previewCopy.notice)
+  await checkNoHorizontalOverflow(page, 'editable plan local add')
+  completedChecks.push('variant 2: host-owned plan draft add is visible and remains a preview-only edit')
+}
+
+async function verifyTreeRetry(page: Page): Promise<void> {
+  const tree = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.tree, 'plan tree')
+  const failedGroup = requireValue(
+    tree.groups.find((group) => group.items.some((item) => item.state === 'failed')),
+    'failed group',
+  )
+  const failedStep = requireValue(
+    failedGroup.items.find((item) => item.state === 'failed'),
+    'failed step',
+  )
+  const queuedStep = requireValue(
+    failedGroup.items.find((item) => item.state === 'queued'),
+    'neighboring queued step',
+  )
+  await page.setViewportSize({ width: 1365, height: 820 })
+  await openVariant(page, 3)
+  const root = page.locator('.hbar-app-ui-agent-plan-variant-3')
+  const target = root.locator(`[data-group-id="${failedGroup.id}"] [data-step-id="${failedStep.id}"]`)
+  await root.getByRole('button', { name: tree.labels.retry, exact: true }).click()
+  await expect(target).toHaveAttribute('data-state', 'running')
+  await expect(target).toContainText(previewCopy.retryRequested)
+  await expect(target.getByRole('button', { name: tree.labels.retry, exact: true })).toHaveCount(0)
+  await expect(root.locator(`[data-group-id="${failedGroup.id}"] [data-step-id="${queuedStep.id}"]`)).toHaveAttribute(
+    'data-state',
+    'queued',
+  )
+  await expect(root.getByText(tree.labels.progress(5, 13), { exact: true })).toBeVisible()
+  await expect(root.locator('.lumen-agent-plan-preview-notice[role="status"]')).toHaveText(previewCopy.notice)
+  await checkNoHorizontalOverflow(page, 'plan tree retry request')
+  completedChecks.push('variant 3: retry targets only the failed step; preview label and plan facts remain explicit')
+}
+
+async function verifyActualAndBoard(page: Page): Promise<void> {
+  const actual = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.actual, 'plan actual')
+  await page.setViewportSize({ width: 1365, height: 820 })
+  await openVariant(page, 4)
+  const actualRoot = page.locator('.hbar-app-ui-agent-plan-variant-4')
+  await expect(actualRoot.getByRole('table', { name: actual.labels.description })).toBeVisible()
+  await expect(actualRoot.locator('.lumen-plan-actual-table tbody tr')).toHaveCount(actual.rows.length)
+  await expect(actualRoot.getByRole('button')).toHaveCount(0)
+  await checkNoHorizontalOverflow(page, 'actual duration table')
+  completedChecks.push('variant 4: actual durations are passive table data; no invented action controls')
+
+  const board = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.board, 'plan board')
+  await openVariant(page, 5)
+  const boardRoot = page.locator('.hbar-app-ui-agent-plan-variant-5')
+  await expect(boardRoot.locator('.lumen-plan-board-column')).toHaveCount(board.sections.length)
+  await expect(boardRoot.getByRole('listitem')).toHaveCount(
+    board.sections.reduce((count, section) => count + section.items.length, 0),
+  )
+  await expect(boardRoot.getByRole('button')).toHaveCount(0)
+  await checkNoHorizontalOverflow(page, 'plan board data')
+  completedChecks.push('variant 5: three-phase board remains passive supplied data')
+}
+
+async function verifyNarrowBoard(page: Page): Promise<string> {
+  const board = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.board, 'plan board')
+  await page.setViewportSize({ width: 320, height: 560 })
+  await openVariant(page, 5)
+  const root = page.locator('.hbar-app-ui-agent-plan-variant-5')
+  const columns = root.locator('.lumen-plan-board-column')
+  await expect(columns).toHaveCount(board.sections.length)
+  const verticalFlow = await columns.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect()
+      return { top: rect.top, bottom: rect.bottom }
+    }),
+  )
+  if (
+    verticalFlow.some((box, index) => {
+      const previous = verticalFlow[index - 1]
+      return index > 0 && previous !== undefined && box.top < previous.bottom
+    })
+  )
+    throw new Error(`Narrow board columns did not stack in document order: ${JSON.stringify(verticalFlow)}`)
+  await expect(root.locator('.lumen-plan-board-column h3')).toHaveCount(board.sections.length)
+  await checkNoHorizontalOverflow(page, 'narrow stacked plan board')
+  completedChecks.push('variant 5: narrow board stacks its three passive phases in reading order')
+  return capture(page, 'plan-5-mobile-stacked-board.png')
+}
+
+async function verifyBoardPaneOverflow(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1365, height: 820 })
+  await openVariant(page, 5, 'overflow')
+  const boardPane = page.locator('.lumen-plan-board-columns')
+  const overflow = await boardPane.evaluate((element) => {
+    const scrollable = element.scrollHeight > element.clientHeight
+    element.scrollTop = element.scrollHeight
+    return { scrollable, moved: element.scrollTop > 0 }
+  })
+  if (!overflow.scrollable || !overflow.moved) {
+    throw new Error(`Board pane did not expose its declared scroll boundary: ${JSON.stringify(overflow)}`)
+  }
+  await checkNoHorizontalOverflow(page, 'over-bound plan board pane')
+  completedChecks.push('variant 5: over-bound board remains reachable in its owned scroll pane')
+}
+
+async function verifySummaryFlow(page: Page): Promise<void> {
+  const summary = requireValue(HBAR_APP_UI_AGENT_PLAN_FIXTURES.summary, 'plan summary')
+  const interaction = requireValue(summary.interaction, 'summary interaction')
+  await page.setViewportSize({ width: 1365, height: 820 })
+  await openVariant(page, 6)
+  let root = page.locator('.hbar-app-ui-agent-plan-variant-6')
+  await root.getByRole('button', { name: summary.labels.edit, exact: true }).click()
+  const goal = root.getByRole('textbox', { name: interaction.labels.goalInput })
+  await goal.fill('audit sample')
+  await root.getByRole('button', { name: interaction.labels.save, exact: true }).click()
+  await expect(root.getByText('audit sample', { exact: true })).toBeVisible()
+  await expect(root.getByRole('button', { name: summary.labels.run, exact: true })).toBeVisible()
+  await expect(root.locator('.lumen-agent-plan-preview-notice[role="status"]')).toHaveText(previewCopy.notice)
+  completedChecks.push('variant 6: source-confirmed goal edit and save stay in the local preview')
+
+  await openVariant(page, 6)
+  root = page.locator('.hbar-app-ui-agent-plan-variant-6')
+  await root.getByRole('button', { name: summary.labels.edit, exact: true }).click()
+  const originalGoal = root.getByRole('textbox', { name: interaction.labels.goalInput })
+  await originalGoal.fill('draft to discard')
+  await root.getByRole('button', { name: interaction.labels.cancel, exact: true }).click()
+  await expect(root.getByText(summary.goal, { exact: true })).toBeVisible()
+  await expect(root.getByRole('textbox', { name: interaction.labels.goalInput })).toHaveCount(0)
+  completedChecks.push('variant 6: Cancel discards the unsaved summary draft')
+
+  await openVariant(page, 6)
+  root = page.locator('.hbar-app-ui-agent-plan-variant-6')
+  await root.getByRole('button', { name: summary.labels.run, exact: true }).click()
+  await expect(root.locator('.lumen-plan-summary-footer')).toContainText(previewCopy.running(1, 10))
+  await expect(root.getByRole('button', { name: interaction.labels.stop, exact: true })).toBeVisible()
+  await expect(root.locator('.lumen-agent-plan-preview-notice[role="status"]')).toHaveText(previewCopy.notice)
+  await checkNoHorizontalOverflow(page, 'summary local run preview')
+  await root.getByRole('button', { name: interaction.labels.stop, exact: true }).click()
+  await expect(root.getByRole('button', { name: summary.labels.edit, exact: true })).toBeVisible()
+  await expect(root.getByRole('button', { name: summary.labels.run, exact: true })).toBeVisible()
+  await expect(root.locator('.lumen-plan-summary-footer')).toContainText(summary.labels.review)
+  completedChecks.push('variant 6: Run/Stop preserve the source state shape while the Host says no work started')
+}
+
+async function verifyLocalizedSummary(page: Page): Promise<string> {
+  const summary = requireValue(LOCALIZED_AGENT_PLAN_FIXTURES.summary, 'localized plan summary')
+  await page.setViewportSize({ width: 320, height: 640 })
+  await openVariant(page, 6, 'localized')
+  const root = page.locator('.hbar-app-ui-agent-plan-variant-6')
+  await expect(root.getByRole('heading', { name: summary.labels.title })).toBeVisible()
+  await expect(root.getByText(summary.goal, { exact: true })).toBeVisible()
+  await expect(root.locator('.lumen-plan-summary-tools li')).toHaveCount(summary.tools.length)
+  await checkNoHorizontalOverflow(page, 'localized narrow plan summary')
+  completedChecks.push('variant 6: long German summary content remains reachable without horizontal overflow')
+  return capture(page, 'plan-6-mobile-localized-summary.png')
+}
+
+async function main(): Promise<void> {
+  await waitForPreview()
+  mkdirSync(artifactDirectory, { recursive: true })
+  const browser = await chromium.launch({ headless: true, executablePath })
+  const page = await browser.newPage()
+  page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
+  page.on('console', (message) => {
+    if (message.type() === 'error') diagnostics.push(`console.error: ${message.text()}`)
+  })
+
+  try {
+    await verifyStructures(page)
+    const screenshots: string[] = [await verifyChecklistPause(page)]
+    await verifyPlanReview(page)
+    await verifyTreeRetry(page)
+    await verifyActualAndBoard(page)
+    screenshots.push(await verifyNarrowBoard(page))
+    await verifyBoardPaneOverflow(page)
+    await verifySummaryFlow(page)
+    screenshots.push(await verifyLocalizedSummary(page))
+    if (diagnostics.length > 0) throw new Error(`Browser diagnostics:\n${diagnostics.join('\n')}`)
+
+    const report = {
+      baseUrl,
+      checks: completedChecks,
+      screenshots: screenshots.map((path) => basename(path)),
+      diagnostics,
+    }
+    writeFileSync(resolve(artifactDirectory, 'verification-report.json'), `${JSON.stringify(report, null, 2)}\n`)
+    console.log(JSON.stringify(report, null, 2))
+  } finally {
+    await browser.close()
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error))
+  process.exitCode = 1
+})

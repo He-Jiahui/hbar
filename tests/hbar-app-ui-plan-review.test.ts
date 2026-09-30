@@ -209,4 +209,35 @@ describe('editable review plan host and presentation', () => {
     store.getState().replace(undefined)
     expect(projectPlanReviewPreviewContent(store.getState())).toBeUndefined()
   })
+  test('rejects blank plan/step/generated IDs and lets a busy refresh own run state', () => {
+    const content = fixture()
+    const blankStep = { ...content.steps[0]!, id: '   ' }
+    const store = createPlanReviewPreviewStore({ ...content, steps: [blankStep, ...content.steps] }, () => '  ')
+    expect(store.getState().steps).toHaveLength(content.steps.length)
+    expect(store.getState().steps.some((step) => !step.id.trim())).toBe(false)
+
+    view(store).onDraftChange('Recoverable draft')
+    view(store).onAdd()
+    expect(store.getState().steps).toHaveLength(content.steps.length)
+    expect(store.getState().draft).toBe('Recoverable draft')
+
+    const blankPlan = createPlanReviewPreviewStore({ ...content, planId: ' ' })
+    const blankView = view(blankPlan)
+    blankView.onDraftChange('Blocked')
+    blankView.onAdd()
+    blankView.onMove(content.steps[0]!.id, 1)
+    blankView.onRemove(content.steps[0]!.id)
+    blankView.onSubmit()
+    expect(blankPlan.getState().steps).toEqual(content.steps)
+    expect(blankPlan.getState().draft).toBe(content.draft)
+    expect(blankPlan.getState().running).toBe(content.running)
+
+    view(store).onSubmit()
+    expect(store.getState().running).toBe(true)
+    const currentSteps = store.getState().steps
+    store.getState().replace({ ...content, steps: currentSteps, busy: true })
+    expect(store.getState().running).toBe(content.running)
+    store.getState().replace({ ...content, steps: currentSteps })
+    expect(store.getState().running).toBe(content.running)
+  })
 })

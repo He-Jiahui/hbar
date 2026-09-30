@@ -125,6 +125,22 @@ describe('reference plan tree', () => {
     store.getState().retry(content.runId, 'apply', 'verify-counts')
     expect(projectPlanTreePreviewContent(store.getState())?.groups[1]?.items[2]?.state).toBe('running')
   })
+  test('rejects blank run/group/step targets and clears local retry on host busy refresh', () => {
+    const content = fixture()
+    const store = createPlanTreePreviewStore(content)
+    const original = store.getState()
+    store.getState().retry(' ', 'apply', 'verify-counts')
+    store.getState().retry(content.runId, ' ', 'verify-counts')
+    store.getState().retry(content.runId, 'apply', ' ')
+    expect(store.getState()).toBe(original)
+
+    store.getState().retry(content.runId, 'apply', 'verify-counts')
+    expect(store.getState().retried).toHaveLength(1)
+    store.getState().replace({ ...content, busy: true })
+    expect(store.getState().retried).toEqual([])
+    store.getState().retry(content.runId, 'apply', 'verify-counts')
+    expect(store.getState().retried).toEqual([])
+  })
 
   test('retains empty, one, normal, boundary and over-bound host collections', () => {
     const content = fixture()
