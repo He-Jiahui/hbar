@@ -1077,3 +1077,22 @@ Direct 发送后切到另一联系人并返回、每联系人草稿，以及 320
 四个独立家族只检查挂载，共同 composer 行为由实现和状态测试推导。代表图在
 `artifacts/chat-core-review/`，page/console error 为零，无横溢。未重跑主题/视口/
 按钮笛卡尔积，也未签 fresh strict 或声称任何远端消息、附件或导航已成功。
+
+AI Chat 1–9 本轮按用户指定的“整体功能与合理布局”标准闭环。九个独立参考分支
+使用宿主消息、文案、附件、工件、模型与活动数据，保留 legacy 接口。共享输入草稿、
+模型/版本/来源选择、附件移除和本地语音 phase 由独立 owner 的 Zustand 管理；
+发送保留草稿，审批不伪造批准，语音不使用麦克风或虚构时间推进。行内引用绑定其
+实际编号对应的稳定来源 ID，而不是相邻文件。
+
+实用检查 `bun scripts/verify-hbar-app-ui-ai-chat-reference-core.ts` 对九种结构各
+挂载一次，抽查推理展开、保留草稿、工件模式/版本、模型菜单及审批/语音的就近
+反馈；两种窄屏检查覆盖中文工件与模型菜单，不再逐控件/主题/宽度重复验收。
+发现并修复了旧工件/嵌入式类名污染，以及窄屏工件下半部分被外壳截断的问题。
+pane-scroll 高度来自所属预览 pane 的百分比，窄屏工件采用正常流与所属面板滚动，
+实际能到达文档切换按钮。代表图位于 `artifacts/ai-chat-reference-core-review/`，
+无 page/console error、无页面横溢。
+
+23 项相关模型/SSR/兼容测试通过；根/子仓类型、限定类型感知 lint、content/icon/
+flow 守卫、Stylelint、包 bundle/声明与生产预览构建通过。来源仍为已授权缓存，
+未签 fresh strict；无源 after 证据的工件切换、request 披露与 voice phase 仅是
+明确的本地预览推导。没有真实发送、复制、下载、文件打开、审批或录音服务结果。

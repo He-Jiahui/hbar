@@ -18,6 +18,8 @@ import { SupportThreadPreviewHost } from './SupportThreadPreviewHost'
 import { SupportReferencePreviewHost } from './SupportReferencePreviewHost'
 import { BillingReferencePreviewHost } from './BillingReferencePreviewHost'
 import { IntegrationReferencePreviewHost } from './IntegrationReferencePreviewHost'
+import { AiChatReferencePreviewHost } from './AiChatReferencePreviewHost'
+import { createAiChatReferencePreviewFixture } from './aiChatReferencePreviewFixtures'
 import { createSupportThreadPreviewCopy } from './supportThreadPreviewCopy'
 import { createSupportReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-support-reference-fixtures'
 import { createSupportTicketPreviewCopy, localizeSupportTicketPreviewContent } from './supportTicketPreviewCopy'
@@ -728,6 +730,11 @@ function PreviewApp() {
         : HBAR_APP_UI_AI_CHAT_FIXTURES,
     [],
   )
+  const aiChatLocale = new URLSearchParams(window.location.search).get('aiChatFixture') === 'localized' ? 'zh' : 'en'
+  const aiChatReference = useMemo(
+    () => createAiChatReferencePreviewFixture(selected.spec.variant, aiChatLocale),
+    [selected.spec.variant, aiChatLocale],
+  )
   const kanbanContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('kanbanFixture')
     return fixture === 'localized'
@@ -895,6 +902,7 @@ function PreviewApp() {
           <EmptyStatePreviewHost content={emptyStateContent} spec={selected.spec} onAction={handleAction}>
           <KanbanPreviewHost content={kanbanContent}>
             <HbarAppUiAiChatProvider content={aiChatContent}>
+              <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
               <HbarAppUiAppSidebarProvider content={appSidebarContent}>
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                   <HbarAppUiFileManagerProvider content={fileManagerContent}>
@@ -1227,6 +1235,7 @@ function PreviewApp() {
                   </HbarAppUiFileManagerProvider>
                 </AppShellPreviewHost>
               </HbarAppUiAppSidebarProvider>
+              </AiChatReferencePreviewHost>
             </HbarAppUiAiChatProvider>
           </KanbanPreviewHost>
           </EmptyStatePreviewHost>
@@ -1359,6 +1368,7 @@ function PreviewApp() {
                     <EmptyStatePreviewHost content={emptyStateContent} spec={selected.spec} onAction={handleAction}>
                     <KanbanPreviewHost content={kanbanContent}>
                       <HbarAppUiAiChatProvider content={aiChatContent}>
+                        <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
                         <HbarAppUiAppSidebarProvider content={appSidebarContent}>
                           <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                             <HbarAppUiFileManagerProvider content={fileManagerContent}>
@@ -1717,6 +1727,7 @@ function PreviewApp() {
                             </HbarAppUiFileManagerProvider>
                           </AppShellPreviewHost>
                         </HbarAppUiAppSidebarProvider>
+                        </AiChatReferencePreviewHost>
                       </HbarAppUiAiChatProvider>
                     </KanbanPreviewHost>
                     </EmptyStatePreviewHost>

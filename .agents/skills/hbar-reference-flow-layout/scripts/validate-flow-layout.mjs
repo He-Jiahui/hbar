@@ -89,6 +89,16 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // AI Chat 4/9: cached model lists overlap messages below/above their trigger.
+  // The exception covers only the listbox container, never its options or anchor.
+  if (/packages\/lumen-app-ui\/src\/ai-chat\/primitives\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-ai-chat-reference-model-menu',
+      ".lumen-ai-chat-reference-model-menu[data-anchor='above']",
+      ".lumen-ai-chat-reference-model-menu[data-anchor='below']",
+    ])
+    if (overlays.has(selector.trim())) return true
+  }
   // Integrations 5: the captured Workspace listbox overlaps the permission list.
   // Only its trigger-anchored container floats; the card and options stay in flow.
   if (
@@ -600,6 +610,15 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const aiChatPath = 'packages/lumen-app-ui/src/ai-chat/primitives.css'
+  const aiChatMenuCss =
+    ".lumen-ai-chat-reference-model-menu { position: absolute; inset-inline-start: 0; } .lumen-ai-chat-reference-model-menu[data-anchor='above'] { inset-block-end: 100%; }"
+  if (validateCss(aiChatPath, aiChatMenuCss).length)
+    throw new Error('Observed AI Chat trigger-relative model overlay must be accepted')
+  if (!validateCss('other/primitives.css', aiChatMenuCss).length)
+    throw new Error('AI Chat model overlay must remain path scoped')
+  if (!validateCss(aiChatPath, '.lumen-ai-chat-reference-model-menu > button { position: absolute; left: 0; }').length)
+    throw new Error('AI Chat option content must remain in flow')
   const consentPath = 'packages/lumen-app-ui/src/integrations/reference-consent.css'
   const consentMenu = '.lumen-integration-consent-reference-workspace-menu'
   const consentOverlay = `${consentMenu} {\nposition: absolute;\ninset-block-start: 100%;\n}`

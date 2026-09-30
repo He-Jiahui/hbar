@@ -624,6 +624,40 @@ claim of source/local visual acceptance. The focused family regression passes
 55 tests and 442 assertions; root/Lumen typechecks, scoped lint/format/content/icon
 checks, preview build and direct Lumen Vite/declaration builds also pass.
 
+### AI Chat 1–9 controlled reference family
+
+All nine AI Chat variants now have opt-in, independently composed reference
+surfaces through `LumenAiChatContent.referenceViewModel`. Existing content APIs
+and legacy branches remain compatible. The typed discriminated content covers
+reasoning/tool disclosures, versioned artifacts, embedded conversation, context
+header, approval conversation, original multi-agent authors/activity, inline
+citations/pinned sources, a voice snapshot and a composer-anchored model menu.
+Copy, messages, files, model descriptions and code/document payloads come from
+Host data; none of the reference records live in the reusable implementation.
+
+The preview Host owns drafts, stable selections, removed attachments and the
+local voice phase in one Zustand store per owner. Empty/stale/duplicate IDs have
+deterministic handling, owner changes cannot redirect callbacks, and an intent
+does not clear the draft or manufacture an assistant response. Approval stays
+pending until supplied Host data changes. Copy, download, attachment, settings,
+send and approval requests explicitly report intent only: no provider, clipboard,
+file, microphone or destructive service operation is performed.
+
+Use `bun scripts/verify-hbar-app-ui-ai-chat-reference-core.ts` for the practical
+browser check against the built preview. It checks each of the nine structures
+once, samples the distinct shared mechanisms, and checks two narrow flows.
+Equivalent native controls, themes and repeated widths are inferred from shared
+implementation rather than replayed exhaustively. Artifacts are written to
+`artifacts/ai-chat-reference-core-review/`.
+
+The source basis is the authorized `full-static-v10` desktop/tablet/mobile cache
+and relevant `full-interactions-v4` observations, not freshly captured strict
+pairs. Artifact modes/versions, approval request disclosure and voice stop/resume
+are local preview behavior where source-after evidence is absent. Narrow artifact,
+activity and pinned-source access is retained through normal flow rather than
+silently dropping the source's desktop side panel. Production Web's actual
+provider/session history and approval execution are outside this preview increment.
+
 ### Paywall 1–7 practical category closure
 
 The seven existing source-shaped surfaces are retained rather than rebuilt:
