@@ -910,3 +910,48 @@ y34.8/高490.4，对照来源 y35.9/高488.25；摘要 y191.0 对照 y192.1，
 无横溢、page errors=0。七项专项测试（45 断言）、根/Lumen 类型检查、预览构建、
 限定文件 ESLint/stylelint、内容/图标/流式布局守卫和浏览器脚本通过。共享
 `onboarding.tsx` 的其它既存 lint 错误仍在，不宣称全文件通过。
+
+Authentication 4（two-step sign-in）的当前可见来源为
+`https://pro.reactbits.dev/docs/app-ui/authentication/authentication-4`。
+协议 17 的 `authentication-4-baseline-v17-r1` 保存八组实时原版初始静态记录；
+其中早先的 local 部分在本次实现变更后已过时，不能将该目录当成当前配对验收。
+实际 iframe 为 desktop 1086×560、tablet 670×560、mobile 356×560、stress
+286×560，400px 桌面卡与 222px 极窄卡均是内容流，不是 480px 固定高卡。
+
+单次安全机制观察仅以合成 `audit@example.invalid` 激活 Continue，所有非
+GET/HEAD 请求均被预先拦截，未输入密码、未激活 Sign in 或导航动作。
+`artifacts/authentication4-reference-probe/email-step-observation.json` 记录
+`2026-09-30T01:46:29.644Z` 激活后 262ms 的 Step 1/Continue disabled；
+`2026-09-30T01:46:30.332Z` 首次可见 Step 2（观测等待 679ms）。无拦截请求、
+无导航。先前 500ms 快照仅表示尚在等待，不能据此断言不会转到密码步骤；
+679ms 也不是原版固定计时规范。只证明前端步骤反馈，认证、账户查找服务、
+密码提交、邮件寄送及外部导航结果均未验证。
+
+独立 Zustand 模型 `5496591a` 用四 phase 与实例隔离 request ticket 管理草稿、
+邮箱错误和等待；Back/owner cleanup 使旧 ticket 失效，cleanup 清密码和显隐状态。
+所有通知均排除密码，并显式标记 `authentication-and-navigation-unverified`。
+Lumen `0a028eeb0f` 与根投影测试 `cef47d71` 提供可选受控视图；`0e965ae376`
+补足原版已见的 44px 密码文字留白与 32px 显隐覆盖控件关系。缺省 legacy
+API 仍保留，受控分支自身不计时。专用预览 Host 拥有可取消的等待资源、原生
+表单提交和声明式错误关系；更换语言保留两份独立草稿，更换场景退休旧 owner。
+1050/1400ms 仅沿用本地演示节奏，完成 Sign in 等待不表示认证成功。
+
+本轮按变化机制验证，而不是按钮 × 布局穷举：模型、SSR、真实双实例/StrictMode
+Host 共 18 项测试（182 个 Bun 断言），另有原生密码焦点检查；四个实际构建后
+flow/content measures 覆盖 desktop 1086×560、stress 286×560 与长德文
+320×420 的两个步骤。页脚真实可滚达，无横溢、不可达裁切或 page/console error，
+代表图和几何在 `artifacts/authentication4-local-review/`。
+
+邮件按钮断行差异来自原版 16px 横向 padding、500 字重，与旧本地 12px/400
+的文字宽度差，不是不同断词规则。当前受控分支恢复这些已观测参数，继续采用
+共享 md16 图标：原版极窄 SVG 会压成 12.4375×16，本地不仿造压缩。极窄本地
+两行邮件控件随内容自然到 42px，原版为 40px；桌面卡高度也仍有约 2px 残差。
+这些非主题差异未获豁免，尚无当前实现的完整配对交互和人工签核，**未签 fresh
+strict**。原版外部动作不能由本地回调测试推断为已成功或 source-no-op。
+
+根/Lumen 类型检查、限定类型感知 ESLint、Stylelint、内容/图标/流式布局守卫、
+既有 Node CLI 的 Lumen bundle/声明构建和生产预览构建通过。预览的大 chunk
+警告仍在；Lumen 全文件 Prettier 的四个修改文件在改前 HEAD 亦失败，只有改动
+区间格式已核对。根预览入口及变体清单保留各自的既有未格式化区域，不夹带整份
+重排。本机 pnpm 11.19.0 不满足子仓 12.3.4，未再安装或切换包管理器，不能称
+其标准 package-manager 工作流通过。

@@ -13,6 +13,7 @@ import { CommandPreviewHost } from './CommandPreviewHost'
 import { AuthenticationReferencePreviewHost } from './AuthenticationReferencePreviewHost'
 import { createAuthentication2PreviewFixture } from './authentication2PreviewFixtures'
 import { createAuthentication3PreviewFixture } from './authentication3PreviewFixtures'
+import { createAuthentication4PreviewFixture } from './authentication4PreviewFixtures'
 import { KanbanPreviewHost } from './KanbanPreviewHost'
 import { WizardPreviewHost } from './WizardPreviewHost'
 import { SettingsPreviewHost } from './SettingsPreviewHost'
@@ -493,6 +494,15 @@ function PreviewApp() {
       parameters.get('authentication3Metrics') === 'overflow' ? 'overflow' : 'source',
     )
   }, [])
+  const authentication4ReferenceFixture = useMemo(() => {
+    const parameters = new URLSearchParams(window.location.search)
+    const fixture = parameters.get('authentication4Fixture') ?? parameters.get('authenticationFixture')
+    const scenario = parameters.get('authentication4Scenario')
+    return createAuthentication4PreviewFixture(
+      fixture === 'long' ? 'de-long' : fixture === 'localized' ? 'de' : 'en',
+      scenario === 'password' || scenario === 'invalid' ? scenario : 'source',
+    )
+  }, [])
   const billingContent = useMemo(() => {
     switch (new URLSearchParams(window.location.search).get('billingFixture')) {
       case 'overflow':
@@ -879,6 +889,7 @@ function PreviewApp() {
                             content={authenticationContent}
                             referenceFixture={authentication2ReferenceFixture}
                             quoteReferenceFixture={authentication3ReferenceFixture}
+                            twoStepReferenceFixture={authentication4ReferenceFixture}
                             spec={selected.spec}
                             onAction={handleAction}
                           >
@@ -1317,6 +1328,7 @@ function PreviewApp() {
                                       content={authenticationContent}
                                       referenceFixture={authentication2ReferenceFixture}
                                       quoteReferenceFixture={authentication3ReferenceFixture}
+                                      twoStepReferenceFixture={authentication4ReferenceFixture}
                                       spec={selected.spec}
                                       onAction={handleAction}
                                     >
