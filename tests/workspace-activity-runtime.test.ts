@@ -1,0 +1,159 @@
+import { expect, test } from 'bun:test'
+import { createAppRuntime, type ClientJsonValue, type ClientPersistencePort } from '@hbar/app-runtime'
+import type { CommandExecutor } from '@hbar/commands'
+import type {
+  Session,
+  SessionActivityCursor,
+  SessionActivitySortBy,
+  Workspace,
+  WorkspaceActivitySortBy,
+} from '@hbar/contracts/directory'
+
+const workspace: Workspace = {
+  id: 'project',
+  path: 'D:/projects/project',
+  name: 'Project',
+  createdAt: 1,
+}
+
+function session(index: number): Session {
+  return {
+    id: `session-${String(index).padStart(3, '0')}`,
+    workspaceId: workspace.id,
+    title: `Session ${index}`,
+    archived: false,
+    parentId: null,
+    createdAt: 2_000 - index,
+    updatedAt: 3_000 - index,
+    seq: index,
+  }
+}
+
+function fixture(
+  sessions: readonly Session[],
+  options: {
+    readonly persistence?: ClientPersistencePort
+    readonly onWorkspaceActivity?: (sortBy: WorkspaceActivitySortBy) => void
+  } = {},
+) {
+  const directory: CommandExecutor = {
+    async execute(name, raw) {
+      if (name === 'session.activity.list') {
+        const input = raw as {
+          readonly workspaceId: string
+          readonly sortBy: SessionActivitySortBy
+          readonly cursor?: SessionActivityCursor
+          readonly limit: number
+        }
+        const cursorIndex = input.cursor ? sessions.findIndex((item) => item.id === input.cursor?.sessionId) + 1 : 0
+        const start = Math.max(0, cursorIndex)
+        const items = sessions.slice(start, start + input.limit)
+        const last = items.at(-1)
+        const nextCursor: SessionActivityCursor | null =
+          last && start + items.length < sessions.length
+            ? {
+                workspaceId: input.workspaceId,
+                sortBy: input.sortBy,
+                revision: 1,
+                timestamp: input.sortBy === 'createdAt' ? last.createdAt : last.updatedAt,
+                sessionId: last.id,
+              }
+            : null
+        return { revision: 1, items, nextCursor }
+      }
+      if (name === 'workspace.activity.list') {
+        const input = raw as { readonly sortBy: WorkspaceActivitySortBy }
+        options.onWorkspaceActivity?.(input.sortBy)
+        return {
+          revision: 1,
+          items: [{ workspace, latestSessionCreatedAt: 2_000, latestSessionUpdatedAt: 3_000 }],
+          includedItems: [],
+          nextCursor: null,
+        }
+      }
+      if (name === 'workspace.list') return { items: [], nextCursor: null }
+      if (name === 'workspace.get' || name === 'session.get') return null
+      if (name === 'session.list') return { items: [], nextCursor: null }
+      throw new Error(`Unexpected directory query: ${name}`)
+    },
+  }
+  return createAppRuntime({
+    instanceId: crypto.randomUUID(),
+    hostId: 'workspace-activity-runtime',
+    directory,
+    ...(options.persistence ? { persistence: options.persistence } : {}),
+  })
+}
+
+test('Session activity append preserves the accepted first page in canonical order', async () => {
+  const sessions = Array.from({ length: 61 }, (_, index) => session(index))
+  const runtime = fixture(sessions)
+  try {
+    await runtime.ready
+    await runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: workspace.id })
+    expect(runtime.view.state.workspaceActivity.getSnapshot().sessions[workspace.id]?.sessionIds).toEqual(
+      sessions.slice(0, 60).map((item) => item.id),
+    )
+
+    await runtime.view.commands.execute('workspaceActivity.loadMore', { scope: 'sessions', workspaceId: workspace.id })
+
+    expect(runtime.view.state.workspaceActivity.getSnapshot().sessions[workspace.id]).toMatchObject({
+      status: 'ready',
+      hasMore: false,
+      limitReached: false,
+      sessionIds: sessions.map((item) => item.id),
+    })
+    expect(Object.keys(runtime.view.state.directory.getSnapshot().sessions)).toHaveLength(61)
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('explicit refresh recovers a failed preference restore by reading the saved sort without writing', async () => {
+  const preferencesKey = 'hbar:workspace-activity-runtime:preferences'
+  const values = new Map<string, unknown>([
+    [preferencesKey, { version: 99, revision: 4, value: { workspaceActivitySortBy: 'createdAt' } }],
+  ])
+  const writes: string[] = []
+  let queriedSort: WorkspaceActivitySortBy | undefined
+  const persistence: ClientPersistencePort = {
+    read(key) {
+      return Promise.resolve((values.get(key) as ClientJsonValue | undefined) ?? null)
+    },
+    write(key, value) {
+      writes.push(key)
+      values.set(key, value)
+      return Promise.resolve()
+    },
+    remove(key) {
+      values.delete(key)
+      return Promise.resolve()
+    },
+  }
+  const runtime = fixture([], { persistence, onWorkspaceActivity: (sortBy) => (queriedSort = sortBy) })
+  try {
+    await runtime.ready
+    expect(runtime.view.state.workspaceActivity.getSnapshot()).toMatchObject({
+      sortBy: 'updatedAt',
+      preferenceStatus: 'error',
+      preferenceError: 'PERSISTENCE_RESTORE_FAILED',
+    })
+
+    values.set(preferencesKey, {
+      version: 1,
+      revision: 4,
+      value: { workspaceActivitySortBy: 'createdAt' },
+    })
+    await runtime.view.commands.execute('workspaceActivity.refresh', {})
+
+    expect(runtime.view.state.workspaceActivity.getSnapshot()).toMatchObject({
+      sortBy: 'createdAt',
+      preferenceStatus: 'ready',
+      preferenceError: null,
+    })
+    expect(queriedSort).toBe('createdAt')
+    expect(writes).toEqual([])
+  } finally {
+    runtime.dispose()
+  }
+})

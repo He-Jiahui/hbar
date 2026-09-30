@@ -149,6 +149,9 @@ export type { SessionGitContextState } from './session-git-context'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
 import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
+import { createWorkspaceActivity, workspaceActivityCommands } from './workspace-activity'
+export { workspaceActivityCommands, orderWorkspaceActivityIds } from './workspace-activity'
+export type { WorkspaceActivityState, WorkspaceActivityOptions } from './workspace-activity'
 import { createWorkspaceOrganization, workspaceOrganizationClientCommands } from './workspace-organization'
 export { workspaceOrganizationClientCommands } from './workspace-organization'
 export type { WorkspaceOrganizationState, WorkspaceOrganizationAction } from './workspace-organization'
@@ -365,6 +368,7 @@ const runtimeCommands = {
   ...sessionToolCommands,
   ...agentComposerCommands,
   ...workspacePinCommands,
+  ...workspaceActivityCommands,
   ...workspaceOrganizationClientCommands,
   ...workspaceDisplayNamesClientCommands,
   ...agentChildNavigationCommands,
@@ -451,6 +455,20 @@ export function createAppRuntime(options: RuntimeOptions) {
     refreshPreferences: clientPersistence.refreshPreferences,
     directory: directory.reader,
     queries: directory.queries,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const workspaceActivity = createWorkspaceActivity(local, {
+    preferences: clientPersistence.preferences,
+    preferencesReady: clientPersistence.ready,
+    preferenceCommands: local,
+    refreshPreferences: clientPersistence.refreshPreferences,
+    queries: directory.queries,
+    pins: workspacePins.reader,
+    directory: directory.reader,
+    projectActivityWorkspaces: directory.projectActivityWorkspaces,
+    projectActivitySessions: directory.projectActivitySessions,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -1078,6 +1096,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(workspaceTabCommands, name) ||
         Object.hasOwn(sessionToolCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
+        Object.hasOwn(workspaceActivityCommands, name) ||
         Object.hasOwn(workspaceOrganizationClientCommands, name) ||
         Object.hasOwn(workspaceDisplayNamesClientCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
@@ -1115,6 +1134,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionExecutionAccess: sessionExecutionAccess.reader,
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
+      workspaceActivity: workspaceActivity.reader,
       workspaceOrganization: workspaceOrganization.reader,
       workspaceDisplayNames: workspaceDisplayNames.reader,
       workspaceDisplayNameSnapshot: workspaceDisplayNames.snapshotReader,
@@ -1182,13 +1202,14 @@ export function createAppRuntime(options: RuntimeOptions) {
       move: workspaceTabs.move,
       whenIdle: workspaceTabs.whenIdle,
     }),
-    ready: Promise.all([clientPersistence.ready, workspaceTabs.ready]).then(() => undefined),
+    ready: Promise.all([clientPersistence.ready, workspaceTabs.ready, workspaceActivity.ready]).then(() => undefined),
     dispose() {
       if (disposed) return
       disposed = true
       messageFork.dispose()
       workspaceTabs.dispose()
       workspacePins.dispose()
+      workspaceActivity.dispose()
       workspaceOrganization.dispose()
       workspaceDisplayNames.dispose()
 

@@ -8,12 +8,26 @@ import {
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import { directoryCommands } from '@hbar/contracts/commands'
-import { sessionSchema, workspaceSchema, sessionPageSchema, workspacePageSchema } from '@hbar/contracts/directory'
-import type { Session, Workspace } from '@hbar/contracts/directory'
+import {
+  sessionActivityPageSchema,
+  sessionSchema,
+  workspaceActivityPageSchema,
+  workspaceActivityItemSchema,
+  workspaceSchema,
+  sessionPageSchema,
+  workspacePageSchema,
+} from '@hbar/contracts/directory'
+import type { Session, Workspace, WorkspaceActivityItem } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
 import type { DirectoryState, NavigationState, RuntimeOptions } from './types'
 import type { RosterMissingSession } from './session-roster-refresh'
 import { createSessionProjectionFence } from './session-projection-fence'
+
+export const MAX_RETAINED_ACTIVITY_WORKSPACES = 220
+export const MAX_RETAINED_ACTIVITY_SESSIONS = 900
+const DIRECTORY_WORKSPACE_CACHE_LIMIT = 200
+const DIRECTORY_SESSION_CACHE_LIMIT = 1000
+const DIRECTORY_WORKSPACE_TOTAL_LIMIT = DIRECTORY_WORKSPACE_CACHE_LIMIT + MAX_RETAINED_ACTIVITY_WORKSPACES
 function decode<Schema extends z.ZodType>(schema: Schema, value: unknown): z.output<Schema> {
   const parsed = schema.safeParse(value)
   if (!parsed.success) throw validationError('INVALID_OUTPUT', parsed.error)
@@ -50,6 +64,8 @@ export function createDirectoryModule(
   const observational = new CommandRegistry({ execution: 'host' })
   let disposed = false
   const requests = new Map<string, number>()
+  let retainedActivityWorkspaceIds = new Set<string>()
+  let retainedActivitySessionIds = new Set<string>()
   // Read/Archive floors live only during the captured request; cache eviction must not make its old reply new.
   const pendingSessionProjections = new Map<symbol, SessionVersionFloor>()
   function captureSessionProjection(sessionId: string) {
@@ -119,8 +135,8 @@ export function createDirectoryModule(
       }
     }
     const selected = navigation.getSnapshot().sessionId
-    while (entries.size > 1000) {
-      const candidate = [...entries.keys()].find((id) => id !== selected)
+    while (entries.size > DIRECTORY_SESSION_CACHE_LIMIT) {
+      const candidate = [...entries.keys()].find((id) => id !== selected && !retainedActivitySessionIds.has(id))
       if (candidate === undefined) break
       entries.delete(candidate)
     }
@@ -136,8 +152,9 @@ export function createDirectoryModule(
     const entries = new Map(Object.entries(current.workspaces))
     for (const item of items) entries.set(item.id, item)
     const selected = navigation.getSnapshot().workspaceId
-    while (entries.size > 200) {
-      const candidate = [...entries.keys()].find((id) => id !== selected)
+    const unretainedCount = () => [...entries.keys()].filter((id) => !retainedActivityWorkspaceIds.has(id)).length
+    while (entries.size > DIRECTORY_WORKSPACE_TOTAL_LIMIT || unretainedCount() > DIRECTORY_WORKSPACE_CACHE_LIMIT) {
+      const candidate = [...entries.keys()].find((id) => id !== selected && !retainedActivityWorkspaceIds.has(id))
       if (candidate === undefined) break
       entries.delete(candidate)
     }
@@ -182,6 +199,12 @@ export function createDirectoryModule(
     if (response.latest) mergeWorkspaces(page.items)
     return page
   })
+  remote.register(directoryCommands['workspace.activity.list'], async (input, context) => {
+    const response = await read('workspace.activity.list', input, context)
+    // The Workspace Activity owner applies this observational page only if its captured
+    // generation is still current. In particular, an old sort response cannot merge DTOs.
+    return decode(workspaceActivityPageSchema, response.value)
+  })
   remote.register(directoryCommands['workspace.get'], async (input, context) => {
     const response = await read('workspace.get', input, context)
     const item = decode(workspaceSchema.nullable(), response.value)
@@ -221,6 +244,15 @@ export function createDirectoryModule(
       release()
     }
   })
+  remote.register(directoryCommands['session.activity.list'], async (input, context) => {
+    const response = await read('session.activity.list', input, context)
+    const page = decode(sessionActivityPageSchema, response.value)
+    if (page.items.some((item) => item.workspaceId !== input.workspaceId || item.archived))
+      throw new CommandError('INVALID_OUTPUT', 'Session activity page does not match its query')
+    // Projection is performed by the activity owner only after it checks the group
+    // generation. That keeps a superseded sort/read from replacing the canonical facts.
+    return page
+  })
   const readSession = async (
     input: { readonly sessionId: string },
     context: ExecuteOptions,
@@ -257,6 +289,65 @@ export function createDirectoryModule(
       observations.execute('session.get', { sessionId }, execution),
     /** Accepted Host facts, not cache absence/loading or speculative mutation intent. */
     subscribeConfirmedSessions,
+    /**
+     * Retain the bounded Workspace rows currently referenced by activity pages and pins.
+     * Activity summaries live elsewhere; this map remains the canonical Workspace cache.
+     */
+    projectActivityWorkspaces(retainedIds: readonly string[], records: readonly WorkspaceActivityItem[]): void {
+      if (disposed) return
+      if (retainedIds.length > MAX_RETAINED_ACTIVITY_WORKSPACES || new Set(retainedIds).size !== retainedIds.length)
+        throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Workspace activity rows')
+      const retained = new Set(retainedIds)
+      const summaries = records.map((item) => decode(workspaceActivityItemSchema, item))
+      if (
+        new Set(summaries.map((item) => item.workspace.id)).size !== summaries.length ||
+        summaries.some((item) => !retained.has(item.workspace.id))
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Workspace activity projection does not match its retained IDs')
+      retainedActivityWorkspaceIds = retained
+      const current = directory.reader.getSnapshot()
+      const entries = new Map(Object.entries(current.workspaces))
+      for (const item of summaries) entries.set(item.workspace.id, item.workspace)
+      pruneWorkspaces(entries)
+      const unchanged =
+        entries.size === Object.keys(current.workspaces).length &&
+        [...entries].every(([id, item]) => {
+          const prior = current.workspaces[id]
+          return (
+            prior !== undefined &&
+            prior.id === item.id &&
+            prior.path === item.path &&
+            prior.name === item.name &&
+            prior.createdAt === item.createdAt
+          )
+        })
+      if (unchanged) return
+      directory.replace({ ...current, workspaces: Object.fromEntries(entries) })
+    },
+    /**
+     * Retain sorted Session-page records in the canonical directory cache. The owner
+     * budget leaves room inside the 1,000-record cache for the active Session and
+     * ordinary point/page reads; returned facts are the canonical versions in page order.
+     */
+    projectActivitySessions(retainedIds: readonly string[], records: readonly Session[]): readonly Session[] {
+      if (disposed) return []
+      if (retainedIds.length > MAX_RETAINED_ACTIVITY_SESSIONS || new Set(retainedIds).size !== retainedIds.length)
+        throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Session activity rows')
+      const retained = new Set(retainedIds)
+      const confirmed = records.map((item) => decode(sessionSchema, item))
+      if (
+        new Set(confirmed.map((item) => item.id)).size !== confirmed.length ||
+        confirmed.some((item) => !retained.has(item.id) || item.archived)
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Session activity projection does not match its retained IDs')
+      retainedActivitySessionIds = retained
+      if (confirmed.length > 0) mergeSessions(confirmed)
+      const sessions = directory.reader.getSnapshot().sessions
+      return confirmed.flatMap((item) => {
+        const canonical = sessions[item.id]
+        return canonical && canonical.workspaceId === item.workspaceId && !canonical.archived ? [canonical] : []
+      })
+    },
     /** Observational sidebar reconciliation must not clear the user's active session or touch drafts. */
     reconcileRosterSessions(
       items: readonly Session[],
@@ -284,7 +375,7 @@ export function createDirectoryModule(
             sessions[item.id] = item
             accepted.push(item)
           }
-        } else if (count < 1000) {
+        } else if (count < DIRECTORY_SESSION_CACHE_LIMIT) {
           sessions[item.id] = item
           accepted.push(item)
           count++
@@ -394,11 +485,23 @@ export function createDirectoryModule(
       observational.dispose()
       directory.dispose()
       requests.clear()
+      retainedActivityWorkspaceIds.clear()
+      retainedActivitySessionIds.clear()
       pendingSessionProjections.clear()
       for (const fence of pageFences) fence.dispose()
       pageFences.clear()
       confirmedSessionListeners.clear()
     },
+  }
+
+  function pruneWorkspaces(entries: Map<string, Workspace>): void {
+    const selected = navigation.getSnapshot().workspaceId
+    const unretainedCount = () => [...entries.keys()].filter((id) => !retainedActivityWorkspaceIds.has(id)).length
+    while (entries.size > DIRECTORY_WORKSPACE_TOTAL_LIMIT || unretainedCount() > DIRECTORY_WORKSPACE_CACHE_LIMIT) {
+      const candidate = [...entries.keys()].find((id) => id !== selected && !retainedActivityWorkspaceIds.has(id))
+      if (candidate === undefined) break
+      entries.delete(candidate)
+    }
   }
 }
 export type DirectoryQueries = ReturnType<typeof createDirectoryModule>['queries']
