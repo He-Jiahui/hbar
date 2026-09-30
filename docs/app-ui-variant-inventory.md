@@ -6,7 +6,9 @@
 
 此清单显式记录已迁移的受控表面，不能把“已有内容契约”理解为所有业务状态与动作已经迁完，也不能把单个组件检查理解为最终产品验收。新的独立生产组件（会话导航、文件工作区、审批、问答和事件日志）另见集成文档，它们不占用或替换这 300 个 ID。
 
-当前登记 22 个变体已接入受控契约；其余 278 个继续按清单迁移。仍需完成设置中的模型/插件/设备管理、工具与专用面板接入，其他组件族清理，以及最终桌面和全包视觉验收。
+初始清单曾登记 22 个变体接入受控契约；本轮持续更新后的实现与交付状态以各行记录为准，
+不再将这个历史计数当作当前总计。正式宿主模型/插件/设备管理、工具与专用面板和桌面业务
+接入仍与参考预览的功能/布局结论分开验收。
 
 2026-09-29 用户调整后，本表新增“功能与布局通过”：主要流程可用、自然流布局合理，
 不同状态按风险抽查，共享行为允许从实现和已有案例推导，不逐按钮或逐布局组合校验。
@@ -271,15 +273,15 @@ Notifications 5 的独立证据在 `artifacts/reactbits-pro-visual-audit/notific
 | hbar-app-ui-authentication-3  | [hbar-app-ui-authentication-3](../hbar-ui/packages/lumen-app-ui/src/authentication/QuoteAuthentication.tsx) | 功能与布局通过；宿主受控草稿／引语已接入 | 独立内存密码、ID 规范化与失效恢复、换语言保留、轮播清理；内容断点、长德文与短宿主可达 | 8 组结构／5 个机制状态与反馈匹配；图标挤压的微小差异不阻塞当前交付，strict 未签核，认证/导航未证 |
 | hbar-app-ui-authentication-4  | [hbar-app-ui-authentication-4](../hbar-ui/packages/lumen-app-ui/src/authentication/TwoStepAuthentication.tsx) | 功能与布局通过；宿主受控双步骤已接入 | 四 phase、独立草稿/ticket、错误关联、取消与退休回调、换语言保留；18 项专项测试、长德文和短宿主页脚可达 | 源 Continue 证实等待→密码步骤；42px 内容增长控件可用，微小残差不阻塞；认证/邮件/导航未证，未签 fresh strict |
 | hbar-app-ui-authentication-5  | [hbar-app-ui-authentication-5](../hbar-ui/packages/lumen-app-ui/src/authentication/MagicLinkAuthentication.tsx) | 功能与布局通过；宿主受控邮件流程已接入 | 独立邮箱草稿、就近校验、原生提交、可释放倒计时与重发；三行摘要内容增长，窄屏长文案无横溢 | 复用已有自然流样式，不逐按钮/主题穷举；sent 为预览投影，真实邮件与导航未证，未作 strict 全矩阵 |
-| hbar-app-ui-authentication-6  | [hbar-app-ui-authentication-6](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 受控契约已接入         | 验证码长度由协议/宿主提供；表单随内容增长，计时和验证结果归宿主  | 仍需最终全包/桌面验收                                        |
-| hbar-app-ui-authentication-7  | [hbar-app-ui-authentication-7](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-8  | [hbar-app-ui-authentication-8](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-9  | [hbar-app-ui-authentication-9](../packages/hbar-app-ui/src/components/Authentication.tsx)  | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-10 | [hbar-app-ui-authentication-10](../packages/hbar-app-ui/src/components/Authentication.tsx) | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-11 | [hbar-app-ui-authentication-11](../packages/hbar-app-ui/src/components/Authentication.tsx) | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-12 | [hbar-app-ui-authentication-12](../packages/hbar-app-ui/src/components/Authentication.tsx) | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-13 | [hbar-app-ui-authentication-13](../packages/hbar-app-ui/src/components/Authentication.tsx) | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
-| hbar-app-ui-authentication-14 | [hbar-app-ui-authentication-14](../packages/hbar-app-ui/src/components/Authentication.tsx) | 已有内容契约，继续迁移 | 待逐变体验证；不能视为已完成                                     | 逐变体迁移业务动作与状态，核对失效 ID、容量及完整验证矩阵    |
+| hbar-app-ui-authentication-6  | [hbar-app-ui-authentication-6](../hbar-ui/packages/lumen-app-ui/src/authentication/CodeAuthentication.tsx) | 功能与布局通过；宿主受控验证码已接入 | 分格输入/恢复码/等待/预览完成；独立 ticket、模式切换取消、可释放倒计时；多实例标签独立 | 复用既有配对结构，本轮验证取消和完成；预览完成不代表真实身份认证 |
+| hbar-app-ui-authentication-7  | [hbar-app-ui-authentication-7](../hbar-ui/packages/lumen-app-ui/src/authentication/SignUpAuthentication.tsx) | 功能与布局通过；宿主受控注册草稿已接入 | 姓名/邮箱/内存密码、四项强度、协议勾选与提交可用性；多实例字段/描述独立 | 既有自然流、长文案和状态测试复用，未重复布局矩阵；真实账户创建未接入 |
+| hbar-app-ui-authentication-8  | [hbar-app-ui-authentication-8](../hbar-ui/packages/lumen-app-ui/src/authentication/EnterpriseAuthentication.tsx) | 功能与布局通过；宿主受控 SSO 已接入 | 匹配/未匹配组织、就近提供方反馈、等待与恢复、独立 request ticket；元数据内容增长 | 本轮验证独立等待资源，布局复用既有配对；真实 SSO 跳转未证 |
+| hbar-app-ui-authentication-9  | [hbar-app-ui-authentication-9](../hbar-ui/packages/lumen-app-ui/src/authentication/PasskeyAuthentication.tsx) | 功能与布局通过；宿主受控 passkey 预览已接入 | 选择/请求/取消、失效 ID 与空态；设备列表 content-grown，内存状态归 owner | 既有配对/状态证据复用，保持选中目标；未执行真实 WebAuthn 或导航 |
+| hbar-app-ui-authentication-10 | [hbar-app-ui-authentication-10](../hbar-ui/packages/lumen-app-ui/src/authentication/AccountChooserAuthentication.tsx) | 功能与布局通过；宿主受控账户选择已接入 | 稳定 ID 选择、工作区动作、过期账户再认证与空态；列表 content-grown | 布局与状态分支复用既有配对证据；账户会话/远端认证未接入 |
+| hbar-app-ui-authentication-11 | [hbar-app-ui-authentication-11](../hbar-ui/packages/lumen-app-ui/src/authentication/WorkspacePickerAuthentication.tsx) | 功能与布局通过；宿主受控工作区选择已接入 | 过滤/选择/邀请入口与空态；列表 pane-scroll，切换文案保留查询和选择 | 原有选择/邀请/容量证据复用，不逐行回放；真实加入/创建工作区未接入 |
+| hbar-app-ui-authentication-12 | [hbar-app-ui-authentication-12](../hbar-ui/packages/lumen-app-ui/src/authentication/InvitationAuthentication.tsx) | 功能与布局通过；宿主受控邀请预览已接入 | 独立姓名/内存密码、表单/确认/返回；项目列表 content-grown，清理时清密码 | 既有配对和原生表单状态测试复用；预览确认不代表真实接受邀请 |
+| hbar-app-ui-authentication-13 | [hbar-app-ui-authentication-13](../hbar-ui/packages/lumen-app-ui/src/authentication/PasswordResetAuthentication.tsx) | 功能与布局通过；宿主受控密码重置已接入 | 强度/确认不匹配/设备退出选项/预览完成/重置；字段多实例独立，设备 content-grown | 既有结构/状态测试复用；密码不记录/持久化，真实改密/会话退出未接入 |
+| hbar-app-ui-authentication-14 | [hbar-app-ui-authentication-14](../hbar-ui/packages/lumen-app-ui/src/authentication/SignInApprovalAuthentication.tsx) | 功能与布局通过；宿主受控登录审批预览已接入 | 等待/批准/阻止/返回请求及改密意图；被动近期记录 content-grown | 既有五种机制与配对结构复用；本地预览决定不代表真实登录授权 |
 | hbar-app-ui-kanban-1          | [hbar-app-ui-kanban-1](../packages/hbar-app-ui/src/components/Kanban.tsx)                  | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-kanban-2          | [hbar-app-ui-kanban-2](../packages/hbar-app-ui/src/components/Kanban.tsx)                  | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-kanban-3          | [hbar-app-ui-kanban-3](../packages/hbar-app-ui/src/components/Kanban.tsx)                  | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |

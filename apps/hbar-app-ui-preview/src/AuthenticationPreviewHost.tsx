@@ -1,112 +1,128 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useStore } from 'zustand'
 import {
   HbarAppUiAuthenticationProvider,
   type HbarAppUiAuthContent,
   type HbarAppUiVariantProps,
 } from 'hbar-app-ui/catalog'
+import {
+  createAuthenticationPreviewSeed,
+  createAuthenticationPreviewStore,
+  type AuthenticationPreviewDraftKey,
+  type AuthenticationPreviewDrafts,
+} from './authenticationPreviewStore'
 
-/** Demonstration countdown and verification responses exist only in the preview host. */
-export function AuthenticationPreviewHost({
-  content,
-  spec,
-  onAction,
-  children,
-}: HbarAppUiVariantProps & { readonly content: HbarAppUiAuthContent; readonly children: ReactNode }) {
-  const [source, setSource] = useState(content),
-    [code, setCode] = useState(content.code?.code ?? ''),
-    [recoveryCode, setRecoveryCode] = useState(content.code?.referenceFlow?.recoveryCode ?? ''),
-    [phase, setPhase] = useState<'text' | 'recovery' | 'verified'>(content.code?.referenceFlow?.phase ?? 'text'),
-    [busy, setBusy] = useState(false),
-    [seconds, setSeconds] = useState(content.code?.resend?.seconds ?? 0),
-    [signUpName, setSignUpName] = useState(content.signUp?.referenceFlow?.name ?? content.signUp?.initialName ?? ''),
-    [signUpEmail, setSignUpEmail] = useState(content.signUp?.referenceFlow?.email ?? content.signUp?.initialEmail ?? ''),
-    [signUpPassword, setSignUpPassword] = useState(content.signUp?.referenceFlow?.password ?? ''),
-    [signUpVisible, setSignUpVisible] = useState(content.signUp?.referenceFlow?.visible ?? false),
-    [signUpAgreed, setSignUpAgreed] = useState(content.signUp?.referenceFlow?.agreed ?? false),
-    [enterpriseEmail, setEnterpriseEmail] = useState(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? ''),
-    [enterpriseBusy, setEnterpriseBusy] = useState(false),
-    [passkeySelectedId, setPasskeySelectedId] = useState(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? ''),
-    [passkeyPhase, setPasskeyPhase] = useState<'choose' | 'request'>(content.passkey?.referenceFlow?.phase ?? 'choose'),
-    [accountSelectedId, setAccountSelectedId] = useState(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? ''),
-    [workspaceSelectedId, setWorkspaceSelectedId] = useState(content.workspace?.referenceFlow?.selectedId ?? content.workspace?.initialWorkspaceId ?? ''),
-    [workspaceQuery, setWorkspaceQuery] = useState(content.workspace?.referenceFlow?.query ?? ''),
-    [invitationName, setInvitationName] = useState(content.invitation?.referenceFlow?.fullName ?? ''),
-    [invitationPassword, setInvitationPassword] = useState(content.invitation?.referenceFlow?.password ?? ''),
-    [invitationVisible, setInvitationVisible] = useState(content.invitation?.referenceFlow?.passwordVisible ?? false),
-    [invitationPhase, setInvitationPhase] = useState<'form' | 'success'>(content.invitation?.referenceFlow?.phase ?? 'form'),
-    [resetPassword, setResetPassword] = useState(content.passwordReset?.referenceFlow?.password ?? content.passwordReset?.initialPassword ?? ''),
-    [resetConfirmation, setResetConfirmation] = useState(content.passwordReset?.referenceFlow?.confirmation ?? ''),
-    [resetVisible, setResetVisible] = useState(content.passwordReset?.referenceFlow?.passwordVisible ?? false),
-    [resetSignOutOther, setResetSignOutOther] = useState(content.passwordReset?.referenceFlow?.signOutOther ?? true),
-    [resetPhase, setResetPhase] = useState<'form' | 'success'>(content.passwordReset?.referenceFlow?.phase ?? 'form'),
-    [approvalPhase, setApprovalPhase] = useState<'pending' | 'approved' | 'blocked'>(content.approval?.referenceFlow?.phase ?? 'pending')
-  const verificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const enterpriseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  if (source !== content) {
-    setSource(content)
-    setCode(content.code?.code ?? '')
-    setRecoveryCode(content.code?.referenceFlow?.recoveryCode ?? '')
-    setPhase(content.code?.referenceFlow?.phase ?? 'text')
-    setBusy(false)
-    setSeconds(content.code?.resend?.seconds ?? 0)
-    setSignUpName(content.signUp?.referenceFlow?.name ?? content.signUp?.initialName ?? '')
-    setSignUpEmail(content.signUp?.referenceFlow?.email ?? content.signUp?.initialEmail ?? '')
-    setSignUpPassword(content.signUp?.referenceFlow?.password ?? '')
-    setSignUpVisible(content.signUp?.referenceFlow?.visible ?? false)
-    setSignUpAgreed(content.signUp?.referenceFlow?.agreed ?? false)
-    setEnterpriseEmail(content.enterprise?.referenceFlow?.email ?? content.enterprise?.email ?? '')
-    setEnterpriseBusy(false)
-    setPasskeySelectedId(content.passkey?.referenceFlow?.selectedId ?? content.passkey?.initialPasskeyId ?? '')
-    setPasskeyPhase(content.passkey?.referenceFlow?.phase ?? 'choose')
-    setAccountSelectedId(content.account?.referenceFlow?.selectedId ?? content.account?.initialAccountId ?? '')
-    setWorkspaceSelectedId(content.workspace?.referenceFlow?.selectedId ?? content.workspace?.initialWorkspaceId ?? '')
-    setWorkspaceQuery(content.workspace?.referenceFlow?.query ?? '')
-    setInvitationName(content.invitation?.referenceFlow?.fullName ?? '')
-    setInvitationPassword(content.invitation?.referenceFlow?.password ?? '')
-    setInvitationVisible(content.invitation?.referenceFlow?.passwordVisible ?? false)
-    setInvitationPhase(content.invitation?.referenceFlow?.phase ?? 'form')
-    setResetPassword(content.passwordReset?.referenceFlow?.password ?? content.passwordReset?.initialPassword ?? '')
-    setResetConfirmation(content.passwordReset?.referenceFlow?.confirmation ?? '')
-    setResetVisible(content.passwordReset?.referenceFlow?.passwordVisible ?? false)
-    setResetSignOutOther(content.passwordReset?.referenceFlow?.signOutOther ?? true)
-    setResetPhase(content.passwordReset?.referenceFlow?.phase ?? 'form')
-    setApprovalPhase(content.approval?.referenceFlow?.phase ?? 'pending')
-  }
+interface AuthenticationPreviewHostProps extends HbarAppUiVariantProps {
+  readonly content: HbarAppUiAuthContent
+  readonly children: ReactNode
+}
+
+/** Local preview outcomes are demonstrations, not authentication/service confirmations. */
+export function AuthenticationPreviewHost(props: AuthenticationPreviewHostProps) {
+  if (props.spec.category !== 'authentication') return props.children
+  const key = JSON.stringify([props.spec.id, createAuthenticationPreviewSeed(props.content)])
+  return <AuthenticationPreviewOwner key={key} {...props} />
+}
+
+function AuthenticationPreviewOwner({ content, spec, onAction, children }: AuthenticationPreviewHostProps) {
+  const [store] = useState(() => createAuthenticationPreviewStore(content))
+  // This store belongs only to this preview instance, not the application-wide state.
+  const state = useStore(store)
+  const {
+    code,
+    recoveryCode,
+    phase,
+    busy,
+    seconds,
+    signUpName,
+    signUpEmail,
+    signUpPassword,
+    signUpVisible,
+    signUpAgreed,
+    enterpriseEmail,
+    enterpriseBusy,
+    passkeySelectedId,
+    passkeyPhase,
+    accountSelectedId,
+    workspaceSelectedId,
+    workspaceQuery,
+    invitationName,
+    invitationPassword,
+    invitationVisible,
+    invitationPhase,
+    resetPassword,
+    resetConfirmation,
+    resetVisible,
+    resetSignOutOther,
+    resetPhase,
+    approvalPhase,
+    pendingVerification,
+    pendingEnterprise,
+  } = state
+  const activeOwner = useRef(false)
+  const latestAction = useRef(onAction)
+  latestAction.current = onAction
+
+  useLayoutEffect(() => {
+    activeOwner.current = true
+    return () => {
+      activeOwner.current = false
+      store.getState().clearOwner()
+    }
+  }, [store])
+
   useEffect(() => {
-    if (!seconds) return
-    const timer = setTimeout(() => setSeconds((current) => Math.max(0, current - 1)), 1000)
-    return () => clearTimeout(timer)
-  }, [seconds])
-  useEffect(() => () => {
-    if (verificationTimer.current) clearTimeout(verificationTimer.current)
-    if (enterpriseTimer.current) clearTimeout(enterpriseTimer.current)
-  }, [])
-  useEffect(() => {
-    if (verificationTimer.current) clearTimeout(verificationTimer.current)
-    verificationTimer.current = null
-    if (enterpriseTimer.current) clearTimeout(enterpriseTimer.current)
-    enterpriseTimer.current = null
-  }, [content])
-  const verify = content.code
-  const requirementsMet = [signUpPassword.length >= 10, /[A-Z]/.test(signUpPassword), /\d/.test(signUpPassword), /[^A-Za-z0-9]/.test(signUpPassword)]
-  const submit = (value: string) => {
-    if (busy || verificationTimer.current) return
-    setBusy(true)
-    onAction?.({ variantId: spec.id, actionId: 'verify', value })
-    verificationTimer.current = setTimeout(() => {
-      verificationTimer.current = null
-      setBusy(false)
-      setPhase('verified')
+    if (spec.variant !== 6 || seconds <= 0) return undefined
+    const timer = setTimeout(() => {
+      if (activeOwner.current) store.getState().tickSeconds()
     }, 1000)
+    return () => clearTimeout(timer)
+  }, [seconds, spec.variant, store])
+
+  useEffect(() => {
+    if (!pendingVerification) return undefined
+    const timer = setTimeout(() => {
+      if (activeOwner.current) store.getState().completeVerification(pendingVerification)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [pendingVerification, store])
+
+  useEffect(() => {
+    if (!pendingEnterprise) return undefined
+    const timer = setTimeout(() => {
+      if (activeOwner.current) store.getState().completeEnterprise(pendingEnterprise)
+    }, 1800)
+    return () => clearTimeout(timer)
+  }, [pendingEnterprise, store])
+
+  function update<K extends AuthenticationPreviewDraftKey>(key: K, value: AuthenticationPreviewDrafts[K]): void {
+    if (activeOwner.current) store.getState().setDraft(key, value)
   }
-  const changeMode = (mode: 'text' | 'recovery') => {
-    if (verificationTimer.current) clearTimeout(verificationTimer.current)
-    verificationTimer.current = null
-    setBusy(false)
-    setPhase(mode)
-    setCode('')
-    setRecoveryCode('')
+
+  function notify(actionId: string, value?: string): void {
+    if (activeOwner.current)
+      latestAction.current?.({ variantId: spec.id, actionId, ...(value === undefined ? {} : { value }) })
   }
+
+  const verify = content.code
+  const requirementsMet = [
+    signUpPassword.length >= 10,
+    /[A-Z]/.test(signUpPassword),
+    /\d/.test(signUpPassword),
+    /[^A-Za-z0-9]/.test(signUpPassword),
+  ]
+  function submit(): void {
+    if (!activeOwner.current || !verify) return
+    const current = store.getState()
+    const valid =
+      current.phase === 'recovery'
+        ? current.recoveryCode.length === 11
+        : current.phase === 'text' && new RegExp(`^\\d{${verify.codeLength}}$`).test(current.code)
+    if (!valid) return
+    const requestId = current.startVerification()
+    if (requestId) notify('verify', JSON.stringify({ requestId, method: current.phase, outcome: 'preview-only' }))
+  }
+
   return (
     <HbarAppUiAuthenticationProvider
       content={{
@@ -117,28 +133,33 @@ export function AuthenticationPreviewHost({
           busy: verify.referenceFlow ? busy : verify.busy,
           canVerify: new RegExp(`^\\d{${verify.codeLength}}$`).test(code),
           onCodeChange: (value) => {
-            setCode(value)
-            if (verify.referenceFlow && phase === 'text' && new RegExp(`^\\d{${verify.codeLength}}$`).test(value)) submit(value)
+            update('code', value)
+            if (verify.referenceFlow && phase === 'text' && new RegExp(`^\\d{${verify.codeLength}}$`).test(value))
+              submit()
           },
-          onVerify: () => verify.referenceFlow ? submit(phase === 'recovery' ? recoveryCode : code) : onAction?.({ variantId: spec.id, actionId: 'verify', value: code }),
+          onVerify: () =>
+            verify.referenceFlow ? submit() : notify('verify', JSON.stringify({ outcome: 'preview-only' })),
           resend: verify.resend && {
             seconds,
             enabled: seconds === 0,
-            onResend() {
-              setSeconds(verify.resend?.seconds ?? 0)
-              onAction?.({ variantId: spec.id, actionId: 'resend' })
+            onResend: () => {
+              if (!activeOwner.current || store.getState().seconds > 0) return
+              store.setState({ seconds: verify.resend?.seconds ?? 0 })
+              notify('resend')
             },
           },
-          onRecovery: () => onAction?.({ variantId: spec.id, actionId: 'recovery' }),
-          onBack: () => onAction?.({ variantId: spec.id, actionId: 'back' }),
+          onRecovery: () => notify('recovery'),
+          onBack: () => notify('back'),
           referenceFlow: verify.referenceFlow && {
             ...verify.referenceFlow,
             phase,
             recoveryCode,
             canVerifyRecovery: recoveryCode.length === 11,
-            onRecoveryCodeChange: (value) => setRecoveryCode(value.toUpperCase().slice(0, 11)),
-            onModeChange: changeMode,
-            onContinue: () => onAction?.({ variantId: spec.id, actionId: 'continue' }),
+            onRecoveryCodeChange: (value) => update('recoveryCode', value.toUpperCase().slice(0, 11)),
+            onModeChange: (mode) => {
+              if (activeOwner.current) store.getState().changeMode(mode)
+            },
+            onContinue: () => notify('continue'),
           },
         },
         signUp: content.signUp && {
@@ -151,12 +172,16 @@ export function AuthenticationPreviewHost({
             visible: signUpVisible,
             agreed: signUpAgreed,
             requirementsMet,
-            canSubmit: signUpName.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signUpEmail) && requirementsMet.every(Boolean) && signUpAgreed,
-            onNameChange: setSignUpName,
-            onEmailChange: setSignUpEmail,
-            onPasswordChange: setSignUpPassword,
-            onVisibleChange: setSignUpVisible,
-            onAgreedChange: setSignUpAgreed,
+            canSubmit:
+              signUpName.trim().length >= 2 &&
+              /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signUpEmail) &&
+              requirementsMet.every(Boolean) &&
+              signUpAgreed,
+            onNameChange: (value) => update('signUpName', value),
+            onEmailChange: (value) => update('signUpEmail', value),
+            onPasswordChange: (value) => update('signUpPassword', value),
+            onVisibleChange: (value) => update('signUpVisible', value),
+            onAgreedChange: (value) => update('signUpAgreed', value),
           },
         },
         enterprise: content.enterprise && {
@@ -165,20 +190,22 @@ export function AuthenticationPreviewHost({
             ...content.enterprise.referenceFlow,
             email: enterpriseEmail,
             busy: enterpriseBusy,
-            onEmailChange: setEnterpriseEmail,
+            onEmailChange: (value) => update('enterpriseEmail', value),
             onContinue: () => {
               const enterprise = content.enterprise
-              if (!enterprise) return
-              if (enterpriseBusy || enterpriseTimer.current) return
-              setEnterpriseBusy(true)
-              const domain = enterpriseEmail.split('@')[1]?.trim().toLowerCase()
-              const provider = enterprise.referenceFlow?.alternateOrganizations.find((entry) => entry.organization.domain.toLowerCase() === domain)?.organization.provider
-                ?? (enterprise.organization.domain.toLowerCase() === domain ? enterprise.organization.provider : '')
-              onAction?.({ variantId: spec.id, actionId: 'continue-sso', value: provider })
-              enterpriseTimer.current = setTimeout(() => {
-                enterpriseTimer.current = null
-                setEnterpriseBusy(false)
-              }, 1800)
+              if (!activeOwner.current || !enterprise) return
+              const requestId = store.getState().startEnterprise()
+              if (!requestId) return
+              const domain = store.getState().enterpriseEmail.split('@')[1]?.trim().toLowerCase()
+              const provider =
+                enterprise.referenceFlow?.alternateOrganizations.find(
+                  (entry) => entry.organization.domain.toLowerCase() === domain,
+                )?.organization.provider ??
+                (enterprise.organization.domain.toLowerCase() === domain ? enterprise.organization.provider : '')
+              notify(
+                'continue-sso',
+                JSON.stringify({ requestId, provider, outcome: 'authentication-and-navigation-unverified' }),
+              )
             },
           },
         },
@@ -188,12 +215,12 @@ export function AuthenticationPreviewHost({
             ...content.passkey.referenceFlow,
             selectedId: passkeySelectedId,
             phase: passkeyPhase,
-            onSelect: setPasskeySelectedId,
+            onSelect: (value) => update('passkeySelectedId', value),
             onContinue: (id) => {
-              setPasskeyPhase('request')
-              onAction?.({ variantId: spec.id, actionId: 'continue-passkey', value: id })
+              update('passkeyPhase', 'request')
+              notify('continue-passkey', id)
             },
-            onCancel: () => setPasskeyPhase('choose'),
+            onCancel: () => update('passkeyPhase', 'choose'),
           },
         },
         account: content.account && {
@@ -201,7 +228,7 @@ export function AuthenticationPreviewHost({
           referenceFlow: content.account.referenceFlow && {
             ...content.account.referenceFlow,
             selectedId: accountSelectedId,
-            onSelect: setAccountSelectedId,
+            onSelect: (value) => update('accountSelectedId', value),
           },
         },
         workspace: content.workspace && {
@@ -210,8 +237,8 @@ export function AuthenticationPreviewHost({
             ...content.workspace.referenceFlow,
             selectedId: workspaceSelectedId,
             query: workspaceQuery,
-            onSelect: setWorkspaceSelectedId,
-            onQueryChange: setWorkspaceQuery,
+            onSelect: (value) => update('workspaceSelectedId', value),
+            onQueryChange: (value) => update('workspaceQuery', value),
           },
         },
         invitation: content.invitation && {
@@ -222,14 +249,14 @@ export function AuthenticationPreviewHost({
             password: invitationPassword,
             passwordVisible: invitationVisible,
             phase: invitationPhase,
-            onFullNameChange: setInvitationName,
-            onPasswordChange: setInvitationPassword,
-            onTogglePassword: () => setInvitationVisible((visible) => !visible),
+            onFullNameChange: (value) => update('invitationName', value),
+            onPasswordChange: (value) => update('invitationPassword', value),
+            onTogglePassword: () => update('invitationVisible', !store.getState().invitationVisible),
             onSubmit: () => {
-              setInvitationPhase('success')
-              onAction?.({ variantId: spec.id, actionId: 'accept' })
+              update('invitationPhase', 'success')
+              notify('accept', JSON.stringify({ outcome: 'preview-only' }))
             },
-            onReview: () => setInvitationPhase('form'),
+            onReview: () => update('invitationPhase', 'form'),
           },
         },
         passwordReset: content.passwordReset && {
@@ -241,20 +268,29 @@ export function AuthenticationPreviewHost({
             passwordVisible: resetVisible,
             signOutOther: resetSignOutOther,
             phase: resetPhase,
-            onPasswordChange: setResetPassword,
-            onConfirmationChange: setResetConfirmation,
-            onTogglePassword: () => setResetVisible((visible) => !visible),
-            onSignOutOtherChange: setResetSignOutOther,
+            onPasswordChange: (value) => update('resetPassword', value),
+            onConfirmationChange: (value) => update('resetConfirmation', value),
+            onTogglePassword: () => update('resetVisible', !store.getState().resetVisible),
+            onSignOutOtherChange: (value) => update('resetSignOutOther', value),
             onSubmit: () => {
-              setResetPhase('success')
-              onAction?.({ variantId: spec.id, actionId: 'update-password', value: resetSignOutOther ? 'all-devices' : 'current-device' })
+              update('resetPhase', 'success')
+              notify(
+                'update-password',
+                JSON.stringify({
+                  scope: store.getState().resetSignOutOther ? 'all-devices' : 'current-device',
+                  outcome: 'preview-only',
+                }),
+              )
             },
             onSetDifferent: () => {
-              setResetPassword('')
-              setResetConfirmation('')
-              setResetVisible(false)
-              setResetSignOutOther(true)
-              setResetPhase('form')
+              if (!activeOwner.current) return
+              store.setState({
+                resetPassword: '',
+                resetConfirmation: '',
+                resetVisible: false,
+                resetSignOutOther: true,
+                resetPhase: 'form',
+              })
             },
           },
         },
@@ -263,10 +299,16 @@ export function AuthenticationPreviewHost({
           referenceFlow: content.approval.referenceFlow && {
             ...content.approval.referenceFlow,
             phase: approvalPhase,
-            onApprove: () => setApprovalPhase('approved'),
-            onDeny: () => setApprovalPhase('blocked'),
-            onBack: () => setApprovalPhase('pending'),
-            onChangePassword: () => {},
+            onApprove: () => {
+              update('approvalPhase', 'approved')
+              notify('approve-sign-in', JSON.stringify({ outcome: 'preview-only' }))
+            },
+            onDeny: () => {
+              update('approvalPhase', 'blocked')
+              notify('deny-sign-in', JSON.stringify({ outcome: 'preview-only' }))
+            },
+            onBack: () => update('approvalPhase', 'pending'),
+            onChangePassword: () => notify('change-password', JSON.stringify({ outcome: 'navigation-unverified' })),
           },
         },
       }}
