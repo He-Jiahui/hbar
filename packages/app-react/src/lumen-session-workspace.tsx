@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { CommandError } from '@hbar/commands'
 import { Bot, ChartNoAxesColumnIncreasing, Files, ListChecks, ListTodo, Settings, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
@@ -23,6 +24,7 @@ import {
   GOAL_HISTORY_MAX_FACTS,
   type PlanProposalState,
   type PromptMention,
+  type SessionLaunchDraftEntry,
   type SessionDecision,
 } from '@hbar/app-runtime'
 import type { HbarProposedPlanLabels } from './proposed-plan'
@@ -170,6 +172,8 @@ export interface HbarSessionWorkspaceProps {
   readonly navigationAccessory?: ReactNode | undefined
   readonly firstSendLabels?: HbarPreSessionLaunchStatusLabels | undefined
   readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
+  /** Rendered in place of readonly project context only while the Host-confirmed Session is empty. */
+  readonly renderLaunchControls?: (() => ReactNode) | undefined
   readonly images?: HbarSessionImagesOptions | undefined
   readonly modelMenuPresentation?: 'native' | 'web' | undefined
 }
@@ -219,6 +223,7 @@ function SessionWorkspaceContent({
   navigationAccessory,
   firstSendLabels,
   projectContextLabels,
+  renderLaunchControls,
   images,
   modelMenuPresentation,
 }: HbarSessionWorkspaceProps) {
@@ -232,6 +237,7 @@ function SessionWorkspaceContent({
   const messageFork = useHbarRuntimeState(runtime.state.messageFork)
   const drafts = useHbarRuntimeState(runtime.state.drafts)
   const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  const sessionLaunchDrafts = useHbarRuntimeState(runtime.state.sessionLaunchDrafts)
   const interactions = useHbarRuntimeState(runtime.state.interactions)
   const questionnaires = useHbarRuntimeState(runtime.state.questionnaires)
   const runActions = useHbarRuntimeState(runtime.state.runActions)
@@ -339,8 +345,10 @@ function SessionWorkspaceContent({
     terminalRunId,
     enabled: Boolean(projectContextLabels),
   })
-  const projectContextView = () =>
-    projectContextLabels && sessionId ? (
+  const projectContextView = (showLaunchControls: boolean) =>
+    showLaunchControls && renderLaunchControls ? (
+      renderLaunchControls()
+    ) : projectContextLabels && sessionId ? (
       <HbarSessionProjectContext
         workspaceName={workspaceName}
         workspacePath={workspacePath}
@@ -357,7 +365,98 @@ function SessionWorkspaceContent({
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
   const canPrepareTarget = (targetSessionId: string, targetWorkspaceId: string) =>
     runtime.getSessionExecutionAccess({ sessionId: targetSessionId, workspaceId: targetWorkspaceId }).kind === 'ready'
+  const hasOwnedEmptySessionLaunchDraft = (targetSessionId: string, targetWorkspaceId: string) => {
+    const owner = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
+    const navigationState = runtime.state.navigation.getSnapshot()
+    const latestDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+    const sessionTimeline = runtime.state.timeline.getSnapshot()
+    const submission = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]?.submission.status
+    return Boolean(
+      owner?.workspaceId === targetWorkspaceId &&
+      navigationState.status === 'idle' &&
+      navigationState.sessionId === targetSessionId &&
+      navigationState.workspaceId === targetWorkspaceId &&
+      latestDraft?.lastOperationId === null &&
+      sessionTimeline.sessionId === targetSessionId &&
+      sessionTimeline.status === 'ready' &&
+      sessionTimeline.messages.length === 0 &&
+      !sessionTimeline.hasOlder &&
+      sessionTimeline.runs.length === 0 &&
+      sessionTimeline.approvals.length === 0 &&
+      sessionTimeline.userInputs.length === 0 &&
+      Object.keys(sessionTimeline.streams).length === 0 &&
+      !['submitting', 'unknown'].includes(submission ?? ''),
+    )
+  }
+  const prepareSessionLaunchTarget = async (
+    targetSessionId: string,
+    targetWorkspaceId: string,
+    expectedDraftRevision: number,
+  ): Promise<number> => {
+    if (!runtime.state.sessionLaunchDrafts.getSnapshot().available)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Location preparation is unavailable')
+    const selected = runtime.state.navigation.getSnapshot()
+    const latestDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+    const sessionTimeline = runtime.state.timeline.getSnapshot()
+    const intentSubmission = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]?.submission.status
+    if (
+      selected.status !== 'idle' ||
+      selected.sessionId !== targetSessionId ||
+      selected.workspaceId !== targetWorkspaceId ||
+      latestDraft?.revision !== expectedDraftRevision ||
+      latestDraft.lastOperationId !== null ||
+      sessionTimeline.sessionId !== targetSessionId ||
+      sessionTimeline.status !== 'ready' ||
+      sessionTimeline.messages.length > 0 ||
+      sessionTimeline.hasOlder ||
+      sessionTimeline.runs.length > 0 ||
+      sessionTimeline.approvals.length > 0 ||
+      sessionTimeline.userInputs.length > 0 ||
+      Object.keys(sessionTimeline.streams).length > 0 ||
+      ['submitting', 'unknown'].includes(intentSubmission ?? '')
+    )
+      throw new CommandError('SESSION_LAUNCH_TARGET_LOCKED', 'This Session is no longer empty')
+    const existing = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
+    const entry: SessionLaunchDraftEntry =
+      existing ??
+      (await runtime.commands.execute('sessionLaunchDraft.open', {
+        sessionId: targetSessionId,
+        workspaceId: targetWorkspaceId,
+      }))
+    if (entry.workspaceId !== targetWorkspaceId || entry.sessionId !== targetSessionId)
+      throw new CommandError('STALE_TARGET', 'Launch choice belongs to another Session or Workspace')
+    const prepared = await runtime.commands.execute('sessionLaunchDraft.prepare', {
+      sessionId: targetSessionId,
+      expectedRevision: entry.revision,
+    })
+    const current = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
+    const currentNavigation = runtime.state.navigation.getSnapshot()
+    const currentDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+    if (
+      prepared.phase !== 'ready' ||
+      prepared.targetRevision === null ||
+      current?.revision !== entry.revision ||
+      current.phase !== 'ready' ||
+      current.targetRevision !== prepared.targetRevision ||
+      currentNavigation.status !== 'idle' ||
+      currentNavigation.sessionId !== targetSessionId ||
+      currentNavigation.workspaceId !== targetWorkspaceId ||
+      currentDraft?.revision !== expectedDraftRevision
+    )
+      throw new CommandError(
+        prepared.error ?? current?.error ?? 'STALE_TARGET',
+        'First-send launch preparation is not ready',
+      )
+    return prepared.targetRevision
+  }
+  const releaseSessionLaunchChoices = (targetSessionId: string) => {
+    void runtime.commands.execute('sessionLaunchDraft.close', { sessionId: targetSessionId }).catch(() => undefined)
+    void runtime.commands
+      .execute('sessionLaunchBranchCreation.cancel', { draftId: targetSessionId })
+      .catch(() => undefined)
+  }
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
+  const firstSessionRunInFlight = useRef<string | null>(null)
   const composerGoalTrigger = useRef<HTMLButtonElement>(null)
   const [goalMenuSlot, setGoalMenuSlot] = useState<HTMLDivElement | null>(null)
   const [goalPreparedRequest, setGoalPreparedRequest] = useState(0)
@@ -368,6 +467,7 @@ function SessionWorkspaceContent({
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string; profileId?: string } | null>(null)
+  const [launchTargetFailure, setLaunchTargetFailure] = useState<{ sessionId: string; code: string } | null>(null)
   const [goalConfirmation, setGoalConfirmation] = useState<{
     sessionId: string
     workspaceId: string
@@ -481,16 +581,38 @@ function SessionWorkspaceContent({
           setSlashFailure({ sessionId: target.sessionId, code: 'INVALID_OUTPUT' })
           return
         }
+        let expectedLaunchTargetRevision: number | undefined
+        if (
+          (welcome && renderLaunchControls !== undefined) ||
+          hasOwnedEmptySessionLaunchDraft(target.sessionId, target.workspaceId)
+        ) {
+          try {
+            expectedLaunchTargetRevision = await prepareSessionLaunchTarget(
+              target.sessionId,
+              target.workspaceId,
+              target.revision,
+            )
+          } catch (reason) {
+            const code =
+              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                ? reason.code
+                : 'EXECUTION_FAILED'
+            setSlashFailure({ sessionId: target.sessionId, code })
+            return
+          }
+        }
         await execute('composerIntent.startGoalRun', {
           sessionId: target.sessionId,
           objective: command.objective,
           expectedGoalId: goalId,
           modelId: currentModel.modelId,
+          ...(expectedLaunchTargetRevision === undefined ? {} : { expectedLaunchTargetRevision }),
           ...(currentModel.thinkingLevel ? { thinking: currentModel.thinkingLevel } : {}),
           ...(permissionState.available ? { expectedPermissionRevision: permission?.revision ?? 0 } : {}),
           expectedDraftRevision: target.revision,
           draftText: target.text,
         })
+        if (expectedLaunchTargetRevision !== undefined) releaseSessionLaunchChoices(target.sessionId)
       }
       await clearLocalSlash(target)
     } catch (reason) {
@@ -698,6 +820,19 @@ function SessionWorkspaceContent({
     const permission = permissionState.entries[targetSessionId]
     const modelAction = runtime.state.composerModel.getSnapshot()
     const sessionTimeline = runtime.state.timeline.getSnapshot()
+    const launchPreparationRequired =
+      ((welcome && renderLaunchControls !== undefined) ||
+        hasOwnedEmptySessionLaunchDraft(targetSessionId, targetWorkspaceId)) &&
+      sessionTimeline.sessionId === targetSessionId &&
+      sessionTimeline.status === 'ready' &&
+      latest?.lastOperationId === null &&
+      sessionTimeline.messages.length === 0 &&
+      !sessionTimeline.hasOlder &&
+      sessionTimeline.runs.length === 0 &&
+      sessionTimeline.approvals.length === 0 &&
+      sessionTimeline.userInputs.length === 0 &&
+      Object.keys(sessionTimeline.streams).length === 0 &&
+      !['submitting', 'unknown'].includes(intentState?.submission.status ?? '')
     if (
       !connected ||
       !canPrepareTarget(targetSessionId, targetWorkspaceId) ||
@@ -720,7 +855,7 @@ function SessionWorkspaceContent({
         (planModeState.entries[targetSessionId]?.status !== 'ready' || !planModeState.entries[targetSessionId]?.mode))
     )
       return
-    invoke('composerIntent.submit', {
+    const submitInput = {
       sessionId: targetSessionId,
       modelId: currentModel.modelId,
       expectedIntentRevision: intentState?.revision ?? 0,
@@ -732,7 +867,59 @@ function SessionWorkspaceContent({
         files: latest.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
         ...(currentModel.thinkingLevel ? { thinking: currentModel.thinkingLevel } : {}),
       },
-    })
+    }
+    if (launchPreparationRequired) {
+      if (firstSessionRunInFlight.current === targetSessionId) return
+      firstSessionRunInFlight.current = targetSessionId
+      setLaunchTargetFailure(null)
+      try {
+        const expectedLaunchTargetRevision = await prepareSessionLaunchTarget(
+          targetSessionId,
+          targetWorkspaceId,
+          latest.revision,
+        )
+        const currentNavigation = runtime.state.navigation.getSnapshot()
+        const currentDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+        const currentComposerIntent = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
+        const currentComposerModel = runtime.state.controls.getSnapshot()
+        const currentPermission = runtime.state.composerPermission.getSnapshot().entries[targetSessionId]
+        const currentPlanMode = runtime.state.composerPlanMode.getSnapshot().entries[targetSessionId]
+        if (
+          currentNavigation.status !== 'idle' ||
+          currentNavigation.sessionId !== targetSessionId ||
+          currentNavigation.workspaceId !== targetWorkspaceId ||
+          currentDraft?.revision !== latest.revision ||
+          (currentComposerIntent?.revision ?? 0) !== submitInput.expectedIntentRevision ||
+          currentComposerModel.sessionId !== targetSessionId ||
+          currentComposerModel.model?.status !== 'configured' ||
+          currentComposerModel.model.modelId !== submitInput.modelId ||
+          currentComposerModel.model.thinkingLevel !== currentModel.thinkingLevel ||
+          (permissionState.available &&
+            (currentPermission?.locked || currentPermission?.revision !== (permission?.revision ?? 0))) ||
+          (planModeState.available &&
+            (currentPlanMode?.status !== 'ready' ||
+              currentPlanMode.mode !== planModeState.entries[targetSessionId]?.mode))
+        )
+          throw new CommandError('VERSION_CONFLICT', 'Composer choices changed during first-send preparation')
+        await runtime.commands.execute('composerIntent.submit', {
+          ...submitInput,
+          expectedLaunchTargetRevision,
+        })
+        releaseSessionLaunchChoices(targetSessionId)
+      } catch (reason) {
+        setLaunchTargetFailure({
+          sessionId: targetSessionId,
+          code:
+            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+              ? reason.code
+              : 'EXECUTION_FAILED',
+        })
+      } finally {
+        if (firstSessionRunInFlight.current === targetSessionId) firstSessionRunInFlight.current = null
+      }
+      return
+    }
+    invoke('composerIntent.submit', submitInput)
   }
   const attachmentTransfers = draft?.attachmentTransfers ?? []
   const attachmentIntakeEnabled =
@@ -1240,6 +1427,20 @@ function SessionWorkspaceContent({
       lastOperationId: draft?.lastOperationId ?? null,
       submissionPending: intentPending || Boolean(permissionEntry?.locked),
     })
+  const launchDraftEntry = sessionId ? sessionLaunchDrafts.entries[sessionId] : undefined
+  const confirmedEmptyTimeline =
+    timeline.sessionId === sessionId &&
+    timeline.status === 'ready' &&
+    timeline.messages.length === 0 &&
+    !timeline.hasOlder &&
+    timeline.runs.length === 0 &&
+    timeline.approvals.length === 0 &&
+    timeline.userInputs.length === 0 &&
+    Object.keys(timeline.streams).length === 0 &&
+    draft?.lastOperationId === null
+  const showLaunchLocation =
+    welcome ||
+    Boolean(launchDraftEntry && launchDraftEntry.workspaceId === sessionWorkspaceId && confirmedEmptyTimeline)
   const emptyTimeline = welcome ? (
     <HbarSessionEmptyHero labels={labels.emptyHero} />
   ) : (
@@ -1614,7 +1815,9 @@ function SessionWorkspaceContent({
                 />
               )}
               {projectContextLabels && (
-                <LumenFrame className="hbar-session-project-context-toolbar">{projectContextView()}</LumenFrame>
+                <LumenFrame className="hbar-session-project-context-toolbar">
+                  {projectContextView(showLaunchLocation)}
+                </LumenFrame>
               )}
               <HbarComposerIntentControls
                 key={sessionId}
@@ -1643,6 +1846,11 @@ function SessionWorkspaceContent({
                   labels={firstSendLabels}
                   connected={connected}
                 />
+              )}
+              {launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
+                <LumenText as="p" role="alert">
+                  {firstSendLabels.error(launchTargetFailure.code)}
+                </LumenText>
               )}
               <HbarQueuedUserRuns
                 state={queuedUserRuns}
@@ -1767,7 +1975,7 @@ function SessionWorkspaceContent({
         />
       </HbarComposerAttachmentDropTarget>
       {projectContextLabels && (
-        <LumenFrame className="hbar-session-project-context-below">{projectContextView()}</LumenFrame>
+        <LumenFrame className="hbar-session-project-context-below">{projectContextView(showLaunchLocation)}</LumenFrame>
       )}
       {sessionUsagePresentation(controls, labels.usage).notice && (
         <LumenText as="p" className="hbar-session-budget-notice" role="status">

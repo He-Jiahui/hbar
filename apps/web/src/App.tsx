@@ -11,6 +11,7 @@ import {
   HbarRuntimeProvider,
   HbarSessionMonitoring,
   HbarSessionActivityWorkspace,
+  HbarSessionLaunchLocation,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
   HbarSettingsUsage,
@@ -664,6 +665,19 @@ function WorkspaceBodyContent({
         sessionWorkspaceId={session.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
         firstSendLabels={preSessionLaunchCopy(locale).status}
+        renderLaunchControls={() => (
+          <HbarSessionLaunchLocation
+            sessionId={session.id}
+            workspaceId={session.workspaceId}
+            workspaceName={
+              sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId
+            }
+            workspacePath={sessionWorkspace?.path}
+            connected={connected}
+            labels={preSessionLaunchCopy(locale).location}
+            statusLabels={preSessionLaunchCopy(locale).status}
+          />
+        )}
         labels={copy.session}
         describeTool={createSessionToolPresenter(locale)}
         sendBehavior={selectedSendBehavior}

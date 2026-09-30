@@ -52,6 +52,7 @@ export {
   type HbarSessionWorkspaceLabels,
   type HbarSessionWorkspaceProps,
 } from './lumen-session-workspace'
+export { HbarSessionLaunchLocation, type HbarSessionLaunchLocationProps } from './session-launch-location'
 export {
   HbarSessionEmptyHero,
   showSessionEmptyHero,

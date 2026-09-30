@@ -69,6 +69,8 @@ export interface HbarPreSessionLocationPickerProps {
   readonly draftRevision: number | null
   readonly branchCreation: PreSessionLaunchBranchCreationEntry | null
   readonly branchCreationAvailable: boolean
+  /** Existing Sessions keep their registered workspace; hide project/path replacement in that mode. */
+  readonly workspaceChangeAvailable?: boolean
   readonly loading: boolean
   readonly error: string | null
   readonly disabled: boolean
@@ -90,6 +92,7 @@ export interface HbarPreSessionLocationPickerProps {
 
 export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPickerProps) {
   const { labels, page, selection, loading, disabled } = props
+  const workspaceChangeAvailable = props.workspaceChangeAvailable ?? true
   const id = useId()
   const titleId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
@@ -320,24 +323,34 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
         <LumenFrame className="hbar-pre-session-location-body">
           {view === 'root' ? (
             <>
-              <LumenButton
-                type="button"
-                variant="text"
-                indicator="none"
-                className="hbar-pre-session-location-row"
-                disabled={pending || disabled}
-                onClick={() => {
-                  setView('directory')
-                  setQuery('')
-                }}
-              >
-                <LumenIcon icon={Folder} tier="md" />
-                <LumenFrame>
-                  <LumenText as="strong">{labels.directory}</LumenText>
-                  <LumenText as="small">{directory?.label ?? labels.chooseDirectory}</LumenText>
+              {workspaceChangeAvailable ? (
+                <LumenButton
+                  type="button"
+                  variant="text"
+                  indicator="none"
+                  className="hbar-pre-session-location-row"
+                  disabled={pending || disabled}
+                  onClick={() => {
+                    setView('directory')
+                    setQuery('')
+                  }}
+                >
+                  <LumenIcon icon={Folder} tier="md" />
+                  <LumenFrame>
+                    <LumenText as="strong">{labels.directory}</LumenText>
+                    <LumenText as="small">{directory?.label ?? labels.chooseDirectory}</LumenText>
+                  </LumenFrame>
+                  <LumenIcon icon={ChevronRight} tier="sm" />
+                </LumenButton>
+              ) : (
+                <LumenFrame className="hbar-pre-session-location-row hbar-pre-session-location-workspace-context">
+                  <LumenIcon icon={Folder} tier="md" />
+                  <LumenFrame>
+                    <LumenText as="strong">{labels.directory}</LumenText>
+                    <LumenText as="small">{directory?.label ?? labels.chooseDirectory}</LumenText>
+                  </LumenFrame>
                 </LumenFrame>
-                <LumenIcon icon={ChevronRight} tier="sm" />
-              </LumenButton>
+              )}
               {page?.repository.kind === 'repository' && (
                 <LumenButton
                   ref={branchTrigger}
