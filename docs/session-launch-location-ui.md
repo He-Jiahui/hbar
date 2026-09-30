@@ -91,6 +91,18 @@ passed on the changed launch files; the File workspace's pre-existing two
 formatting hunks were preserved so its one type-import correction does not
 include unrelated mechanical edits.
 
+The narrow post-Run capture originally exposed only a tail of the internal
+64-character isolated-branch hash. The Host copy adapter now provides a short
+localized `branchCaption` for canonical generated branches (`Isolated` / `隔离`
+plus eight identifier characters). Named branches remain unchanged. The full
+Git branch is still the context title and accessible name; this does not rename
+Git refs or guess an execution target from a display label. Bilingual caption
+tests passed 2/2 (12 assertions), and both real-Host Location browser cases
+passed with caption/title assertions before their screenshots. Root inspected
+the final 390px post-Run capture. Production build passed (3,328 modules), with
+the existing chunk-size warning; scoped type/lint, content/icon guards,
+formatting and diff checks passed. No native smoke is claimed.
+
 Browser captures are written outside Playwright's temporary output at
 `artifacts/session-launch-location/{en-US,zh-CN}/` when that focused spec is
 run. They document this Hbar flow only; earlier CC reference captures used a

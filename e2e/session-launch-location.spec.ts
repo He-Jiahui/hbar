@@ -197,6 +197,15 @@ test('existing empty Session selects a shared branch locally and applies it on o
     })
     await expect(project).toBeVisible()
     await expect(project.locator('.hbar-session-project-context-branch')).toBeVisible()
+    if (target.resolution.status === 'ready' && target.resolution.branch) {
+      await expect(project.locator('.hbar-session-project-context-branch bdi')).toHaveText(
+        sessionContextCopy('en-US').branchCaption(target.resolution.branch),
+      )
+      await expect(project.locator('.hbar-session-project-context-branch')).toHaveAttribute(
+        'title',
+        sessionContextCopy('en-US').branch(target.resolution.branch),
+      )
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: join(screenshotRoot, 'send-result.png') })
     expect(errors).toEqual([])
@@ -273,6 +282,15 @@ test('existing empty Session prepares an isolated selected base before its Goal 
     })
     await expect(project).toBeVisible()
     await expect(project.locator('.hbar-session-project-context-branch')).toBeVisible()
+    if (target.resolution.status === 'ready' && target.resolution.branch) {
+      await expect(project.locator('.hbar-session-project-context-branch bdi')).toHaveText(
+        sessionContextCopy('zh-CN').branchCaption(target.resolution.branch),
+      )
+      await expect(project.locator('.hbar-session-project-context-branch')).toHaveAttribute(
+        'title',
+        sessionContextCopy('zh-CN').branch(target.resolution.branch),
+      )
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: join(screenshotRoot, 'send-result.png') })
     expect(errors).toEqual([])
