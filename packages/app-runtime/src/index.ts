@@ -83,6 +83,7 @@ export type {
 } from './goal-history'
 import { createDrafts } from './drafts'
 import { createPreSessionDrafts } from './pre-session-drafts'
+import { createPreSessionLaunchBranches, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
@@ -111,6 +112,8 @@ import { createSessionGitContext, sessionGitContextCommands } from './session-gi
 import { createSessionRosterRefresh, sessionRosterRefreshCommands } from './session-roster-refresh'
 export { sessionRosterRefreshCommands } from './session-roster-refresh'
 export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
+export { PRE_SESSION_LAUNCH_BRANCHES_PAGE_SIZE, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
+export type { PreSessionLaunchBranchesState } from './pre-session-launch-branches'
 import { createSettingsUsage, settingsUsageCommands } from './settings-usage'
 export { settingsUsageCommands, SETTINGS_USAGE_MAX_BUCKETS } from './settings-usage'
 export type { SettingsUsageWindow, SettingsUsageReport, SettingsUsageEntry, SettingsUsageState } from './settings-usage'
@@ -322,6 +325,7 @@ const runtimeCommands = {
   ...workspaceDisplayNamesClientCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
+  ...preSessionLaunchBranchesCommands,
   ...systemDiagnosticsCommands,
 }
 
@@ -346,6 +350,12 @@ export function createAppRuntime(options: RuntimeOptions) {
   const local = new CommandRegistry({ execution: 'client' })
   const platform = new CommandRegistry({ execution: 'platform' })
   let disposed = false
+  const preSessionLaunchBranches = createPreSessionLaunchBranches(
+    local,
+    options.sessionLaunchBranches,
+    onSubscriberError,
+    () => disposed,
+  )
   const clientPersistence = createClientPersistence(local, options, onSubscriberError, () => disposed)
   const directory = createDirectoryModule(
     options,
@@ -838,6 +848,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(preSessionDraftCommands, name) ||
+        Object.hasOwn(preSessionLaunchBranchesCommands, name) ||
         Object.hasOwn(runActionCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(interactionRecoveryCommands, name) ||
@@ -924,6 +935,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       queuedUserRuns: queuedUserRuns.reader,
       drafts: drafts.reader,
       preSessionDrafts: preSessionDrafts.reader,
+      preSessionLaunchBranches: preSessionLaunchBranches.reader,
       runActions: drafts.actions,
       interactions: interactions.reader,
       questionnaires: interactions.questionnaires,
@@ -984,6 +996,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       activityWorkspace.dispose()
       agentComposer.dispose()
       preSessionDrafts.dispose()
+      preSessionLaunchBranches.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()
