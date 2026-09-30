@@ -1,4 +1,5 @@
 import { CommandError, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
+import type { Message } from '@hbar/contracts'
 import {
   draftCommands,
   promptWorkspaceContextInputSchema,
@@ -47,6 +48,8 @@ interface PendingSubmission {
   readonly matchesDraft: boolean
   readonly detached: boolean
 }
+
+export type ConversationMessageReader = (sessionId: string, messageId: string) => Readonly<Message> | null
 
 function initial(sessionId: string): SessionDraftState {
   return {
@@ -98,6 +101,7 @@ export function createDrafts(
   isDisposed: () => boolean,
   attachmentQueries?: CommandExecutor,
   preparation?: SessionExecutionPreparationPort,
+  readConversationMessage?: ConversationMessageReader,
 ) {
   const state = createState<DraftsState>({}, onSubscriberError)
   const actions = createState<RunActionsState>({}, onSubscriberError)
@@ -149,6 +153,11 @@ export function createDrafts(
   ) => {
     serializeComposerModelText(text, mentions, workspaceContexts)
   }
+  const authoredMessageText = (message: Readonly<Message>): string => {
+    const textBlocks: string[] = []
+    for (const block of message.content) if (block.type === 'text') textBlocks.push(block.text)
+    return textBlocks.join('\n\n')
+  }
 
   local.register(draftCommands['draft.setText'], ({ sessionId, text, expectedRevision }) => {
     const current = entry(sessionId)
@@ -189,6 +198,59 @@ export function createDrafts(
       checkRevision(current, expectedRevision)
       const context = promptWorkspaceContextSchema.parse({
         ...promptWorkspaceContextInputSchema.parse(inputContext),
+        id: crypto.randomUUID(),
+      })
+      const contexts = current.workspaceContexts ?? []
+      const semanticKey = workspaceContextSemanticKey(context)
+      const existing = contexts.find((item) => workspaceContextSemanticKey(item) === semanticKey)
+      if (existing)
+        return {
+          sessionId,
+          revision: current.revision,
+          added: false,
+          context: { ...existing },
+        }
+      if (contexts.length >= MAX_PROMPT_WORKSPACE_CONTEXTS)
+        throw new CommandError('BUSY', 'The composer has reached its workspace context limit')
+      const workspaceContexts = [...contexts, context]
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts,
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision, added: true, context }
+    },
+  )
+
+  local.register(
+    draftCommands['draft.addConversationSelection'],
+    ({ sessionId, messageId, expectedText, quote, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (!readConversationMessage)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Conversation selection is unavailable')
+      const message = readConversationMessage(sessionId, messageId)
+      if (!message || message.sessionId !== sessionId || message.id !== messageId)
+        throw new CommandError('STALE_TARGET', 'The selected conversation message is no longer available')
+      if (message.role !== 'user' && message.role !== 'assistant')
+        throw new CommandError(
+          'INVALID_INPUT',
+          'Conversation context is only available for user and assistant messages',
+        )
+      const sourceText = authoredMessageText(message)
+      if (!sourceText || sourceText !== expectedText)
+        throw new CommandError('STALE_TARGET', 'The selected conversation message changed before it was added')
+
+      const context = promptWorkspaceContextSchema.parse({
+        kind: 'chat-selection',
+        sourceSessionId: message.sessionId,
+        messageId: message.id,
+        sourceRole: message.role,
+        quote,
         id: crypto.randomUUID(),
       })
       const contexts = current.workspaceContexts ?? []

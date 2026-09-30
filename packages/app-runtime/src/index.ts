@@ -640,6 +640,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const readConversationMessage = (sessionId: string, messageId: string) => {
+    const selected = navigation.reader.getSnapshot()
+    if (selected.status !== 'idle' || selected.sessionId !== sessionId) return null
+    const current = timeline.reader.getSnapshot()
+    if (current.status !== 'ready' || current.sessionId !== sessionId) return null
+    return current.messages.find((message) => message.sessionId === sessionId && message.id === messageId) ?? null
+  }
   const drafts = createDrafts(
     local,
     options.run,
@@ -648,6 +655,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     options.files,
     executionPreparation,
+    readConversationMessage,
   )
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,

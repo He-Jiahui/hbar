@@ -34,7 +34,8 @@ const sourceComment = {
 test('workspace-context copy localizes kind, range, side, disclosure and removal label', () => {
   const english = sessionWorkspaceContextCopy((_, en) => en)
   const chinese = sessionWorkspaceContextCopy((zh) => zh)
-  expect(english.label).toBe('Workspace context')
+  expect(english.label).toBe('Referenced context')
+  expect(english.name(selection)).toBe('selection.tsx')
   expect(english.kind(context)).toBe('Diff comment')
   expect(english.location(context)).toBe('src/components/long-context-path.tsx · New · L10–L12')
   expect(english.range(context)).toBe('New · L10–L12')
@@ -48,4 +49,26 @@ test('workspace-context copy localizes kind, range, side, disclosure and removal
   expect(chinese.location(context)).toContain('新版')
   expect(chinese.range(context)).toBe('新版 · L10–L12')
   expect(chinese.removeError).toContain('无法移除')
+})
+
+test('message reference labels retain original identity without inventing a file or line range', () => {
+  const english = sessionWorkspaceContextCopy((_, en) => en)
+  const chinese = sessionWorkspaceContextCopy((zh) => zh)
+  const chat = {
+    id: '34a6ab4c-1034-4f5d-9bca-c1e21ec869e3',
+    kind: 'chat-selection' as const,
+    sourceSessionId: 'original-session',
+    messageId: 'assistant-message',
+    sourceRole: 'assistant' as const,
+    quote: 'Keep this selected reply.',
+  }
+  expect(english.kind(chat)).toBe('Message reference')
+  expect(english.name(chat)).toBe('Assistant reply')
+  expect(english.range(chat)).toBe('')
+  expect(english.location(chat)).toBe('Assistant reply · original-session · assistant-message')
+  expect(chinese.kind(chat)).toBe('消息引用')
+  expect(chinese.name(chat)).toBe('AI 回复')
+  expect(chinese.remove(chat)).toBe('移除AI 回复引用')
+  expect(chinese.name({ ...chat, sourceRole: 'user' })).toBe('用户消息')
+  expect(english.remove({ ...chat, sourceRole: 'user' })).toBe('Remove User message reference')
 })

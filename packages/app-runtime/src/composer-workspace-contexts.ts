@@ -47,6 +47,14 @@ export function workspaceContextSemanticKey(context: PromptWorkspaceContext): st
         context.quote,
         context.note,
       ])
+    case 'chat-selection':
+      return JSON.stringify([
+        context.kind,
+        context.sourceSessionId,
+        context.messageId,
+        context.sourceRole,
+        context.quote,
+      ])
   }
 }
 
@@ -56,7 +64,7 @@ export function validateWorkspaceContexts(contexts: readonly PromptWorkspaceCont
   const ids = new Set<string>()
   const semanticKeys = new Set<string>()
   for (const context of contexts) {
-    if (!isWorkspaceRelativePath(context.path))
+    if (context.kind !== 'chat-selection' && !isWorkspaceRelativePath(context.path))
       throw new CommandError('INVALID_INPUT', 'Workspace context requires a relative path')
     const semanticKey = workspaceContextSemanticKey(context)
     if (ids.has(context.id) || semanticKeys.has(semanticKey))
@@ -71,7 +79,9 @@ function safeFence(quote: string): string {
   return '`'.repeat(Math.max(3, longest + 1))
 }
 
-function location(context: PromptWorkspaceContext): string {
+type WorkspaceFileContext = Exclude<PromptWorkspaceContext, { readonly kind: 'chat-selection' }>
+
+function location(context: WorkspaceFileContext): string {
   const path = context.path.replaceAll('"', '\\"')
   const side = context.kind === 'diff-comment' ? `:${context.diffSide}` : ''
   const end = context.lineEnd === context.lineStart ? '' : `-L${context.lineEnd}`
@@ -81,15 +91,31 @@ function location(context: PromptWorkspaceContext): string {
 export function serializeWorkspaceContexts(contexts: readonly PromptWorkspaceContext[]): string {
   if (contexts.length === 0) return ''
   validateWorkspaceContexts(contexts)
-  const blocks = contexts.map((context) => {
-    const parts = [`${location(context)}:`]
-    const note = noteFor(context)
-    if (note) parts.push(`Comment: ${note.trim()}`)
-    const fence = safeFence(context.quote)
-    parts.push(`${fence}\n${context.quote.trim()}\n${fence}`)
-    return parts.join('\n')
-  })
-  return ['Referenced workspace context:', ...blocks].join('\n')
+  const workspaceContexts = contexts.filter(
+    (context): context is WorkspaceFileContext => context.kind !== 'chat-selection',
+  )
+  const chatContexts = contexts.filter((context) => context.kind === 'chat-selection')
+  const groups: string[] = []
+  if (workspaceContexts.length > 0) {
+    const blocks = workspaceContexts.map((context) => {
+      const parts = [`${location(context)}:`]
+      const note = noteFor(context)
+      if (note) parts.push(`Comment: ${note.trim()}`)
+      const fence = safeFence(context.quote)
+      parts.push(`${fence}\n${context.quote.trim()}\n${fence}`)
+      return parts.join('\n')
+    })
+    groups.push(['Referenced workspace context:', ...blocks].join('\n'))
+  }
+  if (chatContexts.length > 0) {
+    const blocks = chatContexts.map((context) => {
+      const address = `chat://${encodeURIComponent(context.sourceSessionId)}/${context.sourceRole}/${encodeURIComponent(context.messageId)}`
+      const fence = safeFence(context.quote)
+      return [`${address}:`, `${fence}\n${context.quote.trim()}\n${fence}`].join('\n')
+    })
+    groups.push(['Referenced chat context:', ...blocks].join('\n'))
+  }
+  return groups.join('\n\n')
 }
 
 export function serializeComposerModelText(

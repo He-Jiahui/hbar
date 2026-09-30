@@ -2,14 +2,14 @@ import { expect, test } from 'bun:test'
 import { CommandError, CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { goalPlanCommands, type GoalPlanChange, type GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import { runAcceptedSchema, submitRunInputSchema, type RunAccepted } from '@hbar/contracts/commands/run'
-import type { ThreadGoal } from '@hbar/contracts'
+import type { Message, ThreadGoal } from '@hbar/contracts'
 import type { PromptWorkspaceContextInput, PromptMention } from '@hbar/contracts/commands/draft'
 import { createComposerIntent } from '../packages/app-runtime/src/composer-intent'
 import { createDrafts } from '../packages/app-runtime/src/drafts'
 import { createState } from '../packages/app-runtime/src/state'
 import type { GoalPlanWorkspacePort, NavigationState, RunCommandPort } from '../packages/app-runtime/src/types'
 
-function fixture() {
+function fixture(readConversationMessage?: (sessionId: string, messageId: string) => Readonly<Message> | null) {
   const local = new CommandRegistry()
   const navigation = createState<NavigationState>(
     { workspaceId: 'w', sessionId: null, status: 'idle', error: null },
@@ -142,6 +142,9 @@ function fixture() {
     undefined,
     () => {},
     () => false,
+    undefined,
+    undefined,
+    readConversationMessage,
   )
   const composer = createComposerIntent(local, {
     goals,
@@ -231,8 +234,19 @@ test('composer intent is a per-session draft, cancellation never clears a Goal, 
   }
 })
 
-test('Goal intent uses plain mention text as its objective while Run receives the quoted workspace context', async () => {
-  const f = fixture()
+test('Goal intent excludes conversation quotes while Run receives both workspace and chat context', async () => {
+  const message: Message = {
+    id: 'assistant-message',
+    sessionId: 'one',
+    runId: 'run',
+    role: 'assistant',
+    content: [{ type: 'text', text: 'A rendered assistant response' }],
+    seq: 1,
+    createdAt: 1,
+  }
+  const f = fixture((sessionId, messageId) =>
+    sessionId === message.sessionId && messageId === message.id ? message : null,
+  )
   const mention: PromptMention = {
     start: 8,
     end: 17,
@@ -264,12 +278,19 @@ test('Goal intent uses plain mention text as its objective while Run receives th
       context,
       expectedRevision: 1,
     })
+    await f.local.execute('draft.addConversationSelection', {
+      sessionId: 'one',
+      messageId: message.id,
+      expectedText: 'A rendered assistant response',
+      quote: 'rendered assistant',
+      expectedRevision: 2,
+    })
 
     await f.local.execute('composerIntent.submit', {
       sessionId: 'one',
       modelId: 'provider/model',
       input: { text: 'Look at @entry.ts', images: [] },
-      expectedDraftRevision: 2,
+      expectedDraftRevision: 3,
     })
 
     const goalInput = goalPlanCommands['goal.create'].input.parse(
@@ -279,7 +300,9 @@ test('Goal intent uses plain mention text as its objective while Run receives th
     expect(goalInput.objective).toBe('Look at @"src/entry.ts"')
     expect(runInput.input.text).toContain('Look at @"src/entry.ts"')
     expect(runInput.input.text).toContain('Referenced workspace context:')
+    expect(runInput.input.text).toContain('Referenced chat context:')
     expect(runInput.input.text).toContain('const value = 1')
+    expect(runInput.input.text).toContain('rendered assistant')
     expect(f.drafts.reader.getSnapshot().one).toMatchObject({ text: '', workspaceContexts: [] })
   } finally {
     f.dispose()

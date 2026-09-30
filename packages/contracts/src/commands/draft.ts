@@ -20,16 +20,17 @@ export const MAX_PROMPT_WORKSPACE_CONTEXTS = 12
 export const MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH = 20_000
 export const MAX_PROMPT_WORKSPACE_CONTEXT_NOTE_LENGTH = 4_000
 export const MAX_PROMPT_WORKSPACE_CONTEXT_SERIALIZED_LENGTH = 200_000
+const promptWorkspaceContextQuote = z
+  .string()
+  .min(1)
+  .max(MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH)
+  .refine((value) => !!value.trim())
 const promptWorkspaceContextRange = {
   workspaceId: idSchema,
   path: z.string().min(1).max(4000),
   lineStart: z.number().int().positive(),
   lineEnd: z.number().int().positive(),
-  quote: z
-    .string()
-    .min(1)
-    .max(MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH)
-    .refine((value) => !!value.trim()),
+  quote: promptWorkspaceContextQuote,
 }
 const promptWorkspaceContextInputVariants = [
   z.strictObject({
@@ -56,12 +57,20 @@ const promptWorkspaceContextVariants = [
   promptWorkspaceContextInputVariants[0].extend({ id: z.string().uuid() }),
   promptWorkspaceContextInputVariants[1].extend({ id: z.string().uuid() }),
   promptWorkspaceContextInputVariants[2].extend({ id: z.string().uuid() }),
+  z.strictObject({
+    kind: z.literal('chat-selection'),
+    sourceSessionId: idSchema,
+    messageId: idSchema,
+    sourceRole: z.enum(['user', 'assistant']),
+    quote: promptWorkspaceContextQuote,
+    id: z.string().uuid(),
+  }),
 ] as const
 const validateWorkspaceContextRange = (
-  context: { readonly lineStart: number; readonly lineEnd: number },
+  context: { readonly kind: string; readonly lineStart?: number; readonly lineEnd?: number },
   refinement: z.RefinementCtx,
 ) => {
-  if (context.lineEnd < context.lineStart)
+  if (context.lineStart !== undefined && context.lineEnd !== undefined && context.lineEnd < context.lineStart)
     refinement.addIssue({ code: z.ZodIssueCode.custom, path: ['lineEnd'], message: 'Line range end precedes start' })
 }
 export const promptWorkspaceContextInputSchema = z
@@ -148,6 +157,17 @@ export const draftCommands = {
       sessionId: idSchema,
       expectedRevision: z.number().int().nonnegative(),
       context: promptWorkspaceContextInputSchema,
+    }),
+    workspaceContextResultSchema,
+  ),
+  'draft.addConversationSelection': defineCommand(
+    metadata('draft.addConversationSelection'),
+    z.strictObject({
+      sessionId: idSchema,
+      messageId: idSchema,
+      expectedText: z.string().max(200_000),
+      quote: promptWorkspaceContextQuote,
+      expectedRevision: z.number().int().nonnegative(),
     }),
     workspaceContextResultSchema,
   ),

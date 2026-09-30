@@ -8,6 +8,7 @@ type WorkspaceContext = NonNullable<SessionDraftState['workspaceContexts']>[numb
 export interface HbarComposerWorkspaceContextLabels {
   readonly label: string
   readonly kind: (context: WorkspaceContext) => string
+  readonly name: (context: WorkspaceContext) => string
   readonly location: (context: WorkspaceContext) => string
   readonly range: (context: WorkspaceContext) => string
   readonly remove: (context: WorkspaceContext) => string
@@ -49,8 +50,14 @@ export function HbarComposerWorkspaceContexts({
       {contexts.length > 0 && (
         <LumenFrame className="hbar-composer-workspace-context-list" role="list" aria-label={labels.label}>
           {contexts.map((context) => {
-            const note = context.kind === 'source-selection' ? null : context.note
+            const note =
+              context.kind === 'chat-selection'
+                ? context.quote
+                : context.kind === 'source-selection'
+                  ? null
+                  : context.note
             const icon = context.kind === 'source-selection' ? FileText : MessageSquare
+            const range = labels.range(context)
             return (
               <LumenFrame
                 key={context.id}
@@ -65,11 +72,13 @@ export function HbarComposerWorkspaceContexts({
                   </LumenText>
                   <LumenFrame className="hbar-composer-workspace-context-address" title={labels.location(context)}>
                     <LumenText as="span" className="hbar-composer-workspace-context-location">
-                      {context.path.split('/').at(-1) ?? context.path}
+                      {labels.name(context)}
                     </LumenText>
-                    <LumenText as="small" className="hbar-composer-workspace-context-range">
-                      {labels.range(context)}
-                    </LumenText>
+                    {range && (
+                      <LumenText as="small" className="hbar-composer-workspace-context-range">
+                        {range}
+                      </LumenText>
+                    )}
                   </LumenFrame>
                   {note && (
                     <LumenText as="span" className="hbar-composer-workspace-context-note" title={note}>
