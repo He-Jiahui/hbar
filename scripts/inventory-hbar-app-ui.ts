@@ -17,6 +17,12 @@ const controlled = new Map<string, string>([
   ['billing:6', '宿主支付方式/联系人；主选项等待本地确认，不代表支付后端变更'],
   ['billing:7', '宿主周期/用量；原生 roving tabs，保留 120% 语义，不虚构周期数据'],
   ['billing:8', '宿主四行发票/活动/收款信息；原生表格内横滚，aside 正常流堆叠'],
+  ['integrations:1', '宿主九卡片/六分类；Zustand 查询与键盘分类，本地连接只派请求'],
+  ['integrations:2', '宿主四权限/四活动；必需权限不可改，flex 双栏到单栏'],
+  ['integrations:3', '宿主四密钥；只保存显隐 ID，原生表格内横滚，凭据动作只派请求'],
+  ['integrations:4', '宿主端点 URL/主题/投递；按目标 ID 选择、展开和设置，测试只派请求'],
+  ['integrations:5', '宿主三工作区/三权限；参考菜单覆盖层，选择受控，OAuth 只派请求'],
+  ['integrations:6', '宿主五源/四指标；本地暂停恢复联动计数，不虚构进度或清除失败'],
   ...[1, 2, 3, 4, 5, 6].map((variant): [string, string] => [
     `command-menu:${variant}`,
     variant === 4

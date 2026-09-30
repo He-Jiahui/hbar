@@ -742,6 +742,58 @@ and incompatible installed/pinned pnpm versions remain; direct existing tools
 do not imply the pinned-pnpm workflow passed. The 38-category/300-variant goal
 remains in progress.
 
+### Integrations 1–6 practical reference integration
+
+Six opt-in reference branches preserve the compatible generic integrations
+fallbacks. Marketplace uses nine flex cards and six keyboard-selectable tabs;
+Connection uses four native scope switches, four activity entries and a native
+audit link. API Keys keeps four native table rows with reveal, copy, rotate and
+revoke actions reachable through its own horizontal scroll region. Webhooks
+keeps endpoint selection, HTTPS URL/topics and target-bound delivery expansion.
+Consent keeps three permissions and a native workspace trigger/listbox rather
+than replacing it with a select. Sync keeps five sources, four metrics and
+source progress/failure details, without an unobserved retry control.
+
+The preview Host uses one Zustand owner per surface for query, selection,
+scope/endpoint settings, reveal IDs, expansion and source phases. Required
+scopes cannot be edited; removed or repeated IDs reconcile safely and stale
+delivery callbacks cannot mutate another endpoint. Reveal state stores only
+IDs, and fixture keys are preview-only strings. Visible copy, IDs, option seat
+details, URLs and labels come from typed Host content; React owns only transient
+menu visibility/focus.
+
+Reference structure is based on the authorized `full-static-v10` cache. The
+cached Consent workspace-menu expansion proves the trigger-anchored overlap
+with the permissions list, so the flow guard permits only that path-scoped menu
+container to be positioned. Its solid themed background prevents underlying
+text from bleeding through. Other content remains in ordinary flex flow.
+Alternate webhook URL/topics/delivery data are explicitly fixtures, not claimed
+as captured source feedback. Pause/resume phases are reasonable local-preview
+inferences: metric counts follow those phases, while progress and failure copy
+are retained. The cached Sync all case has no visible source result; it emits
+an intent only, without timers, fake completion or clearing an error.
+
+Run `bun scripts/verify-hbar-app-ui-integrations-reference-core.ts` against the
+built preview (default port 5193). This new entry intentionally leaves the
+pre-existing `app-ui:integrations:verify` script untouched. The practical check
+mounts all six structures once, samples filtering, editable scopes, reveal IDs,
+webhook expansion/selection, keyboard workspace selection and local pause/resume,
+then checks only two different narrow mechanisms: an internally scrolling table
+and stacked long-copy content. Representative screenshots show broadly normal
+flow; no every-button, viewport/theme matrix or pixel-level equivalence is
+claimed. There are no page/console errors or page-level horizontal overflows in
+these samples.
+
+The 29 related SSR/store tests with 230 assertions, root/Lumen types, scoped
+lint/style/format, content/icon/flow guards, production preview and direct Lumen
+package/declaration builds pass. Connecting/disconnecting, creating/rotating/
+revoking/copying keys, test delivery, OAuth and actual sync remain target-named
+intents: no clipboard, credential service, OAuth redirect or sync backend was
+mutated. This is not a fresh strict source/local ledger or final desktop/backend
+acceptance. The existing preview chunk warning and incompatible installed/pinned
+pnpm versions remain; direct existing tools do not imply the pinned-pnpm
+workflow passed. The 38-category/300-variant goal remains in progress.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.

@@ -89,6 +89,13 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Integrations 5: the captured Workspace listbox overlaps the permission list.
+  // Only its trigger-anchored container floats; the card and options stay in flow.
+  if (
+    /packages\/lumen-app-ui\/src\/integrations\/reference-consent\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.lumen-integration-consent-reference-workspace-menu'
+  )
+    return true
   // Forms 5: the observed data-region options list overlays the plan cards.
   // Only the listbox container floats; the options and surrounding form stay in flow.
   if (
@@ -593,6 +600,15 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const consentPath = 'packages/lumen-app-ui/src/integrations/reference-consent.css'
+  const consentMenu = '.lumen-integration-consent-reference-workspace-menu'
+  const consentOverlay = `${consentMenu} {\nposition: absolute;\ninset-block-start: 100%;\n}`
+  if (validateCss(consentPath, consentOverlay).length !== 0)
+    throw new Error('Observed Workspace listbox overlay must be accepted')
+  if (validateCss('other.css', consentOverlay).length < 2)
+    throw new Error('Workspace overlay allowance must remain path scoped')
+  if (validateCss(consentPath, `${consentMenu} > button {\nposition: absolute;\n}`).length !== 1)
+    throw new Error('Workspace option content must remain in flow')
   const settingsForm4Menu = `.lumen-settings-form-4-menu {
 position: absolute;
 inset-block-start: calc(100% + 0.25rem);

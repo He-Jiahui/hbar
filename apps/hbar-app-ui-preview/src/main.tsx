@@ -17,6 +17,7 @@ import { SupportTicketPreviewHost } from './SupportTicketPreviewHost'
 import { SupportThreadPreviewHost } from './SupportThreadPreviewHost'
 import { SupportReferencePreviewHost } from './SupportReferencePreviewHost'
 import { BillingReferencePreviewHost } from './BillingReferencePreviewHost'
+import { IntegrationReferencePreviewHost } from './IntegrationReferencePreviewHost'
 import { createSupportThreadPreviewCopy } from './supportThreadPreviewCopy'
 import { createSupportReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-support-reference-fixtures'
 import { createSupportTicketPreviewCopy, localizeSupportTicketPreviewContent } from './supportTicketPreviewCopy'
@@ -185,11 +186,7 @@ import {
   HBAR_APP_UI_AUTHENTICATION_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-authentication-fixtures'
 import { createBillingReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-billing-reference-fixtures'
-import {
-  createHbarAppUiIntegrationsLocalizedFixtures,
-  createHbarAppUiIntegrationsOverflowFixtures,
-  HBAR_APP_UI_INTEGRATIONS_FIXTURES,
-} from '../../../tests/fixtures/hbar-app-ui-integrations-fixtures'
+import { createIntegrationReferencePreviewFixtures } from '../../../tests/fixtures/hbar-app-ui-integrations-reference-fixtures'
 import {
   HBAR_APP_UI_COMMENTS_FIXTURES,
   createHbarAppUiCommentsLocalizedFixtures,
@@ -528,17 +525,17 @@ function PreviewApp() {
     ),
     [billingLocale],
   )
-  const integrationsContent = useMemo(() => {
-    switch (new URLSearchParams(window.location.search).get('integrationsFixture')) {
-      case 'overflow':
-        return createHbarAppUiIntegrationsOverflowFixtures()
-      case 'localized':
-        return createHbarAppUiIntegrationsLocalizedFixtures()
-      case null:
-      default:
-        return HBAR_APP_UI_INTEGRATIONS_FIXTURES
-    }
-  }, [])
+  const integrationsLocale = useMemo(
+    () => new URLSearchParams(window.location.search).get('integrationsFixture') === 'localized' ? 'de-long' : 'en',
+    [],
+  )
+  const integrationsContent = useMemo(
+    () => createIntegrationReferencePreviewFixtures(
+      integrationsLocale,
+      new URLSearchParams(window.location.search).get('integrationsFixture') === 'overflow',
+    ),
+    [integrationsLocale],
+  )
   const commentsContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('commentsFixture')
     return fixture === 'localized'
@@ -931,6 +928,12 @@ function PreviewApp() {
                                 outcome={billingOutcome}
                               >
                               <HbarAppUiIntegrationProvider content={integrationsContent}>
+                                <IntegrationReferencePreviewHost
+                                  content={integrationsContent}
+                                  spec={selected.spec}
+                                  onAction={handleAction}
+                                  locale={integrationsLocale === 'de-long' ? 'de' : 'en'}
+                                >
                                 <CommentsPreviewHost content={commentsContent}>
                                   <SchedulingPreviewHost content={schedulingContent}>
                                     <HbarAppUiChatProvider content={chatContent}>
@@ -1213,6 +1216,7 @@ function PreviewApp() {
                                     </HbarAppUiChatProvider>
                                   </SchedulingPreviewHost>
                                 </CommentsPreviewHost>
+                                </IntegrationReferencePreviewHost>
                               </HbarAppUiIntegrationProvider>
                               </BillingReferencePreviewHost>
                             </HbarAppUiBillingProvider>
@@ -1388,6 +1392,12 @@ function PreviewApp() {
                                           outcome={billingOutcome}
                                         >
                                         <HbarAppUiIntegrationProvider content={integrationsContent}>
+                                          <IntegrationReferencePreviewHost
+                                            content={integrationsContent}
+                                            spec={selected.spec}
+                                            onAction={handleAction}
+                                            locale={integrationsLocale === 'de-long' ? 'de' : 'en'}
+                                          >
                                           <CommentsPreviewHost content={commentsContent}>
                                             <SchedulingPreviewHost content={schedulingContent}>
                                               <HbarAppUiChatProvider content={chatContent}>
@@ -1696,6 +1706,7 @@ function PreviewApp() {
                                               </HbarAppUiChatProvider>
                                             </SchedulingPreviewHost>
                                           </CommentsPreviewHost>
+                                          </IntegrationReferencePreviewHost>
                                         </HbarAppUiIntegrationProvider>
                                         </BillingReferencePreviewHost>
                                       </HbarAppUiBillingProvider>
