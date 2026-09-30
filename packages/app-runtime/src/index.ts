@@ -84,6 +84,10 @@ export type {
 import { createDrafts } from './drafts'
 import { createPreSessionDrafts } from './pre-session-drafts'
 import { createPreSessionLaunchBranches, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
+import {
+  createPreSessionLaunchBranchCreation,
+  preSessionLaunchBranchCreationCommands,
+} from './pre-session-launch-branch-creation'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
@@ -114,6 +118,11 @@ export { sessionRosterRefreshCommands } from './session-roster-refresh'
 export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
 export { PRE_SESSION_LAUNCH_BRANCHES_PAGE_SIZE, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
 export type { PreSessionLaunchBranchesState } from './pre-session-launch-branches'
+export { preSessionLaunchBranchCreationCommands } from './pre-session-launch-branch-creation'
+export type {
+  PreSessionLaunchBranchCreationEntry,
+  PreSessionLaunchBranchCreationState,
+} from './pre-session-launch-branch-creation'
 import { createSettingsUsage, settingsUsageCommands } from './settings-usage'
 export { settingsUsageCommands, SETTINGS_USAGE_MAX_BUCKETS } from './settings-usage'
 export type { SettingsUsageWindow, SettingsUsageReport, SettingsUsageEntry, SettingsUsageState } from './settings-usage'
@@ -326,6 +335,7 @@ const runtimeCommands = {
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
   ...preSessionLaunchBranchesCommands,
+  ...preSessionLaunchBranchCreationCommands,
   ...systemDiagnosticsCommands,
 }
 
@@ -723,6 +733,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     isDisposed: () => disposed,
   })
+  const preSessionLaunchBranchCreation = createPreSessionLaunchBranchCreation(local, {
+    ...(options.sessionLaunchBranches ? { reader: options.sessionLaunchBranches } : {}),
+    ...(options.sessionLaunchBranchCreation ? { manager: options.sessionLaunchBranchCreation } : {}),
+    drafts: preSessionDrafts.reader,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const offModelEvents = options.modelEvents?.subscribe(composerModel.invalidateModels)
   const offModelConnection = options.modelEvents?.onConnection?.(composerModel.setConnected)
   const providerSettings = createProviderSettings(
@@ -849,6 +866,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(preSessionDraftCommands, name) ||
         Object.hasOwn(preSessionLaunchBranchesCommands, name) ||
+        Object.hasOwn(preSessionLaunchBranchCreationCommands, name) ||
         Object.hasOwn(runActionCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(interactionRecoveryCommands, name) ||
@@ -936,6 +954,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       drafts: drafts.reader,
       preSessionDrafts: preSessionDrafts.reader,
       preSessionLaunchBranches: preSessionLaunchBranches.reader,
+      preSessionLaunchBranchCreation: preSessionLaunchBranchCreation.reader,
       runActions: drafts.actions,
       interactions: interactions.reader,
       questionnaires: interactions.questionnaires,
@@ -995,6 +1014,7 @@ export function createAppRuntime(options: RuntimeOptions) {
 
       activityWorkspace.dispose()
       agentComposer.dispose()
+      preSessionLaunchBranchCreation.dispose()
       preSessionDrafts.dispose()
       preSessionLaunchBranches.dispose()
       local.dispose()

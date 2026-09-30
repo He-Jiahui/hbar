@@ -55,7 +55,7 @@ import {
   createRunCommandClient,
   createSessionLaunchTargetReader,
   createSessionLaunchTargetPreparationManager,
-  createSessionLaunchBranchesReader,
+  createSessionLaunchBranchesManager,
   createSessionSearchCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
@@ -146,6 +146,7 @@ function createRuntime(
   initialGlobalSettings?: GlobalSettingsStartup,
 ) {
   const goals = createGoalPlanCommandClient(client)
+  const sessionLaunchBranches = createSessionLaunchBranchesManager(client)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId: hostId ?? 'pending:identity',
@@ -259,7 +260,8 @@ function createRuntime(
     files: createFileCommandClient(client),
     sessionLaunchTargets: createSessionLaunchTargetReader(client),
     sessionLaunchTargetPreparation: createSessionLaunchTargetPreparationManager(client),
-    sessionLaunchBranches: createSessionLaunchBranchesReader(client),
+    sessionLaunchBranches,
+    sessionLaunchBranchCreation: sessionLaunchBranches,
     agents: createAgentCommandClient(client),
     goals,
     goalEvents: {

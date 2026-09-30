@@ -44,6 +44,7 @@ export function WebPreSessionLanding({
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
   const preSessionDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
   const launchBranches = useHbarRuntimeState(runtime.state.preSessionLaunchBranches)
+  const launchBranchCreation = useHbarRuntimeState(runtime.state.preSessionLaunchBranchCreation)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const draft = preSessionDrafts[draftId]
@@ -471,6 +472,9 @@ export function WebPreSessionLanding({
       workspaceId={draft?.workspaceId ?? null}
       selection={draft?.launchSelection ?? { mode: 'shared-current' }}
       page={launchBranches.workspaceId === draft?.workspaceId ? launchBranches.page : null}
+      draftRevision={draft?.revision ?? null}
+      branchCreation={launchBranchCreation.entries[draftId] ?? null}
+      branchCreationAvailable={connected}
       error={launchBranches.workspaceId === draft?.workspaceId ? launchBranches.error : null}
       disabled={!connected || busy || draft?.phase === 'unknown'}
       loading={
@@ -497,6 +501,19 @@ export function WebPreSessionLanding({
             })
             .catch(() => undefined)
       }}
+      onCaptureBranchBase={(expectedRevision) =>
+        runtime.commands.execute('preSessionLaunchBranchCreation.capture', { draftId, expectedRevision })
+      }
+      onCreateBranch={(name, expectedRevision) =>
+        runtime.commands.execute('preSessionLaunchBranchCreation.create', { draftId, expectedRevision, name })
+      }
+      onReconcileBranch={(expectedRevision) =>
+        runtime.commands.execute('preSessionLaunchBranchCreation.reconcile', { draftId, expectedRevision })
+      }
+      onAdoptBranch={(expectedRevision) =>
+        runtime.commands.execute('preSessionLaunchBranchCreation.adopt', { draftId, expectedRevision })
+      }
+      onCancelBranchCreate={() => runtime.commands.execute('preSessionLaunchBranchCreation.cancel', { draftId })}
       directoryExtra={(closePicker) => (
         <LumenFrame className="hbar-web-pre-session-path">
           <LumenFrame as="label" htmlFor="hbar-pre-session-path">

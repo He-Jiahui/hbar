@@ -68,6 +68,47 @@
 .hbar-pre-session-location-list {
   overflow: auto;
 }
+
+.hbar-pre-session-location-branch-footer,
+.hbar-pre-session-location-new-branch,
+.hbar-pre-session-location-new-branch-actions {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.5rem;
+}
+
+.hbar-pre-session-location-branch-footer,
+.hbar-pre-session-location-new-branch {
+  flex-direction: column;
+}
+
+.hbar-pre-session-location-branch-footer {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: 0.5rem;
+}
+
+.hbar-pre-session-location-branch-footer > p,
+.hbar-pre-session-location-new-branch > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-pre-session-location-new-branch > label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.hbar-pre-session-location-new-branch > small {
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+}
+
+.hbar-pre-session-location-new-branch-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  padding-block-start: 0.5rem;
+}
 .hbar-pre-session-location-row,
 .hbar-pre-session-location-modes > button {
   display: flex;

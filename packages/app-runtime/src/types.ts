@@ -15,7 +15,10 @@ import type {
   SessionLaunchTargetPreparationManager,
   SessionLaunchTargetReader,
 } from '@hbar/contracts/commands/session-launch-target'
-import type { SessionLaunchBranchesReader } from '@hbar/contracts/commands/session-launch-branches'
+import type {
+  SessionLaunchBranchesManager,
+  SessionLaunchBranchesReader,
+} from '@hbar/contracts/commands/session-launch-branches'
 import type {
   ActiveOperationsPage,
   QueuedRunEditTextReceipt,
@@ -163,6 +166,8 @@ export interface RuntimeOptions {
   readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   /** Explicit, read-only branch discovery for the pre-session launch choice. */
   readonly sessionLaunchBranches?: SessionLaunchBranchesReader
+  /** Optional confirmed branch-ref creation capability for the pre-session launch Location form. */
+  readonly sessionLaunchBranchCreation?: SessionLaunchBranchesManager
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
   /** Transport lifetime for Goal reads; a reconnect is not confirmation of an unknown action. */
