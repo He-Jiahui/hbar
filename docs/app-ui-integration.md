@@ -662,6 +662,41 @@ uses the existing direct TypeScript/Vite/declaration tools, not a claim that the
 standard pinned-pnpm workflow passed. Practical delivery does not imply that
 the overall 38-category/300-variant goal is complete.
 
+### Support 1/4/5 practical reference integration
+
+The remaining Support reference branches now use Host-supplied content and
+controlled flows. Help retains four topics in a two-column/one-column flex flow,
+four popular articles, native search and the contact footer. The embedded,
+non-modal Assistant retains the three supplied messages, two article requests,
+three suggested actions and its native three-row textarea. Requests retains
+six native-list rows, pressed filter buttons, search, column labels and its
+retention footer; Open includes requests waiting on the user.
+
+The preview Host keeps queries and filter IDs in Zustand and reuses the existing
+Support reply state machine for Assistant drafts, captured-target tickets,
+pending/failure/confirmation, cancellation and a bounded local message tail.
+Closing cancels a pending preview without clearing its draft. Source actions,
+article navigation and new-request creation emit named requests only: no extra
+ticket, export, human handoff or AI answer is invented. Generic fallback views
+remain compatible and are separate from the controlled reference components.
+
+The [practical core check](../scripts/verify-hbar-app-ui-support-reference-core.ts)
+passes desktop mounts, a Help query, open/waiting request filtering, creation
+without count inflation, Assistant close/cancel/reopen and local confirmation,
+plus one narrow long-copy Requests sample. There are no console/page errors or
+horizontal overflow in those samples. Screenshot review caught a translucent
+reading token used as own-message text; the opaque shared contrast token now
+keeps both the body and preview-only status readable without per-theme tweaks.
+
+The 36 focused Support SSR/store tests and 318 assertions, root/Lumen types, scoped lint/style/format
+and content/icon/flow guards, preview build and direct Lumen package/declaration
+builds pass. The source structure comes from the authorized `full-static-v10`
+cache; this is functional/layout acceptance, not a fresh source/local strict
+ledger or an exhaustive button/theme/viewport matrix. The existing preview
+chunk warning and incompatible installed/pinned pnpm versions are unchanged;
+direct existing tools do not imply that the pinned-pnpm workflow passed. The
+overall 38-category/300-variant goal remains in progress.
+
 ## Migration inventory
 
 This table is a work inventory, not a declaration that the migration is done.
