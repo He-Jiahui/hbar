@@ -70,7 +70,7 @@ export {
   type PreSessionLocalSlashCommand,
 } from './pre-session-slash-editor'
 export type { HbarComposerSlashLabels } from './composer-slash-menu'
-export { localSlashCommand, type LocalSlashCommand } from './composer-slash'
+export { localGoalSlash, localSlashCommand, type LocalSlashCommand } from './composer-slash'
 export {
   HbarPreSessionChoicePicker,
   visiblePreSessionChoices,

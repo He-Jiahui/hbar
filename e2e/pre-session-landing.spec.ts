@@ -282,9 +282,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
       await add.click()
       const addMenu = landing.getByRole('group', { name: copy.session.addMenu.menu })
-      await expect(addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })).toBeDisabled()
-      await expect(addMenu.getByText(labels.goalPlanConflict, { exact: true })).toBeVisible()
-      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-blocked-plan-${locale}-320.png` })
+      await expect(addMenu.getByRole('button', { name: labels.goalReplacesPlan, exact: true })).toBeEnabled()
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-from-plan-${locale}-320.png` })
       await page.keyboard.press('Escape')
       expect(
         (await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })).items,
@@ -390,8 +389,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const execution = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
       await execution.click()
       const picker = page.locator('.hbar-pre-session-approval-popover')
-      await expect(picker.locator('[data-choice="plan"]')).toBeDisabled()
-      await expect(picker.getByText(labels.planGoalConflict, { exact: true })).toBeVisible()
+      await expect(picker.locator('[data-choice="plan"]')).toBeEnabled()
+      await expect(picker.getByText(labels.planReplacesGoal, { exact: true })).toBeVisible()
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-${locale}-320.png` })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()

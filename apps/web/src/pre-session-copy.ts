@@ -18,9 +18,10 @@ export interface WebPreSessionCopy {
   readonly slashUnavailable: string
   readonly slashModelDescription: string
   readonly slashSettingsDescription: string
+  readonly slashGoalDescription: string
   readonly checking: string
-  readonly goalPlanConflict: string
-  readonly planGoalConflict: string
+  readonly goalReplacesPlan: string
+  readonly planReplacesGoal: string
   readonly goalAlreadyPrepared: string
   readonly goalError: (code: string) => string
   readonly error: (code: string) => string
@@ -79,17 +80,24 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
     ),
     slashModelDescription: choose('选择首条消息使用的模型', 'Choose the model for the first message'),
     slashSettingsDescription: choose('打开全局设置', 'Open global settings'),
-    checking: choose('核对首次发送结果', 'Check first-send result'),
-    goalPlanConflict: choose(
-      '先在执行选项中退出计划模式，再准备目标。',
-      'Exit Plan mode in Execution options before preparing a Goal.',
+    slashGoalDescription: choose(
+      '准备下一条目标消息，可附目标内容',
+      'Prepare the next Goal message, optionally with an objective',
     ),
-    planGoalConflict: choose(
-      '先取消下一条目标准备，再进入计划模式。',
-      'Cancel the prepared Goal before entering Plan mode.',
+    checking: choose('核对首次发送结果', 'Check first-send result'),
+    goalReplacesPlan: choose('退出计划模式并准备目标', 'Exit Plan mode and prepare a Goal'),
+    planReplacesGoal: choose(
+      '切换为计划模式，取消尚未发送的目标准备。输入内容会保留。',
+      'Switch to Plan mode and cancel the unsent Goal setup. Your text is kept.',
     ),
     goalAlreadyPrepared: choose('下一条消息已准备为目标。', 'The next message is already prepared as a Goal.'),
-    goalError: (code) => choose(`无法准备目标：${code}`, `Could not prepare Goal: ${code}`),
+    goalError: (code) =>
+      code === 'GOAL_REQUIRED'
+        ? choose(
+            '使用 /goal 或 /goal 目标内容准备下一条消息；清除准备请使用 /goal clear。',
+            'Use /goal or /goal <objective> to prepare the next message; use /goal clear to cancel setup.',
+          )
+        : choose(`无法准备目标：${code}`, `Could not prepare Goal: ${code}`),
     error: (code) => choose(`无法开始会话：${code}`, `Could not start session: ${code}`),
     modelName: (provider, model) => `${provider} · ${model}`,
   }

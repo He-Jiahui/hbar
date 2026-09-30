@@ -40,9 +40,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain('hbar-composer-add-goal-slot')
   })
 
-  test(`Plan conflict is explained in the no-tab Goal menu: ${locale}`, () => {
+  test(`no-tab Goal menu describes the explicit replacement of Plan setup: ${locale}`, () => {
     const copy = getShellCopy(locale)
-    const blocked = preSessionCopy(locale).goalPlanConflict
+    const replacement = preSessionCopy(locale).goalReplacesPlan
     const html = renderToStaticMarkup(
       <HbarComposerAddMenu
         labels={copy.session.addMenu}
@@ -51,34 +51,34 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         showSlash={false}
         onOpenSlash={() => undefined}
         goalAction={{
-          label: copy.session.intent.goalMenu,
-          disabled: true,
-          disabledHint: blocked,
+          label: replacement,
           onChoose: () => undefined,
         }}
       />,
     )
-    expect(html).toContain(blocked)
-    expect(html).toContain('disabled=""')
+    expect(html).toContain(replacement)
+    expect(html).not.toMatch(/class="hbar-composer-add-item hbar-composer-add-goal"[^>]*disabled=""/)
   })
 
-  test(`prepared Goal explains why no-tab Plan is unavailable: ${locale}`, () => {
+  test(`prepared Goal keeps no-tab Plan available and explains the replacement: ${locale}`, () => {
     const copy = getShellCopy(locale)
-    const blocked = preSessionCopy(locale).planGoalConflict
+    const replacement = preSessionCopy(locale).planReplacesGoal
     const html = renderToStaticMarkup(
       <HbarPreSessionApprovalPicker
         choice="inherit"
         planMode="default"
         planAvailable
-        planBlockedReason={blocked}
         hostDefault={null}
         sessionLabel={copy.preSession.hero.title}
-        labels={copy.session.permissionPicker}
+        labels={{
+          ...copy.session.permissionPicker,
+          plan: { ...copy.session.permissionPicker.plan, description: replacement },
+        }}
         onChoose={async () => undefined}
         onPlanMode={async () => undefined}
       />,
     )
-    expect(html).toContain(blocked)
-    expect(html).toMatch(/data-choice="plan"[^>]*disabled=""/)
+    expect(html).toContain(replacement)
+    expect(html).not.toMatch(/data-choice="plan"[^>]*disabled=""/)
   })
 }

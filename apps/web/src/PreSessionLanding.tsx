@@ -11,6 +11,7 @@ import {
   HbarPreSessionLocationPicker,
   HbarPreSessionLaunchStatus,
   firstSendIsLocked,
+  localGoalSlash,
   localSlashCommand,
   useHbarRuntime,
   useHbarRuntimeState,
@@ -266,26 +267,30 @@ export function WebPreSessionLanding({
     queue(async () => {
       const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
       if (!current) throw new Error('Draft is unavailable')
-      await runtime.commands.execute('preSessionDraft.setPlanMode', {
+      await runtime.commands.execute('preSessionDraft.setEntryMode', {
         draftId,
         mode,
         expectedRevision: current.revision,
       })
     })
 
-  const chooseGoalIntent = (intent: 'default' | 'goal') => {
+  const chooseGoalIntent = (intent: 'default' | 'goal', nextText?: string) => {
     setGoalError(null)
     void queue(async () => {
       const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
       if (!current) throw new Error('Draft is unavailable')
-      await runtime.commands.execute('preSessionDraft.setIntent', {
+      await runtime.commands.execute('preSessionDraft.setEntryMode', {
         draftId,
-        intent,
+        mode: intent,
         expectedRevision: current.revision,
+        ...(nextText !== undefined ? { text: nextText } : {}),
       })
     })
       .then(() => {
-        if (alive.current) editor.current?.focus()
+        if (alive.current) {
+          if (nextText !== undefined) setText(nextText)
+          editor.current?.focus()
+        }
       })
       .catch((reason: unknown) => {
         if (alive.current) setGoalError(code(reason))
@@ -383,7 +388,15 @@ export function WebPreSessionLanding({
       ['preparing', 'creating', 'configuring', 'submitting', 'unknown'].includes(draft.phase)
     )
       return
-    if (localSlashCommand(text, ['model', 'settings']) !== command) return
+    if (localSlashCommand(text, ['model', 'settings', 'goal']) !== command) return
+    if (command === 'goal') {
+      const action = localGoalSlash(text)
+      if (text.trim() === '/goal') chooseGoalIntent('goal', '')
+      else if (action?.action === 'set') chooseGoalIntent('goal', action.objective)
+      else if (action?.action === 'clear') chooseGoalIntent('default', '')
+      else setGoalError('GOAL_REQUIRED')
+      return
+    }
     writeText('')
     if (command === 'model') setModelOpenRequest((request) => request + 1)
     else openSettings(null)
@@ -391,8 +404,8 @@ export function WebPreSessionLanding({
 
   const submit = () => {
     if (!draft || !connected || submitting) return
-    const localCommand = localSlashCommand(text, ['model', 'settings'])
-    if (localCommand === 'model' || localCommand === 'settings') {
+    const localCommand = localSlashCommand(text, ['model', 'settings', 'goal'])
+    if (localCommand === 'model' || localCommand === 'settings' || localCommand === 'goal') {
       executeLocalSlash(localCommand)
       return
     }
@@ -416,7 +429,7 @@ export function WebPreSessionLanding({
   }
 
   const busy = submitting || firstSendIsLocked(draft)
-  const localSlash = localSlashCommand(text, ['model', 'settings'])
+  const localSlash = localSlashCommand(text, ['model', 'settings', 'goal'])
   const unsupportedSlash =
     !localSlash &&
     localSlashCommand(
@@ -426,10 +439,15 @@ export function WebPreSessionLanding({
   const slashLabels = {
     ...shell.session.slash,
     commands: shell.session.slash.commands
-      .filter((item) => item.id === 'model' || item.id === 'settings')
+      .filter((item) => item.id === 'model' || item.id === 'settings' || item.id === 'goal')
       .map((item) => ({
         ...item,
-        description: item.id === 'model' ? labels.slashModelDescription : labels.slashSettingsDescription,
+        description:
+          item.id === 'model'
+            ? labels.slashModelDescription
+            : item.id === 'goal'
+              ? labels.slashGoalDescription
+              : labels.slashSettingsDescription,
       })),
   }
   const workspaceChoices = Object.values(directory.workspaces).map((workspace) => ({
@@ -572,10 +590,16 @@ export function WebPreSessionLanding({
       choice={draft?.approvalChoice ?? 'inherit'}
       planMode={draft?.planMode ?? 'default'}
       planAvailable={composerPlanMode.available}
-      {...(draft?.intent === 'goal' ? { planBlockedReason: labels.planGoalConflict } : {})}
       hostDefault={composerPermission.hostDefault.status === 'ready' ? composerPermission.hostDefault.mode : null}
       sessionLabel={shell.preSession.hero.title}
-      labels={shell.session.permissionPicker}
+      labels={
+        draft?.intent === 'goal'
+          ? {
+              ...shell.session.permissionPicker,
+              plan: { ...shell.session.permissionPicker.plan, description: labels.planReplacesGoal },
+            }
+          : shell.session.permissionPicker
+      }
       disabled={!connected || !draft || busy || draft.phase === 'unknown'}
       onChoose={chooseApproval}
       onPlanMode={choosePlanMode}
@@ -589,19 +613,9 @@ export function WebPreSessionLanding({
         canOpenSlash={connected && Boolean(draft) && !busy && draft?.phase !== 'unknown'}
         onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
         goalAction={{
-          label: shell.session.intent.goalMenu,
-          disabled:
-            !connected ||
-            !draft ||
-            busy ||
-            draft.phase === 'unknown' ||
-            draft.intent === 'goal' ||
-            draft.planMode === 'plan',
-          ...(draft?.planMode === 'plan'
-            ? { disabledHint: labels.goalPlanConflict }
-            : draft?.intent === 'goal'
-              ? { disabledHint: labels.goalAlreadyPrepared }
-              : {}),
+          label: draft?.planMode === 'plan' ? labels.goalReplacesPlan : shell.session.intent.goalMenu,
+          disabled: !connected || !draft || busy || draft.phase === 'unknown' || draft.intent === 'goal',
+          ...(draft?.intent === 'goal' ? { disabledHint: labels.goalAlreadyPrepared } : {}),
           onChoose: () => chooseGoalIntent('goal'),
         }}
       />

@@ -13,7 +13,7 @@ const labels: HbarComposerSlashLabels = {
   commands: [
     { id: 'model', label: '/model', description: '选择要用于新会话的模型' },
     { id: 'settings', label: '/settings', description: '打开工作区设置并核对长文案是否安全换行' },
-    { id: 'goal', label: '/goal', description: '运行时目标命令不得出现在新会话本地菜单' },
+    { id: 'goal', label: '/goal', description: '准备下一条目标消息' },
   ],
   select: (name) => `补全 ${name}`,
   hint: '↑↓ 选择 · Enter/Tab 补全 · Esc 关闭',
@@ -75,7 +75,7 @@ test('a slash token opens a menu containing only the Host-allowed local commands
   expect(html).toContain('role="listbox"')
   expect(html).toContain(labels.commands[0]!.description)
   expect(html).toContain(labels.commands[1]!.description)
-  expect(html).not.toContain(labels.commands[2]!.description)
+  expect(html).toContain(labels.commands[2]!.description)
   expect(html).toContain(labels.hint)
 })
 
