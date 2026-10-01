@@ -1,10 +1,11 @@
 # Sidebar directory queries
 
-The public contract entry is `@hbar/contracts/sidebar-directory`. The Host exposes three read-only commands through the existing `command.execute` directory dispatcher:
+The public contract entry is `@hbar/contracts/sidebar-directory`. The Host exposes four read-only commands through the existing `command.execute` directory dispatcher:
 
 - `workspace.sidebar.list` supplies the sidebar's Workspace rows for the `project` and `recentProject` organizations.
 - `session.activity.global.list` supplies a global time-ordered Session page with Workspace context and a compact execution summary.
 - `session.sidebar.list` supplies a Workspace's timestamp-ordered Session page with the same execution summary, for project/recent-project rows.
+- `session.execution.get` reads one exact `{sessionId, workspaceId}` target's revision and execution summary without depending on a loaded page; see [the selected Session contract](selected-session-execution.md).
 
 Pages are bounded to 200 rows with a default of 60. Workspace and global cursors include directory, display-name and hidden-organization revisions. The per-Workspace Session cursor includes directory revision, Workspace ID and selected timestamp sort. Changed revisions return `STALE_CURSOR`; cursor parameter mismatches return `INVALID_INPUT`.
 

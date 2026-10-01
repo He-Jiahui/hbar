@@ -45,6 +45,9 @@ import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeli
 import { createState } from './state'
 import { startupSettingsState } from './startup-settings'
 import { createSessionExecutionAccess } from './session-execution-access'
+import { createSelectedSessionExecution, selectedSessionExecutionCommands } from './selected-session-execution'
+export { selectedSessionExecutionCommands } from './selected-session-execution'
+export type { SelectedSessionExecutionState } from './selected-session-execution'
 import { createSessionExecutionPreparation } from './session-execution-preparation'
 import { createDirectoryModule } from './directory'
 export { parseWorkspacePage } from './directory'
@@ -357,6 +360,7 @@ const runtimeCommands = {
   ...goalHistoryCommands,
   ...queuedUserRunsCommands,
   ...composerIntentCommands,
+  ...selectedSessionExecutionCommands,
   ...composerPermissionCommands,
   ...composerPlanModeCommands,
   ...composerPlanChoiceCommands,
@@ -747,6 +751,17 @@ export function createAppRuntime(options: RuntimeOptions) {
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
     onSubscriberError,
   })
+  const selectedSessionExecution = createSelectedSessionExecution(local, {
+    // Retain actual adapter occupancy: Directory's registry can settle logical
+    // cancellation before an ignored-abort transport finishes. This owner
+    // validates the public contract and fences its own captured target.
+    queries: options.directory,
+    navigation: navigation.reader,
+    presentation: presentation.reader,
+    goals: composerIntent.reader,
+    ...(options.sidebarActivityEvents ? { events: options.sidebarActivityEvents } : {}),
+    onSubscriberError,
+  })
   const interactions = createInteractions(
     local,
     options.interactions,
@@ -1096,6 +1111,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(goalHistoryCommands, name) ||
         Object.hasOwn(queuedUserRunsCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
+        Object.hasOwn(selectedSessionExecutionCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(composerPlanModeCommands, name) ||
         Object.hasOwn(composerPlanChoiceCommands, name) ||
@@ -1141,6 +1157,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     state: Object.freeze({
       navigation: navigation.reader,
       sessionExecutionAccess: sessionExecutionAccess.reader,
+      selectedSessionExecution: selectedSessionExecution.reader,
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
       workspaceActivity: workspaceActivity.reader,
@@ -1230,6 +1247,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionWorkspaceMove.dispose()
       sessionLaunchDrafts.dispose()
       preSessionLaunchBranches.dispose()
+      selectedSessionExecution.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()

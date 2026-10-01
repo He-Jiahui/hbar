@@ -290,6 +290,8 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.session.activity.global.list.description': '分页查询可见会话与运行状态，进行中的会话优先。',
         'commands.session.sidebar.list.title': '列出项目会话活动',
         'commands.session.sidebar.list.description': '按时间分页查询项目会话及后台执行状态。',
+        'commands.session.execution.get.title': '读取会话运行状态',
+        'commands.session.execution.get.description': '读取指定会话及其直属后台子会话的当前运行汇总。',
         'commands.workspace.open.title': '打开工作区',
         'commands.workspace.open.description': '按目录路径在 Host 注册工作区并切换当前工作台。',
         'commands.session.list.title': '列出会话',
@@ -338,6 +340,9 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
           'Page visible sessions and Run status, active sessions first.',
         'commands.session.sidebar.list.title': 'List project session activity',
         'commands.session.sidebar.list.description': 'Page project sessions and background execution status by time.',
+        'commands.session.execution.get.title': 'Read session execution status',
+        'commands.session.execution.get.description':
+          'Read current activity for one session and its direct background children.',
         'commands.workspace.open.title': 'Open workspace',
         'commands.workspace.open.description': 'Register a Host workspace by directory path and select it here.',
         'commands.session.list.title': 'List sessions',
@@ -1582,6 +1587,9 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goalMenu: choose('将下一条设为目标', 'Make next message a Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
       running: choose('运行中', 'Running'),
+      executionChecking: choose('核对活动中', 'Checking activity'),
+      executionReadFailed: choose('暂时无法确认后台活动。', 'Background activity could not be confirmed.'),
+      retryExecution: choose('重试读取活动', 'Retry activity'),
       goalHint: choose(
         '将下一条消息设为持续目标，发送后才会保存。',
         'Make the next message an ongoing goal; it is saved when sent.',

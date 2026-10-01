@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { createGoalPlanCommandClient, createRunCommandClient } from '@hbar/client'
+import { createAgentCommandClient, createGoalPlanCommandClient, createRunCommandClient } from '@hbar/client'
 import { access, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { z } from 'zod'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
@@ -33,6 +34,7 @@ test('Goal strip distinguishes paused continuation from the current running sess
     const copy = getShellCopy('zh-CN')
     const goals = createGoalPlanCommandClient(host.client)
     const runs = createRunCommandClient(host.client)
+    const agents = createAgentCommandClient(host.client)
     const objective = '先核对目标状态与运行状态，再验证长内容自然布局。'.repeat(8)
     const goal = await goals.execute('goal.create', { sessionId, objective, tokenBudget: 2000 })
     const goalId = goal.goal?.goalId
@@ -42,7 +44,53 @@ test('Goal strip distinguishes paused continuation from the current running sess
     const page = await context.newPage()
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
+    let failExecutionRead = false
+    let injectedReads = 0
+    const requestSchema = z
+      .object({
+        id: z.union([z.string(), z.number()]).optional(),
+        method: z.string().optional(),
+        params: z
+          .object({
+            commandId: z.string().optional(),
+            input: z.object({ sessionId: z.string().optional() }).passthrough().optional(),
+          })
+          .passthrough()
+          .optional(),
+      })
+      .passthrough()
+    await page.routeWebSocket('**/rpc', (socket) => {
+      const server = socket.connectToServer()
+      socket.onMessage((message) => {
+        const request = typeof message === 'string' ? requestSchema.safeParse(JSON.parse(message) as unknown) : null
+        if (
+          failExecutionRead &&
+          request?.success &&
+          request.data.id !== undefined &&
+          request.data.method === 'command.execute' &&
+          request.data.params?.commandId === 'session.execution.get' &&
+          request.data.params.input?.sessionId === sessionId
+        ) {
+          failExecutionRead = false
+          injectedReads++
+          socket.send(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id: request.data.id,
+              error: { code: -32603, message: 'PRIVATE read failure must not be displayed', data: 'READ_FAILED' },
+            }),
+          )
+          return
+        }
+        server.send(message)
+      })
+    })
     await page.goto(base)
+    if (process.env.HBAR_GOAL_EXPECTED_ASSET)
+      await expect(page.locator('script[type="module"][src]')).toHaveAttribute(
+        'src',
+        new RegExp(process.env.HBAR_GOAL_EXPECTED_ASSET),
+      )
     await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
     const strip = page.locator('.hbar-session-current-goal .hbar-composer-goal-strip')
     const status = strip.locator('.hbar-composer-goal-status')
@@ -85,6 +133,33 @@ test('Goal strip distinguishes paused continuation from the current running sess
     expect(await strip.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: 'artifacts/goal-running-reference-v12/hbar-paused-idle-narrow.png' })
+    failExecutionRead = true
+    const child = await agents.execute(
+      'agent.create',
+      {
+        parentSessionId: sessionId,
+        objective: '/tool write_file {"path":"child-must-not-write.txt","text":"not approved"}',
+        modelId: 'local-fixture',
+        approval: 'ask',
+      },
+      { idempotencyKey: crypto.randomUUID() },
+    )
+    await expect
+      .poll(
+        async () =>
+          (await agents.execute('agent.result.get', { parentSessionId: sessionId, agentId: child.agentId })).status,
+      )
+      .toBe('waiting_approval')
+    expect((await goals.execute('goal.get', { sessionId })).goal?.status).toBe('paused')
+    expect(
+      (await host.client.call('session.snapshot', { sessionId })).runs.every((entry) => entry.status === 'cancelled'),
+    ).toBe(true)
+    await expect(page.getByText(copy.session.intent.executionReadFailed, { exact: true })).toBeVisible()
+    expect(injectedReads).toBe(1)
+    await page.getByRole('button', { name: copy.session.intent.retryExecution, exact: true }).click()
+    await expect(page.getByText(copy.session.intent.executionReadFailed, { exact: true })).toHaveCount(0)
+    await expect(status).toHaveText(copy.session.intent.running)
+    await page.screenshot({ path: 'artifacts/goal-running-reference-v12/hbar-paused-background-narrow.png' })
     const other = await target.client.call('session.create', {
       workspaceId: host.ready.workspaceId,
       title: 'Other Goal status fixture',
@@ -95,7 +170,24 @@ test('Goal strip distinguishes paused continuation from the current running sess
     await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
     await expect(status).toHaveText(copy.session.intent.statuses.active)
     await expect(strip).not.toContainText(objective)
+    await page
+      .locator(`.hbar-app-react-session-list [data-session-id="${sessionId}"]`)
+      .getByRole('button')
+      .first()
+      .click()
+    await expect(status).toHaveText(copy.session.intent.running)
+    await page.screenshot({ path: 'artifacts/goal-running-reference-v12/hbar-paused-background.png' })
+    await agents.execute('agent.cancel', { parentSessionId: sessionId, agentId: child.agentId })
+    await expect
+      .poll(
+        async () =>
+          (await agents.execute('agent.result.get', { parentSessionId: sessionId, agentId: child.agentId })).status,
+      )
+      .toBe('cancelled')
+    await expect(status).toHaveText(copy.session.intent.statuses.paused)
+    await expectComposerText(prompt, '不发送的草稿，在暂停和停止后仍应保留。')
     await expect(access(join(root, 'must-not-write.txt'))).rejects.toThrow()
+    await expect(access(join(root, 'child-must-not-write.txt'))).rejects.toThrow()
     expect(errors).toEqual([])
   } finally {
     await context.close()

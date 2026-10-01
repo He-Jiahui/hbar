@@ -17,6 +17,9 @@ export interface HbarComposerIntentLabels extends HbarComposerIntentControlLabel
   readonly planPlaceholder: string
   readonly statuses: Readonly<Record<Goal['status'], string>>
   readonly running: string
+  readonly executionChecking: string
+  readonly executionReadFailed: string
+  readonly retryExecution: string
   readonly pause: string
   readonly pauseHint: string
   readonly resume: string
@@ -50,6 +53,8 @@ export function HbarComposerGoal({
   surface = 'all',
   canPrepare = true,
   runActive = false,
+  executionReadError = false,
+  executionChecking = false,
   goalTriggerRef,
 }: {
   readonly sessionId: string
@@ -59,6 +64,8 @@ export function HbarComposerGoal({
   readonly surface?: 'all' | 'summary' | 'submission'
   readonly canPrepare?: boolean
   readonly runActive?: boolean
+  readonly executionReadError?: boolean
+  readonly executionChecking?: boolean
   readonly goalTriggerRef?: RefObject<HTMLButtonElement | null>
 }) {
   const runtime = useHbarRuntime()
@@ -282,7 +289,7 @@ export function HbarComposerGoal({
               {labels.currentGoal}
             </LumenText>
             <LumenText as="span" className="hbar-composer-goal-status">
-              {runActive ? labels.running : labels.statuses[goal.status]}
+              {runActive ? labels.running : executionChecking ? labels.executionChecking : labels.statuses[goal.status]}
             </LumenText>
             <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective}>
               {goal.objective}
@@ -358,6 +365,26 @@ export function HbarComposerGoal({
               </LumenButton>
             </LumenFrame>
           </LumenFrame>
+        </LumenFrame>
+      )}
+      {showSummary && visibleGoal && executionReadError && (
+        <LumenFrame className="hbar-composer-goal-confirm" role="status">
+          <LumenText as="span">{labels.executionReadFailed}</LumenText>
+          <LumenButton
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            disabled={!connected || !workspaceId}
+            onClick={() => {
+              if (!workspaceId) return
+              void runtime.commands
+                .execute('selectedSessionExecution.refresh', { sessionId, workspaceId })
+                .catch(() => {})
+            }}
+          >
+            {labels.retryExecution}
+          </LumenButton>
         </LumenFrame>
       )}
       {showSummary && clearTarget && clearTarget === goal?.goalId && (

@@ -247,6 +247,7 @@ function SessionWorkspaceContent({
   const stopRun = useSessionStopAction()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const executionAccess = useHbarRuntimeState(runtime.state.sessionExecutionAccess)
+  const selectedExecution = useHbarRuntimeState(runtime.state.selectedSessionExecution)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
   const queuedUserRuns = useHbarRuntimeState(runtime.state.queuedUserRuns)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
@@ -2272,7 +2273,27 @@ function SessionWorkspaceContent({
             connected={connected}
             labels={labels.intent}
             surface="summary"
-            runActive={connected && timeline.sessionId === sessionId && Boolean(activeRun)}
+            runActive={
+              connected &&
+              ((timeline.sessionId === sessionId && Boolean(activeRun)) ||
+                (selectedExecution.target?.sessionId === sessionId &&
+                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                  selectedExecution.status === 'ready' &&
+                  selectedExecution.snapshot?.execution.activeCount !== undefined &&
+                  selectedExecution.snapshot.execution.activeCount > 0))
+            }
+            executionReadError={
+              connected &&
+              selectedExecution.target?.sessionId === sessionId &&
+              selectedExecution.target.workspaceId === sessionWorkspaceId &&
+              selectedExecution.status === 'error'
+            }
+            executionChecking={
+              connected &&
+              selectedExecution.target?.sessionId === sessionId &&
+              selectedExecution.target.workspaceId === sessionWorkspaceId &&
+              selectedExecution.status === 'loading'
+            }
             goalTriggerRef={composerGoalTrigger}
             canPrepare={canPrepare}
           />
