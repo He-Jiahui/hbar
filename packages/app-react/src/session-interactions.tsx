@@ -16,6 +16,7 @@ import { toolInputText } from './session-message-model'
 import './session-interactions.css'
 import { HbarPlanExitDecision, type HbarPlanExitDecisionLabels, type HbarPlanExitTarget } from './plan-exit-decision'
 import type { MessageClipboardPort } from './message-copy'
+import { useDecisionResultFocus } from './decision-result-focus'
 
 export interface HbarSessionDecisionLabels {
   readonly planExit: HbarPlanExitDecisionLabels
@@ -176,6 +177,7 @@ function DecisionContent({
       : null
   const questionFact = decision.kind === 'questionnaire' ? decision.fact : null
   const complete = Boolean(approvalStatus || questionFact)
+  const { region, rememberActionFocus } = useDecisionResultFocus(complete)
   const unknown = !complete && scopedAction?.status === 'unknown'
   const submitting = !complete && scopedAction?.status === 'submitting'
   const submitted = !complete && scopedAction?.status === 'succeeded'
@@ -214,8 +216,13 @@ function DecisionContent({
   return (
     <LumenFrame
       as="section"
+      ref={(node) => {
+        region.current = node
+      }}
+      tabIndex={-1}
       className="hbar-session-decision"
       aria-label={decision.kind === 'approval' ? labels.approval : labels.questionnaire}
+      aria-describedby={`${id}-status`}
       data-decision-id={decision.id}
       data-decision-kind={decision.kind}
       data-complete={complete || undefined}
@@ -228,7 +235,7 @@ function DecisionContent({
         />
         <LumenText as="strong">{decision.kind === 'approval' ? labels.approval : labels.questionnaire}</LumenText>
         {decision.kind === 'approval' ? <LumenText as="code">{decision.tool}</LumenText> : null}
-        <LumenText as="span" role="status" className="hbar-decision-status">
+        <LumenText as="span" id={`${id}-status`} role="status" className="hbar-decision-status">
           {status}
         </LumenText>
       </LumenFrame>
@@ -361,9 +368,10 @@ function DecisionContent({
                 tone="primary"
                 indicator="none"
                 disabled={blocked}
-                onClick={() =>
+                onClick={(event) => {
+                  rememberActionFocus(event.currentTarget)
                   onDecision({ sessionId: decision.sessionId, approvalId: decision.id, decision: 'allowed' })
-                }
+                }}
               >
                 <LumenIcon icon={Check} tier="sm" />
                 {labels.allow}
@@ -374,9 +382,10 @@ function DecisionContent({
                 variant="text"
                 indicator="none"
                 disabled={blocked}
-                onClick={() =>
+                onClick={(event) => {
+                  rememberActionFocus(event.currentTarget)
                   onDecision({ sessionId: decision.sessionId, approvalId: decision.id, decision: 'denied' })
-                }
+                }}
               >
                 <LumenIcon icon={X} tier="sm" />
                 {labels.deny}
@@ -388,8 +397,9 @@ function DecisionContent({
               tone="primary"
               indicator="none"
               disabled={blocked || !allAnswered}
-              onClick={() => {
-                if (decision.requestId)
+              onClick={(event) => {
+                if (decision.requestId) {
+                  rememberActionFocus(event.currentTarget)
                   onSubmit({
                     sessionId: decision.sessionId,
                     requestId: decision.requestId,
@@ -397,6 +407,7 @@ function DecisionContent({
                       Object.entries(answers).map(([questionId, answer]) => [questionId, { answers: [answer.value] }]),
                     ),
                   })
+                }
               }}
             >
               {labels.submit}
@@ -408,8 +419,11 @@ function DecisionContent({
               variant="text"
               indicator="none"
               disabled={!connected || scopedAction?.reconciling || !scopedAction}
-              onClick={() => {
-                if (scopedAction) onReconcile({ sessionId: decision.sessionId, actionId: scopedAction.id })
+              onClick={(event) => {
+                if (scopedAction) {
+                  rememberActionFocus(event.currentTarget)
+                  onReconcile({ sessionId: decision.sessionId, actionId: scopedAction.id })
+                }
               }}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />

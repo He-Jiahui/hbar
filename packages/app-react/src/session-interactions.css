@@ -10,6 +10,10 @@
 .hbar-session-decision[data-complete] {
   border-color: var(--lumen-edge);
 }
+.hbar-session-decision:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
 .hbar-decision-heading,
 .hbar-decision-actions {
   display: flex;

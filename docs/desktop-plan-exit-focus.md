@@ -2,6 +2,9 @@
 
 本单元补齐审批决定的阅读/输入连续性，不修改 Plan Host 状态机、审批身份或 Run 提交。只在隔离工作树 `codex/session-launch-target` 实施；CC、主工作区及共享 UI submodule 保持只读。
 
+后续[普通决策卡的操作连续性](desktop-decision-result-focus.md)已提取并复用此焦点规则，
+覆盖普通审批与问卷；本篇保留原 Plan 单元的历史证据。
+
 ## 参考与原因
 
 CC `e28d0a65` 的 `desktop/src/components/chat/PermissionDialog.tsx` 中 `ExitPlanModePermissionDialog` 保持同一个请求卡：pending 时显示计划、可选反馈和批准/继续规划；responded 后保留文档，移除反馈和动作。主线程查看了旧原组件/原主题隔离截图 `D:/Git/hbar/artifacts/plan-proposal-v2/01-reference-plan-1440.png`、`02-reference-plan-continue-390.png` 和 `02-reference-plan-approved-390.png`，并核对源码。它们不证明完整 CC App、真实 Host 或完成后的焦点行为；CC 原组件本身没有明确 post-decision focus owner。
