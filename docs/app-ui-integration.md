@@ -1756,3 +1756,29 @@ localized long-copy flow and a 320×420 reachable Send action. Both representati
 browser paths have zero page errors and no horizontal overflow. The evidence is
 mechanism-level and intentionally does not claim fresh strict source pairs or
 actual upload, invitation, tour, navigation or workspace creation results.
+
+### Notifications 1–6 practical evidence reconciliation
+
+The six canonical Lumen adapters retain their host-owned content and existing
+center/toast/preferences/activity/system/bell semantics. Unchanged variants
+1/2/4/5 reuse their recorded contracts and preview evidence; they are not replayed
+as a new button or theme matrix. Notifications 3 has a signed historical ledger at
+`artifacts/reactbits-pro-visual-audit/notifications-3-final-v170/review-ledger.json`
+(8 static pairs, 9 mechanism cases), not missing evidence.
+
+The new [compact core check](../scripts/verify-hbar-app-ui-notifications-core.ts)
+passes three production-browser records with zero page/console diagnostics:
+preferences draft/failure/retry, exact-row confirmed reads with derived Unread
+filter and Escape focus restoration, and one 286×420 localized overlay. Its
+screenshot exposed a genuine long-label clipping issue in the bell toolbar.
+The child fix uses natural flex wrapping and a bounded read-all action; trailing
+appbar controls reserve their space while the brand ellipsizes. The full action,
+filters and footer are now reachable and keyboard confirmation works. The ten
+six-variant contract tests pass 112 assertions; child typecheck/bundle, root preview
+build, scoped lint/style and flow/icon guards pass. Existing pinned-pnpm version
+mismatch uses installed CLI fallback, not a claimed pnpm workflow pass.
+
+Historical Notifications 6 strict evidence remains `needs-fix`: the source clips
+its narrow filter, while local content stays reachable. The old ledger is neither
+overwritten nor promoted after this CSS change. Current practical acceptance is
+separate from strict fidelity and actual preferences/read-state persistence.
