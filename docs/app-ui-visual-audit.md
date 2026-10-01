@@ -53,8 +53,8 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 
 ## 证据和门禁
 
-捕获协议 13 / 交互协议 27 起，两侧 Chrome 统一使用 `--disable-lcd-text`，避免同一段未改动的
-文字在 React 更新前后切换 LCD/灰度抗锯齿，被误算为业务反馈。该参数由
+当前捕获协议为 17、交互协议为 37；两侧 Chrome 统一使用 `--disable-lcd-text`，避免同一段未改动的
+文字在 React 更新前后切换 LCD/灰度抗锯齿，被误算为业务反馈。历史 13/27 产物仍保留为旧证据，不能与当前协议混用。该参数由
 [Chromium 定义](https://chromium.googlesource.com/chromium/src/+/lkgr/content/public/common/content_switches.cc)；
 它不修改组件 DOM、文本、尺寸或交互。旧协议的证据保留，但不能与新协议混用或直接续跑；需用新目录重新捕获。
 隔离 iframe 前先等待真实组件和字体完成加载，再观察 iframe 自身尺寸稳定 500ms；不把文档页的初始
