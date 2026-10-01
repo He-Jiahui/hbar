@@ -324,6 +324,7 @@ export class Kernel {
       globalSessionActivityPage: (input) => this.storage.call('globalSessionActivityPage', input),
       workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
       sessionActivityPage: (input) => this.storage.call('sessionActivityPage', input),
+      sidebarSessionActivityPage: (input) => this.storage.call('sidebarSessionActivityPage', input),
       sessionPage: (input) => this.storage.call('sessionPage', input),
       findWorkspace: (id) => this.storage.call('findWorkspace', id),
       findSession: (id) => this.storage.call('findSession', id),

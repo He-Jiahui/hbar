@@ -4,7 +4,9 @@ import {
   sessionActivityGlobalPageSchema,
   workspaceSidebarListInputSchema,
   workspaceSidebarPageSchema,
+  sessionSidebarPageSchema,
 } from '../state/sidebar-directory'
+import { sessionActivityListInputSchema } from '../state/directory'
 
 function query(id: string) {
   return {
@@ -23,6 +25,22 @@ function query(id: string) {
 }
 
 export const sidebarDirectoryCommands = {
+  'session.sidebar.list': defineCommand(
+    {
+      ...query('session.sidebar.list'),
+      scope: 'workspace',
+      cli: {
+        arguments: [
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+          { field: 'sortBy', type: 'string', flag: 'sort-by' },
+          { field: 'cursor', type: 'json', flag: 'cursor' },
+          { field: 'limit', type: 'number', flag: 'limit' },
+        ],
+      },
+    },
+    sessionActivityListInputSchema,
+    sessionSidebarPageSchema,
+  ),
   'workspace.sidebar.list': defineCommand(
     {
       ...query('workspace.sidebar.list'),

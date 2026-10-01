@@ -13,6 +13,7 @@ import type {
   SessionActivityGlobalPage,
   WorkspaceSidebarListInput,
   WorkspaceSidebarPage,
+  SessionActivityExecution,
 } from '@hbar/contracts/sidebar-directory'
 import type { WorkspaceDisplayNamesSnapshot } from '@hbar/contracts/commands/workspace-display-names'
 import type { WorkspaceOrganizationSnapshot } from '@hbar/contracts/commands/workspace-organization'
@@ -61,6 +62,47 @@ export const SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL = `
     WHEN OLD.parentId IS NOT NEW.parentId
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
+
+const RUN_ACTIVITY_CTE = `active_runs AS (
+  SELECT r.id,r.sessionId,r.status,
+    CASE WHEN EXISTS (SELECT 1 FROM events e WHERE e.runId=r.id AND e.type='run.cancelRequested')
+      THEN 1 ELSE 0 END AS cancelRequested
+  FROM runs r WHERE r.status IN ('queued','running','waiting_approval')
+), activity_owners AS (
+  SELECT r.sessionId,r.id,r.status,r.cancelRequested FROM active_runs r
+  UNION ALL
+  SELECT child.parentId AS sessionId,r.id,r.status,r.cancelRequested
+  FROM active_runs r JOIN sessions child ON child.id=r.sessionId
+  WHERE child.parentId IS NOT NULL AND child.parentId<>child.id
+    AND NOT EXISTS (SELECT 1 FROM events e WHERE e.sessionId=child.id AND e.type='session.forked')
+), run_activity AS (
+  SELECT r.sessionId,COUNT(*) AS activeCount,
+    SUM(CASE WHEN r.status='queued' THEN 1 ELSE 0 END) AS queuedCount,
+    SUM(CASE WHEN r.status='running' THEN 1 ELSE 0 END) AS runningCount,
+    SUM(CASE WHEN r.status='waiting_approval' THEN 1 ELSE 0 END) AS waitingCount,
+    SUM(r.cancelRequested) AS cancelRequestedCount
+  FROM activity_owners r GROUP BY r.sessionId
+)`
+
+function executionFromRow(row: Readonly<Record<string, unknown>>): SessionActivityExecution {
+  const count = z.number().int().nonnegative().safe()
+  const activeCount = count.parse(row.activeCount ?? 0)
+  const queuedCount = count.parse(row.queuedCount ?? 0)
+  const runningCount = count.parse(row.runningCount ?? 0)
+  const waitingCount = count.parse(row.waitingCount ?? 0)
+  const cancelRequestedCount = count.parse(row.cancelRequestedCount ?? 0)
+  const state =
+    cancelRequestedCount > 0
+      ? 'cancelRequested'
+      : waitingCount > 0
+        ? 'waiting_approval'
+        : runningCount > 0
+          ? 'running'
+          : queuedCount > 0
+            ? 'queued'
+            : 'idle'
+  return { state, activeCount, queuedCount }
+}
 
 function compareBinary(left: string, right: string): number {
   const leftBytes = utf8Encoder.encode(left)
@@ -310,28 +352,7 @@ export function createSidebarDirectoryStorage(
       const hiddenJson = JSON.stringify(current.organization.hiddenWorkspaceIds)
       const rows = db
         .query(
-          `WITH active_runs AS (
-             SELECT r.id,r.sessionId,r.status,
-               CASE WHEN EXISTS (SELECT 1 FROM events e WHERE e.runId=r.id AND e.type='run.cancelRequested')
-                 THEN 1 ELSE 0 END AS cancelRequested
-             FROM runs r WHERE r.status IN ('queued','running','waiting_approval')
-           ), activity_owners AS (
-             SELECT r.sessionId,r.id,r.status,r.cancelRequested FROM active_runs r
-             UNION ALL
-             SELECT child.parentId AS sessionId,r.id,r.status,r.cancelRequested
-             FROM active_runs r JOIN sessions child ON child.id=r.sessionId
-             WHERE child.parentId IS NOT NULL AND child.parentId<>child.id
-               AND NOT EXISTS (SELECT 1 FROM events e WHERE e.sessionId=child.id AND e.type='session.forked')
-           ), run_activity AS (
-             SELECT r.sessionId,
-               COUNT(*) AS activeCount,
-               SUM(CASE WHEN r.status='queued' THEN 1 ELSE 0 END) AS queuedCount,
-               SUM(CASE WHEN r.status='running' THEN 1 ELSE 0 END) AS runningCount,
-               SUM(CASE WHEN r.status='waiting_approval' THEN 1 ELSE 0 END) AS waitingCount,
-               SUM(r.cancelRequested) AS cancelRequestedCount
-             FROM activity_owners r
-             GROUP BY r.sessionId
-           ), ranked AS (
+          `WITH ${RUN_ACTIVITY_CTE}, ranked AS (
              SELECT s.id AS sessionId,s.workspaceId,s.title,s.archived,s.parentId,s.createdAt,s.updatedAt,s.seq,
                w.id AS workspace_id,w.path AS workspace_path,w.name AS workspace_name,w.createdAt AS workspace_createdAt,
                COALESCE(a.activeCount,0) AS activeCount,COALESCE(a.queuedCount,0) AS queuedCount,
@@ -376,26 +397,11 @@ export function createSidebarDirectoryStorage(
           name: row.workspace_name,
           createdAt: row.workspace_createdAt,
         })
-        const activeCount = z.number().int().nonnegative().safe().parse(row.activeCount)
-        const queuedCount = z.number().int().nonnegative().safe().parse(row.queuedCount)
-        const runningCount = z.number().int().nonnegative().safe().parse(row.runningCount)
-        const waitingCount = z.number().int().nonnegative().safe().parse(row.waitingCount)
-        const cancelRequestedCount = z.number().int().nonnegative().safe().parse(row.cancelRequestedCount)
-        const state =
-          cancelRequestedCount > 0
-            ? 'cancelRequested'
-            : waitingCount > 0
-              ? 'waiting_approval'
-              : runningCount > 0
-                ? 'running'
-                : queuedCount > 0
-                  ? 'queued'
-                  : 'idle'
         return {
           session,
           workspace,
           displayName: names.get(workspace.id) ?? workspace.name,
-          execution: { state, activeCount, queuedCount },
+          execution: executionFromRow(row),
         }
       })
       const lastItem = pageItems.at(-1)
@@ -420,5 +426,25 @@ export function createSidebarDirectoryStorage(
     })()
   }
 
-  return { workspaceSidebarPage, globalSessionActivityPage }
+  /** Called inside the Session-page transaction; no separate revision or private plugin history. */
+  function executionSummaries(sessionIds: readonly string[]): ReadonlyMap<string, SessionActivityExecution> {
+    const ids = z.array(z.string().min(1).max(160)).max(200).parse(sessionIds)
+    if (ids.length === 0) return new Map()
+    const rows = db
+      .query(
+        `WITH ${RUN_ACTIVITY_CTE}
+      SELECT s.id,a.activeCount,a.queuedCount,a.runningCount,a.waitingCount,a.cancelRequestedCount
+      FROM sessions s LEFT JOIN run_activity a ON a.sessionId=s.id
+      WHERE s.id IN (SELECT value FROM json_each(?))`,
+      )
+      .all(JSON.stringify(ids))
+    const summaries = new Map<string, SessionActivityExecution>()
+    for (const value of rows) {
+      const row = z.record(z.string(), z.unknown()).parse(value)
+      summaries.set(z.string().parse(row.id), executionFromRow(row))
+    }
+    return summaries
+  }
+
+  return { workspaceSidebarPage, globalSessionActivityPage, executionSummaries }
 }

@@ -1,11 +1,12 @@
 # Sidebar directory queries
 
-The public contract entry is `@hbar/contracts/sidebar-directory`. The Host exposes two read-only commands through the existing `command.execute` directory dispatcher:
+The public contract entry is `@hbar/contracts/sidebar-directory`. The Host exposes three read-only commands through the existing `command.execute` directory dispatcher:
 
 - `workspace.sidebar.list` supplies the sidebar's Workspace rows for the `project` and `recentProject` organizations.
-- `session.activity.global.list` supplies a global time-ordered Session page with Workspace context and a compact direct-Run status summary.
+- `session.activity.global.list` supplies a global time-ordered Session page with Workspace context and a compact execution summary.
+- `session.sidebar.list` supplies a Workspace's timestamp-ordered Session page with the same execution summary, for project/recent-project rows.
 
-Both pages are bounded to 200 rows. Their default page size is 60. Every cursor is tied to the query parameters and the revision of the directory, Host display-name snapshot, and hidden-Workspace organization snapshot. A changed revision returns `STALE_CURSOR`; a cursor used with another organization, sort, or locale returns `INVALID_INPUT`.
+Pages are bounded to 200 rows with a default of 60. Workspace and global cursors include directory, display-name and hidden-organization revisions. The per-Workspace Session cursor includes directory revision, Workspace ID and selected timestamp sort. Changed revisions return `STALE_CURSOR`; cursor parameter mismatches return `INVALID_INPUT`.
 
 ## Workspace organization
 
@@ -19,18 +20,22 @@ The effective display name is the Host/data-root alias from `workspace_display_n
 
 ## Global Session time feed
 
-`session.activity.global.list` takes an optional cursor and a limit. It returns all visible, non-archived Sessions across Workspaces, ordered by direct nonterminal Run activity first, then `Session.updatedAt` descending, then Session ID in UTF-8/BINARY order. The cursor contains the active phase, timestamp, and Session ID tie-break, so equal timestamps page without skipping or repeating a Session.
+`session.activity.global.list` takes an optional cursor and a limit. It returns all visible, non-archived Sessions across Workspaces, ordered by nonterminal workload first, then `Session.updatedAt` descending, then Session ID in UTF-8/BINARY order. The cursor contains the active phase, timestamp, and Session ID tie-break, so equal timestamps page without skipping or repeating a Session.
 
-Each item includes the canonical Session, canonical Workspace context, its effective Workspace display name, and `execution`. The execution summary counts direct `queued`, `running`, and `waiting_approval` Runs only; `activeCount` includes queued Runs and `queuedCount` is its queued subset. State priority is `cancelRequested`, `waiting_approval`, `running`, `queued`, then `idle`. A queued-only Session is therefore distinguishable from one whose Run is executing. The summary contains no prompt, model input, or tool arguments.
+Each item includes the canonical Session, canonical Workspace context, its effective Workspace display name, and `execution`. The summary counts `queued`, `running`, and `waiting_approval` Runs of the Session and its immediate non-fork children. `activeCount` includes queued Runs and `queuedCount` is its queued subset. State priority is `cancelRequested`, `waiting_approval`, `running`, `queued`, then `idle`. A queued-only Session is distinguishable from one whose Run is executing. The summary contains no prompt, model input, or tool arguments.
 
-This contract intentionally reports direct Runs only. It does not claim that a parent Session is active because a child Agent is running; Agent state remains owned by the Agent plugin, and there is no persisted global Agents table to query here.
+An idle parent stays active while a direct background child works, using public `Session.parentId`, persisted Runs and Storage's `session.forked` marker. Independent forks are excluded; grandchildren are not recursively counted. No private `agent.created` event is decoded and no global Agent table is introduced. Archived/hidden children still contribute to a visible parent because hiding is not cancellation; their own rows remain filtered. This summary is neither a tab-close policy nor a Goal-completion signal.
 
-The global page reads the three revisions, visible Sessions, Workspace context, aliases, and direct-Run summary in one Storage Worker transaction. Schema version 14 advances the directory activity revision when Runs are inserted, deleted, or change Session/status/start/end fields. This includes the storage claim's `queued` to `running` transition, which does not itself append a Session event. Hidden-organization or display-name changes also invalidate either query's cursor through their own persisted revisions.
+The global page reads revisions, visible Sessions, Workspace context, aliases and summary in one Storage Worker transaction. Schema 14 advances directory revision when Runs are inserted, deleted, or change Session/status/start/end fields, including claim's `queued` to `running` transition without a Session event. Schema 15 additionally invalidates parent-link changes and indexes `(sessionId,type)` event lookup. Hidden-organization/display-name changes invalidate applicable cursors through their own persisted revisions. A partial nonterminal-Run index bounds summary scans to the active portion of Run history; queries still make no constant-time claim.
+
+## Project Session feed
+
+`session.sidebar.list` accepts the same `workspaceId`, `sortBy`, cursor and limit as `session.activity.list`. It returns `{ revision, items: [{ session, execution }], nextCursor }`. Timestamp order is unchanged: activity indicators do not hoist rows in project mode. The selected Session page and execution summaries are read in one transaction, using the same aggregate SQL/state precedence as the global Time feed. No per-Session network calls or plugin history reads are needed. A missing Workspace fails explicitly. The old `session.activity.list` response remains unchanged.
 
 Connected clients receive a global `host.changed` hint with kind `session-activity` after a Run is claimed and after the durable `run.queued`, `run.status`, `run.settled`, or `run.cancelRequested` events are published. Stream tokens do not produce these invalidation hints.
 
-The global query returns a bounded page but scans session/run activity as needed to rank it. Neither command claims constant-time work as the Host directory grows.
+The global query returns a bounded page but scans session/run activity as needed to rank it. No command claims constant-time work as the Host directory grows.
 
 ## Verification
 
-`tests/sidebar-directory.test.ts` covers locale-aware alphabetic ordering, aliases, equal-name ID ties, recent-activity ties and continuation, hidden Workspace filtering, alias/organization stale cursors, all direct Run states, a queued-to-running stale cursor, a Session outside the older 2,000-row canonical directory projection, and the Run activity invalidation hint. Existing `tests/workspace-activity.test.ts` and `tests/session-activity.test.ts` remain in the affected contract graph.
+`tests/sidebar-directory.test.ts` covers locale ordering/aliases, recent-activity continuation, hidden filtering, stale cursors, direct Run states, a deep active Session, live invalidation, parent/child/fork/grandchild boundaries, schema-14 upgrade, and project-summary parity without changing timestamp order. Existing `tests/workspace-activity.test.ts` and `tests/session-activity.test.ts` remain in the affected contract graph.

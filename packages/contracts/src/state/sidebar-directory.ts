@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { sessionSchema, workspaceSchema } from './directory'
+import { sessionSchema, workspaceSchema, sessionActivityPageSchema } from './directory'
 
 const entityId = z.string().min(1).max(160)
 const timestamp = z.number().int().nonnegative().safe()
@@ -133,6 +133,27 @@ export const sessionActivityGlobalItemSchema = z.strictObject({
   displayName,
   execution: sessionActivityExecutionSchema,
 })
+
+/** Workspace-ordered rows and their execution summary share one revision-bound snapshot. */
+export const sessionSidebarPageSchema = z
+  .strictObject({
+    revision,
+    items: z.array(z.strictObject({ session: sessionSchema, execution: sessionActivityExecutionSchema })).max(200),
+    nextCursor: sessionActivityPageSchema.shape.nextCursor,
+  })
+  .superRefine((page, context) => {
+    const sessions = page.items.map((item) => item.session)
+    if (new Set(sessions.map((item) => item.id)).size !== sessions.length)
+      context.addIssue({ code: 'custom', path: ['items'], message: 'Session sidebar page contains duplicate Sessions' })
+    if (!sessionActivityPageSchema.safeParse({ ...page, items: sessions }).success)
+      context.addIssue({
+        code: 'custom',
+        path: ['nextCursor'],
+        message: 'Session sidebar cursor does not match its page',
+      })
+  })
+
+export type SessionSidebarPage = z.output<typeof sessionSidebarPageSchema>
 
 export const sessionActivityGlobalPageSchema = z
   .strictObject({

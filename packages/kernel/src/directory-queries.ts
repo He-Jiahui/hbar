@@ -18,6 +18,7 @@ import type {
   SessionActivityGlobalPage,
   WorkspaceSidebarListInput,
   WorkspaceSidebarPage,
+  SessionSidebarPage,
 } from '@hbar/contracts/sidebar-directory'
 
 export interface DirectoryRepository {
@@ -26,6 +27,7 @@ export interface DirectoryRepository {
   globalSessionActivityPage(input: SessionActivityGlobalListInput): Promise<SessionActivityGlobalPage>
   workspaceActivityPage(input: WorkspaceActivityListInput): Promise<WorkspaceActivityPage>
   sessionActivityPage(input: SessionActivityListInput): Promise<SessionActivityPage>
+  sidebarSessionActivityPage(input: SessionActivityListInput): Promise<SessionSidebarPage>
   sessionPage(input: SessionListInput): Promise<SessionPage>
   findWorkspace(id: string): Promise<Workspace | null>
   findSession(id: string): Promise<Session | null>
@@ -63,6 +65,16 @@ export function createDirectoryQueries(repository: DirectoryRepository) {
       throw new CommandError('WORKSPACE_NOT_FOUND', 'Workspace not found')
     try {
       return await repository.sessionActivityPage(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(directoryCommands['session.sidebar.list'], async (input) => {
+    if (!(await repository.findWorkspace(input.workspaceId)))
+      throw new CommandError('WORKSPACE_NOT_FOUND', 'Workspace not found')
+    try {
+      return await repository.sidebarSessionActivityPage(input)
     } catch (error) {
       if (error instanceof HbarError) throw new CommandError(error.code, error.message)
       throw error

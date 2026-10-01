@@ -29,6 +29,7 @@ async function fixture() {
     globalSessionActivityPage: (input) => storage.call('globalSessionActivityPage', input),
     workspaceActivityPage: (input) => storage.call('workspaceActivityPage', input),
     sessionActivityPage: (input) => storage.call('sessionActivityPage', input),
+    sidebarSessionActivityPage: (input) => storage.call('sidebarSessionActivityPage', input),
     sessionPage: (input) => storage.call('sessionPage', input),
     findWorkspace: (id) => storage.call('findWorkspace', id),
     findSession: (id) => storage.call('findSession', id),
@@ -507,4 +508,47 @@ test('schema 14 upgrade restores parent activity from persisted public facts wit
   } finally {
     upgraded.close()
   }
+})
+
+test('project Session pages attach the same background summary without changing timestamp order or exposing prompts', async () => {
+  const { root, databasePath, storage, queries } = await fixture()
+  const workspace = await storage.call('createWorkspace', join(root, 'project'), 'Project')
+  const isolated = await storage.call('createWorkspace', join(root, 'child'), 'Child')
+  const parent = await storage.call('createSession', workspace.id, 'Old parent')
+  const idle = await storage.call('createSession', workspace.id, 'Recent idle')
+  const child = await storage.call('createSession', isolated.id, 'Background child', parent.id)
+  const run = await storage.call(
+    'enqueue',
+    child.id,
+    'background',
+    { text: 'private background prompt', images: [] },
+    'fixture',
+  )
+  await storage.call('claim', child.id)
+  setUpdatedAt(databasePath, parent.id, 1)
+  setUpdatedAt(databasePath, idle.id, 100)
+  const input = { workspaceId: workspace.id, limit: 1 }
+  const first = await queries.execute('session.sidebar.list', input)
+  expect(first.items[0]).toMatchObject({
+    session: { id: idle.id },
+    execution: { state: 'idle', activeCount: 0, queuedCount: 0 },
+  })
+  expect(first.nextCursor).not.toBeNull()
+  if (!first.nextCursor) throw new Error('Expected second Session page')
+  const second = await queries.execute('session.sidebar.list', { ...input, cursor: first.nextCursor })
+  expect(second.items[0]).toMatchObject({
+    session: { id: parent.id },
+    execution: { state: 'running', activeCount: 1, queuedCount: 0 },
+  })
+  expect(second.nextCursor).toBeNull()
+  expect(JSON.stringify(second)).not.toContain('private background prompt')
+  const legacy = await queries.execute('session.activity.list', { workspaceId: workspace.id })
+  expect(legacy.items.map((item) => item.id)).toEqual([idle.id, parent.id])
+  const global = await queries.execute('session.activity.global.list', { limit: 200 })
+  expect(global.items.find((item) => item.session.id === parent.id)?.execution).toEqual(second.items[0]?.execution)
+  await storage.call('setRun', run.id, 'cancelled')
+  await expectCode(queries.execute('session.sidebar.list', { ...input, cursor: first.nextCursor }), 'STALE_CURSOR')
+  const settled = await queries.execute('session.sidebar.list', { workspaceId: workspace.id, limit: 200 })
+  expect(settled.items.find((item) => item.session.id === parent.id)?.execution.activeCount).toBe(0)
+  await expectCode(queries.execute('session.sidebar.list', { workspaceId: 'missing' }), 'WORKSPACE_NOT_FOUND')
 })

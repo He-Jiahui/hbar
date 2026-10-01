@@ -321,6 +321,8 @@ const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
+db.exec(`CREATE INDEX IF NOT EXISTS runs_sidebar_nonterminal ON runs(sessionId,status,id)
+  WHERE status IN ('queued','running','waiting_approval');`)
 db.exec(GOAL_HISTORY_INDEX_SQL)
 
 type Row = Record<string, unknown>
@@ -803,6 +805,21 @@ const methods: StorageMethods = {
   globalSessionActivityPage: (input) => sidebarDirectory.globalSessionActivityPage(input),
   workspaceActivityPage: (input) => workspaceActivityPage(input),
   sessionActivityPage: (input) => sessionActivityPage(input),
+  sidebarSessionActivityPage(input) {
+    return db.transaction(() => {
+      const page = sessionActivityPage(input)
+      const summaries = sidebarDirectory.executionSummaries(page.items.map((item) => item.id))
+      return {
+        revision: page.revision,
+        nextCursor: page.nextCursor,
+        items: page.items.map((session) => {
+          const execution = summaries.get(session.id)
+          if (!execution) throw new HbarError('INVALID_STATE', 'Session execution summary is unavailable')
+          return { session, execution }
+        }),
+      }
+    })()
+  },
   sessionPage(input) {
     const { workspaceId, after, title, includeArchived, limit } = sessionListInputSchema.parse(input)
     methods.workspace(workspaceId)
