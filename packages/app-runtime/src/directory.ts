@@ -8,7 +8,11 @@ import {
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import { directoryCommands } from '@hbar/contracts/commands'
-import { sessionActivityGlobalPageSchema, workspaceSidebarPageSchema } from '@hbar/contracts/sidebar-directory'
+import {
+  sessionActivityGlobalPageSchema,
+  sessionSidebarPageSchema,
+  workspaceSidebarPageSchema,
+} from '@hbar/contracts/sidebar-directory'
 import {
   sessionActivityPageSchema,
   sessionSchema,
@@ -213,6 +217,10 @@ export function createDirectoryModule(
   remote.register(directoryCommands['session.activity.global.list'], async (input, context) => {
     const response = await read('session.activity.global.list', input, context)
     return decode(sessionActivityGlobalPageSchema, response.value)
+  })
+  remote.register(directoryCommands['session.sidebar.list'], async (input, context) => {
+    const response = await read('session.sidebar.list', input, context)
+    return decode(sessionSidebarPageSchema, response.value)
   })
   remote.register(directoryCommands['workspace.get'], async (input, context) => {
     const response = await read('workspace.get', input, context)

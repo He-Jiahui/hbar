@@ -3,6 +3,7 @@ import { defineCommand } from '@hbar/commands/protocol'
 import {
   sessionActivityGlobalPageSchema,
   sessionActivityPageSchema,
+  sessionSidebarPageSchema,
   workspaceSidebarPageSchema,
 } from '@hbar/contracts/sidebar-directory'
 import type {
@@ -168,6 +169,7 @@ export interface WorkspaceActivitySessionPage {
   readonly status: WorkspaceActivityPageStatus
   readonly sortBy: WorkspaceActivitySortBy
   readonly sessionIds: readonly string[]
+  readonly execution: Readonly<Record<string, Readonly<SessionActivityExecution>>>
   readonly nextCursor: SessionActivityCursor | null
   readonly hasMore: boolean
   readonly limitReached: boolean
@@ -1016,13 +1018,21 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         const rightTimestamp = page.sortBy === 'createdAt' ? right.createdAt : right.updatedAt
         return rightTimestamp - leftTimestamp || compareIds(left.id, right.id)
       })
-    updateSessionPage(workspaceId, { ...page, sessionIds: nextIds })
+    const execution = Object.fromEntries(
+      nextIds.flatMap((id) => (page.execution[id] ? [[id, page.execution[id]]] : [])),
+    )
+    updateSessionPage(workspaceId, { ...page, sessionIds: nextIds, execution })
   }
 
   async function executeSessionPage(
     task: ActivityQueryTask,
     workspaceId: string,
-    input: { readonly cursor?: SessionActivityCursor; readonly append: boolean; readonly staleRetry: number },
+    input: {
+      readonly cursor?: SessionActivityCursor
+      readonly append: boolean
+      readonly staleRetry: number
+      readonly limit?: number
+    },
     execution?: ExecuteOptions,
   ): Promise<void> {
     const isCurrent = () =>
@@ -1034,12 +1044,13 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     const snapshot = current()
     const prior = snapshot.sessions[workspaceId]
     const baseIds = input.append ? (prior?.sessionIds ?? []) : []
-    const requestedLimit = sessionLimitForPage(workspaceId, PAGE_SIZE, input.append)
+    const requestedLimit = sessionLimitForPage(workspaceId, input.limit ?? PAGE_SIZE, input.append)
     if (requestedLimit === 0) {
       const page: WorkspaceActivitySessionPage = {
         status: 'ready',
         sortBy: snapshot.sortBy,
         sessionIds: prior?.sessionIds ?? [],
+        execution: prior?.execution ?? {},
         nextCursor: prior?.nextCursor ?? null,
         hasMore: prior?.nextCursor !== null && prior?.nextCursor !== undefined,
         limitReached: true,
@@ -1056,7 +1067,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     const removeAbort = linkSignal(task.controller, execution?.signal)
     try {
       const value = await options.queries.execute(
-        'session.activity.list',
+        'session.sidebar.list',
         {
           workspaceId,
           sortBy: snapshot.sortBy,
@@ -1066,8 +1077,19 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         { signal: task.controller.signal },
       )
       if (!isCurrent()) return
-      const page = sessionActivityPageSchema.parse(value)
+      const sidebarPage = sessionSidebarPageSchema.parse(value)
+      const page = sessionActivityPageSchema.parse({
+        ...sidebarPage,
+        items: sidebarPage.items.map((item) => item.session),
+      })
       validateSessionPage(page, workspaceId, snapshot.sortBy)
+      for (const { execution } of sidebarPage.items) {
+        if (
+          (execution.activeCount === 0) !== (execution.state === 'idle') ||
+          execution.queuedCount > execution.activeCount
+        )
+          throw new CommandError('INVALID_OUTPUT', 'Session execution summary is inconsistent')
+      }
       const filtered = fence.filter(page.items)
       if (fence.overflow || filtered.length !== page.items.length) {
         if (input.staleRetry === 0) {
@@ -1090,6 +1112,10 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         status: 'ready',
         sortBy: snapshot.sortBy,
         sessionIds: combinedIds,
+        execution: {
+          ...(input.append ? prior?.execution : {}),
+          ...Object.fromEntries(sidebarPage.items.map((item) => [item.session.id, item.execution])),
+        },
         nextCursor: page.nextCursor,
         hasMore: page.nextCursor !== null,
         limitReached: combinedIds.length >= SESSION_ROW_LIMIT && page.nextCursor !== null,
@@ -1123,6 +1149,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         status: 'error',
         sortBy: current().sortBy,
         sessionIds: priorPage?.sessionIds ?? [],
+        execution: {},
         nextCursor: null,
         hasMore: false,
         limitReached: priorPage?.limitReached ?? false,
@@ -1166,16 +1193,51 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     const loadingPage: WorkspaceActivitySessionPage = {
       status: 'loading',
       sortBy: current().sortBy,
-      sessionIds: [],
-      nextCursor: null,
-      hasMore: false,
-      limitReached: false,
+      sessionIds: existing?.sessionIds ?? [],
+      execution: existing?.execution ?? {},
+      nextCursor: existing?.nextCursor ?? null,
+      hasMore: existing?.hasMore ?? false,
+      limitReached: existing?.limitReached ?? false,
       error: null,
     }
     pages[workspaceId] = loadingPage
     projectSessionPage(pages, [])
     replace({ ...current(), sessions: pages })
-    await executeSessionPage(task, workspaceId, { append: false, staleRetry: 0 }, execution)
+    const targetCount = Math.max(PAGE_SIZE, existing?.sessionIds.length ?? 0)
+    await executeSessionPage(
+      task,
+      workspaceId,
+      { append: false, staleRetry: 0, limit: Math.min(200, targetCount) },
+      execution,
+    )
+    let pagesRead = 1
+    while (
+      sessionTasks.get(workspaceId) === task &&
+      !controller.signal.aborted &&
+      pagesRead <= Math.ceil(SESSION_ROW_LIMIT / PAGE_SIZE)
+    ) {
+      const page = current().sessions[workspaceId]
+      if (
+        !page ||
+        page.status === 'error' ||
+        page.limitReached ||
+        !page.nextCursor ||
+        page.sessionIds.length >= targetCount
+      )
+        break
+      pagesRead++
+      await executeSessionPage(
+        task,
+        workspaceId,
+        {
+          cursor: page.nextCursor,
+          append: true,
+          staleRetry: 0,
+          limit: Math.min(200, targetCount - page.sessionIds.length),
+        },
+        execution,
+      )
+    }
     if (sessionTasks.get(workspaceId) === task) sessionTasks.delete(workspaceId)
   }
 

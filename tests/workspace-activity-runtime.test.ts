@@ -8,6 +8,7 @@ import type {
   Workspace,
   WorkspaceActivitySortBy,
 } from '@hbar/contracts/directory'
+import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
 
 const workspace: Workspace = {
   id: 'project',
@@ -34,11 +35,14 @@ function fixture(
   options: {
     readonly persistence?: ClientPersistencePort
     readonly onWorkspaceActivity?: (sortBy: WorkspaceActivitySortBy) => void
+    readonly beforeSessionPage?: () => Promise<void>
+    readonly executions?: () => Readonly<Record<string, SessionActivityExecution>>
   } = {},
 ) {
   const directory: CommandExecutor = {
     async execute(name, raw) {
-      if (name === 'session.activity.list') {
+      if (name === 'session.sidebar.list') {
+        await options.beforeSessionPage?.()
         const input = raw as {
           readonly workspaceId: string
           readonly sortBy: SessionActivitySortBy
@@ -59,7 +63,14 @@ function fixture(
                 sessionId: last.id,
               }
             : null
-        return { revision: 1, items, nextCursor }
+        return {
+          revision: 1,
+          items: items.map((session) => ({
+            session,
+            execution: options.executions?.()[session.id] ?? { state: 'idle', activeCount: 0, queuedCount: 0 },
+          })),
+          nextCursor,
+        }
       }
       if (name === 'workspace.sidebar.list') {
         const input = raw as {
@@ -162,6 +173,56 @@ test('explicit refresh recovers a failed preference restore by reading the saved
     })
     expect(queriedSort).toBe('createdAt')
     expect(writes).toEqual([])
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('grouped activity refresh keeps loaded rows and replaces execution summaries; failure exposes no false idle facts', async () => {
+  const sessions = Array.from({ length: 61 }, (_, index) => session(index))
+  const selected = sessions[60]
+  if (!selected) throw new Error('Missing final fixture Session')
+  let gate: Promise<void> | undefined
+  let failed = false
+  let executions: Record<string, SessionActivityExecution> = {}
+  const runtime = fixture(sessions, {
+    beforeSessionPage: async () => {
+      if (gate) await gate
+      if (failed) throw new Error('Fixture read unavailable')
+    },
+    executions: () => executions,
+  })
+  try {
+    await runtime.ready
+    await runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: workspace.id })
+    await runtime.view.commands.execute('workspaceActivity.loadMore', { scope: 'sessions', workspaceId: workspace.id })
+    const pending = Promise.withResolvers<void>()
+    gate = pending.promise
+    executions = { [selected.id]: { state: 'running', activeCount: 1, queuedCount: 0 } }
+    const refresh = runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: workspace.id })
+    await Bun.sleep(0)
+    const during = runtime.view.state.workspaceActivity.getSnapshot().sessions[workspace.id]
+    expect(during?.sessionIds).toHaveLength(61)
+    expect(during?.status).toBe('loading')
+    pending.resolve()
+    await refresh
+    gate = undefined
+    const after = runtime.view.state.workspaceActivity.getSnapshot().sessions[workspace.id]
+    expect(after?.sessionIds).toHaveLength(61)
+    expect(after?.execution[selected.id]).toEqual({ state: 'running', activeCount: 1, queuedCount: 0 })
+    expect(Object.keys(after?.execution ?? {})).toHaveLength(61)
+    failed = true
+    await runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: workspace.id })
+    const error = runtime.view.state.workspaceActivity.getSnapshot().sessions[workspace.id]
+    expect(error?.status).toBe('error')
+    expect(error?.sessionIds).toHaveLength(61)
+    expect(error?.execution).toEqual({})
+    failed = false
+    executions = {}
+    await runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: workspace.id })
+    expect(
+      runtime.view.state.workspaceActivity.getSnapshot().sessions[workspace.id]?.execution[selected.id]?.state,
+    ).toBe('idle')
   } finally {
     runtime.dispose()
   }
