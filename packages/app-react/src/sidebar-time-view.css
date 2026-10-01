@@ -55,13 +55,13 @@
   flex: 0 0 auto;
 }
 
-.hbar-app-react-session-workspace {
+.hbar-app-react-session-workspace-label {
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.hbar-app-react-session-workspace {
+.hbar-app-react-session-workspace-label {
   flex: 1 1 auto;
 }

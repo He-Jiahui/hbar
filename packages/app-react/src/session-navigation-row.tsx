@@ -355,7 +355,12 @@ export function SessionNavigationRow({
                   </span>
                   <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
                     <LumenIcon icon={Folder} tier="sm" />
-                    <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-workspace">
+                    <LumenText
+                      as="span"
+                      size="s"
+                      variant="supporting"
+                      className="hbar-app-react-session-workspace-label"
+                    >
                       {metadata.workspaceName}
                     </LumenText>
                   </LumenText>

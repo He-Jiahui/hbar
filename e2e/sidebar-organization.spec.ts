@@ -598,19 +598,25 @@ test.describe('sidebar organization modes', () => {
       const heading = sidebar.locator('.hbar-app-react-sidebar-time-heading')
       await expect(heading).toHaveText(expectedHeadings)
       const activeRow = sessionRow(sidebar, host.ready.activeSession.id)
-      await expect(activeRow.locator('.hbar-app-react-session-workspace')).toHaveText('Alpha Project')
+      await expect(activeRow.locator('.hbar-app-react-session-workspace-label')).toHaveText('Alpha Project')
       await expect(activeRow.locator('.hbar-app-react-session-activity-indicator')).toHaveAttribute(
         'aria-label',
         f.copy.shell.sort.time.execution.running,
       )
       const selectedRow = sessionRow(sidebar, host.ready.selectedSession.id)
-      await expect(selectedRow.locator('.hbar-app-react-session-workspace')).toHaveText('Delta Project')
+      await expect(selectedRow.locator('.hbar-app-react-session-workspace-label')).toHaveText('Delta Project')
       await expect(selectedRow).toHaveAttribute('data-selected', 'true')
       expect(
         await selectedRow
-          .locator('.hbar-app-react-session-workspace')
+          .locator('.hbar-app-react-session-workspace-label')
           .evaluate((node) => getComputedStyle(node).textAlign),
       ).toBe('start')
+      expect(
+        await selectedRow.locator('.hbar-app-react-session-workspace-label').evaluate((node) => {
+          const style = getComputedStyle(node)
+          return { whiteSpace: style.whiteSpace, textOverflow: style.textOverflow, overflow: style.overflow }
+        }),
+      ).toEqual({ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' })
       const yesterdayGroup = await timeGroup(sidebar, groups.yesterday)
       const last7DaysGroup = await timeGroup(sidebar, groups.last7Days)
       const last30DaysGroup = await timeGroup(sidebar, groups.last30Days)

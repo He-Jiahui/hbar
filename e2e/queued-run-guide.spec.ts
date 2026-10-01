@@ -125,6 +125,48 @@ test('Guide consumes one queue row into the current Run while draft and remainin
     ).toHaveLength(1)
     await page.setViewportSize({ width: 320, height: 900 })
     await expect(rows.first().locator('.hbar-queued-user-run-guide')).toBeVisible()
+    const guidedMessage = guided.messages.find((message) =>
+      message.content.some((block) => block.type === 'text' && block.text === selected),
+    )
+    if (!guidedMessage) throw new Error('Canonical guided message missing')
+    const guidedArticle = page.locator(`article[data-message-id="${guidedMessage.id}"]`)
+    await guidedArticle.scrollIntoViewIfNeeded()
+    const flow = await guidedArticle.evaluate((article) => {
+      const body = article.querySelector('.lumen-message-transcript-body')
+      const prose = article.querySelector('.hbar-session-message-prose')
+      const paragraphs = [...article.querySelectorAll('p')]
+      const parents: HTMLElement[] = []
+      for (let parent = article.parentElement; parent; parent = parent.parentElement) parents.push(parent)
+      return [article, body, prose, ...paragraphs, ...parents].flatMap((element) => {
+        if (!(element instanceof HTMLElement)) return []
+        const rect = element.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return [
+          {
+            className: element.className,
+            tagName: element.tagName,
+            width: rect.width,
+            height: rect.height,
+            lineHeight: Number.parseFloat(style.lineHeight),
+            right: rect.right,
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            display: style.display,
+            whiteSpace: style.whiteSpace,
+            overflowWrap: style.overflowWrap,
+            maxWidth: style.maxWidth,
+            minWidth: style.minWidth,
+          },
+        ]
+      })
+    })
+    await testInfo.attach('guided-message-flow.json', {
+      body: JSON.stringify(flow, null, 2),
+      contentType: 'application/json',
+    })
+    expect(flow.filter((item) => item.scrollWidth > item.clientWidth + 1 || item.right > 321)).toEqual([])
+    expect(flow.find((item) => item.tagName === 'P')).toMatchObject({ whiteSpace: 'normal', overflowWrap: 'anywhere' })
+    expect(flow.some((item) => item.tagName === 'P' && item.height > item.lineHeight * 2)).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('zh-guide-narrow-after.png') })
     expect((await context.request.post(`${ready.controlUrl}/release?index=0`, { headers: controlHeaders })).ok()).toBe(
