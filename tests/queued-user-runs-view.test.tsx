@@ -118,6 +118,8 @@ test('editing stays in the queued card and disables blank save while preserving 
   expect(html).toContain('全文\n第二段</textarea>')
   expect(html).toContain('rows="2"')
   expect(html).toContain(labels.editHint)
+  expect(html).toContain('data-lumen-variant="outlined"')
+  expect(html).not.toContain('data-lumen-indicator="lamp"')
   expect(html).toContain('保存')
   expect(html).toContain('取消')
   expect(html).not.toContain('编辑第 1 条')

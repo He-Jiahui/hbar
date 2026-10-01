@@ -99,7 +99,7 @@ export function HbarQueuedUserRuns({
     return (
       <LumenFrame className="hbar-queued-user-runs-notice" role="alert">
         <LumenText as="span">{labels.error(current.error ?? 'EXECUTION_FAILED')}</LumenText>
-        <LumenButton size="s" variant="text" onClick={onRefresh}>
+        <LumenButton size="s" variant="text" indicator="none" onClick={onRefresh}>
           {labels.retry}
         </LumenButton>
       </LumenFrame>
@@ -161,13 +161,20 @@ export function HbarQueuedUserRuns({
                   <LumenFrame className="hbar-queued-user-run-edit-actions">
                     <LumenButton
                       size="s"
-                      variant="text"
+                      variant="outlined"
+                      indicator="none"
                       disabled={edit.status !== 'ready' || edit.revision === null || !edit.text.trim()}
                       onClick={() => onSaveEdit(item.operationId)}
                     >
                       {edit.status === 'submitting' ? labels.editSaving : labels.saveEdit}
                     </LumenButton>
-                    <LumenButton size="s" variant="text" disabled={edit.status === 'submitting'} onClick={onCancelEdit}>
+                    <LumenButton
+                      size="s"
+                      variant="text"
+                      indicator="none"
+                      disabled={edit.status === 'submitting'}
+                      onClick={onCancelEdit}
+                    >
                       {labels.cancelEdit}
                     </LumenButton>
                   </LumenFrame>
@@ -179,7 +186,12 @@ export function HbarQueuedUserRuns({
                           : labels.editFailed(edit.error ?? 'EXECUTION_FAILED')}
                       </LumenText>
                       {edit.status === 'unknown' && (
-                        <LumenButton size="s" variant="text" onClick={() => onRetryEdit(item.operationId)}>
+                        <LumenButton
+                          size="s"
+                          variant="text"
+                          indicator="none"
+                          onClick={() => onRetryEdit(item.operationId)}
+                        >
                           {labels.retryEdit}
                         </LumenButton>
                       )}
@@ -252,11 +264,17 @@ export function HbarQueuedUserRuns({
                 : labels.editFailed(editing.error ?? 'COMMAND_CONFLICT')}
           </LumenText>
           {editing.status === 'unknown' && (
-            <LumenButton size="s" variant="text" onClick={() => onRetryEdit(editing.operationId)}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={() => onRetryEdit(editing.operationId)}>
               {labels.retryEdit}
             </LumenButton>
           )}
-          <LumenButton size="s" variant="text" disabled={editing.status === 'submitting'} onClick={onCancelEdit}>
+          <LumenButton
+            size="s"
+            variant="text"
+            indicator="none"
+            disabled={editing.status === 'submitting'}
+            onClick={onCancelEdit}
+          >
             {labels.cancelEdit}
           </LumenButton>
         </LumenFrame>
@@ -269,16 +287,16 @@ export function HbarQueuedUserRuns({
               : labels.removeFailed(removal.error ?? 'EXECUTION_FAILED')}
           </LumenText>
           {removal.status === 'unknown' && (
-            <LumenButton size="s" variant="text" onClick={() => onRetryRemoval(removal.operationId)}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={() => onRetryRemoval(removal.operationId)}>
               {labels.retryRemoval}
             </LumenButton>
           )}
           {removal.status === 'failed' && (
-            <LumenButton size="s" variant="text" onClick={onRefresh}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={onRefresh}>
               {labels.retry}
             </LumenButton>
           )}
-          <LumenButton size="s" variant="text" onClick={onDismissRemoval}>
+          <LumenButton size="s" variant="text" indicator="none" onClick={onDismissRemoval}>
             {labels.dismissRemoval}
           </LumenButton>
         </LumenFrame>
@@ -296,6 +314,7 @@ export function HbarQueuedUserRuns({
             <LumenButton
               size="s"
               variant="text"
+              indicator="none"
               disabled={!connected}
               onClick={() => onRetryGuide(current.guiding?.operationId ?? '')}
             >
@@ -303,7 +322,7 @@ export function HbarQueuedUserRuns({
             </LumenButton>
           )}
           {current.guiding.status === 'failed' && (
-            <LumenButton size="s" variant="text" onClick={onDismissGuide}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={onDismissGuide}>
               {labels.dismissGuide}
             </LumenButton>
           )}
@@ -311,13 +330,19 @@ export function HbarQueuedUserRuns({
       )}
       {(current.previousCursors.length > 0 || current.nextCursor) && (
         <LumenFrame className="hbar-queued-user-runs-pagination">
-          <LumenButton size="s" variant="text" disabled={current.previousCursors.length === 0} onClick={onPrevious}>
+          <LumenButton
+            size="s"
+            variant="text"
+            indicator="none"
+            disabled={current.previousCursors.length === 0}
+            onClick={onPrevious}
+          >
             {labels.previous}
           </LumenButton>
           <LumenText as="span" aria-live="polite">
             {labels.page(current.pageIndex + 1, totalPages)}
           </LumenText>
-          <LumenButton size="s" variant="text" disabled={!current.nextCursor} onClick={onNext}>
+          <LumenButton size="s" variant="text" indicator="none" disabled={!current.nextCursor} onClick={onNext}>
             {labels.next}
           </LumenButton>
         </LumenFrame>

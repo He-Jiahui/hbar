@@ -62,7 +62,8 @@ local-fixture 模型与独占 localhost 49168；Vite preview 使用 49169。
 4. **装饰与状态区分。** 当前某些按钮短横线来自 Lumen 默认 lamp。
    `LumenButton` 可显式选择 none 且保留 focus-visible；`LumenIconButton` 没有该公开选项。
    不向后者传无效 prop，不改只读共享组件，也不把状态/焦点显示当装饰删除。
-   这轮仅记录待审视觉差异，尚未实施。
+   随后的[排队卡动作层级](desktop-queued-action-hierarchy.md)已对 queued surface 实施；
+   其他按钮家族仍需依据其实际状态归属核对，不作全局隐藏。
 
 Terminal PTY、不可信内嵌 Browser、Team、市场安装、定时任务等仍见
 [公开能力与参考边界](desktop-workbench-remaining-audit.md)和
