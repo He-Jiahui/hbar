@@ -209,12 +209,19 @@ export interface DriverInput {
     readonly sessionId: string
     readonly runId: string
     readonly signal: AbortSignal
+    /** Final natural-stop probe only. The source must atomically close this
+     * Run's admission gate if no pending message remains, so a later Guide
+     * cannot be accepted after the driver's last poll. Nonempty keeps it open. */
+    readonly closeWhenEmpty?: true
   }): Promise<readonly Message[]>
 }
 export interface HarnessDriver {
   /** Explicit opt-in; a Host must not admit live steering to a legacy driver
    * merely because DriverInput has an optional source callback. */
   readonly supportsCanonicalSteering?: boolean
+  /** Also opts into closeWhenEmpty at the last natural-stop probe. Live queue
+   * admission requires both capabilities; legacy polling alone is not safe. */
+  readonly supportsSteeringAdmissionClosure?: boolean
   run(input: DriverInput): Promise<void>
   summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
 }

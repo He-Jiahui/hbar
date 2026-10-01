@@ -143,9 +143,47 @@ test('canonical steering continues the same Run after its assistant turn without
 test('drivers without steering retain the ordinary one-response path', async () => {
   const f = fixture()
   expect(new PiDriver().supportsCanonicalSteering).toBe(true)
+  expect(new PiDriver().supportsSteeringAdmissionClosure).toBe(true)
   await new PiDriver().run(f.input)
   expect(f.requests).toHaveLength(1)
   expect(f.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+})
+
+test('the final natural-stop probe consumes a late guide before atomically closing an empty source', async () => {
+  const f = fixture()
+  const probes: boolean[] = []
+  let guided = false
+  let closed = false
+  f.input.getSteeringMessages = (target) => {
+    probes.push(target.closeWhenEmpty === true)
+    expect(closed).toBe(false)
+    if (target.closeWhenEmpty && !guided) {
+      guided = true
+      return Promise.resolve([f.commit('user', [{ type: 'text', text: 'Late final-poll guide' }], 'late-guide')])
+    }
+    if (target.closeWhenEmpty) closed = true
+    return Promise.resolve([])
+  }
+  await new PiDriver().run(f.input)
+  expect(probes[0]).toBe(false)
+  expect(probes.at(-1)).toBe(true)
+  expect(probes.filter(Boolean)).toHaveLength(2)
+  expect(closed).toBe(true)
+  expect(f.requests).toHaveLength(2)
+  expect(f.requests[1]?.at(-1)).toMatchObject({ id: 'late-guide', runId: f.input.run.id })
+  expect(f.messages.filter((message) => message.id === 'late-guide')).toHaveLength(1)
+})
+
+test('failure at the final closure probe fails the Run rather than reporting natural completion', async () => {
+  const f = fixture()
+  let physicalReads = 0
+  f.input.getSteeringMessages = (target) => {
+    physicalReads++
+    return target.closeWhenEmpty ? Promise.reject(new Error('Admission gate unavailable')) : Promise.resolve([])
+  }
+  await expect(new PiDriver().run(f.input)).rejects.toThrow('Admission gate unavailable')
+  expect(physicalReads).toBe(3)
+  expect(f.requests).toHaveLength(1)
 })
 
 test('steering attachments hydrate only for the next authoritative request model', async () => {

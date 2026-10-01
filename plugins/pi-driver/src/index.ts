@@ -321,6 +321,7 @@ function contentOf(message: AssistantMessage): ContentBlock[] {
 
 export class PiDriver implements HarnessDriver {
   readonly supportsCanonicalSteering = true
+  readonly supportsSteeringAdmissionClosure = true
   async run(input: DriverInput) {
     let stepId = '',
       streamId = '',
@@ -333,6 +334,23 @@ export class PiDriver implements HarnessDriver {
     let goalCompleted = false
     let requestFailure: unknown
     const readSteering = createDriverSteeringReader(input)
+    const pollSteering = async (closeWhenEmpty?: true) => {
+      if (input.signal.aborted || goalCompleted || requestFailure !== undefined) return []
+      try {
+        // These entries only wake the loop. The provider payload is rebuilt by
+        // beforeRequest, with its actual model, including attachment hydration.
+        return (await readSteering(closeWhenEmpty ? { closeWhenEmpty } : {})).map((message) => ({
+          role: 'user' as const,
+          content: message.content.filter((block) => block.type === 'text'),
+          timestamp: message.createdAt,
+        }))
+      } catch (error) {
+        // Pi requires polling not to reject. Retain the cause and fail before
+        // another provider request instead of silently dropping admitted input.
+        requestFailure = error ?? new Error('Run steering source failed')
+        return []
+      }
+    }
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
@@ -471,24 +489,10 @@ export class PiDriver implements HarnessDriver {
         shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
         ...(input.getSteeringMessages
           ? {
-              getSteeringMessages: async () => {
-                if (input.signal.aborted || goalCompleted || requestFailure !== undefined) return []
-                try {
-                  // These messages only keep the Pi loop alive. The provider
-                  // payload is rebuilt by beforeRequest, with its actual model,
-                  // so do not hydrate attachments against the prior model here.
-                  return (await readSteering()).map((message) => ({
-                    role: 'user' as const,
-                    content: message.content.filter((block) => block.type === 'text'),
-                    timestamp: message.createdAt,
-                  }))
-                } catch (error) {
-                  // Pi requires polling not to reject. Retain the cause and fail
-                  // before another provider request, not silently ignore input.
-                  requestFailure = error ?? new Error('Run steering source failed')
-                  return []
-                }
-              },
+              getSteeringMessages: () => pollSteering(),
+              // Only the outer-loop natural-stop probe seals an empty source.
+              // Ordinary empty polls must not close admission during tool work.
+              getFollowUpMessages: () => pollSteering(true),
             }
           : {}),
       },

@@ -26,7 +26,7 @@ export function createDriverSteeringReader(input: SteeringInput) {
   let lastSequence = input.request.messages.reduce((last, message) => Math.max(last, message.seq), 0)
   let failed = false
 
-  return async (): Promise<Message[]> => {
+  return async (options: { readonly closeWhenEmpty?: true } = {}): Promise<Message[]> => {
     if (!input.getSteeringMessages || failed) return []
     input.signal.throwIfAborted()
     const lifetime = new AbortController()
@@ -51,7 +51,12 @@ export function createDriverSteeringReader(input: SteeringInput) {
       const raw = await Promise.race([
         Promise.resolve().then(() => {
           lifetime.signal.throwIfAborted()
-          return source({ sessionId: input.session.id, runId: input.run.id, signal: lifetime.signal })
+          return source({
+            sessionId: input.session.id,
+            runId: input.run.id,
+            signal: lifetime.signal,
+            ...options,
+          })
         }),
         interrupted,
       ])
