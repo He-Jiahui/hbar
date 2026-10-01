@@ -1393,8 +1393,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         now={sessionTimeNow}
                         metadata={{
                           workspaceName: item.displayName,
-                          executionLabel: props.labels.sort.time.execution[item.execution.state],
-                          needsAttention: item.execution.state === 'waiting_approval',
+                          execution: {
+                            state: item.execution.state,
+                            label: props.labels.sort.time.execution[item.execution.state],
+                          },
                         }}
                         batchSelecting={batchSelecting}
                         batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}

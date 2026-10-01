@@ -36,8 +36,7 @@
 }
 
 .hbar-app-react-session-main-line,
-.hbar-app-react-session-context-line,
-.hbar-app-react-session-execution-state {
+.hbar-app-react-session-context-line {
   display: flex;
   min-inline-size: 0;
   align-items: center;
@@ -56,8 +55,7 @@
   flex: 0 0 auto;
 }
 
-.hbar-app-react-session-workspace,
-.hbar-app-react-session-execution-label {
+.hbar-app-react-session-workspace {
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -68,16 +66,34 @@
   flex: 1 1 auto;
 }
 
-.hbar-app-react-session-execution-state {
-  max-inline-size: 100%;
-  flex: 0 1 auto;
-  gap: 0.25rem;
+.hbar-app-react-session-activity-indicator {
+  display: flex;
+  flex: 0 0 auto;
+  color: var(--lumen-success);
 }
 
-.hbar-app-react-session-execution-state[data-needs-attention='true'] {
+.hbar-app-react-session-activity-indicator[data-state='waiting_approval'] {
   color: var(--lumen-warning);
 }
 
-.hbar-app-react-session-execution-state .lumen-icon {
-  flex: 0 0 auto;
+.hbar-app-react-session-activity-indicator[data-state='queued'],
+.hbar-app-react-session-activity-indicator[data-state='cancelRequested'] {
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-session-activity-indicator[data-state='running'] > .lumen-icon,
+.hbar-app-react-session-activity-indicator[data-state='cancelRequested'] > .lumen-icon {
+  animation: hbar-sidebar-activity-spin 1s linear infinite;
+}
+
+@keyframes hbar-sidebar-activity-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hbar-app-react-session-activity-indicator > .lumen-icon {
+    animation: none;
+  }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
-import { Check, Circle, Folder, Hourglass, MessageSquare } from 'lucide-react'
+import { Check, Circle, CircleAlert, Folder, Hourglass, LoaderCircle, MessageSquare } from 'lucide-react'
 import type { DirectoryState } from '@hbar/app-runtime'
+import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
 import {
   LumenActionMenu,
   LumenButton,
@@ -40,8 +41,10 @@ export interface SessionNavigationRowLabels {
 
 export interface SessionNavigationRowMetadata {
   readonly workspaceName: string
-  readonly executionLabel?: string | undefined
-  readonly needsAttention?: boolean | undefined
+  readonly execution: {
+    readonly state: SessionActivityExecution['state']
+    readonly label: string
+  }
 }
 
 /** A filtered/removed row must not make its pending intent impossible to resolve. */
@@ -349,31 +352,32 @@ export function SessionNavigationRow({
                       {session.title}
                     </LumenText>
                     {sessionTime}
+                    {metadata.execution.state !== 'idle' && (
+                      <span
+                        className="hbar-app-react-session-activity-indicator"
+                        role="img"
+                        aria-label={metadata.execution.label}
+                        title={metadata.execution.label}
+                        data-state={metadata.execution.state}
+                      >
+                        <LumenIcon
+                          icon={
+                            metadata.execution.state === 'waiting_approval'
+                              ? CircleAlert
+                              : metadata.execution.state === 'queued'
+                                ? Hourglass
+                                : LoaderCircle
+                          }
+                          tier="sm"
+                        />
+                      </span>
+                    )}
                   </span>
                   <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
                     <LumenIcon icon={Folder} tier="sm" />
                     <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-workspace">
                       {metadata.workspaceName}
                     </LumenText>
-                    {metadata.executionLabel ? (
-                      <LumenText
-                        as="span"
-                        size="s"
-                        variant="supporting"
-                        className="hbar-app-react-session-execution-state"
-                        data-needs-attention={metadata.needsAttention ? 'true' : undefined}
-                      >
-                        <LumenIcon icon={Hourglass} tier="sm" />
-                        <LumenText
-                          as="span"
-                          size="s"
-                          variant="supporting"
-                          className="hbar-app-react-session-execution-label"
-                        >
-                          {metadata.executionLabel}
-                        </LumenText>
-                      </LumenText>
-                    ) : null}
                   </LumenText>
                 </>
               ) : (

@@ -599,7 +599,8 @@ test.describe('sidebar organization modes', () => {
       await expect(heading).toHaveText(expectedHeadings)
       const activeRow = sessionRow(sidebar, host.ready.activeSession.id)
       await expect(activeRow.locator('.hbar-app-react-session-workspace')).toHaveText('Alpha Project')
-      await expect(activeRow.locator('.hbar-app-react-session-execution-label')).toHaveText(
+      await expect(activeRow.locator('.hbar-app-react-session-activity-indicator')).toHaveAttribute(
+        'aria-label',
         f.copy.shell.sort.time.execution.running,
       )
       const selectedRow = sessionRow(sidebar, host.ready.selectedSession.id)
@@ -659,7 +660,8 @@ test.describe('sidebar organization modes', () => {
       await expect(activeRow).not.toBeInViewport()
       const cancel = await activeOperation.execute('operation.cancel', { operationId: host.ready.activeRunId })
       expect(cancel.status).toBe('cancelRequested')
-      await expect(activeRow.locator('.hbar-app-react-session-execution-label')).toHaveText(
+      await expect(activeRow.locator('.hbar-app-react-session-activity-indicator')).toHaveAttribute(
+        'aria-label',
         f.copy.shell.sort.time.execution.cancelRequested,
       )
       await expect(activeRow).not.toBeInViewport()

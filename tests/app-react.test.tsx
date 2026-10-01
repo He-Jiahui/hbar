@@ -227,15 +227,22 @@ test('time-view session metadata follows the title and time and keeps host-owned
           labels={labels}
           now={4}
           onOpen={() => {}}
-          metadata={{ workspaceName: '宿主工程名', executionLabel: '等待授权', needsAttention: true }}
+          metadata={{ workspaceName: '宿主工程名', execution: { state: 'waiting_approval', label: '等待授权' } }}
         />
       </HbarRuntimeProvider>,
     )
     expect(html.indexOf('需要键盘导航的会话')).toBeLessThan(html.indexOf('完整更新时间 3'))
     expect(html.indexOf('完整更新时间 3')).toBeLessThan(html.indexOf('宿主工程名'))
-    expect(html.indexOf('宿主工程名')).toBeLessThan(html.indexOf('等待授权'))
+    expect(html).toContain('role="img" aria-label="等待授权" title="等待授权" data-state="waiting_approval"')
+    expect(html.indexOf('hbar-app-react-session-main-line')).toBeLessThan(
+      html.indexOf('hbar-app-react-session-activity-indicator'),
+    )
+    expect(html.indexOf('hbar-app-react-session-activity-indicator')).toBeLessThan(
+      html.indexOf('hbar-app-react-session-context-line'),
+    )
     expect(html).toContain('data-has-metadata="true"')
-    expect(html).toContain('data-needs-attention="true"')
+    expect(html).toContain('data-state="waiting_approval"')
+    expect(html).not.toContain('hbar-app-react-session-execution-label')
     expect(html.match(/data-tier="sm"/g)).toHaveLength(3)
   } finally {
     runtime.dispose()
