@@ -185,6 +185,9 @@ export interface RuntimeOptions {
   /** Explicit read-only canonical Goal history capability, separate from editable current Goal. */
   readonly goalHistory?: CommandExecutor
   readonly workflows?: WorkflowWorkspacePort
+  readonly workflowEvents?: {
+    onConnection(listener: (connected: boolean) => void): () => void
+  }
   readonly extensions?: CommandExecutor
   readonly system?: CommandExecutor
   readonly metrics?: CommandExecutor

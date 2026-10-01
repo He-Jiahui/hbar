@@ -16,6 +16,7 @@ import type {
   NavigationState,
   PresentationState,
   SurfaceState,
+  WorkflowWorkspaceState,
 } from './types'
 import { isSessionToolVisible } from './session-tool-visibility'
 import type { createWorkspaceTabs, SessionTabRef } from './workspace-tabs-runtime'
@@ -62,6 +63,7 @@ interface AgentChildNavigationOptions {
   readonly surfaces: StateReader<SurfaceState>
   readonly agentWorkspace: StateReader<AgentWorkspaceState>
   readonly activity: StateReader<ActivityWorkspaceState>
+  readonly workflows: StateReader<WorkflowWorkspaceState>
   readonly presentation: StateReader<PresentationState>
   readonly navigation: StateReader<NavigationState>
   readonly selectSession: (sessionId: string, workspaceId: string, execution: ExecuteOptions) => Promise<unknown>
@@ -124,6 +126,14 @@ export function createAgentChildNavigation(local: CommandRegistry, options: Agen
     const entry = options.agentWorkspace.getSnapshot().entries[panelInstanceId]
     if (panel?.panelId === 'activity') {
       const activity = options.activity.getSnapshot().agents[panelInstanceId]
+      const workflow = options.workflows.getSnapshot().entries[panelInstanceId]
+      const delegated = workflow?.agents[agentId]
+      const workflowSource =
+        workflow?.sessionId === parentSessionId &&
+        workflow.snapshot.workflow?.delegations.some((item) => item.agentId === agentId) &&
+        delegated?.agentId === agentId &&
+        delegated.parentSessionId === parentSessionId &&
+        delegated.sessionId === childSessionId
       const selected = options.navigation.getSnapshot()
       if (
         panel.sessionTool &&
@@ -132,11 +142,12 @@ export function createAgentChildNavigation(local: CommandRegistry, options: Agen
         selected.workspaceId === panel.workspaceId &&
         selected.status === 'idle' &&
         isSessionToolVisible(panel, options.presentation.getSnapshot()) &&
-        activity?.sessionId === parentSessionId &&
-        activity.items.some(
-          (item) =>
-            item.agentId === agentId && item.parentSessionId === parentSessionId && item.sessionId === childSessionId,
-        )
+        ((activity?.sessionId === parentSessionId &&
+          activity.items.some(
+            (item) =>
+              item.agentId === agentId && item.parentSessionId === parentSessionId && item.sessionId === childSessionId,
+          )) ||
+          workflowSource)
       )
         return panel
       throw new CommandError('SOURCE_CHANGED', 'Agent activity no longer belongs to the captured source')

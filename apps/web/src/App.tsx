@@ -307,6 +307,13 @@ function createRuntime(
     goalHistory: goals,
     planProposal: copy.planProposal,
     workflows: createWorkflowCommandClient(client),
+    workflowEvents: {
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     extensions: createExtensionCommandClient(client),
     system: createSystemCommandClient(client),
     metrics: createMetricsCommandClient(client),

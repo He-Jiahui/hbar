@@ -4,6 +4,7 @@ import { agentCommands } from '@hbar/contracts/commands/agents'
 import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
 import { workflowCommands } from '@hbar/contracts/commands/workflows'
 import type { WorkflowSnapshot } from '@hbar/contracts'
+import { workflowSnapshotSchema } from '@hbar/contracts'
 import { createState, type StateReader } from './state'
 import { isSessionToolVisible } from './session-tool-visibility'
 import type {
@@ -35,7 +36,14 @@ function duplicate(values: readonly string[]) {
   return new Set(values).size !== values.length
 }
 
-function validateSnapshot(snapshot: WorkflowSnapshot) {
+function validateSnapshot(snapshot: WorkflowSnapshot, sessionId?: string) {
+  workflowSnapshotSchema.parse(snapshot)
+  if (
+    sessionId &&
+    ((snapshot.plan && snapshot.plan.sessionId !== sessionId) ||
+      (snapshot.workflow && snapshot.workflow.sessionId !== sessionId))
+  )
+    throw new CommandError('INVALID_OUTPUT', 'Workflow snapshot belongs to another Session')
   const workflow = snapshot.workflow
   if (!workflow) return
   if (duplicate(workflow.delegations.map((delegation) => delegation.delegationId)))
@@ -65,6 +73,9 @@ export function createWorkflowWorkspace(
   const suspendedPanels = new Set<string>()
   const readControllers = new Map<string, AbortController>()
   const reads = new Map<string, { controller: AbortController; promise: Promise<ReturnType<typeof summary>> }>()
+  const watchUpdates = new Map<string, number>()
+  const pendingSnapshots = new Map<string, WorkflowSnapshot>()
+  const pumps = new Map<string, Promise<void>>()
   const visible = (instanceId: string) =>
     isSessionToolVisible(surfaces.getSnapshot().panels[instanceId], presentation?.getSnapshot())
   const isReadCurrent = (instanceId: string, sessionId: string, generation: number) =>
@@ -79,6 +90,8 @@ export function createWorkflowWorkspace(
     reads.delete(instanceId)
     watchers.get(instanceId)?.()
     watchers.delete(instanceId)
+    pendingSnapshots.delete(instanceId)
+    watchUpdates.delete(instanceId)
   }
   const synchronizeVisibility = () => {
     for (const id of ownedPanels) {
@@ -89,14 +102,22 @@ export function createWorkflowWorkspace(
         generations.delete(id)
         suspendedPanels.delete(id)
         ownedPanels.delete(id)
-        if (entry?.status === 'loading') replace({ ...entry, status: 'error', error: 'CANCELLED' })
+        if (entry && target?.panelId !== 'goals') {
+          const entries = { ...state.reader.getSnapshot().entries }
+          delete entries[id]
+          state.replace({ entries })
+        } else if (entry?.status === 'loading') replace({ ...entry, status: 'error', error: 'CANCELLED' })
         continue
       }
       if (!visible(id)) {
         if (!suspendedPanels.has(id)) {
           suspendedPanels.add(id)
           releaseReads(id)
-          if (entry.status === 'loading') replace({ ...entry, status: 'error', error: 'CANCELLED' })
+          if (target.panelId === 'activity') {
+            const entries = { ...state.reader.getSnapshot().entries }
+            delete entries[id]
+            state.replace({ entries })
+          } else if (entry.status === 'loading') replace({ ...entry, status: 'error', error: 'CANCELLED' })
         }
       } else if (suspendedPanels.delete(id)) {
         void load(id, true).catch(() => {})
@@ -106,9 +127,10 @@ export function createWorkflowWorkspace(
   const offSurfaces = surfaces.subscribe(synchronizeVisibility)
   const offPresentation = presentation?.subscribe(synchronizeVisibility)
 
-  const panel = (instanceId: string) => {
+  const panel = (instanceId: string, readOnly = false) => {
     const value = surfaces.getSnapshot().panels[instanceId]
-    if (!value || value.panelId !== 'goals') throw new CommandError('COMMAND_NOT_FOUND', 'Workflow panel is not open')
+    if (!value || (value.panelId !== 'goals' && !(readOnly && value.panelId === 'activity' && value.sessionTool)))
+      throw new CommandError('COMMAND_NOT_FOUND', 'Workflow panel is not open')
     if (!value.sessionId) throw new CommandError('INVALID_INPUT', 'Workflow panel requires a session target')
     return { ...value, sessionId: value.sessionId }
   }
@@ -158,9 +180,9 @@ export function createWorkflowWorkspace(
       error: entry.error,
     }
   }
-  const current = (instanceId: string) => {
+  const current = (instanceId: string, readOnly = false) => {
     const entry = state.reader.getSnapshot().entries[instanceId]
-    const target = panel(instanceId)
+    const target = panel(instanceId, readOnly)
     if (!entry || entry.sessionId !== target.sessionId)
       throw new CommandError('RESULT_UNKNOWN', 'Refresh the workflow panel target')
     return entry
@@ -178,7 +200,15 @@ export function createWorkflowWorkspace(
       )
       batch.forEach((result, index) => {
         const id = ids[offset + index]
-        if (id && result.status === 'fulfilled') records[id] = result.value
+        if (id && result.status === 'fulfilled') {
+          if (
+            result.value.agentId !== id ||
+            result.value.parentSessionId !== sessionId ||
+            result.value.sessionId === sessionId
+          )
+            throw new CommandError('INVALID_OUTPUT', 'Workflow Agent does not match its delegated source')
+          records[id] = result.value
+        }
       })
     }
     return records
@@ -191,14 +221,19 @@ export function createWorkflowWorkspace(
     signal: AbortSignal,
   ) => {
     if (!isReadCurrent(instanceId, sessionId, generation) || signal.aborted) return
-    validateSnapshot(snapshot)
+    validateSnapshot(snapshot, sessionId)
     const records = await fetchAgents(sessionId, snapshot, signal)
     if (!isReadCurrent(instanceId, sessionId, generation) || signal.aborted) return
     const previous = state.reader.getSnapshot().entries[instanceId]
     if (!previous || previous.sessionId !== sessionId) return
     const currentRevision = previous.snapshot.workflow?.revision ?? 0
     const incomingRevision = snapshot.workflow?.revision ?? 0
-    if (incomingRevision < currentRevision) return
+    if (
+      snapshot.workflow?.workflowId === previous.snapshot.workflow?.workflowId &&
+      snapshot.workflow &&
+      incomingRevision < currentRevision
+    )
+      return
     replace({
       ...previous,
       status: 'ready',
@@ -213,20 +248,57 @@ export function createWorkflowWorkspace(
   }
   const watch = (instanceId: string, sessionId: string, generation: number, signal: AbortSignal) => {
     watchers.get(instanceId)?.()
+    pendingSnapshots.delete(instanceId)
+    watchUpdates.set(instanceId, 0)
     if (!options.workflows?.watch) return
-    watchers.set(
-      instanceId,
-      options.workflows.watch(sessionId, (snapshot) => {
-        void applySnapshot(instanceId, sessionId, generation, snapshot, signal).catch((reason) => {
+    const pumpKey = `${instanceId}:${generation}`
+    const pump = () => {
+      if (pumps.has(pumpKey)) return
+      const task = (async () => {
+        while (isReadCurrent(instanceId, sessionId, generation) && !signal.aborted) {
+          const latest = pendingSnapshots.get(instanceId)
+          if (!latest) return
+          pendingSnapshots.delete(instanceId)
+          await applySnapshot(instanceId, sessionId, generation, latest, signal)
+        }
+      })()
+        .catch((reason) => {
           if (!isReadCurrent(instanceId, sessionId, generation) || signal.aborted) return
           const entry = state.reader.getSnapshot().entries[instanceId]
           if (entry?.sessionId === sessionId) replace({ ...entry, status: 'error', error: code(reason) })
         })
+        .finally(() => {
+          pumps.delete(pumpKey)
+          if (isReadCurrent(instanceId, sessionId, generation) && pendingSnapshots.has(instanceId)) pump()
+        })
+      pumps.set(pumpKey, task)
+    }
+    watchers.set(
+      instanceId,
+      options.workflows.watch(sessionId, (snapshot) => {
+        if (!isReadCurrent(instanceId, sessionId, generation) || signal.aborted) return
+        try {
+          validateSnapshot(snapshot, sessionId)
+        } catch (reason) {
+          const entry = state.reader.getSnapshot().entries[instanceId]
+          if (entry) replace({ ...entry, status: 'error', error: code(reason) })
+          return
+        }
+        const pending = pendingSnapshots.get(instanceId)
+        if (
+          pending?.workflow &&
+          snapshot.workflow?.workflowId === pending.workflow.workflowId &&
+          snapshot.workflow.revision < pending.workflow.revision
+        )
+          return
+        watchUpdates.set(instanceId, (watchUpdates.get(instanceId) ?? 0) + 1)
+        pendingSnapshots.set(instanceId, snapshot)
+        pump()
       }),
     )
   }
   const performLoad = async (instanceId: string, background: boolean, controller: AbortController) => {
-    const target = panel(instanceId)
+    const target = panel(instanceId, true)
     if (!visible(instanceId)) throw new CommandError('TARGET_CHANGED', 'Session tool is not visible')
     if (target.sessionTool) ownedPanels.add(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
@@ -244,6 +316,7 @@ export function createWorkflowWorkspace(
       error: null,
     }
     replace(loading)
+    watch(instanceId, target.sessionId, generation, controller.signal)
     try {
       const snapshot = await requireWorkflows().execute(
         'workflow.get',
@@ -252,12 +325,17 @@ export function createWorkflowWorkspace(
       )
       if (!isReadCurrent(instanceId, target.sessionId, generation))
         throw new CommandError('RESULT_UNKNOWN', 'Workflow refresh was superseded')
-      validateSnapshot(snapshot)
+      validateSnapshot(snapshot, target.sessionId)
       const records = await fetchAgents(target.sessionId, snapshot, controller.signal)
       if (!isReadCurrent(instanceId, target.sessionId, generation))
         throw new CommandError('RESULT_UNKNOWN', 'Workflow refresh was superseded')
-      const latest = current(instanceId)
-      const newer = (latest.snapshot.workflow?.revision ?? 0) > (snapshot.workflow?.revision ?? 0)
+      await pumps.get(`${instanceId}:${generation}`)
+      if (!isReadCurrent(instanceId, target.sessionId, generation))
+        throw new CommandError('RESULT_UNKNOWN', 'Workflow refresh was superseded')
+      const latest = current(instanceId, true)
+      const newer =
+        (watchUpdates.get(instanceId) ?? 0) > 0 ||
+        (latest.snapshot.workflow?.revision ?? 0) > (snapshot.workflow?.revision ?? 0)
       const facts = newer ? latest.snapshot : snapshot
       const ready: WorkflowWorkspaceEntryState = {
         ...latest,
@@ -277,27 +355,44 @@ export function createWorkflowWorkspace(
         error: null,
       }
       replace(ready)
-      watch(instanceId, target.sessionId, generation, controller.signal)
       return summary(ready)
     } catch (reason) {
       if (!isReadCurrent(instanceId, target.sessionId, generation)) throw reason
       watchers.get(instanceId)?.()
       watchers.delete(instanceId)
-      const failed = { ...current(instanceId), status: 'error' as const, error: code(reason) }
+      const failed = { ...current(instanceId, true), status: 'error' as const, error: code(reason) }
       replace(failed)
       throw failure(reason)
     }
   }
   function load(instanceId: string, background = false): Promise<ReturnType<typeof summary>> {
-    const target = panel(instanceId)
+    const target = panel(instanceId, true)
     const pending = reads.get(instanceId)
     if (target.sessionTool && pending) return pending.promise
     readControllers.get(instanceId)?.abort()
     const controller = new AbortController()
     readControllers.set(instanceId, controller)
-    const promise = performLoad(instanceId, background, controller).finally(() => {
-      if (reads.get(instanceId)?.controller === controller) reads.delete(instanceId)
+    let offAbort = () => {}
+    const interrupted = new Promise<never>((_resolve, reject) => {
+      const abort = () =>
+        reject(controller.signal.reason ?? new CommandError('CANCELLED', 'Workflow read was cancelled'))
+      controller.signal.addEventListener('abort', abort, { once: true })
+      offAbort = () => controller.signal.removeEventListener('abort', abort)
     })
+    const timeout = setTimeout(() => controller.abort(new CommandError('TIMEOUT', 'Workflow read timed out')), 12_000)
+    const promise = Promise.race([performLoad(instanceId, background, controller), interrupted])
+      .catch((reason: unknown) => {
+        if (!isDisposed() && visible(instanceId) && readControllers.get(instanceId) === controller) {
+          const entry = state.reader.getSnapshot().entries[instanceId]
+          if (entry?.sessionId === target.sessionId) replace({ ...entry, status: 'error', error: code(reason) })
+        }
+        throw failure(reason)
+      })
+      .finally(() => {
+        clearTimeout(timeout)
+        offAbort()
+        if (reads.get(instanceId)?.controller === controller) reads.delete(instanceId)
+      })
     reads.set(instanceId, { controller, promise })
     return promise
   }
@@ -418,11 +513,18 @@ export function createWorkflowWorkspace(
   local.register(workflowWorkspaceCommands['workflowWorkspace.applyPatch'], ({ instanceId, agentId }) =>
     applyPatch(instanceId, agentId),
   )
+  const offConnection = options.workflowEvents?.onConnection((connected) => {
+    if (!connected || isDisposed()) return
+    for (const id of ownedPanels) {
+      if (visible(id)) void load(id, true).catch(() => {})
+    }
+  })
   return {
     reader: state.reader,
     dispose() {
       offSurfaces()
       offPresentation?.()
+      offConnection?.()
       for (const controller of readControllers.values()) controller.abort()
       readControllers.clear()
       reads.clear()
@@ -430,6 +532,9 @@ export function createWorkflowWorkspace(
       ownedPanels.clear()
       for (const unsubscribe of watchers.values()) unsubscribe()
       watchers.clear()
+      pendingSnapshots.clear()
+      watchUpdates.clear()
+      pumps.clear()
       generations.clear()
       operations.clear()
       state.dispose()

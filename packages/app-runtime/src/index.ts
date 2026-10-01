@@ -918,19 +918,6 @@ export function createAppRuntime(options: RuntimeOptions) {
     agentWorkspace.setConnected(connected)
     agentComposer.setConnected(connected)
   })
-  createAgentChildNavigation(local, {
-    ...(options.agents ? { agents: options.agents } : {}),
-    queries: directory.queries,
-    tabs: workspaceTabs,
-    surfaces: surfaces.reader,
-    agentWorkspace: agentWorkspace.reader,
-    activity: activityWorkspace.reader,
-    presentation: presentation.reader,
-    navigation: navigation.reader,
-    selectSession: (sessionId, workspaceId, execution) =>
-      local.execute('app.setSession', { sessionId, workspaceId }, execution),
-    isDisposed: () => disposed,
-  })
   const goalPlanWorkspace = createGoalPlanWorkspace(
     local,
     options,
@@ -948,6 +935,20 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     presentation.reader,
   )
+  createAgentChildNavigation(local, {
+    ...(options.agents ? { agents: options.agents } : {}),
+    queries: directory.queries,
+    tabs: workspaceTabs,
+    surfaces: surfaces.reader,
+    agentWorkspace: agentWorkspace.reader,
+    activity: activityWorkspace.reader,
+    workflows: workflowWorkspace.reader,
+    presentation: presentation.reader,
+    navigation: navigation.reader,
+    selectSession: (sessionId, workspaceId, execution) =>
+      local.execute('app.setSession', { sessionId, workspaceId }, execution),
+    isDisposed: () => disposed,
+  })
   const extensionWorkspace = createExtensionWorkspace(
     local,
     options,
