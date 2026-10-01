@@ -1,9 +1,17 @@
 import { expect, test } from 'bun:test'
 import {
   groupPreSessionChoices,
+  preSessionChoiceInitialFocus,
   visiblePreSessionChoices,
   type HbarPreSessionChoice,
 } from '../packages/app-react/src/pre-session-choice-model'
+
+test('pre-session model search focuses desktop including narrow native, but not a touch Web sheet', () => {
+  expect(preSessionChoiceInitialFocus('native', true, true)).toBe('search')
+  expect(preSessionChoiceInitialFocus('web', false, true)).toBe('search')
+  expect(preSessionChoiceInitialFocus('web', true, false)).toBe('search')
+  expect(preSessionChoiceInitialFocus('web', true, true)).toBe('close')
+})
 
 test('pre-session model choices group by provider while ordinary choices remain ungrouped', () => {
   const items: HbarPreSessionChoice[] = [

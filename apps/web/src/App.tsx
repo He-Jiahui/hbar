@@ -738,6 +738,7 @@ function WorkspaceBodyContent({
       locale={locale}
       connected={connected}
       sendBehavior={selectedSendBehavior}
+      modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
       prepareAttachment={prepareAttachment}
       images={images}
     />

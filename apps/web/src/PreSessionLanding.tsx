@@ -40,6 +40,7 @@ export function WebPreSessionLanding({
   locale,
   connected,
   sendBehavior,
+  modelMenuPresentation = 'web',
   prepareAttachment,
   images,
 }: {
@@ -47,6 +48,7 @@ export function WebPreSessionLanding({
   readonly locale: ShellLocale
   readonly connected: boolean
   readonly sendBehavior: 'enter' | 'modifierEnter' | null
+  readonly modelMenuPresentation?: 'native' | 'web'
   readonly prepareAttachment?: ((file: File) => Promise<HbarSessionAttachmentSelection>) | undefined
   readonly images?: HbarSessionImagesOptions | undefined
 }) {
@@ -594,6 +596,7 @@ export function WebPreSessionLanding({
     <HbarPreSessionChoicePicker
       icon={Sparkles}
       placement="composer"
+      menuPresentation={modelMenuPresentation}
       openRequest={modelOpenRequest}
       labels={modelLabels}
       items={modelChoices}

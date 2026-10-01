@@ -27,6 +27,12 @@ The final production Web/temporary-Host run passed 4/4 normal paths in 23.0s, in
 
 ## Other current entrance differences
 
+### First-send model presentation
+
+The latest Model/Goal/Plan and organization review used additional gpt-6-luna/max agents against `e8d639ec`. One concrete model entrance difference was confirmed and corrected: the no-Session first-send picker lacked the native/Web presentation distinction already used by the Session picker, forced a sheet at narrow desktop widths, and omitted explicit search clearing. It now receives the same Host presentation, preserves desktop anchoring, keeps a narrow touch Web sheet, and provides localized clear/search controls and consistent keyboard choice access. Canonical selection and the user's preserved model/thinking Workspace-move choice are unchanged.
+
+Root inspected new original-component reference captures and the final production Web screenshots. The final real temporary-Host run passed 4/4 normal paths, the pure choice suite passed 4/12, and affected strict types/scoped UI checks passed. See [the source, behavior and verification record](desktop-first-send-model-presentation.md) for fixture boundaries and failed diagnostic attempts. The adjacent audit confirmed that hbar already supports in-flight same-Run ExitPlanMode; the completed text proposal's separate Run must not be reported as that capability missing. Goal clear/replace confirmation remains intentional. These findings do not complete the overall goal.
+
 ### Project organization and sorting
 
 The original exported CC Sidebar was captured with its real organization and sorting submenus, original store action, three synthetic projects, and an in-memory preference API boundary. Root inspected the [English sorting submenu](../artifacts/project-sort-reference/en-1440-sort-submenu.png), [Chinese narrow organization submenu](../artifacts/project-sort-reference/zh-320-organize-submenu.png), and [source/interaction manifest](../artifacts/project-sort-reference/capture-result.json). Choosing Created time actually changed the synthetic project order and persisted `createdAt`.

@@ -22,7 +22,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const root = await mkdtemp(join(tmpdir(), prefix))
     const context = await browser.newContext({
       locale,
-      viewport: { width: locale === 'en-US' ? 1440 : 390, height: 900 },
+      viewport: { width: locale === 'en-US' ? 1440 : 320, height: 900 },
     })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
@@ -55,7 +55,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(provider).toBeVisible()
       const choice = provider.getByRole('button').filter({ hasText: model.modelName })
       await expect(choice).toBeVisible()
-      const screenshotRoot = resolve('artifacts/pre-session-model-picker', locale)
+      const screenshotRoot = resolve('artifacts/first-send-model-reference/hbar-e2e', locale)
       await mkdir(screenshotRoot, { recursive: true })
       await page.screenshot({ path: join(screenshotRoot, 'provider-group.png') })
       await choice.click()
@@ -79,13 +79,37 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const searched = searchedProvider.getByRole('button').filter({ hasText: model.modelName })
       await expect(searched).toHaveAttribute('aria-current', 'true')
       await expect(searched.locator('svg')).toBeVisible()
+      await expect(reopened.locator('.hbar-pre-session-choice-search > .lumen-icon')).toBeVisible()
+      const search = reopened.getByRole('searchbox', { name: labels.model.search, exact: true })
+      await reopened.getByRole('button', { name: labels.model.clearSearch, exact: true }).click()
+      await expect(search).toHaveValue('')
+      await expect(search).toBeFocused()
+      await expect(reopened.getByRole('button', { name: labels.model.clearSearch, exact: true })).toHaveCount(0)
+      await search.fill(model.modelId)
       await page.screenshot({ path: join(screenshotRoot, 'selected-model-id-search.png') })
+
+      const geometry = await reopened.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { left: rect.left, right: rect.right, bottom: rect.bottom, viewport: innerWidth, height: innerHeight }
+      })
+      expect(geometry.left).toBeGreaterThanOrEqual(-1)
+      expect(geometry.right).toBeLessThanOrEqual(geometry.viewport + 1)
+      if (locale === 'zh-CN') expect(Math.abs(geometry.bottom - geometry.height)).toBeLessThanOrEqual(1)
+      await expect(reopened).toHaveAttribute('data-presentation', 'web')
+      await search.press('ArrowDown')
+      await expect(searched).toBeFocused()
+      await searched.press('Enter')
+      await expect(reopened).toBeHidden()
+      await expect(trigger).toBeFocused()
+      await trigger.click()
 
       await page.keyboard.press('Escape')
       await expect(reopened).toBeHidden()
       await expect(trigger).toBeFocused()
       await expect(prompt).toHaveValue(draftText)
       expect(await countSessions()).toBe(1)
+      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       expect(errors).toEqual([])
     } finally {
       await context.close()

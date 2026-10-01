@@ -1,7 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Check, ChevronDown, X, type LucideIcon } from 'lucide-react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Check, ChevronDown, Search, X, type LucideIcon } from 'lucide-react'
 import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
-import { groupPreSessionChoices, visiblePreSessionChoices } from './pre-session-choice-model'
+import {
+  groupPreSessionChoices,
+  preSessionChoiceInitialFocus,
+  visiblePreSessionChoices,
+} from './pre-session-choice-model'
 import type { HbarPreSessionChoice } from './pre-session-choice-model'
 import './pre-session-choice-picker.css'
 
@@ -12,6 +16,7 @@ export interface HbarPreSessionChoiceLabels {
   readonly title: string
   readonly trigger: (selected: string | null) => string
   readonly search: string
+  readonly clearSearch: string
   readonly empty: string
   readonly noMatches: string
   readonly more: (remaining: number | null) => string
@@ -25,6 +30,7 @@ export interface HbarPreSessionChoicePickerProps {
   readonly items: readonly HbarPreSessionChoice[]
   readonly selectedId: string | null
   readonly placement?: 'dialog' | 'composer'
+  readonly menuPresentation?: 'native' | 'web'
   readonly disabled?: boolean
   /** Increment to open this specific picker from a nearby local command. */
   readonly openRequest?: number
@@ -44,6 +50,7 @@ export function HbarPreSessionChoicePicker({
   items,
   selectedId,
   placement = 'dialog',
+  menuPresentation = 'web',
   disabled = false,
   openRequest = 0,
   loading = false,
@@ -62,6 +69,7 @@ export function HbarPreSessionChoicePicker({
   const popupTitleId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
+  const search = useRef<HTMLInputElement>(null)
   const lastOpenRequest = useRef(openRequest)
   const restoreDialogFocus = useRef(false)
   const unique = useMemo(() => visiblePreSessionChoices(items, '', items.length).rows, [items])
@@ -69,6 +77,52 @@ export function HbarPreSessionChoicePicker({
   const selectedTriggerLabel = selected?.triggerLabel ?? selected?.label ?? null
   const { rows, remaining } = visiblePreSessionChoices(items, query, limit, selectedId)
   const sections = groupPreSessionChoices(rows)
+  const positionPopup = useCallback(() => {
+    if (!trigger.current || !popup.current) return
+    const document = trigger.current.ownerDocument
+    const view = document.defaultView
+    if (!view) return
+    const rect = trigger.current.getBoundingClientRect()
+    const rem = Number.parseFloat(view.getComputedStyle(document.documentElement).fontSize)
+    const width = Math.min(22.5 * rem, Math.max(0, view.innerWidth - 2 * rem))
+    const above = rect.top >= view.innerHeight - rect.bottom
+    popup.current.style.setProperty(
+      '--choice-popup-left',
+      `${Math.max(rem, Math.min(rect.right - width, view.innerWidth - width - rem))}px`,
+    )
+    popup.current.style.setProperty('--choice-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
+    popup.current.style.setProperty(
+      '--choice-popup-bottom',
+      above ? `${view.innerHeight - rect.top + rem / 2}px` : 'auto',
+    )
+    popup.current.style.setProperty(
+      '--choice-popup-limit',
+      `${Math.max(0, (above ? rect.top : view.innerHeight - rect.bottom) - 1.5 * rem)}px`,
+    )
+  }, [])
+  const focusInitial = useCallback(() => {
+    const view = popup.current?.ownerDocument.defaultView
+    if (!view || !popup.current?.matches(':popover-open')) return
+    const target = preSessionChoiceInitialFocus(
+      menuPresentation,
+      view.matchMedia('(max-width: 40rem)').matches,
+      view.matchMedia('(pointer: coarse)').matches,
+    )
+    if (target === 'close') popup.current.querySelector<HTMLButtonElement>('.hbar-pre-session-choice-close')?.focus()
+    else search.current?.focus()
+  }, [menuPresentation])
+  useEffect(() => {
+    if (placement !== 'composer' || !open) return
+    const view = popup.current?.ownerDocument.defaultView
+    if (!view) return
+    positionPopup()
+    view.addEventListener('resize', positionPopup)
+    view.addEventListener('scroll', positionPopup, true)
+    return () => {
+      view.removeEventListener('resize', positionPopup)
+      view.removeEventListener('scroll', positionPopup, true)
+    }
+  }, [open, placement, positionPopup])
   useEffect(() => {
     if (placement !== 'dialog' || open || !restoreDialogFocus.current) return
     restoreDialogFocus.current = false
@@ -92,12 +146,10 @@ export function HbarPreSessionChoicePicker({
   }, [disabled, openRequest, placement])
   useEffect(() => {
     if (placement !== 'composer' || !open || !popup.current?.matches(':popover-open')) return
+    const document = popup.current.ownerDocument
     if (document.activeElement !== document.body) return
-    const target = matchMedia('(max-width: 40rem)').matches
-      ? popup.current.querySelector<HTMLButtonElement>('.hbar-pre-session-choice-close')
-      : popup.current.querySelector<HTMLInputElement>('input[type="search"]')
-    target?.focus()
-  }, [items.length, loading, open, placement])
+    focusInitial()
+  }, [items.length, loading, open, placement, focusInitial])
   const reset = () => {
     setQuery('')
     setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
@@ -112,6 +164,39 @@ export function HbarPreSessionChoicePicker({
     }
     reset()
     if (placement === 'composer') trigger.current?.focus()
+  }
+  const moveChoice = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.nativeEvent.isComposing ||
+      event.nativeEvent.keyCode === 229 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    )
+      return
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    if (
+      event.target !== search.current &&
+      !(event.target instanceof Element && event.target.matches('.hbar-pre-session-choice-row'))
+    )
+      return
+    if (event.target === search.current && event.key !== 'ArrowDown') return
+    const choices = [
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>('.hbar-pre-session-choice-row:not(:disabled)'),
+    ]
+    if (!choices.length) return
+    event.preventDefault()
+    event.stopPropagation()
+    const index = choices.findIndex((choice) => choice === event.currentTarget.ownerDocument.activeElement)
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? choices.length - 1
+          : event.key === 'ArrowUp'
+            ? (index - 1 + choices.length) % choices.length
+            : (index + 1) % choices.length
+    choices[next]?.focus()
   }
   const renderChoice = (item: HbarPreSessionChoice) => (
     <LumenButton
@@ -164,23 +249,43 @@ export function HbarPreSessionChoicePicker({
     </LumenButton>
   )
   const content = (
-    <LumenFrame className="hbar-pre-session-choice-content">
-      <LumenInput
-        type="search"
-        variant="boxed"
-        aria-label={labels.search}
-        placeholder={labels.search}
-        value={query}
-        onChange={(event) => {
-          setQuery(event.currentTarget.value)
-          setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-      />
+    <LumenFrame className="hbar-pre-session-choice-content" onKeyDown={moveChoice}>
+      <LumenFrame className="hbar-pre-session-choice-search">
+        <LumenIcon icon={Search} tier="sm" aria-hidden="true" />
+        <LumenInput
+          ref={search}
+          type="search"
+          variant="plain"
+          aria-label={labels.search}
+          placeholder={labels.search}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.currentTarget.value)
+            setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+        />
+        {query && (
+          <LumenButton
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            aria-label={labels.clearSearch}
+            onClick={() => {
+              setQuery('')
+              setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
+              search.current?.focus()
+            }}
+          >
+            <LumenIcon icon={X} tier="sm" />
+          </LumenButton>
+        )}
+      </LumenFrame>
       <LumenFrame className="hbar-pre-session-choice-list" aria-label={labels.title}>
         {sections.flatMap((section) =>
           section.label
@@ -250,36 +355,15 @@ export function HbarPreSessionChoicePicker({
           role="dialog"
           aria-labelledby={popupTitleId}
           className="hbar-pre-session-choice-popover"
+          data-presentation={menuPresentation}
           onBeforeToggle={(event) => {
-            if (event.newState !== 'open' || !trigger.current) return
-            const rect = trigger.current.getBoundingClientRect()
-            const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-            const width = Math.min(24 * rem, Math.max(0, innerWidth - 2 * rem))
-            const above = rect.top >= innerHeight - rect.bottom
-            event.currentTarget.style.setProperty(
-              '--choice-popup-left',
-              `${Math.max(rem, Math.min(rect.right - width, innerWidth - width - rem))}px`,
-            )
-            event.currentTarget.style.setProperty('--choice-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
-            event.currentTarget.style.setProperty(
-              '--choice-popup-bottom',
-              above ? `${innerHeight - rect.top + rem / 2}px` : 'auto',
-            )
-            event.currentTarget.style.setProperty(
-              '--choice-popup-limit',
-              `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - 1.5 * rem)}px`,
-            )
+            if (event.newState === 'open') positionPopup()
           }}
           onToggle={(event) => {
             const opening = event.newState === 'open'
             setOpen(opening)
             if (!opening) reset()
-            else
-              queueMicrotask(() => {
-                if (matchMedia('(max-width: 40rem)').matches)
-                  popup.current?.querySelector<HTMLButtonElement>('.hbar-pre-session-choice-close')?.focus()
-                else popup.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus()
-              })
+            else queueMicrotask(focusInitial)
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.stopPropagation()

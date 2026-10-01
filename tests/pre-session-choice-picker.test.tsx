@@ -7,6 +7,7 @@ const labels = {
   title: '选择项目名称很长时仍能换行',
   trigger: (selected: string | null) => `选择项目：${selected ?? '无'}`,
   search: '搜索项目',
+  clearSearch: '清除项目搜索',
   empty: '没有项目',
   noMatches: '没有匹配项',
   more: (remaining: number | null) => `更多 ${remaining ?? '远端'}`,

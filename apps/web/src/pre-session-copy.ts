@@ -37,6 +37,7 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
       trigger: (name) =>
         name ? choose(`当前项目：${name}`, `Current project: ${name}`) : choose('选择项目', 'Choose project'),
       search: choose('搜索项目', 'Search projects'),
+      clearSearch: choose('清除项目搜索', 'Clear project search'),
       empty: choose('尚无项目。添加服务端目录以继续。', 'No projects yet. Add a server directory to continue.'),
       noMatches: choose('没有匹配的项目。', 'No matching projects.'),
       more: (remaining) =>
@@ -51,6 +52,7 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
       trigger: (name) =>
         name ? choose(`当前模型：${name}`, `Current model: ${name}`) : choose('使用默认模型', 'Use default model'),
       search: choose('搜索模型', 'Search models'),
+      clearSearch: choose('清除模型搜索', 'Clear model search'),
       empty: choose('尚无可选模型。', 'No models are available.'),
       noMatches: choose('没有匹配的模型。', 'No matching models.'),
       more: (remaining) =>

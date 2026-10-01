@@ -430,7 +430,9 @@ function isOverlaySelector(path, selector) {
   // trigger-owned desktop popup / narrow bottom-sheet container floats.
   if (
     /packages\/app-react\/src\/pre-session-choice-picker\.css$/.test(path.replaceAll('\\', '/')) &&
-    /^\.hbar-pre-session-choice-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+    /^\.hbar-pre-session-choice-popover(?::popover-open|::backdrop|\[data-presentation='web'\](?:::backdrop)?)?$/.test(
+      selector.trim(),
+    )
   )
     return true
   // cc-haha Location: only the observed trigger overlay / narrow bottom-sheet shell floats.
@@ -1163,10 +1165,17 @@ inset-inline-end: 0;
   const preSessionChoicePath = 'packages/app-react/src/pre-session-choice-picker.css'
   if (validateCss(preSessionChoicePath, '.hbar-pre-session-choice-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed pre-session model popover container')
+  if (
+    validateCss(preSessionChoicePath, ".hbar-pre-session-choice-popover[data-presentation='web'] { inset: auto 0 0; }")
+      .length
+  )
+    throw new Error('Rejected observed first-send mobile Web sheet container')
   for (const [path, selector] of [
     ['other.css', '.hbar-pre-session-choice-popover'],
     [preSessionChoicePath, '.hbar-pre-session-choice-popover > button'],
     [preSessionChoicePath, '.hbar-pre-session-choice-row'],
+    ['other.css', ".hbar-pre-session-choice-popover[data-presentation='web']"],
+    [preSessionChoicePath, ".hbar-pre-session-choice-popover[data-presentation='web'] > button"],
   ]) {
     if (validateCss(path, `${selector} { position: fixed; }`).length !== 1)
       throw new Error('Pre-session model popover exception leaked to content or another file')

@@ -18,6 +18,11 @@ export interface HbarPreSessionChoiceSection {
   readonly items: readonly HbarPreSessionChoice[]
 }
 
+/** A desktop window stays searchable; only a narrow touch Web sheet avoids opening the soft keyboard. */
+export function preSessionChoiceInitialFocus(presentation: 'native' | 'web', narrow: boolean, coarsePointer: boolean) {
+  return presentation === 'web' && narrow && coarsePointer ? 'close' : 'search'
+}
+
 export function visiblePreSessionChoices(
   items: readonly HbarPreSessionChoice[],
   query: string,
