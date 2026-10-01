@@ -1,95 +1,88 @@
-import {useEffect, useState, type ReactNode} from 'react'
-import {HbarAppUiSchedulingProvider, type HbarAppUiSchedulingContent} from 'hbar-app-ui/catalog'
-import {useStore} from 'zustand'
-import {createSchedulingTimelinePreviewStore, timelinePreviewProjection} from './schedulingTimelinePreviewStore'
-import {createSchedulingBookingPreviewStore} from './schedulingBookingPreviewStore'
+import { useMemo, type ReactNode } from 'react'
+import { useStore } from 'zustand'
+import {
+  HbarAppUiSchedulingProvider,
+  type HbarAppUiSchedulingContent,
+  type HbarAppUiVariantSpec,
+} from 'hbar-app-ui/catalog'
+import { createSchedulingTimelinePreviewStore, timelinePreviewProjection } from './schedulingTimelinePreviewStore'
+import { createSchedulingBookingPreviewStore } from './schedulingBookingPreviewStore'
+import {
+  createSchedulingPreviewStore,
+  type SchedulingPreviewScope,
+  type SchedulingPreviewVariant,
+} from './schedulingPreviewModel'
+import { projectSchedulingPreview } from './schedulingPreviewProjection'
 
-export function SchedulingPreviewHost({content, children}: {readonly content: HbarAppUiSchedulingContent; readonly children: ReactNode}) {
-  const [timelineStore] = useState(() => createSchedulingTimelinePreviewStore(content.referenceTimeline))
-  const timeline = useStore(timelineStore)
-  const [bookingStore] = useState(() => createSchedulingBookingPreviewStore(content.referenceBooking))
-  const booking = useStore(bookingStore)
-  const [dayId, setDayId] = useState(content.referenceMonth?.activeDayId ?? '')
-  const [monthId, setMonthId] = useState(content.referenceMonth?.monthId ?? '')
-  const [yearId, setYearId] = useState(content.referenceMonth?.yearId ?? '')
-  const [filterId, setFilterId] = useState(content.referenceMonth?.filterId ?? '')
-  const [startId, setStartId] = useState(content.referenceRange?.startId ?? '')
-  const [endId, setEndId] = useState(content.referenceRange?.endId ?? '')
-  const [durationId, setDurationId] = useState(content.referenceRange?.durationId ?? '')
-  const [formName, setFormName] = useState(content.referenceForm?.name ?? '')
-  const [formQuery, setFormQuery] = useState(content.referenceForm?.attendeeQuery ?? '')
-  const [formAttendees, setFormAttendees] = useState(content.referenceForm?.attendees ?? [])
-  const [formDate, setFormDate] = useState(content.referenceForm?.date ?? '')
-  const [formStartId, setFormStartId] = useState(content.referenceForm?.startId ?? '')
-  const [formEndId, setFormEndId] = useState(content.referenceForm?.endId ?? '')
-  const [formLink, setFormLink] = useState(content.referenceForm?.meetingLink ?? '')
-  const [formNotes, setFormNotes] = useState(content.referenceForm?.notes ?? '')
-  const [deadlinePresetId, setDeadlinePresetId] = useState(content.referenceDeadline?.presetId ?? '')
-  const [deadlineMonthId, setDeadlineMonthId] = useState(content.referenceDeadline?.monthId ?? '')
-  const [deadlineDayId, setDeadlineDayId] = useState(content.referenceDeadline?.dayId ?? '')
-  const [deadlineTimeId, setDeadlineTimeId] = useState(content.referenceDeadline?.timeId ?? '')
-  const [availabilityZoneId, setAvailabilityZoneId] = useState(content.referenceAvailability?.timezoneId ?? '')
-  const [availabilityDays, setAvailabilityDays] = useState(content.referenceAvailability?.days ?? [])
-  const [availabilityNextInterval, setAvailabilityNextInterval] = useState(0)
-  useEffect(() => {
-    timelineStore.getState().reset(content.referenceTimeline)
-    bookingStore.getState().reset(content.referenceBooking)
-    setDayId(content.referenceMonth?.activeDayId ?? '')
-    setMonthId(content.referenceMonth?.monthId ?? '')
-    setYearId(content.referenceMonth?.yearId ?? '')
-    setFilterId(content.referenceMonth?.filterId ?? '')
-    setStartId(content.referenceRange?.startId ?? '')
-    setEndId(content.referenceRange?.endId ?? '')
-    setDurationId(content.referenceRange?.durationId ?? '')
-    setFormName(content.referenceForm?.name ?? '')
-    setFormQuery(content.referenceForm?.attendeeQuery ?? '')
-    setFormAttendees(content.referenceForm?.attendees ?? [])
-    setFormDate(content.referenceForm?.date ?? '')
-    setFormStartId(content.referenceForm?.startId ?? '')
-    setFormEndId(content.referenceForm?.endId ?? '')
-    setFormLink(content.referenceForm?.meetingLink ?? '')
-    setFormNotes(content.referenceForm?.notes ?? '')
-    setDeadlinePresetId(content.referenceDeadline?.presetId ?? '')
-    setDeadlineMonthId(content.referenceDeadline?.monthId ?? '')
-    setDeadlineDayId(content.referenceDeadline?.dayId ?? '')
-    setDeadlineTimeId(content.referenceDeadline?.timeId ?? '')
-    setAvailabilityZoneId(content.referenceAvailability?.timezoneId ?? '')
-    setAvailabilityDays(content.referenceAvailability?.days ?? [])
-    setAvailabilityNextInterval(0)
-  }, [content, timelineStore, bookingStore])
-  return <HbarAppUiSchedulingProvider content={{...content, referenceBooking: content.referenceBooking && {
-    ...content.referenceBooking, dayId: booking.dayId, timeId: booking.timeId, onDayChange: booking.setDay, onTimeChange: booking.setTime,
-  }, referenceTimeline: content.referenceTimeline && timelinePreviewProjection(content.referenceTimeline, timeline), referenceMonth: content.referenceMonth && {
-    ...content.referenceMonth, activeDayId: dayId, monthId, yearId, filterId,
-    onDayChange: setDayId, onMonthChange: setMonthId, onYearChange: setYearId, onFilterChange: setFilterId,
-  }, referenceRange: content.referenceRange && {
-    ...content.referenceRange, startId, endId, durationId,
-    onStartChange: setStartId, onEndChange: setEndId, onDurationChange: setDurationId,
-  }, referenceDeadline: content.referenceDeadline && {
-    ...content.referenceDeadline, presetId: deadlinePresetId, monthId: deadlineMonthId, dayId: deadlineDayId, timeId: deadlineTimeId,
-    onPresetChange: setDeadlinePresetId, onMonthChange: setDeadlineMonthId, onDayChange: setDeadlineDayId, onTimeChange: setDeadlineTimeId,
-  }, referenceAvailability: content.referenceAvailability && {
-    ...content.referenceAvailability, timezoneId: availabilityZoneId, days: availabilityDays,
-    onTimezoneChange: setAvailabilityZoneId,
-    onDayChange: (id: string, enabled: boolean) => setAvailabilityDays((current) => current.map((day) => day.id === id
-      ? {...day, enabled, intervals: enabled ? [{id: `${id}-default`, startId: '09:00', endId: '17:00'}] : []} : day)),
-    onIntervalAdd: (id: string) => {
-      setAvailabilityDays((current) => current.map((day) => day.id === id && day.enabled
-        ? {...day, intervals: [...day.intervals, {id: `${id}-new-${availabilityNextInterval}`, startId: '13:00', endId: '17:00'}]} : day))
-      setAvailabilityNextInterval((current) => current + 1)
-    },
-    onIntervalRemove: (dayId: string, intervalId: string) => setAvailabilityDays((current) => current.map((day) => day.id === dayId && day.intervals.length > 1
-      ? {...day, intervals: day.intervals.filter((interval) => interval.id !== intervalId)} : day)),
-    onIntervalStartChange: (dayId: string, intervalId: string, timeId: string) => setAvailabilityDays((current) => current.map((day) => day.id === dayId
-      ? {...day, intervals: day.intervals.map((interval) => interval.id === intervalId ? {...interval, startId: timeId} : interval)} : day)),
-    onIntervalEndChange: (dayId: string, intervalId: string, timeId: string) => setAvailabilityDays((current) => current.map((day) => day.id === dayId
-      ? {...day, intervals: day.intervals.map((interval) => interval.id === intervalId ? {...interval, endId: timeId} : interval)} : day)),
-  }, referenceForm: content.referenceForm && {
-    ...content.referenceForm, name: formName, attendeeQuery: formQuery, attendees: formAttendees, date: formDate,
-    startId: formStartId, endId: formEndId, meetingLink: formLink, notes: formNotes,
-    onNameChange: setFormName, onAttendeeQueryChange: setFormQuery,
-    onRemoveAttendee: (id: string) => setFormAttendees((current) => current.filter((person) => person.id !== id)),
-    onDateChange: setFormDate, onStartChange: setFormStartId, onEndChange: setFormEndId,
-    onMeetingLinkChange: setFormLink, onNotesChange: setFormNotes,
-  }}}>{children}</HbarAppUiSchedulingProvider>
+interface HostProps {
+  readonly spec: HbarAppUiVariantSpec
+  readonly content: HbarAppUiSchedulingContent
+  readonly children: ReactNode
+}
+export function SchedulingPreviewHost(props: HostProps) {
+  if (props.spec.category !== 'scheduling') return <>{props.children}</>
+  const key = props.spec.id
+  switch (props.spec.variant) {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+      return <SchedulingOwner key={key} {...props} variant={props.spec.variant} />
+    case 6:
+      return <TimelineOwner key={key} {...props} />
+    case 7:
+      return <BookingOwner key={key} {...props} />
+    default:
+      return <>{props.children}</>
+  }
+}
+function SchedulingOwner({
+  spec,
+  content: input,
+  variant,
+  children,
+}: HostProps & { readonly variant: SchedulingPreviewVariant }) {
+  const scope = useMemo<SchedulingPreviewScope>(() => ({ variant, ownerId: spec.id }), [spec.id, variant])
+  const store = useMemo(() => createSchedulingPreviewStore(input, scope), [input, scope])
+  useStore(store, (state) => state.flow)
+  return (
+    <HbarAppUiSchedulingProvider content={projectSchedulingPreview(input, store)}>
+      {children}
+    </HbarAppUiSchedulingProvider>
+  )
+}
+function TimelineOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createSchedulingTimelinePreviewStore(content.referenceTimeline), [content])
+  const state = useStore(store)
+  return (
+    <HbarAppUiSchedulingProvider
+      content={{
+        timeline: content.timeline,
+        referenceTimeline: content.referenceTimeline && timelinePreviewProjection(content.referenceTimeline, state),
+      }}
+    >
+      {children}
+    </HbarAppUiSchedulingProvider>
+  )
+}
+function BookingOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createSchedulingBookingPreviewStore(content.referenceBooking), [content])
+  const state = useStore(store)
+  return (
+    <HbarAppUiSchedulingProvider
+      content={{
+        booking: content.booking,
+        referenceBooking: content.referenceBooking && {
+          ...content.referenceBooking,
+          dayId: state.dayId,
+          timeId: state.timeId,
+          onDayChange: state.setDay,
+          onTimeChange: state.setTime,
+        },
+      }}
+    >
+      {children}
+    </HbarAppUiSchedulingProvider>
+  )
 }

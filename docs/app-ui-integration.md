@@ -1520,3 +1520,60 @@ The inventory's full-file Prettier check fails both for its existing `HEAD` vers
 and the updated six rows. Only those category rows were changed; unrelated table
 alignment was not reformatted. The scoped formatting pass above covers the changed
 runtime, test, verifier and integration-document files, not the full inventory.
+
+### Scheduling 1–7 practical workflow closure
+
+The seven existing reference surfaces retain their distinct month agenda, time
+range, schedule draft, deadline picker, weekly availability, editable timeline and
+booking picker. No Lumen view, icon or stylesheet was rebuilt. Calendar dates,
+field groups, interval rows and booking choices continue to use normal flex flow;
+the timeline uses semantic time intervals and collision lanes, not screenshot
+coordinates. Existing pane-owned scrolling remains in place for bounded lists.
+
+The preview now mounts state only for the selected Scheduling variant. Month,
+range, form, deadline and availability have one active Zustand flow with a typed
+projection; timeline and booking reuse their independent stores. A new input or
+variant creates a new owner immediately rather than rendering one frame of the
+previous input and then resetting all seven workflows in an effect. Only the
+active rich and legacy content keys are supplied to the provider. Labels, records
+and editable values remain host-owned.
+
+The original host transitions were introduced in commits `04347b15`, `a1ad0029`,
+`409a2f96`, `70aef597`, `06efef96`, `597015b5` and `dd377fb0`. Their common wrapper
+initialized every surface for unrelated catalog selections. Raw setters also
+accepted unknown choice IDs; generated interval/event IDs could collide with
+host-supplied IDs, and deleting an unrelated timeline event cleared the selected
+editor. This closure scopes ownership, validates active choice/record targets,
+skips occupied generated IDs and preserves an unrelated selected event. Removed
+attendees/intervals/events cannot be mutated through their obsolete IDs. Disabling
+and re-enabling availability creates a fresh interval ID with the source default
+hours; the last remaining interval is still protected. Timeline week offsets no
+longer depend on the ordering of the supplied day array, and empty/invalid dates
+do not throw in projection.
+
+Source behavior is deliberately retained: month/filter choices do not regenerate
+the calendar or filter its overview records; range start/end/duration remain
+independent, including crossed times and Custom; deadline presets do not rewrite
+the date/time selection. The draft form and availability allow local editing,
+but source-passive submit, attach, Copy and Save controls do not invent uploads,
+saved bookings or backend success. Booking date/time remain independent and
+Confirm has no fabricated confirmation response. Timeline creation, editing,
+dragging and deletion are local preview state, not persistent calendar service.
+
+The [core browser check](../scripts/verify-hbar-app-ui-scheduling-core.ts) replaces
+the previous repeated button and breakpoint loops with seven primary workflows
+and two representative localized/narrow or overflowing cases. Its nine records
+have zero diagnostics; four representative screenshots were inspected. The
+historical Scheduling 4 strict geometry issue remains documented: the source
+narrow preview clips its top while local safe scrolling keeps it reachable.
+Practical functional/layout acceptance does not rewrite that strict pixel ledger.
+
+Verification passes 43 focused tests / 460 assertions (33 existing surface tests
+and ten active-owner tests), scoped ESLint, scoped Prettier, the changed Host's
+content guard and the direct existing Vite preview build. No reusable Lumen source
+was changed. Global typecheck still reports the two existing SessionStop `guided`
+errors, so a global pass is not claimed. The existing large-chunk build warning
+is unchanged. The full inventory has a pre-existing formatting failure; only this
+category's seven rows are edited, without reformatting unrelated rows. Unrelated
+working-tree changes are preserved. This category remains an incremental part of
+the broader implementation goal, not a claim that all 300 variants are complete.

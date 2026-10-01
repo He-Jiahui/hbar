@@ -893,7 +893,7 @@ function PreviewApp() {
                                   locale={integrationsLocale === 'de-long' ? 'de' : 'en'}
                                 >
                                 <CommentsPreviewHost content={commentsContent} spec={selected.spec}>
-                                  <SchedulingPreviewHost content={schedulingContent}>
+                                  <SchedulingPreviewHost spec={selected.spec} content={schedulingContent}>
                                     <HbarAppUiChatProvider content={chatContent}>
                                       <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
                                       <HbarAppUiPromptInputProvider content={promptInputContent}>
@@ -1383,7 +1383,7 @@ function PreviewApp() {
                                             locale={integrationsLocale === 'de-long' ? 'de' : 'en'}
                                           >
                                           <CommentsPreviewHost content={commentsContent} spec={selected.spec}>
-                                            <SchedulingPreviewHost content={schedulingContent}>
+                                            <SchedulingPreviewHost spec={selected.spec} content={schedulingContent}>
                                               <HbarAppUiChatProvider content={chatContent}>
                                                 <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
                                                 <HbarAppUiPromptInputProvider content={promptInputContent}>
