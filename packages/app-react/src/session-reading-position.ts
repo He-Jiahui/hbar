@@ -32,6 +32,21 @@ export function measureConversationReading(viewport: HTMLElement): ConversationR
   }
 }
 
+/** Semantic success permits sub-line virtual measurement drift, not another message. */
+export function isConversationReadingAtPosition(
+  actual: ConversationReadingPosition,
+  saved: ConversationReadingPosition,
+  lineTolerance: number,
+): boolean {
+  return (
+    Number.isFinite(lineTolerance) &&
+    lineTolerance > 0 &&
+    actual.messageId !== null &&
+    actual.messageId === saved.messageId &&
+    Math.abs(actual.messageOffset - saved.messageOffset) < lineTolerance
+  )
+}
+
 interface ReadingOptions {
   readonly runtime: HbarRuntimeView
   readonly target: ConversationReadingTarget | null
@@ -276,7 +291,16 @@ export function useSessionReadingPosition(options: ReadingOptions) {
   const onScrollTargetResult = (result: LumenConversationScrollTargetResult): boolean => {
     if (!ticket || result.target.requestId !== ticket.scroll.requestId) return false
     if (finishedRequest.current === ticket.scroll.requestId || !isCurrent(ticket.source) || findOpen) return true
-    if (result.status === 'unavailable') finish(true)
+    const atSavedPosition = (element: HTMLElement | null) =>
+      Boolean(
+        element?.isConnected &&
+        isConversationReadingAtPosition(
+          measureConversationReading(element),
+          ticket.saved,
+          Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+        ),
+      )
+    if (result.status === 'unavailable') finish(!atSavedPosition(viewport.current))
     else {
       const element = result.viewport
       viewport.current = element
@@ -320,7 +344,10 @@ export function useSessionReadingPosition(options: ReadingOptions) {
         frame: 0,
         timer: setTimeout(() => {
           if (isCurrent(ticket.source)) {
-            finish(true)
+            // A virtualizer can keep applying tiny measurement corrections
+            // beyond the settle deadline. Report failure only if the actual
+            // reading range is still wrong, not solely because frames moved.
+            finish(!atSavedPosition(element))
             remember(element)
           }
         }, ALIGN_TIMEOUT_MS),

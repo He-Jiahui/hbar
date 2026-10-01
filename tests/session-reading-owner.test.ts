@@ -1,6 +1,18 @@
 import { expect, test } from 'bun:test'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { isConversationReadingOwner } from '../packages/app-react/src/session-reading-position'
+import {
+  isConversationReadingOwner,
+  isConversationReadingAtPosition,
+} from '../packages/app-react/src/session-reading-position'
+
+test('reading settle deadline accepts only the same message within a sub-line range', () => {
+  const saved = { messageId: 'original', messageOffset: -10, atEnd: false }
+  expect(isConversationReadingAtPosition({ ...saved, messageOffset: -3.4 }, saved, 16)).toBe(true)
+  expect(isConversationReadingAtPosition({ ...saved, messageOffset: 6 }, saved, 16)).toBe(false)
+  expect(isConversationReadingAtPosition({ ...saved, messageId: 'neighbour' }, saved, 16)).toBe(false)
+  expect(isConversationReadingAtPosition({ ...saved, messageId: null }, saved, 16)).toBe(false)
+  expect(isConversationReadingAtPosition(saved, saved, Number.NaN)).toBe(false)
+})
 
 test('reading callbacks reject a replaced Host runtime even when all tab identities are equal', () => {
   const directory = {
