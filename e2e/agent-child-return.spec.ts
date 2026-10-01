@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const childTitle = 'Isolated review child with a long title'
@@ -48,7 +49,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       if (await expand.isVisible()) await expand.click()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.showDetails(created.objective), exact: true }).click()
       await expect(page.getByRole('button', { name: copy.agents.openSession, exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.agents.openSession, exact: true }).click()
@@ -152,7 +153,7 @@ test('a lost Agent read stays in the original detail and an explicit retry opens
     const expand = page.getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName), exact: true })
     if (await expand.isVisible()) await expand.click()
     await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-    await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+    await openSessionTool(page, copy.session.tools, 'agents')
     await page.getByRole('button', { name: copy.agents.showDetails(created.objective), exact: true }).click()
     await page.getByRole('button', { name: copy.agents.openSession, exact: true }).click()
     await expect(page.locator('.hbar-app-react-agent-detail').getByRole('alert')).toContainText(

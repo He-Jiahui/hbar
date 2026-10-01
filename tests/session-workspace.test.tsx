@@ -359,6 +359,7 @@ type SessionToolControl = {
   label: string | null
   title: string | null
   pressed: string | null
+  selected: string | null
   disabled: boolean
   type: string | null
   tabIndex: string | null
@@ -381,6 +382,7 @@ async function toolControls(html: string) {
           label: element.getAttribute('aria-label'),
           title: element.getAttribute('title'),
           pressed: element.getAttribute('aria-pressed'),
+          selected: element.getAttribute('data-selected'),
           disabled: element.hasAttribute('disabled'),
           type: element.getAttribute('type'),
           tabIndex: element.getAttribute('tabindex'),
@@ -452,15 +454,12 @@ test('Find and session tools expose host-owned names, hints and semantic icons, 
         labels.find.entry,
         labels.tools.files,
         labels.tools.activity,
-        labels.tools.monitoring,
-        labels.tools.agents,
-        labels.tools.goals,
-        labels.tools.settings,
+        labels.tools.more,
       ])
-      expect(result.controls).toHaveLength(7)
+      expect(result.controls).toHaveLength(4)
       for (const [index, control] of result.controls.entries()) {
         expect(control.title).toBe(control.label)
-        expect(control.text).toBe('')
+        expect(control.text).toBe(index === 3 ? labels.tools.more : '')
         expect(control).toMatchObject({
           // The local Find owner is created on client mount, never during SSR.
           disabled: index === 0 || !hasSession,
@@ -474,10 +473,7 @@ test('Find and session tools expose host-owned names, hints and semantic icons, 
       expect(tabOwned.controls.map((control) => control.label)).toEqual([
         labels.find.entry,
         labels.tools.activity,
-        labels.tools.monitoring,
-        labels.tools.agents,
-        labels.tools.goals,
-        labels.tools.settings,
+        labels.tools.more,
       ])
     }
   } finally {
@@ -505,12 +501,13 @@ test('tool pressed states track only the matching workspace and session and clea
             </HbarRuntimeProvider>,
           ),
         )
-      ).controls.map((control) => control.pressed)
+      ).controls.map((control) => control.pressed ?? control.selected)
     const panelIds = ['files', 'activity', 'monitoring', 'agents', 'goals'] as const
     const pressedStates = (activePanelId: (typeof panelIds)[number] | null) => [
       null,
-      ...panelIds.map((panelId) => (panelId === activePanelId ? 'true' : 'false')),
-      null,
+      activePanelId === 'files' ? 'true' : 'false',
+      activePanelId === 'activity' ? 'true' : 'false',
+      activePanelId && ['monitoring', 'agents', 'goals'].includes(activePanelId) ? 'true' : 'false',
     ]
     for (const panelId of panelIds) {
       await runtime.view.commands.execute('app.openPanel', {

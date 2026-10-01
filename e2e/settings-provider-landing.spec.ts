@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function removeOwnedFixture(root: string): Promise<void> {
   const target = resolve(root)
@@ -95,7 +96,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await ensureSidebar()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await expect(groups.getByRole('button', { name: modelLabel, exact: true })).toHaveAttribute(
         'aria-current',
         'page',

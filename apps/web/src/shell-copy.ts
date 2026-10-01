@@ -1659,6 +1659,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     tools: {
       label: choose('会话工具', 'Session tools'),
+      more: choose('更多工具', 'More tools'),
+      current: (label) => choose(`更多工具：当前打开${label}`, `More tools: ${label} is open`),
       files: choose('文件', 'Files'),
       activity: choose('活动', 'Activity'),
       monitoring: choose('用量监控', 'Monitoring'),

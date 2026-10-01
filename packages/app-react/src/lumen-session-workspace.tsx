@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Bot, ChartNoAxesColumnIncreasing, Files, ListChecks, ListTodo, Settings, type LucideIcon } from 'lucide-react'
+import { Files, ListChecks, type LucideIcon } from 'lucide-react'
 import {
   LumenFrame,
   LumenText,
@@ -53,6 +53,7 @@ import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-p
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
+import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
@@ -152,7 +153,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly proposedPlan: HbarProposedPlanLabels
   readonly proposedPlanReadOnly: string
   readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
-  readonly tools: {
+  readonly tools: HbarSessionToolsMenuLabels & {
     readonly label: string
     readonly files: string
     readonly activity: string
@@ -2234,32 +2235,21 @@ function SessionWorkspaceContent({
               disabled={!sessionId}
               onClick={() => toggleTool('activity')}
             />
-            <SessionToolButton
-              icon={ChartNoAxesColumnIncreasing}
-              label={labels.tools.monitoring}
-              selected={isToolActive('monitoring')}
+            <HbarSessionToolsMenu
+              key={`${sessionId}:${navigation.workspaceId}:${sourceTab?.instanceKey ?? ''}`}
+              labels={labels.tools}
+              selected={
+                isToolActive('monitoring')
+                  ? 'monitoring'
+                  : isToolActive('agents')
+                    ? 'agents'
+                    : isToolActive('goals')
+                      ? 'goals'
+                      : null
+              }
               disabled={!sessionId}
-              onClick={() => toggleTool('monitoring')}
-            />
-            <SessionToolButton
-              icon={Bot}
-              label={labels.tools.agents}
-              selected={isToolActive('agents')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('agents')}
-            />
-            <SessionToolButton
-              icon={ListTodo}
-              label={labels.tools.goals}
-              selected={isToolActive('goals')}
-              disabled={!sessionId}
-              onClick={() => toggleTool('goals')}
-            />
-            <SessionToolButton
-              icon={Settings}
-              label={labels.tools.settings}
-              disabled={!sessionId}
-              onClick={() => {
+              onToggleTool={toggleTool}
+              onSettings={() => {
                 if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })
               }}
             />

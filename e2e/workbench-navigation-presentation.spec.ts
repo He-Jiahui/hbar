@@ -158,7 +158,12 @@ async function walk(page: Page, mode: Presentation): Promise<void> {
 }
 
 async function openTool(page: Page, name: string): Promise<Locator> {
-  await page.getByRole('button', { name, exact: true }).focus()
+  const direct = page.getByRole('button', { name, exact: true })
+  if (await direct.count()) await direct.focus()
+  else {
+    await page.locator('.hbar-session-tools-menu-trigger').click()
+    await page.getByRole('menuitemcheckbox', { name, exact: true }).focus()
+  }
   await page.keyboard.press('Enter')
   const pane = page.locator('.lumen-app-tool-drawer')
   await expect(pane).toBeVisible()
@@ -197,7 +202,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           await page.screenshot({ path: `${evidence}/${tool.id}-${locale}-${width}.png` })
           await pane.getByRole('button', { name: tool.close, exact: true }).click()
           await expect(pane).toHaveCount(0)
-          await expect(page.getByRole('button', { name: tool.open, exact: true })).toBeFocused()
+          await expect(
+            tool.id === 'files'
+              ? page.getByRole('button', { name: tool.open, exact: true })
+              : page.getByRole('button', { name: copy.session.tools.more, exact: true }),
+          ).toBeFocused()
           await expectComposerText(prompt, draft)
           await noOverflow(page)
           observations.push({ width, tool: tool.id, sidebar: false, presentation: mode, keyboardSteps: 24 })

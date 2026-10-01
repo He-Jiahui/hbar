@@ -14,6 +14,7 @@ import {
   type ExtensionCollectionsFixture,
 } from './support/extension-collections-fixture'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 const configurations = (['en-US', 'zh-CN'] as const).flatMap((locale) =>
   [1440, 320].map((width) => ({ locale, width, height: 900 })),
@@ -151,7 +152,7 @@ for (const config of configurations) {
         await screenshot(f, directory, 'saved-skills-category')
         // A global preference must not hijack the explicitly session-scoped entry.
         await f.page.getByRole('button', { name: f.copy.settings.back, exact: true }).click()
-        await f.page.getByRole('button', { name: f.copy.session.tools.settings, exact: true }).click()
+        await openSessionTool(f.page, f.copy.session.tools, 'settings')
         await expect(f.page.getByRole('combobox', { name: f.copy.settings.scopes, exact: true })).toHaveValue('session')
         await expect(panel(f)).toHaveCount(0)
         await assertReadOnly(f)

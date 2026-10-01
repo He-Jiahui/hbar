@@ -89,6 +89,13 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // The Session More tools menu is a trigger-anchored top-layer overlay;
+  // captured in artifacts/session-tools-menu-v13/zh-tools-*.png. Rows remain flex.
+  if (
+    /packages\/app-react\/src\/session-tools-menu\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-session-tools-menu-popover:popover-open'
+  )
+    return true
   // CC-haha Sidebar's observed Projects and Sessions header menu and sort flyout
   // are measured from their owning trigger/row; only the two top-layer containers overlay.
   if (/packages\/app-react\/src\/workspace-header-sort-menu\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -619,6 +626,15 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const sessionToolsMenuPath = 'packages/app-react/src/session-tools-menu.css'
+  const sessionToolsMenu =
+    '.hbar-session-tools-menu-popover:popover-open {\nposition: fixed;\ninset: auto;\ntop: 0;\nleft: 0;\n}'
+  if (
+    validateCss(sessionToolsMenuPath, sessionToolsMenu).length ||
+    validateCss('other.css', sessionToolsMenu).length === 0 ||
+    validateCss(sessionToolsMenuPath, sessionToolsMenu.replace(':popover-open {', '> button {')).length === 0
+  )
+    throw new Error('Session tools menu overlay exception must be exact, path-scoped and exclude rows')
   const workspaceSortMenuPath = 'packages/app-react/src/workspace-header-sort-menu.css'
   const workspaceSortMenuPopovers = `.hbar-app-react-workspace-header-menu-popover:popover-open,
 .hbar-app-react-workspace-sort-submenu:popover-open {

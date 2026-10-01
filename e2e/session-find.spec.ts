@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45157}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 45158)
@@ -512,7 +513,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(palette).toHaveCount(0)
       await expect(editor).toBeFocused()
 
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await expect(page.getByRole('button', { name: copy.settings.back, exact: true })).toBeVisible()
       await expectShortcutLeftToOtherSurface(page)
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
