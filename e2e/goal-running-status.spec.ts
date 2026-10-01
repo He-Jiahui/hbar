@@ -95,7 +95,7 @@ test('Goal strip distinguishes paused continuation from the current running sess
     await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
     await expect(status).toHaveText(copy.session.intent.statuses.active)
     await expect(strip).not.toContainText(objective)
-    await expect(access(join(root, 'project', 'must-not-write.txt'))).rejects.toThrow()
+    await expect(access(join(root, 'must-not-write.txt'))).rejects.toThrow()
     expect(errors).toEqual([])
   } finally {
     await context.close()
