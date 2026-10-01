@@ -90,6 +90,8 @@ local-fixture 模型与独占 localhost 49168；Vite preview 使用 49169。
    不向后者传无效 prop，不改只读共享组件，也不把状态/焦点显示当装饰删除。
    随后的[排队卡动作层级](desktop-queued-action-hierarchy.md)已对 queued surface 实施；
    其他按钮家族仍需依据其实际状态归属核对，不作全局隐藏。
+   后续[普通图标入口层级](desktop-plain-action-hierarchy.md)已收敛 shell 与 Add 的八个入口，
+   保留显式忙碌、选中和键盘焦点；共享 Send/Stop 及其他家族仍不在该单元范围。
 
 Terminal PTY、不可信内嵌 Browser、Team、市场安装、定时任务等仍见
 [公开能力与参考边界](desktop-workbench-remaining-audit.md)和

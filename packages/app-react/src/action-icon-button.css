@@ -1,0 +1,28 @@
+.hbar-action-icon-button {
+  inline-size: var(--lumen-control-size, 2.25rem);
+  block-size: var(--lumen-control-size, 2.25rem);
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+button.hbar-action-icon-button[aria-pressed='true'],
+button.hbar-action-icon-button[aria-expanded='true'] {
+  box-shadow: inset 0 0 0 0.0625rem var(--lumen-edge);
+  background: color-mix(in srgb, var(--lumen-ink) 14%, var(--lumen-reading));
+}
+
+.hbar-action-icon-busy {
+  animation: hbar-action-icon-pulse 1s ease-in-out infinite;
+}
+
+@keyframes hbar-action-icon-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hbar-action-icon-busy {
+    animation: none;
+  }
+}

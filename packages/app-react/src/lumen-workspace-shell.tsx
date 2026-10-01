@@ -27,7 +27,6 @@ import {
   LumenFormField,
   LumenFrame,
   LumenIcon,
-  LumenIconButton,
   LumenInput,
   LumenSidebarAction,
   LumenText,
@@ -36,6 +35,7 @@ import {
   type LumenToolPresentation,
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
+import { HbarActionIconButton } from './action-icon-button'
 import {
   SESSION_ARCHIVE_BATCH_MAX_ITEMS,
   orderWorkspaceActivityIds,
@@ -968,13 +968,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       onCloseSidebar={() => setSidebarVisible(false)}
       header={
         <LumenFrame className="hbar-app-react-shell-header">
-          <LumenIconButton
+          <HbarActionIconButton
             ref={sidebarShowFocusRef}
             label={props.labels.showSidebar}
             onClick={() => setSidebarVisible(true)}
           >
             <WorkspaceShellIcon name="menu" />
-          </LumenIconButton>
+          </HbarActionIconButton>
           <LumenText as="strong">{props.labels.brand}</LumenText>
         </LumenFrame>
       }
@@ -1118,7 +1118,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
           brandAction={
             <LumenFrame className="hbar-app-react-sidebar-brand-actions">
-              <LumenIconButton
+              <HbarActionIconButton
                 label={timeView ? props.labels.sort.time.showProjects : props.labels.sort.time.showTime}
                 aria-pressed={timeView}
                 data-testid="sidebar-time-toggle"
@@ -1126,14 +1126,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 onClick={() => void execute('workspaceActivity.toggleTime', {}).catch(recordError)}
               >
                 <LumenIcon icon={Bell} tier="md" />
-              </LumenIconButton>
-              <LumenIconButton
+              </HbarActionIconButton>
+              <HbarActionIconButton
                 ref={sidebarFocusRef}
                 label={props.labels.hideSidebar}
                 onClick={() => setSidebarVisible(false)}
               >
                 <WorkspaceShellIcon name="panel-close" />
-              </LumenIconButton>
+              </HbarActionIconButton>
             </LumenFrame>
           }
           primaryActions={
@@ -1180,7 +1180,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   open={presentation.modalInstanceId === 'chat-search'}
                   onOpen={() => openPanel('chat-search')}
                 />
-                <LumenIconButton
+                <HbarActionIconButton
                   className="hbar-app-react-roster-refresh"
                   label={props.labels.roster.refreshExpanded}
                   loading={rosterBusy}
@@ -1188,8 +1188,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   onClick={() => refreshProjectSessions()}
                 >
                   <WorkspaceShellIcon name="refresh" />
-                </LumenIconButton>
-                <LumenIconButton
+                </HbarActionIconButton>
+                <HbarActionIconButton
                   ref={batchToolbarRef}
                   className="hbar-app-react-session-batch-mode"
                   label={props.labels.archiveBatch.enter}
@@ -1204,7 +1204,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   }}
                 >
                   <WorkspaceShellIcon name="list-checks" tier="md" />
-                </LumenIconButton>
+                </HbarActionIconButton>
               </LumenFrame>
               <SessionArchiveBatchPanel
                 labels={props.labels.archiveBatch}
@@ -1284,13 +1284,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 onRestoreHidden={restoreHiddenWorkspaces}
                 onRefresh={refreshSidebar}
               />
-              <LumenIconButton
+              <HbarActionIconButton
                 label={props.labels.openWorkspace}
                 disabled={!connected || navigationBlocked}
                 onClick={openWorkspace}
               >
                 <WorkspaceShellIcon name="folder-open" />
-              </LumenIconButton>
+              </HbarActionIconButton>
             </LumenFrame>
           }
           actions={
@@ -1570,7 +1570,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
                         }}
                       />
-                      <LumenIconButton
+                      <HbarActionIconButton
                         className="hbar-app-react-project-new-session"
                         label={props.labels.createSessionInWorkspace(displayName)}
                         disabled={!connected || navigationBlocked}
@@ -1578,7 +1578,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         onClick={() => newSession(workspace.id)}
                       >
                         <WorkspaceShellIcon name="new-session" />
-                      </LumenIconButton>
+                      </HbarActionIconButton>
                     </LumenFrame>
                     <SessionRosterFeedback
                       entry={rosterRefresh.entries[workspace.id]}
