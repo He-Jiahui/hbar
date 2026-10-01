@@ -1581,7 +1581,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goal: choose('目标', 'Goal'),
       goalMenu: choose('将下一条设为目标', 'Make next message a Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
-      running: choose('当前会话运行中', 'Current session running'),
+      running: choose('运行中', 'Running'),
       goalHint: choose(
         '将下一条消息设为持续目标，发送后才会保存。',
         'Make the next message an ongoing goal; it is saved when sent.',
@@ -1592,12 +1592,12 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),
       planPlaceholder: choose('描述希望先规划的任务…', 'Describe the task to plan first…'),
       statuses: {
-        active: choose('进行中的目标', 'Active goal'),
-        paused: choose('已暂停的目标', 'Paused goal'),
-        blocked: choose('受阻的目标', 'Blocked goal'),
-        complete: choose('已完成的目标', 'Completed goal'),
-        budget_limited: choose('目标预算已用尽', 'Goal budget exhausted'),
-        usage_limited: choose('目标用量已受限', 'Goal usage limited'),
+        active: choose('已启用', 'Active'),
+        paused: choose('已暂停', 'Paused'),
+        blocked: choose('受阻', 'Blocked'),
+        complete: choose('已完成', 'Completed'),
+        budget_limited: choose('预算用尽', 'Budget exhausted'),
+        usage_limited: choose('用量受限', 'Usage limited'),
       },
       pause: choose('暂停目标续作', 'Pause goal continuation'),
       pauseHint: choose(

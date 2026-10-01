@@ -8,10 +8,13 @@ The original CC `desktop/src/pages/ActiveSession.tsx` computes activity from pre
 
 Hbar uses the existing selected-session timeline projection, not another local Run store or the partially loaded sidebar directory. The override is connected and fenced by the timeline Session identity. This slice covers the current Session's own nonterminal Runs only; parity for background-child activity in this Goal strip is not yet implemented. Copy is supplied by the host in English and Chinese. Complete Goals remain hidden, and Goal control commands and identity guards are unchanged.
 
+The strip already identifies its content as “Current goal,” so its status copy is compact (“Running,” “Paused,” “Budget exhausted”) rather than repeating “goal” in each label. Chinese follows the same rule. This gives the objective more space, especially in a narrow column, without hiding the state or changing its meaning. Goal document/history copy is unaffected.
+
 ## Verification
 
 - `e2e/goal-running-status.spec.ts`: temporary real Host with the local provider; active Goal → approval-held Run → Pause continuation → Stop Run → paused display. It also verifies draft preservation, a long objective with naturally wrapping narrow layout, and switching to an independent Goal. The pending write is never approved.
 - The focused browser flow passed in 4.4 seconds (7.1 seconds including setup). Earlier attempts passed the execution assertions but timed out at the final navigation because the sidebar remained hidden after narrowing the viewport; the final test explicitly reopens it before navigation.
+- The compact bilingual-copy follow-up rebuild and the same focused browser flow pass in 7.8 seconds (12.6 seconds including setup); updated screenshots were inspected.
 - Scoped strict TypeScript, zero-warning ESLint, content/icon/flow guards, formatting and Web build are checked for this slice. Native desktop packaging and an installed-app smoke test are not run.
 - The two focused composer-intent runtime/reconciliation test files pass: 42 tests, 359 assertions, exit 0.
 - Existing SSR tests cannot start because the workspace lacks `prop-types`/`react-is`; no dependency installation or unrelated repair is included.
