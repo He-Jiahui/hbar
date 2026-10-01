@@ -18,8 +18,8 @@ test('settings scope and model controls fit narrow workspaces without horizontal
     await page.goto(base)
     await page.getByRole('button', { name: /^Open session / }).click()
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Settings scope' }).selectOption('session')
     await page.getByRole('button', { name: 'Model', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Settings scope' }).selectOption('session')
     await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toBeVisible()
     for (const viewport of [
       { width: 1440, height: 960 },
