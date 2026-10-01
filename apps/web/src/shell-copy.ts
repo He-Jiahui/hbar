@@ -1581,6 +1581,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goal: choose('目标', 'Goal'),
       goalMenu: choose('将下一条设为目标', 'Make next message a Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
+      running: choose('当前会话运行中', 'Current session running'),
       goalHint: choose(
         '将下一条消息设为持续目标，发送后才会保存。',
         'Make the next message an ongoing goal; it is saved when sent.',

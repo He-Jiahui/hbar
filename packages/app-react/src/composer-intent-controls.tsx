@@ -16,6 +16,7 @@ export interface HbarComposerIntentLabels extends HbarComposerIntentControlLabel
   readonly goalPlaceholder: string
   readonly planPlaceholder: string
   readonly statuses: Readonly<Record<Goal['status'], string>>
+  readonly running: string
   readonly pause: string
   readonly pauseHint: string
   readonly resume: string
@@ -48,6 +49,7 @@ export function HbarComposerGoal({
   labels,
   surface = 'all',
   canPrepare = true,
+  runActive = false,
   goalTriggerRef,
 }: {
   readonly sessionId: string
@@ -56,6 +58,7 @@ export function HbarComposerGoal({
   readonly labels: HbarComposerIntentLabels
   readonly surface?: 'all' | 'summary' | 'submission'
   readonly canPrepare?: boolean
+  readonly runActive?: boolean
   readonly goalTriggerRef?: RefObject<HTMLButtonElement | null>
 }) {
   const runtime = useHbarRuntime()
@@ -279,7 +282,7 @@ export function HbarComposerGoal({
               {labels.currentGoal}
             </LumenText>
             <LumenText as="span" className="hbar-composer-goal-status">
-              {labels.statuses[goal.status]}
+              {runActive ? labels.running : labels.statuses[goal.status]}
             </LumenText>
             <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective}>
               {goal.objective}

@@ -2282,6 +2282,7 @@ function SessionWorkspaceContent({
             connected={connected}
             labels={labels.intent}
             surface="summary"
+            runActive={connected && timeline.sessionId === sessionId && Boolean(activeRun)}
             goalTriggerRef={composerGoalTrigger}
             canPrepare={canPrepare}
           />
