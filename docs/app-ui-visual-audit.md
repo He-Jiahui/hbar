@@ -86,6 +86,17 @@ offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.h
 主题的调试报告也不能标记为全矩阵 `passed`。Lumen token 的颜色、玻璃背景和阴影不作为通过
 依据，也不能屏蔽几何差异。
 
+### 公开报告契约
+
+`HbarAppUiAuditManifest` 是总览，不重复内嵌 discovery、capture、structure、visual 和 review
+的整份 JSON；各报告的来源、截图、指标和人工状态按上述文件路径关联。
+其 `variants` 表示发现目录，`selected` 表示实际运行子集。当前 `errors` 保留
+`id/theme/viewport/reason`，同时兼容旧字符串输入；读方须缩窄这两种错误形状。
+`HbarAppUiInteractionResult<State>` 保留归一化的操作前后状态 API，可携带有类型的 DOM/AX
+状态；实际 runner 行使用 `HbarAppUiInteractionRecord<Control>`，明确记录两侧 PNG、
+DOM/AX 快照路径、捕获失败原因和状态差量。runner 写入时用公开类型核对，防止类型声明与
+产物形状再次分离。契约测试只验证序列化、反馈和失败门禁，不新增来源捕获或交互矩阵。
+
 ## 类别修复边界
 
 App Shell 7 的作用域工作台采用 8 组真实 iframe/本地静态对照与 16 个机制样本：组织菜单只变更组织；

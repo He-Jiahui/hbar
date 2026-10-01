@@ -9,8 +9,11 @@ import { auditSamplingPlan, sampledInteractionIds } from './reactbits-audit-samp
 import { includesLumenAuditFile, lumenDependencyFiles } from './reactbits-audit-scope'
 import { HBAR_APP_UI_VARIANT_SPECS } from '../packages/hbar-app-ui/src/specs'
 import type {
+  HbarAppUiAuditManifest,
   HbarAppUiCategory,
+  HbarAppUiInteractionCapture,
   HbarAppUiInteractionCapability,
+  HbarAppUiInteractionRecord,
   HbarAppUiVariantSpec,
 } from '../packages/hbar-app-ui/src/types'
 
@@ -2062,9 +2065,7 @@ export function interactionCases(
               : undefined
           : undefined
       const forms5FillValue =
-        variantId === 'hbar-app-ui-forms-5' && capability === 'fill' && control.index === 1
-          ? 'riverside'
-          : undefined
+        variantId === 'hbar-app-ui-forms-5' && capability === 'fill' && control.index === 1 ? 'riverside' : undefined
       cases.push({
         id: `${prefix}:${capability}`,
         action: capability,
@@ -2126,10 +2127,10 @@ export function schedulingDeadlineInteractionCases(
 const shellSidebarScenarios = ['shell-account', 'shell-navigation-closed'] as const
 const feedbackScenarios = ['feedback-draft', 'feedback-sent'] as const
 async function prepareSurveyMiddle(root: Locator): Promise<void> {
-  await root.getByRole('radio', {name: '8', exact: true}).click()
+  await root.getByRole('radio', { name: '8', exact: true }).click()
 }
 async function prepareRatingHigh(root: Locator): Promise<void> {
-  await root.getByRole('radio', {name: '4 out of 5, Good'}).click()
+  await root.getByRole('radio', { name: '4 out of 5, Good' }).click()
 }
 async function prepareFeedbackScenario(root: Locator, scenario: (typeof feedbackScenarios)[number]): Promise<void> {
   await root.locator('textarea').fill('Please make exports easier to review.')
@@ -3835,9 +3836,9 @@ async function applyInteraction(control: Locator, interaction: InteractionCase, 
   if (interaction.action === 'select' && interaction.scenario === 'forms4-condition-edit') {
     const tagName = await control.evaluate((element) => element.tagName)
     if (tagName === 'SELECT') {
-      const values = await control.locator('option').evaluateAll((options) =>
-        options.map((option) => (option as HTMLOptionElement).value),
-      )
+      const values = await control
+        .locator('option')
+        .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
       const current = await control.inputValue().catch(() => '')
       const next = values.find((value) => value !== current)
       if (next === undefined) throw new Error('Condition editor exposed no alternate observed choice')
@@ -3882,30 +3883,18 @@ async function controlIsDisabled(control: Locator): Promise<boolean> {
   return control.isDisabled().catch(() => false)
 }
 
-type InteractionCapture = Readonly<{
-  id: string
-  status: 'captured' | 'missing' | 'error'
-  directory: string
-  before: string
-  after: string | null
-  beforeSnapshot: string
-  afterSnapshot: string | null
-  checkpointRows?: number
-  reason?: string
-}>
+type InteractionCapture = HbarAppUiInteractionCapture
 
-type InteractionResult = Readonly<{
-  variantId: string
-  id: string
-  action: HbarAppUiInteractionCapability
-  viewport: string
-  theme: AuditTheme
-  caseHash: string
-  source: InteractionCapture
-  local: InteractionCapture
-  status: string
-  [key: string]: unknown
-}>
+type InteractionResult = Pick<
+  HbarAppUiInteractionRecord<ControlSnapshot>,
+  'variantId' | 'id' | 'action' | 'source' | 'local'
+> &
+  Readonly<{
+    viewport: string
+    theme: AuditTheme
+    caseHash: string
+    status: string
+  }>
 
 export function interactionCheckpointMatches(
   result: InteractionResult,
@@ -4690,7 +4679,8 @@ async function replayReferenceInteraction(
     await prepareReaderOutlineClosed(root)
   if (reference.id === 'hbar-app-ui-feedback-1' && feedbackScenarios.some((value) => value === interaction.scenario))
     await prepareFeedbackScenario(root, interaction.scenario as (typeof feedbackScenarios)[number])
-  if (reference.id === 'hbar-app-ui-feedback-2' && interaction.scenario === 'survey-middle') await prepareSurveyMiddle(root)
+  if (reference.id === 'hbar-app-ui-feedback-2' && interaction.scenario === 'survey-middle')
+    await prepareSurveyMiddle(root)
   if (reference.id === 'hbar-app-ui-feedback-3' && interaction.scenario === 'rating-high') await prepareRatingHigh(root)
   if (reference.id === 'hbar-app-ui-editor-1' && richEditorScenario)
     await prepareRichEditorScenario(root, richEditorScenario)
@@ -5275,7 +5265,7 @@ async function _runInteractionsLegacy(
                   sourceDelta,
                   localDelta,
                 },
-              }
+              } satisfies HbarAppUiInteractionRecord<ControlSnapshot>
               await writeJson(join(dirname(source.directory), 'source-state.json'), {
                 before: source.beforeSnapshot,
                 after: source.afterSnapshot,
@@ -5494,11 +5484,17 @@ async function runInteractionsParallel(
                 discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, scenario))
               }
             }
-            if (spec.id === 'hbar-app-ui-feedback-2' && sampleIds?.some((id) => id.startsWith(`${spec.id}:survey-middle:`))) {
+            if (
+              spec.id === 'hbar-app-ui-feedback-2' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:survey-middle:`))
+            ) {
               await prepareSurveyMiddle(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'survey-middle'))
             }
-            if (spec.id === 'hbar-app-ui-feedback-3' && sampleIds?.some((id) => id.startsWith(`${spec.id}:rating-high:`))) {
+            if (
+              spec.id === 'hbar-app-ui-feedback-3' &&
+              sampleIds?.some((id) => id.startsWith(`${spec.id}:rating-high:`))
+            ) {
               await prepareRatingHigh(sourceRoot)
               discovered.push(...interactionCases(await snapshotRoot(frame, sourceSelector), spec.id, 'rating-high'))
             }
@@ -6415,7 +6411,7 @@ async function runInteractionsParallel(
                     sourceDelta,
                     localDelta,
                   },
-                }
+                } satisfies HbarAppUiInteractionRecord<ControlSnapshot>
                 await writeJson(join(dirname(source.directory), 'source-state.json'), {
                   before: source.beforeSnapshot,
                   after: source.afterSnapshot,
@@ -6862,7 +6858,7 @@ async function runCompare(options: AuditOptions): Promise<void> {
   const existingManifest = (await Bun.file(join(options.outputRoot, 'manifest.json')).exists())
     ? await readJson<Record<string, unknown>>(join(options.outputRoot, 'manifest.json'))
     : {}
-  await writeJson(join(options.outputRoot, 'manifest.json'), {
+  const auditManifest = {
     ...existingManifest,
     schemaVersion: 1,
     runId: options.outputRoot.split(/[\\/]/).at(-1) ?? 'audit',
@@ -6878,7 +6874,8 @@ async function runCompare(options: AuditOptions): Promise<void> {
     staticCombinations: comparisons.length,
     interactionCases: interactionReport.results.length,
     errors: structuralFailures,
-  })
+  } satisfies HbarAppUiAuditManifest
+  await writeJson(join(options.outputRoot, 'manifest.json'), auditManifest)
   const ledgerFailures = ledger.flatMap((entry) => entry.failures.map((failure) => `${entry.id}:${failure}`))
   if (options.strict && (structuralFailures.length > 0 || ledgerFailures.length > 0)) {
     throw new Error(

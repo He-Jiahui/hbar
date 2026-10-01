@@ -179,19 +179,70 @@ export type HbarAppUiInteractionCapability =
 export type HbarAppUiAuditStatus =
   'matched' | 'lumen-different' | 'missing' | 'source-no-op' | 'blocked' | 'not-applicable' | 'error'
 
-export interface HbarAppUiInteractionResult {
+/** Normalized consumer summary; detailed runner records use HbarAppUiInteractionRecord. */
+export interface HbarAppUiInteractionResult<State extends object = Readonly<Record<string, unknown>>> {
   readonly id: string
   readonly variantId: string
   readonly capability: HbarAppUiInteractionCapability
   readonly status: HbarAppUiAuditStatus
-  readonly before: Readonly<Record<string, unknown>>
-  readonly after: Readonly<Record<string, unknown>>
+  readonly before: State
+  readonly after: State
   readonly sourceScreenshot?: string | undefined
   readonly lumenScreenshot?: string | undefined
   readonly comparison?: Readonly<Record<string, unknown>> | undefined
   readonly reason?: string | undefined
 }
 
+export interface HbarAppUiAuditIssue {
+  readonly id: string
+  readonly theme: string
+  readonly viewport: string
+  readonly reason: string
+}
+
+/** Paths refer to the separate PNG and typed DOM/AX snapshot artifacts, not embedded image data. */
+export interface HbarAppUiInteractionCapture {
+  readonly id: string
+  readonly status: 'captured' | 'missing' | 'error'
+  readonly directory: string
+  readonly before: string
+  readonly after: string | null
+  readonly beforeSnapshot: string
+  readonly afterSnapshot: string | null
+  readonly checkpointRows?: number | undefined
+  readonly reason?: string | undefined
+}
+
+export interface HbarAppUiInteractionDelta {
+  readonly changed: boolean
+  readonly signature: string
+}
+
+export interface HbarAppUiInteractionFeedback {
+  readonly sourceChanged: boolean
+  readonly localChanged: boolean
+  readonly deltaMatched: boolean
+  readonly sourceDelta: HbarAppUiInteractionDelta | null
+  readonly localDelta: HbarAppUiInteractionDelta | null
+}
+
+/** Actual comparison.json / interaction-report.json row; Control retains its typed DOM/ARIA shape. */
+export interface HbarAppUiInteractionRecord<Control extends object = Readonly<Record<string, unknown>>> {
+  readonly id: string
+  readonly variantId: string
+  readonly action: HbarAppUiInteractionCapability
+  readonly capability: HbarAppUiInteractionCapability
+  readonly viewport: string
+  readonly theme: string
+  readonly caseHash?: string | undefined
+  readonly control: Control
+  readonly source: HbarAppUiInteractionCapture
+  readonly local: HbarAppUiInteractionCapture
+  readonly status: HbarAppUiAuditStatus
+  readonly feedback: HbarAppUiInteractionFeedback
+}
+
+/** Summary manifest. Discovery, captures, structure, visual metrics and reviews remain separate reports. */
 export interface HbarAppUiAuditManifest {
   readonly schemaVersion: number
   readonly runId: string
@@ -206,7 +257,14 @@ export interface HbarAppUiAuditManifest {
   readonly themes: readonly string[]
   readonly staticCombinations: number
   readonly interactionCases: number
-  readonly errors: readonly string[]
+  /** Strings are retained for older consumers; current runner errors are structured issues. */
+  readonly errors: readonly (string | HbarAppUiAuditIssue)[]
+  /** variants is the discovered directory; selected is the actual run subset. */
+  readonly selected?: readonly string[] | undefined
+  readonly generatedAt?: string | undefined
+  readonly sourceUrl?: string | undefined
+  readonly sourceDirectoryHash?: string | undefined
+  readonly implementationHash?: string | undefined
 }
 
 export interface HbarAppUiVariantProps {

@@ -1,5 +1,9 @@
 export { default as HbarAppUiVariant } from './Variant'
-export { HbarAppUiEmptyStateProvider, useHbarAppUiEmptyStateContent, uniqueHbarAppUiEmptyStateItems } from './components/EmptyState'
+export {
+  HbarAppUiEmptyStateProvider,
+  useHbarAppUiEmptyStateContent,
+  uniqueHbarAppUiEmptyStateItems,
+} from './components/EmptyState'
 export type {
   HbarAppUiEmptyStateProps,
   HbarAppUiEmptyStateContent,
@@ -1099,8 +1103,13 @@ export type {
   HbarAppUiProfileSurface,
   HbarAppUiVariantProfile,
   HbarAppUiAuditManifest,
+  HbarAppUiAuditIssue,
   HbarAppUiAuditStatus,
   HbarAppUiInteractionCapability,
+  HbarAppUiInteractionCapture,
+  HbarAppUiInteractionDelta,
+  HbarAppUiInteractionFeedback,
+  HbarAppUiInteractionRecord,
   HbarAppUiInteractionResult,
   HbarAppUiVariantReference,
 } from './types'
