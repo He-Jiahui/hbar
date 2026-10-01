@@ -1012,3 +1012,35 @@ The [practical browser check](../scripts/verify-hbar-app-ui-navbar.ts) takes one
 core path per composition, two narrow representatives and one 64-row pane scroll.
 Its 34 check records and three inspected screenshots support the practical status,
 not a new pixel/viewport/theme/button matrix or real service/desktop acceptance.
+
+### Mobile 1–5 practical reference closure
+
+The preview mounts one active mobile owner, supplies typed labels/records and
+projects selection, query, task display state and exact-target request intent.
+Reusable Lumen components no longer generate tasks or runs. First-wins stable IDs,
+removed records, owner identity and currently visible targets guard callbacks;
+selection/draft changes clear stale intent. New task, attachments, destinations,
+navigation and new run remain request-only, with a nearby preview notice.
+
+Observed reference states include seven activity records and seven Recent searches,
+seven open tasks and four quick actions, five noninteractive Home cards, six orders
+with a More sheet, and eight Running/three Queue rows with a Navigation sheet.
+More supports two actual sheet extents. Navigation keeps Workflows and its four
+observed destinations, the known section labels and the profile footer. Unknown
+Data/Settings children are not invented. Closing menus restores the trigger where
+provided; this increment does not claim full focus containment.
+
+Source metadata describes Mobile3's morphing search dock, but no source search
+result capture is available. The matching/empty results are explicitly a local
+query of host-supplied cards. Task completion is also an explicit local display
+extension. Source Filters and task Search captures were no-ops, so the preview
+records those requests without inventing a remote result.
+
+Ordinary layout uses natural flex flow and shared semantic icon tiers. A bounded
+phone canvas owns main-content scrolling; menus alone use evidenced positioning.
+The 81-row stress sample reaches its last record while preserving bottom navigation.
+Long German task labels wrap at narrow width. The [core browser check](../scripts/verify-hbar-app-ui-mobile.ts)
+samples five paths, two narrow representatives and one list scroll: 16 check records,
+three inspected screenshots and no browser diagnostics. Fifteen focused tests with
+134 assertions support the practical inventory status, not a fresh full strict
+matrix, protected-source equivalence, real service or desktop acceptance.

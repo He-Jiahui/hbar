@@ -1378,3 +1378,43 @@ canonical class 契约，让菜单显示/隐藏规则实际匹配。德语窄屏
 类型、content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览构建
 通过。仍保留既有 chunk-size 警告；未重标旧 strict 结论、重跑按钮/主题/视口
 全排列，未安装或升级工具链，也不声称真实服务及最终桌面验收已完成。
+
+Mobile 1–5 本轮采用同一“核心流程成立、内容变化后布局自然”的实用标准。
+先查根 `b24121b2`、`1da44bc5` 与子仓 `4e82bd66f9` 的移动布局、委托及
+数据化差异：旧夹具削减了可见记录，仍缺真实 Search 页面、快捷操作、More 和
+Navigation；React 内生成任务/运行也把示例动作误作业务成功。现在只为当前
+变体挂载一个 Zustand owner，供给标签、查询、任务显示状态、精确目标请求与
+类型化宿主文案。稳定 ID 按 first-wins 去重、空白排除；跨 owner、移除目标、
+旧标签/旧查询中的隐藏目标和当前重复请求被拒绝。
+
+授权缓存 `artifacts/reactbits-reference/mobile-{1..5}/` 的三种尺寸提供基础
+结构；`full-interactions-v3/interactions/hbar-app-ui-mobile-*` 提供已观察状态。
+Mobile1 保留七条 Home 动态，Search 实际替换为七条 Recent searches；源 Filters
+点击没有改变语义内容，预览也不编造筛选结果。Mobile2 保留七任务和四项快捷操作
+（New task/Voice note/Photo/Attach file），遮罩可关闭，选择仅报告意图、不追加任务。
+本地完成显示是明确预览扩展，不宣称源点击实测。Mobile3 保留五张非交互卡片与
+图标 dock；公开页面描述说明 dock 会变成搜索字段，因没有源搜索 after 快照，
+搜索匹配/空态只作为对宿主卡片的本地推导，不伪造源结果或外部服务。
+
+Mobile4 保留六订单，More 面板包括四个 shortcut 与三个 secondary 入口，
+Expand 实际改变所占高度，窄屏末入口可达。Mobile5 Running 八项、Queue 三项
+来自观察，Navigation 包括品牌、Workflows 四子项和个人资料；Data/Settings
+的未知子项只留具名请求，不编造数据，Done 的宿主空态不冒充源观测。运行菜单
+不再重复状态标签；新建运行不生成假记录。公开线上探测本轮 iframe 为空白，
+继续用现有授权缓存；未绕过访问控制、读取保护源码或提交原始截图。
+
+普通内容改为 flex；图标复用共享 sm/md/lg tier，标签 badge 留在流中。
+只有已证实的手机窗格、浮动 dock/FAB 和菜单层保留尺寸/定位关系；flow 守卫
+为本文件六个覆盖层容器提供精确例外，内容后代仍受约束，自测通过。长列表初检
+发现 percentage 高度在未定高度容器里变为 auto、把窗格撑长，改为实际有界手机
+画布及不收缩的自然行后，81 项通过 main pane 滚动、底部导航不被挤走。菜单
+支持就近关闭/Escape 与触发器恢复，不声称已实现完整焦点陷阱或逐控件键盘审计。
+
+`bun scripts/verify-hbar-app-ui-mobile.ts` 覆盖五结构核心流程，只补两个窄屏
+代表、一个 81 项滚动样本及三张图，16 条记录通过，无 page/console error 或
+页面横溢。图在 `artifacts/mobile-core-review/`，已目视检查导航分组、长文案
+快捷操作和 More。15 项模型/SSR/公共兼容测试、134 个断言通过；根/子仓类型、
+限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
+生产预览构建通过。仍保留既有 chunk-size 警告；未重标旧 strict 审计、重跑
+按钮/主题/视口全排列或真实服务/桌面验收。没有安装/升级工具链，用户既有
+未提交改动原样保留。

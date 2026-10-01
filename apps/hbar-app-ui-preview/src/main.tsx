@@ -67,6 +67,7 @@ import './usage-preview.css'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
 import { AppSidebarPreviewHost } from './AppSidebarPreviewHost'
 import { NavbarPreviewHost } from './NavbarPreviewHost'
+import { MobilePreviewHost } from './MobilePreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -94,7 +95,6 @@ import {
   HbarAppUiFormsProvider,
   HbarAppUiAppDialogProvider,
   HbarAppUiNotificationsProvider,
-  HbarAppUiMobileProvider,
   HbarAppUiSupportProvider,
   HbarAppUiOnboardingProvider,
   HbarAppUiListProvider,
@@ -236,7 +236,6 @@ import {
   createHbarAppUiNotificationPreferencesFixture,
   createHbarAppUiNotificationSystemFixture,
 } from '../../../tests/fixtures/hbar-app-ui-notifications-fixtures'
-import { HBAR_APP_UI_MOBILE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-mobile-fixtures'
 import {
   createHbarAppUiWizardLocalizedFixtures,
   createHbarAppUiWizardOverflowFixtures,
@@ -693,7 +692,6 @@ function PreviewApp() {
       ),
     [],
   )
-  const mobileContent = useMemo(() => HBAR_APP_UI_MOBILE_FIXTURES, [])
   const supportLocale = useMemo(() => new URLSearchParams(window.location.search).get('supportFixture') === 'localized' ? 'de' : 'en', [])
   const supportContent = useMemo(() => localizeSupportTicketPreviewContent(createSupportReferencePreviewFixtures(supportLocale === 'de' ? 'de-long' : 'en'), supportLocale), [supportLocale])
   const supportTicketCopy = useMemo(() => createSupportTicketPreviewCopy(supportLocale), [supportLocale])
@@ -943,7 +941,7 @@ function PreviewApp() {
                                                 <HbarAppUiFormsProvider content={formsContent}>
                                                   <HbarAppUiAppDialogProvider content={appDialogContent}>
                                                     <HbarAppUiNotificationsProvider content={notificationsContent}>
-                                                      <HbarAppUiMobileProvider content={mobileContent}>
+                                                      <MobilePreviewHost spec={selected.spec} onAction={handleAction}>
                                                         <HbarAppUiSupportProvider content={supportContent}>
                                                           <SupportReferencePreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} locale={supportLocale} assistantOutcome={supportAssistantOutcome}>
                                                           <SupportThreadPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportThreadCopy} replyPreviewOutcome={supportReplyOutcome}>
@@ -1218,7 +1216,7 @@ function PreviewApp() {
                                                           </SupportThreadPreviewHost>
                                                           </SupportReferencePreviewHost>
                                                         </HbarAppUiSupportProvider>
-                                                      </HbarAppUiMobileProvider>
+                                                      </MobilePreviewHost>
                                                     </HbarAppUiNotificationsProvider>
                                                   </HbarAppUiAppDialogProvider>
                                                 </HbarAppUiFormsProvider>
@@ -1437,7 +1435,7 @@ function PreviewApp() {
                                                               <HbarAppUiNotificationsProvider
                                                                 content={notificationsContent}
                                                               >
-                                                                <HbarAppUiMobileProvider content={mobileContent}>
+                                                                <MobilePreviewHost spec={selected.spec} onAction={handleAction}>
                                                                   <HbarAppUiSupportProvider content={supportContent}>
                                                                     <SupportReferencePreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} locale={supportLocale} assistantOutcome={supportAssistantOutcome}>
                                                                     <SupportThreadPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportThreadCopy} replyPreviewOutcome={supportReplyOutcome}>
@@ -1734,7 +1732,7 @@ function PreviewApp() {
                                                                     </SupportThreadPreviewHost>
                                                                     </SupportReferencePreviewHost>
                                                                   </HbarAppUiSupportProvider>
-                                                                </HbarAppUiMobileProvider>
+                                                                </MobilePreviewHost>
                                                               </HbarAppUiNotificationsProvider>
                                                             </HbarAppUiAppDialogProvider>
                                                           </HbarAppUiFormsProvider>

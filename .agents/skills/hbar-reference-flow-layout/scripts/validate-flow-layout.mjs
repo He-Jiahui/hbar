@@ -89,6 +89,20 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Mobile 2/3/4/5 cached iframe states confirm phone-owned quick actions,
+  // floating dock/FAB, a More sheet and Navigation drawer. Only these containers
+  // may float; all menu choices and content remain in normal flex flow.
+  if (/packages\/lumen-app-ui\/src\/mobile\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-mobile-floating',
+      '.lumen-mobile-home-dock',
+      '.lumen-mobile-action-layer',
+      '.lumen-mobile-action-backdrop',
+      '.lumen-mobile-more-layer',
+      '.lumen-mobile-menu',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // Navbar 3/4/6/10/14 public iframe evidence confirms trigger-owned menus,
   // search results and a canvas-covering documentation drawer. Only containers
   // may float; their buttons, headings and article content stay in flex flow.
@@ -632,6 +646,23 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const mobilePath = 'packages/lumen-app-ui/src/mobile.css'
+  for (const selector of [
+    '.lumen-mobile-floating',
+    '.lumen-mobile-home-dock',
+    '.lumen-mobile-action-layer',
+    '.lumen-mobile-action-backdrop',
+    '.lumen-mobile-more-layer',
+    '.lumen-mobile-menu',
+  ]) {
+    const overlay = `${selector} {\nposition: absolute;\ninset: 0;\n}`
+    if (validateCss(mobilePath, overlay).length || validateCss('other.css', overlay).length !== 2)
+      throw new Error('Mobile overlay exceptions must remain exact and path scoped')
+    if (validateCss(mobilePath, `${selector} > button {\nposition: absolute;\n}`).length !== 1)
+      throw new Error('Mobile overlay choices must remain in normal flow')
+  }
+  if (validateCss(mobilePath, '.lumen-mobile-card {\nposition: absolute;\ninset: 0;\n}').length !== 2)
+    throw new Error('Mobile ordinary cards must not inherit overlay exceptions')
   const navbarPath = 'packages/lumen-app-ui/src/navbar.css'
   for (const selector of [
     '.lumen-navbar-menu',
