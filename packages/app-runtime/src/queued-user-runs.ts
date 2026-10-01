@@ -15,6 +15,7 @@ import {
 } from '@hbar/contracts/commands/run'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
+import { isQueuedRunGuidanceEvent } from './session-timeline'
 import type { NavigationState, RunCommandPort, SessionTimelineState } from './types'
 
 export const QUEUED_USER_RUNS_PAGE_SIZE = 10
@@ -127,7 +128,11 @@ function hasQueueEventAfter(timeline: SessionTimelineState, cursor: number): boo
   for (let index = timeline.events.length - 1; index >= 0; index--) {
     const event = timeline.events[index]
     if (!event || event.seq <= cursor) break
-    if (['run.queued', 'run.status', 'run.settled', 'run.inputEdited'].includes(event.type)) return true
+    if (
+      ['run.queued', 'run.status', 'run.settled', 'run.inputEdited'].includes(event.type) ||
+      isQueuedRunGuidanceEvent(event)
+    )
+      return true
   }
   return false
 }

@@ -417,6 +417,9 @@ export class AgentRuntime implements AgentService {
   }
 
   async finish(event: { sessionId: string; runId: string; status: Run['status'] }) {
+    // Guidance consumes only a queued user operation; it is not an Agent
+    // execution settlement and must not publish a reviewer/patch outcome.
+    if (event.status === 'guided') return
     const seed = await this.created(event.sessionId)
     if (seed?.reviewTask) {
       await this.api.hooks.dispatch('agent.settled', {

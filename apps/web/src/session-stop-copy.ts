@@ -18,6 +18,7 @@ export function getSessionStopCopy(locale: ShellLocale): SessionStopLabels {
     completed: zh ? '原运行已完成。' : 'The original run completed.',
     runFailed: zh ? '原运行已失败。' : 'The original run failed.',
     interrupted: zh ? '原运行已中断。' : 'The original run was interrupted.',
+    guided: zh ? '排队消息已引导至原运行。' : 'The queued message was guided into the original run.',
     failure: (code) => {
       switch (code) {
         case 'UNAUTHORIZED':

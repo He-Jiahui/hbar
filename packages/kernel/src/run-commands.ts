@@ -176,6 +176,8 @@ export function createRunCommands(kernel: Kernel) {
         throw new CommandError('COMMAND_NOT_FOUND', 'Operation does not belong to the selected session')
       if (['queued', 'running', 'waiting_approval'].includes(prior.status))
         throw new CommandError('BUSY', 'Wait for the original operation to settle before retrying')
+      if (prior.status === 'guided')
+        throw new CommandError('COMMAND_CONFLICT', 'This queued input already belongs to its original active Run')
       return submit({ sessionId, modelId: prior.modelId, input: prior.input }, context, {
         id: 'run.retry',
         input: { sessionId, operationId },

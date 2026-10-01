@@ -12,7 +12,6 @@ import {
   type LumenMessageProps,
   type LumenPromptLabels,
   type LumenQuestionnaireLabels,
-  type LumenRunActivityStatus,
 } from '@lumen/app-ui'
 import {
   RuntimeCommandError,
@@ -1406,7 +1405,7 @@ function SessionWorkspaceContent({
             runs={timeline.runs.map((run) => ({
               id: run.id,
               label: labels.timestamp(run.createdAt),
-              status: run.status as LumenRunActivityStatus,
+              status: run.status,
               detail: run.error ?? labels.runDetail(run.modelId),
               duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
             }))}
@@ -2209,7 +2208,7 @@ function SessionWorkspaceContent({
         status={
           activeRun
             ? {
-                label: labels.runs.statusLabel(activeRun.status as LumenRunActivityStatus),
+                label: labels.runs.statusLabel(activeRun.status),
                 tone: activeRun.status === 'waiting_approval' ? 'warning' : 'success',
               }
             : undefined

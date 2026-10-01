@@ -17,7 +17,7 @@ const REJECTIONS = new Set([
   'COMMAND_NOT_FOUND',
   'VERSION_MISMATCH',
 ])
-const terminal = new Set(['completed', 'cancelled', 'failed', 'interrupted'])
+const terminal = new Set(['guided', 'completed', 'cancelled', 'failed', 'interrupted'])
 const SAFE_CODES = new Set([
   ...REJECTIONS,
   'RESULT_UNKNOWN',

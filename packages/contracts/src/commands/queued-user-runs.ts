@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { idSchema } from '../index'
+import { contentBlockSchema, idSchema, runSchema } from '../index'
 
 export const queuedUserRunsCursorSchema = z.strictObject({
   afterOperationId: idSchema,
@@ -76,3 +76,65 @@ export type QueuedRunEditableInput = z.output<typeof queuedRunEditableInputSchem
 export type QueuedRunEditable = z.output<typeof queuedRunEditableSchema>
 export type QueuedRunEditTextInput = z.output<typeof queuedRunEditTextInputSchema>
 export type QueuedRunEditTextReceipt = z.output<typeof queuedRunEditTextReceiptSchema>
+
+/** Select one still-queued user Run to deliver into one already-running Run. */
+export const queuedRunGuideInputSchema = z.strictObject({
+  sessionId: idSchema,
+  operationId: idSchema,
+  activeRunId: idSchema,
+  expectedRevision: z.number().int().nonnegative().safe(),
+})
+export const queuedRunGuideReceiptSchema = z.strictObject({
+  commandId: z.literal('queuedRun.guide'),
+  commandVersion: z.literal(1),
+  sessionId: idSchema,
+  operationId: idSchema,
+  activeRunId: idSchema,
+  idempotencyKey: z.string().min(1).max(128),
+  status: z.literal('accepted'),
+  operationStatus: z.literal('guided'),
+  messageId: idSchema,
+  eventId: idSchema,
+  /** Session event sequence of the canonical message.committed event. */
+  revision: z.number().int().nonnegative().safe(),
+  sessionSeq: z.number().int().nonnegative().safe(),
+  /** Content revision observed on the selected queued Run. */
+  queueRevision: z.number().int().nonnegative().safe(),
+  guidedAt: z.number().int().nonnegative().safe(),
+})
+export const queuedRunGuidanceSchema = z.strictObject({
+  activeRunId: idSchema,
+  guidedRun: runSchema,
+  expectedRevision: z.number().int().nonnegative().safe(),
+  receipt: queuedRunGuideReceiptSchema,
+  actorId: z.string().min(1).max(160),
+  payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
+})
+export const runSteeringReadInputSchema = z.strictObject({
+  sessionId: idSchema,
+  runId: idSchema,
+  afterSeq: z.number().int().nonnegative().safe(),
+  closeWhenEmpty: z.boolean().default(false),
+})
+export const runSteeringMessageSchema = z.strictObject({
+  id: idSchema,
+  sessionId: idSchema,
+  runId: idSchema,
+  role: z.literal('user'),
+  content: z.array(contentBlockSchema),
+  seq: z.number().int().nonnegative().safe(),
+  createdAt: z.number().int().nonnegative().safe(),
+})
+export const runSteeringReadResultSchema = z.strictObject({
+  sessionId: idSchema,
+  runId: idSchema,
+  messages: z.array(runSteeringMessageSchema).max(20),
+  nextSeq: z.number().int().nonnegative().safe(),
+  closed: z.boolean(),
+})
+export type QueuedRunGuideInput = z.output<typeof queuedRunGuideInputSchema>
+export type QueuedRunGuideReceipt = z.output<typeof queuedRunGuideReceiptSchema>
+export type QueuedRunGuidance = z.output<typeof queuedRunGuidanceSchema>
+export type RunSteeringReadInput = z.input<typeof runSteeringReadInputSchema>
+export type RunSteeringMessage = z.output<typeof runSteeringMessageSchema>
+export type RunSteeringReadResult = z.output<typeof runSteeringReadResultSchema>

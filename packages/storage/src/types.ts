@@ -29,6 +29,10 @@ import type {
   QueuedRunEditableInput,
   QueuedRunEditTextInput,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  RunSteeringReadInput,
+  RunSteeringReadResult,
   QueuedRunRemoveInput,
   QueuedRunRemoveReceipt,
   RunCommandRecord,
@@ -227,6 +231,18 @@ export interface ForkableMessagesResult {
   }[]
 }
 
+export interface GuideQueuedRunMutationInput {
+  actorId: string
+  idempotencyKey: string
+  request: QueuedRunGuideInput
+}
+
+export interface GuideQueuedRunResult {
+  receipt: QueuedRunGuideReceipt
+  event: SessionEvent
+  message: Message
+}
+
 export interface StorageMethods {
   ready(): { version: number }
   searchIndexStatus(): { complete: boolean }
@@ -306,6 +322,11 @@ export interface StorageMethods {
     event: SessionEvent
   }
   queuedRunEditTextReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunEditTextReceipt | null
+  openRunSteering(sessionId: string, runId: string): void
+  closeRunSteering(sessionId: string, runId: string): void
+  readRunSteering(input: RunSteeringReadInput): RunSteeringReadResult
+  guideQueuedRun(input: GuideQueuedRunMutationInput): GuideQueuedRunResult
+  queuedRunGuideReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunGuideReceipt | null
   removeQueuedRun(input: { actorId: string; idempotencyKey: string; request: QueuedRunRemoveInput }): {
     receipt: QueuedRunRemoveReceipt
     event: SessionEvent

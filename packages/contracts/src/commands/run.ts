@@ -24,8 +24,14 @@ export {
   queuedRunEditableSchema,
   queuedRunEditTextInputSchema,
   queuedRunEditTextReceiptSchema,
+  queuedRunGuideInputSchema,
+  queuedRunGuideReceiptSchema,
+  queuedRunGuidanceSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
+  runSteeringMessageSchema,
+  runSteeringReadInputSchema,
+  runSteeringReadResultSchema,
   queuedUserRunsInputSchema,
   queuedUserRunsPageSchema,
 } from './queued-user-runs'
@@ -34,8 +40,14 @@ export type {
   QueuedRunEditable,
   QueuedRunEditTextInput,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  QueuedRunGuidance,
   QueuedRunRemoveInput,
   QueuedRunRemoveReceipt,
+  RunSteeringMessage,
+  RunSteeringReadInput,
+  RunSteeringReadResult,
   QueuedUserRunsInput,
   QueuedUserRunsPage,
 } from './queued-user-runs'
@@ -74,6 +86,7 @@ export const operationSnapshotSchema = z.strictObject({
     'queued',
     'running',
     'waiting_approval',
+    'guided',
     'cancelRequested',
     'completed',
     'cancelled',
@@ -87,7 +100,7 @@ export const operationSnapshotSchema = z.strictObject({
 })
 export const operationCancelResultSchema = z.strictObject({
   operationId: idSchema,
-  status: z.enum(['cancelRequested', 'completed', 'cancelled', 'failed', 'interrupted']),
+  status: z.enum(['cancelRequested', 'guided', 'completed', 'cancelled', 'failed', 'interrupted']),
 })
 export const operationWatchResultSchema = z.strictObject({
   snapshot: operationSnapshotSchema,

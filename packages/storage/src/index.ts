@@ -25,6 +25,8 @@ export type {
   SessionLaunchTargetPreparationStartMutationInput,
   SessionLaunchTargetPreparationOperationRecord,
   SessionLaunchTargetPreparationOperationTransitionInput,
+  GuideQueuedRunMutationInput,
+  GuideQueuedRunResult,
 } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'
