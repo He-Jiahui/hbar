@@ -1,7 +1,7 @@
 import { createStore } from 'zustand/vanilla'
 
 export type SettingsForm6PreviewAction =
-  | { readonly type: 'transfer' | 'archive' | 'cancel'; readonly workspaceId: string }
+  | { readonly type: 'transfer' | 'archive' | 'cancel' | 'review'; readonly workspaceId: string }
   | { readonly type: 'delete'; readonly workspaceId: string; readonly confirmation: string }
 
 export interface SettingsForm6PreviewStoreSeed {
@@ -10,6 +10,7 @@ export interface SettingsForm6PreviewStoreSeed {
 
 export interface SettingsForm6PreviewStoreState {
   readonly confirmationValue: string
+  readonly confirmationVisible: boolean
   readonly setConfirmationValue: (value: string) => void
   readonly requestAction: (action: SettingsForm6PreviewAction) => boolean
 }
@@ -22,11 +23,23 @@ export function createSettingsForm6PreviewStore(
 ) {
   if (!seed.workspaceId.trim()) throw new RangeError('Workspace IDs must not be empty.')
 
-  return createStore<SettingsForm6PreviewStoreState>((set) => ({
+  return createStore<SettingsForm6PreviewStoreState>((set, get) => ({
     confirmationValue: '',
-    setConfirmationValue: (confirmationValue) => set({ confirmationValue }),
+    confirmationVisible: true,
+    setConfirmationValue: (confirmationValue) => {
+      if (get().confirmationVisible) set({ confirmationValue })
+    },
     requestAction: (action) => {
-      if (action.workspaceId !== seed.workspaceId || onAction === undefined) return false
+      if (action.workspaceId !== seed.workspaceId) return false
+      if (action.type === 'cancel') {
+        if (!get().confirmationVisible) return false
+        set({ confirmationVisible: false })
+        onAction?.(action)
+        return true
+      }
+      if (action.type === 'delete' && !get().confirmationVisible) return false
+      if (action.type === 'review' && get().confirmationVisible) return false
+      if (onAction === undefined) return false
       onAction(action)
       return true
     },

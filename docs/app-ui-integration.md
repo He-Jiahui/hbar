@@ -1704,9 +1704,10 @@ checked. Two screenshots were inspected; the existing six-store tests and
 historical source-layout evidence support unchanged fields and rows, without a
 repeat button/viewport matrix.
 
-Settings 6 still has one explicit source-parity gap: the captured source Cancel
-hides confirmation and shows Review deletion, while the preview currently only
-reports its Cancel callback. The next Review outcome and actual transfer,
-archive/deletion remain unknown. The active-owner change does not claim to fix
-that transition or deliver remote operations; its historical strict ledger stays
-unapproved. This difference is tracked separately from natural layout acceptance.
+Settings 6 now follows the observed first stage: Cancel hides the confirmation
+input and delete action and exposes host-supplied Review deletion. The store keeps
+the old draft but rejects edits, delete and a second Cancel after the stage has
+collapsed. Review is still a typed request only; the next source outcome and
+actual transfer, archive or deletion remain unknown. The strict ledger stays
+unapproved, and this boundary is tracked separately from natural layout
+acceptance.

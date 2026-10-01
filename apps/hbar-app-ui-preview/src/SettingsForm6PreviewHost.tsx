@@ -41,7 +41,9 @@ function SettingsForm6PreviewOwner({
                 ? 'request-workspace-archive-preview'
                 : action.type === 'cancel'
                   ? 'callback-workspace-cancel-preview'
-                  : 'callback-workspace-delete-preview',
+                  : action.type === 'review'
+                    ? 'request-workspace-deletion-review-preview'
+                    : 'callback-workspace-delete-preview',
           value: action.workspaceId,
         })
       }),
@@ -70,6 +72,7 @@ function SettingsForm6PreviewOwner({
       confirmationPrompt: fixtureContent.copy.confirmationPromptFor(fixtureContent.workspace.name),
       cancelAction: fixtureContent.copy.cancelAction,
       deleteAction: fixtureContent.copy.deleteAction,
+      reviewAction: fixtureContent.copy.reviewAction,
       footerNote: fixtureContent.copy.footerNote,
     },
     workspace: {
@@ -78,6 +81,7 @@ function SettingsForm6PreviewOwner({
       memberCount: fixtureContent.workspace.memberCount,
     },
     confirmationValue: fixtureContent.confirmationValue,
+    confirmationVisible: fixtureContent.confirmationVisible,
     onConfirmationValueChange: state.setConfirmationValue,
     onAction: (action: SettingsForm6PreviewAction) => state.requestAction(action),
   } satisfies LumenSettingsForm6ReferenceProps

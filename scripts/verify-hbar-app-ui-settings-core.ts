@@ -57,9 +57,13 @@ async function main() {
     const danger = await open(page, 6)
     await danger.getByLabel('Type northwind to confirm', { exact: true }).fill('northwind')
     await danger.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(danger.getByLabel('Type northwind to confirm', { exact: true })).toHaveValue('northwind')
+    await expect(danger.getByLabel('Type northwind to confirm', { exact: true })).toHaveCount(0)
+    await expect(danger.getByRole('button', { name: 'Delete this workspace', exact: true })).toHaveCount(0)
+    await danger.getByRole('button', { name: 'Review deletion', exact: true }).click()
+    await expect(danger.getByRole('button', { name: 'Review deletion', exact: true })).toBeVisible()
+    await page.screenshot({ path: resolve(output, 'settings-danger-cancel-desktop.png'), fullPage: true })
     checks.push(
-      'Danger preview: confirmation draft remains hosted; Cancel is explicitly callback-only, not source parity or deletion',
+      'Danger preview: Cancel hides confirmation/delete controls and shows Review; Review remains request-only without an invented next stage',
     )
 
     await page.setViewportSize({ width: 356, height: 560 })
@@ -78,7 +82,13 @@ async function main() {
     await writeFile(
       resolve(output, 'report.json'),
       JSON.stringify(
-        { checks, diagnostics, exhaustiveMatrix: false, sourceCancelParity: 'unverified-next-state' },
+        {
+          checks,
+          diagnostics,
+          exhaustiveMatrix: false,
+          sourceCancelParity: 'captured-stage-only',
+          reviewOutcome: 'unverified-request-only',
+        },
         null,
         2,
       ),

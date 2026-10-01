@@ -29,6 +29,7 @@ export interface SettingsForm6PreviewCopy {
   readonly confirmationPromptFor: (workspaceName: string) => string
   readonly cancelAction: string
   readonly deleteAction: string
+  readonly reviewAction: string
   readonly footerNote: string
 }
 
@@ -37,6 +38,7 @@ export interface SettingsForm6PreviewContent {
   readonly workspace: SettingsForm6PreviewWorkspace
   readonly impacts: readonly string[]
   readonly confirmationValue: string
+  readonly confirmationVisible: boolean
   readonly listStrategy: {
     readonly kind: 'content-grown'
     readonly note: string
@@ -80,6 +82,7 @@ function copyFor(locale: SettingsForm6PreviewLocale): SettingsForm6PreviewCopy {
       confirmationPromptFor: (workspaceName) => `Gib ${workspaceName} zur Bestätigung ein`,
       cancelAction: 'Abbrechen',
       deleteAction: 'Diesen Arbeitsbereich löschen',
+      reviewAction: 'Löschung prüfen',
       footerNote: 'Exportiere Daten vor unwiderruflichen Änderungen am Arbeitsbereich.',
     }
   }
@@ -103,6 +106,7 @@ function copyFor(locale: SettingsForm6PreviewLocale): SettingsForm6PreviewCopy {
     confirmationPromptFor: (workspaceName) => `Type ${workspaceName} to confirm`,
     cancelAction: 'Cancel',
     deleteAction: 'Delete this workspace',
+    reviewAction: 'Review deletion',
     footerNote: 'Export data before irreversible workspace changes.',
   }
 }
@@ -139,6 +143,7 @@ export function createSettingsForm6PreviewFixture(
       workspace,
       impacts,
       confirmationValue: state.confirmationValue,
+      confirmationVisible: state.confirmationVisible,
       listStrategy: {
         kind: 'content-grown',
         note: 'The consequence list follows normal document flow; no source-owned scroll container was verified.',
