@@ -1210,3 +1210,54 @@ typecheck (`guided` terminal comparison and a missing localized label). The List
 dependency-scoped root typecheck and the Lumen package typecheck pass. Existing
 user and concurrent-task changes are preserved; this category does not claim a
 globally clean working tree.
+
+### Filtering 1–9 practical reference closure
+
+Nine typed, host-owned reference contracts preserve stoneware, bike filter drafts,
+deal conditions, log events, rental homes, candidate skills, asset facets, flight
+fares and restaurants. The legacy Filtering API remains compatible. Localized
+copy and records remain outside Lumen; a single active-variant Zustand owner
+manages guarded single/multi selections, ranges, counters, text and skill drafts,
+applied selections and allowlisted request intent. Refresh preserves valid values
+and prunes removed IDs. Unknown or disabled IDs and crossed range endpoints are
+rejected rather than silently changing the selection.
+
+Default references retain 18 pieces, 42 events, 22 homes, 16 engineers, 20 assets,
+15 flights and 18 restaurants. Captured All deals restores all eighteen records,
+including the four hidden default records, and its displayed $688,500 total.
+The source calls that amount `weighted`, although the observed figure is the sum
+of the visible deal amounts, not probability-weighted revenue. Captured carry-on
+selection supplies nine flights. Catalog facet counts, flight stop counts and
+airline minimum prices update from eligible rows; queries and filter intersections
+derive from the supplied records rather than replaying equivalent options.
+
+Bike frame-size marginal counts support the captured 48-size zero-result state,
+but no bike records or compound counts are invented. Apply/reopen is an explicit
+local preview selection. Catalog glaze and asset-type membership are inferred
+from visible colors, names and formats. Candidate locations, rental availability
+choices and late/high-value deal rules are host preview derivations where source
+execution was not captured. Unknown product sizes, My deals ownership, 24-hour
+log data, rental amenities, asset tags/update dates and restaurant diets show an
+unavailable state without substituting default rows. Flight selection records
+an exact currently visible ID, not a booked flight. Default log volume is a visual
+approximation; filtered volume is derived from known event timestamps.
+
+Ordinary regions use flex flow; mobile Filters disclosures push results in normal
+document flow. Native deal tables own horizontal scrolling. The bike panel keeps
+its header/footer outside the scrolling facets, and an 81-record catalog fixture
+owns bounded collection scrolling. Empty, one, eighty, overflow and long localized
+fixtures cover the shared capacity contract. The
+[core browser check](../scripts/verify-hbar-app-ui-filtering.ts) passes eighteen
+records with no browser diagnostics, two narrow representatives and three inspected
+screenshots. Four legacy, eight practical rendering/flow and six owned-model tests
+pass in their focused runs; a lightweight pure-projection follow-up checks the
+latest count and unavailable-state changes. Scoped lint/typechecks, Lumen
+declarations, content/icon/flow guards and package/preview builds pass. This is
+practical functional/layout acceptance, not a button/theme/viewport matrix,
+strict pixel sign-off or remote/desktop acceptance.
+
+At this checkpoint the unrelated SessionStop work still fails the global
+typecheck (`guided` terminal comparison and a missing localized label). The
+Filtering dependency-scoped root typecheck and Lumen package typecheck pass.
+Existing user and concurrent-task changes remain untouched; this category does
+not claim a globally clean working tree.
