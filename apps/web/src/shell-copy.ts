@@ -1655,7 +1655,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     tools: {
       label: choose('会话工具', 'Session tools'),
       files: choose('文件', 'Files'),
-      activity: choose('活动运行', 'Active runs'),
+      activity: choose('活动', 'Activity'),
       monitoring: choose('用量监控', 'Monitoring'),
       agents: choose('子 Agent', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
@@ -1956,13 +1956,31 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     cancelRequested: choose('正在取消', 'Cancelling'),
   }
   return {
-    title: choose('活动运行', 'Active runs'),
-    description: choose(
-      '仅列出此会话正在排队、执行或等待审批的运行。',
-      'Only runs currently queued, executing, or awaiting approval in this session.',
-    ),
-    close: choose('关闭活动运行', 'Close active runs'),
-    refresh: choose('刷新活动运行', 'Refresh active runs'),
+    title: choose('活动', 'Activity'),
+    runs: choose('运行', 'Runs'),
+    description: '',
+    agents: {
+      title: choose('子 Agent', 'Subagents'),
+      loading: choose('正在读取子 Agent…', 'Loading subagents…'),
+      unavailable: choose('此 Host 未提供子 Agent 活动。', 'Subagent activity is unavailable on this Host.'),
+      retry: choose('重试读取子 Agent', 'Retry subagent activity'),
+      loadMore: choose('加载更多子 Agent', 'Load more subagents'),
+      limitReached: choose('已达到活动列表显示上限。', 'The activity list display limit has been reached.'),
+      opening: choose('正在打开子会话…', 'Opening child session…'),
+      open: (objective) => choose(`打开子 Agent：${objective}`, `Open subagent: ${objective}`),
+      count: (loaded, active, hasMore) =>
+        choose(
+          `${number.format(loaded)}${hasMore ? '+' : ''} · ${number.format(active)} 个进行中`,
+          `${number.format(loaded)}${hasMore ? '+' : ''} · ${number.format(active)} active`,
+        ),
+      status: (status) => createAgentWorkspaceLabels(locale).status(status),
+      error: (code) =>
+        code === 'SOURCE_CHANGED'
+          ? choose('来源已变化，请重新打开活动面板。', 'The source changed. Reopen Activity.')
+          : choose('无法读取或打开子 Agent，请重试。', 'Could not read or open the subagent. Try again.'),
+    },
+    close: choose('关闭活动', 'Close activity'),
+    refresh: choose('刷新活动', 'Refresh activity'),
     loading: choose('正在读取当前运行…', 'Loading active runs…'),
     empty: choose('此会话目前没有活动运行。', 'This session has no active runs.'),
     offline: choose('连接已断开；显示的运行状态可能已过时。', 'Disconnected; shown run states may be stale.'),

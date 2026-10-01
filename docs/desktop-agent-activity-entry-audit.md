@@ -1,5 +1,7 @@
 # Agent 与 Activity：会话入口差距复核
 
+后续状态（基线 `85247039`）：Activity 已加入真实父会话子 Agent 分组、状态更新和子会话／父页签返回入口。运行时 `870d9c98` 与容量修正 `de90a358`、原组件参考和最终 UI 验证见[Activity 子 Agent 交付](desktop-activity-agents.md)。下表保留原审查时点；它不能再用于声称当前 Activity 仅有 Run。Tasks／Goal／Workflow 聚合、全局父会话后台状态及 `/agent` 语义仍未全部对齐。
+
 参考为只读的 cc-haha Desktop `e28d0a65`，hbar 审查点为 `3fc590a`。这是源码和既有交互证据的差距记录，不是新 UI 已实现或整机视觉验收。全桌面的会话、导航、设置逐入口矩阵仍分别见[会话](desktop-conversation-final-entry-audit.md)、[导航](desktop-navigation-final-entry-audit.md)和[设置](desktop-settings-final-entry-audit.md)；本文只收紧 Agent/Activity 两条尚未对齐的路径。
 
 ## 参考怎样表达“输入意图 → 查看执行”
