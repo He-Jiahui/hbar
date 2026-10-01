@@ -70,7 +70,7 @@ export function createWorkflowWorkspace(
   let generationSequence = 0
   const operations = new Map<string, string>()
   const watchers = new Map<string, () => void>()
-  const ownedPanels = new Set<string>()
+  const ownedPanels = new Map<string, 'goals' | 'activity'>()
   const suspendedPanels = new Set<string>()
   const readControllers = new Map<string, AbortController>()
   const reads = new Map<string, { controller: AbortController; promise: Promise<ReturnType<typeof summary>> }>()
@@ -87,7 +87,9 @@ export function createWorkflowWorkspace(
     generations.get(instanceId) === generation
   const releaseReads = (instanceId: string) => {
     generations.set(instanceId, ++generationSequence)
-    readControllers.get(instanceId)?.abort()
+    readControllers
+      .get(instanceId)
+      ?.abort(new CommandError('RESULT_UNKNOWN', 'Workflow read belongs to a retired panel lifetime'))
     readControllers.delete(instanceId)
     reads.delete(instanceId)
     watchers.get(instanceId)?.()
@@ -96,7 +98,7 @@ export function createWorkflowWorkspace(
     watchUpdates.delete(instanceId)
   }
   const synchronizeVisibility = () => {
-    for (const id of ownedPanels) {
+    for (const [id, ownerKind] of ownedPanels) {
       const entry = state.reader.getSnapshot().entries[id]
       const target = surfaces.getSnapshot().panels[id]
       if (!entry || !target?.sessionTool || target.sessionId !== entry.sessionId) {
@@ -104,7 +106,7 @@ export function createWorkflowWorkspace(
         generations.delete(id)
         suspendedPanels.delete(id)
         ownedPanels.delete(id)
-        if (entry && target?.panelId !== 'goals') {
+        if (entry && ownerKind === 'activity') {
           const entries = { ...state.reader.getSnapshot().entries }
           delete entries[id]
           state.replace({ entries })
@@ -302,7 +304,7 @@ export function createWorkflowWorkspace(
   const performLoad = async (instanceId: string, background: boolean, controller: AbortController) => {
     const target = panel(instanceId, true)
     if (!visible(instanceId)) throw new CommandError('TARGET_CHANGED', 'Session tool is not visible')
-    if (target.sessionTool) ownedPanels.add(instanceId)
+    if (target.sessionTool) ownedPanels.set(instanceId, target.panelId === 'activity' ? 'activity' : 'goals')
     const previous = state.reader.getSnapshot().entries[instanceId]
     const sameTarget = previous?.sessionId === target.sessionId
     const generation = ++generationSequence
@@ -517,7 +519,7 @@ export function createWorkflowWorkspace(
   )
   const offConnection = options.workflowEvents?.onConnection((connected) => {
     if (!connected || isDisposed()) return
-    for (const id of ownedPanels) {
+    for (const id of ownedPanels.keys()) {
       if (visible(id)) void load(id, true).catch(() => {})
     }
   })
