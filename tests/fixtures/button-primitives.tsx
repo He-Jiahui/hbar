@@ -38,6 +38,15 @@ export const buttonPrimitiveFixture = (
         <span>Meaning survives hover and selection</span>
       </div>
       <div className="button-fixture-row">
+        <HbarAppUiButton data-testid="contained-button" variant="contained">
+          Contained action
+        </HbarAppUiButton>
+        <HbarAppUiButton data-testid="outlined-button" variant="outlined">
+          Outlined action
+        </HbarAppUiButton>
+        <HbarAppUiButton data-testid="text-button" variant="text">
+          Text action
+        </HbarAppUiButton>
         <HbarAppUiButton data-testid="focus-button" variant="solid">
           Neutral solid
         </HbarAppUiButton>

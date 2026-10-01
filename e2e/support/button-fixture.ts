@@ -9,7 +9,7 @@ let bundle: z.infer<typeof bundleSchema> | undefined
 
 export async function mountButtonFixture(
   page: Page,
-  options: { theme: 'light' | 'dark'; size?: 's' | 'm' | 'l'; styles: string },
+  options: { theme: 'light' | 'dark'; size?: 's' | 'm' | 'l'; glow?: number; motion?: boolean; styles: string },
 ): Promise<void> {
   if (!bundle) {
     const executable =
@@ -36,7 +36,8 @@ export async function mountButtonFixture(
     data-hbar-app-ui-theme="${options.theme}" data-hbar-app-ui-control-size="${size}"
     data-hbar-app-ui-text-size="${size}" data-hbar-app-ui-corner-size="${size}"
     data-lumen-mode="${options.theme}" data-lumen-control-size="${size}"
-    data-lumen-text-size="${size}" data-lumen-corner-size="${size}" data-lumen-shape="rounded">
+    data-lumen-text-size="${size}" data-lumen-corner-size="${size}" data-lumen-shape="rounded"
+    data-fixture-glow="${options.glow ?? 65}" data-fixture-motion="${options.motion === false ? 'off' : 'on'}">
     <head><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
     <body><div id="fixture-root"></div></body></html>`)
   await page.addStyleTag({ content: `${bundle.css}\n${options.styles}` })

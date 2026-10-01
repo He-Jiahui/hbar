@@ -31,27 +31,27 @@ export function HbarAppUiSurface({ className = '', children, ...props }: HTMLAtt
 
 type HbarAppUiSpotlightProps = HTMLAttributes<HTMLElement> & { readonly as?: 'div' | 'form' | 'section' }
 
-export function HbarAppUiSpotlight({as = 'div', className = '', children, ...props}: HbarAppUiSpotlightProps) {
-    const Element: ElementType = as
-    return (
-        <Element
-            {...props}
-            className={`hbar-app-ui-spotlight${className ? ` ${className}` : ''}`}
-            onPointerMove={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect()
-                event.currentTarget.style.setProperty('--hbar-app-ui-x', `${event.clientX - rect.left}px`)
-                event.currentTarget.style.setProperty('--hbar-app-ui-y', `${event.clientY - rect.top}px`)
-                props.onPointerMove?.(event)
-            }}
-        >
-            {children}
-        </Element>
-    )
+export function HbarAppUiSpotlight({ as = 'div', className = '', children, ...props }: HbarAppUiSpotlightProps) {
+  const Element: ElementType = as
+  return (
+    <Element
+      {...props}
+      className={`hbar-app-ui-spotlight${className ? ` ${className}` : ''}`}
+      onPointerMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        event.currentTarget.style.setProperty('--hbar-app-ui-x', `${event.clientX - rect.left}px`)
+        event.currentTarget.style.setProperty('--hbar-app-ui-y', `${event.clientY - rect.top}px`)
+        props.onPointerMove?.(event)
+      }}
+    >
+      {children}
+    </Element>
+  )
 }
 
 export type HbarAppUiButtonTone = 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
 export type HbarAppUiButtonSize = HbarAppUiSize
-export type HbarAppUiButtonVariant = 'solid' | 'outline' | 'ghost'
+export type HbarAppUiButtonVariant = 'contained' | 'outlined' | 'text' | 'solid' | 'outline' | 'ghost'
 export type HbarAppUiButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly tone?: HbarAppUiButtonTone
   readonly size?: HbarAppUiButtonSize
@@ -70,7 +70,7 @@ export function HbarAppUiButton({
   ...props
 }: HbarAppUiButtonProps) {
   const lumenTone = tone === 'accent' ? 'primary' : tone === 'positive' ? 'success' : tone
-  const lumenVariant = variant === 'outline' ? 'outlined' : variant === 'ghost' ? 'text' : 'solid'
+  const lumenVariant = variant === 'outline' ? 'outlined' : variant === 'ghost' ? 'text' : variant
   return (
     <LumenButton
       {...props}
@@ -98,7 +98,7 @@ export function HbarAppUiIconButton({
   size = 'm',
   loading = false,
   disabled,
-  variant: _variant,
+  variant = 'text',
   ...props
 }: HbarAppUiIconButtonProps) {
   return (
@@ -108,6 +108,7 @@ export function HbarAppUiIconButton({
       label={label}
       size={size}
       tone={tone === 'accent' ? 'primary' : tone === 'positive' ? 'success' : tone}
+      variant={variant === 'outline' ? 'outlined' : variant === 'ghost' ? 'text' : variant}
       loading={loading}
       disabled={disabled}
     >
@@ -182,7 +183,8 @@ export type HbarAppUiLabelProps = LabelHTMLAttributes<HTMLLabelElement> & {
 
 export function HbarAppUiLabel({ size, tone = 'neutral', className = '', children, ...props }: HbarAppUiLabelProps) {
   return (
-    <LumenFrame as="label"
+    <LumenFrame
+      as="label"
       {...props}
       className={`hbar-app-ui-label${className ? ` ${className}` : ''}`}
       data-size={size}
@@ -193,135 +195,251 @@ export function HbarAppUiLabel({ size, tone = 'neutral', className = '', childre
   )
 }
 
-export function HbarAppUiTabs({options, value, onChange, label}: {
-    readonly options: readonly HbarAppUiOption[];
-    readonly value: string;
-    readonly onChange: (value: string) => void;
-    readonly label: string
+export function HbarAppUiTabs({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  readonly options: readonly HbarAppUiOption[]
+  readonly value: string
+  readonly onChange: (value: string) => void
+  readonly label: string
 }) {
-    return (
-        <LumenFrame className="hbar-app-ui-tabs" role="group" aria-label={label}>
-            {options.map((option) => <HbarAppUiButton key={option.id} type="button" aria-pressed={value === option.id}
-                                                      className={value === option.id ? 'is-selected' : ''}
-                                                      onClick={() => onChange(option.id)}>{option.label}</HbarAppUiButton>)}
-        </LumenFrame>
-    )
-}
-
-export function HbarAppUiMetricStrip({metrics}: { readonly metrics: readonly HbarAppUiMetric[] }) {
-    return <LumenCollection as="dl" className="hbar-app-ui-metrics">{metrics.map((metric) => <LumenFrame
-        className={`hbar-app-ui-metric hbar-app-ui-metric-${metric.tone ?? 'neutral'}`} key={metric.label}>
-        <LumenCollectionItem as="dt">{metric.label}</LumenCollectionItem>
-        <LumenCollectionItem as="dd">{metric.value}</LumenCollectionItem>
-        {metric.detail && <LumenText as="small">{metric.detail}</LumenText>}</LumenFrame>)}</LumenCollection>
-}
-
-export function HbarAppUiProgress({value, label, tone = 'accent'}: {
-    readonly value: number;
-    readonly label?: string;
-    readonly tone?: 'accent' | 'positive' | 'warning' | 'danger'
-}) {
-    const bounded = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0))
-    return <LumenFrame className="hbar-app-ui-progress" aria-label={label} aria-valuemin={0} aria-valuemax={100}
-                aria-valuenow={bounded} role="progressbar"><LumenText as="span"
-        className={`hbar-app-ui-progress-fill hbar-app-ui-progress-${tone}`} style={{width: `${bounded}%`}}/></LumenFrame>
-}
-
-export function HbarAppUiTimeline({steps}: { readonly steps: readonly HbarAppUiTimelineStep[] }) {
-    return <LumenCollection as="ol" className="hbar-app-ui-timeline">{steps.map((step) => <LumenCollectionItem
-        className={`hbar-app-ui-timeline-step hbar-app-ui-timeline-${step.status}`} key={step.id}><LumenText as="span"
-        className="hbar-app-ui-timeline-marker" aria-hidden="true"/>
-        <LumenFrame><LumenText as="strong">{step.label}</LumenText>{step.detail && <LumenText as="small">{step.detail}</LumenText>}</LumenFrame>
-    </LumenCollectionItem>)}</LumenCollection>
-}
-
-export function HbarAppUiEmptyState({icon, title, description, action}: {
-    readonly icon?: ReactNode;
-    readonly title: string;
-    readonly description: string;
-    readonly action?: ReactNode
-}) {
-    return <LumenFrame className="hbar-app-ui-empty"><LumenText as="span" className="hbar-app-ui-empty-icon"
-                                                    aria-hidden="true">{icon ?? '·'}</LumenText><LumenText as="strong">{title}</LumenText>
-        <LumenText as="p">{description}</LumenText>{action}</LumenFrame>
-}
-
-export function HbarAppUiStatus({value, tone = 'neutral'}: {
-    readonly value: string;
-    readonly tone?: 'neutral' | 'positive' | 'warning' | 'danger'
-}) {
-    return <LumenText as="span" className={`hbar-app-ui-status hbar-app-ui-status-${tone}`}><LumenFrame as="i" aria-hidden="true"/>{value}</LumenText>
-}
-
-export function HbarAppUiToolbar({title, detail, children}: {
-    readonly title: string;
-    readonly detail?: string;
-    readonly children?: ReactNode
-}) {
-    return <LumenFrame as="header" className="hbar-app-ui-toolbar">
-        <LumenFrame><LumenText as="strong">{title}</LumenText>{detail && <LumenText as="small">{detail}</LumenText>}</LumenFrame>
-        <LumenFrame className="hbar-app-ui-toolbar-actions">{children}</LumenFrame>
+  return (
+    <LumenFrame className="hbar-app-ui-tabs" role="group" aria-label={label}>
+      {options.map((option) => (
+        <HbarAppUiButton
+          key={option.id}
+          type="button"
+          aria-pressed={value === option.id}
+          className={value === option.id ? 'is-selected' : ''}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </HbarAppUiButton>
+      ))}
     </LumenFrame>
+  )
 }
 
-export function HbarAppUiDataTable({rows, selected, onSelect}: {
-    readonly rows: readonly HbarAppUiDataRow[];
-    readonly selected?: string;
-    readonly onSelect: (id: string) => void
+export function HbarAppUiMetricStrip({ metrics }: { readonly metrics: readonly HbarAppUiMetric[] }) {
+  return (
+    <LumenCollection as="dl" className="hbar-app-ui-metrics">
+      {metrics.map((metric) => (
+        <LumenFrame className={`hbar-app-ui-metric hbar-app-ui-metric-${metric.tone ?? 'neutral'}`} key={metric.label}>
+          <LumenCollectionItem as="dt">{metric.label}</LumenCollectionItem>
+          <LumenCollectionItem as="dd">{metric.value}</LumenCollectionItem>
+          {metric.detail && <LumenText as="small">{metric.detail}</LumenText>}
+        </LumenFrame>
+      ))}
+    </LumenCollection>
+  )
+}
+
+export function HbarAppUiProgress({
+  value,
+  label,
+  tone = 'accent',
+}: {
+  readonly value: number
+  readonly label?: string
+  readonly tone?: 'accent' | 'positive' | 'warning' | 'danger'
 }) {
-    return <LumenFrame className="hbar-app-ui-table-wrap">
-        <LumenCollection as="table" className="hbar-app-ui-table">
-            <LumenCollection as="thead">
-            <LumenCollectionItem as="tr">
-                <LumenCollectionItem as="th">Name</LumenCollectionItem>
-                <LumenCollectionItem as="th">Status</LumenCollectionItem>
-                <LumenCollectionItem as="th">Value</LumenCollectionItem>
-                <LumenCollectionItem as="th">Details</LumenCollectionItem>
-            </LumenCollectionItem>
-            </LumenCollection>
-            <LumenCollection as="tbody">{rows.map((row) => <LumenCollectionItem as="tr" className={selected === row.id ? 'is-selected' : ''} key={row.id}
-                                          onClick={() => onSelect(row.id)} tabIndex={0} onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onSelect(row.id)
-                }
-            }}>
-                <LumenCollectionItem as="td">{row.name}</LumenCollectionItem>
-                <LumenCollectionItem as="td"><HbarAppUiStatus value={row.status}
-                                     tone={row.status === 'Healthy' || row.status === 'Complete' ? 'positive' : row.status === 'Blocked' || row.status === 'Failed' ? 'danger' : 'warning'}/>
-                </LumenCollectionItem>
-                <LumenCollectionItem as="td">{row.value}</LumenCollectionItem>
-                <LumenCollectionItem as="td">{row.detail}</LumenCollectionItem>
-            </LumenCollectionItem>)}</LumenCollection>
+  const bounded = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0))
+  return (
+    <LumenFrame
+      className="hbar-app-ui-progress"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={bounded}
+      role="progressbar"
+    >
+      <LumenText
+        as="span"
+        className={`hbar-app-ui-progress-fill hbar-app-ui-progress-${tone}`}
+        style={{ width: `${bounded}%` }}
+      />
+    </LumenFrame>
+  )
+}
+
+export function HbarAppUiTimeline({ steps }: { readonly steps: readonly HbarAppUiTimelineStep[] }) {
+  return (
+    <LumenCollection as="ol" className="hbar-app-ui-timeline">
+      {steps.map((step) => (
+        <LumenCollectionItem className={`hbar-app-ui-timeline-step hbar-app-ui-timeline-${step.status}`} key={step.id}>
+          <LumenText as="span" className="hbar-app-ui-timeline-marker" aria-hidden="true" />
+          <LumenFrame>
+            <LumenText as="strong">{step.label}</LumenText>
+            {step.detail && <LumenText as="small">{step.detail}</LumenText>}
+          </LumenFrame>
+        </LumenCollectionItem>
+      ))}
+    </LumenCollection>
+  )
+}
+
+export function HbarAppUiEmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  readonly icon?: ReactNode
+  readonly title: string
+  readonly description: string
+  readonly action?: ReactNode
+}) {
+  return (
+    <LumenFrame className="hbar-app-ui-empty">
+      <LumenText as="span" className="hbar-app-ui-empty-icon" aria-hidden="true">
+        {icon ?? '·'}
+      </LumenText>
+      <LumenText as="strong">{title}</LumenText>
+      <LumenText as="p">{description}</LumenText>
+      {action}
+    </LumenFrame>
+  )
+}
+
+export function HbarAppUiStatus({
+  value,
+  tone = 'neutral',
+}: {
+  readonly value: string
+  readonly tone?: 'neutral' | 'positive' | 'warning' | 'danger'
+}) {
+  return (
+    <LumenText as="span" className={`hbar-app-ui-status hbar-app-ui-status-${tone}`}>
+      <LumenFrame as="i" aria-hidden="true" />
+      {value}
+    </LumenText>
+  )
+}
+
+export function HbarAppUiToolbar({
+  title,
+  detail,
+  children,
+}: {
+  readonly title: string
+  readonly detail?: string
+  readonly children?: ReactNode
+}) {
+  return (
+    <LumenFrame as="header" className="hbar-app-ui-toolbar">
+      <LumenFrame>
+        <LumenText as="strong">{title}</LumenText>
+        {detail && <LumenText as="small">{detail}</LumenText>}
+      </LumenFrame>
+      <LumenFrame className="hbar-app-ui-toolbar-actions">{children}</LumenFrame>
+    </LumenFrame>
+  )
+}
+
+export function HbarAppUiDataTable({
+  rows,
+  selected,
+  onSelect,
+}: {
+  readonly rows: readonly HbarAppUiDataRow[]
+  readonly selected?: string
+  readonly onSelect: (id: string) => void
+}) {
+  return (
+    <LumenFrame className="hbar-app-ui-table-wrap">
+      <LumenCollection as="table" className="hbar-app-ui-table">
+        <LumenCollection as="thead">
+          <LumenCollectionItem as="tr">
+            <LumenCollectionItem as="th">Name</LumenCollectionItem>
+            <LumenCollectionItem as="th">Status</LumenCollectionItem>
+            <LumenCollectionItem as="th">Value</LumenCollectionItem>
+            <LumenCollectionItem as="th">Details</LumenCollectionItem>
+          </LumenCollectionItem>
         </LumenCollection>
+        <LumenCollection as="tbody">
+          {rows.map((row) => (
+            <LumenCollectionItem
+              as="tr"
+              className={selected === row.id ? 'is-selected' : ''}
+              key={row.id}
+              onClick={() => onSelect(row.id)}
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onSelect(row.id)
+                }
+              }}
+            >
+              <LumenCollectionItem as="td">{row.name}</LumenCollectionItem>
+              <LumenCollectionItem as="td">
+                <HbarAppUiStatus
+                  value={row.status}
+                  tone={
+                    row.status === 'Healthy' || row.status === 'Complete'
+                      ? 'positive'
+                      : row.status === 'Blocked' || row.status === 'Failed'
+                        ? 'danger'
+                        : 'warning'
+                  }
+                />
+              </LumenCollectionItem>
+              <LumenCollectionItem as="td">{row.value}</LumenCollectionItem>
+              <LumenCollectionItem as="td">{row.detail}</LumenCollectionItem>
+            </LumenCollectionItem>
+          ))}
+        </LumenCollection>
+      </LumenCollection>
     </LumenFrame>
+  )
 }
 
-export function HbarAppUiComposer({placeholder = 'Write a message', onSubmit}: {
-    readonly placeholder?: string;
-    readonly onSubmit?: (value: string) => void
+export function HbarAppUiComposer({
+  placeholder = 'Write a message',
+  onSubmit,
+}: {
+  readonly placeholder?: string
+  readonly onSubmit?: (value: string) => void
 }) {
-    const [value, setValue] = useState('')
-    const submit = () => {
-        const next = value.trim();
-        if (!next) return;
-        onSubmit?.(next);
-        setValue('')
-    }
-    return <LumenFrame as="form" className="hbar-app-ui-composer" onSubmit={(event) => {
-        event.preventDefault();
+  const [value, setValue] = useState('')
+  const submit = () => {
+    const next = value.trim()
+    if (!next) return
+    onSubmit?.(next)
+    setValue('')
+  }
+  return (
+    <LumenFrame
+      as="form"
+      className="hbar-app-ui-composer"
+      onSubmit={(event) => {
+        event.preventDefault()
         submit()
-    }}><LumenTextarea className="hbar-app-ui-composer-input" value={value} placeholder={placeholder} onChange={(event) => setValue(event.target.value)}
-                 onKeyDown={(event) => {
-                     if (event.key === 'Enter' && !event.shiftKey) {
-                         event.preventDefault();
-                         submit()
-                     }
-                 }}/>
-        <LumenFrame><LumenText as="span">{value.length} characters</LumenText><HbarAppUiButton type="submit" tone="accent"
-                                                                    disabled={!value.trim()}>Send</HbarAppUiButton>
-        </LumenFrame>
+      }}
+    >
+      <LumenTextarea
+        className="hbar-app-ui-composer-input"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault()
+            submit()
+          }
+        }}
+      />
+      <LumenFrame>
+        <LumenText as="span">{value.length} characters</LumenText>
+        <HbarAppUiButton type="submit" tone="accent" disabled={!value.trim()}>
+          Send
+        </HbarAppUiButton>
+      </LumenFrame>
     </LumenFrame>
+  )
 }
 
 export { HbarAppUiDialog } from './components/app-dialog/NativeDialog'
