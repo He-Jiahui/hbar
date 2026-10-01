@@ -78,7 +78,7 @@ export {
   ACTIVITY_WORKSPACE_MAX_ITEMS,
   ACTIVITY_WORKSPACE_PAGE_SIZE,
 } from './activity-workspace'
-export type { ActivityWorkspaceEntryState, ActivityWorkspaceState } from './types'
+export type { ActivityWorkspaceEntryState, ActivityWorkspaceState, ActivityAgentEntryState } from './types'
 import { createQueuedUserRuns, queuedUserRunsCommands } from './queued-user-runs'
 export { queuedUserRunsCommands, QUEUED_USER_RUNS_PAGE_SIZE } from './queued-user-runs'
 export type { QueuedUserRunsState } from './queued-user-runs'
@@ -577,6 +577,10 @@ export function createAppRuntime(options: RuntimeOptions) {
     navigation.reader,
     onSubscriberError,
     () => disposed,
+    {
+      ...(options.agents ? { agents: options.agents } : {}),
+      ...(options.sidebarActivityEvents ? { events: options.sidebarActivityEvents } : {}),
+    },
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
@@ -920,6 +924,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     tabs: workspaceTabs,
     surfaces: surfaces.reader,
     agentWorkspace: agentWorkspace.reader,
+    activity: activityWorkspace.reader,
+    presentation: presentation.reader,
     navigation: navigation.reader,
     selectSession: (sessionId, workspaceId, execution) =>
       local.execute('app.setSession', { sessionId, workspaceId }, execution),

@@ -4,6 +4,8 @@ import { activeOperationsPageSchema, runCommands } from '@hbar/contracts/command
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
 import { isSessionToolVisible } from './session-tool-visibility'
+import { createActivityAgentReads } from './activity-agents'
+import type { CommandExecutor } from '@hbar/commands'
 import type {
   ActivityWorkspaceEntryState,
   ActivityWorkspaceState,
@@ -45,6 +47,16 @@ const metadata = (id: string) => ({
 })
 
 export const activityWorkspaceCommands = {
+  'activityWorkspace.refreshAgents': defineCommand(
+    metadata('activityWorkspace.refreshAgents'),
+    instanceInput,
+    z.strictObject({ instanceId: z.string().min(1).max(160) }),
+  ),
+  'activityWorkspace.loadMoreAgents': defineCommand(
+    metadata('activityWorkspace.loadMoreAgents'),
+    instanceInput,
+    z.strictObject({ instanceId: z.string().min(1).max(160) }),
+  ),
   'activityWorkspace.refresh': defineCommand(metadata('activityWorkspace.refresh'), instanceInput, commandResult),
   'activityWorkspace.loadMore': defineCommand(metadata('activityWorkspace.loadMore'), instanceInput, commandResult),
 }
@@ -162,23 +174,53 @@ export function createActivityWorkspace(
   navigation: StateReader<NavigationState>,
   onSubscriberError: (reason: unknown) => void,
   isDisposed: () => boolean,
+  additional: {
+    readonly agents?: CommandExecutor
+    readonly events?: {
+      subscribe(listener: () => void): () => void
+      onConnection?(listener: (connected: boolean) => void): () => void
+    }
+  } = {},
 ) {
-  const state = createState<ActivityWorkspaceState>({ entries: {} }, onSubscriberError)
+  const state = createState<ActivityWorkspaceState>({ entries: {}, agents: {} }, onSubscriberError)
   const client = run ? createCommandClient(runCommands, run) : null
   const requests = new Map<string, ActivityReadRequest>()
   const ownedPanels = new Set<string>()
   const suspendedPanels = new Set<string>()
   let disposed = false
+  let hintTimer: ReturnType<typeof setTimeout> | null = null
+  let hintPending = false
+  let hintReadInProgress = false
+  const agentReads = createActivityAgentReads({
+    ...(additional.agents ? { agents: additional.agents } : {}),
+    target: (instanceId) => assertPanelTarget(instanceId, surfaces, presentation, navigation),
+    isCurrent: (target) => {
+      if (disposed || isDisposed()) return false
+      try {
+        return assertPanelTarget(target.instanceId, surfaces, presentation, navigation).sessionId === target.sessionId
+      } catch {
+        return false
+      }
+    },
+    get: (instanceId) => state.reader.getSnapshot().agents[instanceId],
+    replace: (entry) =>
+      state.replace({
+        ...state.reader.getSnapshot(),
+        agents: { ...state.reader.getSnapshot().agents, [entry.instanceId]: entry },
+      }),
+  })
 
   function replace(entry: ActivityWorkspaceEntryState) {
     const entries = { ...state.reader.getSnapshot().entries, [entry.instanceId]: entry }
-    state.replace({ entries })
+    state.replace({ ...state.reader.getSnapshot(), entries })
   }
 
   function remove(instanceId: string) {
     const entries = { ...state.reader.getSnapshot().entries }
     delete entries[instanceId]
-    state.replace({ entries })
+    const agents = { ...state.reader.getSnapshot().agents }
+    delete agents[instanceId]
+    state.replace({ entries, agents })
   }
 
   function requestIsCurrent(request: ActivityReadRequest): boolean {
@@ -299,6 +341,7 @@ export function createActivityWorkspace(
       removeAbortListener()
       externalSignal?.removeEventListener('abort', abort)
       if (requests.get(instanceId) === request) requests.delete(instanceId)
+      scheduleHint()
     }
   }
 
@@ -316,6 +359,7 @@ export function createActivityWorkspace(
       const panel = current[instanceId]
       if (!panel || !panel.sessionTool || panel.panelId !== 'activity' || !panel.sessionId) {
         abortRequest(instanceId, new CommandError('QUERY_SUPERSEDED', 'Activity panel was closed'))
+        agentReads.abort(instanceId)
         ownedPanels.delete(instanceId)
         suspendedPanels.delete(instanceId)
         remove(instanceId)
@@ -332,6 +376,7 @@ export function createActivityWorkspace(
         if (!suspendedPanels.has(instanceId)) {
           suspendedPanels.add(instanceId)
           abortRequest(instanceId, new CommandError('QUERY_SUPERSEDED', 'Activity panel was hidden'))
+          agentReads.abort(instanceId)
           remove(instanceId)
         }
       } else {
@@ -355,6 +400,76 @@ export function createActivityWorkspace(
 
   local.register(activityWorkspaceCommands['activityWorkspace.refresh'], refresh)
   local.register(activityWorkspaceCommands['activityWorkspace.loadMore'], loadMore)
+  local.register(activityWorkspaceCommands['activityWorkspace.refreshAgents'], async ({ instanceId }, execution) => {
+    try {
+      await agentReads.read(instanceId, false, execution)
+    } finally {
+      scheduleHint()
+    }
+    return { instanceId }
+  })
+  local.register(activityWorkspaceCommands['activityWorkspace.loadMoreAgents'], async ({ instanceId }, execution) => {
+    try {
+      await agentReads.read(instanceId, true, execution)
+    } finally {
+      scheduleHint()
+    }
+    return { instanceId }
+  })
+
+  function scheduleHint() {
+    if (!hintPending || hintTimer !== null || disposed || isDisposed()) return
+    const id = presentation.getSnapshot().toolInstanceId
+    if (!id || requests.has(id) || agentReads.busy(id) || hintReadInProgress) return
+    try {
+      assertPanelTarget(id, surfaces, presentation, navigation)
+    } catch {
+      hintPending = false
+      return
+    }
+    hintTimer = setTimeout(() => {
+      hintTimer = null
+      if (!hintPending || disposed || isDisposed()) return
+      hintPending = false
+      try {
+        assertPanelTarget(id, surfaces, presentation, navigation)
+      } catch {
+        return
+      }
+      const currentState = state.reader.getSnapshot()
+      if (requests.has(id) || agentReads.busy(id)) {
+        hintPending = true
+        return
+      }
+      hintReadInProgress = true
+      const refreshRuns = async () => {
+        const count = currentState.entries[id]?.items.length ?? 0
+        if (!currentState.entries[id]) return
+        await read(id, null, null)
+        for (let page = 1; page < 10; page++) {
+          const accepted = state.reader.getSnapshot().entries[id]
+          if (!accepted || accepted.items.length >= count || !accepted.nextCursor || accepted.limitReached) return
+          await read(id, accepted.nextCursor, accepted)
+        }
+      }
+      void Promise.allSettled([
+        refreshRuns(),
+        currentState.agents[id] ? agentReads.read(id, false) : Promise.resolve(),
+      ]).finally(() => {
+        hintReadInProgress = false
+        scheduleHint()
+      })
+    }, 300)
+  }
+  const invalidate = () => {
+    hintPending = true
+    scheduleHint()
+  }
+  const offEvents = additional.events?.subscribe(invalidate) ?? (() => {})
+  const offConnection =
+    additional.events?.onConnection?.((connected) => {
+      if (connected) invalidate()
+    }) ?? (() => {})
   synchronizeVisibility()
 
   return {
@@ -364,6 +479,10 @@ export function createActivityWorkspace(
       offSurfaces()
       offPresentation()
       offNavigation()
+      offEvents()
+      offConnection()
+      if (hintTimer !== null) clearTimeout(hintTimer)
+      agentReads.dispose()
       for (const instanceId of requests.keys())
         abortRequest(instanceId, new CommandError('DISPOSED', 'Activity workspace was disposed'))
       requests.clear()

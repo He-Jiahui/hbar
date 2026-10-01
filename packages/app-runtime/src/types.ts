@@ -784,6 +784,17 @@ export interface ActivityWorkspaceEntryState {
 
 export interface ActivityWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<ActivityWorkspaceEntryState>>>
+  readonly agents: Readonly<Record<string, Readonly<ActivityAgentEntryState>>>
+}
+
+export interface ActivityAgentEntryState {
+  readonly instanceId: string
+  readonly sessionId: string
+  readonly status: 'loading' | 'ready' | 'error' | 'unavailable'
+  readonly items: readonly Readonly<AgentRecord>[]
+  readonly nextCursor: string | null
+  readonly limitReached: boolean
+  readonly error: string | null
 }
 
 export type SessionAttachmentTransfer = DraftAttachmentTransfer

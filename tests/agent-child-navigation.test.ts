@@ -78,7 +78,7 @@ function fixture(overrides?: {
       agents,
       directory,
       persistence,
-      surfaces: { canRender: (id) => id === 'agents' },
+      surfaces: { canRender: (id) => id === 'agents' || id === 'activity' },
     })
   return { sessions, values, persistence, directory, create }
 }
@@ -101,6 +101,43 @@ async function detail(runtime: ReturnType<ReturnType<typeof fixture>['create']>)
     sourceTabInstanceKey,
   }
 }
+
+test('an Activity Agent row opens the verified child and returns to the same parent source', async () => {
+  const runtime = fixture().create()
+  try {
+    await runtime.ready
+    await runtime.view.commands.execute('app.setSession', { workspaceId: 'parent-w', sessionId: 'parent' })
+    const sourceTabInstanceKey = runtime.workspaceTabs.capture(['parent'])[0]!.instanceKey
+    const opened = await runtime.view.commands.execute('sessionTools.open', {
+      panelId: 'activity',
+      workspaceId: 'parent-w',
+      sessionId: 'parent',
+      sourceTabInstanceKey,
+    })
+    await runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId })
+    const input = {
+      panelInstanceId: opened.instanceId,
+      parentSessionId: 'parent',
+      agentId: record.agentId,
+      expectedChildSessionId: 'child',
+      sourceTabInstanceKey,
+    }
+    const child = await runtime.view.commands.execute('agentChild.open', input)
+    expect(child.sourceAttached).toBe(true)
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe('child')
+    await runtime.view.commands.execute('agentChild.return', {
+      childSessionId: 'child',
+      childTabInstanceKey: child.childTabInstanceKey,
+    })
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe('parent')
+    await runtime.view.commands.execute('app.closePanel', { instanceId: opened.instanceId })
+    await expect(runtime.view.commands.execute('agentChild.open', input)).rejects.toMatchObject({
+      code: 'SOURCE_CHANGED',
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('an isolated child opens by its actual Workspace, returns to the original parent and never persists the Back provenance', async () => {
   const f = fixture()

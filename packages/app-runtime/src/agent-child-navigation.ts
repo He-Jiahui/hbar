@@ -10,7 +10,14 @@ import { z } from 'zod'
 import { agentCommands } from '@hbar/contracts/commands/agents'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import type { StateReader } from './state'
-import type { AgentWorkspaceState, NavigationState, SurfaceState } from './types'
+import type {
+  ActivityWorkspaceState,
+  AgentWorkspaceState,
+  NavigationState,
+  PresentationState,
+  SurfaceState,
+} from './types'
+import { isSessionToolVisible } from './session-tool-visibility'
 import type { createWorkspaceTabs, SessionTabRef } from './workspace-tabs-runtime'
 
 const id = z.string().min(1).max(160)
@@ -54,6 +61,8 @@ interface AgentChildNavigationOptions {
   readonly tabs: ReturnType<typeof createWorkspaceTabs>
   readonly surfaces: StateReader<SurfaceState>
   readonly agentWorkspace: StateReader<AgentWorkspaceState>
+  readonly activity: StateReader<ActivityWorkspaceState>
+  readonly presentation: StateReader<PresentationState>
   readonly navigation: StateReader<NavigationState>
   readonly selectSession: (sessionId: string, workspaceId: string, execution: ExecuteOptions) => Promise<unknown>
   readonly isDisposed: () => boolean
@@ -113,6 +122,25 @@ export function createAgentChildNavigation(local: CommandRegistry, options: Agen
   const agentDetail = (panelInstanceId: string, parentSessionId: string, agentId: string, childSessionId: string) => {
     const panel = options.surfaces.getSnapshot().panels[panelInstanceId]
     const entry = options.agentWorkspace.getSnapshot().entries[panelInstanceId]
+    if (panel?.panelId === 'activity') {
+      const activity = options.activity.getSnapshot().agents[panelInstanceId]
+      const selected = options.navigation.getSnapshot()
+      if (
+        panel.sessionTool &&
+        panel.sessionId === parentSessionId &&
+        selected.sessionId === parentSessionId &&
+        selected.workspaceId === panel.workspaceId &&
+        selected.status === 'idle' &&
+        isSessionToolVisible(panel, options.presentation.getSnapshot()) &&
+        activity?.sessionId === parentSessionId &&
+        activity.items.some(
+          (item) =>
+            item.agentId === agentId && item.parentSessionId === parentSessionId && item.sessionId === childSessionId,
+        )
+      )
+        return panel
+      throw new CommandError('SOURCE_CHANGED', 'Agent activity no longer belongs to the captured source')
+    }
     if (
       panel?.panelId !== 'agents' ||
       panel.sessionId !== parentSessionId ||

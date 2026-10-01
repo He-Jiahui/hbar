@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { CommandError, type ExecuteOptions } from '@hbar/commands'
+import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/commands'
+import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { activeOperationsInputSchema, type ActiveOperationsPage } from '@hbar/contracts/commands/run'
 import type { Session, Workspace } from '@hbar/contracts/directory'
@@ -59,6 +60,8 @@ function page(
 function fixture(
   respond: (input: ReadInput, execution: ExecuteOptions | undefined) => Promise<unknown> | unknown,
   renderable: readonly string[] = ['activity'],
+  agents?: CommandExecutor,
+  sidebarActivityEvents?: { subscribe(listener: () => void): () => void },
 ) {
   const calls: Array<{ readonly input: ReadInput; readonly signal?: AbortSignal }> = []
   const runtime = createAppRuntime({
@@ -88,6 +91,8 @@ function fixture(
       },
     },
     surfaces: { canRender: (panelId) => renderable.includes(panelId) },
+    ...(agents ? { agents } : {}),
+    ...(sidebarActivityEvents ? { sidebarActivityEvents } : {}),
   })
 
   async function open(sessionId = sessions[0]!.id, panelId: 'activity' | 'goals' = 'activity') {
@@ -114,6 +119,120 @@ async function waitFor(check: () => boolean) {
   }
   throw new Error('Activity workspace state did not settle')
 }
+
+function agent(index: number): AgentRecord {
+  return {
+    agentId: `agent-${String(index).padStart(3, '0')}`,
+    parentSessionId: 'session-a',
+    sessionId: `child-${index}`,
+    runId: `child-run-${index}`,
+    requestId: `request-${index}`,
+    objective: `Review ${index}`,
+    modelId: 'local-fixture',
+    tokenBudget: null,
+    status: 'running',
+    error: null,
+    createdAt: index,
+    updatedAt: index,
+  }
+}
+
+test('Activity lists public Agents by parent, pages them and preserves confirmed rows on a failed refresh', async () => {
+  const records = Array.from({ length: 51 }, (_, index) => agent(index))
+  let failed = false
+  const example = fixture(() => page('session-a', 1, []), ['activity'], {
+    async execute(name, raw) {
+      expect(name).toBe('agent.list')
+      const input = raw as { parentSessionId: string; after?: string; limit: number }
+      expect(input.parentSessionId).toBe('session-a')
+      expect(input.limit).toBe(50)
+      if (failed) throw new CommandError('DISCONNECTED', 'Lost agent read')
+      return input.after
+        ? { items: records.slice(50), nextCursor: null }
+        : { items: records.slice(0, 50), nextCursor: records[49]?.agentId }
+    },
+  })
+  try {
+    await example.runtime.ready
+    const opened = await example.open()
+    await example.runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId })
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]?.items).toHaveLength(50)
+    await example.runtime.view.commands.execute('activityWorkspace.loadMoreAgents', { instanceId: opened.instanceId })
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]?.items).toHaveLength(51)
+    failed = true
+    await expect(
+      example.runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId }),
+    ).rejects.toMatchObject({ code: 'DISCONNECTED' })
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]).toMatchObject({
+      status: 'error',
+      items: records,
+    })
+    failed = false
+    await example.runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId })
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]?.status).toBe('ready')
+  } finally {
+    example.runtime.dispose()
+  }
+})
+
+test('Activity coalesces visible Agent changes, and ignores hidden late reads and foreign parents', async () => {
+  const listeners = new Set<() => void>()
+  let currentAgent = agent(0)
+  let calls = 0
+  let release: ((value: unknown) => void) | undefined
+  let held = false
+  const example = fixture(
+    () => page('session-a', 1, []),
+    ['activity'],
+    {
+      async execute() {
+        calls++
+        if (held)
+          return new Promise<unknown>((resolve) => {
+            release = resolve
+          })
+        return { items: [currentAgent], nextCursor: null }
+      },
+    },
+    {
+      subscribe(listener) {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+    },
+  )
+  try {
+    await example.runtime.ready
+    const opened = await example.open()
+    await example.runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId })
+    currentAgent = { ...currentAgent, status: 'completed' }
+    for (let index = 0; index < 5; index++) for (const notify of listeners) notify()
+    await Bun.sleep(350)
+    expect(calls).toBe(2)
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]?.items[0]?.status).toBe(
+      'completed',
+    )
+    currentAgent = { ...currentAgent, parentSessionId: 'session-b' }
+    await expect(
+      example.runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId }),
+    ).rejects.toMatchObject({ code: 'INVALID_OUTPUT' })
+    held = true
+    const read = example.runtime.view.commands.execute('activityWorkspace.refreshAgents', {
+      instanceId: opened.instanceId,
+    })
+    await waitFor(() => release !== undefined)
+    await example.runtime.view.commands.execute('app.closePanel', { instanceId: opened.instanceId })
+    await expect(read).rejects.toMatchObject({ code: 'QUERY_SUPERSEDED' })
+    release?.({ items: [agent(1)], nextCursor: null })
+    for (const notify of listeners) notify()
+    await Bun.sleep(350)
+    expect(calls).toBe(4)
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]).toBeUndefined()
+  } finally {
+    example.runtime.dispose()
+  }
+  expect(listeners.size).toBe(0)
+})
 
 test('Activity refresh distinguishes a confirmed empty Host page from loading and query errors, with retry', async () => {
   let attempt = 0
