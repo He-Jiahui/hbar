@@ -130,10 +130,6 @@
   background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-frost));
 }
 
-.hbar-file-search-row[aria-current='true'] {
-  background: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-frost));
-}
-
 .hbar-file-search-path {
   display: flex;
   min-inline-size: 0;

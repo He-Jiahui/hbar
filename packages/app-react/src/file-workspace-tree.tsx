@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from 'lucide-react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import {
   LumenButton,
   LumenCollection,
@@ -10,6 +10,7 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import type { FileWorkspaceEntryState } from '@hbar/app-runtime'
+import { fileSearchFocusIndex } from './file-search-focus'
 
 type Item = FileWorkspaceEntryState['items'][number]
 type Node = FileWorkspaceEntryState['tree']['nodes'][string]
@@ -70,14 +71,54 @@ export function HbarFileTree({
   readonly onMoreRoot: () => void
   readonly onRefreshRoot: () => void
 }) {
-  const [activePath, setActivePath] = useState<string | null>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
+  const searchResults = useRef<HTMLUListElement>(null)
+  const focusedResult = useRef<HTMLButtonElement | null>(null)
   const tree = entry?.tree
   const searching = Boolean(tree?.filter.trim())
   const results = tree?.search.paths ?? []
-  const activeIndex = Math.max(0, results.indexOf(activePath ?? ''))
   const rootLoading = !entry || entry.status === 'loading'
+  const canNavigate = connected && !rootLoading && tree?.search.status === 'ready'
+  const searchOwner = JSON.stringify([
+    entry?.instanceId,
+    entry?.workspaceId,
+    entry?.sourceSessionId,
+    entry?.sessionTarget,
+  ])
   const rootItems = entry?.items ?? []
   const segments = entry?.path === '.' ? [] : (entry?.path.split('/') ?? [])
+
+  useLayoutEffect(() => {
+    const previous = focusedResult.current
+    if (!previous || (previous.isConnected && !previous.disabled)) return
+    focusedResult.current = null
+    const input = searchInput.current
+    const active = previous.ownerDocument.activeElement
+    // Removed rows do not emit blur. Recover only focus still owned by this list,
+    // never from another pane or a hidden navigator.
+    if (
+      input?.isConnected &&
+      input.getClientRects().length > 0 &&
+      (active === previous || active === previous.ownerDocument.body)
+    )
+      input.focus({ preventScroll: true })
+  }, [tree?.search, connected, rootLoading, searchOwner])
+
+  const clearSearch = () => {
+    onFilter('')
+    searchInput.current?.focus({ preventScroll: true })
+  }
+  const focusResult = (key: string, current: HTMLButtonElement | null) => {
+    if (!canNavigate) return false
+    const buttons = [
+      ...(searchResults.current?.querySelectorAll<HTMLButtonElement>('.hbar-file-search-row:not(:disabled)') ?? []),
+    ]
+    const index = fileSearchFocusIndex(key, buttons.length, current ? buttons.indexOf(current) : null)
+    const target = index === null ? undefined : buttons[index]
+    if (!target) return false
+    target.focus()
+    return true
+  }
 
   const renderRows = (items: readonly Item[], depth: number, busy: boolean) => (
     <LumenCollection as="ul" className="hbar-file-tree-list" aria-label={depth === 0 ? labels.all : undefined}>
@@ -168,38 +209,22 @@ export function HbarFileTree({
       <LumenFrame className="hbar-file-tree-controls">
         <LumenIcon icon={Search} tier="sm" />
         <LumenInput
+          ref={searchInput}
           aria-label={labels.filter}
           placeholder={labels.filter}
           maxLength={160}
           value={tree?.filter ?? ''}
-          onChange={(event) => {
-            setActivePath(null)
-            onFilter(event.currentTarget.value)
-          }}
+          onChange={(event) => onFilter(event.currentTarget.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing || !searching) return
             if (event.key === 'Escape') {
               event.preventDefault()
-              setActivePath(null)
-              onFilter('')
-            } else if (tree?.search.status === 'ready' && results.length) {
-              const next =
-                event.key === 'ArrowDown'
-                  ? Math.min(results.length - 1, activeIndex + 1)
-                  : event.key === 'ArrowUp'
-                    ? Math.max(0, activeIndex - 1)
-                    : event.key === 'Home'
-                      ? 0
-                      : event.key === 'End'
-                        ? results.length - 1
-                        : null
-              if (next !== null) {
-                event.preventDefault()
-                setActivePath(results[next]!)
-              } else if (event.key === 'Enter') {
-                event.preventDefault()
-                onOpenFile(results[activeIndex]!)
-              }
+              clearSearch()
+            } else if (focusResult(event.key, null)) {
+              event.preventDefault()
+            } else if (event.key === 'Enter' && canNavigate && results[0]) {
+              event.preventDefault()
+              onOpenFile(results[0])
             }
           }}
         />
@@ -211,7 +236,7 @@ export function HbarFileTree({
             indicator="none"
             aria-label={labels.clearSearch}
             title={labels.clearSearch}
-            onClick={() => onFilter('')}
+            onClick={clearSearch}
           >
             <LumenIcon icon={X} tier="sm" />
           </LumenButton>
@@ -290,8 +315,14 @@ export function HbarFileTree({
       <LumenFrame className="hbar-file-tree-scroll">
         {searching
           ? tree?.search.status === 'ready' && (
-              <LumenCollection as="ul" className="hbar-file-tree-list" aria-label={labels.searchResults}>
-                {results.map((path, index) => (
+              <LumenCollection
+                ref={searchResults}
+                key={`${searchOwner}:${tree.filter}`}
+                as="ul"
+                className="hbar-file-tree-list"
+                aria-label={labels.searchResults}
+              >
+                {results.map((path) => (
                   <LumenCollectionItem as="li" key={path}>
                     <LumenButton
                       type="button"
@@ -299,11 +330,25 @@ export function HbarFileTree({
                       indicator="none"
                       className="hbar-file-tree-row hbar-file-search-row"
                       aria-label={path}
-                      aria-current={index === activeIndex ? 'true' : undefined}
+                      aria-current={selectedPath === path ? 'page' : undefined}
                       data-selected={selectedPath === path}
                       title={path}
-                      disabled={!connected}
-                      onMouseEnter={() => setActivePath(path)}
+                      disabled={!connected || rootLoading}
+                      onFocus={(event) => {
+                        focusedResult.current = event.currentTarget
+                      }}
+                      onBlur={() => {
+                        focusedResult.current = null
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.nativeEvent.isComposing) return
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          clearSearch()
+                        } else if (focusResult(event.key, event.currentTarget)) {
+                          event.preventDefault()
+                        }
+                      }}
                       onClick={() => onOpenFile(path)}
                     >
                       <LumenIcon icon={FileText} tier="sm" />
