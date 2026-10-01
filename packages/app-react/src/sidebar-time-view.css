@@ -65,35 +65,3 @@
 .hbar-app-react-session-workspace {
   flex: 1 1 auto;
 }
-
-.hbar-app-react-session-activity-indicator {
-  display: flex;
-  flex: 0 0 auto;
-  color: var(--lumen-success);
-}
-
-.hbar-app-react-session-activity-indicator[data-state='waiting_approval'] {
-  color: var(--lumen-warning);
-}
-
-.hbar-app-react-session-activity-indicator[data-state='queued'],
-.hbar-app-react-session-activity-indicator[data-state='cancelRequested'] {
-  color: var(--lumen-muted);
-}
-
-.hbar-app-react-session-activity-indicator[data-state='running'] > .lumen-icon,
-.hbar-app-react-session-activity-indicator[data-state='cancelRequested'] > .lumen-icon {
-  animation: hbar-sidebar-activity-spin 1s linear infinite;
-}
-
-@keyframes hbar-sidebar-activity-spin {
-  to {
-    rotate: 360deg;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hbar-app-react-session-activity-indicator > .lumen-icon {
-    animation: none;
-  }
-}

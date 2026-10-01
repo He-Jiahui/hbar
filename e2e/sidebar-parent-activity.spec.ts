@@ -14,7 +14,7 @@ async function cleanupFixture(root: string): Promise<void> {
   await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
 }
 
-test('Time sidebar keeps an idle parent active while a child works and settles after cancellation', async ({
+test('Project and Time sidebar keep an idle parent active while a child works and settle after cancellation', async ({
   browser,
 }) => {
   test.setTimeout(90_000)
@@ -34,6 +34,7 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
+    page.setDefaultTimeout(15_000)
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
@@ -46,7 +47,8 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '先查看后台工作，返回后继续保留这段输入。'
     await prompt.fill(draft)
-    await page.getByTestId('sidebar-time-toggle').click()
+    const groupedParent = page.locator(`.hbar-app-react-session-list [data-session-id="${sessionId}"]`)
+    const groupedIndicator = groupedParent.locator('.hbar-app-react-session-activity-indicator')
     const timeView = page.locator('.hbar-app-react-sidebar-time-view')
     const runningGroup = timeView
       .getByRole('heading', { name: copy.shell.sort.time.groups.running, exact: true })
@@ -76,6 +78,14 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
           (await agents.execute('agent.result.get', { parentSessionId: sessionId, agentId: running.agentId })).status,
       )
       .toBe('running')
+    await expect(groupedIndicator).toHaveAttribute('data-state', 'running')
+    await expect(groupedIndicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.running)
+    expect(await groupedParent.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+    expect(
+      await groupedParent.locator('.hbar-app-react-session-title').evaluate((node) => getComputedStyle(node).textAlign),
+    ).toBe('start')
+    await page.screenshot({ path: join(evidence, 'zh-project-child-working.png') })
+    await page.getByTestId('sidebar-time-toggle').click()
     await expect(runningGroup.locator(`[data-session-id="${sessionId}"]`)).toBeVisible()
     await expect(indicator).toHaveAttribute('data-state', 'running')
     await expect(indicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.running)
@@ -113,6 +123,10 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
     await expect(indicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.waiting_approval)
     expect(await indicator.locator('svg').evaluate((node) => getComputedStyle(node).animationName)).toBe('none')
     await page.screenshot({ path: join(evidence, 'zh-child-waiting.png') })
+    await page.getByTestId('sidebar-time-toggle').click()
+    await expect(groupedIndicator).toHaveAttribute('data-state', 'waiting_approval')
+    await expect(groupedIndicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.waiting_approval)
+    await page.screenshot({ path: join(evidence, 'zh-project-child-waiting.png') })
 
     await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
     const pane = page.locator('.hbar-session-activity-workspace')
@@ -125,6 +139,9 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
     await agents.execute('agent.cancel', { parentSessionId: sessionId, agentId: waiting.agentId })
     await expect.poll(async () => (await summary())?.activeCount).toBe(0)
     await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
+    await expect(groupedIndicator).toHaveCount(0)
+    await page.screenshot({ path: join(evidence, 'zh-project-child-settled.png') })
+    await page.getByTestId('sidebar-time-toggle').click()
     await expect(indicator).toHaveCount(0)
     await expect(runningGroup).toHaveCount(0)
     await expect(
@@ -142,6 +159,7 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
         {
           asset: process.env.HBAR_ACTIVITY_EXPECTED_ASSET ?? null,
           reference: 'artifacts/parent-activity-reference-v10/manifest.json',
+          groupedReference: 'artifacts/grouped-activity-reference-v11/manifest.json',
           boundary:
             'Temporary real Host and local-fixture Agents only; no paid providers or real profile. No pending write approved.',
           sessionId,
@@ -150,6 +168,7 @@ test('Time sidebar keeps an idle parent active while a child works and settles a
           waitingAgentId: waiting.agentId,
           checks: [
             'idle parent hoisted before paging',
+            'same state in grouped project row without changing navigation',
             'inline running indicator',
             'approval indicator is not animated',
             'Activity child open and return preserve draft',

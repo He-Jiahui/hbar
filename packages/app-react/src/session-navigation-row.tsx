@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
-import { Check, Circle, CircleAlert, Folder, Hourglass, LoaderCircle, MessageSquare } from 'lucide-react'
+import { Check, Circle, Folder, MessageSquare } from 'lucide-react'
 import type { DirectoryState } from '@hbar/app-runtime'
-import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
 import {
   LumenActionMenu,
   LumenButton,
@@ -13,6 +12,7 @@ import {
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
+import { SessionActivityIndicator, type SessionActivityIndicatorContent } from './session-activity-indicator'
 
 export interface SessionRenameLabels {
   readonly form: (title: string) => string
@@ -41,10 +41,7 @@ export interface SessionNavigationRowLabels {
 
 export interface SessionNavigationRowMetadata {
   readonly workspaceName: string
-  readonly execution: {
-    readonly state: SessionActivityExecution['state']
-    readonly label: string
-  }
+  readonly execution: SessionActivityIndicatorContent
 }
 
 /** A filtered/removed row must not make its pending intent impossible to resolve. */
@@ -110,6 +107,7 @@ export function SessionNavigationRow({
   onToggleBatchSelection,
   onExitBatchSelection,
   metadata,
+  execution,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
@@ -122,6 +120,7 @@ export function SessionNavigationRow({
   readonly onToggleBatchSelection?: () => void
   readonly onExitBatchSelection?: () => void
   readonly metadata?: SessionNavigationRowMetadata | undefined
+  readonly execution?: SessionActivityIndicatorContent | undefined
 }) {
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
@@ -352,26 +351,7 @@ export function SessionNavigationRow({
                       {session.title}
                     </LumenText>
                     {sessionTime}
-                    {metadata.execution.state !== 'idle' && (
-                      <span
-                        className="hbar-app-react-session-activity-indicator"
-                        role="img"
-                        aria-label={metadata.execution.label}
-                        title={metadata.execution.label}
-                        data-state={metadata.execution.state}
-                      >
-                        <LumenIcon
-                          icon={
-                            metadata.execution.state === 'waiting_approval'
-                              ? CircleAlert
-                              : metadata.execution.state === 'queued'
-                                ? Hourglass
-                                : LoaderCircle
-                          }
-                          tier="sm"
-                        />
-                      </span>
-                    )}
+                    <SessionActivityIndicator execution={metadata.execution} />
                   </span>
                   <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
                     <LumenIcon icon={Folder} tier="sm" />
@@ -385,6 +365,7 @@ export function SessionNavigationRow({
                   <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
                     {session.title}
                   </LumenText>
+                  <SessionActivityIndicator execution={execution} />
                   {sessionTime}
                 </>
               )}

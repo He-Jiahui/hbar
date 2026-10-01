@@ -1643,28 +1643,39 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         ) : sessions.length === 0 && !activitySessions?.error ? (
                           <LumenText as="p">{props.labels.noSessions}</LumenText>
                         ) : (
-                          sessions.map((session) => (
-                            <SessionNavigationRow
-                              key={session.id}
-                              session={session}
-                              connected={props.connection === 'connected'}
-                              labels={props.labels}
-                              now={sessionTimeNow}
-                              batchSelecting={batchSelecting}
-                              batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
-                              onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
-                              onExitBatchSelection={() => {
-                                exitBatchSelection()
-                                batchToolbarRef.current?.focus()
-                              }}
-                              selected={
-                                presentation.page.kind === 'session' &&
-                                navigation.workspaceId === session.workspaceId &&
-                                navigation.sessionId === session.id
-                              }
-                              onOpen={() => openSession(session.workspaceId, session.id)}
-                            />
-                          ))
+                          sessions.map((session) => {
+                            const execution = activitySessions?.execution[session.id]
+                            return (
+                              <SessionNavigationRow
+                                key={session.id}
+                                session={session}
+                                connected={props.connection === 'connected'}
+                                labels={props.labels}
+                                now={sessionTimeNow}
+                                execution={
+                                  execution
+                                    ? {
+                                        state: execution.state,
+                                        label: props.labels.sort.time.execution[execution.state],
+                                      }
+                                    : undefined
+                                }
+                                batchSelecting={batchSelecting}
+                                batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
+                                onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
+                                onExitBatchSelection={() => {
+                                  exitBatchSelection()
+                                  batchToolbarRef.current?.focus()
+                                }}
+                                selected={
+                                  presentation.page.kind === 'session' &&
+                                  navigation.workspaceId === session.workspaceId &&
+                                  navigation.sessionId === session.id
+                                }
+                                onOpen={() => openSession(session.workspaceId, session.id)}
+                              />
+                            )
+                          })
                         )}
                         {activitySessions?.error && (
                           <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
