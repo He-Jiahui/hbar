@@ -475,34 +475,38 @@ export class PiDriver implements HarnessDriver {
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
     }
-    await runAgentLoop(
-      [],
-      {
-        systemPrompt: input.request.system,
-        messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
-        tools,
-      },
-      {
-        model: modelOf(input.request.model),
-        convertToLlm: (messages) => messages as PiMessage[],
-        toolExecution: 'sequential',
-        shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
-        ...(input.getSteeringMessages
-          ? {
-              getSteeringMessages: () => pollSteering(),
-              // Only the outer-loop natural-stop probe seals an empty source.
-              // Ordinary empty polls must not close admission during tool work.
-              getFollowUpMessages: () => pollSteering(true),
-            }
-          : {}),
-      },
-      emit,
-      input.signal,
-      streamFn,
-    )
-    input.signal.throwIfAborted()
-    if (requestFailure !== undefined) throw requestFailure
-    if (failure) throw new Error(failure)
+    try {
+      await runAgentLoop(
+        [],
+        {
+          systemPrompt: input.request.system,
+          messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+          tools,
+        },
+        {
+          model: modelOf(input.request.model),
+          convertToLlm: (messages) => messages as PiMessage[],
+          toolExecution: 'sequential',
+          shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
+          ...(input.getSteeringMessages
+            ? {
+                getSteeringMessages: () => pollSteering(),
+                // Only the outer-loop natural-stop probe seals an empty source.
+                // Ordinary empty polls must not close admission during tool work.
+                getFollowUpMessages: () => pollSteering(true),
+              }
+            : {}),
+        },
+        emit,
+        input.signal,
+        streamFn,
+      )
+      input.signal.throwIfAborted()
+      if (requestFailure !== undefined) throw requestFailure
+      if (failure) throw new Error(failure)
+    } finally {
+      await input.closeSteeringAdmission?.()
+    }
   }
   async summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal) {
     const stream = streamProvider(

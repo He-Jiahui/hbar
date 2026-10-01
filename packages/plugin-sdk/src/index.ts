@@ -202,7 +202,8 @@ export interface DriverInput {
    * already committed user messages for this exact Run, in sequence order,
    * at most 20 per read. The source owns its delivery cursor; do not rescan
    * compacted history as fresh steering. beforeRequest must include
-   * them in authoritative history. Drivers must not commit these messages again.
+   * them in authoritative history. Steering-capable drivers must not commit
+   * user messages: the Host owns both the initial input and queue guidance.
    * Cancellation/Goal termination remain authoritative; this does not grant tool
    * permission, change the model, or admit queued operations by itself. */
   getSteeringMessages?(target: {
@@ -214,6 +215,10 @@ export interface DriverInput {
      * cannot be accepted after the driver's last poll. Nonempty keeps it open. */
     readonly closeWhenEmpty?: true
   }): Promise<readonly Message[]>
+  /** Seal live admission before leaving the loop on an explicit terminal
+   * path (Goal, cancellation, provider/source failure). This does not replay
+   * already accepted messages or start a replacement Run. */
+  closeSteeringAdmission?(): Promise<void>
 }
 export interface HarnessDriver {
   /** Explicit opt-in; a Host must not admit live steering to a legacy driver

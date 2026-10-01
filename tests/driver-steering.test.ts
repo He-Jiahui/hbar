@@ -149,6 +149,55 @@ test('drivers without steering retain the ordinary one-response path', async () 
   expect(f.messages.filter((message) => message.role === 'user')).toHaveLength(1)
 })
 
+test('explicit Goal termination seals admission before the driver returns, without consuming another guide', async () => {
+  const f = fixture()
+  let closed = false
+  let reads = 0
+  f.input.getSteeringMessages = () => {
+    reads++
+    return Promise.resolve([])
+  }
+  f.input.stepEnded = () => Promise.resolve({ stop: 'goal_complete' })
+  f.input.closeSteeringAdmission = () => {
+    closed = true
+    return Promise.resolve()
+  }
+  await new PiDriver().run(f.input)
+  expect(closed).toBe(true)
+  expect(reads).toBe(1)
+  expect(f.requests).toHaveLength(1)
+})
+
+test('a failed authoritative request seals admission and does not start a replacement request', async () => {
+  const f = fixture()
+  let closes = 0
+  let requests = 0
+  f.input.beforeRequest = () => {
+    requests++
+    return Promise.reject(new Error('Provider context unavailable'))
+  }
+  f.input.closeSteeringAdmission = () => {
+    closes++
+    return Promise.resolve()
+  }
+  await expect(new PiDriver().run(f.input)).rejects.toThrow('Provider context unavailable')
+  expect(closes).toBe(1)
+  expect(requests).toBe(1)
+})
+
+test('an aborted loop seals admission before returning its cancellation', async () => {
+  const f = fixture()
+  let closes = 0
+  f.controller.abort(new Error('Owned cancellation'))
+  f.input.closeSteeringAdmission = () => {
+    closes++
+    return Promise.resolve()
+  }
+  await expect(new PiDriver().run(f.input)).rejects.toThrow('Owned cancellation')
+  expect(closes).toBe(1)
+  expect(f.requests).toHaveLength(0)
+})
+
 test('the final natural-stop probe consumes a late guide before atomically closing an empty source', async () => {
   const f = fixture()
   const probes: boolean[] = []
