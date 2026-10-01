@@ -27,6 +27,10 @@ theme/viewport matrices are not a prerequisite. The evidence and remaining gaps
 are recorded separately in [app-ui-visual-audit.md](app-ui-visual-audit.md) and
 [the variant inventory](app-ui-variant-inventory.md), never as real service delivery.
 
+The consolidated [38-category / 300-variant practical delivery receipt](app-ui-practical-delivery.md)
+indexes category commits, core evidence, coverage checks and preserved limitations.
+It is not a new exhaustive replay or a strict all-pass claim.
+
 Optional strict reference acceptance still requires source/local records for every
 configured viewport/theme and sampled interaction, no structural hard-gate failure,
 no page/console error, and a passed entry in the generated `review-ledger.json`.

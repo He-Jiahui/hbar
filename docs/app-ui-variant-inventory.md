@@ -15,6 +15,9 @@
 这与“受控契约已接入”等迁移状态及下述 strict 审计状态分别记录；不因微小像素残差拖住进度，
 也不将预览结果写成真实远端业务完成。参见 [当前交付标准](reactbits-pro-visual-audit.md)。
 
+本轮全部类别的实现提交、核心证据与边界汇总见 [38 类 / 300 变体实用交付回执](app-ui-practical-delivery.md)。
+清单范围检查不重放按钮、不改写历史 strict 签核。
+
 本表的“受控契约已接入”“已有内容契约，继续迁移”和“待数据化”只描述实现迁移状态。
 可选严格视觉/交互审计状态以忽略目录
 `artifacts/reactbits-pro-visual-audit/<run-id>/review-ledger.json` 为准；只有同时具备 8 个
@@ -36,23 +39,26 @@ Notifications 2 的独立证据在 `artifacts/reactbits-pro-visual-audit/notific
 Notifications 4 的独立证据在 `artifacts/reactbits-pro-visual-audit/notifications-4-final-v4/review-ledger.json`：
 8 组静态双端配对、13 组按变化机制选样的原版/本地前后截图，结构错误与缺失案例均为 0，人工签核通过。
 列表／详情切换、两个目的分类、Snooze 菜单与 Escape、确认后的迁移及源站无变化的主动作已覆盖；
-其他同构条目、菜单选项和主题/视口排列按 `inferred-not-replayed` 记录。正式宿主迁移持久化与 Notifications 6 仍待独立验收。
+其他同构条目、菜单选项和主题/视口排列按 `inferred-not-replayed` 记录。该次签核时正式宿主迁移持久化与 Notifications 6 仍待独立验收。
 Notifications 5 的独立证据在 `artifacts/reactbits-pro-visual-audit/notifications-5-final-v4/review-ledger.json`：
 8 组静态双端配对、10 组按反馈机制选样的原版/本地前后截图，结构错误和缺失案例均为 0，人工签核通过。
 主／次动作移除、错误详情展开／收起、单条和全空态恢复、窄屏键盘动作均有配对证据；
-其他横幅及原版无可见结果的同构操作按 `inferred-not-replayed` 说明。正式宿主操作持久化与 Notifications 6 尚未验收。
+其他横幅及原版无可见结果的同构操作按 `inferred-not-replayed` 说明。该次签核时正式宿主操作持久化与 Notifications 6 尚未验收。
+
+Notifications 3 的历史 `notifications-3-final-v170/review-ledger.json` 已通过 8 组静态与 9 个机制案例。
+当前 Notifications 6 的核心流程与自然窄屏布局已完成，见回执和该行记录；正式宿主持久化及 6 的 strict 签核仍分别保留未完成状态。
 
 | 稳定变体 ID                   | 分类源入口                                                                                 | 当前状态               | 列表/容量归属                                                    | 剩余验证或契约缺口                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------------ | ---------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
-| hbar-app-ui-ai-chat-1         | [hbar-app-ui-ai-chat-1](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 宿主消息/推理工具披露/来源标签；pane-scroll | 实用功能与流布局闭环；发送保留草稿，无真实 provider 调用 |
-| hbar-app-ui-ai-chat-2         | [hbar-app-ui-ai-chat-2](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 六条消息与工件 aside；版本/模式受控 | 实用功能与流布局闭环；复制/下载只报告请求 |
-| hbar-app-ui-ai-chat-3         | [hbar-app-ui-ai-chat-3](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 紧凑六条对话/Ready/原生输入；pane-scroll | 实用功能与流布局闭环；不再用欢迎页替代嵌入会话 |
-| hbar-app-ui-ai-chat-4         | [hbar-app-ui-ai-chat-4](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 六条对话/模型 listbox/上下文值 | 实用功能与流布局闭环；settings 仅意图，无源展开证据 |
-| hbar-app-ui-ai-chat-5         | [hbar-app-ui-ai-chat-5](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 扫描披露/两条历史/待审批卡；内容流 | 实用功能与流布局闭环；点击不伪造批准或删除成功 |
-| hbar-app-ui-ai-chat-6         | [hbar-app-ui-ai-chat-6](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 五条原作者消息/十一条被动 activity | 实用功能与流布局闭环；无虚构 agent 选择或交接 |
-| hbar-app-ui-ai-chat-7         | [hbar-app-ui-ai-chat-7](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 八条消息/行内引用/十条 pinned sources | 实用功能与流布局闭环；本地来源选择，无真实文件打开 |
-| hbar-app-ui-ai-chat-8         | [hbar-app-ui-ai-chat-8](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 固定语音快照/波形/附件；本地 phase | 实用功能与流布局闭环；未使用麦克风或生成录音 |
-| hbar-app-ui-ai-chat-9         | [hbar-app-ui-ai-chat-9](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 参考受控契约已接入 | 六条消息/输入区模型菜单/宿主免责声明 | 实用功能与流布局闭环；非 fresh strict 全按钮验收 |
+| hbar-app-ui-ai-chat-1         | [hbar-app-ui-ai-chat-1](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 宿主消息/推理工具披露/来源标签；pane-scroll | 实用功能与流布局闭环；发送保留草稿，无真实 provider 调用 |
+| hbar-app-ui-ai-chat-2         | [hbar-app-ui-ai-chat-2](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 六条消息与工件 aside；版本/模式受控 | 实用功能与流布局闭环；复制/下载只报告请求 |
+| hbar-app-ui-ai-chat-3         | [hbar-app-ui-ai-chat-3](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 紧凑六条对话/Ready/原生输入；pane-scroll | 实用功能与流布局闭环；不再用欢迎页替代嵌入会话 |
+| hbar-app-ui-ai-chat-4         | [hbar-app-ui-ai-chat-4](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 六条对话/模型 listbox/上下文值 | 实用功能与流布局闭环；settings 仅意图，无源展开证据 |
+| hbar-app-ui-ai-chat-5         | [hbar-app-ui-ai-chat-5](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 扫描披露/两条历史/待审批卡；内容流 | 实用功能与流布局闭环；点击不伪造批准或删除成功 |
+| hbar-app-ui-ai-chat-6         | [hbar-app-ui-ai-chat-6](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 五条原作者消息/十一条被动 activity | 实用功能与流布局闭环；无虚构 agent 选择或交接 |
+| hbar-app-ui-ai-chat-7         | [hbar-app-ui-ai-chat-7](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 八条消息/行内引用/十条 pinned sources | 实用功能与流布局闭环；本地来源选择，无真实文件打开 |
+| hbar-app-ui-ai-chat-8         | [hbar-app-ui-ai-chat-8](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 固定语音快照/波形/附件；本地 phase | 实用功能与流布局闭环；未使用麦克风或生成录音 |
+| hbar-app-ui-ai-chat-9         | [hbar-app-ui-ai-chat-9](../packages/hbar-app-ui/src/components/AiChat.tsx)                 | 功能与布局通过（核心流程）；受控契约已接入 | 六条消息/输入区模型菜单/宿主免责声明 | 实用功能与流布局闭环；非 fresh strict 全按钮验收 |
 | hbar-app-ui-prompt-input-1    | [hbar-app-ui-prompt-input-1](../packages/hbar-app-ui/src/components/PromptInput.tsx)       | 功能与布局通过 | 宿主附件/模型/强度/命令；受控原生 combobox | 实用参考闭环；发送保留输入，附件/语音仅报告预览请求 |
 | hbar-app-ui-prompt-input-2    | [hbar-app-ui-prompt-input-2](../packages/hbar-app-ui/src/components/PromptInput.tsx)       | 功能与布局通过 | 草稿/模型/Search 受控；token 为宿主快照 | 实用参考闭环；免责声明不被临时反馈覆盖，无真实 tokenizer |
 | hbar-app-ui-prompt-input-3    | [hbar-app-ui-prompt-input-3](../packages/hbar-app-ui/src/components/PromptInput.tsx)       | 功能与布局通过 | 四个宿主建议位于 composer 后；内容流换行 | 实用参考闭环；建议只预填草稿，不伪造生成应用 |
@@ -248,11 +254,11 @@ Notifications 5 的独立证据在 `artifacts/reactbits-pro-visual-audit/notific
 | hbar-app-ui-app-dialog-5      | [hbar-app-ui-app-dialog-5](../packages/hbar-app-ui/src/components/AppDialog.tsx)           | 预览视觉与交互审计通过 | 告警渠道：content-grown；宿主提供保存/失败/恢复文案            | 正式宿主/桌面业务闭环仍需独立验收                         |
 | hbar-app-ui-app-dialog-6      | [hbar-app-ui-app-dialog-6](../packages/hbar-app-ui/src/components/AppDialog.tsx)           | 预览视觉与交互审计通过 | 证据记录：pane-scroll；固定操作区与长列表独立验证              | 正式宿主/桌面业务闭环仍需独立验收                         |
 | hbar-app-ui-app-dialog-7      | [hbar-app-ui-app-dialog-7](../packages/hbar-app-ui/src/components/AppDialog.tsx)           | 预览视觉与交互审计通过 | 菜单：pane-scroll；子菜单空态与容量边界独立验证                | 正式宿主/桌面业务闭环仍需独立验收                         |
-| hbar-app-ui-notifications-1   | [hbar-app-ui-notifications-1](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 8 条分组通知：pane-scroll；宿主提供文案、图标语义和 80 条容量策略 | 正式宿主/桌面业务闭环仍需独立验收；6 变体未审计 |
-| hbar-app-ui-notifications-2   | [hbar-app-ui-notifications-2](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 右下角通知栈：宿主提供四种文案和最大容量；计时与悬停暂停 | 正式宿主/桌面业务闭环仍需独立验收；6 变体未审计 |
-| hbar-app-ui-notifications-3   | [hbar-app-ui-notifications-3](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 7 行、3 渠道：pane-scroll 与窄屏矩阵横向滚动；9 个变化机制案例、宿主确认保存与错误重试 | 正式宿主尚未接入持久化；6 变体未审计 |
-| hbar-app-ui-notifications-4   | [hbar-app-ui-notifications-4](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 5 条活动：pane-scroll；13 个变化机制案例、宿主确认迁移、失败重试和窄屏列表／详情切换 | 正式宿主尚未接入迁移持久化；6 变体未审计 |
-| hbar-app-ui-notifications-5   | [hbar-app-ui-notifications-5](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 5 条横幅：pane-scroll；10 个变化机制案例、宿主确认移除／恢复、失败重试与窄屏详情流 | 正式宿主尚未接入操作持久化；6 变体未审计 |
+| hbar-app-ui-notifications-1   | [hbar-app-ui-notifications-1](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 8 条分组通知：pane-scroll；宿主提供文案、图标语义和 80 条容量策略 | 正式宿主/桌面业务闭环仍需独立验收；6 核心流程已完成，strict 差异另列 |
+| hbar-app-ui-notifications-2   | [hbar-app-ui-notifications-2](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 右下角通知栈：宿主提供四种文案和最大容量；计时与悬停暂停 | 正式宿主/桌面业务闭环仍需独立验收；6 核心流程已完成，strict 差异另列 |
+| hbar-app-ui-notifications-3   | [hbar-app-ui-notifications-3](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 7 行、3 渠道：pane-scroll 与窄屏矩阵横向滚动；9 个变化机制案例、宿主确认保存与错误重试 | 正式宿主尚未接入持久化；6 核心流程已完成，strict 差异另列 |
+| hbar-app-ui-notifications-4   | [hbar-app-ui-notifications-4](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 5 条活动：pane-scroll；13 个变化机制案例、宿主确认迁移、失败重试和窄屏列表／详情切换 | 正式宿主尚未接入迁移持久化；6 核心流程已完成，strict 差异另列 |
+| hbar-app-ui-notifications-5   | [hbar-app-ui-notifications-5](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 预览视觉与交互审计通过 | 5 条横幅：pane-scroll；10 个变化机制案例、宿主确认移除／恢复、失败重试与窄屏详情流 | 正式宿主尚未接入操作持久化；6 核心流程已完成，strict 差异另列 |
 | hbar-app-ui-notifications-6   | [hbar-app-ui-notifications-6](../packages/hbar-app-ui/src/components/Notifications.tsx)    | 功能与布局通过（核心流程）；严格记录未签核 | 顶栏与弹层；长文工具栏自然换行、消息独立滚动；宿主确认已读与键盘关闭返回焦点 | 2026-10-02 / notifications-core-review：3 代表记录、0 诊断，完整 read-all/筛选/页脚在 286×420 可达；历史 source 窄屏裁切差异仍 `needs-fix`，本次不重签旧 ledger；正式宿主持久化未接入 |
 | hbar-app-ui-onboarding-1      | [hbar-app-ui-onboarding-1](../hbar-ui/packages/lumen-app-ui/src/onboarding-1-reference.tsx) | 功能与布局通过（核心流程）；严格记录另列 | 双栏/单栏静态结构、姓名/时区 placeholder/勾选按机制抽样；286px 可见、320px 短高真滚动可达 | 2026-10-02 / 实用闭环：活跃 Host 与原有模型测试通过；Onboarding1/5 代表浏览流程、0 页面异常；桌面预览编辑联动仅本地推导；上传、校验、Continue 后果未证，官方当前页不可用 |
 | hbar-app-ui-onboarding-2      | [hbar-app-ui-onboarding-2](../hbar-ui/packages/lumen-app-ui/src/onboarding-2-reference.tsx) | 功能与布局通过（核心流程）；严格记录另列 | 六步桌面 rail／窄屏 Step N of 6，Profile 草稿和 Continue 按机制抽样；Role Product 预选，320px 短高文档滚动可达 | 2026-10-02 / 实用闭环：活跃 Host 与原有模型测试通过；Onboarding1/5 代表浏览流程、0 页面异常；Back、角色变更、rail 跳转及后四步表单/结果未证，均不伪造；无 fresh strict 来源对 |
