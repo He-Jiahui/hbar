@@ -341,10 +341,14 @@ export function HbarAppUiToolbar({
 
 export function HbarAppUiDataTable({
   rows,
+  labels,
+  statusTone,
   selected,
   onSelect,
 }: {
   readonly rows: readonly HbarAppUiDataRow[]
+  readonly labels: { readonly name: string; readonly status: string; readonly value: string; readonly details: string }
+  readonly statusTone?: (row: HbarAppUiDataRow) => 'neutral' | 'positive' | 'warning' | 'danger'
   readonly selected?: string
   readonly onSelect: (id: string) => void
 }) {
@@ -353,10 +357,10 @@ export function HbarAppUiDataTable({
       <LumenCollection as="table" className="hbar-app-ui-table">
         <LumenCollection as="thead">
           <LumenCollectionItem as="tr">
-            <LumenCollectionItem as="th">Name</LumenCollectionItem>
-            <LumenCollectionItem as="th">Status</LumenCollectionItem>
-            <LumenCollectionItem as="th">Value</LumenCollectionItem>
-            <LumenCollectionItem as="th">Details</LumenCollectionItem>
+            <LumenCollectionItem as="th">{labels.name}</LumenCollectionItem>
+            <LumenCollectionItem as="th">{labels.status}</LumenCollectionItem>
+            <LumenCollectionItem as="th">{labels.value}</LumenCollectionItem>
+            <LumenCollectionItem as="th">{labels.details}</LumenCollectionItem>
           </LumenCollectionItem>
         </LumenCollection>
         <LumenCollection as="tbody">
@@ -376,16 +380,7 @@ export function HbarAppUiDataTable({
             >
               <LumenCollectionItem as="td">{row.name}</LumenCollectionItem>
               <LumenCollectionItem as="td">
-                <HbarAppUiStatus
-                  value={row.status}
-                  tone={
-                    row.status === 'Healthy' || row.status === 'Complete'
-                      ? 'positive'
-                      : row.status === 'Blocked' || row.status === 'Failed'
-                        ? 'danger'
-                        : 'warning'
-                  }
-                />
+                <HbarAppUiStatus value={row.status} tone={statusTone?.(row) ?? 'neutral'} />
               </LumenCollectionItem>
               <LumenCollectionItem as="td">{row.value}</LumenCollectionItem>
               <LumenCollectionItem as="td">{row.detail}</LumenCollectionItem>
@@ -398,10 +393,17 @@ export function HbarAppUiDataTable({
 }
 
 export function HbarAppUiComposer({
-  placeholder = 'Write a message',
+  labels,
+  placeholder,
   onSubmit,
 }: {
   readonly placeholder?: string
+  readonly labels: {
+    readonly input: string
+    readonly placeholder: string
+    readonly send: string
+    readonly characterCount: (count: number) => string
+  }
   readonly onSubmit?: (value: string) => void
 }) {
   const [value, setValue] = useState('')
@@ -423,7 +425,8 @@ export function HbarAppUiComposer({
       <LumenTextarea
         className="hbar-app-ui-composer-input"
         value={value}
-        placeholder={placeholder}
+        aria-label={labels.input}
+        placeholder={placeholder ?? labels.placeholder}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
@@ -433,9 +436,9 @@ export function HbarAppUiComposer({
         }}
       />
       <LumenFrame>
-        <LumenText as="span">{value.length} characters</LumenText>
-        <HbarAppUiButton type="submit" tone="accent" disabled={!value.trim()}>
-          Send
+        <LumenText as="span">{labels.characterCount(value.length)}</LumenText>
+        <HbarAppUiButton type="submit" variant="contained" tone="accent" disabled={!value.trim()}>
+          {labels.send}
         </HbarAppUiButton>
       </LumenFrame>
     </LumenFrame>

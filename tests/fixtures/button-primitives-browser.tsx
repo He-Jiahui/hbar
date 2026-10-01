@@ -11,13 +11,30 @@ const root = document.getElementById('fixture-root')
 if (!root) throw new Error('The button fixture mount is missing')
 
 function ButtonEffectsFixture() {
+  const size =
+    document.documentElement.dataset.lumenControlSize === 's'
+      ? 's'
+      : document.documentElement.dataset.lumenControlSize === 'l'
+        ? 'l'
+        : 'm'
   const [loading, setLoading] = useState(true)
   const [glow, setGlow] = useState(Number(document.documentElement.dataset.fixtureGlow ?? 65))
   const [motion, setMotion] = useState(document.documentElement.dataset.fixtureMotion !== 'off')
   const [clicks, setClicks] = useState(0)
   const mode = document.documentElement.dataset.lumenMode === 'light' ? 'light' : 'dark'
   return (
-    <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode, glow, motion }} withCssBaseline={false}>
+    <LumenProvider
+      appearance={{
+        ...DEFAULT_LUMEN_APPEARANCE,
+        mode,
+        controlSize: size,
+        textSize: size,
+        cornerSize: size,
+        glow,
+        motion,
+      }}
+      withCssBaseline={false}
+    >
       {buttonPrimitiveFixture}
       <section className="button-fixture button-fixture-card" aria-label="Effects audit">
         <div className="button-fixture-row">

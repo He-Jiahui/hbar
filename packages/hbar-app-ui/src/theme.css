@@ -5742,7 +5742,7 @@
 
 /* Lumen is the default hbar visual language. The vendored MUI source records
  * the upstream composition and these aliases keep hbar primitives on the same
- * monochrome, glass, and light-beam token scale. */
+ * monochrome, glass, and contour-light token scale. */
 :root,
 [data-hbar-app-ui-theme='dark'] {
     --hbar-app-ui-bg: #090909;
@@ -5764,8 +5764,8 @@
     --hbar-app-ui-lumen-edge: rgb(255 255 255 / 17%);
     --hbar-app-ui-lumen-glass: rgb(20 20 20 / 30%);
     --hbar-app-ui-lumen-reading: rgb(9 9 9 / 28%);
-    --hbar-app-ui-lumen-glow-near: 0.875rem;
-    --hbar-app-ui-lumen-glow-far: 1.75rem;
+    --hbar-app-ui-lumen-glow-near: var(--lumen-glow-near, 0.25rem);
+    --hbar-app-ui-lumen-glow-far: var(--lumen-glow-far, 0.75rem);
 }
 
 [data-hbar-app-ui-theme='light'] {
@@ -5788,6 +5788,6 @@
     --hbar-app-ui-lumen-edge: rgb(0 0 0 / 14%);
     --hbar-app-ui-lumen-glass: rgb(255 255 255 / 35%);
     --hbar-app-ui-lumen-reading: rgb(245 245 245 / 45%);
-    --hbar-app-ui-lumen-glow-near: 0.45rem;
-    --hbar-app-ui-lumen-glow-far: 0.95rem;
+    --hbar-app-ui-lumen-glow-near: var(--lumen-glow-near, 0.125rem);
+    --hbar-app-ui-lumen-glow-far: var(--lumen-glow-far, 0.375rem);
 }
