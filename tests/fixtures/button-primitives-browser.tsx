@@ -54,6 +54,7 @@ function ButtonEffectsFixture() {
             data-testid="busy-button"
             variant="contained"
             loading={loading}
+            disabled={loading}
             onClick={() => setClicks((value) => value + 1)}
           >
             Busy action
