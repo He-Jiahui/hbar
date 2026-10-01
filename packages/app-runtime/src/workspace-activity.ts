@@ -27,6 +27,18 @@ import { createSessionProjectionFence } from './session-projection-fence'
 import type { ClientPreferencesState, DirectoryState } from './types'
 import { MAX_PINNED_WORKSPACES, type WorkspacePinsState } from './workspace-pins'
 import { MAX_RETAINED_ACTIVITY_SESSIONS, MAX_RETAINED_ACTIVITY_WORKSPACES } from './directory'
+import {
+  applyManualProjectOrder,
+  groupedSidebarOrganizationSchema,
+  legacySidebarPreferenceSchema,
+  moveProjectInOrder,
+  projectOrderSchema,
+  sameProjectOrder,
+  sameSidebarPreference,
+  sidebarOrganizationSchema,
+  sidebarPreferenceSchema,
+  type SidebarPreference,
+} from './project-order-model'
 
 const PREFERENCE_KEY = 'workspaceActivitySortBy'
 const ORGANIZATION_PREFERENCE_KEY = 'workspaceSidebarOrganization'
@@ -36,12 +48,14 @@ const SESSION_ROW_LIMIT = MAX_RETAINED_ACTIVITY_SESSIONS
 const SESSION_GROUP_LIMIT = MAX_RETAINED_ACTIVITY_WORKSPACES
 const MAX_PARALLEL_REFRESHES = 4
 const idSchema = z.string().min(1).max(160)
-const organizationSchema = z.enum(['project', 'recentProject', 'time'])
-const groupedOrganizationSchema = z.enum(['project', 'recentProject'])
-const organizationPreferenceSchema = z.strictObject({
-  version: z.literal(1),
-  organization: organizationSchema,
-  previousGroupedOrganization: groupedOrganizationSchema,
+const organizationSchema = sidebarOrganizationSchema
+const groupedOrganizationSchema = groupedSidebarOrganizationSchema
+const moveProjectInput = z.strictObject({
+  sourceWorkspaceId: idSchema,
+  targetWorkspaceId: idSchema,
+  placement: z.enum(['before', 'after']),
+  expectedOrder: projectOrderSchema,
+  expectedSortBy: workspaceActivitySortSchema,
 })
 const refreshInput = z.strictObject({ workspaceId: idSchema.optional() })
 const loadMoreInput = z
@@ -95,6 +109,11 @@ function metadata(id: string) {
 }
 
 export const workspaceActivityCommands = {
+  'workspaceActivity.moveProject': defineCommand(
+    metadata('workspaceActivity.moveProject'),
+    moveProjectInput,
+    actionOutput,
+  ),
   'workspaceActivity.setSort': defineCommand(
     metadata('workspaceActivity.setSort'),
     z.strictObject({ sortBy: workspaceActivitySortSchema }),
@@ -181,6 +200,7 @@ export interface WorkspaceActivityState {
   readonly preferenceError: string | null
   readonly organization: WorkspaceActivityOrganization
   readonly previousGroupedOrganization: WorkspaceActivityGroupedOrganization
+  readonly projectOrder: readonly string[]
   readonly organizationPreferenceStatus: WorkspaceActivityOrganizationPreferenceStatus
   readonly organizationPreferenceError: string | null
   readonly locale: SidebarLocale
@@ -196,6 +216,7 @@ export interface WorkspaceActivityOptions {
   readonly refreshPreferences: () => Promise<ClientPreferencesState>
   readonly queries: CommandExecutor
   readonly pins: StateReader<WorkspacePinsState>
+  readonly hiddenWorkspaceIds?: () => readonly string[]
   readonly directory: StateReader<DirectoryState>
   readonly projectActivityWorkspaces: (
     retainedIds: readonly string[],
@@ -244,6 +265,12 @@ function errorCode(reason: unknown): string {
 }
 
 function persistedSort(preferences: ClientPreferencesState): WorkspaceActivitySortBy {
+  const organization = preferences.values[ORGANIZATION_PREFERENCE_KEY]
+  if (organization && typeof organization === 'object' && 'version' in organization && organization.version === 2) {
+    const parsed = sidebarPreferenceSchema.safeParse(organization)
+    if (!parsed.success) throw new CommandError('INVALID_PERSISTED_STATE', 'Saved Workspace organization is invalid')
+    return parsed.data.sortBy
+  }
   const value = preferences.values[PREFERENCE_KEY]
   if (value === undefined) return 'updatedAt'
   const parsed = workspaceActivitySortSchema.safeParse(value)
@@ -251,13 +278,21 @@ function persistedSort(preferences: ClientPreferencesState): WorkspaceActivitySo
   return parsed.data
 }
 
-function persistedOrganization(preferences: ClientPreferencesState): z.output<typeof organizationPreferenceSchema> {
+function persistedOrganization(preferences: ClientPreferencesState): SidebarPreference {
   const value = preferences.values[ORGANIZATION_PREFERENCE_KEY]
   if (value === undefined)
-    return { version: 1, organization: 'recentProject', previousGroupedOrganization: 'recentProject' }
-  const parsed = organizationPreferenceSchema.safeParse(value)
+    return {
+      version: 2,
+      organization: 'recentProject',
+      previousGroupedOrganization: 'recentProject',
+      sortBy: persistedSort(preferences),
+      projectOrder: [],
+    }
+  const current = sidebarPreferenceSchema.safeParse(value)
+  if (current.success) return current.data
+  const parsed = legacySidebarPreferenceSchema.safeParse(value)
   if (!parsed.success) throw new CommandError('INVALID_PERSISTED_STATE', 'Saved Workspace organization is invalid')
-  return parsed.data
+  return { ...parsed.data, version: 2, sortBy: persistedSort(preferences), projectOrder: [] }
 }
 
 function row(item: WorkspaceSidebarItem): WorkspaceActivityRow {
@@ -434,7 +469,13 @@ export function orderWorkspaceActivityIds(
     .sort(comparePinned)
   const pinnedSet = new Set(pinnedIds)
   const hidden = new Set(hiddenWorkspaceIds)
-  return [...pinned.map((item) => item.workspaceId), ...pageRows.map((item) => item.workspaceId)].filter(
+  const orderedPins = pinned.map((item) => item.workspaceId)
+  const regular = pageRows.map((item) => item.workspaceId).filter((id) => !pinnedSet.has(id))
+  const manual = activity.organization === 'recentProject'
+  return [
+    ...(manual ? applyManualProjectOrder(orderedPins, activity.projectOrder) : orderedPins),
+    ...(manual ? applyManualProjectOrder(regular, activity.projectOrder) : regular),
+  ].filter(
     (id, index, all) => !hidden.has(id) && (!pinnedSet.has(id) || index < pinned.length) && all.indexOf(id) === index,
   )
 }
@@ -461,6 +502,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       preferenceError: null,
       organization: 'recentProject',
       previousGroupedOrganization: 'recentProject',
+      projectOrder: [],
       organizationPreferenceStatus: 'loading',
       organizationPreferenceError: null,
       locale: 'en-US',
@@ -472,7 +514,6 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   )
   let disposed = false
   let initialized = false
-  let preferenceWriteInProgress = false
   let preferenceRefreshInProgress = false
   let organizationWriteInProgress = false
   let organizationRefreshInProgress = false
@@ -1240,70 +1281,13 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     sortBy: WorkspaceActivitySortBy,
     execution: ExecuteOptions,
   ): Promise<{ sortBy: WorkspaceActivitySortBy; persisted: boolean }> {
-    if (!alive()) throw new CommandError('DISPOSED', 'Workspace activity owner was disposed')
-    await ready
-    const currentState = current()
-    if (currentState.preferenceStatus === 'loading' || currentState.preferenceStatus === 'saving')
-      throw new CommandError('BUSY', 'Workspace sort preferences are not ready')
-    if (currentState.sortBy !== sortBy) {
-      replace({ ...currentState, preferenceStatus: 'saving', preferenceError: null })
-      preferenceWriteInProgress = true
-      try {
-        let saved = false
-        for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-          const preference = options.preferences.getSnapshot()
-          if (preference.restoreError)
-            throw new CommandError('PERSISTENCE_RESTORE_FAILED', 'Restore device preferences before changing sort')
-          const actualSort = persistedSort(preference)
-          if (actualSort === sortBy) {
-            saved = true
-            break
-          }
-          try {
-            await options.preferenceCommands.execute(
-              'preferences.set',
-              { key: PREFERENCE_KEY, value: sortBy, expectedRevision: preference.revision },
-              execution,
-            )
-            const updated = options.preferences.getSnapshot()
-            if (persistedSort(updated) !== sortBy)
-              throw new CommandError('RESULT_UNKNOWN', 'Saved Workspace sort did not match the request')
-            saved = true
-          } catch (reason) {
-            if (errorCode(reason) === 'COMMAND_CONFLICT' && attempt < 2) {
-              await options.refreshPreferences()
-              continue
-            }
-            throw reason
-          }
-        }
-        if (!saved) throw new CommandError('COMMAND_CONFLICT', 'Workspace sort changed repeatedly')
-        resetForSortChange(sortBy)
-      } catch (reason) {
-        const error = errorCode(reason)
-        replace({ ...current(), preferenceStatus: 'error', preferenceError: error })
-        throw reason
-      } finally {
-        preferenceWriteInProgress = false
-      }
-      if (current().organization !== 'time') await refreshWorkspacePage(execution)
-    } else {
-      if (current().organization === 'time') {
-        replace({ ...current(), preferenceStatus: 'ready', preferenceError: null })
-        return { sortBy: current().sortBy, persisted: options.preferences.getSnapshot().persisted }
-      }
-      replace({ ...current(), preferenceStatus: 'submitting' })
-      await refresh({ workspaceId: undefined }, execution)
-      if (current().preferenceError !== null)
-        throw new CommandError(
-          current().preferenceError ?? 'PREFERENCE_REFRESH_FAILED',
-          'Workspace sort preferences could not be confirmed',
-        )
-      if (current().sortBy !== sortBy) return setSort(sortBy, execution)
-    }
-    const result = current()
-    if (result.preferenceError === null) replace({ ...result, preferenceStatus: 'ready' })
-    return { sortBy: result.sortBy, persisted: options.preferences.getSnapshot().persisted }
+    const saved = await writeOrganizationPreference((stored) => ({ ...stored, sortBy, projectOrder: [] }), execution)
+    const changedSort = current().sortBy !== saved.sortBy
+    applyOrganizationPreference(saved, false)
+    if (changedSort) resetForSortChange(saved.sortBy)
+    if (current().organization !== 'time') await refreshWorkspacePage(execution)
+    replace({ ...current(), preferenceStatus: 'ready', preferenceError: null })
+    return { sortBy: current().sortBy, persisted: options.preferences.getSnapshot().persisted }
   }
 
   async function runBounded<Value>(
@@ -1325,12 +1309,13 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   }
 
   function organizationPreferenceFor(
-    stored: z.output<typeof organizationPreferenceSchema>,
+    stored: SidebarPreference,
     target: WorkspaceActivityOrganization,
-  ): z.output<typeof organizationPreferenceSchema> {
+  ): SidebarPreference {
     return {
-      version: 1,
+      ...stored,
       organization: target,
+      projectOrder: target === 'recentProject' ? stored.projectOrder : [],
       previousGroupedOrganization:
         target === 'time'
           ? stored.organization === 'time'
@@ -1340,10 +1325,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     }
   }
 
-  function applyOrganizationPreference(
-    preference: z.output<typeof organizationPreferenceSchema>,
-    refreshChangedMode: boolean,
-  ): boolean {
+  function applyOrganizationPreference(preference: SidebarPreference, refreshChangedMode: boolean): boolean {
     const before = current()
     const changedMode = before.organization !== preference.organization
     const clearActivityProjection =
@@ -1357,6 +1339,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       ...before,
       organization: preference.organization,
       previousGroupedOrganization: preference.previousGroupedOrganization,
+      projectOrder: preference.projectOrder,
       organizationPreferenceStatus: 'ready',
       organizationPreferenceError: null,
       ...(clearActivityProjection
@@ -1390,21 +1373,21 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     return changedMode
   }
 
-  async function setOrganization(
-    target: WorkspaceActivityOrganization,
+  async function writeOrganizationPreference(
+    update: (stored: SidebarPreference) => SidebarPreference,
     execution?: ExecuteOptions,
-  ): Promise<{
-    organization: WorkspaceActivityOrganization
-    previousGroupedOrganization: WorkspaceActivityGroupedOrganization
-    persisted: boolean
-  }> {
+  ): Promise<SidebarPreference> {
     if (!alive()) throw new CommandError('DISPOSED', 'Workspace activity owner was disposed')
     await ready
-    if (current().organizationPreferenceStatus === 'loading' || current().organizationPreferenceStatus === 'saving')
+    if (
+      organizationWriteInProgress ||
+      current().organizationPreferenceStatus === 'loading' ||
+      current().organizationPreferenceStatus === 'saving'
+    )
       throw new CommandError('BUSY', 'Workspace organization preferences are not ready')
     replace({ ...current(), organizationPreferenceStatus: 'saving', organizationPreferenceError: null })
     organizationWriteInProgress = true
-    let savedPreference: z.output<typeof organizationPreferenceSchema> | null = null
+    let savedPreference: SidebarPreference | null = null
     try {
       for (let attempt = 0; attempt < 3 && !savedPreference; attempt++) {
         const preference = options.preferences.getSnapshot()
@@ -1414,11 +1397,8 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
             'Restore device preferences before changing organization',
           )
         const stored = persistedOrganization(preference)
-        const requested = organizationPreferenceFor(stored, target)
-        if (
-          stored.organization === requested.organization &&
-          stored.previousGroupedOrganization === requested.previousGroupedOrganization
-        ) {
+        const requested = sidebarPreferenceSchema.parse(update(stored))
+        if (sameSidebarPreference(stored, requested)) {
           savedPreference = requested
           break
         }
@@ -1438,10 +1418,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
           }
           if (refreshed) {
             const observed = persistedOrganization(refreshed)
-            if (
-              observed.organization === requested.organization &&
-              observed.previousGroupedOrganization === requested.previousGroupedOrganization
-            ) {
+            if (sameSidebarPreference(observed, requested)) {
               savedPreference = observed
               break
             }
@@ -1451,10 +1428,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         }
         const updated = options.preferences.getSnapshot()
         const observed = persistedOrganization(updated)
-        if (
-          observed.organization !== requested.organization ||
-          observed.previousGroupedOrganization !== requested.previousGroupedOrganization
-        )
+        if (!sameSidebarPreference(observed, requested))
           throw new CommandError('RESULT_UNKNOWN', 'Saved Workspace organization did not match the request')
         savedPreference = observed
       }
@@ -1466,6 +1440,15 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     } finally {
       organizationWriteInProgress = false
     }
+    return savedPreference
+  }
+
+  async function setOrganization(target: WorkspaceActivityOrganization, execution?: ExecuteOptions) {
+    const savedPreference = await writeOrganizationPreference(
+      (stored) => organizationPreferenceFor(stored, target),
+      execution,
+    )
+    if (current().sortBy !== savedPreference.sortBy) resetForSortChange(savedPreference.sortBy)
     applyOrganizationPreference(savedPreference, false)
     await refresh({}, execution)
     return {
@@ -1480,6 +1463,41 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     const snapshot = current()
     const target = snapshot.organization === 'time' ? snapshot.previousGroupedOrganization : 'time'
     return setOrganization(target, execution)
+  }
+
+  async function moveProject(input: z.output<typeof moveProjectInput>, execution?: ExecuteOptions) {
+    const saved = await writeOrganizationPreference((stored) => {
+      const snapshot = current()
+      if (
+        stored.organization !== 'recentProject' ||
+        snapshot.organization !== 'recentProject' ||
+        stored.sortBy !== input.expectedSortBy ||
+        snapshot.sortBy !== input.expectedSortBy ||
+        snapshot.workspaces.status !== 'ready'
+      )
+        throw new CommandError('COMMAND_CONFLICT', 'The project view changed before the move')
+      const pins = options.pins.getSnapshot()
+      const order = orderWorkspaceActivityIds(
+        { ...snapshot, projectOrder: stored.projectOrder },
+        pins,
+        options.hiddenWorkspaceIds?.() ?? [],
+      )
+      if (
+        !sameProjectOrder(order, input.expectedOrder) ||
+        !order.includes(input.sourceWorkspaceId) ||
+        !order.includes(input.targetWorkspaceId)
+      )
+        throw new CommandError('COMMAND_CONFLICT', 'The visible project order changed before the move')
+      const pinned = new Set(pins.ids)
+      if (pinned.has(input.sourceWorkspaceId) !== pinned.has(input.targetWorkspaceId))
+        throw new CommandError('INVALID_INPUT', 'Pin or unpin a project to move it between sections')
+      return {
+        ...stored,
+        projectOrder: moveProjectInOrder(order, input.sourceWorkspaceId, input.targetWorkspaceId, input.placement),
+      }
+    }, execution)
+    applyOrganizationPreference(saved, false)
+    return pageResult('ready')
   }
 
   async function setLocale(locale: SidebarLocale, execution?: ExecuteOptions): Promise<{ locale: SidebarLocale }> {
@@ -1769,7 +1787,6 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   const stopPreferences = options.preferences.subscribe(() => {
     if (
       !initialized ||
-      preferenceWriteInProgress ||
       preferenceRefreshInProgress ||
       organizationWriteInProgress ||
       organizationRefreshInProgress ||
@@ -1790,7 +1807,8 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       const preference = persistedOrganization(preferences)
       if (
         preference.organization !== current().organization ||
-        preference.previousGroupedOrganization !== current().previousGroupedOrganization
+        preference.previousGroupedOrganization !== current().previousGroupedOrganization ||
+        !sameProjectOrder(preference.projectOrder, current().projectOrder)
       ) {
         applyOrganizationPreference(preference, false)
         changed = true
@@ -1895,6 +1913,9 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   })
   local.register(workspaceActivityCommands['workspaceActivity.setOrganization'], async (input, context) =>
     setOrganization(input.organization, context),
+  )
+  local.register(workspaceActivityCommands['workspaceActivity.moveProject'], async (input, context) =>
+    moveProject(input, context),
   )
   local.register(workspaceActivityCommands['workspaceActivity.toggleTime'], async (_input, context) =>
     toggleTime(context),

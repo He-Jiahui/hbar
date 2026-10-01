@@ -465,6 +465,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     refreshPreferences: clientPersistence.refreshPreferences,
     queries: directory.queries,
     pins: workspacePins.reader,
+    hiddenWorkspaceIds: () => workspaceOrganization.reader.getSnapshot().snapshot?.hiddenWorkspaceIds ?? [],
     directory: directory.reader,
     projectActivityWorkspaces: directory.projectActivityWorkspaces,
     projectActivitySessions: directory.projectActivitySessions,
