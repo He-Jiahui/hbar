@@ -20,14 +20,14 @@
 > their registered workspace; project/branch launch controls apply to an empty
 > first-send session, as documented in [session project context](desktop-session-project-context.md).
 
-| Historical wording checked in this audit | Current source/feature anchor | Retained proof scope (not rerun in this review) |
-| --- | --- | --- |
-| “Commands only/no chat search” | `lumen-workspace-shell.tsx:1176-1208`; `session.recent/search` Host contract | `e2e/chat-search.spec.ts`; en/zh, 1440/320, recent/body search, hidden/archive rules, keyboard reopen/close |
-| “No hide/reorder/alias or Time organization” | `lumen-workspace-shell.tsx:1257-1294,1374-1447,1461-1570`; `workspaceActivity` organization | `e2e/sidebar-organization.spec.ts`; project/recent/time, alias, pin, drag/keyboard move, time paging and focus |
-| “Project quick create remains behind the menu” | `lumen-workspace-shell.tsx:1573-1581`; `newSession()` at `:892-897` | `e2e/workspace-session-entry.spec.ts`; chooser paging, row quick-create, current-project follow, draft retention and invalid/valid path handling |
-| “No visible session tabs” | `workspace-tabs.tsx:24-55`; runtime `MAX_WORKSPACE_TABS=32`, capture/restore/workbench ownership | `e2e/workspace-tabs-host.spec.ts`; independent drafts, close scopes, 32-cap, narrow overflow and unknown activity close |
-| “Session/tool switching is not source-owned” | session/workspace keyed draft/tool state and pinned Files binding | `e2e/session-tool-ownership.spec.ts`; A/B/C drafts, attachment/dirty Files, pinned cross-project Files, workbench return and archive/close |
-| “Parent/background activity is absent from project rows” | shared `SessionActivityIndicator` and Host `session.sidebar.list` summary | `docs/desktop-sidebar-parent-activity.md` and its retained real-Host E2E/screenshots; direct-child/background boundaries |
+| Historical wording checked in this audit                 | Current source/feature anchor                                                                    | Retained proof scope (not rerun in this review)                                                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| “Commands only/no chat search”                           | `lumen-workspace-shell.tsx:1176-1208`; `session.recent/search` Host contract                     | `e2e/chat-search.spec.ts`; en/zh, 1440/320, recent/body search, hidden/archive rules, keyboard reopen/close                                      |
+| “No hide/reorder/alias or Time organization”             | `lumen-workspace-shell.tsx:1257-1294,1374-1447,1461-1570`; `workspaceActivity` organization      | `e2e/sidebar-organization.spec.ts`; project/recent/time, alias, pin, drag/keyboard move, time paging and focus                                   |
+| “Project quick create remains behind the menu”           | `lumen-workspace-shell.tsx:1573-1581`; `newSession()` at `:892-897`                              | `e2e/workspace-session-entry.spec.ts`; chooser paging, row quick-create, current-project follow, draft retention and invalid/valid path handling |
+| “No visible session tabs”                                | `workspace-tabs.tsx:24-55`; runtime `MAX_WORKSPACE_TABS=32`, capture/restore/workbench ownership | `e2e/workspace-tabs-host.spec.ts`; independent drafts, close scopes, 32-cap, narrow overflow and unknown activity close                          |
+| “Session/tool switching is not source-owned”             | session/workspace keyed draft/tool state and pinned Files binding                                | `e2e/session-tool-ownership.spec.ts`; A/B/C drafts, attachment/dirty Files, pinned cross-project Files, workbench return and archive/close       |
+| “Parent/background activity is absent from project rows” | shared `SessionActivityIndicator` and Host `session.sidebar.list` summary                        | `docs/desktop-sidebar-parent-activity.md` and its retained real-Host E2E/screenshots; direct-child/background boundaries                         |
 
 ## Scope and evidence
 

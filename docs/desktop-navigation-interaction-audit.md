@@ -18,14 +18,14 @@
 > [会话 project context](desktop-session-project-context.md)；本索引不把它扩展成
 > 尚未决定 mutation/确认契约的“缺少一个下拉按钮”。
 
-| 历史表中的旧差距 | 当前代码/契约锚点 | 已有证明范围（本轮未重跑） |
-| --- | --- | --- |
-| “Ctrl+K 只有 Commands/没有聊天搜索” | `lumen-workspace-shell.tsx:1176-1208`；Host `session.recent/search` | `e2e/chat-search.spec.ts`：en/zh、1440/320、recent/正文、隐藏/归档规则、键盘重开/关闭 |
-| “没有 hide/reorder/alias 或 Time” | `lumen-workspace-shell.tsx:1257-1294,1374-1447,1461-1570`；`workspaceActivity` organization | `e2e/sidebar-organization.spec.ts`：project/recent/time、alias/pin、拖动/键盘移动、Time 分组分页与焦点 |
-| “项目新建仍多一层菜单” | `lumen-workspace-shell.tsx:1573-1581` 的项目行 quick-create；`:892-897` 的 `newSession` | `e2e/workspace-session-entry.spec.ts`：chooser 101 分页、行快捷新建、当前项目跟随、A 草稿保留、路径错误/注册 |
-| “没有可见会话页签” | `workspace-tabs.tsx:24-55`；runtime `MAX_WORKSPACE_TABS=32`、capture/restore/workbench | `e2e/workspace-tabs-host.spec.ts`：独立草稿、close scope、32 上限、窄屏、unknown activity close |
-| “工具/草稿切换没有稳定归属” | session/workspace keyed draft/tool state；project Files `binding:'pinned'` | `e2e/session-tool-ownership.spec.ts`：A/B/C 草稿、附件/dirty Files、跨项目 pinned Files、workbench return、close/archive |
-| “项目行没有父/后台 activity 汇总” | shared `SessionActivityIndicator` 与 Host `session.sidebar.list` summary | `docs/desktop-sidebar-parent-activity.md` 及其中保留的真实 Host E2E/截图；direct-child/background 边界 |
+| 历史表中的旧差距                    | 当前代码/契约锚点                                                                           | 已有证明范围（本轮未重跑）                                                                                               |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| “Ctrl+K 只有 Commands/没有聊天搜索” | `lumen-workspace-shell.tsx:1176-1208`；Host `session.recent/search`                         | `e2e/chat-search.spec.ts`：en/zh、1440/320、recent/正文、隐藏/归档规则、键盘重开/关闭                                    |
+| “没有 hide/reorder/alias 或 Time”   | `lumen-workspace-shell.tsx:1257-1294,1374-1447,1461-1570`；`workspaceActivity` organization | `e2e/sidebar-organization.spec.ts`：project/recent/time、alias/pin、拖动/键盘移动、Time 分组分页与焦点                   |
+| “项目新建仍多一层菜单”              | `lumen-workspace-shell.tsx:1573-1581` 的项目行 quick-create；`:892-897` 的 `newSession`     | `e2e/workspace-session-entry.spec.ts`：chooser 101 分页、行快捷新建、当前项目跟随、A 草稿保留、路径错误/注册             |
+| “没有可见会话页签”                  | `workspace-tabs.tsx:24-55`；runtime `MAX_WORKSPACE_TABS=32`、capture/restore/workbench      | `e2e/workspace-tabs-host.spec.ts`：独立草稿、close scope、32 上限、窄屏、unknown activity close                          |
+| “工具/草稿切换没有稳定归属”         | session/workspace keyed draft/tool state；project Files `binding:'pinned'`                  | `e2e/session-tool-ownership.spec.ts`：A/B/C 草稿、附件/dirty Files、跨项目 pinned Files、workbench return、close/archive |
+| “项目行没有父/后台 activity 汇总”   | shared `SessionActivityIndicator` 与 Host `session.sidebar.list` summary                    | `docs/desktop-sidebar-parent-activity.md` 及其中保留的真实 Host E2E/截图；direct-child/background 边界                   |
 
 起始审计日期：2026-09-24。参考工作树：`D:/Git/cc-haha`（HEAD `e28d0a65`）；hbar 起始基线为 `b0a1d77`。第 2–4 节保留起始问题与迁移依据，第 7–9 节记录实施结果，第 10–11 节按 **`e855123`** 的阶段状态复核，后续项目快捷入口与错误恢复见第 12 节。Provider/会话等并行单元的最新提交与总门禁见 [迁移总记录](desktop-experience-migration.md)。这是入口、交互链和证据清单，不是“全部迁移完成”的声明。行号对应当时源码，后续修改应按组件/符号重新定位。
 
