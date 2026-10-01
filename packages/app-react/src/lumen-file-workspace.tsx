@@ -1,5 +1,5 @@
 import { ArrowLeft, FolderTree, Maximize2, MessageCircle, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   LumenFrame,
   LumenText,
@@ -22,6 +22,8 @@ import { useFileNavigatorPresentation } from './file-navigator-presentation'
 import { useFilePreviewReadingPosition } from './file-preview-reading-position'
 import { useFilePreviewPagination } from './file-preview-pagination'
 import { filePreviewOwnsFailure, focusVisibleFilePreviewControl } from './file-preview-feedback'
+import { captureFileReviewFocus } from './file-review-focus'
+import { canFocusWorkspaceElement } from './workspace-tool-focus'
 import { HbarFilePreviewTabs, type HbarFilePreviewItem, type HbarFilePreviewLabels } from './file-preview-tabs'
 import { HbarFileSourceSurface, type HbarFileContextLabels } from './file-context-surfaces'
 import './lumen-file-workspace.css'
@@ -97,6 +99,9 @@ export function HbarFileWorkspace({
   const drafts = useHbarRuntimeState(runtime.state.drafts)
   const addInFlight = useRef(false)
   const activeAddTarget = useRef('')
+  const reviewFocusLifetime = useRef(0)
+  const reviewFocusReturn = useRef<(() => void) | null>(null)
+  const [reviewFocusRequest, setReviewFocusRequest] = useState(0)
   const [addFeedback, setAddFeedback] = useState<{
     target: string
     kind: 'success' | 'error'
@@ -141,6 +146,19 @@ export function HbarFileWorkspace({
   const activeTarget = useRef(target)
   const previewIntent = useRef(0)
   activeTarget.current = target
+  useLayoutEffect(() => {
+    reviewFocusLifetime.current += 1
+    return () => {
+      reviewFocusLifetime.current += 1
+      reviewFocusReturn.current = null
+    }
+  }, [runtime, target])
+  useLayoutEffect(() => {
+    if (addingTarget !== null) return
+    const finish = reviewFocusReturn.current
+    reviewFocusReturn.current = null
+    finish?.()
+  }, [addingTarget, reviewFocusRequest])
   const navigator = useFileNavigatorPresentation(target, entry?.activePreviewId ?? null)
   const hasPreview = entry?.view === 'document' || entry?.view === 'diff'
   const diffPagination = useFilePreviewPagination(target, entry?.previews ?? [], entry?.activePreviewId ?? null)
@@ -342,6 +360,37 @@ export function HbarFileWorkspace({
       : null
   const addTarget = `${target}:${workspaceId}:${previewId}:${selectedPath}:${sourceTab?.instanceKey}:${workbenchTab?.instanceKey}`
   activeAddTarget.current = addTarget
+  const captureCommentCompletion = (line: HTMLElement | null) => {
+    const lifetime = reviewFocusLifetime.current
+    const owner = addTarget
+    const document = line?.ownerDocument ?? globalThis.document
+    const origin = document.activeElement
+    const editor = origin instanceof Element ? origin.closest('.hbar-file-comment-editor') : null
+    const composer =
+      [...document.querySelectorAll<HTMLElement>('[data-hbar-composer-session]')]
+        .find((element) => element.dataset.hbarComposerSession === sourceSessionId)
+        ?.querySelector<HTMLElement>('[role="textbox"], textarea') ?? null
+    const current = () => lifetime === reviewFocusLifetime.current && owner === activeAddTarget.current
+    const finish = captureFileReviewFocus({
+      composer,
+      line,
+      active: () =>
+        document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+          ? document.activeElement
+          : null,
+      inEditor: (element) => editor?.contains(element) ?? false,
+      current,
+      usable: (element) => canFocusWorkspaceElement(element) && document.querySelector('dialog:modal') === null,
+      focus: (element) => element.focus({ preventScroll: true }),
+    })
+    return () => {
+      if (!current()) return
+      // The line may still be disabled in the pre-commit DOM after its read ACK.
+      // Focus only after React has rendered the unlocked controls and removed the note.
+      reviewFocusReturn.current = finish
+      setReviewFocusRequest((request) => request + 1)
+    }
+  }
   const blockedFileDraft = Boolean(
     document &&
     (dirty || document.status === 'unknown' || document.status === 'submitting' || document.status === 'loading'),
@@ -695,7 +744,12 @@ export function HbarFileWorkspace({
                 referenceHint={addHint ?? undefined}
                 context={
                   sourceTab && (mode !== 'workbench' || workbenchTab)
-                    ? { labels: labels.context, disabled: !canAdd || addingTarget !== null, onAdd: addCurrentFile }
+                    ? {
+                        labels: labels.context,
+                        disabled: !canAdd || addingTarget !== null,
+                        onAdd: addCurrentFile,
+                        captureCommentCompletion,
+                      }
                     : undefined
                 }
               />

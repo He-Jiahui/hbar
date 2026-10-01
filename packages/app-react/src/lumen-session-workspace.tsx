@@ -1657,7 +1657,11 @@ function SessionWorkspaceContent({
   })()
 
   const composer: ReactNode = sessionId ? (
-    <LumenFrame className="hbar-app-react-session-footer" data-git-context-status={projectContext.context.status}>
+    <LumenFrame
+      className="hbar-app-react-session-footer"
+      data-hbar-composer-session={sessionId}
+      data-git-context-status={projectContext.context.status}
+    >
       <HbarSessionStopNotice region="main" />
       <HbarSessionExecutionNotice
         key={`${sessionId}:${sessionWorkspaceId}`}

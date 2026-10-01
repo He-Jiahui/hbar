@@ -32,7 +32,7 @@ async function removeOwnedTemporaryDirectory(path: string): Promise<void> {
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`selected source and diff comments join only their source draft and accepted Run: ${locale}`, async ({
     browser,
-  }) => {
+  }, info) => {
     test.setTimeout(120_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-file-context-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
@@ -131,8 +131,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(fits).toBe(true)
         await page.screenshot({ path: `${captureDirectory}/diff-comment-${locale}-${width}.png` })
       }
+      await page.setViewportSize({ width: 1440, height: 900 })
       await comment.getByRole('button', { name: copy.files.context.addComment, exact: true }).click()
       await expect(comment).toHaveCount(0)
+      await expect(prompt).toBeFocused()
+      await expect(files).toBeVisible()
+      await page.screenshot({ path: info.outputPath('diff-comment-to-composer-1440.png') })
+      // A narrow reader has no visible composer: repeat the same reference to keep reading, without duplication.
+      await page.setViewportSize({ width: 320, height: 844 })
+      const firstDiffLine = files.getByRole('button', {
+        name: copy.files.context.commentLine(changedPath, 2, 'new'),
+        exact: true,
+      })
+      await firstDiffLine.click()
+      await comment
+        .getByRole('textbox', { name: copy.files.context.note, exact: true })
+        .fill('Use the new value consistently.')
+      await files
+        .getByRole('button', {
+          name: copy.files.context.commentLine(changedPath, 3, 'new'),
+          exact: true,
+        })
+        .click({ modifiers: ['Shift'] })
+      await comment.getByRole('button', { name: copy.files.context.addComment, exact: true }).click()
+      await expect(comment).toHaveCount(0)
+      await expect(firstDiffLine).toBeFocused()
+      await expect(prompt).not.toBeFocused()
+      await page.screenshot({ path: info.outputPath('diff-comment-retains-narrow-reader.png') })
       await files.getByRole('button', { name: copy.files.close, exact: true }).click()
       await expectComposerText(prompt, `Review this code @${sourcePath}`)
       await expect(page.locator('.hbar-composer-mention-pill')).toHaveText(`@${sourcePath}`)

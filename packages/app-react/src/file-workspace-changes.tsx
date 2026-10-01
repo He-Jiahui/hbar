@@ -215,6 +215,7 @@ export function HbarFileDiff({
         readonly labels: HbarFileContextLabels
         readonly disabled: boolean
         readonly onAdd: (selection: FileComposerContextSelection) => Promise<boolean>
+        readonly captureCommentCompletion?: ((line: HTMLElement | null) => () => void) | undefined
       }
     | undefined
 }) {
@@ -236,11 +237,11 @@ export function HbarFileDiff({
   const currentReview = review?.text === diff.text && review.cached === diff.cached ? review : null
   const range = currentReview ? selectWorkspaceDiffRange(rows, currentReview.anchor, currentReview.focus) : null
   const selected = new Set(range?.rowIndices)
-  const closeReview = () => {
+  const closeReview = (restoreLine = true) => {
     const anchor = currentReview?.anchor
     setReview(null)
     setIncompatible(false)
-    if (anchor !== undefined) requestAnimationFrame(() => buttons.current.get(anchor)?.focus())
+    if (restoreLine && anchor !== undefined) requestAnimationFrame(() => buttons.current.get(anchor)?.focus())
   }
   const activate = (index: number, extend: boolean) => {
     const anchor = extend && currentReview ? currentReview.anchor : index
@@ -406,8 +407,11 @@ export function HbarFileDiff({
                     disabled={context.disabled}
                     note={currentReview?.note ?? ''}
                     onNote={(note) => setReview((current) => (current ? { ...current, note } : null))}
-                    onCancel={closeReview}
+                    onCancel={() => closeReview()}
                     onSubmit={async (note) => {
+                      const completed = context.captureCommentCompletion?.(
+                        buttons.current.get(currentReview?.anchor ?? range.rowStart) ?? null,
+                      )
                       const added = await context.onAdd({
                         kind: 'diff-comment',
                         cached: diff.cached,
@@ -417,7 +421,10 @@ export function HbarFileDiff({
                         diffSide: range.diffSide,
                         note,
                       })
-                      if (added) closeReview()
+                      if (added) {
+                        closeReview(!completed)
+                        completed?.()
+                      }
                       return added
                     }}
                   />
