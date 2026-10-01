@@ -5,7 +5,12 @@ export {
   WorkspaceHeaderSortMenu,
   type WorkspaceHeaderSortMenuLabels,
   type WorkspaceHeaderSortMenuProps,
+  type WorkspaceHeaderOrganizationLabels,
+  type WorkspaceHeaderOrganization,
+  type WorkspaceOrganizationMode,
 } from './workspace-header-sort-menu'
+export { SidebarTimeView, type SidebarTimeViewProps } from './sidebar-time-view'
+export { buildSidebarTimeGroups, type SidebarTimeGroup, type SidebarTimeGroupId } from './sidebar-time-groups'
 export { WorkspaceDisplayNameDialog, WorkspaceDisplayNameFeedback } from './workspace-display-names'
 export type {
   WorkspaceDisplayNamesLabels,
@@ -48,6 +53,7 @@ export { createHbarSchemaComponents } from './lumen-schema-components'
 export {
   HbarWorkspaceShell,
   type HbarWorkspaceShellLabels,
+  type HbarSidebarTimeLabels,
   type HbarWorkspaceShellProps,
 } from './lumen-workspace-shell'
 export { SessionArchiveBatchPanel } from './session-archive'

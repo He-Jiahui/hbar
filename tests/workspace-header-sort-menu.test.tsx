@@ -68,3 +68,52 @@ test('host-provided long Chinese labels remain in the flow and pending state dis
   expect(html).toContain('role="menuitemradio"')
   expect(html).toContain('disabled=""')
 })
+
+test('the optional organization submenu renders host labels, selected mode, and independent disabled state', () => {
+  const labels = {
+    organize: '整理侧边栏（选择项目分组与显示顺序）',
+    byProject: '按项目',
+    recentProjects: '近期项目',
+    byTime: '按时间顺序',
+  }
+  const html = render({
+    organization: {
+      mode: 'recentProject',
+      pending: false,
+      disabled: true,
+      labels,
+      onChoose: () => {},
+    },
+  })
+
+  expect(html).toContain('data-testid="workspace-organization-submenu"')
+  expect(html).toContain(labels.organize)
+  expect(html).toContain(labels.byProject)
+  expect(html).toContain(labels.recentProjects)
+  expect(html).toContain(labels.byTime)
+  expect(html).toContain('aria-checked="false"')
+  expect(html).toContain('aria-checked="true"')
+  expect(html.match(/disabled=""/g)).toHaveLength(4)
+})
+
+test('organization pending contributes to the shared pending status and disables sort choices', () => {
+  const html = render({
+    organization: {
+      mode: 'project',
+      pending: true,
+      disabled: false,
+      labels: {
+        organize: 'Organize sidebar',
+        byProject: 'By project',
+        recentProjects: 'Recent projects',
+        byTime: 'By time',
+      },
+      onChoose: () => {},
+    },
+  })
+
+  expect(html).toContain(englishLabels.updating)
+  expect(html).toContain('data-testid="workspace-sort-submenu"')
+  expect(html).toContain('data-testid="workspace-organization-submenu"')
+  expect(html.match(/disabled=""/g)).toHaveLength(7)
+})

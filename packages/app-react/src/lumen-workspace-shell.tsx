@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity,
+  Bell,
   Blocks,
   ChevronDown,
   ChevronRight,
@@ -42,6 +43,7 @@ import {
   workspaceDisplayName,
 } from '@hbar/app-runtime'
 import type { Session } from '@hbar/contracts/directory'
+import type { SessionActivityExecution, SidebarLocale } from '@hbar/contracts/sidebar-directory'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionStopNotice, HbarSessionStopProvider, type SessionStopLabels } from './session-stop'
 import {
@@ -58,7 +60,13 @@ import {
   type WorkspaceOrganizationLabels,
 } from './workspace-organization'
 import { useWorkspaceOrganizationFocus } from './workspace-organization-focus'
-import { WorkspaceHeaderSortMenu, type WorkspaceHeaderSortMenuLabels } from './workspace-header-sort-menu'
+import {
+  WorkspaceHeaderSortMenu,
+  type WorkspaceHeaderSortMenuLabels,
+  type WorkspaceHeaderOrganizationLabels,
+} from './workspace-header-sort-menu'
+import { buildSidebarTimeGroups, type SidebarTimeGroupId } from './sidebar-time-groups'
+import { SidebarTimeView } from './sidebar-time-view'
 import {
   WorkspaceDisplayNameDialog,
   WorkspaceDisplayNameFeedback,
@@ -82,6 +90,14 @@ import {
   useWorkspaceToolFocus,
 } from './workspace-tool-focus'
 
+export interface HbarSidebarTimeLabels {
+  readonly title: string
+  readonly showTime: string
+  readonly showProjects: string
+  readonly groups: Readonly<Record<SidebarTimeGroupId, string>>
+  readonly execution: Readonly<Record<SessionActivityExecution['state'], string>>
+}
+
 export interface HbarWorkspaceShellLabels {
   readonly stop: SessionStopLabels
   readonly main: string
@@ -91,6 +107,8 @@ export interface HbarWorkspaceShellLabels {
   readonly sort: WorkspaceHeaderSortMenuLabels & {
     readonly capacityReached: string
     readonly sessionCapacityReached: string
+    readonly organization: WorkspaceHeaderOrganizationLabels
+    readonly time: HbarSidebarTimeLabels
   }
   readonly displayNames: WorkspaceDisplayNamesLabels
   readonly noWorkspaces: string
@@ -162,6 +180,7 @@ export interface HbarWorkspaceShellLabels {
 
 export interface HbarWorkspaceShellProps {
   readonly labels: HbarWorkspaceShellLabels
+  readonly locale?: SidebarLocale
   readonly sidebarWidthRem: number
   readonly sidebarLayout?: LumenAppShellProps['sidebarLayout']
   readonly sidebarResize?: LumenAppShellProps['sidebarResize']
@@ -301,9 +320,23 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const directory = useHbarRuntimeState(runtime.state.directory)
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
   const workspaceActivity = useHbarRuntimeState(runtime.state.workspaceActivity)
+  const timeView = workspaceActivity.organization === 'time'
+  const activityPreferenceBusy = ['loading', 'saving', 'submitting'].includes(
+    workspaceActivity.organizationPreferenceStatus,
+  )
+  useEffect(() => {
+    void runtime.commands.execute('workspaceActivity.setLocale', { locale: props.locale ?? 'en-US' }).catch(() => {
+      // The activity owner retains its confirmed page and localized retry.
+    })
+  }, [props.locale, runtime])
   const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNames)
   const organizationMenuRef = useRef<HTMLDivElement | null>(null)
+  const sidebarTreeRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    // Changing list organization starts at its heading; live row updates keep the scroll position.
+    sidebarTreeRef.current?.scrollIntoView({ block: 'start', inline: 'nearest' })
+  }, [workspaceActivity.organization])
   const hiddenWorkspaceIds = organization.snapshot?.hiddenWorkspaceIds ?? EMPTY_HIDDEN_IDS
   const captureHideFocus = useWorkspaceOrganizationFocus(
     runtime,
@@ -542,11 +575,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [navigation.workspaceId])
 
   useEffect(() => {
-    if (props.connection !== 'connected') return
+    if (props.connection !== 'connected' || timeView) return
     const pending = Object.values(workspaceActivity.sessions).filter((page) => page.status === 'loading').length
     const missing = [...visibleExpanded].filter((id) => !Object.hasOwn(workspaceActivity.sessions, id))
     for (const workspaceId of missing.slice(0, Math.max(0, 2 - pending))) void loadSessions(workspaceId)
-  }, [visibleExpanded, loadSessions, props.connection, workspaceActivity.sessions])
+  }, [visibleExpanded, loadSessions, props.connection, timeView, workspaceActivity.sessions])
 
   useEffect(() => {
     const first = workspaceActivity.workspaces.items[0]?.workspaceId
@@ -678,6 +711,27 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       )
     return result
   }, [directory.sessions, workspaceActivity.sessions])
+  const timelineItems = useMemo(
+    () =>
+      workspaceActivity.timeline.items.filter((item) => {
+        const session = directory.sessions[item.sessionId]
+        return session && !session.archived && !hiddenWorkspaceIds.includes(item.workspaceId)
+      }),
+    [workspaceActivity.timeline.items, directory.sessions, hiddenWorkspaceIds],
+  )
+  const timelineById = useMemo(() => new Map(timelineItems.map((item) => [item.sessionId, item])), [timelineItems])
+  const timeGroups = useMemo(
+    () =>
+      buildSidebarTimeGroups(
+        timelineItems.map((item) => ({
+          id: item.sessionId,
+          updatedAt: directory.sessions[item.sessionId]!.updatedAt,
+          active: item.execution.activeCount > 0,
+        })),
+        sessionTimeNow,
+      ),
+    [timelineItems, directory.sessions, sessionTimeNow],
+  )
 
   const batchSelectedTargets = Array.from(batchSelection.values())
   const clearBatchSelection = () => {
@@ -1016,19 +1070,30 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       sidebar={
         <LumenAppSidebar
           brand={props.labels.brand}
-          title={props.labels.projectsAndSessions}
+          title={timeView ? props.labels.sort.time.title : props.labels.projectsAndSessions}
           emptyLabel={
             workspaceActivity.workspaces.status === 'loading' ? props.labels.loading : props.labels.noWorkspaces
           }
           status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
           brandAction={
-            <LumenIconButton
-              ref={sidebarFocusRef}
-              label={props.labels.hideSidebar}
-              onClick={() => setSidebarVisible(false)}
-            >
-              <WorkspaceShellIcon name="panel-close" />
-            </LumenIconButton>
+            <LumenFrame className="hbar-app-react-sidebar-brand-actions">
+              <LumenIconButton
+                label={timeView ? props.labels.sort.time.showProjects : props.labels.sort.time.showTime}
+                aria-pressed={timeView}
+                data-testid="sidebar-time-toggle"
+                disabled={!connected || activityPreferenceBusy}
+                onClick={() => void execute('workspaceActivity.toggleTime', {}).catch(recordError)}
+              >
+                <LumenIcon icon={Bell} tier="md" />
+              </LumenIconButton>
+              <LumenIconButton
+                ref={sidebarFocusRef}
+                label={props.labels.hideSidebar}
+                onClick={() => setSidebarVisible(false)}
+              >
+                <WorkspaceShellIcon name="panel-close" />
+              </LumenIconButton>
+            </LumenFrame>
           }
           primaryActions={
             <LumenFrame className="hbar-app-react-sidebar-primary">
@@ -1156,10 +1221,23 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 labels={props.labels.sort}
                 sortBy={workspaceActivity.sortBy}
                 pending={['loading', 'saving', 'submitting'].includes(workspaceActivity.preferenceStatus)}
+                organization={{
+                  mode: workspaceActivity.organization,
+                  pending: activityPreferenceBusy,
+                  disabled: !connected,
+                  labels: props.labels.sort.organization,
+                  onChoose: (mode) => {
+                    void execute('workspaceActivity.setOrganization', { organization: mode }).catch(recordError)
+                  },
+                }}
                 sortDisabled={!connected}
                 hiddenCount={hiddenWorkspaceIds.length}
                 restoreDisabled={!organizationCanWrite}
-                refreshDisabled={!connected || organizationBusy || workspaceActivity.workspaces.status === 'loading'}
+                refreshDisabled={
+                  !connected ||
+                  organizationBusy ||
+                  (timeView ? workspaceActivity.timeline.status : workspaceActivity.workspaces.status) === 'loading'
+                }
                 onSortChange={(sortBy) => {
                   void execute('workspaceActivity.setSort', { sortBy }).catch(recordError)
                 }}
@@ -1198,7 +1276,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             </LumenFrame>
           }
         >
-          <LumenFrame as="nav" className="hbar-app-react-project-tree" aria-label={props.labels.projectsAndSessions}>
+          <LumenFrame
+            as="nav"
+            ref={sidebarTreeRef}
+            className="hbar-app-react-project-tree"
+            aria-label={timeView ? props.labels.sort.time.title : props.labels.projectsAndSessions}
+            data-sidebar-organization={workspaceActivity.organization}
+          >
             <WorkspaceDisplayNameFeedback
               state={displayNames}
               connected={connected}
@@ -1223,7 +1307,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 </LumenButton>
               </LumenFrame>
             )}
-            {workspaceActivity.workspaces.error && (
+            {!timeView && workspaceActivity.workspaces.error && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
                 <LumenText as="p">{props.labels.error(workspaceActivity.workspaces.error)}</LumenText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
@@ -1239,233 +1323,319 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 </LumenButton>
               </LumenFrame>
             )}
-            {!organizationInitializing && sidebarWorkspaces.length === 0 && !workspaceActivity.workspaces.error && (
-              <LumenText as="p">
-                {workspaceActivity.workspaces.status !== 'ready'
-                  ? props.labels.loading
-                  : hiddenWorkspaceIds.length
-                    ? props.labels.organization.allHidden
-                    : props.labels.noWorkspaces}
-              </LumenText>
+            {workspaceActivity.organizationPreferenceError && (
+              <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                <LumenText as="p">{props.labels.error(workspaceActivity.organizationPreferenceError)}</LumenText>
+                <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
+                  {props.labels.sort.refresh}
+                </LumenButton>
+              </LumenFrame>
             )}
-            {sidebarWorkspaces.map((workspace) => {
-              const displayName = workspaceDisplayName(workspace, displayNames.snapshot)
-              const isExpanded = expanded.has(workspace.id)
-              const isPinned = workspacePins.ids.includes(workspace.id)
-              const sessions = sessionsByWorkspace.get(workspace.id) ?? []
-              const activitySessions = workspaceActivity.sessions[workspace.id]
-              return (
-                <LumenFrame as="section" key={workspace.id} data-workspace-id={workspace.id}>
-                  <LumenFrame className="hbar-app-react-workspace-line">
-                    <LumenButton
-                      className="hbar-app-react-workspace-row"
-                      size="s"
-                      variant="text"
-                      aria-expanded={isExpanded}
-                      aria-label={`${
-                        isExpanded
-                          ? props.labels.collapseWorkspace(displayName)
-                          : props.labels.expandWorkspace(displayName)
-                      }${isPinned ? ` · ${props.labels.pinnedWorkspace(displayName)}` : ''}`}
-                      title={workspace.path}
-                      onClick={() =>
-                        setExpanded((current) => {
-                          const next = new Set(current)
-                          if (next.has(workspace.id)) next.delete(workspace.id)
-                          else next.add(workspace.id)
-                          return next
-                        })
-                      }
-                    >
-                      <WorkspaceShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
-                      <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
-                      <LumenText size="s" variant="label">
-                        {displayName}
-                      </LumenText>
-                      {isPinned && (
-                        <LumenText
-                          as="span"
-                          className="hbar-app-react-workspace-pin"
-                          title={props.labels.pinnedWorkspace(displayName)}
-                        >
-                          <WorkspaceShellIcon name="pin" tier="sm" />
-                        </LumenText>
-                      )}
+            {timeView && (
+              <>
+                {timelineItems.length === 0 && !workspaceActivity.timeline.error && (
+                  <LumenText as="p">
+                    {workspaceActivity.timeline.status !== 'ready' ? props.labels.loading : props.labels.noSessions}
+                  </LumenText>
+                )}
+                <SidebarTimeView
+                  groups={timeGroups}
+                  labels={props.labels.sort.time.groups}
+                  renderSession={(sessionId) => {
+                    const item = timelineById.get(sessionId)
+                    const session = directory.sessions[sessionId]
+                    if (!item || !session) return null
+                    return (
+                      <SessionNavigationRow
+                        session={session}
+                        connected={connected}
+                        labels={props.labels}
+                        now={sessionTimeNow}
+                        metadata={{
+                          workspaceName: item.displayName,
+                          executionLabel: props.labels.sort.time.execution[item.execution.state],
+                          needsAttention: item.execution.state === 'waiting_approval',
+                        }}
+                        batchSelecting={batchSelecting}
+                        batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
+                        onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
+                        onExitBatchSelection={() => {
+                          exitBatchSelection()
+                          batchToolbarRef.current?.focus()
+                        }}
+                        selected={
+                          presentation.page.kind === 'session' &&
+                          navigation.workspaceId === session.workspaceId &&
+                          navigation.sessionId === session.id
+                        }
+                        onOpen={() => openSession(session.workspaceId, session.id)}
+                      />
+                    )
+                  }}
+                />
+                {workspaceActivity.timeline.error && (
+                  <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                    <LumenText as="p">{props.labels.error(workspaceActivity.timeline.error)}</LumenText>
+                    <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
+                      {props.labels.sort.refresh}
                     </LumenButton>
-                    <WorkspaceProjectMenu
-                      label={props.labels.workspaceActions(displayName)}
-                      items={[
-                        {
-                          id: 'edit',
-                          label: props.labels.displayNames.title,
-                          disabled:
-                            displayNames.status === 'unavailable' ||
-                            (displayNameBusy && displayNames.editor?.workspaceId !== workspace.id),
-                        },
-                        { id: 'files', label: props.labels.workspaceFiles },
-                        { id: 'settings', label: props.labels.workspaceSettings },
-                        {
-                          id: 'pin',
-                          label: isPinned ? props.labels.unpinWorkspace : props.labels.pinWorkspace,
-                          disabled: pinBusy || workspacePins.status !== 'ready',
-                        },
-                        { id: 'archived', label: props.labels.archive.openList(displayName), disabled: !connected },
-                        {
-                          id: 'refresh',
-                          label: props.labels.roster.refreshWorkspace(displayName),
-                          disabled: !connected || rosterRefresh.entries[workspace.id]?.status === 'loading',
-                        },
-                        { id: 'hide', label: props.labels.organization.hide, disabled: !organizationCanWrite },
-                      ]}
-                      onAction={(action) => {
-                        if (action === 'edit') editWorkspace({ workspaceId: workspace.id })
-                        else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
-                        else if (action === 'pin') toggleWorkspacePin(workspace.id)
-                        else if (action === 'refresh') refreshProjectSessions(workspace.id)
-                        else if (action === 'hide') hideWorkspace(workspace.id)
-                        else if (action === 'archived')
-                          void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
-                      }}
-                    />
-                    <LumenIconButton
-                      className="hbar-app-react-project-new-session"
-                      label={props.labels.createSessionInWorkspace(displayName)}
-                      disabled={!connected || navigationBlocked}
-                      loading={navigationBusy && actionWorkspaceId === workspace.id}
-                      onClick={() => newSession(workspace.id)}
-                    >
-                      <WorkspaceShellIcon name="new-session" />
-                    </LumenIconButton>
                   </LumenFrame>
-                  <SessionRosterFeedback
-                    entry={rosterRefresh.entries[workspace.id]}
-                    labels={props.labels.roster}
-                    connected={connected}
-                    onRefresh={() => refreshProjectSessions(workspace.id)}
-                  />
-                  {actionWorkspaceId === workspace.id && (
-                    <NavigationActionFeedback
-                      state={navigationAction}
-                      labels={props.labels}
-                      connected={connected}
-                      onReconcile={reconcileNavigationAction}
-                    />
-                  )}
-                  {workspaceActionError?.workspaceId === workspace.id && (
-                    <LumenText as="p" role="alert" tone="danger">
-                      {props.labels.error(workspaceActionError.code)}
-                    </LumenText>
-                  )}
-                  {workspacePins.action.workspaceId === workspace.id && workspacePins.action.status !== 'idle' && (
-                    <LumenFrame
-                      className="hbar-app-react-pin-feedback"
-                      role={
-                        workspacePins.action.status === 'submitting'
-                          ? 'status'
-                          : workspacePins.action.status === 'failed' || workspacePins.action.status === 'unknown'
-                            ? 'alert'
-                            : undefined
-                      }
-                    >
-                      <LumenText as="p">
-                        {workspacePins.action.status === 'submitting'
-                          ? props.labels.pinningWorkspace
-                          : workspacePins.action.status === 'unknown'
-                            ? props.labels.pinUnknown
-                            : workspacePins.action.status === 'failed'
-                              ? props.labels.pinFailure(workspacePins.action.error ?? 'UNKNOWN')
-                              : workspacePins.action.persisted
-                                ? isPinned
-                                  ? props.labels.pinSaved
-                                  : props.labels.pinRemoved
-                                : props.labels.pinVolatile}
-                      </LumenText>
-                      {workspacePins.action.status === 'unknown' && (
-                        <LumenButton size="s" variant="outlined" onClick={() => checkWorkspacePin(workspace.id)}>
-                          {props.labels.pinCheck}
-                        </LumenButton>
-                      )}
-                    </LumenFrame>
-                  )}
-                  <ArchivedSessions
-                    workspaceId={workspace.id}
-                    workspaceName={displayName}
-                    labels={props.labels.archive}
-                    connected={connected}
-                  />
-                  {isExpanded && (
-                    <LumenFrame className="hbar-app-react-session-list">
-                      {(!activitySessions || activitySessions.status === 'loading') && sessions.length === 0 ? (
-                        <LumenText as="p">{props.labels.loading}</LumenText>
-                      ) : sessions.length === 0 && !activitySessions?.error ? (
-                        <LumenText as="p">{props.labels.noSessions}</LumenText>
-                      ) : (
-                        sessions.map((session) => (
-                          <SessionNavigationRow
-                            key={session.id}
-                            session={session}
-                            connected={props.connection === 'connected'}
-                            labels={props.labels}
-                            now={sessionTimeNow}
-                            batchSelecting={batchSelecting}
-                            batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
-                            onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
-                            onExitBatchSelection={() => {
-                              exitBatchSelection()
-                              batchToolbarRef.current?.focus()
-                            }}
-                            selected={
-                              presentation.page.kind === 'session' &&
-                              navigation.workspaceId === session.workspaceId &&
-                              navigation.sessionId === session.id
-                            }
-                            onOpen={() => openSession(session.workspaceId, session.id)}
-                          />
-                        ))
-                      )}
-                      {activitySessions?.error && (
-                        <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-                          <LumenText as="p">{props.labels.error(activitySessions.error)}</LumenText>
-                          <LumenButton
-                            size="s"
-                            variant="outlined"
-                            disabled={!connected || activitySessions.status === 'loading'}
-                            onClick={() => void loadSessions(workspace.id)}
-                          >
-                            {props.labels.sort.refresh}
-                          </LumenButton>
-                        </LumenFrame>
-                      )}
-                      {activitySessions?.limitReached && (
-                        <LumenText as="p" role="status">
-                          {props.labels.sort.sessionCapacityReached}
+                )}
+                {workspaceActivity.timeline.limitReached && (
+                  <LumenText as="p" role="status">
+                    {props.labels.sort.sessionCapacityReached}
+                  </LumenText>
+                )}
+                {workspaceActivity.timeline.hasMore && (
+                  <LumenButton
+                    className="hbar-app-react-load-more"
+                    size="s"
+                    tone="primary"
+                    variant="text"
+                    disabled={
+                      !connected ||
+                      workspaceActivity.timeline.status === 'loading' ||
+                      workspaceActivity.timeline.limitReached
+                    }
+                    onClick={() => void execute('workspaceActivity.loadMore', { scope: 'timeline' }).catch(() => {})}
+                  >
+                    {props.labels.loadMore}
+                  </LumenButton>
+                )}
+              </>
+            )}
+            {!timeView &&
+              !organizationInitializing &&
+              sidebarWorkspaces.length === 0 &&
+              !workspaceActivity.workspaces.error && (
+                <LumenText as="p">
+                  {workspaceActivity.workspaces.status !== 'ready'
+                    ? props.labels.loading
+                    : hiddenWorkspaceIds.length
+                      ? props.labels.organization.allHidden
+                      : props.labels.noWorkspaces}
+                </LumenText>
+              )}
+            {!timeView &&
+              sidebarWorkspaces.map((workspace) => {
+                const displayName = workspaceDisplayName(workspace, displayNames.snapshot)
+                const isExpanded = expanded.has(workspace.id)
+                const isPinned = workspacePins.ids.includes(workspace.id)
+                const sessions = sessionsByWorkspace.get(workspace.id) ?? []
+                const activitySessions = workspaceActivity.sessions[workspace.id]
+                return (
+                  <LumenFrame as="section" key={workspace.id} data-workspace-id={workspace.id}>
+                    <LumenFrame className="hbar-app-react-workspace-line">
+                      <LumenButton
+                        className="hbar-app-react-workspace-row"
+                        size="s"
+                        variant="text"
+                        aria-expanded={isExpanded}
+                        aria-label={`${
+                          isExpanded
+                            ? props.labels.collapseWorkspace(displayName)
+                            : props.labels.expandWorkspace(displayName)
+                        }${isPinned ? ` · ${props.labels.pinnedWorkspace(displayName)}` : ''}`}
+                        title={workspace.path}
+                        onClick={() =>
+                          setExpanded((current) => {
+                            const next = new Set(current)
+                            if (next.has(workspace.id)) next.delete(workspace.id)
+                            else next.add(workspace.id)
+                            return next
+                          })
+                        }
+                      >
+                        <WorkspaceShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
+                        <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
+                        <LumenText size="s" variant="label">
+                          {displayName}
                         </LumenText>
-                      )}
-                      {activitySessions?.hasMore && (
-                        <LumenButton
-                          className="hbar-app-react-load-more"
-                          size="s"
-                          tone="primary"
-                          variant="text"
-                          disabled={
-                            !connected || activitySessions.status === 'loading' || activitySessions.limitReached
-                          }
-                          onClick={() => void loadSessions(workspace.id, true)}
-                        >
-                          {props.labels.loadMore}
-                        </LumenButton>
-                      )}
+                        {isPinned && (
+                          <LumenText
+                            as="span"
+                            className="hbar-app-react-workspace-pin"
+                            title={props.labels.pinnedWorkspace(displayName)}
+                          >
+                            <WorkspaceShellIcon name="pin" tier="sm" />
+                          </LumenText>
+                        )}
+                      </LumenButton>
+                      <WorkspaceProjectMenu
+                        label={props.labels.workspaceActions(displayName)}
+                        items={[
+                          {
+                            id: 'edit',
+                            label: props.labels.displayNames.title,
+                            disabled:
+                              displayNames.status === 'unavailable' ||
+                              (displayNameBusy && displayNames.editor?.workspaceId !== workspace.id),
+                          },
+                          { id: 'files', label: props.labels.workspaceFiles },
+                          { id: 'settings', label: props.labels.workspaceSettings },
+                          {
+                            id: 'pin',
+                            label: isPinned ? props.labels.unpinWorkspace : props.labels.pinWorkspace,
+                            disabled: pinBusy || workspacePins.status !== 'ready',
+                          },
+                          { id: 'archived', label: props.labels.archive.openList(displayName), disabled: !connected },
+                          {
+                            id: 'refresh',
+                            label: props.labels.roster.refreshWorkspace(displayName),
+                            disabled: !connected || rosterRefresh.entries[workspace.id]?.status === 'loading',
+                          },
+                          { id: 'hide', label: props.labels.organization.hide, disabled: !organizationCanWrite },
+                        ]}
+                        onAction={(action) => {
+                          if (action === 'edit') editWorkspace({ workspaceId: workspace.id })
+                          else if (action === 'files' || action === 'settings')
+                            openWorkspaceSurface(workspace.id, action)
+                          else if (action === 'pin') toggleWorkspacePin(workspace.id)
+                          else if (action === 'refresh') refreshProjectSessions(workspace.id)
+                          else if (action === 'hide') hideWorkspace(workspace.id)
+                          else if (action === 'archived')
+                            void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
+                        }}
+                      />
+                      <LumenIconButton
+                        className="hbar-app-react-project-new-session"
+                        label={props.labels.createSessionInWorkspace(displayName)}
+                        disabled={!connected || navigationBlocked}
+                        loading={navigationBusy && actionWorkspaceId === workspace.id}
+                        onClick={() => newSession(workspace.id)}
+                      >
+                        <WorkspaceShellIcon name="new-session" />
+                      </LumenIconButton>
                     </LumenFrame>
-                  )}
-                </LumenFrame>
-              )
-            })}
-            {workspaceActivity.workspaces.limitReached && (
+                    <SessionRosterFeedback
+                      entry={rosterRefresh.entries[workspace.id]}
+                      labels={props.labels.roster}
+                      connected={connected}
+                      onRefresh={() => refreshProjectSessions(workspace.id)}
+                    />
+                    {actionWorkspaceId === workspace.id && (
+                      <NavigationActionFeedback
+                        state={navigationAction}
+                        labels={props.labels}
+                        connected={connected}
+                        onReconcile={reconcileNavigationAction}
+                      />
+                    )}
+                    {workspaceActionError?.workspaceId === workspace.id && (
+                      <LumenText as="p" role="alert" tone="danger">
+                        {props.labels.error(workspaceActionError.code)}
+                      </LumenText>
+                    )}
+                    {workspacePins.action.workspaceId === workspace.id && workspacePins.action.status !== 'idle' && (
+                      <LumenFrame
+                        className="hbar-app-react-pin-feedback"
+                        role={
+                          workspacePins.action.status === 'submitting'
+                            ? 'status'
+                            : workspacePins.action.status === 'failed' || workspacePins.action.status === 'unknown'
+                              ? 'alert'
+                              : undefined
+                        }
+                      >
+                        <LumenText as="p">
+                          {workspacePins.action.status === 'submitting'
+                            ? props.labels.pinningWorkspace
+                            : workspacePins.action.status === 'unknown'
+                              ? props.labels.pinUnknown
+                              : workspacePins.action.status === 'failed'
+                                ? props.labels.pinFailure(workspacePins.action.error ?? 'UNKNOWN')
+                                : workspacePins.action.persisted
+                                  ? isPinned
+                                    ? props.labels.pinSaved
+                                    : props.labels.pinRemoved
+                                  : props.labels.pinVolatile}
+                        </LumenText>
+                        {workspacePins.action.status === 'unknown' && (
+                          <LumenButton size="s" variant="outlined" onClick={() => checkWorkspacePin(workspace.id)}>
+                            {props.labels.pinCheck}
+                          </LumenButton>
+                        )}
+                      </LumenFrame>
+                    )}
+                    <ArchivedSessions
+                      workspaceId={workspace.id}
+                      workspaceName={displayName}
+                      labels={props.labels.archive}
+                      connected={connected}
+                    />
+                    {isExpanded && (
+                      <LumenFrame className="hbar-app-react-session-list">
+                        {(!activitySessions || activitySessions.status === 'loading') && sessions.length === 0 ? (
+                          <LumenText as="p">{props.labels.loading}</LumenText>
+                        ) : sessions.length === 0 && !activitySessions?.error ? (
+                          <LumenText as="p">{props.labels.noSessions}</LumenText>
+                        ) : (
+                          sessions.map((session) => (
+                            <SessionNavigationRow
+                              key={session.id}
+                              session={session}
+                              connected={props.connection === 'connected'}
+                              labels={props.labels}
+                              now={sessionTimeNow}
+                              batchSelecting={batchSelecting}
+                              batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
+                              onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
+                              onExitBatchSelection={() => {
+                                exitBatchSelection()
+                                batchToolbarRef.current?.focus()
+                              }}
+                              selected={
+                                presentation.page.kind === 'session' &&
+                                navigation.workspaceId === session.workspaceId &&
+                                navigation.sessionId === session.id
+                              }
+                              onOpen={() => openSession(session.workspaceId, session.id)}
+                            />
+                          ))
+                        )}
+                        {activitySessions?.error && (
+                          <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                            <LumenText as="p">{props.labels.error(activitySessions.error)}</LumenText>
+                            <LumenButton
+                              size="s"
+                              variant="outlined"
+                              disabled={!connected || activitySessions.status === 'loading'}
+                              onClick={() => void loadSessions(workspace.id)}
+                            >
+                              {props.labels.sort.refresh}
+                            </LumenButton>
+                          </LumenFrame>
+                        )}
+                        {activitySessions?.limitReached && (
+                          <LumenText as="p" role="status">
+                            {props.labels.sort.sessionCapacityReached}
+                          </LumenText>
+                        )}
+                        {activitySessions?.hasMore && (
+                          <LumenButton
+                            className="hbar-app-react-load-more"
+                            size="s"
+                            tone="primary"
+                            variant="text"
+                            disabled={
+                              !connected || activitySessions.status === 'loading' || activitySessions.limitReached
+                            }
+                            onClick={() => void loadSessions(workspace.id, true)}
+                          >
+                            {props.labels.loadMore}
+                          </LumenButton>
+                        )}
+                      </LumenFrame>
+                    )}
+                  </LumenFrame>
+                )
+              })}
+            {!timeView && workspaceActivity.workspaces.limitReached && (
               <LumenText as="p" role="status">
                 {props.labels.sort.capacityReached}
               </LumenText>
             )}
-            {workspaceActivity.workspaces.hasMore && (
+            {!timeView && workspaceActivity.workspaces.hasMore && (
               <LumenButton
                 className="hbar-app-react-load-more"
                 size="s"

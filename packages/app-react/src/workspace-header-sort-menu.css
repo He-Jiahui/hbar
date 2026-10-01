@@ -53,6 +53,10 @@
   inline-size: min(14.375rem, calc(100vw - 1.25rem));
 }
 
+.hbar-app-react-workspace-sort-submenu[data-organization='true'] {
+  inline-size: min(16.875rem, calc(100vw - 1.25rem));
+}
+
 .hbar-app-react-workspace-header-menu-popover:popover-open,
 .hbar-app-react-workspace-sort-submenu:popover-open {
   position: fixed;
@@ -66,6 +70,7 @@
 }
 
 .hbar-app-react-workspace-header-menu-popover > button,
+.hbar-app-react-workspace-organization-group > button,
 .hbar-app-react-workspace-sort-condition-group > button,
 .hbar-app-react-workspace-sort-submenu > button {
   inline-size: 100%;
@@ -84,6 +89,13 @@
 }
 
 .hbar-app-react-workspace-sort-condition-group {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  flex-direction: column;
+}
+
+.hbar-app-react-workspace-organization-group {
   display: flex;
   min-inline-size: 0;
   inline-size: 100%;

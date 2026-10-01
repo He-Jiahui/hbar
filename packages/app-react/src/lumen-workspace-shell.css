@@ -62,6 +62,13 @@
   gap: 0.125rem;
 }
 
+.hbar-app-react-sidebar-brand-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+
 .hbar-app-react-sidebar-action-error {
   margin: 0;
   padding: 0.25rem 0.75rem;

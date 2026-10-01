@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
+import { SessionNavigationRow } from '../packages/app-react/src/session-navigation-row'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
 import { workspaceSortCopy } from '../apps/web/src/workspace-sort-copy'
 import { workspaceDisplayNamesCopy } from '../apps/web/src/workspace-display-names-copy'
@@ -209,6 +210,33 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('归档会话')
     expect(html).toContain('--lumen-tool-size:26rem')
     expect(html).not.toContain('Workspace 1')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('time-view session metadata follows the title and time and keeps host-owned workspace and status copy', () => {
+  const runtime = runtimeFixture('time-view-session-metadata')
+  try {
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <SessionNavigationRow
+          session={session}
+          selected={false}
+          connected
+          labels={labels}
+          now={4}
+          onOpen={() => {}}
+          metadata={{ workspaceName: '宿主工程名', executionLabel: '等待授权', needsAttention: true }}
+        />
+      </HbarRuntimeProvider>,
+    )
+    expect(html.indexOf('需要键盘导航的会话')).toBeLessThan(html.indexOf('完整更新时间 3'))
+    expect(html.indexOf('完整更新时间 3')).toBeLessThan(html.indexOf('宿主工程名'))
+    expect(html.indexOf('宿主工程名')).toBeLessThan(html.indexOf('等待授权'))
+    expect(html).toContain('data-has-metadata="true"')
+    expect(html).toContain('data-needs-attention="true"')
+    expect(html.match(/data-tier="sm"/g)).toHaveLength(3)
   } finally {
     runtime.dispose()
   }

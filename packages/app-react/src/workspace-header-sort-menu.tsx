@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { Check, ChevronRight, Clock, Ellipsis, RefreshCw, RotateCcw } from 'lucide-react'
+import { Check, ChevronRight, Clock, Ellipsis, Folder, FolderOpen, RefreshCw, RotateCcw } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenText } from '@lumen/app-ui'
 import type { WorkspaceActivitySortBy } from '@hbar/contracts/directory'
 import { workspaceHeaderMenuPosition, type WorkspaceHeaderMenuAlignment } from './workspace-header-sort-menu-model'
@@ -7,6 +7,9 @@ import './workspace-header-sort-menu.css'
 
 const HEADER_MENU_WIDTH_REM = 16.875
 const SORT_SUBMENU_WIDTH_REM = 14.375
+const ORGANIZATION_SUBMENU_WIDTH_REM = HEADER_MENU_WIDTH_REM
+
+export type WorkspaceOrganizationMode = 'project' | 'recentProject' | 'time'
 
 function placePopover(
   popup: HTMLDivElement | null,
@@ -41,6 +44,21 @@ export interface WorkspaceHeaderSortMenuLabels {
   readonly updating: string
 }
 
+export interface WorkspaceHeaderOrganizationLabels {
+  readonly organize: string
+  readonly byProject: string
+  readonly recentProjects: string
+  readonly byTime: string
+}
+
+export interface WorkspaceHeaderOrganization {
+  readonly mode: WorkspaceOrganizationMode
+  readonly pending: boolean
+  readonly disabled: boolean
+  readonly labels: WorkspaceHeaderOrganizationLabels
+  readonly onChoose: (mode: WorkspaceOrganizationMode) => void
+}
+
 export interface WorkspaceHeaderSortMenuProps {
   readonly labels: WorkspaceHeaderSortMenuLabels
   readonly sortBy: WorkspaceActivitySortBy
@@ -52,6 +70,7 @@ export interface WorkspaceHeaderSortMenuProps {
   readonly onSortChange: (sortBy: WorkspaceActivitySortBy) => void
   readonly onRestoreHidden: () => void
   readonly onRefresh: () => void
+  readonly organization?: WorkspaceHeaderOrganization
   readonly menuRef?: { current: HTMLDivElement | null } | undefined
 }
 
@@ -67,18 +86,25 @@ export function WorkspaceHeaderSortMenu({
   onSortChange,
   onRestoreHidden,
   onRefresh,
+  organization,
   menuRef,
 }: WorkspaceHeaderSortMenuProps) {
   const generatedId = useId()
   const menuId = `workspace-header-menu-${generatedId}`
   const sortMenuId = `workspace-header-sort-${generatedId}`
+  const organizationMenuId = `workspace-header-organization-${generatedId}`
   const trigger = useRef<HTMLButtonElement | null>(null)
   const menu = useRef<HTMLDivElement | null>(null)
+  const organizationCondition = useRef<HTMLButtonElement | null>(null)
+  const organizationMenu = useRef<HTMLDivElement | null>(null)
   const sortCondition = useRef<HTMLButtonElement | null>(null)
   const sortMenu = useRef<HTMLDivElement | null>(null)
   const focusOnSortOpen = useRef(false)
+  const focusOnOrganizationOpen = useRef(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [organizationMenuOpen, setOrganizationMenuOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const isPending = pending || organization?.pending === true
 
   const setRoot = useCallback(
     (node: HTMLDivElement | null) => {
@@ -95,19 +121,54 @@ export function WorkspaceHeaderSortMenu({
     if (restoreFocus) sortCondition.current?.focus()
   }, [])
 
+  const closeOrganizationMenu = useCallback((restoreFocus: boolean) => {
+    const popup = organizationMenu.current
+    if (popup?.matches(':popover-open')) popup.hidePopover()
+    focusOnOrganizationOpen.current = false
+    setOrganizationMenuOpen(false)
+    if (restoreFocus) organizationCondition.current?.focus()
+  }, [])
+
   const closeMenu = useCallback(
     (restoreFocus: boolean) => {
       closeSortMenu(false)
+      closeOrganizationMenu(false)
       if (menu.current?.matches(':popover-open')) menu.current.hidePopover()
       setMenuOpen(false)
       if (restoreFocus) trigger.current?.focus()
     },
-    [closeSortMenu],
+    [closeOrganizationMenu, closeSortMenu],
+  )
+
+  const openOrganizationMenu = useCallback(
+    (focusCheckedChoice: boolean) => {
+      if (!organization || isPending || organization.disabled) return
+      closeSortMenu(false)
+      focusOnOrganizationOpen.current = focusCheckedChoice
+      const popup = organizationMenu.current
+      if (!popup) return
+      if (popup.matches(':popover-open')) {
+        if (focusCheckedChoice) {
+          requestAnimationFrame(() => {
+            if (!popup.matches(':popover-open') || document.activeElement !== organizationCondition.current) return
+            focusOnOrganizationOpen.current = false
+            popup
+              .querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]:not(:disabled)')
+              ?.focus()
+          })
+        }
+        return
+      }
+      placePopover(popup, organizationCondition.current, 'flyout', ORGANIZATION_SUBMENU_WIDTH_REM)
+      popup.showPopover()
+    },
+    [closeSortMenu, isPending, organization],
   )
 
   const openSortMenu = useCallback(
     (focusCheckedChoice: boolean) => {
-      if (pending || sortDisabled) return
+      if (isPending || sortDisabled) return
+      closeOrganizationMenu(false)
       focusOnSortOpen.current = focusCheckedChoice
       const popup = sortMenu.current
       if (!popup) return
@@ -126,7 +187,7 @@ export function WorkspaceHeaderSortMenu({
       placePopover(popup, sortCondition.current, 'flyout', SORT_SUBMENU_WIDTH_REM)
       popup.showPopover()
     },
-    [pending, sortDisabled],
+    [closeOrganizationMenu, isPending, sortDisabled],
   )
 
   const navigateMenu = (event: KeyboardEvent<HTMLDivElement>, selector: string) => {
@@ -152,6 +213,11 @@ export function WorkspaceHeaderSortMenu({
       closeMenu(true)
       return
     }
+    if (event.key === 'ArrowRight' && event.target === organizationCondition.current) {
+      event.preventDefault()
+      openOrganizationMenu(true)
+      return
+    }
     if (event.key === 'ArrowRight' && event.target === sortCondition.current) {
       event.preventDefault()
       openSortMenu(true)
@@ -161,6 +227,16 @@ export function WorkspaceHeaderSortMenu({
       event,
       ':scope > button[role="menuitem"]:not(:disabled), :scope > [role="none"] > button[role="menuitem"]:not(:disabled)',
     )
+  }
+
+  const handleOrganizationMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' || event.key === 'ArrowLeft') {
+      event.preventDefault()
+      event.stopPropagation()
+      closeOrganizationMenu(true)
+      return
+    }
+    navigateMenu(event, ':scope > button[role="menuitemradio"]:not(:disabled)')
   }
 
   const handleSortMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -174,10 +250,12 @@ export function WorkspaceHeaderSortMenu({
   }
 
   useEffect(() => {
-    if (!menuOpen && !sortMenuOpen) return
+    if (!menuOpen && !organizationMenuOpen && !sortMenuOpen) return
     const repositionOpenMenus = () => {
       if (menu.current?.matches(':popover-open'))
         placePopover(menu.current, trigger.current, 'below', HEADER_MENU_WIDTH_REM)
+      if (organizationMenu.current?.matches(':popover-open'))
+        placePopover(organizationMenu.current, organizationCondition.current, 'flyout', ORGANIZATION_SUBMENU_WIDTH_REM)
       if (sortMenu.current?.matches(':popover-open'))
         placePopover(sortMenu.current, sortCondition.current, 'flyout', SORT_SUBMENU_WIDTH_REM)
     }
@@ -187,7 +265,7 @@ export function WorkspaceHeaderSortMenu({
       window.removeEventListener('resize', repositionOpenMenus)
       window.removeEventListener('scroll', repositionOpenMenus, true)
     }
-  }, [menuOpen, sortMenuOpen])
+  }, [menuOpen, organizationMenuOpen, sortMenuOpen])
 
   return (
     <LumenFrame
@@ -214,7 +292,7 @@ export function WorkspaceHeaderSortMenu({
       >
         <LumenIcon icon={Ellipsis} tier="sm" />
       </LumenIconButton>
-      {pending && (
+      {isPending && (
         <LumenText role="status" className="hbar-app-react-workspace-sort-pending">
           {labels.updating}
         </LumenText>
@@ -234,6 +312,7 @@ export function WorkspaceHeaderSortMenu({
           const opening = event.newState === 'open'
           setMenuOpen(opening)
           if (!opening) {
+            closeOrganizationMenu(false)
             closeSortMenu(false)
             return
           }
@@ -246,6 +325,141 @@ export function WorkspaceHeaderSortMenu({
         }}
         onKeyDown={handleMainMenuKeyDown}
       >
+        {organization && (
+          <LumenFrame role="none" className="hbar-app-react-workspace-organization-group">
+            <LumenButton
+              ref={organizationCondition}
+              role="menuitem"
+              variant="text"
+              indicator="none"
+              className="hbar-app-react-workspace-organization-condition"
+              aria-haspopup="menu"
+              aria-expanded={organizationMenuOpen}
+              aria-controls={organizationMenuId}
+              popoverTarget={organizationMenuId}
+              popoverTargetAction="show"
+              disabled={isPending || organization.disabled}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== 'mouse') return
+                const anchor = event.currentTarget.getBoundingClientRect()
+                const position = workspaceHeaderMenuPosition(
+                  anchor,
+                  {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    rootFontSize: Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize),
+                  },
+                  ORGANIZATION_SUBMENU_WIDTH_REM,
+                  0,
+                  'flyout',
+                )
+                if (position.left >= anchor.right) openOrganizationMenu(false)
+              }}
+              onClick={() => openOrganizationMenu(true)}
+            >
+              <LumenIcon icon={Folder} tier="md" />
+              <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                {organization.labels.organize}
+              </LumenText>
+              <LumenIcon icon={ChevronRight} tier="sm" className="hbar-app-react-workspace-sort-chevron" />
+            </LumenButton>
+            <LumenFrame
+              ref={organizationMenu}
+              id={organizationMenuId}
+              popover="auto"
+              role="menu"
+              aria-label={organization.labels.organize}
+              data-testid="workspace-organization-submenu"
+              data-organization="true"
+              className="hbar-app-react-workspace-sort-submenu"
+              onBeforeToggle={(event) => {
+                if (event.newState === 'open')
+                  placePopover(
+                    event.currentTarget,
+                    organizationCondition.current,
+                    'flyout',
+                    ORGANIZATION_SUBMENU_WIDTH_REM,
+                  )
+              }}
+              onToggle={(event) => {
+                const opening = event.newState === 'open'
+                setOrganizationMenuOpen(opening)
+                if (!opening) {
+                  focusOnOrganizationOpen.current = false
+                  return
+                }
+                requestAnimationFrame(() => {
+                  if (!organizationMenu.current?.matches(':popover-open')) return
+                  placePopover(
+                    organizationMenu.current,
+                    organizationCondition.current,
+                    'flyout',
+                    ORGANIZATION_SUBMENU_WIDTH_REM,
+                  )
+                  if (!focusOnOrganizationOpen.current || document.activeElement !== organizationCondition.current)
+                    return
+                  focusOnOrganizationOpen.current = false
+                  organizationMenu.current
+                    ?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]:not(:disabled)')
+                    ?.focus()
+                })
+              }}
+              onKeyDown={handleOrganizationMenuKeyDown}
+            >
+              <LumenButton
+                role="menuitemradio"
+                aria-checked={organization.mode === 'project'}
+                variant="text"
+                indicator="none"
+                disabled={isPending || organization.disabled}
+                onClick={() => {
+                  closeMenu(true)
+                  organization.onChoose('project')
+                }}
+              >
+                <LumenIcon icon={Folder} tier="md" />
+                <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                  {organization.labels.byProject}
+                </LumenText>
+                {organization.mode === 'project' && <LumenIcon icon={Check} tier="sm" />}
+              </LumenButton>
+              <LumenButton
+                role="menuitemradio"
+                aria-checked={organization.mode === 'recentProject'}
+                variant="text"
+                indicator="none"
+                disabled={isPending || organization.disabled}
+                onClick={() => {
+                  closeMenu(true)
+                  organization.onChoose('recentProject')
+                }}
+              >
+                <LumenIcon icon={FolderOpen} tier="md" />
+                <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                  {organization.labels.recentProjects}
+                </LumenText>
+                {organization.mode === 'recentProject' && <LumenIcon icon={Check} tier="sm" />}
+              </LumenButton>
+              <LumenButton
+                role="menuitemradio"
+                aria-checked={organization.mode === 'time'}
+                variant="text"
+                indicator="none"
+                disabled={isPending || organization.disabled}
+                onClick={() => {
+                  closeMenu(true)
+                  organization.onChoose('time')
+                }}
+              >
+                <LumenIcon icon={Clock} tier="md" />
+                <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                  {organization.labels.byTime}
+                </LumenText>
+                {organization.mode === 'time' && <LumenIcon icon={Check} tier="sm" />}
+              </LumenButton>
+            </LumenFrame>
+          </LumenFrame>
+        )}
         <LumenFrame role="none" className="hbar-app-react-workspace-sort-condition-group">
           <LumenButton
             ref={sortCondition}
@@ -258,7 +472,7 @@ export function WorkspaceHeaderSortMenu({
             aria-controls={sortMenuId}
             popoverTarget={sortMenuId}
             popoverTargetAction="show"
-            disabled={pending || sortDisabled}
+            disabled={isPending || sortDisabled}
             onPointerEnter={(event) => {
               if (event.pointerType !== 'mouse') return
               const anchor = event.currentTarget.getBoundingClientRect()
@@ -321,7 +535,7 @@ export function WorkspaceHeaderSortMenu({
               aria-checked={sortBy === 'createdAt'}
               variant="text"
               indicator="none"
-              disabled={pending || sortDisabled}
+              disabled={isPending || sortDisabled}
               onClick={() => {
                 closeMenu(true)
                 onSortChange('createdAt')
@@ -338,7 +552,7 @@ export function WorkspaceHeaderSortMenu({
               aria-checked={sortBy === 'updatedAt'}
               variant="text"
               indicator="none"
-              disabled={pending || sortDisabled}
+              disabled={isPending || sortDisabled}
               onClick={() => {
                 closeMenu(true)
                 onSortChange('updatedAt')

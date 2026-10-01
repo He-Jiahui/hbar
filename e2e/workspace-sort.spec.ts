@@ -429,7 +429,7 @@ async function verifyLocale(host: OwnedHost, browser: Browser, locale: ShellLoca
     )
     expect(await sessionIds(f)).toEqual(createdSessions.items.map((session) => session.id))
     expect(
-      f.calls.some((call) => call.commandId === 'workspace.activity.list' && hasSortInput(call.input, 'createdAt')),
+      f.calls.some((call) => call.commandId === 'workspace.sidebar.list' && hasSortInput(call.input, 'createdAt')),
     ).toBe(true)
     expect(
       f.calls.some((call) => call.commandId === 'session.activity.list' && hasSortInput(call.input, 'createdAt')),

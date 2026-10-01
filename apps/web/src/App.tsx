@@ -155,6 +155,37 @@ function createRuntime(
     initialGlobalSettings,
     directory: createDirectoryQueryAdapter(client),
     workspaces: createWorkspaceSessionCommandClient(client),
+    sidebarActivityEvents: {
+      subscribe(listener: () => void) {
+        const off = client.onEvent((event) => {
+          if (
+            event.method === 'host.changed' &&
+            [
+              'sessions',
+              'workspaces',
+              'workspace-display-names',
+              'workspace-organization',
+              'session-activity',
+              'resync',
+            ].includes(event.params.kind)
+          )
+            listener()
+        })
+        const onVisible = () => {
+          if (document.visibilityState === 'visible') listener()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+          off()
+          document.removeEventListener('visibilitychange', onVisible)
+        }
+      },
+      onConnection(listener: (connected: boolean) => void) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     ...(hostId === null
       ? {}
       : {
@@ -1310,6 +1341,7 @@ export default function App({
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
         <HbarWorkspaceShell
           labels={copy.shell}
+          locale={locale}
           titlebar={
             nativeWindow ? (
               <NativeWindowTitlebar context={nativeWindow} labels={copy.windowControls} title={copy.shell.brand} />
