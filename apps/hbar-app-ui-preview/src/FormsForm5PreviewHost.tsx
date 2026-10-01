@@ -11,25 +11,30 @@ import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Forms5PreviewFixture } from './forms5PreviewFixtures'
 import { createForms5PreviewStore } from './forms5PreviewStore'
 
-export function FormsForm5PreviewHost({
+type FormsForm5PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenFormsContent
+  readonly referenceFixture: Forms5PreviewFixture
+  readonly children: ReactNode
+}
+
+export function FormsForm5PreviewHost(props: FormsForm5PreviewHostProps) {
+  if (props.spec.category !== 'forms' || props.spec.variant !== 5) return props.children
+  return <FormsForm5PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function FormsForm5PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenFormsContent
-  readonly referenceFixture: Forms5PreviewFixture
-  readonly children: ReactNode
-}) {
+}: FormsForm5PreviewHostProps) {
   const parentContent = useLumenFormsContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createForms5PreviewStore(referenceFixture.storeSeed), [referenceFixture])
   const state = useStore(store)
   const addressCheckSequence = useRef(0)
-
-  if (spec.category !== 'forms' || spec.variant !== 5) return children
 
   const preview = referenceFixture.contentFor(state)
   const copy = preview.copy
@@ -144,9 +149,7 @@ export function FormsForm5PreviewHost({
   }
 
   return (
-    <LumenFormsProvider
-      content={{ ...(parentContent ?? content), workspaceProvisionReference }}
-    >
+    <LumenFormsProvider content={{ ...(parentContent ?? content), workspaceProvisionReference }}>
       {children}
     </LumenFormsProvider>
   )

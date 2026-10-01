@@ -1711,3 +1711,29 @@ collapsed. Review is still a typed request only; the next source outcome and
 actual transfer, archive or deletion remain unknown. The strict ledger stays
 unapproved, and this boundary is tracked separately from natural layout
 acceptance.
+
+### Forms 1–12 active-owner closure
+
+The twelve existing Forms preview wrappers now check the exact active variant
+before reading a seed, creating a store or subscribing. Their reference content,
+Zustand transitions and view/CSS remain unchanged. Public-hook SSR tests cover
+each active rich contract and the unrelated-category bypass. No second state
+framework or speculative service behavior is introduced.
+
+The broader focused Forms/Onboarding run passed 139 tests / 1,120 assertions
+across 22 files, reusing the existing localized, capacity, duplicate/stale ID,
+validation and draft tests. After strengthening wrong-variant fixture traps for
+all nineteen owners, a fresh targeted run passed the Forms and Onboarding Host
+suites plus the previously omitted Forms 3 store suite: 12 tests / 51 assertions.
+Forms 3 also passes the representative production-browser line edit, derived
+amount, add/remove and reachable narrow footer; Forms 10 passes its low-score
+follow-up, matrix/highlight progress and reachable narrow submit. Both have zero
+page errors and no horizontal overflow. Scoped lint and the production build
+pass. These checks support unchanged normal-flow layout without a repeated
+button, theme or viewport matrix.
+
+The twelve flows keep the previously recorded source boundary. Unobserved Save,
+Book, Create, Submit and navigation outcomes remain typed requests or unavailable,
+not simulated remote success. Partial source choice catalogs remain explicit.
+Historical strict/source access and geometry limitations are preserved in each
+inventory note; practical core/layout closure is not fresh strict acceptance.

@@ -36,24 +36,29 @@ function findNpsScore(value: number): Forms10NpsScore | undefined {
   return FORMS10_NPS_SCORE_VALUES.find((score) => score === value)
 }
 
-export function FormsForm10PreviewHost({
+type FormsForm10PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenFormsContent
+  readonly referenceFixture: Forms10PreviewFixture
+  readonly children: ReactNode
+}
+
+export function FormsForm10PreviewHost(props: FormsForm10PreviewHostProps) {
+  if (props.spec.category !== 'forms' || props.spec.variant !== 10) return props.children
+  return <FormsForm10PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function FormsForm10PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenFormsContent
-  readonly referenceFixture: Forms10PreviewFixture
-  readonly children: ReactNode
-}) {
+}: FormsForm10PreviewHostProps) {
   const parentContent = useLumenFormsContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createForms10PreviewStore(), [])
   const state = useStore(store)
-
-  if (spec.category !== 'forms' || spec.variant !== 10) return children
 
   const preview = referenceFixture.contentFor(state)
   const notify = (actionId: string, value?: string) => {

@@ -14,24 +14,29 @@ function findDayId(value: string): Forms9DayId | undefined {
   return FORMS9_DAY_ORDER.find((dayId) => dayId === value)
 }
 
-export function FormsForm9PreviewHost({
+type FormsForm9PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenFormsContent
+  readonly referenceFixture: Forms9PreviewFixture
+  readonly children: ReactNode
+}
+
+export function FormsForm9PreviewHost(props: FormsForm9PreviewHostProps) {
+  if (props.spec.category !== 'forms' || props.spec.variant !== 9) return props.children
+  return <FormsForm9PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function FormsForm9PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenFormsContent
-  readonly referenceFixture: Forms9PreviewFixture
-  readonly children: ReactNode
-}) {
+}: FormsForm9PreviewHostProps) {
   const parentContent = useLumenFormsContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createForms9PreviewStore(referenceFixture.storeSeed), [referenceFixture])
   const state = useStore(store)
-
-  if (spec.category !== 'forms' || spec.variant !== 9) return children
 
   const preview = referenceFixture.contentFor(state)
   const notify = (actionId: string, value?: string) => {

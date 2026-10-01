@@ -11,24 +11,29 @@ import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Forms6PreviewFixture } from './forms6PreviewFixtures'
 import { createForms6PreviewStore } from './forms6PreviewStore'
 
-export function FormsForm6PreviewHost({
+type FormsForm6PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenFormsContent
+  readonly referenceFixture: Forms6PreviewFixture
+  readonly children: ReactNode
+}
+
+export function FormsForm6PreviewHost(props: FormsForm6PreviewHostProps) {
+  if (props.spec.category !== 'forms' || props.spec.variant !== 6) return props.children
+  return <FormsForm6PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function FormsForm6PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenFormsContent
-  readonly referenceFixture: Forms6PreviewFixture
-  readonly children: ReactNode
-}) {
+}: FormsForm6PreviewHostProps) {
   const parentContent = useLumenFormsContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createForms6PreviewStore(referenceFixture.storeSeed), [referenceFixture])
   const state = useStore(store)
-
-  if (spec.category !== 'forms' || spec.variant !== 6) return children
 
   const preview = referenceFixture.contentFor(state)
   const notify = (actionId: string, value?: string) => {

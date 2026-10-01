@@ -14,17 +14,24 @@ import {
 } from './forms12PreviewFixtures'
 import { createForms12PreviewStore } from './forms12PreviewStore'
 
-export function FormsForm12PreviewHost({
+type FormsForm12PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenFormsContent
+  readonly referenceFixture: Forms12PreviewFixture
+  readonly children: ReactNode
+}
+
+export function FormsForm12PreviewHost(props: FormsForm12PreviewHostProps) {
+  if (props.spec.category !== 'forms' || props.spec.variant !== 12) return props.children
+  return <FormsForm12PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function FormsForm12PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenFormsContent
-  readonly referenceFixture: Forms12PreviewFixture
-  readonly children: ReactNode
-}) {
+}: FormsForm12PreviewHostProps) {
   const parentContent = useLumenFormsContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
@@ -37,8 +44,6 @@ export function FormsForm12PreviewHost({
     [],
   )
   const state = useStore(store)
-
-  if (spec.category !== 'forms' || spec.variant !== 12) return children
 
   const preview = referenceFixture.contentFor(state)
   const notify = (actionId: string, value?: string) => {
