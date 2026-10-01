@@ -46,6 +46,7 @@ import {
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
+import { useSessionReadingPosition } from './session-reading-position'
 import {
   HbarComposerBackgroundAgentStop,
   HbarComposerBackgroundAgentFeedback,
@@ -121,6 +122,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly retryTimeline: string
   readonly historyLimit: string
   readonly latest: string
+  readonly readingPositionUnavailable: string
   readonly author: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly avatar: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly copy: string
@@ -1088,6 +1090,15 @@ function SessionWorkspaceContent({
     sessionId && navigation.workspaceId && sourceTab?.kind === 'session'
       ? { sessionId, workspaceId: navigation.workspaceId, sourceTabInstanceKey: sourceTab.instanceKey }
       : null
+  const reading = useSessionReadingPosition({
+    runtime,
+    target: backgroundTarget,
+    ready: activeConversationOwner && timeline.sessionId === sessionId && timeline.status === 'ready',
+    findOpen: find.open,
+    messageIds: timeline.messages.map((message) => message.id),
+    hasOlder: timeline.hasOlder,
+    olderStatus: timeline.olderStatus,
+  })
   const backgroundCandidate = sessionId ? backgroundAgents.entries[sessionId] : undefined
   const backgroundEntry =
     backgroundTarget &&
@@ -2401,19 +2412,40 @@ function SessionWorkspaceContent({
         </LumenFrame>
       )}
       {navigationAccessory}
-      <LumenFrame className="hbar-app-react-session-main">
+      <LumenFrame
+        className="hbar-app-react-session-main"
+        ref={reading.rootRef}
+        data-reading-scope={reading.scope}
+        data-reading-restoring={reading.restoring}
+        onScrollCapture={reading.onScrollCapture}
+        onWheelCapture={reading.onWheelCapture}
+        onTouchStartCapture={reading.onTouchStartCapture}
+        onPointerDownCapture={reading.onPointerDownCapture}
+        onKeyDownCapture={reading.onKeyDownCapture}
+      >
         <LumenConversation
           title={labels.conversationTitle(sessionTitle)}
           header={find.bar}
           messages={messages}
           empty={emptyTimeline}
-          beforeMessages={historyNotices}
+          beforeMessages={
+            <>
+              {reading.unavailable && (
+                <LumenText as="p" role="status">
+                  {labels.readingPositionUnavailable}
+                </LumenText>
+              )}
+              {historyNotices}
+            </>
+          }
           afterMessages={activity}
           composer={composer}
           scrollKey={sessionId ?? undefined}
-          scrollTarget={find.scrollTarget}
-          onScrollTargetResult={find.onScrollTargetResult}
-          followLatest={!find.open}
+          scrollTarget={find.scrollTarget ?? reading.scrollTarget}
+          onScrollTargetResult={(result) => {
+            if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)
+          }}
+          followLatest={!find.open && !reading.restoring}
           contentRevision={`${timeline.cursor}:goal:${goalHistoryEntry?.status ?? 'idle'}:${goalLifecycleRows.map((row) => row.eventId).join(',')}:${Object.values(
             timeline.streams,
           )

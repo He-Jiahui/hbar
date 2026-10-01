@@ -989,6 +989,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     historyLimit: choose('已达到此窗口的 1,000 条消息上限。', 'This window reached its 1,000-message history limit.'),
     find: sessionFindCopy(locale),
     latest: choose('查看最新消息', 'View latest messages'),
+    readingPositionUnavailable: choose(
+      '暂时无法恢复上次阅读位置。',
+      'The previous reading position could not be restored.',
+    ),
     author: zh
       ? { user: '你', assistant: '助手', system: '系统', tool: '工具' }
       : { user: 'You', assistant: 'Assistant', system: 'System', tool: 'Tool' },

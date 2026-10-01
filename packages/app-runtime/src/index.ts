@@ -75,6 +75,9 @@ import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
+import { createConversationReading } from './conversation-reading'
+export { createConversationReading } from './conversation-reading'
+export type { ConversationReadingPosition, ConversationReadingTarget } from './conversation-reading'
 import { activityWorkspaceCommands, createActivityWorkspace } from './activity-workspace'
 export {
   activityWorkspaceCommands,
@@ -607,6 +610,18 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const conversationReading = createConversationReading(onSubscriberError)
+  const offReadingTabs = workspaceTabs.reader.subscribe(() => {
+    conversationReading.retainTargets(
+      workspaceTabs.reader
+        .getSnapshot()
+        .items.flatMap((tab) =>
+          tab.kind === 'session'
+            ? [{ workspaceId: tab.workspaceId, sessionId: tab.sessionId, sourceTabInstanceKey: tab.instanceKey }]
+            : [],
+        ),
+    )
+  })
   const sessionLaunchDrafts = createSessionLaunchDrafts(local, {
     queries: directory.queries,
     ...(options.timeline ? { timeline: options.timeline } : {}),
@@ -1247,6 +1262,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     preSessionModelCatalog: preSessionModelCatalog.actions,
+    conversationReading: Object.freeze({ read: conversationReading.read, remember: conversationReading.remember }),
     getSessionExecutionAccess: sessionExecutionAccess.get,
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const [name, ...arguments_] = tokenizeCommand(source)
@@ -1272,6 +1288,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       disposed = true
       messageFork.dispose()
       workspaceTabs.dispose()
+      offReadingTabs()
+      conversationReading.dispose()
       workspacePins.dispose()
       workspaceActivity.dispose()
       workspaceOrganization.dispose()
