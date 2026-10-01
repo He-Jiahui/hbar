@@ -17,6 +17,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const root = await mkdtemp(join(tmpdir(), 'hbar-pre-session-thinking-'))
     const context = await browser.newContext({
       locale,
+      colorScheme: 'light',
       viewport: { width: locale === 'en-US' ? 1440 : 320, height: 900 },
     })
     const copy = getShellCopy(locale)
@@ -98,8 +99,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(effort).toBeFocused()
       await expect(prompt).toHaveValue(message)
       expect(await count()).toBe(1)
+      const firstSend = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
+      await expect(firstSend).toBeEnabled()
+      await expect(firstSend).toHaveAttribute('data-lumen-indicator', 'none')
+      await expect(firstSend).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(firstSend).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+      await expect(firstSend.locator('.lucide-arrow-up')).toHaveCount(1)
       await page.screenshot({ path: info.outputPath(`model-ready-before-first-send-${locale}.png`) })
-      await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
+      await firstSend.click()
       await expect.poll(count).toBe(2)
       const created = (
         await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
@@ -132,6 +139,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Escape')
       await expect(existingModel).toBeFocused()
       await expectComposerText(nextPrompt, nextDraft)
+      const nextSend = page
+        .locator('.lumen-prompt-composer')
+        .getByRole('button', { name: copy.session.prompt.send, exact: true })
+      await expect(nextSend).toBeEnabled()
+      await expect(nextSend).toHaveAttribute('data-lumen-indicator', 'none')
+      await expect(nextSend).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(nextSend).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+      await expect(nextSend.locator('.lucide-arrow-up')).toHaveCount(1)
       await page.screenshot({ path: info.outputPath(`model-ready-after-first-send-${locale}.png`) })
     } finally {
       await context.close()

@@ -2,10 +2,20 @@ import { expect, test } from '@playwright/test'
 import { createRunCommandClient } from '@hbar/client'
 import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+async function removeOwnedComposerRoot(root: string) {
+  const ownedRoot = resolve(root)
+  if (
+    dirname(ownedRoot) !== resolve(tmpdir()) ||
+    !ownedRoot.split(/[\\/]/).at(-1)?.startsWith('hbar-composer-running-')
+  )
+    throw new Error('Refusing to remove an unexpected composer test root')
+  await rm(ownedRoot, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`composer keeps Stop stable and explicitly queues drafted messages: ${locale}`, async ({
@@ -13,7 +23,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   }, testInfo) => {
     test.setTimeout(120_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-composer-running-'))
-    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
+    const context = await browser.newContext({ locale, colorScheme: 'light', viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -35,6 +45,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const stop = composer.getByRole('button', { name: copy.session.prompt.stop, exact: true })
       await expect(send).toBeVisible()
       await expect(send).toBeDisabled()
+      await expect(send).toHaveAttribute('data-lumen-indicator', 'none')
+      await expect(send).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(send.locator('.lucide-arrow-up')).toHaveCount(1)
+      await expect(send.locator('[data-edge]')).toHaveCount(0)
       await expect(stop).toHaveCount(0)
       // A real approval keeps the first Run executing until the user chooses Stop.
       const original = await runs.execute(
@@ -54,6 +68,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .poll(async () => (await target.client.call('session.snapshot', { sessionId })).approvals.length)
         .toBe(1)
       await expect(stop).toBeVisible()
+      await expect(stop).toHaveAttribute('data-lumen-indicator', 'none')
+      await expect(stop).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(stop).toHaveAttribute('data-tone', 'danger')
+      await expect(stop).toHaveCSS('background-color', 'rgb(183, 53, 72)')
+      await expect(stop.locator('[data-edge]')).toHaveCount(0)
       await expect(send).toHaveCount(0)
       await expect(queue).toHaveCount(0)
       await prompt.focus()
@@ -70,6 +89,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await prompt.fill('Queued after the current run — 当前任务完成后处理这条消息。')
         await expect(queue).toBeVisible()
         await expect(queue).toBeEnabled()
+        await expect(queue).toHaveAttribute('data-lumen-variant', 'text')
+        const actionStyle = await stop.evaluate((element) => {
+          const style = getComputedStyle(element)
+          const box = element.getBoundingClientRect()
+          return { radius: style.borderRadius, square: Math.abs(box.width - box.height) < 1, width: box.width }
+        })
+        expect(actionStyle.radius).toBe('50%')
+        expect(actionStyle.square).toBe(true)
+        expect(actionStyle.width).toBeGreaterThanOrEqual(width <= 390 ? 44 : 36)
         const [queueBox, stopBox] = await Promise.all([queue.boundingBox(), stop.boundingBox()])
         expect(queueBox).not.toBeNull()
         expect(stopBox).not.toBeNull()
@@ -144,6 +172,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(beforeStop.runs).toHaveLength(3)
       expect(beforeStop.runs.find((run) => run.id === original.operationId)?.status).toBe('waiting_approval')
       await stop.focus()
+      await expect(stop).toBeFocused()
+      expect(await stop.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid')
+      await page.screenshot({ path: testInfo.outputPath(`stop-keyboard-focus-${locale}.png`) })
       await page.keyboard.press('Enter')
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: original.operationId })).status)
@@ -166,7 +197,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedComposerRoot(root)
     }
   })
 }

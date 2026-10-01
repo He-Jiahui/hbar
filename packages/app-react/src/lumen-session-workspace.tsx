@@ -7,7 +7,6 @@ import {
   LumenConversation,
   LumenIcon,
   LumenPageHeader,
-  LumenPromptComposer,
   type LumenApprovalRequestLabels,
   type LumenMessageProps,
   type LumenPromptLabels,
@@ -46,6 +45,7 @@ import {
 } from './conversation-selection'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
+import { HbarPromptComposer } from './prompt-composer'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
@@ -1793,7 +1793,7 @@ function SessionWorkspaceContent({
               </LumenFrame>
             </LumenFrame>
           )}
-        <LumenPromptComposer
+        <HbarPromptComposer
           boundary="none"
           value={draft?.text ?? ''}
           editor={

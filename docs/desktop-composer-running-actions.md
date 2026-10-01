@@ -19,6 +19,12 @@ These screenshots are local verification artifacts, not checked-in assets or pix
 
 `LumenPromptComposerProps.runningActions` is optional:
 
+The current hbar application renders the app-react-owned `HbarPromptComposer`
+with that same public props contract. It owns only the action presentation;
+Host gates, editor, attachments, submission and cancellation remain unchanged.
+See [primary composer action hierarchy](desktop-composer-primary-actions.md)
+for the later Send/Stop visual migration and its focused regression evidence.
+
 ```ts
 runningActions?: {
   submit: 'hidden' | 'queue'

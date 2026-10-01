@@ -1,0 +1,142 @@
+.hbar-prompt-composer-surface {
+  inline-size: 100%;
+}
+
+.hbar-prompt-composer {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  background: transparent;
+  box-shadow: 0 0 1rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+}
+
+.hbar-prompt-composer > p {
+  margin: 0;
+}
+
+.hbar-prompt-composer > textarea {
+  min-block-size: 4.5rem;
+  resize: vertical;
+}
+
+.hbar-prompt-toolbar,
+.hbar-prompt-toolbar > div,
+.hbar-prompt-attachments,
+.hbar-prompt-attachment {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.hbar-prompt-toolbar {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hbar-prompt-toolbar > div,
+.hbar-prompt-attachments,
+.hbar-prompt-attachment {
+  gap: 0.25rem;
+}
+
+.hbar-prompt-toolbar > .hbar-prompt-running-actions {
+  max-inline-size: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hbar-prompt-queue-action {
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-prompt-attachments {
+  flex-wrap: wrap;
+}
+
+.hbar-prompt-attachment {
+  max-inline-size: min(100%, 16rem);
+  padding-inline-start: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+
+.hbar-prompt-attachment img {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  object-fit: cover;
+}
+
+.hbar-prompt-attachment > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-prompt-uploading {
+  display: inline-flex;
+  min-inline-size: var(--lumen-control-size, 2.25rem);
+  min-block-size: var(--lumen-control-size, 2.25rem);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Primary send/stop share a stable round target; utility actions stay plain. */
+.hbar-prompt-toolbar button.hbar-prompt-primary-action {
+  inline-size: var(--lumen-control-size, 2.25rem);
+  block-size: var(--lumen-control-size, 2.25rem);
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--lumen-action-color);
+  color: var(--lumen-contrast);
+  box-shadow: none;
+}
+
+.hbar-prompt-toolbar button.hbar-prompt-primary-action:hover {
+  background: color-mix(in srgb, var(--lumen-action-color) 90%, var(--lumen-contrast));
+}
+
+.hbar-prompt-toolbar button.hbar-prompt-primary-action:active {
+  background: color-mix(in srgb, var(--lumen-action-color) 80%, var(--lumen-contrast));
+  box-shadow: none;
+}
+
+@container session-project-context (width <= 40rem) {
+  .hbar-prompt-toolbar button.hbar-prompt-primary-action {
+    --lumen-control-size: 2.75rem;
+  }
+}
+
+@media (width <= 40rem) {
+  .hbar-prompt-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hbar-prompt-toolbar > div {
+    justify-content: space-between;
+  }
+
+  .hbar-prompt-toolbar button.hbar-prompt-primary-action {
+    --lumen-control-size: 2.75rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .hbar-prompt-toolbar button.hbar-prompt-primary-action {
+    border: 0.0625rem solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  .hbar-prompt-toolbar button.hbar-prompt-primary-action:disabled {
+    border-color: GrayText;
+    color: GrayText;
+    opacity: 1;
+  }
+}
