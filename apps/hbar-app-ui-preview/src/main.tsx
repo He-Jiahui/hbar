@@ -963,6 +963,7 @@ function PreviewApp() {
                                                                                 onAction={handleAction}
                                                                               >
                                                                                 <EditorPreviewHost
+                                                                                  spec={selected.spec}
                                                                                   content={editorContent}
                                                                                 >
                                                                                   <ShellPreviewHost
@@ -1459,6 +1460,7 @@ function PreviewApp() {
                                                                                           onAction={handleAction}
                                                                                         >
                                                                                           <EditorPreviewHost
+                                                                                            spec={selected.spec}
                                                                                             content={editorContent}
                                                                                           >
                                                                                             <ShellPreviewHost

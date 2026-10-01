@@ -1577,3 +1577,49 @@ is unchanged. The full inventory has a pre-existing formatting failure; only thi
 category's seven rows are edited, without reformatting unrelated rows. Unrelated
 working-tree changes are preserved. This category remains an incremental part of
 the broader implementation goal, not a claim that all 300 variants are complete.
+
+### Editor 1–5 practical workflow closure
+
+The five reference editors retain their distinct rich draft, Markdown split
+preview, read-only code workspace, suggestion review and long-document reader.
+Their existing semantic paragraphs, inline suggestion replacements, native input
+fields, flex toolbars and pane-owned scrolling are unchanged. No reusable Lumen
+view, stylesheet or icon was edited.
+
+The preview mounts just the selected editor's existing Zustand store. Each typed
+projection supplies only that surface's rich and legacy keys. Replacement input,
+including a new document payload with the same document ID, gets an independent
+store immediately; a callback retained from the old store cannot change the new
+one. The Rich editor's revision-guarded Saving/Saved demo timers now belong only
+to its active owner and are cleaned up on replacement or unmount. Other catalog
+selections no longer initialize all five editors.
+
+Commit `a40859f3` introduced the common editor wrapper, and `f2b2682d`, `4c8b3eaa`,
+`e5d9b60b` and `fe82d91c` added the other stores beneath it. Their core transitions
+are reused rather than replaced with a second state framework. Draft counters
+derive from the current text. Block and format choices remain independent from
+the plain text; Undo/Redo are source-passive. Markdown supports the captured safe
+subset, not full GFM or arbitrary HTML. Code remains read-only; selecting/closing
+files and line cursors work, while Run does not invent an execution process.
+Suggestion decisions, inline replacements, completion and Restore share the same
+ID-bound state. Reader section selection remains independent of scroll position,
+Focus and the outline flag. None implies remote persistence.
+
+The [core browser check](../scripts/verify-hbar-app-ui-editor-core.ts) replaces the
+old exhaustive verifier and its automatic server startup with five primary
+workflows and two representative content changes. Seven records pass with zero
+diagnostics, and four screenshots were inspected. The localized narrow Markdown
+case retains its long-label tab strip and readable edited preview; the overflowing
+narrow reader retains all 28 sections, reachable final content and its toolbar.
+
+The existing legacy review assertion added by `e47ce846` depended on a now-absent
+button decoration node rather than continuous paragraph content. Its first run
+failed despite intact semantic text. It now verifies the flowing paragraph across
+the inline suggestion button; no runtime decoration change was needed. After
+that correction, all 42 focused tests / 288 assertions pass (37 existing tests and
+five active-owner/projection tests). Scoped ESLint, formatting of the new/refactored
+owner, projection, new test and verifier, the Host content guard and the direct
+existing Vite preview build pass. Global typecheck still fails only on the two
+existing SessionStop `guided` errors. The existing build chunk warning and legacy
+inventory formatting debt remain; no exhaustive pixel audit or backend acceptance
+is claimed. Unrelated working-tree changes are preserved.

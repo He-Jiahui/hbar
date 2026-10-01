@@ -1,39 +1,50 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import { HbarAppUiEditorProvider, type HbarAppUiEditorContent } from 'hbar-app-ui/catalog'
+import { HbarAppUiEditorProvider, type HbarAppUiEditorContent, type HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'
 import { createRichEditorPreviewStore } from './richEditorPreviewStore'
 import { createMarkdownEditorPreviewStore } from './markdownEditorPreviewStore'
 import { createCodeEditorPreviewStore } from './codeEditorPreviewStore'
 import { createSuggestionsEditorPreviewStore } from './suggestionsEditorPreviewStore'
 import { createReaderEditorPreviewStore } from './readerEditorPreviewStore'
+import {
+  projectRichEditorPreview,
+  projectMarkdownEditorPreview,
+  projectCodeEditorPreview,
+  projectSuggestionsEditorPreview,
+  projectReaderEditorPreview,
+} from './editorPreviewProjection'
 
-export function EditorPreviewHost({
-  content,
-  children,
-}: {
+interface HostProps {
+  readonly spec: HbarAppUiVariantSpec
   readonly content: HbarAppUiEditorContent
   readonly children: ReactNode
-}) {
-  const [store] = useState(() => createRichEditorPreviewStore(content.referenceRichText))
+}
+export function EditorPreviewHost(props: HostProps) {
+  if (props.spec.category !== 'editor') return <>{props.children}</>
+  const key = props.spec.id
+  switch (props.spec.variant) {
+    case 1:
+      return <RichEditorOwner key={key} {...props} />
+    case 2:
+      return <MarkdownEditorOwner key={key} {...props} />
+    case 3:
+      return <CodeEditorOwner key={key} {...props} />
+    case 4:
+      return <SuggestionsEditorOwner key={key} {...props} />
+    case 5:
+      return <ReaderEditorOwner key={key} {...props} />
+    default:
+      return <>{props.children}</>
+  }
+}
+function RichEditorOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createRichEditorPreviewStore(content.referenceRichText), [content])
   const state = useStore(store)
-  const [markdownStore] = useState(() => createMarkdownEditorPreviewStore(content.referenceMarkdown))
-  const markdown = useStore(markdownStore)
-  const [codeStore] = useState(() => createCodeEditorPreviewStore(content.referenceCode))
-  const code = useStore(codeStore)
-  const [suggestionsStore] = useState(() => createSuggestionsEditorPreviewStore(content.referenceSuggestions))
-  const suggestions = useStore(suggestionsStore)
-  const [readerStore] = useState(() => createReaderEditorPreviewStore(content.referenceReader))
-  const reader = useStore(readerStore)
-  useEffect(() => readerStore.getState().reset(content.referenceReader), [readerStore, content.referenceReader])
-  useEffect(() => suggestionsStore.getState().reset(content.referenceSuggestions), [suggestionsStore, content.referenceSuggestions])
-  useEffect(() => codeStore.getState().reset(content.referenceCode), [codeStore, content.referenceCode])
-  useEffect(() => markdownStore.getState().reset(content.referenceMarkdown), [markdownStore, content.referenceMarkdown])
-  useEffect(() => store.getState().reset(content.referenceRichText), [store, content.referenceRichText])
   const documentId = state.document?.id
   const saveRevision = state.saveRevision
   useEffect(() => {
     if (!documentId || !saveRevision) return undefined
-    // Replays the observed delayed Saving→Saved label, not a remote/disk persistence promise.
+    // Preview labels only; the active owner's timers do not promise remote/disk persistence.
     const begin = window.setTimeout(() => store.getState().beginSave(documentId, saveRevision), 100)
     const finish = window.setTimeout(() => store.getState().finishSave(documentId, saveRevision), 1000)
     return () => {
@@ -42,63 +53,36 @@ export function EditorPreviewHost({
     }
   }, [store, documentId, saveRevision])
   return (
-    <HbarAppUiEditorProvider
-      content={{
-        ...content,
-        referenceReader: content.referenceReader && {
-          ...content.referenceReader,
-          sections: reader.sections,
-          selectedSectionId: reader.selectedSectionId,
-          focusMode: reader.focusMode,
-          outlineOpen: reader.outlineOpen,
-          onSelectSection: reader.selectSection,
-          onFocusModeChange: reader.setFocusMode,
-          onOutlineOpenChange: reader.setOutlineOpen,
-        },
-        referenceSuggestions: content.referenceSuggestions && {
-          ...content.referenceSuggestions,
-          suggestions: suggestions.suggestions,
-          decisions: suggestions.decisions,
-          selectedSuggestionId: suggestions.selectedSuggestionId,
-          onSelectSuggestion: suggestions.select,
-          onResolve: suggestions.resolve,
-          onAcceptAll: suggestions.acceptAll,
-          onRestore: suggestions.restore,
-        },
-        referenceCode: content.referenceCode && {
-          ...content.referenceCode,
-          files: code.files,
-          activeFileId: code.activeFileId,
-          activeLine: code.cursor.line,
-          cursor: code.cursor,
-          onSelectFile: code.selectFile,
-          onCloseFile: code.closeFile,
-          onCursorChange: code.selectLine,
-          onRun: () => undefined,
-        },
-        referenceMarkdown: content.referenceMarkdown &&
-          markdown.document && {
-            ...content.referenceMarkdown,
-            document: markdown.document,
-            mode: markdown.mode,
-            onSourceChange: markdown.edit,
-            onModeChange: markdown.selectMode,
-          },
-        referenceRichText: content.referenceRichText &&
-          state.document && {
-            ...content.referenceRichText,
-            document: state.document,
-            blockId: state.blockId,
-            pressed: state.pressed,
-            status:
-              state.savePhase === 'saving' ? content.referenceRichText.labels.saving : content.referenceRichText.status,
-            onChange: state.edit,
-            onBlockChange: state.selectBlock,
-            onFormatChange: state.toggleFormat,
-          },
-      }}
-    >
+    <HbarAppUiEditorProvider content={projectRichEditorPreview(content, state)}>{children}</HbarAppUiEditorProvider>
+  )
+}
+function MarkdownEditorOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createMarkdownEditorPreviewStore(content.referenceMarkdown), [content])
+  const state = useStore(store)
+  return (
+    <HbarAppUiEditorProvider content={projectMarkdownEditorPreview(content, state)}>{children}</HbarAppUiEditorProvider>
+  )
+}
+function CodeEditorOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createCodeEditorPreviewStore(content.referenceCode), [content])
+  const state = useStore(store)
+  return (
+    <HbarAppUiEditorProvider content={projectCodeEditorPreview(content, state)}>{children}</HbarAppUiEditorProvider>
+  )
+}
+function SuggestionsEditorOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createSuggestionsEditorPreviewStore(content.referenceSuggestions), [content])
+  const state = useStore(store)
+  return (
+    <HbarAppUiEditorProvider content={projectSuggestionsEditorPreview(content, state)}>
       {children}
     </HbarAppUiEditorProvider>
+  )
+}
+function ReaderEditorOwner({ content, children }: HostProps) {
+  const store = useMemo(() => createReaderEditorPreviewStore(content.referenceReader), [content])
+  const state = useStore(store)
+  return (
+    <HbarAppUiEditorProvider content={projectReaderEditorPreview(content, state)}>{children}</HbarAppUiEditorProvider>
   )
 }
