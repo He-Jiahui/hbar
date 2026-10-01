@@ -1469,3 +1469,27 @@ Plan/Region/Renewal 四项；账户无结果有来源 Clear filters 恢复。付
 预览入口保留原格式，只改宿主接线；保留既有 chunk-size 提示。预算内容由
 所属容器自然滚动，十一行和总额均可达，不用固定内容高度遮住页尾。
 无关改动不暂存、回滚或清理。
+
+Dashboard 1–14 按实用标准恢复十四种宿主结构，保留旧 API。历史根 `804b4832`
+和子仓 `73a6d0c257` 接入泛化 fixture；这轮重新给收入/注册/页面分析/系统状态/
+用量/渠道/MRR/模块/工时/Calls/覆盖/支付/目标/服务提供真实可见信息分区。
+宿主 Zustand owner 管理选择、查询、排序、收藏、菜单、状态和精确请求意图。
+旧闭包请求必须按当前查询及所选实体重验目标；测试已证实失效行请求被拒绝。
+
+已读取十四种桌面/平板/窄屏授权可见证据。保留全部短列表、表格、队列和概要；
+Dashboard9 前一周来自真实 source after，七人小时/类型/总额/capacity 同时切换。
+Dashboard4 Refresh 显示观察到的 just now，不改变服务事实。源菜单文字被恢复；
+Refresh/Hide、Filters 状态选项和 Loading/Empty 的本地实现不写成源执行已验收。
+未观察日期/指标数据、后续周、Files/Reports、其他目标和服务详情明确 unavailable，
+图表形状按可见趋势推导，不读取受保护源码或编造远端成功。
+
+普通布局全改为 flex；原生表格自有横滚，窄屏隐藏来源已证实的辅助列。目视检查
+发现 row-action 被通用单元格列流覆盖，改为就近单行；Search 适配共享控件 wrapper。
+长列表的 pane-scroll 覆盖自然高度后没有实际滚动，修正容量容器后第81行可达。
+`bun scripts/verify-hbar-app-ui-dashboard.ts` 34条记录/0诊断，两个窄屏代表与三张图
+保存在 `artifacts/dashboard-core-review/`。不逐按钮、主题或尺寸排列反复回放。
+
+17项模型/SSR/旧 API 测试、215个断言，根/子仓类型、限定 ESLint/Stylelint、
+content/icon/flow 守卫、新增源码格式、包 bundle/声明及生产预览构建通过。
+既有预览入口只做5增7删宿主接线，保留原格式；chunk-size 提示仍在。只提交
+本类别文件，其他并行任务的共享控件、桌面与工作台改动保持原状。

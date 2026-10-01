@@ -1093,3 +1093,37 @@ has 22 records, three inspected screenshots, two narrow cases and one 81-row pan
 scroll. Fifteen focused tests with 155 assertions support the practical status,
 not an exhaustive theme/viewport/button matrix. Export, Hold, source connection,
 Retry, driver messaging and delivery remain request-only, not remote success.
+
+### Dashboard 1–14 practical reference closure
+
+Fourteen optional host-owned reference structures replace generic dashboard data:
+revenue, signups, web analytics, system status, usage, channels, recurring revenue,
+module board, worklogs, call measures, workforce coverage, payout desk, company
+goals and service health. Legacy contracts remain available. One active-variant
+Zustand owner controls selections, query, sort, flags and exact request intent;
+refresh keeps valid state and prunes removed targets. Request handlers re-check
+the current visible target instead of trusting an old rendered closure.
+
+The preview retains actual source records: four revenue metrics, five signup
+sources, nine status services and seven incidents, five quotas, sixteen channels,
+twelve modules, seven worklog people, eight agents and five integrations, eight
+crews and seven queue actions, eleven payment moves, four release lanes, seven
+objectives and nine service summaries. The captured previous worklog week supplies
+all changed hours, types, totals and capacity values. Refresh uses the observed
+`Updated just now` display state without claiming a new remote health check.
+
+Unknown date/metric series, later weeks, board Files/Reports, objective details and
+non-Ledger service details are explicitly unavailable. Chart shapes are inferred
+from visible trends. Loading/Empty, widget refresh/hide, status filters and extra
+module-menu commands are host preview behavior where source execution is unknown;
+they are not claimed as captured source-after equivalence. Upgrade, Connect,
+queue actions, export, split/sync, buffer tuning, spec/log opening and rollback
+record exact intent without changing real connection, balance or service facts.
+
+Ordinary regions use flex flow. Native tables own horizontal scrolling, and the
+81-module capacity fixture owns a bounded vertical pane rather than clipping or
+growing the page. The [core browser check](../scripts/verify-hbar-app-ui-dashboard.ts)
+has 34 records, two narrow representatives, one 81-row scroll and three inspected
+screenshots. Seventeen model/SSR/legacy tests with 215 assertions, scoped lint,
+typechecks, content/icon/flow guards and builds support the practical inventory
+status; no repeated button/theme/viewport matrix or remote/desktop acceptance.
