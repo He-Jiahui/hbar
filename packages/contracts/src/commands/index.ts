@@ -37,6 +37,7 @@ import { sessionLaunchTargetCommands } from './session-launch-target'
 import { sessionLaunchBranchesCommands } from './session-launch-branches'
 import { workspaceActivityCommands } from './workspace-activity'
 import { sessionActivityCommands } from './session-activity'
+import { sidebarDirectoryCommands } from './sidebar-directory'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -63,6 +64,7 @@ function query(id: string): CommandMetadataInput {
   return { ...base, id, titleKey: `commands.${id}.title`, descriptionKey: `commands.${id}.description` }
 }
 export const directoryCommands = {
+  ...sidebarDirectoryCommands,
   ...workspaceActivityCommands,
   ...sessionActivityCommands,
   'workspace.list': defineCommand(

@@ -13,9 +13,17 @@ import type {
   SessionActivityPage,
   SessionPage,
 } from '@hbar/contracts/directory'
+import type {
+  SessionActivityGlobalListInput,
+  SessionActivityGlobalPage,
+  WorkspaceSidebarListInput,
+  WorkspaceSidebarPage,
+} from '@hbar/contracts/sidebar-directory'
 
 export interface DirectoryRepository {
   workspacePage(input: WorkspaceListInput): Promise<WorkspacePage>
+  workspaceSidebarPage(input: WorkspaceSidebarListInput): Promise<WorkspaceSidebarPage>
+  globalSessionActivityPage(input: SessionActivityGlobalListInput): Promise<SessionActivityGlobalPage>
   workspaceActivityPage(input: WorkspaceActivityListInput): Promise<WorkspaceActivityPage>
   sessionActivityPage(input: SessionActivityListInput): Promise<SessionActivityPage>
   sessionPage(input: SessionListInput): Promise<SessionPage>
@@ -26,6 +34,22 @@ export interface DirectoryRepository {
 export function createDirectoryQueries(repository: DirectoryRepository) {
   const registry = new CommandRegistry({ execution: 'host' })
   registry.register(directoryCommands['workspace.list'], (input) => repository.workspacePage(input))
+  registry.register(directoryCommands['workspace.sidebar.list'], async (input) => {
+    try {
+      return await repository.workspaceSidebarPage(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(directoryCommands['session.activity.global.list'], async (input) => {
+    try {
+      return await repository.globalSessionActivityPage(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
   registry.register(directoryCommands['workspace.activity.list'], async (input) => {
     try {
       return await repository.workspaceActivityPage(input)

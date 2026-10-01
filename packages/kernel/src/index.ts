@@ -113,6 +113,7 @@ import { SettingsService, SESSION_APPROVAL_SETTING_PATH } from './settings-servi
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
+const SESSION_ACTIVITY_EVENT_TYPES = new Set(['run.queued', 'run.status', 'run.settled', 'run.cancelRequested'])
 const MAX_FILE_TEXT = 120_000
 const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
 const TEXT_EXTENSIONS = new Set([
@@ -319,6 +320,8 @@ export class Kernel {
     this.permissionSettings = new SettingsService(this.storage)
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
+      workspaceSidebarPage: (input) => this.storage.call('workspaceSidebarPage', input),
+      globalSessionActivityPage: (input) => this.storage.call('globalSessionActivityPage', input),
       workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
       sessionActivityPage: (input) => this.storage.call('sessionActivityPage', input),
       sessionPage: (input) => this.storage.call('sessionPage', input),
@@ -617,11 +620,12 @@ export class Kernel {
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const event = await this.storage.call('append', sessionId, type, data, runId, stepId)
-    this.publish({ method: 'session.event', params: event })
+    this.publishEvent(event)
     return event
   }
   private publishEvent(event: SessionEvent) {
     this.publish({ method: 'session.event', params: event })
+    if (SESSION_ACTIVITY_EVENT_TYPES.has(event.type)) this.changed('session-activity')
   }
   async createWorkspace(path: string) {
     let resolved: string
@@ -1039,6 +1043,7 @@ export class Kernel {
         if (submitted.status !== 'queued') return
         continue
       }
+      this.changed('session-activity')
       if (this.cancelled.has(run.id)) {
         this.publishEvent(await this.storage.call('setRun', run.id, 'cancelled'))
         this.cancelled.delete(run.id)

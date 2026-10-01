@@ -54,6 +54,12 @@ import type {
   WorkspaceDisplayNamesSnapshot,
 } from '@hbar/contracts/commands/workspace-display-names'
 import type {
+  SessionActivityGlobalListInput,
+  SessionActivityGlobalPage,
+  WorkspaceSidebarListInput,
+  WorkspaceSidebarPage,
+} from '@hbar/contracts/sidebar-directory'
+import type {
   SessionLaunchTarget,
   SessionLaunchSelection,
   SessionLaunchTargetResolution,
@@ -227,6 +233,8 @@ export interface StorageMethods {
   createWorkspace(path: string, name: string): Workspace
   workspaces(): Workspace[]
   workspacePage(input: WorkspaceListInput): WorkspacePage
+  workspaceSidebarPage(input: WorkspaceSidebarListInput): WorkspaceSidebarPage
+  globalSessionActivityPage(input: SessionActivityGlobalListInput): SessionActivityGlobalPage
   workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActivityPage
   sessionActivityPage(input: SessionActivityListInput): SessionActivityPage
   sessionPage(input: SessionListInput): SessionPage

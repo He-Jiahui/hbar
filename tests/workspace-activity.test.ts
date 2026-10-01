@@ -30,6 +30,8 @@ async function fixture() {
   await storage.call('ready')
   const queries = createDirectoryQueries({
     workspacePage: (input) => storage.call('workspacePage', input),
+    workspaceSidebarPage: (input) => storage.call('workspaceSidebarPage', input),
+    globalSessionActivityPage: (input) => storage.call('globalSessionActivityPage', input),
     workspaceActivityPage: (input) => storage.call('workspaceActivityPage', input),
     sessionActivityPage: (input) => storage.call('sessionActivityPage', input),
     sessionPage: (input) => storage.call('sessionPage', input),

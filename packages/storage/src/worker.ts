@@ -74,6 +74,7 @@ import {
   createSessionLaunchTargetPreparationStorage,
   SESSION_LAUNCH_TARGET_PREPARATION_OPERATION_SQL,
 } from './session-launch-target-preparations.ts'
+import { createSidebarDirectoryStorage, SIDEBAR_DIRECTORY_SCHEMA_SQL } from './sidebar-directory.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
@@ -111,7 +112,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 13
+const LATEST_SCHEMA_VERSION = 14
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -278,8 +279,24 @@ if (schemaVersion < 13)
     }
   }).immediate()
 
+if (schemaVersion < 14)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 13) {
+      db.exec(SIDEBAR_DIRECTORY_SCHEMA_SQL)
+      db.exec('PRAGMA user_version=14;')
+    } else if (current < 14 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
+const sidebarDirectory = createSidebarDirectoryStorage(db, {
+  displayNames: workspaceDisplayNames.read,
+  organization: workspaceOrganization.read,
+})
 const sessionSearch = createSessionSearchStorage(
   db,
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
@@ -734,7 +751,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 13 }),
+  ready: () => ({ version: 14 }),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,
@@ -766,6 +783,8 @@ const methods: StorageMethods = {
     const items = rows.slice(0, limit)
     return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
   },
+  workspaceSidebarPage: (input) => sidebarDirectory.workspaceSidebarPage(input),
+  globalSessionActivityPage: (input) => sidebarDirectory.globalSessionActivityPage(input),
   workspaceActivityPage: (input) => workspaceActivityPage(input),
   sessionActivityPage: (input) => sessionActivityPage(input),
   sessionPage(input) {
