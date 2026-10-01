@@ -10,24 +10,29 @@ import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Onboarding7PreviewFixture } from './onboarding7PreviewFixtures'
 import { createOnboarding7PreviewStore } from './onboarding7PreviewStore'
 
-export function Onboarding7PreviewHost({
+type Onboarding7PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenOnboardingContent
+  readonly referenceFixture: Onboarding7PreviewFixture
+  readonly children: ReactNode
+}
+
+export function Onboarding7PreviewHost(props: Onboarding7PreviewHostProps) {
+  if (props.spec.category !== 'onboarding' || props.spec.variant !== 7) return props.children
+  return <Onboarding7PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function Onboarding7PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenOnboardingContent
-  readonly referenceFixture: Onboarding7PreviewFixture
-  readonly children: ReactNode
-}) {
+}: Onboarding7PreviewHostProps) {
   const parentContent = useLumenOnboardingContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createOnboarding7PreviewStore(referenceFixture.seed), [referenceFixture.seed])
   const state = useStore(store)
-
-  if (spec.category !== 'onboarding' || spec.variant !== 7) return children
 
   const preview = referenceFixture.contentFor(state)
   const notifyRequest = (actionId: string, request: unknown) => {

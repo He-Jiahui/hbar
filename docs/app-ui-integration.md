@@ -1737,3 +1737,22 @@ Book, Create, Submit and navigation outcomes remain typed requests or unavailabl
 not simulated remote success. Partial source choice catalogs remain explicit.
 Historical strict/source access and geometry limitations are preserved in each
 inventory note; practical core/layout closure is not fresh strict acceptance.
+
+### Onboarding 1–7 active-owner closure
+
+The seven existing Onboarding preview wrappers now perform the same active-owner
+check before touching their fixture seed or Zustand store. The selected variant
+alone supplies `profileReference`, `stepperReference`, `checklistReference`,
+`useCaseReference`, `invitationReference`, `completionReference` or
+`workspaceReference`; an unrelated Editor selection supplies none of them.
+The existing host-owned copy, draft transitions, request-only navigation and
+normal-flow layouts are unchanged.
+
+The same 139-test / 1,120-assertion focused run includes all seven Onboarding
+stores and the new rich-contract owner suite. Onboarding 1 passes desktop draft
+projection, narrow aside behavior, timezone placeholder and short-height scroll;
+Onboarding 5 passes two independent invitation drafts, role selection, the
+localized long-copy flow and a 320×420 reachable Send action. Both representative
+browser paths have zero page errors and no horizontal overflow. The evidence is
+mechanism-level and intentionally does not claim fresh strict source pairs or
+actual upload, invitation, tour, navigation or workspace creation results.

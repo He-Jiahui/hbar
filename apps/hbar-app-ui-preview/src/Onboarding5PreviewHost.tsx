@@ -10,24 +10,29 @@ import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Onboarding5PreviewFixture } from './onboarding5PreviewFixtures'
 import { createOnboarding5PreviewStore } from './onboarding5PreviewStore'
 
-export function Onboarding5PreviewHost({
+type Onboarding5PreviewHostProps = HbarAppUiVariantProps & {
+  readonly content: LumenOnboardingContent
+  readonly referenceFixture: Onboarding5PreviewFixture
+  readonly children: ReactNode
+}
+
+export function Onboarding5PreviewHost(props: Onboarding5PreviewHostProps) {
+  if (props.spec.category !== 'onboarding' || props.spec.variant !== 5) return props.children
+  return <Onboarding5PreviewHostOwner key={props.spec.id} {...props} />
+}
+
+function Onboarding5PreviewHostOwner({
   content,
   spec,
   onAction,
   referenceFixture,
   children,
-}: HbarAppUiVariantProps & {
-  readonly content: LumenOnboardingContent
-  readonly referenceFixture: Onboarding5PreviewFixture
-  readonly children: ReactNode
-}) {
+}: Onboarding5PreviewHostProps) {
   const parentContent = useLumenOnboardingContent()
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const store = useMemo(() => createOnboarding5PreviewStore(referenceFixture.seed), [referenceFixture.seed])
   const state = useStore(store)
-
-  if (spec.category !== 'onboarding' || spec.variant !== 5) return children
 
   const preview = referenceFixture.contentFor(state)
   const notify = (actionId: string, value?: string) => {
