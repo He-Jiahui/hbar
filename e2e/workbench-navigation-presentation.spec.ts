@@ -80,7 +80,10 @@ async function sidebar(page: Page, copy: Copy, visible: boolean): Promise<void> 
     exact: true,
   })
   if (await button.isVisible()) await button.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(visible))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+    'data-hbar-sidebar-expanded',
+    String(visible),
+  )
 }
 
 function tools(copy: Copy) {
@@ -227,7 +230,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 1440, height: 960 })
       await sidebar(page, copy, true)
       await page.setViewportSize({ width: 320, height: 960 })
-      await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
       expect(await presentation(page)).toBe('page')
       await page.setViewportSize({ width: 900, height: 960 })
       expect(await presentation(page)).toBe('split')
@@ -355,7 +358,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await sidebar(page, copy, false)
       }
       await editor.focus()
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+p')
       const palette = page.getByRole('dialog', { name: copy.commandPalette.title, exact: true })
       await expect(palette).toBeVisible()
       await expect(palette.getByRole('searchbox', { name: copy.commandPalette.search, exact: true })).toBeFocused()
@@ -521,7 +524,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(close).toBeVisible()
       await page.setViewportSize({ width: 320, height: 960 })
       await expect(close.getByRole('button', { name: tabs.close.cancel, exact: true }).last()).toBeVisible()
-      await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'true')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
       await noOverflow(page)
       await page.screenshot({ path: `${evidence}/active-close-sidebar-${locale}-320.png` })
       await close.getByRole('button', { name: tabs.close.cancel, exact: true }).last().click()

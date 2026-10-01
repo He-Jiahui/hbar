@@ -318,7 +318,7 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
         if (await hide.isVisible()) throw error
       }
     }
-    await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
+    await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
     await expect(composer(f)).toBeVisible()
     return f
   } catch (error) {

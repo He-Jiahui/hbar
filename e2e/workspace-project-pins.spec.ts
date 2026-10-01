@@ -72,7 +72,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.screenshot({ path: `artifacts/reference-ux-v2/project-pin-${locale}-1440-pinned.png` })
 
       await page.setViewportSize({ width: 320, height: 720 })
-      await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
       sidebar = await showSidebar(page, locale)
       await expect(row()).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

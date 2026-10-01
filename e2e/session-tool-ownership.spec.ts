@@ -150,7 +150,10 @@ async function sidebar(fixture: Fixture, visible: boolean): Promise<void> {
     exact: true,
   })
   if (await button.isVisible()) await button.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(visible))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+    'data-hbar-sidebar-expanded',
+    String(visible),
+  )
 }
 async function select(fixture: Fixture, session: Session): Promise<void> {
   const { page, copy } = fixture

@@ -1356,6 +1356,7 @@ export default function App({
             ) : undefined
           }
           sidebarWidthRem={sidebarLayout.size.preferredRem}
+          sidebarRailWidthRem={sidebarLayout.size.collapsedRem}
           sidebarLayout={{
             minWidthRem: sidebarLayout.size.minRem,
             maxWidthRem: sidebarLayout.size.maxRem,

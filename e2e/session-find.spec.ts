@@ -141,7 +141,7 @@ async function showSidebar({ page, copy }: Fixture, open: boolean): Promise<void
     exact: true,
   })
   if (await trigger.isVisible()) await trigger.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(open))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
 }
 
 function findControls({ page, copy }: Fixture) {

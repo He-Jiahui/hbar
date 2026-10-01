@@ -59,7 +59,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(files.getByTitle(host.ready.workspaceName, { exact: true })).toBeVisible()
         await expect(files.getByText('browser-e2e.md', { exact: true })).toBeVisible()
         if (width < 1024)
-          await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
+          await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+            'data-hbar-sidebar-expanded',
+            'false',
+          )
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
         await page.screenshot({ path: testInfo.outputPath(`project-files-${locale}-${width}.png`) })
         await files.getByRole('button', { name: copy.files.close, exact: true }).click()

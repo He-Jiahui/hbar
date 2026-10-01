@@ -92,13 +92,13 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
 }
 
 async function setSidebar(page: Page, copy: ReturnType<typeof getShellCopy>, open: boolean): Promise<void> {
-  const shell = page.locator('[data-lumen-shell="app"]')
-  if ((await shell.getAttribute('data-sidebar-open')) !== String(open)) {
+  const shell = page.locator('[data-hbar-sidebar-expanded]')
+  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== String(open)) {
     await page
       .getByRole('button', { name: open ? copy.shell.showSidebar : copy.shell.hideSidebar, exact: true })
       .click()
   }
-  await expect(shell).toHaveAttribute('data-sidebar-open', String(open))
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
 }
 
 async function openSessionFromSidebar(
@@ -114,7 +114,7 @@ async function openSessionFromSidebar(
   // Narrow navigation closes the drawer itself after its async Session selection.
   // Do not race that transition by clicking a close button that has disappeared.
   if (width === 320) {
-    await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
+    await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
     await expect(page.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeVisible()
   }
 }

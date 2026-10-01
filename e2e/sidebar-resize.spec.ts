@@ -134,7 +134,10 @@ async function showSidebar({ page, copy }: Fixture, shown: boolean): Promise<voi
     exact: true,
   })
   if (await trigger.isVisible()) await trigger.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(shown))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+    'data-hbar-sidebar-expanded',
+    String(shown),
+  )
 }
 function resizer({ page, copy }: Fixture): Locator {
   return page.getByRole('separator', { name: copy.sidebarLayout.resize, exact: true })
