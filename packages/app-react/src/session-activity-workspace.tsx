@@ -17,6 +17,8 @@ import './session-activity-workspace.css'
 import { ActivityAgentsView, type ActivityAgentLabels, type ActivityAgentOpenState } from './activity-agents-view'
 import type { ActivityAgentEntryState } from '@hbar/app-runtime'
 import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
+import { ActivityWorkflowView, type ActivityWorkflowLabels } from './activity-workflow-view'
+import { projectActivityWorkflow } from './activity-workflow-model'
 
 type Operation = ActivityWorkspaceEntryState['items'][number]
 
@@ -25,6 +27,7 @@ export interface HbarSessionActivityLabels {
   readonly runs: string
   readonly agents: ActivityAgentLabels
   readonly tasks: ActivityTaskLabels
+  readonly workflow: ActivityWorkflowLabels
   readonly description: string
   readonly close: string
   readonly refresh: string
@@ -150,12 +153,20 @@ export function HbarSessionActivityWorkspace({
   const runtime = useHbarRuntime()
   const activity = useHbarRuntimeState(runtime.state.activity)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
+  const workflows = useHbarRuntimeState(runtime.state.workflows)
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const panel = surfaces.panels[instanceId]
   const entry = activity.entries[instanceId]
   const agentEntry = activity.agents[instanceId]
+  const workflowEntry = workflows.entries[instanceId]
+  const liveAgents = agentEntry && agentEntry.sessionId === panel?.sessionId ? agentEntry.items : []
+  const representedAgents = projectActivityWorkflow(
+    workflowEntry,
+    panel?.sessionId ?? '',
+    liveAgents,
+  ).representedAgentIds
   const [opening, setOpening] = useState<ActivityAgentOpenState | null>(null)
   const openIntent = useRef(0)
   const targetReady =
@@ -179,6 +190,10 @@ export function HbarSessionActivityWorkspace({
     },
     [instanceId, panel?.sessionId],
   )
+  useEffect(() => {
+    if (targetReady && (!workflowEntry || workflowEntry.sessionId !== panel.sessionId))
+      void runtime.commands.execute('workflowWorkspace.refresh', { instanceId }).catch(() => undefined)
+  }, [workflowEntry, instanceId, panel?.sessionId, runtime.commands, targetReady])
 
   const invoke = (
     command:
@@ -224,14 +239,23 @@ export function HbarSessionActivityWorkspace({
       icon={ListChecks}
       closeLabel={labels.close}
       onClose={() => void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)}
-      busy={!entry || entry.status === 'loading' || agentEntry?.status === 'loading'}
+      busy={
+        !entry || entry.status === 'loading' || agentEntry?.status === 'loading' || workflowEntry?.status === 'loading'
+      }
       actions={
         <LumenIconButton
           label={labels.refresh}
-          disabled={!connected || !targetReady || entry?.status === 'loading' || agentEntry?.status === 'loading'}
+          disabled={
+            !connected ||
+            !targetReady ||
+            entry?.status === 'loading' ||
+            agentEntry?.status === 'loading' ||
+            workflowEntry?.status === 'loading'
+          }
           onClick={() => {
             invoke('activityWorkspace.refresh')
             invoke('activityWorkspace.refreshAgents')
+            void runtime.commands.execute('workflowWorkspace.refresh', { instanceId }).catch(() => undefined)
             if (targetReady && panel?.sessionId)
               void runtime.commands
                 .execute('composerIntent.refresh', { sessionId: panel.sessionId })
@@ -265,6 +289,20 @@ export function HbarSessionActivityWorkspace({
           onRefresh={() => invoke('activityWorkspace.refresh')}
           onLoadMore={() => invoke('activityWorkspace.loadMore')}
         />
+        {panel?.sessionId && (
+          <ActivityWorkflowView
+            entry={workflowEntry?.sessionId === panel.sessionId ? workflowEntry : undefined}
+            sessionId={panel.sessionId}
+            liveAgents={liveAgents}
+            labels={labels.workflow}
+            connected={connected}
+            opening={opening}
+            onRefresh={() =>
+              void runtime.commands.execute('workflowWorkspace.refresh', { instanceId }).catch(() => undefined)
+            }
+            onOpen={openAgent}
+          />
+        )}
         <ActivityAgentsView
           entry={agentEntry?.sessionId === panel?.sessionId ? agentEntry : undefined}
           labels={labels.agents}
@@ -273,6 +311,7 @@ export function HbarSessionActivityWorkspace({
           onRefresh={() => invoke('activityWorkspace.refreshAgents')}
           onLoadMore={() => invoke('activityWorkspace.loadMoreAgents')}
           onOpen={openAgent}
+          excludedAgentIds={representedAgents}
         />
       </LumenFrame>
     </LumenToolPane>

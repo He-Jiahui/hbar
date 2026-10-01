@@ -48,6 +48,7 @@ export function ActivityAgentsView({
   onRefresh,
   onLoadMore,
   onOpen,
+  excludedAgentIds,
 }: {
   readonly entry: Readonly<ActivityAgentEntryState> | undefined
   readonly labels: ActivityAgentLabels
@@ -56,9 +57,11 @@ export function ActivityAgentsView({
   readonly onRefresh: () => void
   readonly onLoadMore: () => void
   readonly onOpen: (agent: Agent) => void
+  readonly excludedAgentIds?: ReadonlySet<string>
 }) {
-  if (entry?.status === 'ready' && entry.items.length === 0) return null
-  const items = [...(entry?.items ?? [])].sort(
+  const visible = (entry?.items ?? []).filter((agent) => !excludedAgentIds?.has(agent.agentId))
+  if (entry?.status === 'ready' && visible.length === 0 && !entry.nextCursor) return null
+  const items = [...visible].sort(
     (left, right) =>
       Number(active(right)) - Number(active(left)) ||
       right.updatedAt - left.updatedAt ||

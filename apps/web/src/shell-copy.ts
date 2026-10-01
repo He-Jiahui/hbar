@@ -1959,6 +1959,32 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     title: choose('活动', 'Activity'),
     runs: choose('运行', 'Runs'),
     description: '',
+    workflow: {
+      title: choose('工作流', 'Workflow'),
+      loading: choose('正在读取工作流…', 'Loading workflow…'),
+      retry: choose('重试读取工作流', 'Retry workflow'),
+      other: choose('其他委派', 'Other delegated work'),
+      missingAgent: choose('暂时无法读取此 Agent。', 'This Agent could not be read.'),
+      count: (settled, total) =>
+        choose(
+          `${number.format(settled)} / ${number.format(total)} 已结束`,
+          `${number.format(settled)} / ${number.format(total)} settled`,
+        ),
+      delegation: (modelId) => choose(`委派给 ${modelId}`, `Delegated to ${modelId}`),
+      status: (status) => createGoalPlanWorkspaceLabels(locale).workflow.statuses[status],
+      focusStatus: (status) => createGoalPlanWorkspaceLabels(locale).workflow.focusStatuses[status],
+      delegationStatus: (status) => createGoalPlanWorkspaceLabels(locale).workflow.delegationStatuses[status],
+      error: (code) =>
+        code === 'CAPABILITY_UNAVAILABLE'
+          ? choose('此 Host 未提供工作流活动。', 'Workflow activity is unavailable on this Host.')
+          : choose('无法确认工作流，请重试。', 'Could not confirm the workflow. Try again.'),
+      agent: {
+        open: (objective) => choose(`打开子 Agent：${objective}`, `Open subagent: ${objective}`),
+        opening: choose('正在打开子会话…', 'Opening child session…'),
+        error: () => choose('无法打开子 Agent，请重试。', 'Could not open the subagent. Try again.'),
+        status: (status) => createAgentWorkspaceLabels(locale).status(status),
+      },
+    },
     tasks: {
       title: choose('任务', 'Tasks'),
       loading: choose('正在读取任务进度…', 'Loading task progress…'),
