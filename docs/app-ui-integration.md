@@ -1318,3 +1318,63 @@ At this checkpoint global types still fail only in unrelated SessionStop changes
 (`guided` terminal comparison and a missing localized label). File Manager's
 dependency-scoped root types and Lumen package types pass. Existing user and other
 task changes are preserved; this category does not claim a globally clean tree.
+
+### Monitoring 1–10 practical reference closure
+
+An optional typed reference contract retains ten independent structures: platform
+health, live stream, incident updates, alert rules, log tail, service uptime,
+resource fleet, response times, run queue and service objectives. Legacy Monitoring
+exports and fixtures still render through their existing contracts. Preview copy,
+records, plot data and current-state projection are host owned; the reusable Lumen
+view has no example datasets. One active-variant Zustand owner scopes selections,
+filters, sorting, expansion, drafts, alert mutations, log clearing and exact request
+intent. Callbacks re-check current visible targets, not a stale render's active ID.
+
+Default records follow the rendered reference: four health metrics and three
+incidents; Requests stream statistics; INC-2841's three updates, four affected
+components and three responders; three captured firing rules; twenty-two captured
+log rows; six uptime services; eight nodes; six response routes; twelve grouped
+runs; and five SLOs. Live values/progress stay snapshots rather than pretend
+production telemetry. Curve and daily-strip geometry is reconstructed from the
+visible diagrams, not exact raw samples or an invented service history.
+
+Captured source-after behavior supports pause/resume, incident-status selection
+and editable update text, first-rule collapse, first-log JSON context, the 30-day
+uptime statistics and API's Jun 02 incident, node-detail collapse, first histogram
+bucket feedback, Running-group collapse and the seven-day SLO tab. Incident Resolve
+is deliberately a source no-op. Post has no captured submit result: the host adds
+a bounded local preview update without contacting subscribers. Alert resolve,
+silence and reset, log clearing, table sorting and known-record selection are
+explicit local preview behavior; no production service is changed.
+
+Unknown scopes stay explicit: health 1h/7d, live p99/Errors, four uncaptured alert
+rules, other log JSON and node histories, alternate route histograms and SLO curves.
+Alert tabs retain captured total counts instead of claiming that the three known
+rows are the entire seven-rule dataset. A selected route's known percentile values
+change without borrowing checkout's histogram. The 60-day uptime strip is a
+subset of the captured diagram; its aggregate is not fabricated. New run, row
+actions, metric options and refresh report intent only, without invented menus
+or claims of remote success.
+
+Ordinary layout uses flex flow, native tables and SVG diagrams. Operational lists
+own bounded scrolling with outside actions; logs retain at most 140 rows. Other
+collections have an expected 80-record host-page boundary and remain reachable at
+81 records. Empty, one, boundary, overflow, long localized, duplicate and stale
+target fixtures support content changes. The preview's isolated canvas no longer
+clips naturally growing Monitoring pages; incident updates and side content remain
+reachable on narrow screens. The ten-bin histogram fits its narrow panel.
+
+The [core browser check](../scripts/verify-hbar-app-ui-monitoring-core.ts) passes
+fifteen records with no browser diagnostics, two narrow representatives, bounded
+log scrolling and three inspected screenshots. Sixteen practical, owned-model and
+legacy tests pass 272 assertions. Scoped lint/types, declaration emit, direct Vite
+library build, preview build and content/icon/flow/style guards pass. The packaged
+pnpm build entry is unavailable because the bundled pnpm is 11.19.0 while hbar-ui
+requires 12.3.4; its type/Vite/declaration steps were run directly without changing
+the repository's engine requirement or installing a global package manager.
+
+This is practical functional/layout acceptance under the user's revised validation
+scope, not an exhaustive button/theme/viewport matrix, pixel sign-off or real
+monitoring-service acceptance. Global typecheck still reports only the two existing
+SessionStop `guided` errors. Existing user and concurrent-task changes remain
+untouched; no globally clean tree or full 300-variant audit is claimed.

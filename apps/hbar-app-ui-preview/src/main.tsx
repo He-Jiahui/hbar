@@ -75,6 +75,7 @@ import { AnalyticsPreviewHost } from './AnalyticsPreviewHost'
 import { ListPreviewHost } from './ListPreviewHost'
 import { FilteringPreviewHost } from './FilteringPreviewHost'
 import { FileManagerPreviewHost } from './FileManagerPreviewHost'
+import { MonitoringPreviewHost } from './MonitoringPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -99,7 +100,6 @@ import {
   HbarAppUiNotificationsProvider,
   HbarAppUiSupportProvider,
   HbarAppUiOnboardingProvider,
-  HbarAppUiMonitoringProvider,
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
@@ -268,7 +268,6 @@ import { Paywall7PreviewHost } from './Paywall7PreviewHost'
 import { createPaywall7PreviewFixture } from './paywall7PreviewFixtures'
 import { Onboarding1PreviewHost } from './Onboarding1PreviewHost'
 import { createOnboarding1PreviewFixture } from './onboarding1PreviewFixtures'
-import { HBAR_APP_UI_MONITORING_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-monitoring-fixtures'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 type Theme = 'dark' | 'light'
@@ -779,7 +778,6 @@ function PreviewApp() {
     return createPaywall7PreviewFixture(requested === 'localized' ? 'de' : requested === 'long' ? 'de-long' : 'en',
       capacity === 'empty' || capacity === 'one' || capacity === 'boundary' || capacity === 'overflow' ? capacity : 'source')
   }, [])
-  const monitoringContent = useMemo(() => HBAR_APP_UI_MONITORING_FIXTURES, [])
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -922,9 +920,7 @@ function PreviewApp() {
                                                             <HbarAppUiOnboardingProvider content={onboardingContent}>
                                                               <ListPreviewHost spec={selected.spec} onAction={handleAction}>
                                                                 <FilteringPreviewHost spec={selected.spec} onAction={handleAction}>
-                                                                  <HbarAppUiMonitoringProvider
-                                                                    content={monitoringContent}
-                                                                  >
+                                                                  <MonitoringPreviewHost spec={selected.spec} onAction={handleAction}>
                                                                     <HbarAppUiPaywallProvider content={paywallContent}>
                                                                       <Paywall4PreviewHost content={paywallContent} spec={selected.spec}
                                                                         onAction={handleAction} referenceFixture={paywall4ReferenceFixture}>
@@ -1179,7 +1175,7 @@ function PreviewApp() {
                                                                         </Paywall5PreviewHost>
                                                                       </Paywall4PreviewHost>
                                                                     </HbarAppUiPaywallProvider>
-                                                                  </HbarAppUiMonitoringProvider>
+                                                                  </MonitoringPreviewHost>
                                                                 </FilteringPreviewHost>
                                                               </ListPreviewHost>
                                                             </HbarAppUiOnboardingProvider>
@@ -1418,9 +1414,7 @@ function PreviewApp() {
                                                                       >
                                                                         <ListPreviewHost spec={selected.spec} onAction={handleAction}>
                                                                           <FilteringPreviewHost spec={selected.spec} onAction={handleAction}>
-                                                                            <HbarAppUiMonitoringProvider
-                                                                              content={monitoringContent}
-                                                                            >
+                                                                            <MonitoringPreviewHost spec={selected.spec} onAction={handleAction}>
                                                                               <HbarAppUiPaywallProvider
                                                                                 content={paywallContent}
                                                                               >
@@ -1693,7 +1687,7 @@ function PreviewApp() {
                                                                                   </Paywall5PreviewHost>
                                                                                 </Paywall4PreviewHost>
                                                                               </HbarAppUiPaywallProvider>
-                                                                            </HbarAppUiMonitoringProvider>
+                                                                            </MonitoringPreviewHost>
                                                                           </FilteringPreviewHost>
                                                                         </ListPreviewHost>
                                                                       </HbarAppUiOnboardingProvider>
