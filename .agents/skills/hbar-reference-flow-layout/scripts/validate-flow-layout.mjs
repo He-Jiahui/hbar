@@ -89,6 +89,18 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Navbar 3/4/6/10/14 public iframe evidence confirms trigger-owned menus,
+  // search results and a canvas-covering documentation drawer. Only containers
+  // may float; their buttons, headings and article content stay in flex flow.
+  if (/packages\/lumen-app-ui\/src\/navbar\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-navbar-menu',
+      '.lumen-navbar-search-results',
+      '.lumen-navbar-drawer-layer',
+      '.lumen-navbar-drawer-backdrop',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // Prompt Input 1 model evidence shows the menu above the toolbar trigger.
   // Other bounded choice menus reuse that observed container, never float their options.
   if (/packages\/lumen-app-ui\/src\/prompt-input\/primitives\.css$/.test(path.replaceAll('\\', '/'))) {
@@ -620,6 +632,21 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const navbarPath = 'packages/lumen-app-ui/src/navbar.css'
+  for (const selector of [
+    '.lumen-navbar-menu',
+    '.lumen-navbar-search-results',
+    '.lumen-navbar-drawer-layer',
+    '.lumen-navbar-drawer-backdrop',
+  ]) {
+    const overlay = `${selector} {\nposition: absolute;\ninset: 0;\n}`
+    if (validateCss(navbarPath, overlay).length || validateCss('other.css', overlay).length !== 2)
+      throw new Error('Navbar overlay exceptions must remain exact and path scoped')
+    if (validateCss(navbarPath, `${selector} > button {\nposition: absolute;\n}`).length !== 1)
+      throw new Error('Navbar overlay options must remain in normal flow')
+  }
+  if (validateCss(navbarPath, '.hbar-app-ui-navbar-landing > main {\nposition: absolute;\ninset: 0;\n}').length !== 2)
+    throw new Error('Navbar ordinary content must not inherit the overlay exception')
   const promptPath = 'packages/lumen-app-ui/src/prompt-input/primitives.css'
   const promptMenu = '.lumen-prompt-reference-choice-menu { position: absolute; inset-block-end: 100%; }'
   if (validateCss(promptPath, promptMenu).length || !validateCss('other.css', promptMenu).length)

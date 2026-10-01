@@ -66,6 +66,7 @@ import { UsagePreviewHost } from './UsagePreviewHost'
 import './usage-preview.css'
 import { AppShellPreviewHost } from './AppShellPreviewHost'
 import { AppSidebarPreviewHost } from './AppSidebarPreviewHost'
+import { NavbarPreviewHost } from './NavbarPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -99,7 +100,6 @@ import {
   HbarAppUiListProvider,
   HbarAppUiFilteringProvider,
   HbarAppUiMonitoringProvider,
-  HbarAppUiNavbarProvider,
   HbarAppUiIconButton,
   HbarAppUiStatus,
   listHbarAppUiVariants,
@@ -991,8 +991,10 @@ function PreviewApp() {
                                                                               onAction={handleAction}
                                                                               localized={new URLSearchParams(window.location.search).get('toolCallsFixture') === 'localized'}
                                                                             >
-                                                                              <HbarAppUiNavbarProvider
+                                                                              <NavbarPreviewHost
                                                                                 content={navbarContent}
+                                                                                spec={selected.spec}
+                                                                                onAction={handleAction}
                                                                               >
                                                                                 <EditorPreviewHost
                                                                                   content={editorContent}
@@ -1195,7 +1197,7 @@ function PreviewApp() {
                                                                                     </ConversationPreviewHost>
                                                                                   </ShellPreviewHost>
                                                                                 </EditorPreviewHost>
-                                                                              </HbarAppUiNavbarProvider>
+                                                                              </NavbarPreviewHost>
                                                                             </ToolCallsPreviewHost>
                                                                             </AgentActivityPreviewHost>
                                                                           </HbarAppUiAgentActivityProvider>
@@ -1489,8 +1491,10 @@ function PreviewApp() {
                                                                                         onAction={handleAction}
                                                                                         localized={new URLSearchParams(window.location.search).get('toolCallsFixture') === 'localized'}
                                                                                       >
-                                                                                        <HbarAppUiNavbarProvider
+                                                                                        <NavbarPreviewHost
                                                                                           content={navbarContent}
+                                                                                          spec={selected.spec}
+                                                                                          onAction={handleAction}
                                                                                         >
                                                                                           <EditorPreviewHost
                                                                                             content={editorContent}
@@ -1709,7 +1713,7 @@ function PreviewApp() {
                                                                                               </ConversationPreviewHost>
                                                                                             </ShellPreviewHost>
                                                                                           </EditorPreviewHost>
-                                                                                        </HbarAppUiNavbarProvider>
+                                                                                        </NavbarPreviewHost>
                                                                                       </ToolCallsPreviewHost>
                                                                                       </AgentActivityPreviewHost>
                                                                                     </HbarAppUiAgentActivityProvider>

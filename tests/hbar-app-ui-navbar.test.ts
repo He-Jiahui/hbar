@@ -111,7 +111,8 @@ describe('hbar-app-ui navbar surfaces', () => {
       },
     }
     const staleMarkup = renderNavbar(8, duplicateAndStale)
-    expect(staleMarkup).toContain('class="is-selected"')
+    expect(staleMarkup).toMatch(/class="[^"]*\bis-selected\b[^"]*"/)
+    expect(staleMarkup).toContain('aria-selected="true"')
     expect(staleMarkup).toContain('data-lumen-variant="solid"')
     expect(staleMarkup).toContain('Kept row')
     expect(staleMarkup).not.toContain('Duplicate all')

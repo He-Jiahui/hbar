@@ -984,3 +984,31 @@ records and three representative screenshots. Command model/SSR/compatibility
 tests and targeted workbench command palette regressions pass. These results
 justify the practical function/layout status in the inventory, not a new full
 viewport/theme/button audit or desktop/service acceptance.
+
+### Navbar 1–14 practical reference closure
+
+All fourteen compositions keep distinct header/body structures. The preview mounts
+one active-variant Zustand owner and supplies typed content, EN/DE labels, drafts,
+stable-ID selections, local star/bookmark flags and exact-target request callbacks.
+Project tabs replace whole content groups; analytics primary tabs replace their
+secondary choices and metrics; deployment choices update the header and summary.
+Search displays Host-provided results above an unchanged Today list. The source
+filter tabs change selection/count, not the five supplied records.
+
+Typed popup and narrow navigation contracts support grouped menus, project search,
+documentation disclosure and article contents. The article contents menu scrolls
+only the current document. External actions are request-only: no invitation, model,
+search service, theme persistence, shopping mutation, clipboard write or download.
+Menus support local dismissal and keyboard selection; drawers support dismissal
+and trigger restoration, but this increment does not claim focus containment.
+
+Normal flex flow replaces ordinary Grid/overlap. Bounded panes still own real
+scrolling; long translated headings and CTAs wrap without hiding navigation. Shared
+canonical control classes now match the navbar stylesheet, and selectors target
+the native Lumen content frame rather than the removed legacy variant box.
+Only evidenced menu/search/drawer containers receive positioning exceptions.
+
+The [practical browser check](../scripts/verify-hbar-app-ui-navbar.ts) takes one
+core path per composition, two narrow representatives and one 64-row pane scroll.
+Its 34 check records and three inspected screenshots support the practical status,
+not a new pixel/viewport/theme/button matrix or real service/desktop acceptance.
