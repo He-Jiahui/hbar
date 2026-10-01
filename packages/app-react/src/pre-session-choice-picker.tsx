@@ -25,7 +25,8 @@ export interface HbarPreSessionChoiceLabels {
 }
 
 export interface HbarPreSessionChoicePickerProps {
-  readonly icon: LucideIcon
+  /** Optional leading trigger glyph; text-only model controls keep the same appearance after first send. */
+  readonly icon?: LucideIcon
   readonly labels: HbarPreSessionChoiceLabels
   readonly items: readonly HbarPreSessionChoice[]
   readonly selectedId: string | null
@@ -343,10 +344,11 @@ export function HbarPreSessionChoicePicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={unavailableLabel ?? labels.trigger(selectedTriggerLabel)}
+        title={unavailableLabel ?? selectedTriggerLabel ?? labels.title}
         popoverTarget={placement === 'composer' ? popupId : undefined}
         onClick={placement === 'dialog' ? () => setOpen(true) : undefined}
       >
-        <LumenIcon icon={icon} tier="sm" />
+        {icon && <LumenIcon icon={icon} tier="sm" />}
         <LumenText as="span">{unavailableLabel ?? selectedTriggerLabel ?? labels.title}</LumenText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>

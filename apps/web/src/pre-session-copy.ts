@@ -25,7 +25,6 @@ export interface WebPreSessionCopy {
   readonly goalAlreadyPrepared: string
   readonly goalError: (code: string) => string
   readonly error: (code: string) => string
-  readonly modelName: (provider: string, model: string) => string
 }
 
 export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
@@ -125,6 +124,5 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
                   'The Agent task must not exceed 4,000 characters. Shorten it and retry.',
                 )
               : choose(`无法开始会话：${code}`, `Could not start session: ${code}`),
-    modelName: (provider, model) => `${provider} · ${model}`,
   }
 }

@@ -58,7 +58,7 @@ test('the first-send composer exposes the actual Host default model and effort b
     await page.screenshot({ path: info.outputPath('default-before-first-send.png') })
     await expect(
       landing.getByRole('button', {
-        name: labels.model.trigger(labels.modelName(model.providerName, model.modelName)),
+        name: labels.model.trigger(model.modelName),
         exact: true,
       }),
     ).toBeVisible()

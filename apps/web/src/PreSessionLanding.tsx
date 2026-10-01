@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Target, X } from 'lucide-react'
+import { Target, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
@@ -525,7 +525,6 @@ export function WebPreSessionLanding({
     label: model.modelName,
     detail: shell.session.modelPicker.capability(model),
     searchText: model.modelId,
-    triggerLabel: labels.modelName(model.providerName, model.modelName),
     group: { id: model.providerId, label: model.providerName },
   }))
   const modelLabels = modelError ? { ...labels.model, empty: labels.modelReadFailed } : labels.model
@@ -617,7 +616,6 @@ export function WebPreSessionLanding({
   )
   const modelControl = (
     <HbarPreSessionChoicePicker
-      icon={Sparkles}
       placement="composer"
       menuPresentation={modelMenuPresentation}
       openRequest={modelOpenRequest}

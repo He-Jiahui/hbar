@@ -2,16 +2,17 @@ import { expect, test } from '@playwright/test'
 import { createModelCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectComposerText } from './support/composer-text'
 
 test.use({ actionTimeout: 10_000 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`no-tab effort selection is Host-confirmed before the first Run: ${locale}`, async ({ browser }) => {
+  test(`no-tab effort selection is Host-confirmed before the first Run: ${locale}`, async ({ browser }, info) => {
     test.setTimeout(120_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-pre-session-thinking-'))
     const context = await browser.newContext({
@@ -82,6 +83,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(effort).toHaveAccessibleName(
         copy.session.modelPicker.thinkingTrigger(copy.session.modelPicker.thinkingLevel(target)),
       )
+      const modelTrigger = landing.locator('.hbar-pre-session-choice-picker > button')
+      await expect(modelTrigger).toHaveText(fixture!.modelName)
+      await expect(modelTrigger.locator('svg')).toHaveCount(1)
+      await expect(modelTrigger).toHaveCSS('font-weight', '600')
       await expect(effort).toBeEnabled()
       await expect(picker).toBeHidden()
       await expect(effort).toBeFocused()
@@ -93,6 +98,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(effort).toBeFocused()
       await expect(prompt).toHaveValue(message)
       expect(await count()).toBe(1)
+      await page.screenshot({ path: info.outputPath(`model-ready-before-first-send-${locale}.png`) })
       await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
       await expect.poll(count).toBe(2)
       const created = (
@@ -107,10 +113,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           return snapshot.runs.filter((run) => run.input.source === 'user' && run.input.text === message).length
         })
         .toBe(1)
+      await expect(landing).toHaveCount(0)
+      const existingModel = page.locator('.hbar-composer-model-trigger')
+      const existingEffort = page.locator('.hbar-composer-thinking-trigger')
+      await expect(existingModel).toHaveText(fixture!.modelName)
+      await expect(existingModel.locator('svg')).toHaveCount(1)
+      await expect(existingModel).toHaveCSS('font-weight', '600')
+      await expect(existingEffort).toHaveAccessibleName(
+        copy.session.modelPicker.thinkingTrigger(copy.session.modelPicker.thinkingLevel(target)),
+      )
+      const nextPrompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const nextDraft = 'Keep composing after the first send — 首发后继续编辑而不提交。'
+      await nextPrompt.fill(nextDraft)
+      await expect(existingModel).toBeEnabled()
+      await existingModel.click()
+      const existingPicker = page.getByRole('dialog', { name: copy.session.modelPicker.title, exact: true })
+      await expect(existingPicker).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(existingModel).toBeFocused()
+      await expectComposerText(nextPrompt, nextDraft)
+      await page.screenshot({ path: info.outputPath(`model-ready-after-first-send-${locale}.png`) })
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      const exactRoot = resolve(root)
+      expect(dirname(exactRoot)).toBe(resolve(tmpdir()))
+      expect(basename(exactRoot).startsWith('hbar-pre-session-thinking-')).toBe(true)
+      await rm(exactRoot, { recursive: true, force: true })
     }
   })
 }

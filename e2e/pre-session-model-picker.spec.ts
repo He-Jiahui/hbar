@@ -61,9 +61,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await choice.click()
 
       await expect(picker).toBeHidden()
-      await expect(trigger).toHaveAccessibleName(
-        labels.model.trigger(labels.modelName(model.providerName, model.modelName)),
-      )
+      await expect(trigger).toHaveAccessibleName(labels.model.trigger(model.modelName))
       await expect(prompt).toHaveValue(draftText)
       expect(await countSessions()).toBe(1)
 

@@ -45,7 +45,7 @@ test('a live first-send model menu reflects Provider changes without replacing t
     await trigger.click()
     const picker = page.getByRole('dialog', { name: labels.model.title, exact: true })
     await picker.getByRole('group', { name: model.providerName, exact: true }).getByRole('button').click()
-    const selectedName = labels.model.trigger(labels.modelName(model.providerName, model.modelName))
+    const selectedName = labels.model.trigger(model.modelName)
     await expect(trigger).toHaveAccessibleName(selectedName)
     const thinking = landing.locator('.hbar-pre-session-thinking-picker > button')
     const thinkingName = await thinking.getAttribute('aria-label')
@@ -75,9 +75,7 @@ test('a live first-send model menu reflects Provider changes without replacing t
     await expect(picker).toBeHidden()
     const fresh = (await models.execute('model.list', {})).find((value) => value.providerId === provider.id)
     if (!fresh) throw new Error('The updated model must exist in the Host catalog')
-    await expect(trigger).toHaveAccessibleName(
-      labels.model.trigger(labels.modelName(fresh.providerName, fresh.modelName)),
-    )
+    await expect(trigger).toHaveAccessibleName(labels.model.trigger(fresh.modelName))
     await expect(prompt).toHaveValue(draft)
     await page.screenshot({ path: info.outputPath('catalog-fresh-selection.png') })
     // Going to Settings unmounts this landing; returning must retain its draft and reload the catalog.
