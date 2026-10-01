@@ -49,7 +49,7 @@ export function HbarAppUiSpotlight({ as = 'div', className = '', children, ...pr
   )
 }
 
-export type HbarAppUiButtonTone = 'neutral' | 'accent' | 'positive' | 'warning' | 'danger'
+export type HbarAppUiButtonTone = 'neutral' | 'accent' | 'info' | 'positive' | 'warning' | 'danger'
 export type HbarAppUiButtonSize = HbarAppUiSize
 export type HbarAppUiButtonVariant = 'contained' | 'outlined' | 'text' | 'solid' | 'outline' | 'ghost'
 export type HbarAppUiButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

@@ -14,6 +14,7 @@ export default defineConfig({
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         formControlsAudit: fileURLToPath(new URL('./form-controls-audit.html', import.meta.url)),
         promptAudit: fileURLToPath(new URL('./prompt-audit.html', import.meta.url)),
+        visualLanguage: fileURLToPath(new URL('./visual-language.html', import.meta.url)),
       },
     },
   },
