@@ -89,6 +89,15 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // CC-haha Sidebar's observed Projects and Sessions header menu and sort flyout
+  // are measured from their owning trigger/row; only the two top-layer containers overlay.
+  if (/packages\/app-react\/src\/workspace-header-sort-menu\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.hbar-app-react-workspace-header-menu-popover:popover-open',
+      '.hbar-app-react-workspace-sort-submenu:popover-open',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
   // CC WorkspacePanel's observed selected-text action floats beside a DOM Range.
   // Evidence: artifacts/file-selection-reference/*-source-selection-menu.png;
   // only this measured menu container floats, not source rows or comment content.
@@ -608,6 +617,24 @@ function validateCss(path, source) {
 
 const inputPaths = Bun.argv.slice(2)
 if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
+  const workspaceSortMenuPath = 'packages/app-react/src/workspace-header-sort-menu.css'
+  const workspaceSortMenuPopovers = `.hbar-app-react-workspace-header-menu-popover:popover-open,
+.hbar-app-react-workspace-sort-submenu:popover-open {
+position: fixed;
+inset: auto;
+top: 0;
+left: 0;
+}`
+  if (
+    validateCss(workspaceSortMenuPath, workspaceSortMenuPopovers).length ||
+    validateCss('other.css', workspaceSortMenuPopovers).length === 0 ||
+    validateCss(
+      workspaceSortMenuPath,
+      workspaceSortMenuPopovers.replace('workspace-sort-submenu:popover-open', 'workspace-sort-submenu > button'),
+    ).length === 0
+  )
+    throw new Error('Workspace sort overlays must remain path-scoped containers and exclude their menu items')
+
   const selectionMenuPath = 'packages/app-react/src/file-context-surfaces.css'
   const selectionMenu = '.hbar-file-selection-menu {\nposition: fixed;\nleft: 0;\n}'
   if (

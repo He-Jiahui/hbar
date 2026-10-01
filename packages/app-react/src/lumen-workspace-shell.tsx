@@ -35,7 +35,13 @@ import {
   type LumenToolPresentation,
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
-import { SESSION_ARCHIVE_BATCH_MAX_ITEMS, sortPinnedWorkspaces, workspaceDisplayName } from '@hbar/app-runtime'
+import {
+  SESSION_ARCHIVE_BATCH_MAX_ITEMS,
+  orderWorkspaceActivityIds,
+  sortPinnedWorkspaces,
+  workspaceDisplayName,
+} from '@hbar/app-runtime'
+import type { Session } from '@hbar/contracts/directory'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionStopNotice, HbarSessionStopProvider, type SessionStopLabels } from './session-stop'
 import {
@@ -52,6 +58,7 @@ import {
   type WorkspaceOrganizationLabels,
 } from './workspace-organization'
 import { useWorkspaceOrganizationFocus } from './workspace-organization-focus'
+import { WorkspaceHeaderSortMenu, type WorkspaceHeaderSortMenuLabels } from './workspace-header-sort-menu'
 import {
   WorkspaceDisplayNameDialog,
   WorkspaceDisplayNameFeedback,
@@ -81,6 +88,10 @@ export interface HbarWorkspaceShellLabels {
   readonly brand: string
   readonly projectsAndSessions: string
   readonly organization: WorkspaceOrganizationLabels
+  readonly sort: WorkspaceHeaderSortMenuLabels & {
+    readonly capacityReached: string
+    readonly sessionCapacityReached: string
+  }
   readonly displayNames: WorkspaceDisplayNamesLabels
   readonly noWorkspaces: string
   readonly noSessions: string
@@ -289,6 +300,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
+  const workspaceActivity = useHbarRuntimeState(runtime.state.workspaceActivity)
   const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNames)
   const organizationMenuRef = useRef<HTMLDivElement | null>(null)
@@ -413,7 +425,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   )
   const rosterBusy = Object.values(rosterRefresh.entries).some((entry) => entry.status === 'loading')
   const [workspaceCursor, setWorkspaceCursor] = useState<string | null | undefined>()
-  const [sessionCursors, setSessionCursors] = useState<Readonly<Record<string, string | null | undefined>>>({})
   const [loading, setLoading] = useState<ReadonlySet<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
   const [workspaceActionError, setWorkspaceActionError] = useState<{ workspaceId: string; code: string } | null>(null)
@@ -484,24 +495,27 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   )
 
   const loadSessions = useCallback(
-    async (workspaceId: string, after?: string) => {
-      setLoading((current) => new Set(current).add(workspaceId))
-      setError(null)
+    async (workspaceId: string, more = false) => {
       try {
-        const page = await execute('session.list', { workspaceId, after, limit: PAGE_SIZE })
-        setSessionCursors((current) => ({ ...current, [workspaceId]: page.nextCursor }))
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : String(reason))
-      } finally {
-        setLoading((current) => new Set([...current].filter((id) => id !== workspaceId)))
+        if (more) await execute('workspaceActivity.loadMore', { scope: 'sessions', workspaceId })
+        else await execute('workspaceActivity.refresh', { workspaceId })
+      } catch {
+        // The captured group's activity owner keeps its read failure beside its rows.
       }
     },
     [execute],
   )
 
   useEffect(() => {
-    if (props.connection === 'connected') void loadWorkspaces()
-  }, [loadWorkspaces, props.connection])
+    if (props.connection !== 'connected') return
+    void execute('workspaceActivity.refresh', {}).catch(() => {
+      // Last confirmed order and its retry remain in the sidebar.
+    })
+  }, [execute, props.connection])
+
+  useEffect(() => {
+    if (props.connection === 'connected' && projectPicker) void loadWorkspaces()
+  }, [loadWorkspaces, projectPicker, props.connection])
 
   useEffect(() => {
     const narrow = window.matchMedia('(max-width: 63.9375rem)')
@@ -529,9 +543,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
 
   useEffect(() => {
     if (props.connection !== 'connected') return
-    for (const workspaceId of visibleExpanded)
-      if (!Object.hasOwn(sessionCursors, workspaceId)) void loadSessions(workspaceId)
-  }, [visibleExpanded, loadSessions, props.connection, sessionCursors])
+    const pending = Object.values(workspaceActivity.sessions).filter((page) => page.status === 'loading').length
+    const missing = [...visibleExpanded].filter((id) => !Object.hasOwn(workspaceActivity.sessions, id))
+    for (const workspaceId of missing.slice(0, Math.max(0, 2 - pending))) void loadSessions(workspaceId)
+  }, [visibleExpanded, loadSessions, props.connection, workspaceActivity.sessions])
+
+  useEffect(() => {
+    const first = workspaceActivity.workspaces.items[0]?.workspaceId
+    if (navigation.workspaceId === null && first) setExpanded((current) => (current.size ? current : new Set([first])))
+  }, [navigation.workspaceId, workspaceActivity.workspaces.items])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -579,9 +599,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const organizationInitializing = organization.status === 'loading' && organization.snapshot === null
   const sidebarWorkspaces = useMemo(() => {
     if (organizationInitializing) return []
-    const hidden = new Set(hiddenWorkspaceIds)
-    return workspaces.filter((workspace) => !hidden.has(workspace.id))
-  }, [hiddenWorkspaceIds, workspaces, organizationInitializing])
+    return orderWorkspaceActivityIds(workspaceActivity, workspacePins, hiddenWorkspaceIds)
+      .map((id) => directory.workspaces[id] ?? workspacePins.resolved[id])
+      .filter((workspace) => workspace !== undefined)
+  }, [hiddenWorkspaceIds, workspaceActivity, workspacePins, directory.workspaces, organizationInitializing])
   const organizationBusy =
     organization.requestInFlight || ['submitting', 'unknown', 'reconciling'].includes(organization.action.status)
   const organizationCanWrite = props.connection === 'connected' && organization.status === 'ready' && !organizationBusy
@@ -611,6 +632,18 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       // Preserve the last confirmed snapshot and render this read failure locally.
     })
   }
+  const refreshSidebar = () => {
+    refreshOrganization()
+    void execute('workspaceActivity.refresh', {}).catch(() => {
+      // The activity owner keeps confirmed rows and the local retry on a read failure.
+    })
+  }
+  const refreshProjectSessions = (workspaceId?: string) => {
+    refreshRoster(workspaceId)
+    void execute('workspaceActivity.refresh', workspaceId ? { workspaceId } : {}).catch(() => {
+      // Sorted pages have their own local read status, independent of roster reconciliation.
+    })
+  }
   const reconcileOrganization = () => {
     void execute('workspaceSidebar.reconcile', {}).catch(() => {
       // An unsuccessful receipt read cannot authorize a new mutation.
@@ -634,16 +667,17 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     void execute('workspacePins.refresh', {}).catch(recordError)
   }
   const sessionsByWorkspace = useMemo(() => {
-    const result = new Map<string, (typeof directory.sessions)[string][]>()
-    for (const session of Object.values(directory.sessions)) {
-      if (session.archived) continue
-      const items = result.get(session.workspaceId) ?? []
-      items.push(session)
-      result.set(session.workspaceId, items)
-    }
-    for (const items of result.values()) items.sort((left, right) => right.updatedAt - left.updatedAt)
+    const result = new Map<string, Readonly<Session>[]>()
+    for (const [workspaceId, page] of Object.entries(workspaceActivity.sessions))
+      result.set(
+        workspaceId,
+        page.sessionIds.flatMap((id) => {
+          const session = directory.sessions[id]
+          return session && !session.archived && session.workspaceId === workspaceId ? [session] : []
+        }),
+      )
     return result
-  }, [directory])
+  }, [directory.sessions, workspaceActivity.sessions])
 
   const batchSelectedTargets = Array.from(batchSelection.values())
   const clearBatchSelection = () => {
@@ -727,9 +761,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       if (!selection) return
       setProjectPicker(null)
       setWorkspacePath('')
+      void execute('workspaceActivity.refresh', {}).catch(() => {
+        // Include newly registered empty projects without changing the successful navigation result.
+      })
       void closeNarrowSidebar().catch(recordError)
     },
-    [closeNarrowSidebar, recordError],
+    [closeNarrowSidebar, execute, recordError],
   )
   const runNavigationAction = useCallback(
     (action: WorkspaceNavigationAction, sourceWorkspaceId: string | null = null) => {
@@ -980,7 +1017,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         <LumenAppSidebar
           brand={props.labels.brand}
           title={props.labels.projectsAndSessions}
-          emptyLabel={loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
+          emptyLabel={
+            workspaceActivity.workspaces.status === 'loading' ? props.labels.loading : props.labels.noWorkspaces
+          }
           status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
           brandAction={
             <LumenIconButton
@@ -1057,7 +1096,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   label={props.labels.roster.refreshExpanded}
                   loading={rosterBusy}
                   disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
-                  onClick={() => refreshRoster()}
+                  onClick={() => refreshProjectSessions()}
                 >
                   <WorkspaceShellIcon name="refresh" />
                 </LumenIconButton>
@@ -1112,30 +1151,20 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           }
           treeAction={
             <LumenFrame className="hbar-app-react-project-organization-actions">
-              <WorkspaceProjectMenu
-                header
+              <WorkspaceHeaderSortMenu
                 menuRef={organizationMenuRef}
-                label={props.labels.organization.menu}
-                items={[
-                  ...(hiddenWorkspaceIds.length
-                    ? [
-                        {
-                          id: 'restore',
-                          label: props.labels.organization.restore(hiddenWorkspaceIds.length),
-                          disabled: !organizationCanWrite,
-                        },
-                      ]
-                    : []),
-                  {
-                    id: 'refresh',
-                    label: props.labels.organization.refresh,
-                    disabled: !connected || organization.status === 'unavailable' || organizationBusy,
-                  },
-                ]}
-                onAction={(id) => {
-                  if (id === 'restore') restoreHiddenWorkspaces()
-                  else refreshOrganization()
+                labels={props.labels.sort}
+                sortBy={workspaceActivity.sortBy}
+                pending={['loading', 'saving', 'submitting'].includes(workspaceActivity.preferenceStatus)}
+                sortDisabled={!connected}
+                hiddenCount={hiddenWorkspaceIds.length}
+                restoreDisabled={!organizationCanWrite}
+                refreshDisabled={!connected || organizationBusy || workspaceActivity.workspaces.status === 'loading'}
+                onSortChange={(sortBy) => {
+                  void execute('workspaceActivity.setSort', { sortBy }).catch(recordError)
                 }}
+                onRestoreHidden={restoreHiddenWorkspaces}
+                onRefresh={refreshSidebar}
               />
               <LumenIconButton
                 label={props.labels.openWorkspace}
@@ -1194,9 +1223,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 </LumenButton>
               </LumenFrame>
             )}
-            {!organizationInitializing && sidebarWorkspaces.length === 0 && (
+            {workspaceActivity.workspaces.error && (
+              <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                <LumenText as="p">{props.labels.error(workspaceActivity.workspaces.error)}</LumenText>
+                <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
+                  {props.labels.sort.refresh}
+                </LumenButton>
+              </LumenFrame>
+            )}
+            {workspaceActivity.preferenceError && (
+              <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                <LumenText as="p">{props.labels.error(workspaceActivity.preferenceError)}</LumenText>
+                <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
+                  {props.labels.sort.refresh}
+                </LumenButton>
+              </LumenFrame>
+            )}
+            {!organizationInitializing && sidebarWorkspaces.length === 0 && !workspaceActivity.workspaces.error && (
               <LumenText as="p">
-                {loading.has('workspaces')
+                {workspaceActivity.workspaces.status !== 'ready'
                   ? props.labels.loading
                   : hiddenWorkspaceIds.length
                     ? props.labels.organization.allHidden
@@ -1208,7 +1253,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               const isExpanded = expanded.has(workspace.id)
               const isPinned = workspacePins.ids.includes(workspace.id)
               const sessions = sessionsByWorkspace.get(workspace.id) ?? []
-              const nextSessionCursor = sessionCursors[workspace.id]
+              const activitySessions = workspaceActivity.sessions[workspace.id]
               return (
                 <LumenFrame as="section" key={workspace.id} data-workspace-id={workspace.id}>
                   <LumenFrame className="hbar-app-react-workspace-line">
@@ -1276,7 +1321,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         if (action === 'edit') editWorkspace({ workspaceId: workspace.id })
                         else if (action === 'files' || action === 'settings') openWorkspaceSurface(workspace.id, action)
                         else if (action === 'pin') toggleWorkspacePin(workspace.id)
-                        else if (action === 'refresh') refreshRoster(workspace.id)
+                        else if (action === 'refresh') refreshProjectSessions(workspace.id)
                         else if (action === 'hide') hideWorkspace(workspace.id)
                         else if (action === 'archived')
                           void execute('archivedSessions.open', { workspaceId: workspace.id }).catch(recordError)
@@ -1296,7 +1341,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     entry={rosterRefresh.entries[workspace.id]}
                     labels={props.labels.roster}
                     connected={connected}
-                    onRefresh={() => refreshRoster(workspace.id)}
+                    onRefresh={() => refreshProjectSessions(workspace.id)}
                   />
                   {actionWorkspaceId === workspace.id && (
                     <NavigationActionFeedback
@@ -1350,9 +1395,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   />
                   {isExpanded && (
                     <LumenFrame className="hbar-app-react-session-list">
-                      {loading.has(workspace.id) && sessions.length === 0 ? (
+                      {(!activitySessions || activitySessions.status === 'loading') && sessions.length === 0 ? (
                         <LumenText as="p">{props.labels.loading}</LumenText>
-                      ) : sessions.length === 0 ? (
+                      ) : sessions.length === 0 && !activitySessions?.error ? (
                         <LumenText as="p">{props.labels.noSessions}</LumenText>
                       ) : (
                         sessions.map((session) => (
@@ -1378,13 +1423,34 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           />
                         ))
                       )}
-                      {nextSessionCursor && (
+                      {activitySessions?.error && (
+                        <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                          <LumenText as="p">{props.labels.error(activitySessions.error)}</LumenText>
+                          <LumenButton
+                            size="s"
+                            variant="outlined"
+                            disabled={!connected || activitySessions.status === 'loading'}
+                            onClick={() => void loadSessions(workspace.id)}
+                          >
+                            {props.labels.sort.refresh}
+                          </LumenButton>
+                        </LumenFrame>
+                      )}
+                      {activitySessions?.limitReached && (
+                        <LumenText as="p" role="status">
+                          {props.labels.sort.sessionCapacityReached}
+                        </LumenText>
+                      )}
+                      {activitySessions?.hasMore && (
                         <LumenButton
                           className="hbar-app-react-load-more"
                           size="s"
                           tone="primary"
                           variant="text"
-                          onClick={() => void loadSessions(workspace.id, nextSessionCursor)}
+                          disabled={
+                            !connected || activitySessions.status === 'loading' || activitySessions.limitReached
+                          }
+                          onClick={() => void loadSessions(workspace.id, true)}
                         >
                           {props.labels.loadMore}
                         </LumenButton>
@@ -1394,13 +1460,27 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 </LumenFrame>
               )
             })}
-            {workspaceCursor && (
+            {workspaceActivity.workspaces.limitReached && (
+              <LumenText as="p" role="status">
+                {props.labels.sort.capacityReached}
+              </LumenText>
+            )}
+            {workspaceActivity.workspaces.hasMore && (
               <LumenButton
                 className="hbar-app-react-load-more"
                 size="s"
                 tone="primary"
                 variant="text"
-                onClick={() => void loadWorkspaces(workspaceCursor)}
+                disabled={
+                  !connected ||
+                  workspaceActivity.workspaces.status === 'loading' ||
+                  workspaceActivity.workspaces.limitReached
+                }
+                onClick={() => {
+                  void execute('workspaceActivity.loadMore', { scope: 'workspaces' }).catch(() => {
+                    // The activity owner displays any paging failure beside the retained rows.
+                  })
+                }}
               >
                 {props.labels.loadMore}
               </LumenButton>

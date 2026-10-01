@@ -40,6 +40,7 @@ import { extensionNavigationCopy } from './extension-navigation-copy'
 import { codeBlockCopyLabels } from './code-block-copy-labels'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
+import { workspaceSortCopy } from './workspace-sort-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
 import { getSessionStopCopy, sessionStopButtonLabel } from './session-stop-copy'
 import { sessionTimeCopy } from './session-time-copy'
@@ -2907,6 +2908,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       brand: 'hbar',
       projectsAndSessions: '工程与会话',
       organization: workspaceOrganizationCopy('zh-CN'),
+      sort: workspaceSortCopy('zh-CN'),
       displayNames: workspaceDisplayNamesCopy('zh-CN'),
       noWorkspaces: '尚无工程',
       noSessions: '尚无会话',
@@ -3052,6 +3054,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       brand: 'hbar',
       projectsAndSessions: 'Projects and sessions',
       organization: workspaceOrganizationCopy('en-US'),
+      sort: workspaceSortCopy('en-US'),
       displayNames: workspaceDisplayNamesCopy('en-US'),
       noWorkspaces: 'No projects yet',
       noSessions: 'No sessions yet',

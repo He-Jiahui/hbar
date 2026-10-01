@@ -75,7 +75,7 @@ export function useWorkspaceDisplayNameFocus(
       for (const target of [
         summary,
         pending.source,
-        header.current?.querySelector('summary'),
+        header.current?.querySelector<HTMLElement>('summary, [data-workspace-menu-trigger]'),
         sidebar.current,
         main.current,
       ]) {

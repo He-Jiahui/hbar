@@ -1,6 +1,11 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
 export type { SessionStopLabels } from './session-stop'
 export type { WorkspaceOrganizationLabels } from './workspace-organization'
+export {
+  WorkspaceHeaderSortMenu,
+  type WorkspaceHeaderSortMenuLabels,
+  type WorkspaceHeaderSortMenuProps,
+} from './workspace-header-sort-menu'
 export { WorkspaceDisplayNameDialog, WorkspaceDisplayNameFeedback } from './workspace-display-names'
 export type {
   WorkspaceDisplayNamesLabels,

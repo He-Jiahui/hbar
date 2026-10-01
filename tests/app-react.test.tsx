@@ -4,6 +4,7 @@ import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels 
 import { createAppRuntime } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
+import { workspaceSortCopy } from '../apps/web/src/workspace-sort-copy'
 import { workspaceDisplayNamesCopy } from '../apps/web/src/workspace-display-names-copy'
 import { getSessionStopCopy } from '../apps/web/src/session-stop-copy'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -26,6 +27,7 @@ const labels: HbarWorkspaceShellLabels = {
   brand: 'hbar 测试',
   projectsAndSessions: '工程与会话树',
   organization: workspaceOrganizationCopy('zh-CN'),
+  sort: workspaceSortCopy('zh-CN'),
   displayNames: workspaceDisplayNamesCopy('zh-CN'),
   noWorkspaces: '没有工程',
   noSessions: '没有会话',

@@ -278,7 +278,7 @@ async function hide(f: Fixture, workspace = f.ready.firstWorkspace) {
   await expect(item).toBeFocused()
   await f.page.keyboard.press('Enter')
   await expect(f.page.locator(`[data-workspace-id="${workspace.id}"]`)).toHaveCount(0)
-  const header = f.page.getByTestId('workspace-organization-menu').locator('summary')
+  const header = f.page.getByTestId('workspace-organization-menu').locator('[data-workspace-menu-trigger]')
   await expect(header).toHaveAttribute('aria-label', organizationCopy(f.locale).menu)
   await expect(header).toBeFocused()
 }
@@ -286,7 +286,7 @@ async function hide(f: Fixture, workspace = f.ready.firstWorkspace) {
 async function restore(f: Fixture, count: number) {
   const copy = organizationCopy(f.locale)
   await showSidebar(f)
-  const trigger = f.page.getByTestId('workspace-organization-menu').locator('summary')
+  const trigger = f.page.getByTestId('workspace-organization-menu').locator('[data-workspace-menu-trigger]')
   await expect(trigger).toHaveAttribute('aria-label', copy.menu)
   await trigger.focus()
   await f.page.keyboard.press('Enter')

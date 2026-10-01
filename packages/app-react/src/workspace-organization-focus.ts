@@ -38,7 +38,7 @@ export function useWorkspaceOrganizationFocus(
     if (pending.source.isConnected || document.querySelector('dialog:modal')) return
     const active = document.activeElement
     if (active instanceof HTMLElement && active !== document.body && canFocusWorkspaceElement(active)) return
-    const target = menuRef.current?.querySelector('summary')
+    const target = menuRef.current?.querySelector<HTMLElement>('summary, [data-workspace-menu-trigger]')
     if (target && canFocusWorkspaceElement(target)) target.focus({ preventScroll: true })
   }, [actionFailed, hiddenIds, menuRef, owner])
   return useCallback(
