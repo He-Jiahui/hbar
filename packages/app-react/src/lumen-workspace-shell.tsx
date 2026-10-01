@@ -83,6 +83,7 @@ import {
   type SessionArchiveLabels,
 } from './session-archive'
 import { useSessionRosterRefresh } from './session-roster-refresh'
+import { SidebarSearchEntry } from './sidebar-search-entry'
 import { SessionRosterFeedback, type SessionRosterRefreshLabels } from './session-roster-feedback'
 import {
   canFocusWorkspaceElement,
@@ -1173,13 +1174,21 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 </LumenText>
               )}
               <LumenFrame className="hbar-app-react-sidebar-query-actions">
-                <WorkspaceSidebarAction
-                  icon="search"
+                <SidebarSearchEntry
                   label={props.labels.searchChats}
-                  detail={props.labels.searchShortcut}
-                  selected={presentation.modalInstanceId === 'chat-search'}
-                  onClick={() => openPanel('chat-search')}
+                  shortcut={props.labels.searchShortcut}
+                  open={presentation.modalInstanceId === 'chat-search'}
+                  onOpen={() => openPanel('chat-search')}
                 />
+                <LumenIconButton
+                  className="hbar-app-react-roster-refresh"
+                  label={props.labels.roster.refreshExpanded}
+                  loading={rosterBusy}
+                  disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
+                  onClick={() => refreshProjectSessions()}
+                >
+                  <WorkspaceShellIcon name="refresh" />
+                </LumenIconButton>
                 <LumenIconButton
                   ref={batchToolbarRef}
                   className="hbar-app-react-session-batch-mode"
@@ -1195,15 +1204,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   }}
                 >
                   <WorkspaceShellIcon name="list-checks" tier="md" />
-                </LumenIconButton>
-                <LumenIconButton
-                  className="hbar-app-react-roster-refresh"
-                  label={props.labels.roster.refreshExpanded}
-                  loading={rosterBusy}
-                  disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
-                  onClick={() => refreshProjectSessions()}
-                >
-                  <WorkspaceShellIcon name="refresh" />
                 </LumenIconButton>
               </LumenFrame>
               <SessionArchiveBatchPanel
