@@ -10,7 +10,11 @@ const result = await build({
   resolve: { dedupe: ['react', 'react-dom'] },
   build: {
     write: false,
-    lib: { entry: 'tests/fixtures/button-primitives-browser.tsx', formats: ['iife'], name: 'ButtonFixture' },
+    lib: {
+      entry: process.argv[2] ?? 'tests/fixtures/button-primitives-browser.tsx',
+      formats: ['iife'],
+      name: 'VisualFixture',
+    },
   },
 })
 const output = Array.isArray(result) ? result[0] : result

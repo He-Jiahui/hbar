@@ -5,12 +5,26 @@ import { delimiter, join } from 'node:path'
 import { z } from 'zod'
 
 const bundleSchema = z.object({ code: z.string().min(1), css: z.string().min(1) })
-let bundle: z.infer<typeof bundleSchema> | undefined
+const bundles = new Map<string, z.infer<typeof bundleSchema>>()
 
-export async function mountButtonFixture(
-  page: Page,
-  options: { theme: 'light' | 'dark'; size?: 's' | 'm' | 'l'; glow?: number; motion?: boolean; styles: string },
-): Promise<void> {
+export interface VisualFixtureOptions {
+  theme: 'light' | 'dark'
+  size?: 's' | 'm' | 'l'
+  glow?: number
+  motion?: boolean
+  styles: string
+}
+
+export async function mountButtonFixture(page: Page, options: VisualFixtureOptions): Promise<void> {
+  await mountVisualFixture(page, options, 'tests/fixtures/button-primitives-browser.tsx')
+}
+
+export async function mountControlFixture(page: Page, options: VisualFixtureOptions): Promise<void> {
+  await mountVisualFixture(page, options, 'tests/fixtures/control-primitives-browser.tsx')
+}
+
+async function mountVisualFixture(page: Page, options: VisualFixtureOptions, entry: string): Promise<void> {
+  let bundle = bundles.get(entry)
   if (!bundle) {
     const executable =
       process.platform === 'win32'
@@ -22,7 +36,7 @@ export async function mountButtonFixture(
     if (!executable) throw new Error('Bun is unavailable for the browser fixture build')
     bundle = bundleSchema.parse(
       JSON.parse(
-        execFileSync(executable, ['tests/fixtures/build-button-primitives.ts'], {
+        execFileSync(executable, ['tests/fixtures/build-button-primitives.ts', entry], {
           cwd: process.cwd(),
           encoding: 'utf8',
           timeout: 30_000,
@@ -30,6 +44,7 @@ export async function mountButtonFixture(
         }),
       ),
     )
+    bundles.set(entry, bundle)
   }
   const size = options.size ?? 'm'
   await page.setContent(`<!doctype html><html lang="en"
