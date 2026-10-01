@@ -109,6 +109,11 @@ export interface RuntimeOptions {
   readonly instanceId: string
   readonly hostId: string
   readonly directory: CommandExecutor
+  /** Durable sidebar directory/activity invalidations and transport lifetime. */
+  readonly sidebarActivityEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly workspaces?: CommandExecutor
   /** Only supplied after Host identity is confirmed; independent of device-local preferences. */
   readonly workspaceOrganization?: {

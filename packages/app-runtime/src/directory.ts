@@ -8,6 +8,7 @@ import {
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import { directoryCommands } from '@hbar/contracts/commands'
+import { sessionActivityGlobalPageSchema, workspaceSidebarPageSchema } from '@hbar/contracts/sidebar-directory'
 import {
   sessionActivityPageSchema,
   sessionSchema,
@@ -204,6 +205,14 @@ export function createDirectoryModule(
     // The Workspace Activity owner applies this observational page only if its captured
     // generation is still current. In particular, an old sort response cannot merge DTOs.
     return decode(workspaceActivityPageSchema, response.value)
+  })
+  remote.register(directoryCommands['workspace.sidebar.list'], async (input, context) => {
+    const response = await read('workspace.sidebar.list', input, context)
+    return decode(workspaceSidebarPageSchema, response.value)
+  })
+  remote.register(directoryCommands['session.activity.global.list'], async (input, context) => {
+    const response = await read('session.activity.global.list', input, context)
+    return decode(sessionActivityGlobalPageSchema, response.value)
   })
   remote.register(directoryCommands['workspace.get'], async (input, context) => {
     const response = await read('workspace.get', input, context)

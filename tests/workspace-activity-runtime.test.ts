@@ -61,12 +61,21 @@ function fixture(
             : null
         return { revision: 1, items, nextCursor }
       }
-      if (name === 'workspace.activity.list') {
-        const input = raw as { readonly sortBy: WorkspaceActivitySortBy }
+      if (name === 'workspace.sidebar.list') {
+        const input = raw as {
+          readonly sortBy: WorkspaceActivitySortBy
+          readonly locale: 'en-US' | 'zh-CN'
+          readonly organization: 'project' | 'recentProject'
+          readonly includeWorkspaceIds: readonly string[]
+        }
         options.onWorkspaceActivity?.(input.sortBy)
         return {
+          displayNamesRevision: 1,
+          organizationRevision: 1,
           revision: 1,
-          items: [{ workspace, latestSessionCreatedAt: 2_000, latestSessionUpdatedAt: 3_000 }],
+          items: [
+            { workspace, displayName: workspace.name, latestSessionCreatedAt: 2_000, latestSessionUpdatedAt: 3_000 },
+          ],
           includedItems: [],
           nextCursor: null,
         }

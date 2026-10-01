@@ -1,19 +1,26 @@
 import { CommandError, type CommandExecutor, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { defineCommand } from '@hbar/commands/protocol'
 import {
+  sessionActivityGlobalPageSchema,
   sessionActivityPageSchema,
-  workspaceActivityPageSchema,
-  workspaceActivitySortSchema,
-} from '@hbar/contracts/directory'
+  workspaceSidebarPageSchema,
+} from '@hbar/contracts/sidebar-directory'
 import type {
   Session,
+  SessionActivityExecution,
+  SessionActivityGlobalCursor,
+  SessionActivityGlobalPage,
   SessionActivityCursor,
   SessionActivityPage,
-  WorkspaceActivityCursor,
-  WorkspaceActivityItem,
-  WorkspaceActivityPage,
   WorkspaceActivitySortBy,
-} from '@hbar/contracts/directory'
+  SidebarLocale,
+  SidebarOrganization,
+  WorkspaceSidebarCursor,
+  WorkspaceSidebarItem,
+  WorkspaceSidebarPage,
+} from '@hbar/contracts/sidebar-directory'
+import { workspaceActivitySortSchema } from '@hbar/contracts/directory'
+import type { WorkspaceActivityItem } from '@hbar/contracts/directory'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
 import { createSessionProjectionFence } from './session-projection-fence'
@@ -22,16 +29,24 @@ import { MAX_PINNED_WORKSPACES, type WorkspacePinsState } from './workspace-pins
 import { MAX_RETAINED_ACTIVITY_SESSIONS, MAX_RETAINED_ACTIVITY_WORKSPACES } from './directory'
 
 const PREFERENCE_KEY = 'workspaceActivitySortBy'
+const ORGANIZATION_PREFERENCE_KEY = 'workspaceSidebarOrganization'
 const PAGE_SIZE = 60
 const WORKSPACE_ROW_LIMIT = 200
 const SESSION_ROW_LIMIT = MAX_RETAINED_ACTIVITY_SESSIONS
 const SESSION_GROUP_LIMIT = MAX_RETAINED_ACTIVITY_WORKSPACES
 const MAX_PARALLEL_REFRESHES = 4
 const idSchema = z.string().min(1).max(160)
+const organizationSchema = z.enum(['project', 'recentProject', 'time'])
+const groupedOrganizationSchema = z.enum(['project', 'recentProject'])
+const organizationPreferenceSchema = z.strictObject({
+  version: z.literal(1),
+  organization: organizationSchema,
+  previousGroupedOrganization: groupedOrganizationSchema,
+})
 const refreshInput = z.strictObject({ workspaceId: idSchema.optional() })
 const loadMoreInput = z
   .strictObject({
-    scope: z.enum(['workspaces', 'sessions']),
+    scope: z.enum(['workspaces', 'sessions', 'timeline']),
     workspaceId: idSchema.optional(),
   })
   .superRefine((input, context) => {
@@ -43,12 +58,24 @@ const loadMoreInput = z
         path: ['workspaceId'],
         message: 'Workspace paging does not take a Workspace ID',
       })
+    if (input.scope === 'timeline' && input.workspaceId !== undefined)
+      context.addIssue({
+        code: 'custom',
+        path: ['workspaceId'],
+        message: 'Global Timeline paging does not take a Workspace ID',
+      })
   })
 const actionOutput = z.strictObject({
   status: z.enum(['ready', 'error', 'limitReached']),
   error: z.string().nullable(),
 })
 const sortOutput = z.strictObject({ sortBy: workspaceActivitySortSchema, persisted: z.boolean() })
+const organizationOutput = z.strictObject({
+  organization: organizationSchema,
+  previousGroupedOrganization: groupedOrganizationSchema,
+  persisted: z.boolean(),
+})
+const localeOutput = z.strictObject({ locale: z.enum(['en-US', 'zh-CN']) })
 
 function metadata(id: string) {
   return {
@@ -75,13 +102,32 @@ export const workspaceActivityCommands = {
   ),
   'workspaceActivity.refresh': defineCommand(metadata('workspaceActivity.refresh'), refreshInput, actionOutput),
   'workspaceActivity.loadMore': defineCommand(metadata('workspaceActivity.loadMore'), loadMoreInput, actionOutput),
+  'workspaceActivity.setOrganization': defineCommand(
+    metadata('workspaceActivity.setOrganization'),
+    z.strictObject({ organization: organizationSchema }),
+    organizationOutput,
+  ),
+  'workspaceActivity.toggleTime': defineCommand(
+    metadata('workspaceActivity.toggleTime'),
+    z.strictObject({}),
+    organizationOutput,
+  ),
+  'workspaceActivity.setLocale': defineCommand(
+    metadata('workspaceActivity.setLocale'),
+    z.strictObject({ locale: z.enum(['en-US', 'zh-CN']) }),
+    localeOutput,
+  ),
 }
 
 export type WorkspaceActivityPreferenceStatus = 'loading' | 'ready' | 'saving' | 'submitting' | 'error'
+export type WorkspaceActivityOrganization = z.infer<typeof organizationSchema>
+export type WorkspaceActivityGroupedOrganization = z.infer<typeof groupedOrganizationSchema>
+export type WorkspaceActivityOrganizationPreferenceStatus = 'loading' | 'ready' | 'saving' | 'error'
 export type WorkspaceActivityPageStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 export interface WorkspaceActivityRow {
   readonly workspaceId: string
+  readonly displayName: string
   readonly latestSessionCreatedAt: number | null
   readonly latestSessionUpdatedAt: number | null
 }
@@ -90,7 +136,10 @@ export interface WorkspaceActivityWorkspacePage {
   readonly status: WorkspaceActivityPageStatus
   readonly items: readonly Readonly<WorkspaceActivityRow>[]
   readonly includedPins: readonly Readonly<WorkspaceActivityRow>[]
-  readonly nextCursor: WorkspaceActivityCursor | null
+  readonly revision: number | null
+  readonly displayNamesRevision: number | null
+  readonly organizationRevision: number | null
+  readonly nextCursor: WorkspaceSidebarCursor | null
   readonly hasMore: boolean
   readonly limitReached: boolean
   readonly error: string | null
@@ -106,12 +155,38 @@ export interface WorkspaceActivitySessionPage {
   readonly error: string | null
 }
 
+export interface WorkspaceActivityTimelineRow {
+  readonly sessionId: string
+  readonly workspaceId: string
+  readonly displayName: string
+  readonly execution: Readonly<SessionActivityExecution>
+}
+
+export interface WorkspaceActivityTimelinePage {
+  readonly status: WorkspaceActivityPageStatus
+  readonly items: readonly Readonly<WorkspaceActivityTimelineRow>[]
+  readonly revision: number | null
+  readonly displayNamesRevision: number | null
+  readonly organizationRevision: number | null
+  readonly nextCursor: SessionActivityGlobalCursor | null
+  readonly hasMore: boolean
+  readonly limitReached: boolean
+  readonly stale: boolean
+  readonly error: string | null
+}
+
 export interface WorkspaceActivityState {
   readonly sortBy: WorkspaceActivitySortBy
   readonly preferenceStatus: WorkspaceActivityPreferenceStatus
   readonly preferenceError: string | null
+  readonly organization: WorkspaceActivityOrganization
+  readonly previousGroupedOrganization: WorkspaceActivityGroupedOrganization
+  readonly organizationPreferenceStatus: WorkspaceActivityOrganizationPreferenceStatus
+  readonly organizationPreferenceError: string | null
+  readonly locale: SidebarLocale
   readonly workspaces: Readonly<WorkspaceActivityWorkspacePage>
   readonly sessions: Readonly<Record<string, Readonly<WorkspaceActivitySessionPage>>>
+  readonly timeline: Readonly<WorkspaceActivityTimelinePage>
 }
 
 export interface WorkspaceActivityOptions {
@@ -128,6 +203,10 @@ export interface WorkspaceActivityOptions {
   ) => void
   readonly projectActivitySessions: (retainedIds: readonly string[], records: readonly Session[]) => readonly Session[]
   readonly subscribeConfirmedSessions: (listener: (items: readonly Session[]) => void) => () => void
+  readonly sidebarActivityEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly onSubscriberError: (reason: unknown) => void
   readonly isDisposed: () => boolean
 }
@@ -136,9 +215,25 @@ const emptyWorkspacePage: WorkspaceActivityWorkspacePage = {
   status: 'idle',
   items: [],
   includedPins: [],
+  revision: null,
+  displayNamesRevision: null,
+  organizationRevision: null,
   nextCursor: null,
   hasMore: false,
   limitReached: false,
+  error: null,
+}
+
+const emptyTimelinePage: WorkspaceActivityTimelinePage = {
+  status: 'idle',
+  items: [],
+  revision: null,
+  displayNamesRevision: null,
+  organizationRevision: null,
+  nextCursor: null,
+  hasMore: false,
+  limitReached: false,
+  stale: false,
   error: null,
 }
 
@@ -156,9 +251,19 @@ function persistedSort(preferences: ClientPreferencesState): WorkspaceActivitySo
   return parsed.data
 }
 
-function row(item: WorkspaceActivityItem): WorkspaceActivityRow {
+function persistedOrganization(preferences: ClientPreferencesState): z.output<typeof organizationPreferenceSchema> {
+  const value = preferences.values[ORGANIZATION_PREFERENCE_KEY]
+  if (value === undefined)
+    return { version: 1, organization: 'recentProject', previousGroupedOrganization: 'recentProject' }
+  const parsed = organizationPreferenceSchema.safeParse(value)
+  if (!parsed.success) throw new CommandError('INVALID_PERSISTED_STATE', 'Saved Workspace organization is invalid')
+  return parsed.data
+}
+
+function row(item: WorkspaceSidebarItem): WorkspaceActivityRow {
   return {
     workspaceId: item.workspace.id,
+    displayName: item.displayName,
     latestSessionCreatedAt: item.latestSessionCreatedAt,
     latestSessionUpdatedAt: item.latestSessionUpdatedAt,
   }
@@ -168,8 +273,12 @@ function activityTimestamp(item: WorkspaceActivityRow, sortBy: WorkspaceActivity
   return sortBy === 'createdAt' ? item.latestSessionCreatedAt : item.latestSessionUpdatedAt
 }
 
-/** Match the Host's descending timestamp, null-last and binary ID order. */
-function compareRows(left: WorkspaceActivityRow, right: WorkspaceActivityRow, sortBy: WorkspaceActivitySortBy): number {
+/** Match the Host's recent-project descending timestamp, null-last and binary ID order. */
+function compareRecentRows(
+  left: WorkspaceActivityRow,
+  right: WorkspaceActivityRow,
+  sortBy: WorkspaceActivitySortBy,
+): number {
   const a = activityTimestamp(left, sortBy)
   const b = activityTimestamp(right, sortBy)
   if (a === null && b !== null) return 1
@@ -179,25 +288,62 @@ function compareRows(left: WorkspaceActivityRow, right: WorkspaceActivityRow, so
 }
 
 function compareIds(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
+  const leftBytes = new TextEncoder().encode(left)
+  const rightBytes = new TextEncoder().encode(right)
+  const shared = Math.min(leftBytes.length, rightBytes.length)
+  for (let index = 0; index < shared; index++) {
+    const a = leftBytes[index]
+    const b = rightBytes[index]
+    if (a !== b) return (a ?? 0) - (b ?? 0)
+  }
+  return leftBytes.length - rightBytes.length
 }
 
-function validateWorkspacePage(page: WorkspaceActivityPage, sortBy: WorkspaceActivitySortBy): void {
+function compareProjectRows(left: WorkspaceActivityRow, right: WorkspaceActivityRow, locale: SidebarLocale): number {
+  return (
+    new Intl.Collator(locale).compare(left.displayName, right.displayName) ||
+    compareIds(left.workspaceId, right.workspaceId)
+  )
+}
+
+function validateWorkspacePage(
+  value: unknown,
+  input: {
+    readonly organization: SidebarOrganization
+    readonly sortBy: WorkspaceActivitySortBy
+    readonly locale: SidebarLocale
+  },
+): WorkspaceSidebarPage {
+  const page = workspaceSidebarPageSchema.parse(value)
+  const compare =
+    input.organization === 'project'
+      ? (left: WorkspaceSidebarItem, right: WorkspaceSidebarItem) =>
+          compareProjectRows(row(left), row(right), input.locale)
+      : (left: WorkspaceSidebarItem, right: WorkspaceSidebarItem) =>
+          compareRecentRows(row(left), row(right), input.sortBy)
   for (let index = 1; index < page.items.length; index++) {
     const previous = page.items[index - 1]
     const current = page.items[index]
-    if (!previous || !current || compareRows(row(previous), row(current), sortBy) > 0)
-      throw new CommandError('INVALID_OUTPUT', 'Workspace activity page is not sorted')
+    if (!previous || !current || compare(previous, current) > 0)
+      throw new CommandError('INVALID_OUTPUT', 'Workspace sidebar page is not sorted')
   }
   const last = page.items.at(-1)
   if (
     page.nextCursor &&
     (!last ||
-      page.nextCursor.sortBy !== sortBy ||
+      page.nextCursor.organization !== input.organization ||
+      page.nextCursor.sortBy !== input.sortBy ||
+      page.nextCursor.locale !== input.locale ||
       page.nextCursor.workspaceId !== last.workspace.id ||
-      page.nextCursor.timestamp !== activityTimestamp(row(last), sortBy))
+      page.nextCursor.displayName !== last.displayName ||
+      page.nextCursor.timestamp !==
+        (input.organization === 'project' ? null : activityTimestamp(row(last), input.sortBy)) ||
+      page.nextCursor.revision !== page.revision ||
+      page.nextCursor.displayNamesRevision !== page.displayNamesRevision ||
+      page.nextCursor.organizationRevision !== page.organizationRevision)
   )
-    throw new CommandError('INVALID_OUTPUT', 'Workspace activity cursor does not match its page')
+    throw new CommandError('INVALID_OUTPUT', 'Workspace sidebar cursor does not match its page')
+  return page
 }
 
 function validateSessionPage(page: SessionActivityPage, workspaceId: string, sortBy: WorkspaceActivitySortBy): void {
@@ -220,11 +366,46 @@ function validateSessionPage(page: SessionActivityPage, workspaceId: string, sor
   }
 }
 
+function validateGlobalSessionPage(value: unknown): SessionActivityGlobalPage {
+  const page = sessionActivityGlobalPageSchema.parse(value)
+  const items = page.items
+  for (let index = 1; index < items.length; index++) {
+    const previous = items[index - 1]
+    const current = items[index]
+    if (!previous || !current) throw new CommandError('INVALID_OUTPUT', 'Global Session activity page is incomplete')
+    const previousActive = previous.execution.activeCount > 0
+    const currentActive = current.execution.activeCount > 0
+    const ordered =
+      Number(currentActive) - Number(previousActive) ||
+      current.session.updatedAt - previous.session.updatedAt ||
+      compareIds(previous.session.id, current.session.id)
+    if (ordered > 0) throw new CommandError('INVALID_OUTPUT', 'Global Session activity page is not sorted')
+  }
+  for (const item of items) {
+    const { execution } = item
+    if ((execution.activeCount === 0) !== (execution.state === 'idle') || execution.queuedCount > execution.activeCount)
+      throw new CommandError('INVALID_OUTPUT', 'Global Session execution summary is inconsistent')
+  }
+  const last = items.at(-1)
+  if (
+    page.nextCursor &&
+    (!last ||
+      page.nextCursor.revision !== page.revision ||
+      page.nextCursor.displayNamesRevision !== page.displayNamesRevision ||
+      page.nextCursor.organizationRevision !== page.organizationRevision ||
+      page.nextCursor.active !== last.execution.activeCount > 0 ||
+      page.nextCursor.updatedAt !== last.session.updatedAt ||
+      page.nextCursor.sessionId !== last.session.id)
+  )
+    throw new CommandError('INVALID_OUTPUT', 'Global Session activity cursor does not match its page')
+  return page
+}
+
 function pageResult(status: 'ready' | 'error' | 'limitReached', error: string | null = null) {
   return { status, error }
 }
 
-/** Sorts pins by activity, preserves Host order for the remaining page, then applies visibility. */
+/** Puts pinned rows first within the current Host order, then applies visibility. */
 export function orderWorkspaceActivityIds(
   activity: WorkspaceActivityState,
   pins: WorkspacePinsState,
@@ -236,9 +417,21 @@ export function orderWorkspaceActivityIds(
   for (const item of activity.workspaces.includedPins) rows.set(item.workspaceId, item)
   const missing = new Set(pins.missing)
   const pinnedIds = [...new Set(pins.ids)].filter((id) => !missing.has(id))
+  const comparePinned =
+    activity.organization === 'project'
+      ? (left: WorkspaceActivityRow, right: WorkspaceActivityRow) => compareProjectRows(left, right, activity.locale)
+      : (left: WorkspaceActivityRow, right: WorkspaceActivityRow) => compareRecentRows(left, right, activity.sortBy)
   const pinned = pinnedIds
-    .map((id) => rows.get(id) ?? { workspaceId: id, latestSessionCreatedAt: null, latestSessionUpdatedAt: null })
-    .sort((left, right) => compareRows(left, right, activity.sortBy))
+    .map(
+      (id) =>
+        rows.get(id) ?? {
+          workspaceId: id,
+          displayName: id,
+          latestSessionCreatedAt: null,
+          latestSessionUpdatedAt: null,
+        },
+    )
+    .sort(comparePinned)
   const pinnedSet = new Set(pinnedIds)
   const hidden = new Set(hiddenWorkspaceIds)
   return [...pinned.map((item) => item.workspaceId), ...pageRows.map((item) => item.workspaceId)].filter(
@@ -259,15 +452,21 @@ interface ActivityQueryTask {
   readonly generation: number
 }
 
-/** Owns the persisted project sort and the bounded activity cursor projections used by the sidebar. */
+/** Owns sidebar organization, project ordering, grouped activity and the bounded global time projection. */
 export function createWorkspaceActivity(local: CommandRegistry, options: WorkspaceActivityOptions) {
   const state = createState<WorkspaceActivityState>(
     {
       sortBy: 'updatedAt',
       preferenceStatus: 'loading',
       preferenceError: null,
+      organization: 'recentProject',
+      previousGroupedOrganization: 'recentProject',
+      organizationPreferenceStatus: 'loading',
+      organizationPreferenceError: null,
+      locale: 'en-US',
       workspaces: emptyWorkspacePage,
       sessions: {},
+      timeline: emptyTimelinePage,
     },
     options.onSubscriberError,
   )
@@ -275,8 +474,12 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   let initialized = false
   let preferenceWriteInProgress = false
   let preferenceRefreshInProgress = false
+  let organizationWriteInProgress = false
+  let organizationRefreshInProgress = false
   let workspaceGeneration = 0
   let workspaceTask: ActivityQueryTask | null = null
+  let timelineGeneration = 0
+  let timelineTask: ActivityQueryTask | null = null
   const sessionGenerations = new Map<string, number>()
   const sessionTasks = new Map<string, ActivityQueryTask>()
   const changedSessionFacts = new Map<string, SessionFactVersion>()
@@ -286,6 +489,11 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   const pendingSessionRefreshes = new Set<string>()
   let pendingWorkspaceRefresh = false
   let invalidationScheduled = false
+  let invalidationTimer: ReturnType<typeof setTimeout> | null = null
+  let invalidationDuringRead = false
+  let lastInvalidationReadAt = 0
+  let visibleRefreshInProgress = false
+  let sidebarConnected = true
   const current = () => state.reader.getSnapshot()
   const alive = () => !disposed && !options.isDisposed()
   const replace = (next: WorkspaceActivityState) => {
@@ -298,6 +506,12 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     workspaceTask = null
   }
 
+  function abortTimelineTask(): void {
+    timelineGeneration++
+    timelineTask?.controller.abort()
+    timelineTask = null
+  }
+
   function abortSessionTask(workspaceId: string): void {
     sessionGenerations.set(workspaceId, (sessionGenerations.get(workspaceId) ?? 0) + 1)
     sessionTasks.get(workspaceId)?.controller.abort()
@@ -306,6 +520,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
 
   function abortAllTasks(): void {
     abortWorkspaceTask()
+    abortTimelineTask()
     for (const workspaceId of sessionTasks.keys()) abortSessionTask(workspaceId)
   }
 
@@ -323,16 +538,52 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
 
   function projectWorkspacePage(
     workspaces: WorkspaceActivityWorkspacePage,
-    records: readonly WorkspaceActivityItem[],
+    records: readonly WorkspaceSidebarItem[],
   ): void {
     const retainedIds = [...new Set([...workspaces.items.map((item) => item.workspaceId), ...workspacePinIds()])]
     if (retainedIds.length > MAX_RETAINED_ACTIVITY_WORKSPACES)
       throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Workspace activity rows')
-    options.projectActivityWorkspaces(retainedIds, records)
+    options.projectActivityWorkspaces(
+      retainedIds,
+      records.map((item) => ({
+        workspace: item.workspace,
+        latestSessionCreatedAt: item.latestSessionCreatedAt,
+        latestSessionUpdatedAt: item.latestSessionUpdatedAt,
+      })),
+    )
   }
 
-  function retainedSessionIds(pages: Readonly<Record<string, Readonly<WorkspaceActivitySessionPage>>>): string[] {
-    return [...new Set(Object.values(pages).flatMap((page) => page.sessionIds))]
+  function projectTimelineWorkspaces(
+    timeline: Readonly<WorkspaceActivityTimelinePage>,
+    records: readonly SessionActivityGlobalPage['items'][number][] = [],
+  ): void {
+    const retainedIds = [...new Set([...timeline.items.map((item) => item.workspaceId), ...workspacePinIds()])]
+    if (retainedIds.length > MAX_RETAINED_ACTIVITY_WORKSPACES)
+      throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Time view Workspace contexts')
+    const known = options.directory.getSnapshot().workspaces
+    const contexts = new Map(records.map((item) => [item.workspace.id, item.workspace]))
+    for (const id of retainedIds) {
+      const workspace = known[id]
+      if (workspace && !contexts.has(id)) contexts.set(id, workspace)
+    }
+    // Time rows provide canonical Workspace context, not a complete latest-activity summary.
+    options.projectActivityWorkspaces(
+      retainedIds,
+      [...contexts.values()].map((workspace) => ({
+        workspace,
+        latestSessionCreatedAt: null,
+        latestSessionUpdatedAt: null,
+      })),
+    )
+  }
+
+  function retainedSessionIds(
+    pages: Readonly<Record<string, Readonly<WorkspaceActivitySessionPage>>>,
+    timeline: Readonly<WorkspaceActivityTimelinePage> = current().timeline,
+  ): string[] {
+    const grouped = Object.values(pages).flatMap((page) => page.sessionIds)
+    const global = current().organization === 'time' ? timeline.items.map((item) => item.sessionId) : []
+    return [...new Set([...grouped, ...global])]
   }
 
   function projectSessionPage(
@@ -342,6 +593,21 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     const ids = retainedSessionIds(pages)
     if (ids.length > SESSION_ROW_LIMIT)
       throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Session activity rows')
+    projectingSessions = true
+    try {
+      return options.projectActivitySessions(ids, records)
+    } finally {
+      projectingSessions = false
+    }
+  }
+
+  function projectTimelinePage(
+    timeline: Readonly<WorkspaceActivityTimelinePage>,
+    records: readonly Session[],
+  ): readonly Session[] {
+    const ids = retainedSessionIds(current().sessions, timeline)
+    if (ids.length > SESSION_ROW_LIMIT)
+      throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Sidebar activity Sessions')
     projectingSessions = true
     try {
       return options.projectActivitySessions(ids, records)
@@ -362,17 +628,18 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     return Math.min(pageSize, Math.max(0, SESSION_ROW_LIMIT - total + replaced))
   }
 
-  function mapRows(items: readonly WorkspaceActivityItem[]): readonly WorkspaceActivityRow[] {
+  function mapRows(items: readonly WorkspaceSidebarItem[]): readonly WorkspaceActivityRow[] {
     return items.map(row)
   }
 
   function pageRows(
     prior: WorkspaceActivityWorkspacePage,
-    pageItems: readonly WorkspaceActivityItem[],
-    cursor: WorkspaceActivityCursor | null,
+    pageItems: readonly WorkspaceSidebarItem[],
+    cursor: WorkspaceSidebarCursor | null,
     append: boolean,
     limitReached: boolean,
-    includedPins: readonly WorkspaceActivityItem[],
+    includedPins: readonly WorkspaceSidebarItem[],
+    revisions: Pick<WorkspaceSidebarPage, 'revision' | 'displayNamesRevision' | 'organizationRevision'>,
   ): WorkspaceActivityWorkspacePage {
     const page = mapRows(pageItems)
     const items = append ? [...prior.items, ...page] : [...page]
@@ -380,6 +647,9 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       status: 'ready',
       items,
       includedPins: mapRows(includedPins),
+      revision: revisions.revision,
+      displayNamesRevision: revisions.displayNamesRevision,
+      organizationRevision: revisions.organizationRevision,
       nextCursor: cursor,
       hasMore: cursor !== null,
       limitReached,
@@ -389,30 +659,39 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
 
   function validateWorkspaceResponse(
     value: unknown,
-    sortBy: WorkspaceActivitySortBy,
+    input: {
+      readonly organization: SidebarOrganization
+      readonly sortBy: WorkspaceActivitySortBy
+      readonly locale: SidebarLocale
+    },
     requestedPinIds: readonly string[],
     existingIds: readonly string[],
   ) {
-    const page = workspaceActivityPageSchema.parse(value)
-    validateWorkspacePage(page, sortBy)
+    const page = validateWorkspacePage(value, input)
     const requested = new Set(requestedPinIds)
     if (page.includedItems.some((item) => !requested.has(item.workspace.id)))
-      throw new CommandError('INVALID_OUTPUT', 'Workspace activity returned an unrequested pinned row')
+      throw new CommandError('INVALID_OUTPUT', 'Workspace sidebar returned an unrequested pinned row')
     const prior = new Set(existingIds)
     if (page.items.some((item) => prior.has(item.workspace.id)))
-      throw new CommandError('INVALID_OUTPUT', 'Workspace activity page repeats an earlier row')
+      throw new CommandError('INVALID_OUTPUT', 'Workspace sidebar page repeats an earlier row')
     return page
   }
 
   async function executeWorkspacePage(
     task: ActivityQueryTask,
-    input: { readonly cursor?: WorkspaceActivityCursor; readonly append: boolean; readonly staleRetry: number },
+    input: { readonly cursor?: WorkspaceSidebarCursor; readonly append: boolean; readonly staleRetry: number },
     execution?: ExecuteOptions,
   ): Promise<void> {
     const isCurrent = () =>
       alive() && workspaceTask === task && task.generation === workspaceGeneration && !task.controller.signal.aborted
     if (!isCurrent()) return
     const snapshot = current()
+    if (snapshot.organization === 'time') return
+    const query = {
+      organization: snapshot.organization,
+      sortBy: snapshot.sortBy,
+      locale: snapshot.locale,
+    }
     const sortBy = snapshot.sortBy
     const prior = snapshot.workspaces
     const requestedPinIds = workspacePinIds()
@@ -425,20 +704,22 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       return
     }
     const queryInput = {
+      organization: query.organization,
       sortBy,
+      locale: query.locale,
       limit: Math.min(PAGE_SIZE, remaining),
       includeWorkspaceIds: requestedPinIds,
       ...(input.cursor ? { cursor: input.cursor } : {}),
     }
     const removeAbort = linkSignal(task.controller, execution?.signal)
     try {
-      const value = await options.queries.execute('workspace.activity.list', queryInput, {
+      const value = await options.queries.execute('workspace.sidebar.list', queryInput, {
         signal: task.controller.signal,
       })
       if (!isCurrent()) return
       const page = validateWorkspaceResponse(
         value,
-        sortBy,
+        query,
         requestedPinIds,
         input.append ? prior.items.map((item) => item.workspaceId) : [],
       )
@@ -449,6 +730,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         input.append,
         (input.append ? prior.items.length : 0) + page.items.length >= WORKSPACE_ROW_LIMIT && page.nextCursor !== null,
         [...page.items, ...page.includedItems].filter((item) => requestedPinIds.includes(item.workspace.id)),
+        page,
       )
       projectWorkspacePage(rows, [...page.items, ...page.includedItems])
       replace({
@@ -474,7 +756,12 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   }
 
   async function refreshWorkspacePage(execution?: ExecuteOptions): Promise<void> {
-    if (current().preferenceStatus === 'loading' || current().preferenceError !== null) return
+    if (
+      current().organization === 'time' ||
+      current().preferenceStatus === 'loading' ||
+      current().preferenceError !== null
+    )
+      return
     abortWorkspaceTask()
     const controller = new AbortController()
     const task = { controller, generation: workspaceGeneration }
@@ -483,6 +770,189 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     replace({ ...current(), workspaces: { ...prior, status: 'loading', error: null } })
     await executeWorkspacePage(task, { append: false, staleRetry: 0 }, execution)
     if (workspaceTask === task) workspaceTask = null
+    flushInvalidationAfterRead()
+  }
+
+  async function executeTimelinePage(
+    task: ActivityQueryTask,
+    input: {
+      readonly cursor?: SessionActivityGlobalCursor
+      readonly append: boolean
+      readonly staleRetry: number
+      readonly limit?: number
+      readonly refreshing?: boolean
+    },
+    execution?: ExecuteOptions,
+  ): Promise<void> {
+    const isCurrent = () =>
+      alive() &&
+      current().organization === 'time' &&
+      timelineTask === task &&
+      task.generation === timelineGeneration &&
+      !task.controller.signal.aborted
+    if (!isCurrent()) return
+    const prior = current().timeline
+    const baseItems = input.append ? prior.items : []
+    const requestedLimit = Math.min(input.limit ?? PAGE_SIZE, Math.max(0, SESSION_ROW_LIMIT - baseItems.length))
+    if (requestedLimit === 0) {
+      replace({
+        ...current(),
+        timeline: { ...prior, status: 'ready', hasMore: prior.nextCursor !== null, limitReached: true },
+      })
+      return
+    }
+    const removeAbort = linkSignal(task.controller, execution?.signal)
+    try {
+      const value = await options.queries.execute(
+        'session.activity.global.list',
+        { limit: requestedLimit, ...(input.cursor ? { cursor: input.cursor } : {}) },
+        { signal: task.controller.signal },
+      )
+      if (!isCurrent()) return
+      const page = validateGlobalSessionPage(value)
+      if (
+        input.cursor &&
+        (page.revision !== input.cursor.revision ||
+          page.displayNamesRevision !== input.cursor.displayNamesRevision ||
+          page.organizationRevision !== input.cursor.organizationRevision)
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Global Session activity revisions changed across a cursor')
+      if (page.items.some((item) => item.session.archived))
+        throw new CommandError('INVALID_OUTPUT', 'Global Session activity contains an archived Session')
+      const previousIds = new Set(baseItems.map((item) => item.sessionId))
+      if (page.items.some((item) => previousIds.has(item.session.id)))
+        throw new CommandError('INVALID_OUTPUT', 'Global Session activity page repeats an earlier Session')
+      const nextWorkspaceIds = new Set([
+        ...baseItems.map((item) => item.workspaceId),
+        ...page.items.map((item) => item.workspace.id),
+      ])
+      // Reserve the full pin allowance so Time cannot consume another owner's Workspace budget.
+      if (nextWorkspaceIds.size > MAX_RETAINED_ACTIVITY_WORKSPACES - MAX_PINNED_WORKSPACES) {
+        replace({ ...current(), timeline: { ...prior, status: 'ready', limitReached: true, error: null } })
+        return
+      }
+      const items: readonly WorkspaceActivityTimelineRow[] = [
+        ...baseItems,
+        ...page.items.map((item) => ({
+          sessionId: item.session.id,
+          workspaceId: item.session.workspaceId,
+          displayName: item.displayName,
+          execution: item.execution,
+        })),
+      ]
+      const nextTimeline: WorkspaceActivityTimelinePage = {
+        status: 'ready',
+        items,
+        revision: page.revision,
+        displayNamesRevision: page.displayNamesRevision,
+        organizationRevision: page.organizationRevision,
+        nextCursor: page.nextCursor,
+        hasMore: page.nextCursor !== null,
+        limitReached: items.length >= SESSION_ROW_LIMIT && page.nextCursor !== null,
+        stale: false,
+        error: null,
+      }
+      const projected = projectTimelinePage(
+        nextTimeline,
+        page.items.map((item) => item.session),
+      )
+      const canonicalById = new Map(projected.map((item) => [item.id, item]))
+      const projectionChanged = page.items.some((item) => {
+        const canonical = canonicalById.get(item.session.id)
+        return (
+          !canonical ||
+          canonical.workspaceId !== item.session.workspaceId ||
+          canonical.seq !== item.session.seq ||
+          canonical.updatedAt !== item.session.updatedAt
+        )
+      })
+      if (projectionChanged) {
+        if (input.staleRetry === 0) {
+          await executeTimelinePage(task, { append: false, staleRetry: 1 }, execution)
+          return
+        }
+        throw new CommandError('QUERY_SUPERSEDED', 'Global Session activity no longer matches the Directory projection')
+      }
+      projectTimelineWorkspaces(nextTimeline, page.items)
+      for (const item of projected) rememberSession(item)
+      replace({
+        ...current(),
+        timeline: {
+          ...nextTimeline,
+          status: input.refreshing ? 'loading' : nextTimeline.status,
+          stale: input.refreshing ?? false,
+        },
+      })
+    } catch (reason) {
+      if (!isCurrent()) return
+      if (errorCode(reason) === 'STALE_CURSOR' && input.cursor && input.staleRetry === 0) {
+        await executeTimelinePage(task, { append: false, staleRetry: 1 }, execution)
+        return
+      }
+      const error = errorCode(reason)
+      const currentPage = current().timeline
+      replace({
+        ...current(),
+        timeline: {
+          ...currentPage,
+          status: 'error',
+          stale: currentPage.items.length > 0 || currentPage.stale,
+          error,
+          nextCursor: null,
+          hasMore: false,
+        },
+      })
+    } finally {
+      removeAbort()
+    }
+  }
+
+  async function refreshTimelinePage(execution?: ExecuteOptions): Promise<void> {
+    if (current().organization !== 'time') return
+    abortTimelineTask()
+    const controller = new AbortController()
+    const task = { controller, generation: timelineGeneration }
+    timelineTask = task
+    const targetCount = Math.min(SESSION_ROW_LIMIT, current().timeline.items.length)
+    replace({ ...current(), timeline: { ...current().timeline, status: 'loading', stale: true, error: null } })
+    await executeTimelinePage(
+      task,
+      {
+        append: false,
+        staleRetry: 0,
+        limit: Math.min(200, Math.max(PAGE_SIZE, targetCount)),
+        refreshing: true,
+      },
+      execution,
+    )
+    while (
+      timelineTask === task &&
+      !task.controller.signal.aborted &&
+      current().timeline.status !== 'error' &&
+      !current().timeline.limitReached &&
+      current().timeline.hasMore &&
+      current().timeline.items.length < targetCount
+    ) {
+      const page = current().timeline
+      await executeTimelinePage(
+        task,
+        {
+          ...(page.nextCursor ? { cursor: page.nextCursor } : {}),
+          append: true,
+          staleRetry: 0,
+          limit: Math.min(200, targetCount - page.items.length),
+          refreshing: true,
+        },
+        execution,
+      )
+    }
+    if (timelineTask === task && current().timeline.status !== 'error') {
+      const page = current().timeline
+      replace({ ...current(), timeline: { ...page, status: 'ready', stale: false } })
+      projectTimelineWorkspaces(current().timeline)
+    }
+    if (timelineTask === task) timelineTask = null
+    flushInvalidationAfterRead()
   }
 
   function applySessionFacts(
@@ -669,6 +1139,8 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   }
 
   async function loadMoreWorkspacePage(execution?: ExecuteOptions): Promise<'ready' | 'error' | 'limitReached'> {
+    if (current().organization === 'time')
+      throw new CommandError('INVALID_INPUT', 'Workspace paging is unavailable in Time mode')
     const page = current().workspaces
     if (page.status === 'loading') throw new CommandError('BUSY', 'Workspace activity is already loading')
     if (!page.nextCursor) return pageResult(page.limitReached ? 'limitReached' : 'ready', page.error).status
@@ -683,6 +1155,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     replace({ ...current(), workspaces: { ...page, status: 'loading', error: null } })
     await executeWorkspacePage(task, { cursor: page.nextCursor, append: true, staleRetry: 0 }, execution)
     if (workspaceTask === task) workspaceTask = null
+    flushInvalidationAfterRead()
     return current().workspaces.status === 'error'
       ? 'error'
       : current().workspaces.limitReached
@@ -694,6 +1167,8 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     workspaceId: string,
     execution?: ExecuteOptions,
   ): Promise<'ready' | 'error' | 'limitReached'> {
+    if (current().organization === 'time')
+      throw new CommandError('INVALID_INPUT', 'Grouped Session paging is unavailable in Time mode')
     const page = current().sessions[workspaceId]
     if (!page) throw new CommandError('NOT_LOADED', 'Load the Workspace session page before paging it')
     if (page.status === 'loading') throw new CommandError('BUSY', 'Session activity is already loading')
@@ -714,8 +1189,40 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     return currentPage?.status === 'error' ? 'error' : currentPage?.limitReached ? 'limitReached' : 'ready'
   }
 
+  async function loadMoreTimelinePage(execution?: ExecuteOptions): Promise<'ready' | 'error' | 'limitReached'> {
+    if (current().organization !== 'time')
+      throw new CommandError('INVALID_INPUT', 'Timeline paging is only available in Time mode')
+    const page = current().timeline
+    if (page.status === 'loading') throw new CommandError('BUSY', 'Global Timeline activity is already loading')
+    if (page.limitReached) return 'limitReached'
+    if (page.stale) {
+      await refreshTimelinePage(execution)
+      return current().timeline.status === 'error' ? 'error' : 'ready'
+    }
+    if (!page.nextCursor) return pageResult(page.limitReached ? 'limitReached' : 'ready', page.error).status
+    if (page.items.length >= SESSION_ROW_LIMIT) {
+      replace({ ...current(), timeline: { ...page, limitReached: true } })
+      return 'limitReached'
+    }
+    abortTimelineTask()
+    const controller = new AbortController()
+    const task = { controller, generation: timelineGeneration }
+    timelineTask = task
+    replace({ ...current(), timeline: { ...page, status: 'loading', error: null } })
+    await executeTimelinePage(task, { cursor: page.nextCursor, append: true, staleRetry: 0 }, execution)
+    if (timelineTask === task) timelineTask = null
+    flushInvalidationAfterRead()
+    const result = current().timeline
+    return result.status === 'error' ? 'error' : result.limitReached ? 'limitReached' : 'ready'
+  }
+
   function resetForSortChange(sortBy: WorkspaceActivitySortBy): void {
-    abortAllTasks()
+    if (current().organization === 'time') {
+      replace({ ...current(), sortBy, preferenceStatus: 'ready', preferenceError: null })
+      return
+    }
+    abortWorkspaceTask()
+    for (const workspaceId of sessionTasks.keys()) abortSessionTask(workspaceId)
     const next: WorkspaceActivityState = {
       ...current(),
       sortBy,
@@ -779,8 +1286,12 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       } finally {
         preferenceWriteInProgress = false
       }
-      await refreshWorkspacePage(execution)
+      if (current().organization !== 'time') await refreshWorkspacePage(execution)
     } else {
+      if (current().organization === 'time') {
+        replace({ ...current(), preferenceStatus: 'ready', preferenceError: null })
+        return { sortBy: current().sortBy, persisted: options.preferences.getSnapshot().persisted }
+      }
       replace({ ...current(), preferenceStatus: 'submitting' })
       await refresh({ workspaceId: undefined }, execution)
       if (current().preferenceError !== null)
@@ -813,44 +1324,250 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     )
   }
 
+  function organizationPreferenceFor(
+    stored: z.output<typeof organizationPreferenceSchema>,
+    target: WorkspaceActivityOrganization,
+  ): z.output<typeof organizationPreferenceSchema> {
+    return {
+      version: 1,
+      organization: target,
+      previousGroupedOrganization:
+        target === 'time'
+          ? stored.organization === 'time'
+            ? stored.previousGroupedOrganization
+            : stored.organization
+          : target,
+    }
+  }
+
+  function applyOrganizationPreference(
+    preference: z.output<typeof organizationPreferenceSchema>,
+    refreshChangedMode: boolean,
+  ): boolean {
+    const before = current()
+    const changedMode = before.organization !== preference.organization
+    const clearActivityProjection =
+      changedMode && (before.organization === 'time' || preference.organization === 'time')
+    if (changedMode) {
+      abortWorkspaceTask()
+      abortTimelineTask()
+      for (const workspaceId of sessionTasks.keys()) abortSessionTask(workspaceId)
+    }
+    const next: WorkspaceActivityState = {
+      ...before,
+      organization: preference.organization,
+      previousGroupedOrganization: preference.previousGroupedOrganization,
+      organizationPreferenceStatus: 'ready',
+      organizationPreferenceError: null,
+      ...(clearActivityProjection
+        ? {
+            sessions: {},
+            timeline:
+              preference.organization === 'time'
+                ? { ...emptyTimelinePage, status: 'loading' as const }
+                : emptyTimelinePage,
+          }
+        : {}),
+      ...(changedMode
+        ? {
+            workspaces: {
+              ...emptyWorkspacePage,
+              status: preference.organization === 'time' ? ('idle' as const) : ('loading' as const),
+            },
+          }
+        : {}),
+    }
+    replace(next)
+    if (clearActivityProjection) projectSessionPage(next.sessions, [])
+    if (changedMode) {
+      if (preference.organization === 'time') projectTimelineWorkspaces(next.timeline)
+      else projectWorkspacePage(next.workspaces, [])
+    }
+    if (refreshChangedMode && changedMode) {
+      if (preference.organization === 'time') void refreshTimelinePage().catch(options.onSubscriberError)
+      else void refreshWorkspacePage().catch(options.onSubscriberError)
+    }
+    return changedMode
+  }
+
+  async function setOrganization(
+    target: WorkspaceActivityOrganization,
+    execution?: ExecuteOptions,
+  ): Promise<{
+    organization: WorkspaceActivityOrganization
+    previousGroupedOrganization: WorkspaceActivityGroupedOrganization
+    persisted: boolean
+  }> {
+    if (!alive()) throw new CommandError('DISPOSED', 'Workspace activity owner was disposed')
+    await ready
+    if (current().organizationPreferenceStatus === 'loading' || current().organizationPreferenceStatus === 'saving')
+      throw new CommandError('BUSY', 'Workspace organization preferences are not ready')
+    replace({ ...current(), organizationPreferenceStatus: 'saving', organizationPreferenceError: null })
+    organizationWriteInProgress = true
+    let savedPreference: z.output<typeof organizationPreferenceSchema> | null = null
+    try {
+      for (let attempt = 0; attempt < 3 && !savedPreference; attempt++) {
+        const preference = options.preferences.getSnapshot()
+        if (preference.restoreError)
+          throw new CommandError(
+            'PERSISTENCE_RESTORE_FAILED',
+            'Restore device preferences before changing organization',
+          )
+        const stored = persistedOrganization(preference)
+        const requested = organizationPreferenceFor(stored, target)
+        if (
+          stored.organization === requested.organization &&
+          stored.previousGroupedOrganization === requested.previousGroupedOrganization
+        ) {
+          savedPreference = requested
+          break
+        }
+        try {
+          await options.preferenceCommands.execute(
+            'preferences.set',
+            { key: ORGANIZATION_PREFERENCE_KEY, value: requested, expectedRevision: preference.revision },
+            execution,
+          )
+        } catch (reason) {
+          const code = errorCode(reason)
+          let refreshed: ClientPreferencesState | null = null
+          try {
+            refreshed = await options.refreshPreferences()
+          } catch {
+            // The write can only be reconciled by reading the committed preference.
+          }
+          if (refreshed) {
+            const observed = persistedOrganization(refreshed)
+            if (
+              observed.organization === requested.organization &&
+              observed.previousGroupedOrganization === requested.previousGroupedOrganization
+            ) {
+              savedPreference = observed
+              break
+            }
+          }
+          if (code === 'COMMAND_CONFLICT' && attempt < 2) continue
+          throw reason
+        }
+        const updated = options.preferences.getSnapshot()
+        const observed = persistedOrganization(updated)
+        if (
+          observed.organization !== requested.organization ||
+          observed.previousGroupedOrganization !== requested.previousGroupedOrganization
+        )
+          throw new CommandError('RESULT_UNKNOWN', 'Saved Workspace organization did not match the request')
+        savedPreference = observed
+      }
+      if (!savedPreference) throw new CommandError('COMMAND_CONFLICT', 'Workspace organization changed repeatedly')
+    } catch (reason) {
+      const error = errorCode(reason)
+      replace({ ...current(), organizationPreferenceStatus: 'error', organizationPreferenceError: error })
+      throw reason
+    } finally {
+      organizationWriteInProgress = false
+    }
+    applyOrganizationPreference(savedPreference, false)
+    await refresh({}, execution)
+    return {
+      organization: current().organization,
+      previousGroupedOrganization: current().previousGroupedOrganization,
+      persisted: options.preferences.getSnapshot().persisted,
+    }
+  }
+
+  async function toggleTime(execution?: ExecuteOptions) {
+    await ready
+    const snapshot = current()
+    const target = snapshot.organization === 'time' ? snapshot.previousGroupedOrganization : 'time'
+    return setOrganization(target, execution)
+  }
+
+  async function setLocale(locale: SidebarLocale, execution?: ExecuteOptions): Promise<{ locale: SidebarLocale }> {
+    if (!alive()) throw new CommandError('DISPOSED', 'Workspace activity owner was disposed')
+    await ready
+    if (current().locale === locale) return { locale }
+    abortWorkspaceTask()
+    const prior = current()
+    replace({
+      ...prior,
+      locale,
+      ...(prior.organization === 'time'
+        ? {}
+        : { workspaces: { ...prior.workspaces, status: 'loading' as const, error: null } }),
+    })
+    if (current().organization !== 'time') await refreshWorkspacePage(execution)
+    return { locale: current().locale }
+  }
+
   async function refresh(input: z.output<typeof refreshInput>, execution?: ExecuteOptions): Promise<'ready' | 'error'> {
     if (!(await prepareExplicitRefresh())) return 'error'
     if (input.workspaceId) {
       await refreshSessionPage(input.workspaceId, execution)
       return current().sessions[input.workspaceId]?.status === 'error' ? 'error' : 'ready'
     }
-    const tracked = Object.keys(current().sessions)
-    const workspaceRead = refreshWorkspacePage(execution)
-    const sessionErrors: string[] = []
-    await Promise.all([
-      workspaceRead,
-      runBounded(tracked, MAX_PARALLEL_REFRESHES, async (workspaceId) => {
-        await refreshSessionPage(workspaceId, execution)
-        const error = current().sessions[workspaceId]?.error
-        if (error) sessionErrors.push(error)
-      }),
-    ])
-    return current().workspaces.status === 'error' || sessionErrors.length > 0 ? 'error' : 'ready'
+    visibleRefreshInProgress = true
+    try {
+      if (current().organization === 'time') {
+        await refreshTimelinePage(execution)
+        return current().timeline.status === 'error' ? 'error' : 'ready'
+      }
+      const tracked = Object.keys(current().sessions)
+      const workspaceRead = refreshWorkspacePage(execution)
+      const sessionErrors: string[] = []
+      await Promise.all([
+        workspaceRead,
+        runBounded(tracked, MAX_PARALLEL_REFRESHES, async (workspaceId) => {
+          await refreshSessionPage(workspaceId, execution)
+          const error = current().sessions[workspaceId]?.error
+          if (error) sessionErrors.push(error)
+        }),
+      ])
+      return current().workspaces.status === 'error' || sessionErrors.length > 0 ? 'error' : 'ready'
+    } finally {
+      visibleRefreshInProgress = false
+      if (invalidationDuringRead) {
+        invalidationDuringRead = false
+        queueVisibleActivityRefresh()
+      }
+    }
   }
 
   async function prepareExplicitRefresh(): Promise<boolean> {
     await ready
     if (!alive()) return false
     const before = current()
-    if (before.preferenceError === null) return before.preferenceStatus !== 'loading'
+    if (before.preferenceError === null && before.organizationPreferenceError === null)
+      return before.preferenceStatus !== 'loading' && before.organizationPreferenceStatus !== 'loading'
     preferenceRefreshInProgress = true
+    organizationRefreshInProgress = true
     try {
       const preferences = await options.refreshPreferences()
       if (!alive()) return false
       const sortBy = persistedSort(preferences)
       if (sortBy !== current().sortBy) resetForSortChange(sortBy)
-      replace({ ...current(), sortBy, preferenceStatus: 'ready', preferenceError: null })
+      applyOrganizationPreference(persistedOrganization(preferences), false)
+      replace({
+        ...current(),
+        sortBy,
+        preferenceStatus: 'ready',
+        preferenceError: null,
+        organizationPreferenceStatus: 'ready',
+        organizationPreferenceError: null,
+      })
       return true
     } catch (reason) {
-      replace({ ...current(), preferenceStatus: 'error', preferenceError: errorCode(reason) })
+      const error = errorCode(reason)
+      replace({
+        ...current(),
+        preferenceStatus: 'error',
+        preferenceError: error,
+        organizationPreferenceStatus: 'error',
+        organizationPreferenceError: error,
+      })
       return false
     } finally {
       preferenceRefreshInProgress = false
+      organizationRefreshInProgress = false
     }
   }
 
@@ -874,7 +1591,9 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       nextPins.some((row, index) => row !== page.includedPins[index])
     if (!changed) return
     const sortRows = (items: readonly WorkspaceActivityRow[]) =>
-      [...items].sort((a, b) => compareRows(a, b, current().sortBy))
+      current().organization === 'project'
+        ? items
+        : [...items].sort((a, b) => compareRecentRows(a, b, current().sortBy))
     replace({
       ...current(),
       workspaces: { ...page, items: sortRows(nextRows), includedPins: sortRows(nextPins) },
@@ -882,6 +1601,10 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   }
 
   function queueInvalidation(workspaceId: string, refreshWorkspace: boolean, refreshSessions: boolean): void {
+    if (current().organization === 'time') {
+      queueVisibleActivityRefresh()
+      return
+    }
     if (refreshWorkspace) pendingWorkspaceRefresh = true
     if (refreshSessions && current().sessions[workspaceId]) pendingSessionRefreshes.add(workspaceId)
     if (invalidationScheduled) return
@@ -899,6 +1622,66 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     })
   }
 
+  function queueVisibleActivityRefresh(): void {
+    if (!alive()) return
+    if (current().organization === 'time') {
+      const timeline = current().timeline
+      replace({ ...current(), timeline: { ...timeline, stale: true } })
+      if (timeline.status === 'idle') return
+    } else {
+      const workspaces = current().workspaces
+      if (workspaces.status === 'idle') return
+      replace({ ...current(), workspaces: { ...workspaces, status: 'loading', error: null } })
+    }
+    if (!sidebarConnected) return
+    if (
+      visibleRefreshInProgress ||
+      (current().organization === 'time' ? timelineTask !== null : workspaceTask !== null)
+    ) {
+      invalidationDuringRead = true
+      return
+    }
+    if (invalidationTimer !== null) return
+    const minimumInterval = 300
+    const delay = Math.max(0, minimumInterval - (Date.now() - lastInvalidationReadAt))
+    invalidationTimer = setTimeout(() => {
+      invalidationTimer = null
+      if (!alive()) return
+      if (visibleRefreshInProgress) {
+        invalidationDuringRead = true
+        return
+      }
+      lastInvalidationReadAt = Date.now()
+      void refresh({}).catch(options.onSubscriberError)
+    }, delay)
+  }
+
+  function flushInvalidationAfterRead(): void {
+    if (!invalidationDuringRead || visibleRefreshInProgress || workspaceTask !== null || timelineTask !== null) return
+    invalidationDuringRead = false
+    queueVisibleActivityRefresh()
+  }
+
+  function connectionChanged(connected: boolean): void {
+    if (!alive() || connected === sidebarConnected) return
+    sidebarConnected = connected
+    if (!connected) {
+      abortWorkspaceTask()
+      abortTimelineTask()
+      for (const workspaceId of sessionTasks.keys()) abortSessionTask(workspaceId)
+      const snapshot = current()
+      if (snapshot.organization === 'time' && snapshot.timeline.status !== 'idle')
+        replace({
+          ...snapshot,
+          timeline: { ...snapshot.timeline, status: 'error', stale: true, error: 'DISCONNECTED' },
+        })
+      else if (snapshot.workspaces.status !== 'idle')
+        replace({ ...snapshot, workspaces: { ...snapshot.workspaces, status: 'error', error: 'DISCONNECTED' } })
+      return
+    }
+    queueVisibleActivityRefresh()
+  }
+
   const stopConfirmedSessions = options.subscribeConfirmedSessions((items) => {
     if (!alive() || projectingSessions) return
     for (const item of items) {
@@ -912,6 +1695,21 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         previous.archived !== item.archived
       if (!changed) continue
       rememberSession(item)
+      if (current().organization === 'time') {
+        if (item.archived) {
+          const timeline = current().timeline
+          replace({
+            ...current(),
+            timeline: {
+              ...timeline,
+              items: timeline.items.filter((entry) => entry.sessionId !== item.id),
+              stale: true,
+            },
+          })
+        }
+        queueVisibleActivityRefresh()
+        continue
+      }
       const currentPage = current().sessions[item.workspaceId]
       const pageContains = currentPage?.sessionIds.includes(item.id) ?? false
       if (item.archived) {
@@ -952,19 +1750,61 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
     const signature = [...options.pins.getSnapshot().ids].sort(compareIds).join('\0')
     if (signature === pinSignature) return
     pinSignature = signature
+    if (current().organization === 'time') {
+      try {
+        projectTimelineWorkspaces(current().timeline)
+      } catch (reason) {
+        const timeline = current().timeline
+        replace({ ...current(), timeline: { ...timeline, limitReached: true, stale: true } })
+        options.onSubscriberError(reason)
+      }
+      return
+    }
     if (current().workspaces.status !== 'idle') void refreshWorkspacePage().catch(options.onSubscriberError)
   })
 
+  const stopSidebarActivityEvents = options.sidebarActivityEvents?.subscribe(queueVisibleActivityRefresh) ?? (() => {})
+  const stopSidebarConnection = options.sidebarActivityEvents?.onConnection?.(connectionChanged) ?? (() => {})
+
   const stopPreferences = options.preferences.subscribe(() => {
-    if (!initialized || preferenceWriteInProgress || preferenceRefreshInProgress || !alive()) return
+    if (
+      !initialized ||
+      preferenceWriteInProgress ||
+      preferenceRefreshInProgress ||
+      organizationWriteInProgress ||
+      organizationRefreshInProgress ||
+      !alive()
+    )
+      return
     const preferences = options.preferences.getSnapshot()
+    const before = current()
+    const wasVisible =
+      before.organization === 'time' ? before.timeline.status !== 'idle' : before.workspaces.status !== 'idle'
+    let changed = false
     try {
       const sortBy = persistedSort(preferences)
-      if (sortBy === current().sortBy) return
-      resetForSortChange(sortBy)
-      if (current().workspaces.status !== 'idle') void refreshWorkspacePage().catch(options.onSubscriberError)
+      if (sortBy !== current().sortBy) {
+        resetForSortChange(sortBy)
+        changed = true
+      }
+      const preference = persistedOrganization(preferences)
+      if (
+        preference.organization !== current().organization ||
+        preference.previousGroupedOrganization !== current().previousGroupedOrganization
+      ) {
+        applyOrganizationPreference(preference, false)
+        changed = true
+      }
+      if (changed && wasVisible) void refresh({}).catch(options.onSubscriberError)
     } catch (reason) {
-      replace({ ...current(), preferenceStatus: 'error', preferenceError: errorCode(reason) })
+      const error = errorCode(reason)
+      replace({
+        ...current(),
+        preferenceStatus: 'error',
+        preferenceError: error,
+        organizationPreferenceStatus: 'error',
+        organizationPreferenceError: error,
+      })
     }
   })
 
@@ -980,13 +1820,39 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
             'PERSISTENCE_RESTORE_FAILED',
             'Restore device preferences before loading Workspace activity',
           )
-        replace({ ...current(), sortBy: persistedSort(preferences), preferenceStatus: 'ready', preferenceError: null })
+        const sortBy = persistedSort(preferences)
+        const organization = persistedOrganization(preferences)
+        replace({
+          ...current(),
+          sortBy,
+          preferenceStatus: 'ready',
+          preferenceError: null,
+          organizationPreferenceStatus: 'ready',
+          organizationPreferenceError: null,
+        })
+        applyOrganizationPreference(organization, false)
       } catch (reason) {
-        replace({ ...current(), sortBy: 'updatedAt', preferenceStatus: 'error', preferenceError: errorCode(reason) })
+        const error = errorCode(reason)
+        replace({
+          ...current(),
+          sortBy: 'updatedAt',
+          preferenceStatus: 'error',
+          preferenceError: error,
+          organizationPreferenceStatus: 'error',
+          organizationPreferenceError: error,
+        })
       }
     })
     .catch((reason: unknown) => {
-      replace({ ...current(), sortBy: 'updatedAt', preferenceStatus: 'error', preferenceError: errorCode(reason) })
+      const error = errorCode(reason)
+      replace({
+        ...current(),
+        sortBy: 'updatedAt',
+        preferenceStatus: 'error',
+        preferenceError: error,
+        organizationPreferenceStatus: 'error',
+        organizationPreferenceError: error,
+      })
     })
 
   local.register(workspaceActivityCommands['workspaceActivity.setSort'], async (input, context) =>
@@ -994,12 +1860,17 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
   )
   local.register(workspaceActivityCommands['workspaceActivity.refresh'], async (input, context) => {
     const status = await refresh(input, context)
+    const snapshot = current()
     const error =
       input.workspaceId === undefined
-        ? (current().workspaces.error ??
-          Object.values(current().sessions).find((page) => page.error)?.error ??
-          current().preferenceError)
-        : (current().sessions[input.workspaceId]?.error ?? current().preferenceError)
+        ? ((snapshot.organization === 'time'
+            ? snapshot.timeline.error
+            : (snapshot.workspaces.error ?? Object.values(snapshot.sessions).find((page) => page.error)?.error)) ??
+          snapshot.preferenceError ??
+          snapshot.organizationPreferenceError)
+        : (snapshot.sessions[input.workspaceId]?.error ??
+          snapshot.preferenceError ??
+          snapshot.organizationPreferenceError)
     return pageResult(status, error)
   })
   local.register(workspaceActivityCommands['workspaceActivity.loadMore'], async (input, context) => {
@@ -1007,18 +1878,30 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       ? 'error'
       : input.scope === 'workspaces'
         ? await loadMoreWorkspacePage(context)
-        : input.workspaceId === undefined
-          ? (() => {
-              throw new CommandError('INVALID_INPUT', 'Session paging needs a Workspace ID')
-            })()
-          : await loadMoreSessionPage(input.workspaceId, context)
+        : input.scope === 'timeline'
+          ? await loadMoreTimelinePage(context)
+          : input.workspaceId === undefined
+            ? (() => {
+                throw new CommandError('INVALID_INPUT', 'Session paging needs a Workspace ID')
+              })()
+            : await loadMoreSessionPage(input.workspaceId, context)
     let error: string | null
     if (input.scope === 'workspaces') error = current().workspaces.error ?? current().preferenceError
+    else if (input.scope === 'timeline') error = current().timeline.error ?? current().preferenceError
     else if (input.workspaceId !== undefined)
       error = current().sessions[input.workspaceId]?.error ?? current().preferenceError
     else error = current().preferenceError ?? 'INVALID_INPUT'
     return pageResult(status, error)
   })
+  local.register(workspaceActivityCommands['workspaceActivity.setOrganization'], async (input, context) =>
+    setOrganization(input.organization, context),
+  )
+  local.register(workspaceActivityCommands['workspaceActivity.toggleTime'], async (_input, context) =>
+    toggleTime(context),
+  )
+  local.register(workspaceActivityCommands['workspaceActivity.setLocale'], async (input, context) =>
+    setLocale(input.locale, context),
+  )
 
   return {
     reader: state.reader,
@@ -1031,9 +1914,12 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
       stopDirectory()
       stopPins()
       stopPreferences()
+      stopSidebarActivityEvents()
+      stopSidebarConnection()
+      if (invalidationTimer !== null) clearTimeout(invalidationTimer)
       // Drop the owner's retention before the Directory cache itself is disposed.
       options.projectActivityWorkspaces([], [])
-      projectSessionPage({}, [])
+      options.projectActivitySessions([], [])
       state.dispose()
       changedSessionFacts.clear()
       sessionGenerations.clear()

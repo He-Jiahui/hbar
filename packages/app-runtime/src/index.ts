@@ -469,6 +469,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     projectActivityWorkspaces: directory.projectActivityWorkspaces,
     projectActivitySessions: directory.projectActivitySessions,
     subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
+    ...(options.sidebarActivityEvents ? { sidebarActivityEvents: options.sidebarActivityEvents } : {}),
     onSubscriberError,
     isDisposed: () => disposed,
   })
