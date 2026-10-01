@@ -510,8 +510,6 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       assertFree(sessionId)
       if (intent === 'plan' && options.captureMode)
         throw new CommandError('INVALID_INPUT', 'Plan is a durable Host session mode, not a one-send intent')
-      if (intent === 'goal' && options.captureMode?.(sessionId) === 'plan')
-        throw new CommandError('BUSY', 'Exit Host Plan mode before preparing a Goal')
       const current = entry(sessionId)
       if (expectedRevision !== undefined && current.revision !== expectedRevision)
         throw new CommandError('VERSION_CONFLICT', 'Composer intent changed')
@@ -597,8 +595,6 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       if (target) options.preparation?.assertCanPrepare(target)
       if (options.navigation.getSnapshot().sessionId !== sessionId && options.refreshMode)
         throw new CommandError('STALE_TARGET', 'Composer session changed during mode verification')
-      if (current.intent === 'goal' && capturedMode === 'plan')
-        throw new CommandError('BUSY', 'Exit Host Plan mode before submitting a Goal')
     } finally {
       preparations.delete(sessionId)
     }
@@ -639,7 +635,16 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       assertSelectedNavigation()
       if (entry(sessionId).revision !== current.revision)
         throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during permission preparation')
-      if (options.captureMode && options.captureMode(sessionId) !== capturedMode)
+      const confirmedMode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : options.captureMode?.(sessionId)
+      if (target) options.preparation?.assertCanPrepare(target)
+      assertSelectedNavigation()
+      if (disposed || execution.signal.aborted)
+        throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
+      if (entry(sessionId).revision !== current.revision)
+        throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during mode verification')
+      if (confirmedMode !== undefined && confirmedMode !== capturedMode)
         throw new CommandError('VERSION_CONFLICT', 'Host session mode changed during submission preparation')
       if (permission) {
         if (request.input.approval !== undefined && request.input.approval !== permission.approval)
@@ -830,8 +835,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     try {
       const target = await options.preparation?.capture(sessionId, execution.signal)
       if (target) options.preparation?.assertCanPrepare(target)
-      const mode = options.refreshMode ? await options.refreshMode(sessionId) : options.captureMode?.(sessionId)
-      if (mode === 'plan') throw new CommandError('BUSY', 'Exit Host Plan mode before changing the Goal')
+      // Plan permits Goal lifecycle changes, but unknown execution mode still fences writes.
+      if (options.refreshMode) await options.refreshMode(sessionId)
       if (target) options.preparation?.assertCanPrepare(target)
       const before = await snapshot(sessionId)
       const selected = options.navigation.getSnapshot()
@@ -939,8 +944,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     try {
       const target = await options.preparation?.capture(sessionId, execution.signal)
       if (target) options.preparation?.assertCanPrepare(target)
-      const mode = options.refreshMode ? await options.refreshMode(sessionId) : options.captureMode?.(sessionId)
-      if (mode === 'plan') throw new CommandError('BUSY', 'Exit Host Plan mode before starting the Goal')
+      const mode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : (options.captureMode?.(sessionId) ?? 'default')
       if (input.expectedPermissionRevision !== undefined && !options.permissions)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer approval choices are unavailable')
       permission =
@@ -970,6 +976,18 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         previous?.status === 'partial' && previous.intent === 'goalSlash'
           ? previous.request.expectedLaunchTargetRevision
           : input.expectedLaunchTargetRevision
+      const confirmedMode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : (options.captureMode?.(sessionId) ?? mode)
+      if (confirmedMode !== mode) throw new CommandError('VERSION_CONFLICT', 'Host mode changed before Goal execution')
+      if (target) options.preparation?.assertCanPrepare(target)
+      if (
+        disposed ||
+        execution.signal.aborted ||
+        options.navigation.getSnapshot().sessionId !== sessionId ||
+        options.navigation.getSnapshot().workspaceId !== selected.workspaceId
+      )
+        throw new CommandError('STALE_TARGET', 'Goal execution target changed during mode verification')
       const request: SubmitRunInput = {
         sessionId,
         modelId: input.modelId,
@@ -978,7 +996,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           images: [],
           files: [],
           source: 'user',
-          mode: 'default',
+          mode,
           ...(input.thinking ? { thinking: input.thinking } : {}),
           ...(permission ? { approval: permission.approval } : {}),
         },

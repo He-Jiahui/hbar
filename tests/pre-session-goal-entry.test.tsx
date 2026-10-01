@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarComposerAddMenu, HbarPreSessionApprovalPicker } from '@hbar/app-react'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab add menu offers only the supported localized Goal action: ${locale}`, () => {
@@ -40,9 +39,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain('hbar-composer-add-goal-slot')
   })
 
-  test(`no-tab Goal menu describes the explicit replacement of Plan setup: ${locale}`, () => {
+  test(`no-tab Goal menu keeps its independent action in Plan setup: ${locale}`, () => {
     const copy = getShellCopy(locale)
-    const replacement = preSessionCopy(locale).goalReplacesPlan
+    const goalLabel = copy.session.intent.goalMenu
     const html = renderToStaticMarkup(
       <HbarComposerAddMenu
         labels={copy.session.addMenu}
@@ -51,18 +50,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         showSlash={false}
         onOpenSlash={() => undefined}
         goalAction={{
-          label: replacement,
+          label: goalLabel,
           onChoose: () => undefined,
         }}
       />,
     )
-    expect(html).toContain(replacement)
+    expect(html).toContain(goalLabel)
     expect(html).not.toMatch(/class="hbar-composer-add-item hbar-composer-add-goal"[^>]*disabled=""/)
   })
 
-  test(`prepared Goal keeps no-tab Plan available and explains the replacement: ${locale}`, () => {
+  test(`prepared Goal keeps no-tab Plan available with its normal execution description: ${locale}`, () => {
     const copy = getShellCopy(locale)
-    const replacement = preSessionCopy(locale).planReplacesGoal
     const html = renderToStaticMarkup(
       <HbarPreSessionApprovalPicker
         choice="inherit"
@@ -70,15 +68,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         planAvailable
         hostDefault={null}
         sessionLabel={copy.preSession.hero.title}
-        labels={{
-          ...copy.session.permissionPicker,
-          plan: { ...copy.session.permissionPicker.plan, description: replacement },
-        }}
+        labels={copy.session.permissionPicker}
         onChoose={async () => undefined}
         onPlanMode={async () => undefined}
       />,
     )
-    expect(html).toContain(replacement)
+    expect(html).toContain(copy.session.permissionPicker.plan.description)
     expect(html).not.toMatch(/data-choice="plan"[^>]*disabled=""/)
   })
 }

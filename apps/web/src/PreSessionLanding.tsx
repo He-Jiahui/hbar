@@ -290,7 +290,7 @@ export function WebPreSessionLanding({
     queue(async () => {
       const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
       if (!current) throw new Error('Draft is unavailable')
-      await runtime.commands.execute('preSessionDraft.setEntryMode', {
+      await runtime.commands.execute('preSessionDraft.setPlanMode', {
         draftId,
         mode,
         expectedRevision: current.revision,
@@ -661,14 +661,7 @@ export function WebPreSessionLanding({
       planAvailable={composerPlanMode.available}
       hostDefault={composerPermission.hostDefault.status === 'ready' ? composerPermission.hostDefault.mode : null}
       sessionLabel={shell.preSession.hero.title}
-      labels={
-        draft?.intent === 'goal'
-          ? {
-              ...shell.session.permissionPicker,
-              plan: { ...shell.session.permissionPicker.plan, description: labels.planReplacesGoal },
-            }
-          : shell.session.permissionPicker
-      }
+      labels={shell.session.permissionPicker}
       disabled={!connected || !draft || busy || draft.phase === 'unknown'}
       onChoose={chooseApproval}
       onPlanMode={choosePlanMode}
@@ -683,7 +676,7 @@ export function WebPreSessionLanding({
         canOpenSlash={connected && Boolean(draft) && !busy && draft?.phase !== 'unknown'}
         onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
         goalAction={{
-          label: draft?.planMode === 'plan' ? labels.goalReplacesPlan : shell.session.intent.goalMenu,
+          label: shell.session.intent.goalMenu,
           disabled: !connected || !draft || busy || draft.phase === 'unknown' || draft.intent === 'goal',
           ...(draft?.intent === 'goal' ? { disabledHint: labels.goalAlreadyPrepared } : {}),
           onChoose: () => chooseGoalIntent('goal'),

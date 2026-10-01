@@ -17,6 +17,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({
       locale,
       viewport: { width: locale === 'en-US' ? 1440 : 320, height: 900 },
+      // The narrow Web sheet's close-first policy belongs to touch input, not desktop resizing.
+      hasTouch: locale === 'zh-CN',
     })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
@@ -143,24 +145,27 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const executionMenu = page.locator('.hbar-pre-session-approval-popover')
       const plan = executionMenu.locator('[data-choice="plan"]')
       await expect(plan).toBeEnabled()
-      await expect(plan).toContainText(labels.planReplacesGoal)
+      await expect(plan).toContainText(copy.session.permissionPicker.plan.description)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-plan-switch-${locale}.png` })
       await plan.click()
       await expect(execution).toHaveAttribute('data-choice', 'plan')
-      await expect(cancelGoal).toHaveCount(0)
-      await expect(prompt).toHaveValue('Keep this first objective')
-      await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      const replacePlan = landing
-        .getByRole('group', { name: copy.session.addMenu.menu })
-        .getByRole('button', { name: labels.goalReplacesPlan, exact: true })
-      await expect(replacePlan).toBeEnabled()
-      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-plan-goal-switch-${locale}.png` })
-      await replacePlan.click()
       await expect(cancelGoal).toBeVisible()
-      await expect(execution).not.toHaveAttribute('data-choice', 'plan')
+      await expect(prompt).toHaveValue('Keep this first objective')
+      await cancelGoal.click()
+      await expect(execution).toHaveAttribute('data-choice', 'plan')
+      await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
+      const prepareGoal = landing
+        .getByRole('group', { name: copy.session.addMenu.menu })
+        .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
+      await expect(prepareGoal).toBeEnabled()
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-plan-goal-switch-${locale}.png` })
+      await prepareGoal.click()
+      await expect(cancelGoal).toBeVisible()
+      await expect(execution).toHaveAttribute('data-choice', 'plan')
       await expect(prompt).toHaveValue('Keep this first objective')
       expect(await count()).toBe(1)
       await cancelGoal.click()
+      await expect(execution).toHaveAttribute('data-choice', 'plan')
       await expect(prompt).toHaveValue('Keep this first objective')
       await prompt.fill('/cost')
       await expect(send).toBeDisabled()

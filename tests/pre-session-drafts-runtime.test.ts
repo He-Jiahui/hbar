@@ -2870,7 +2870,7 @@ test('Run unknown is reconciled by its original key and the Session composer own
   }
 })
 
-test('Goal intent is capability-gated and mutually exclusive with pre-session Plan mode', async () => {
+test('Goal intent is capability-gated and independent from pre-session Plan mode', async () => {
   const unavailable = fixture()
   const draftId = crypto.randomUUID()
   try {
@@ -2903,33 +2903,29 @@ test('Goal intent is capability-gated and mutually exclusive with pre-session Pl
       mode: 'plan',
       expectedRevision: 0,
     })
-    await expect(
-      f.runtime.view.commands.execute('preSessionDraft.setIntent', {
-        draftId: goalDraftId,
-        intent: 'goal',
-        expectedRevision: 1,
-      }),
-    ).rejects.toMatchObject({ code: 'GOAL_PLAN_CONFLICT' })
-    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
-      draftId: goalDraftId,
-      mode: 'default',
-      expectedRevision: 1,
-    })
     await f.runtime.view.commands.execute('preSessionDraft.setIntent', {
       draftId: goalDraftId,
       intent: 'goal',
+      expectedRevision: 1,
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId: goalDraftId,
+      mode: 'default',
       expectedRevision: 2,
     })
-    await expect(
-      f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
-        draftId: goalDraftId,
-        mode: 'plan',
-        expectedRevision: 3,
-      }),
-    ).rejects.toMatchObject({ code: 'GOAL_PLAN_CONFLICT' })
     expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[goalDraftId]).toMatchObject({
       revision: 3,
       planMode: 'default',
+      intent: 'goal',
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId: goalDraftId,
+      mode: 'plan',
+      expectedRevision: 3,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[goalDraftId]).toMatchObject({
+      revision: 4,
+      planMode: 'plan',
       intent: 'goal',
     })
     expect(f.createCalls).toEqual([])
@@ -2938,7 +2934,7 @@ test('Goal intent is capability-gated and mutually exclusive with pre-session Pl
   }
 })
 
-test('first-send entry choices switch Goal and Plan atomically without changing the draft or creating a Session', async () => {
+test('first-send entry compatibility preserves the other Goal or Plan choice without creating a Session', async () => {
   const f = fixture({ planMode: true, goals: true })
   try {
     const target = await createDraft(f.runtime, {
@@ -2954,7 +2950,7 @@ test('first-send entry choices switch Goal and Plan atomically without changing 
       expectedRevision: before.revision,
     })
     expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
-      intent: 'default',
+      intent: 'goal',
       planMode: 'plan',
       text: before.text,
       workspaceId: before.workspaceId,
@@ -2970,7 +2966,7 @@ test('first-send entry choices switch Goal and Plan atomically without changing 
     })
     expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
       intent: 'goal',
-      planMode: 'default',
+      planMode: 'plan',
       text: 'A slash objective',
       revision: result.revision + 1,
     })
@@ -2981,6 +2977,16 @@ test('first-send entry choices switch Goal and Plan atomically without changing 
         expectedRevision: goal.revision,
       }),
     ).toEqual(goal)
+    const cancelledGoal = await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+      draftId: target.draftId,
+      mode: 'default',
+      expectedRevision: goal.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      intent: 'default',
+      planMode: 'plan',
+      revision: cancelledGoal.revision,
+    })
     await expect(
       f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
         draftId: target.draftId,
@@ -3056,6 +3062,72 @@ test('pre-session Goal creates one Goal and submits one ordinary Run with inheri
       text: '',
     })
   } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('pre-session Goal and Plan choices coexist and the first Goal Run keeps its captured Plan mode', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Create this checklist in analysis mode',
+      modelId: model.id,
+      planMode: 'plan',
+      intent: 'goal',
+    })
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+
+    expect(result).toMatchObject({ sessionId: 'session-1' })
+    expect(f.goalCalls).toEqual([{ sessionId: 'session-1', objective: 'Create this checklist in analysis mode' }])
+    expect(f.planModeWrites).toMatchObject([{ sessionId: 'session-1', mode: 'plan' }])
+    expect(f.hostPlanModes.get('session-1')).toBe('plan')
+    expect(f.runCalls).toMatchObject([
+      {
+        sessionId: 'session-1',
+        text: 'Create this checklist in analysis mode',
+        mode: 'plan',
+      },
+    ])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      intent: 'goal',
+      planMode: 'plan',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('pre-session Goal waits for the captured Plan mode read before creating its Goal or Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  const read = f.holdNextPlanModeRead()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'wait for Plan confirmation before Goal execution',
+      modelId: model.id,
+      planMode: 'plan',
+      intent: 'goal',
+    })
+    f.blockNextPlanModeRead()
+    const submit = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await read.entered
+    expect(f.goalCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+    read.release()
+    await submit
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]?.mode).toBe('plan')
+  } finally {
+    read.release()
     f.runtime.dispose()
   }
 })

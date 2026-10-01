@@ -22,8 +22,6 @@ export interface WebPreSessionCopy {
   readonly slashSettingsDescription: string
   readonly slashGoalDescription: string
   readonly checking: string
-  readonly goalReplacesPlan: string
-  readonly planReplacesGoal: string
   readonly goalAlreadyPrepared: string
   readonly goalError: (code: string) => string
   readonly error: (code: string) => string
@@ -97,11 +95,6 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
       'Prepare the next Goal message, optionally with an objective',
     ),
     checking: choose('核对首次发送结果', 'Check first-send result'),
-    goalReplacesPlan: choose('退出计划模式并准备目标', 'Exit Plan mode and prepare a Goal'),
-    planReplacesGoal: choose(
-      '切换为计划模式，取消尚未发送的目标准备。输入内容会保留。',
-      'Switch to Plan mode and cancel the unsent Goal setup. Your text is kept.',
-    ),
     goalAlreadyPrepared: choose('下一条消息已准备为目标。', 'The next message is already prepared as a Goal.'),
     goalError: (code) =>
       code === 'GOAL_REQUIRED'

@@ -1991,20 +1991,6 @@ function SessionWorkspaceContent({
                     ? {
                         plan: {
                           entry: planModeEntry,
-                          disabled: intent === 'goal',
-                          ...(intent === 'goal'
-                            ? {
-                                goalPreparation: {
-                                  revision: intentEntry?.revision ?? 0,
-                                  onCancel: async (target: { sessionId: string; expectedRevision: number }) => {
-                                    await runtime.commands.execute('composerIntent.setIntent', {
-                                      ...target,
-                                      intent: 'default',
-                                    })
-                                  },
-                                },
-                              }
-                            : {}),
                           onSetMode: async (mode: 'default' | 'plan', expectedRevision: number) => {
                             await runtime.commands.execute('composerPlanMode.setMode', {
                               sessionId,

@@ -42,6 +42,11 @@ build/TypeScript/lint 统计，也不声称已新运行全仓门禁。
 
 ## 尚不能视为完成的差距
 
+2026-10-01 更新：用户已选择推荐方案，后续
+[composer 交付](desktop-composer-entry-parity.md)已完成 Goal + Plan 共存。
+`/agent` 父会话 prompt 路径获准，等待独立 Host/tool 实现；审批等待时 Guide
+继续受限。以下段落记录本次只读复核时的旧状态。
+
 - **Goal + Plan 共存**：当前是两个互斥准备方式。改成“先规划、再按 Goal 执行”
   会改变 durable 执行语义，不是移动一个按钮。此前问题未获得选择，
   本轮保持现状，不把模型/思考选择的答复当作对该组合的授权。

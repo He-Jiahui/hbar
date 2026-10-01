@@ -74,9 +74,9 @@ function reason(value: ComposerGoalAvailabilityInput): ComposerGoalBlockedReason
   return result.kind === 'blocked' ? result.reason : null
 }
 
-test('only a confirmed Plan with matching ready Goal facts offers the independent exit action', () => {
+test('confirmed Plan with matching ready Goal facts permits independent Goal preparation', () => {
   const value = input()
-  expect(composerGoalAvailability(value)).toEqual({ kind: 'blocked', reason: 'plan', recovery: 'exitPlan' })
+  expect(composerGoalAvailability(value)).toEqual({ kind: 'ready' })
   expect(composerGoalAvailability({ ...value, plan: { available: false, entries: {} } })).toEqual({ kind: 'ready' })
   expect(
     composerGoalAvailability({
@@ -87,7 +87,7 @@ test('only a confirmed Plan with matching ready Goal facts offers the independen
       },
     }),
   ).toEqual({ kind: 'ready' })
-  // A confirmed exit does not prepare a Goal; this reader has no write or optimistic intent projection.
+  // Availability does not prepare a Goal or exit Plan; both are explicit actions.
   expect(value.intent.entries.a?.intent).toBe('default')
 })
 
@@ -104,7 +104,7 @@ for (const status of ['active', 'paused', 'blocked', 'budget_limited', 'usage_li
 }
 
 test('completed Goal may prepare again; a prepared local intent may only be cancelled without consulting a new Goal', () => {
-  expect(reason(withGoal(input(), goal('complete')))).toBe('plan')
+  expect(reason(withGoal(input(), goal('complete')))).toBeNull()
   const prepared = withEntry(input(), { ...entry(), intent: 'goal' })
   expect(composerGoalAvailability(prepared)).toEqual({ kind: 'prepared' })
   expect(composerGoalAvailability(withGoal(prepared, goal()))).toEqual({ kind: 'prepared' })
@@ -198,7 +198,7 @@ test('transaction state, readonly and disconnected do not masquerade as Plan; or
         submission: { ...entry().submission, status: 'unknown' },
       }),
     ),
-  ).toBe('plan')
+  ).toBeNull()
 })
 
 test('lifetime identity rejects late A→B→A replies, runtime replacement and unmount without a focus action', async () => {

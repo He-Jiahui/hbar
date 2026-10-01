@@ -606,8 +606,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     await ensureSelected(operation)
     if (options.sessionPlanModeAvailable) {
       const mode = await waitForPlanModeEntry(sessionId)
-      if (mode.mode !== 'default')
-        throw new CommandError('PLAN_INTENT_CONFLICT', 'Exit Host Plan mode before preparing a Goal')
+      if (mode.mode !== operation.planMode)
+        throw new CommandError('VERSION_CONFLICT', 'Host Plan mode changed before the first Goal Run')
       assertSelectionFence(operation)
     }
 
@@ -1317,8 +1317,6 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     const current = entry(draftId)
     requireEditable(draftId, current)
     checkRevision(current, expectedRevision)
-    if (mode === 'plan' && current.intent === 'goal')
-      throw new CommandError('GOAL_PLAN_CONFLICT', 'Goal intent cannot be combined with Host Plan mode')
     if (current.planMode === mode) return { draftId, revision: current.revision }
     const value = {
       ...current,
@@ -1339,8 +1337,6 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     checkRevision(current, expectedRevision)
     if (intent === 'goal' && !options.sessionGoalsAvailable)
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Goal commands are unavailable')
-    if (intent === 'goal' && current.planMode === 'plan')
-      throw new CommandError('GOAL_PLAN_CONFLICT', 'Goal intent cannot be combined with Host Plan mode')
     if (current.intent === intent) return { draftId, revision: current.revision }
     const value = {
       ...current,
@@ -1365,8 +1361,10 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Goal commands are unavailable')
       if (mode === 'plan' && !options.sessionPlanModeAvailable)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'Host Plan mode commands are unavailable')
-      const intent = mode === 'goal' ? 'goal' : 'default'
-      const planMode = mode === 'plan' ? 'plan' : 'default'
+      // Compatibility command: Goal and Host Plan are independent choices.
+      // `default` cancels the Goal intent; exiting Host Plan uses setPlanMode.
+      const intent = mode === 'goal' ? 'goal' : mode === 'plan' ? current.intent : 'default'
+      const planMode = mode === 'plan' ? 'plan' : current.planMode
       const nextText = text ?? current.text
       if (current.intent === intent && current.planMode === planMode && current.text === nextText)
         return { draftId, revision: current.revision }
