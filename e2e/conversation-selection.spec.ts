@@ -24,7 +24,12 @@ function messageText(message: {
   return message.content.flatMap((block) => (block.type === 'text' && block.text ? [block.text] : [])).join('\n')
 }
 
-async function selectPassage(message: Locator, startMarker: string, endMarker: string): Promise<string> {
+async function selectPassage(
+  message: Locator,
+  startMarker: string,
+  endMarker: string,
+  literal = false,
+): Promise<string> {
   await message.scrollIntoViewIfNeeded()
   // As in a real selection gesture, pointerdown cancels the viewport's bounded
   // follow-latest correction before we position the selected authored passage.
@@ -67,8 +72,13 @@ async function selectPassage(message: Locator, startMarker: string, endMarker: s
   )
   expect(quote).toContain(startMarker)
   expect(quote).toContain(endMarker)
-  expect(quote).not.toContain('**')
-  expect(quote).not.toContain('`')
+  if (literal) {
+    expect(quote).toContain('**')
+    expect(quote).toContain('`')
+  } else {
+    expect(quote).not.toContain('**')
+    expect(quote).not.toContain('`')
+  }
 
   // Finish the same pointer lifecycle after creating the native browser Range.
   await message.dispatchEvent('pointerup', { pointerType: 'mouse', button: 0, buttons: 0 })
@@ -205,7 +215,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         menu.getByRole('button', { name: copy.session.conversationSelection.addToChat, exact: true })
       const cards = page.locator(chatSelectionCards)
 
-      const userQuote = await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker)
+      const userQuote = await selectPassage(
+        userTranscript.locator(messageWrapper('user')),
+        startMarker,
+        endMarker,
+        true,
+      )
       await expect(menu).toBeVisible()
       await expect(addToChat()).toBeEnabled()
       await expect(addToChat()).toHaveAttribute('data-hbar-conversation-selection-add')
@@ -216,14 +231,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(cards).toHaveCount(0)
 
       // Add the same user quote twice. The second action must be idempotent.
-      await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker)
+      await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker, true)
       await expect(menu).toBeVisible()
       await addToChat().click()
       await expect(menu).toHaveCount(0)
       await expect(cards).toHaveCount(1)
       await expect(cards.first().locator('.hbar-composer-workspace-context-note')).toHaveText(userQuote)
 
-      await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker)
+      await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker, true)
       await expect(menu).toBeVisible()
       await addToChat().click()
       await expect(cards).toHaveCount(1)
@@ -254,7 +269,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await userCard.locator('.hbar-composer-workspace-context-remove').click()
       await expect(cards).toHaveCount(1)
       await expectComposerText(prompt, finalDraft)
-      await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker)
+      await selectPassage(userTranscript.locator(messageWrapper('user')), startMarker, endMarker, true)
       await expect(menu).toBeVisible()
       await addToChat().click()
       await expect(cards).toHaveCount(2)

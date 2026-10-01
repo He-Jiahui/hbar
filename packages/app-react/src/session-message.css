@@ -19,6 +19,11 @@
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
+.hbar-session-message-literal {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .hbar-session-message-prose > :first-child,
 .hbar-session-thinking-content > :first-child {
   margin-block-start: 0;

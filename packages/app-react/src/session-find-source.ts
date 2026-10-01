@@ -1,7 +1,11 @@
 import { CONVERSATION_FIND_LIMITS, type ConversationFindSource, type SessionTimelineState } from '@hbar/app-runtime'
 import { projectSessionMessages, type SessionMessage, type SessionMessageBlock } from './session-message-model'
 import { sessionMessageTextSegments } from './session-message-text'
-import { projectSessionFindText, type SessionFindTextProjection } from './session-find-text'
+import {
+  projectSessionFindLiteralText,
+  projectSessionFindText,
+  type SessionFindTextProjection,
+} from './session-find-text'
 
 export interface SessionFindSourceProjection {
   readonly source: ConversationFindSource
@@ -94,7 +98,14 @@ export function createSessionFindProjector() {
             }
             cached = {
               blocks,
-              segments: new Map(textSegments.map((segment) => [segment.id, projectSessionFindText(segment.markdown)])),
+              segments: new Map(
+                textSegments.map((segment) => [
+                  segment.id,
+                  message.role === 'user'
+                    ? projectSessionFindLiteralText(segment.markdown)
+                    : projectSessionFindText(segment.markdown),
+                ]),
+              ),
             }
             messages.set(message, cached)
           } catch {

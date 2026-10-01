@@ -66,6 +66,15 @@ const blocks = new Set([
 const structuralParents = new Set(['root', 'ul', 'ol', 'blockquote', 'section', ...tableParents])
 const htmlWhitespace = /^[\t\n\f\r ]*$/
 
+/** Literal prompts preserve authored whitespace and syntax in both DOM and search. */
+export function projectSessionFindLiteralText(text: string): SessionFindTextProjection {
+  return {
+    text,
+    domText: text,
+    spans: text.length ? [{ start: 0, end: text.length, domStart: 0, domEnd: text.length, kind: 'text' }] : [],
+  }
+}
+
 function generatedFootnoteNavigation(node: Element): boolean {
   return (
     node.properties.dataFootnoteBackref !== undefined ||

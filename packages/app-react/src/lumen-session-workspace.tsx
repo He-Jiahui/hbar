@@ -1284,6 +1284,7 @@ function SessionWorkspaceContent({
             sessionId={message.sessionId}
             messageId={message.id}
             blocks={blocks}
+            textFormat={message.role === 'user' ? 'literal' : 'markdown'}
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { MessageMarkdown } from './message-markdown'
+import { MessageLiteralText } from './message-literal-text'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { MessageMarkdown } from './message-markdown'
 import {
@@ -79,6 +80,8 @@ export interface HbarMessageBlocksProps {
   readonly sessionId: string
   readonly messageId: string
   readonly blocks: readonly SessionMessageBlock[]
+  /** The owning timeline distinguishes authored operator prompts from generated Markdown. */
+  readonly textFormat?: 'literal' | 'markdown' | undefined
   readonly results?: readonly SessionToolResult[]
   readonly streaming?: boolean
   readonly labels: HbarMessageBlocksLabels
@@ -376,6 +379,7 @@ function MessageBlocksContent({
   clipboard,
   copyOwner,
   blocks,
+  textFormat = 'markdown',
   results,
   streaming = false,
   labels,
@@ -460,6 +464,8 @@ function MessageBlocksContent({
           >
             {renderText ? (
               renderText(group)
+            ) : textFormat === 'literal' ? (
+              <MessageLiteralText text={group.text} />
             ) : (
               <MessageMarkdown
                 text={group.text}

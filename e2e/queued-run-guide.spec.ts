@@ -165,7 +165,10 @@ test('Guide consumes one queue row into the current Run while draft and remainin
       contentType: 'application/json',
     })
     expect(flow.filter((item) => item.scrollWidth > item.clientWidth + 1 || item.right > 321)).toEqual([])
-    expect(flow.find((item) => item.tagName === 'P')).toMatchObject({ whiteSpace: 'normal', overflowWrap: 'anywhere' })
+    expect(flow.find((item) => item.tagName === 'P')).toMatchObject({
+      whiteSpace: 'pre-wrap',
+      overflowWrap: 'anywhere',
+    })
     expect(flow.some((item) => item.tagName === 'P' && item.height > item.lineHeight * 2)).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('zh-guide-narrow-after.png') })
