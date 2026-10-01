@@ -71,7 +71,8 @@ describe('hbar-app-ui kanban surfaces', () => {
     const markup = render(1)
     expect(markup).toContain(reference.labels.detail(10))
     expect((markup.match(/class="hbar-app-ui-kanban-reference-card /g) ?? []).length).toBe(10)
-    expect((markup.match(/role="region"/g) ?? []).length).toBe(4)
+    expect((markup.match(/<section class="hbar-app-ui-kanban-reference-column"/g) ?? []).length).toBe(4)
+    reference.columns.forEach((column) => expect(markup).toContain(`aria-label="${column.label}"`))
     expect(markup).toContain(reference.labels.card(reference.cards[0]!))
     expect(markup).not.toContain('New card in Backlog')
     const composing = render(1, {
@@ -141,10 +142,10 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect((status.match(/class="hbar-app-ui-kanban-regroup-column"/g) ?? []).length).toBe(4)
     expect(status).toContain(flow.labels.card(flow.cards[1]!, flow.groups[0]!.label, flow.columns.status![0]!.label))
     expect(status).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
-    const assigned = render(3, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: {...flow, groupId: 'assignee'}})
+    const assigned = render(3, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: { ...flow, groupId: 'assignee' } })
     expect((assigned.match(/class="hbar-app-ui-kanban-regroup-column"/g) ?? []).length).toBe(3)
     expect(assigned).toContain('Ana Reyes')
-    const priority = render(3, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: {...flow, groupId: 'priority'}})
+    const priority = render(3, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: { ...flow, groupId: 'priority' } })
     expect(priority).toContain('Urgent')
     expect((priority.match(/class="hbar-app-ui-kanban-regroup-card /g) ?? []).length).toBe(9)
   })
@@ -154,9 +155,9 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(localized).toContain('核对发票')
     expect(localized).not.toContain('Northwind roadmap')
     const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceRegroup!
-    const empty = render(3, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: {...flow, cards: []}})
+    const empty = render(3, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: { ...flow, cards: [] } })
     expect(empty).not.toContain('hbar-app-ui-kanban-regroup-card ')
-    const one = render(3, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: {...flow, cards: [flow.cards[0]!]}})
+    const one = render(3, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceRegroup: { ...flow, cards: [flow.cards[0]!] } })
     expect((one.match(/class="hbar-app-ui-kanban-regroup-card /g) ?? []).length).toBe(1)
   })
   test('detail board renders seven Host cards and read-only selected-card properties', () => {
@@ -169,9 +170,19 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(markup).toContain('Large uploads restart from zero')
     expect(markup).toContain('aria-pressed="true"')
     expect(markup).not.toContain('<select')
-    const emptyActivity = render(4, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceDetail: {...flow, selectedCardId: 'CDR-98'}})
+    const emptyActivity = render(4, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceDetail: { ...flow, selectedCardId: 'CDR-109' },
+    })
     expect(emptyActivity).toContain('No comments yet')
-    const closed = render(4, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceDetail: {...flow, selectedCardId: null}})
+    const unknown = render(4, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceDetail: { ...flow, selectedCardId: 'CDR-98' },
+    })
+    expect(unknown).toContain(flow.labels.detailUnavailable!)
+    expect(unknown).not.toContain('Every grant and revoke')
+    expect(unknown).not.toContain('No comments yet')
+    const closed = render(4, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceDetail: { ...flow, selectedCardId: null } })
     expect(closed).not.toContain('hbar-app-ui-kanban-detail-pane')
   })
   test('detail board handles localized and empty/one-card capacity', () => {
@@ -180,9 +191,15 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(localized).toContain('核对发票')
     expect(localized).not.toContain('Cedar Labs delivery')
     const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceDetail!
-    const empty = render(4, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceDetail: {...flow, cards: [], selectedCardId: null}})
+    const empty = render(4, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceDetail: { ...flow, cards: [], selectedCardId: null },
+    })
     expect(empty).not.toContain('hbar-app-ui-kanban-detail-card"')
-    const one = render(4, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceDetail: {...flow, cards: [flow.cards[0]!], selectedCardId: flow.cards[0]!.id}})
+    const one = render(4, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceDetail: { ...flow, cards: [flow.cards[0]!], selectedCardId: flow.cards[0]!.id },
+    })
     expect((one.match(/class="hbar-app-ui-kanban-detail-card"/g) ?? []).length).toBe(1)
   })
   test('sprint board derives summary and three capacity bars from ten Host cards', () => {
@@ -196,7 +213,13 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect((markup.match(/role="progressbar"/g) ?? []).length).toBe(3)
     expect(markup).toContain('Blocked')
     expect(markup).toContain(flow.labels.card(flow.cards[0]!))
-    const moved = render(5, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceSprint: {...flow, cards: flow.cards.map((card) => card.id === 'MER-52' ? {...card, stageId: 'building'} : card)}})
+    const moved = render(5, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceSprint: {
+        ...flow,
+        cards: flow.cards.map((card) => (card.id === 'MER-52' ? { ...card, stageId: 'building' } : card)),
+      },
+    })
     expect(moved).toContain('10 / 21 pts')
     expect(moved).toContain('18 / 13 pts')
   })
@@ -206,10 +229,10 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(localized).toContain('核对发票')
     expect(localized).not.toContain('Sprint 34')
     const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceSprint!
-    const empty = render(5, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceSprint: {...flow, cards: []}})
+    const empty = render(5, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceSprint: { ...flow, cards: [] } })
     expect(empty).toContain('0%')
     expect(empty).not.toContain('hbar-app-ui-kanban-sprint-card ')
-    const one = render(5, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceSprint: {...flow, cards: [flow.cards[0]!]}})
+    const one = render(5, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceSprint: { ...flow, cards: [flow.cards[0]!] } })
     expect((one.match(/class="hbar-app-ui-kanban-sprint-card /g) ?? []).length).toBe(1)
   })
   test('compact board renders four Host columns, ten cards, live counts and bounded arrows', () => {
@@ -223,10 +246,14 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(markup).toContain('aria-label="Move Prune stale invite tokens to previous column" disabled=""')
     expect(markup).toContain('aria-label="Move Ship the changelog RSS feed to next column" disabled=""')
     expect(markup).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
-    const moved = render(6, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: {
-      ...flow, cards: flow.cards.map((card) => card.id === 'invite' ? {...card, columnId: 'today'} : card),
-      announcement: flow.labels.moved('Prune stale invite tokens', 'Today'),
-    }})
+    const moved = render(6, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceCompact: {
+        ...flow,
+        cards: flow.cards.map((card) => (card.id === 'invite' ? { ...card, columnId: 'today' } : card)),
+        announcement: flow.labels.moved('Prune stale invite tokens', 'Today'),
+      },
+    })
     expect(moved).toContain('Prune stale invite tokens moved to Today.')
     expect(moved).toContain('aria-label="Move Prune stale invite tokens to Inbox"')
   })
@@ -237,10 +264,13 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(localized).toContain('aria-label="将核对发票移至今日"')
     expect(localized).not.toContain('Harbor tasks')
     const flow = HBAR_APP_UI_KANBAN_FIXTURES.referenceCompact!
-    const empty = render(6, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: {...flow, columns: [], cards: []}})
+    const empty = render(6, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: { ...flow, columns: [], cards: [] } })
     expect(empty).toContain(flow.labels.detail(0))
     expect(empty).not.toContain('hbar-app-ui-kanban-compact-card"')
-    const one = render(6, {...HBAR_APP_UI_KANBAN_FIXTURES, referenceCompact: {...flow, cards: [flow.cards[0]!, {...flow.cards[0]!, label: 'duplicate'}]}})
+    const one = render(6, {
+      ...HBAR_APP_UI_KANBAN_FIXTURES,
+      referenceCompact: { ...flow, cards: [flow.cards[0]!, { ...flow.cards[0]!, label: 'duplicate' }] },
+    })
     expect((one.match(/class="hbar-app-ui-kanban-compact-card"/g) ?? []).length).toBe(1)
     expect(one).not.toContain('duplicate')
     const overflow = render(6, createHbarAppUiKanbanOverflowFixtures())

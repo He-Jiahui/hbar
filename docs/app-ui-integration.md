@@ -1378,3 +1378,49 @@ scope, not an exhaustive button/theme/viewport matrix, pixel sign-off or real
 monitoring-service acceptance. Global typecheck still reports only the two existing
 SessionStop `guided` errors. Existing user and concurrent-task changes remain
 untouched; no globally clean tree or full 300-variant audit is claimed.
+
+### Kanban 1–6 practical workflow closure
+
+The six existing reference structures remain separate: Platform board, Workstreams,
+Northwind regrouping, Cedar Labs details, Meridian sprint capacity and Harbor's
+compact column pager. Their host-owned default records contain 10, 11, 9, 7, 10
+and 10 cards respectively. Flex columns and lane cells retain pane-owned scrolling;
+compact narrow views expose one selected column, and narrow details cover the board
+with a flowing detail pane. No pixel or exhaustive viewport sign-off is claimed.
+
+The preview uses one active-variant Zustand owner rather than initializing six
+independent boards for every catalog selection. Card and destination IDs are checked
+against the current owner; invalid moves do not remove records. Keyboard movement
+previews the destination, preserves focus across reparenting, and Escape restores
+the original position and order. A committed drop remains committed when native
+drag-end runs. Regrouping changes only the active field; sprint totals and capacity
+bars derive from current card positions, while details remain attached to exact
+card IDs. New cards and moves are local preview edits, not remote delivery claims.
+
+Reference detail evidence is complete only for CDR-118 and CDR-109. The other five
+cards retain their captured summaries and comment counts without invented activity,
+priority or description. Selecting them shows a host-localized unavailable notice
+while keeping stage moves usable. This does not restrict a real host from supplying
+complete detail records through the optional availability contract.
+
+The [core browser check](../scripts/verify-hbar-app-ui-kanban-core.ts) exercises the
+six primary flows, one native drag sample, representative narrow details/column
+navigation and an overflowing column. It intentionally replaces repeated button,
+theme and size loops. The prior focus regression is reproduced by a genuine
+`page.keyboard` sequence: moving HAL-241 one column right lost the card's focus,
+so Escape never reached its handler. Repeated `Locator.press` calls had implicitly
+refocused the card and concealed that defect.
+
+Verification passes 27 focused tests / 218 assertions and 15 browser records with
+zero diagnostics; four representative screenshots were inspected. Scoped ESLint,
+Lumen typecheck, declaration emit, direct Vite library/preview builds, changed
+reference-view content guards, six existing CSS flow/icon guards and scoped
+Prettier pass. The packaged pnpm build entry remains unavailable due to the
+11.19.0/12.3.4 runtime engine mismatch; its build steps were run directly without
+changing requirements. Global typecheck reports only the two existing SessionStop
+`guided` errors. A legacy Kanban fallback's pre-existing literal is outside the
+changed reference views; no full-module content-guard pass is claimed.
+
+This is practical core-functional and natural-layout acceptance under the user's
+revised scope. The unrelated working-tree changes are preserved; this category is
+one incremental part of the broader 300-variant implementation goal.

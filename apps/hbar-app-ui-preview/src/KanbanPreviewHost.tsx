@@ -1,292 +1,41 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { HbarAppUiKanbanProvider, type HbarAppUiKanbanContent } from 'hbar-app-ui/catalog'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useStore } from 'zustand'
+import { HbarAppUiKanbanProvider, type HbarAppUiKanbanContent, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
+import { createKanbanPreviewSeed, createKanbanPreviewStore, type KanbanPreviewVariant } from './kanbanPreviewModel'
+import { projectKanbanPreview } from './kanbanPreviewProjection'
 
-export function KanbanPreviewHost({
-  content,
-  children,
-}: {
+interface HostProps extends HbarAppUiVariantProps {
   readonly content: HbarAppUiKanbanContent
   readonly children: ReactNode
+}
+function isKanbanVariant(variant: number): variant is KanbanPreviewVariant {
+  return variant === 1 || variant === 2 || variant === 3 || variant === 4 || variant === 5 || variant === 6
+}
+export function KanbanPreviewHost(props: HostProps) {
+  if (props.spec.category !== 'kanban' || !isKanbanVariant(props.spec.variant)) return <>{props.children}</>
+  const mode =
+    typeof location === 'undefined'
+      ? 'default'
+      : (new URLSearchParams(location.search).get('kanbanFixture') ?? 'default')
+  return <KanbanOwner key={`${props.spec.id}:${mode}`} {...props} variant={props.spec.variant} mode={mode} />
+}
+function KanbanOwner({
+  content: input,
+  spec,
+  variant,
+  mode,
+  children,
+}: HostProps & {
+  readonly variant: KanbanPreviewVariant
+  readonly mode: string
 }) {
-  const initial = content.referenceBoard
-  const initialSwimlanes = content.referenceSwimlanes
-  const initialRegroup = content.referenceRegroup
-  const initialDetail = content.referenceDetail
-  const initialSprint = content.referenceSprint
-  const initialCompact = content.referenceCompact
-  const [columns, setColumns] = useState(initial?.columns ?? content.columns)
-  const [cards, setCards] = useState(initial?.cards ?? [])
-  const [composerColumnId, setComposerColumnId] = useState<string | null>(initial?.composerColumnId ?? null)
-  const [draft, setDraft] = useState(initial?.draft ?? '')
-  const [grabbedCardId, setGrabbedCardId] = useState<string | null>(initial?.grabbedCardId ?? null)
-  const [targetColumnId, setTargetColumnId] = useState<string | null>(initial?.targetColumnId ?? null)
-  const [announcement, setAnnouncement] = useState(initial?.announcement ?? '')
-  const [lanes, setLanes] = useState(initialSwimlanes?.lanes ?? [])
-  const [collapsedLaneIds, setCollapsedLaneIds] = useState<readonly string[]>(initialSwimlanes?.collapsedLaneIds ?? [])
-  const [swimlaneGrabbedCardId, setSwimlaneGrabbedCardId] = useState<string | null>(
-    initialSwimlanes?.grabbedCardId ?? null,
-  )
-  const [swimlaneAnnouncement, setSwimlaneAnnouncement] = useState(initialSwimlanes?.announcement ?? '')
-  const [regroupCards, setRegroupCards] = useState(initialRegroup?.cards ?? [])
-  const [regroupGroupId, setRegroupGroupId] = useState(initialRegroup?.groupId ?? '')
-  const [regroupGrabbedCardId, setRegroupGrabbedCardId] = useState<string | null>(initialRegroup?.grabbedCardId ?? null)
-  const [regroupAnnouncement, setRegroupAnnouncement] = useState(initialRegroup?.announcement ?? '')
-  const [detailCards, setDetailCards] = useState(initialDetail?.cards ?? [])
-  const [detailSelectedCardId, setDetailSelectedCardId] = useState<string | null>(initialDetail?.selectedCardId ?? null)
-  const [detailGrabbedCardId, setDetailGrabbedCardId] = useState<string | null>(initialDetail?.grabbedCardId ?? null)
-  const [detailAnnouncement, setDetailAnnouncement] = useState(initialDetail?.announcement ?? '')
-  const [sprintCards, setSprintCards] = useState(initialSprint?.cards ?? [])
-  const [sprintGrabbedCardId, setSprintGrabbedCardId] = useState<string | null>(initialSprint?.grabbedCardId ?? null)
-  const [sprintAnnouncement, setSprintAnnouncement] = useState(initialSprint?.announcement ?? '')
-  const [compactCards, setCompactCards] = useState(initialCompact?.cards ?? [])
-  const [compactColumnId, setCompactColumnId] = useState(initialCompact?.selectedColumnId ?? '')
-  const [compactAnnouncement, setCompactAnnouncement] = useState(initialCompact?.announcement ?? '')
-
+  const ownerId = `kanban-preview-${spec.id}`
+  const seed = useMemo(() => createKanbanPreviewSeed(input, variant, ownerId, mode), [input, variant, ownerId, mode])
+  const [store] = useState(() => createKanbanPreviewStore(seed))
+  useStore(store, (state) => state.data)
   useEffect(() => {
-    setColumns(content.referenceBoard?.columns ?? content.columns)
-    setCards(content.referenceBoard?.cards ?? [])
-    setComposerColumnId(content.referenceBoard?.composerColumnId ?? null)
-    setDraft(content.referenceBoard?.draft ?? '')
-    setGrabbedCardId(content.referenceBoard?.grabbedCardId ?? null)
-    setTargetColumnId(content.referenceBoard?.targetColumnId ?? null)
-    setAnnouncement(content.referenceBoard?.announcement ?? '')
-    setLanes(content.referenceSwimlanes?.lanes ?? [])
-    setCollapsedLaneIds(content.referenceSwimlanes?.collapsedLaneIds ?? [])
-    setSwimlaneGrabbedCardId(content.referenceSwimlanes?.grabbedCardId ?? null)
-    setSwimlaneAnnouncement(content.referenceSwimlanes?.announcement ?? '')
-    setRegroupCards(content.referenceRegroup?.cards ?? [])
-    setRegroupGroupId(content.referenceRegroup?.groupId ?? '')
-    setRegroupGrabbedCardId(content.referenceRegroup?.grabbedCardId ?? null)
-    setRegroupAnnouncement(content.referenceRegroup?.announcement ?? '')
-    setDetailCards(content.referenceDetail?.cards ?? [])
-    setDetailSelectedCardId(content.referenceDetail?.selectedCardId ?? null)
-    setDetailGrabbedCardId(content.referenceDetail?.grabbedCardId ?? null)
-    setDetailAnnouncement(content.referenceDetail?.announcement ?? '')
-    setSprintCards(content.referenceSprint?.cards ?? [])
-    setSprintGrabbedCardId(content.referenceSprint?.grabbedCardId ?? null)
-    setSprintAnnouncement(content.referenceSprint?.announcement ?? '')
-    setCompactCards(content.referenceCompact?.cards ?? [])
-    setCompactColumnId(content.referenceCompact?.selectedColumnId ?? '')
-    setCompactAnnouncement(content.referenceCompact?.announcement ?? '')
-  }, [content])
-
-  const flow = content.referenceBoard
-  const swimlanes = content.referenceSwimlanes
-  const regroup = content.referenceRegroup
-  const detail = content.referenceDetail
-  const sprint = content.referenceSprint
-  const compact = content.referenceCompact
-  return (
-    <HbarAppUiKanbanProvider
-      content={{
-        ...content,
-        referenceBoard: flow && {
-          ...flow,
-          columns,
-          cards,
-          composerColumnId,
-          draft,
-          grabbedCardId,
-          targetColumnId,
-          announcement,
-          onOpenComposer: (columnId) => {
-            setComposerColumnId(columnId)
-            setDraft('')
-          },
-          onDraftChange: setDraft,
-          onCancelComposer: () => {
-            setComposerColumnId(null)
-            setDraft('')
-          },
-          onAddCard: () => {
-            const title = draft.trim()
-            if (!title || !composerColumnId) return
-            const nextNumber =
-              Math.max(0, ...cards.map((card) => Number.parseInt(card.id.match(/\d+$/)?.[0] ?? '0', 10))) + 1
-            const id = `HAL-${nextNumber}`
-            setCards((current) => [
-              {
-                id,
-                label: title,
-                tag: flow.labels.newCardTag,
-                assignee: 'AR',
-                assigneeName: 'Ana Reyes',
-                priority: 'medium',
-              },
-              ...current,
-            ])
-            setColumns((current) =>
-              current.map((column) =>
-                column.id === composerColumnId ? { ...column, cardIds: [id, ...column.cardIds] } : column,
-              ),
-            )
-            setDraft('')
-            setComposerColumnId(null)
-            setAnnouncement(flow.labels.added(title))
-          },
-          onGrab: (cardId, columnId) => {
-            setGrabbedCardId(cardId)
-            setTargetColumnId(columnId)
-            setAnnouncement(flow.labels.grabbed(cardId))
-          },
-          onTargetChange: (columnId) => {
-            if (grabbedCardId)
-              setColumns((current) =>
-                current.map((column) => {
-                  const cardIds = column.cardIds.filter((id) => id !== grabbedCardId)
-                  return column.id === columnId
-                    ? { ...column, cardIds: [...cardIds, grabbedCardId] }
-                    : { ...column, cardIds }
-                }),
-              )
-            setTargetColumnId(columnId)
-          },
-          onDrop: (cardId, columnId) => {
-            setColumns((current) =>
-              current.map((column) => {
-                const cardIds = column.cardIds.filter((id) => id !== cardId)
-                return column.id === columnId ? { ...column, cardIds: [...cardIds, cardId] } : { ...column, cardIds }
-              }),
-            )
-            setGrabbedCardId(null)
-            setTargetColumnId(null)
-            setAnnouncement(
-              flow.labels.dropped(cardId, columns.find((column) => column.id === columnId)?.label ?? columnId),
-            )
-          },
-          onCancelGrab: () => {
-            setGrabbedCardId(null)
-            setTargetColumnId(null)
-            setAnnouncement('')
-          },
-        },
-        referenceSwimlanes: swimlanes && {
-          ...swimlanes,
-          lanes,
-          collapsedLaneIds,
-          grabbedCardId: swimlaneGrabbedCardId,
-          announcement: swimlaneAnnouncement,
-          onToggleLane: (laneId) =>
-            setCollapsedLaneIds((current) =>
-              current.includes(laneId) ? current.filter((id) => id !== laneId) : [...current, laneId],
-            ),
-          onToggleAll: () =>
-            setCollapsedLaneIds((current) => (current.length === lanes.length ? [] : lanes.map((lane) => lane.id))),
-          onGrab: (cardId) => {
-            setSwimlaneGrabbedCardId(cardId)
-            setSwimlaneAnnouncement(swimlanes.labels.grabbed(cardId))
-          },
-          onMove: (cardId, laneId, stageId) =>
-            setLanes((current) => {
-              const card = current.flatMap((lane) => lane.cards).find((item) => item.id === cardId)
-              const originalLaneId = current.find((lane) => lane.cards.some((item) => item.id === cardId))?.id
-              if (!card) return current
-              return current.map((lane) => {
-                const remaining = lane.cards.filter((item) => item.id !== cardId)
-                if (lane.id !== laneId) return { ...lane, cards: remaining }
-                if (originalLaneId === laneId) return { ...lane, cards: [...remaining, { ...card, stageId }] }
-                const insertAt = remaining.findIndex((item) => item.stageId === stageId)
-                const next = [...remaining]
-                next.splice(insertAt < 0 ? next.length : insertAt, 0, { ...card, stageId })
-                return { ...lane, cards: next }
-              })
-            }),
-          onDrop: (cardId) => {
-            setSwimlaneGrabbedCardId(null)
-            setSwimlaneAnnouncement(swimlanes.labels.dropped(cardId))
-          },
-          onCancelGrab: () => {
-            setSwimlaneGrabbedCardId(null)
-            setSwimlaneAnnouncement('')
-          },
-        },
-        referenceRegroup: regroup && {
-          ...regroup,
-          cards: regroupCards,
-          groupId: regroupGroupId,
-          grabbedCardId: regroupGrabbedCardId,
-          announcement: regroupAnnouncement,
-          onGroupChange: (groupId) => {
-            setRegroupGroupId(groupId)
-            setRegroupGrabbedCardId(null)
-            setRegroupAnnouncement('')
-          },
-          onGrab: (cardId) => {
-            setRegroupGrabbedCardId(cardId)
-            setRegroupAnnouncement(regroup.labels.grabbed(cardId, regroupGroupId))
-          },
-          onMove: (cardId, groupId, columnId) => setRegroupCards((current) => {
-            const card = current.find((item) => item.id === cardId)
-            if (!card) return current
-            const updated = groupId === 'assignee' ? {...card, assigneeId: columnId}
-              : groupId === 'priority' ? {...card, priorityId: columnId, priorityTone: columnId === 'urgent' ? 'strong' as const : columnId === 'high' ? 'medium' as const : 'soft' as const}
-              : {...card, statusId: columnId}
-            return [...current.filter((item) => item.id !== cardId), updated]
-          }),
-          onDrop: (cardId, columnId) => {
-            setRegroupGrabbedCardId(null)
-            const label = regroup.columns[regroupGroupId]?.find((column) => column.id === columnId)?.label ?? columnId
-            setRegroupAnnouncement(regroup.labels.dropped(cardId, label))
-          },
-          onCancelGrab: () => {
-            setRegroupGrabbedCardId(null)
-            setRegroupAnnouncement('')
-          },
-        },
-        referenceDetail: detail && {
-          ...detail,
-          cards: detailCards,
-          selectedCardId: detailSelectedCardId,
-          grabbedCardId: detailGrabbedCardId,
-          announcement: detailAnnouncement,
-          onSelect: (cardId) => { setDetailSelectedCardId(cardId); setDetailAnnouncement('') },
-          onClose: () => { setDetailSelectedCardId(null); setDetailAnnouncement('') },
-          onGrab: setDetailGrabbedCardId,
-          onMove: (cardId, columnId) => {
-            setDetailCards((current) => {
-              const card = current.find((item) => item.id === cardId)
-              return card ? [...current.filter((item) => item.id !== cardId), {...card, statusId: columnId}] : current
-            })
-            setDetailGrabbedCardId(null)
-            const label = detail.columns.find((column) => column.id === columnId)?.label ?? columnId
-            setDetailAnnouncement(detail.labels.moved(cardId, label))
-          },
-          onCancelGrab: () => setDetailGrabbedCardId(null),
-        },
-        referenceSprint: sprint && {
-          ...sprint,
-          cards: sprintCards,
-          grabbedCardId: sprintGrabbedCardId,
-          announcement: sprintAnnouncement,
-          onGrab: (cardId) => { setSprintGrabbedCardId(cardId); setSprintAnnouncement(sprint.labels.grabbed(cardId)) },
-          onMove: (cardId, stageId) => setSprintCards((current) => {
-            const card = current.find((item) => item.id === cardId)
-            return card ? [...current.filter((item) => item.id !== cardId), {...card, stageId}] : current
-          }),
-          onDrop: (cardId, stageId) => {
-            setSprintGrabbedCardId(null)
-            const label = sprint.stages.find((stage) => stage.id === stageId)?.label ?? stageId
-            setSprintAnnouncement(sprint.labels.dropped(cardId, label))
-          },
-          onCancelGrab: () => { setSprintGrabbedCardId(null); setSprintAnnouncement('') },
-        },
-        referenceCompact: compact && {
-          ...compact,
-          cards: compactCards,
-          selectedColumnId: compactColumnId,
-          announcement: compactAnnouncement,
-          onSelectColumn: setCompactColumnId,
-          onMove: (cardId, columnId) => {
-            const card = compactCards.find((item) => item.id === cardId)
-            const column = compact.columns.find((item) => item.id === columnId)
-            if (!card || !column || card.columnId === columnId) return
-            setCompactCards((current) => [...current.filter((item) => item.id !== cardId), {...card, columnId}])
-            setCompactAnnouncement(compact.labels.moved(card.label, column.label))
-          },
-        },
-      }}
-    >
-      {children}
-    </HbarAppUiKanbanProvider>
-  )
+    store.getState().refresh(seed)
+  }, [seed, store])
+  const content = projectKanbanPreview(input, store)
+  return <HbarAppUiKanbanProvider content={content}>{children}</HbarAppUiKanbanProvider>
 }

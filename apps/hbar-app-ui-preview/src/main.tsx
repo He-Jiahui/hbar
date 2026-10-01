@@ -850,7 +850,7 @@ function PreviewApp() {
           data-hbar-app-ui-variant={selected.spec.id}
         >
           <EmptyStatePreviewHost content={emptyStateContent} spec={selected.spec} onAction={handleAction}>
-          <KanbanPreviewHost content={kanbanContent}>
+          <KanbanPreviewHost content={kanbanContent} spec={selected.spec} onAction={handleAction}>
             <HbarAppUiAiChatProvider content={aiChatContent}>
               <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
               <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
@@ -1340,7 +1340,7 @@ function PreviewApp() {
                     data-hbar-app-ui-state={selected.spec.profile.initialState}
                   >
                     <EmptyStatePreviewHost content={emptyStateContent} spec={selected.spec} onAction={handleAction}>
-                    <KanbanPreviewHost content={kanbanContent}>
+                    <KanbanPreviewHost content={kanbanContent} spec={selected.spec} onAction={handleAction}>
                       <HbarAppUiAiChatProvider content={aiChatContent}>
                         <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
                         <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
