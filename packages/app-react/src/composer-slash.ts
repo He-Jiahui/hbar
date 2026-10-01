@@ -30,7 +30,8 @@ export function localSlashCommand(text: string, available: readonly LocalSlashCo
   if (value === '/cost' && available.includes('cost')) return 'cost'
   if (value === '/help' && available.includes('help')) return 'help'
   if (/^\/goal(?:\s|$)/.test(value) && available.includes('goal')) return 'goal'
-  if (/^\/agent(?:\s|$)/.test(value) && available.includes('agent')) return 'agent'
+  // `/agent` is a parent-session prompt. Keep it in the suggestion catalog for
+  // completion, but let the normal Run path preserve its text and attachments.
   return null
 }
 

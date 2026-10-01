@@ -1435,7 +1435,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           id: 'agent',
           label: '/agent',
           argumentHint: choose('<类型> <任务>', '<agent> <task>'),
-          description: choose('将任务交给选定的子 Agent', 'Run a task with a selected child Agent'),
+          description: choose(
+            '在当前会话中请求 Agent 工具处理任务',
+            'Ask the parent session Agent tool to handle the task',
+          ),
         },
         { id: 'model', label: '/model', description: choose('选择本次会话的模型', 'Choose a model for this session') },
         {

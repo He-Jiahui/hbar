@@ -5,8 +5,9 @@
 不把早期审计中的“当时缺失”继续当作当前缺陷，也不声明完整桌面体验已经迁移完成。
 
 2026-10-01 更新：用户已确认推荐语义。Goal + Plan 共存已在后续
-[composer 交付](desktop-composer-entry-parity.md)实现并验证；`/agent` 选择父会话
-prompt 路径，仍需独立 Host/tool 交付。waiting-approval Guide 保留限制。
+[composer 交付](desktop-composer-entry-parity.md)实现并验证；`/agent` 的
+[父会话 prompt 与真实 Host/tool 路径](desktop-agent-parent-route.md)已独立实现并验证。
+waiting-approval Guide 保留限制。
 下文的“未决”是本次基础复核时的历史状态，不再要求用户重复选择。
 
 后续独立交付包括[排队卡动作层级](desktop-queued-action-hierarchy.md)与

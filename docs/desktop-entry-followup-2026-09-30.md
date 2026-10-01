@@ -61,7 +61,7 @@ The directly constrained original 320px component has a cramped header and fallb
 
 Activity → child-Agent 查看入口已在后续单元交付：同一面板分组显示真实 Run 和子 Agent，状态提示只驱动可见面板，行点击沿原来源打开子会话并返回原父页签。原组件证据和中英文宽／窄屏正常路径见[Activity 交付记录](desktop-activity-agents.md)。随后补上了[实时 Plan 任务进度](desktop-activity-tasks.md)，直接复用现有宿主事实，任务状态、完成数与清空结果在原面板更新。源码审查也确认 CC 的 Goal 不属于 Activity checklist，仍应保留独立的会话标题区生命周期。这不等同于下面的 `/agent` 发送语义改变，也不关闭 Workflow 或全局父会话运行状态聚合的剩余差距。
 
-CC sends `/agent …` as a parent prompt, while hbar currently directly creates a child Session/Run through its Agent contract. The user has now selected the CC-style parent prompt route; implementation is a separate follow-up slice because hbar must expose a real model Agent capability before the UI can stop calling the direct child-create contract. Do not claim parity until that Host/tool path is implemented and verified.
+The user-approved [parent-session Agent route](desktop-agent-parent-route.md) is now implemented and verified. `/agent …` uses an ordinary parent Run with its existing receipt, draft and attachment handling; the registered model `agent` tool creates the child through the existing service and normal policy/approval gates. Completion itself never executes. The supported profile remains read-only Explore; isolated parent execution checkout inheritance, foreground waiting and full CC Agent/Team parity are not claimed.
 
 Recent Files selected-code/comments, preview tabs, path/reading navigation, whole-file Add, and extension detail actions were not rediscovered as new gaps. This follow-up does not establish parity for PTY, native embedded Browser, Teams, installation/market flows, or other missing public capabilities. It adds no placeholder buttons and no backend capability claims.
 

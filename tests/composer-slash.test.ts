@@ -33,9 +33,9 @@ test('only entire supported local command is intercepted, preserving ordinary Ru
   ])
     expect(localSlashCommand(text, available)).toBeNull()
   expect(localSlashCommand('/model', [])).toBeNull()
-  expect(localSlashCommand('/agent explore Review this', [...available, 'agent'])).toBe('agent')
-  expect(localSlashCommand('/agent debugger investigate', [...available, 'agent'])).toBe('agent')
-  expect(localSlashCommand('/agent', [...available, 'agent'])).toBe('agent')
+  expect(localSlashCommand('/agent explore Review this', [...available, 'agent'])).toBeNull()
+  expect(localSlashCommand('/agent debugger investigate', [...available, 'agent'])).toBeNull()
+  expect(localSlashCommand('/agent', [...available, 'agent'])).toBeNull()
   expect(localSlashCommand('Explain /agent explore', [...available, 'agent'])).toBeNull()
 })
 

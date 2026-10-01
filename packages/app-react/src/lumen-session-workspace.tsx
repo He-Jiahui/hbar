@@ -709,6 +709,51 @@ function SessionWorkspaceContent({
     if (composerWriteError.current?.sessionId === targetSessionId) return
     const selected = runtime.state.navigation.getSnapshot()
     const latest = runtime.state.drafts.getSnapshot()[targetSessionId]
+    if (latest && /^\/agent(?:\s|$)/.test(latest.text.trim())) {
+      if (!connected || selected.sessionId !== targetSessionId || selected.workspaceId !== targetWorkspaceId) return
+      const command = localAgentSlash(latest.text)
+      if (!command) {
+        setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_REQUIRED' })
+        return
+      }
+      let catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
+      if (catalog.status !== 'ready') {
+        if (localSlashInFlight.current) return
+        localSlashInFlight.current = true
+        try {
+          await runtime.commands.execute('agentComposer.refresh', {
+            sessionId: targetSessionId,
+            workspaceId: targetWorkspaceId,
+          })
+          catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
+        } catch {
+          setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
+          return
+        } finally {
+          localSlashInFlight.current = false
+        }
+        const currentTarget = runtime.state.navigation.getSnapshot()
+        const currentDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+        if (
+          currentTarget.sessionId !== targetSessionId ||
+          currentTarget.workspaceId !== targetWorkspaceId ||
+          currentDraft?.revision !== latest.revision ||
+          composerWrite.current?.sessionId === targetSessionId
+        )
+          return
+      }
+      if (catalog.status !== 'ready') {
+        setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
+        return
+      }
+      if (!catalog.profiles.some((profile) => profile === command.profileId)) {
+        setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_PROFILE_UNAVAILABLE', profileId: command.profileId })
+        return
+      }
+      // Completion/validation never creates a child. The ordinary parent Run below
+      // owns its exact draft, attachments, model, permission and unknown receipt.
+      setSlashFailure(null)
+    }
     const slash = latest && localSlashCommand(latest.text, slashIds)
     if (slash) {
       const currentIntent = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
@@ -774,57 +819,6 @@ function SessionWorkspaceContent({
           return
         }
         await runGoalSlash({ ...target, text: latest.text }, command, previous?.goalId)
-        return
-      }
-      if (slash === 'agent') {
-        const command = localAgentSlash(latest.text)
-        if (!command) {
-          setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_REQUIRED' })
-          return
-        }
-        localSlashInFlight.current = true
-        setSlashFailure(null)
-        try {
-          let catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
-          if (catalog.status !== 'ready') {
-            await runtime.commands.execute('agentComposer.refresh', {
-              sessionId: targetSessionId,
-              workspaceId: targetWorkspaceId,
-            })
-            catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
-          }
-          if (catalog.status !== 'ready') {
-            setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
-            return
-          }
-          const profileId = catalog.profiles.find((item) => item === command.profileId)
-          if (!profileId) {
-            setSlashFailure({
-              sessionId: targetSessionId,
-              code: 'AGENT_PROFILE_UNAVAILABLE',
-              profileId: command.profileId,
-            })
-            return
-          }
-          await runtime.commands.execute('agentComposer.invoke', {
-            sessionId: targetSessionId,
-            workspaceId: targetWorkspaceId,
-            draftText: latest.text,
-            draftRevision: latest.revision,
-            profileId,
-            objective: command.objective,
-          })
-        } catch (reason) {
-          setSlashFailure({
-            sessionId: targetSessionId,
-            code:
-              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-                ? reason.code
-                : 'EXECUTION_FAILED',
-          })
-        } finally {
-          localSlashInFlight.current = false
-        }
         return
       }
       localSlashInFlight.current = true

@@ -1,11 +1,51 @@
 import { expect, test } from '@playwright/test'
-import { createAgentCommandClient } from '@hbar/client'
+import { HbarClient, createAgentCommandClient } from '@hbar/client'
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
-import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import {
+  waitForWebSessionHostReady,
+  stopOwnedWebSessionHostChild,
+  stopWebSessionHost,
+  type WebSessionHost,
+} from './support/web-session-host'
+
+async function startParentHost(root: string): Promise<WebSessionHost> {
+  const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
+  const executable =
+    process.platform === 'win32'
+      ? (process.env.PATH ?? '')
+          .split(delimiter)
+          .flatMap((path) => [join(path, 'bun.exe'), join(path, 'node_modules/bun/bin/bun.exe')])
+          .find(existsSync)
+      : 'bun'
+  if (!executable) throw new Error('Bun executable is unavailable for the owned Agent fixture')
+  const child = spawn(executable, ['e2e/support/agent-parent-host.ts'], {
+    cwd: process.cwd(),
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      HBAR_E2E_DATA_ROOT: root,
+      HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
+    },
+  })
+  const ready = await waitForWebSessionHostReady(child)
+  const url = `http://127.0.0.1:${port}`
+  const client = new HbarClient(url, ready.token)
+  try {
+    await client.connect()
+  } catch (error) {
+    client.disconnect()
+    await stopOwnedWebSessionHostChild(child)
+    throw error
+  }
+  return { child, client, ready, url }
+}
 
 async function cleanupFixture(root: string): Promise<void> {
   const target = resolve(root)
@@ -15,7 +55,7 @@ async function cleanupFixture(root: string): Promise<void> {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`Agent slash completes before dispatch and creates only a child Agent: ${locale}`, async ({
+  test(`Agent completion defers execution to the parent Run and creates a tool-owned child: ${locale}`, async ({
     browser,
   }, testInfo) => {
     test.setTimeout(90_000)
@@ -23,7 +63,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startParentHost(root)
       const copy = getShellCopy(locale)
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -65,6 +105,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const objective = 'Inspect the current navigation and report the relevant files'
       await prompt.fill(`/agent explore ${objective}`)
       await send.click()
+      const approval = page.getByRole('region', { name: copy.session.decisions.approval, exact: true })
+      await expect(approval).toBeVisible()
+      expect((await agents.execute('agent.list', { parentSessionId: host.ready.sessionId })).items).toHaveLength(0)
+      await approval.getByRole('button', { name: copy.session.decisions.allow, exact: true }).click()
       await expect
         .poll(async () =>
           (await agents.execute('agent.list', { parentSessionId: host!.ready.sessionId })).items.some(
@@ -73,17 +117,40 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )
         .toBe(true)
       await expectComposerText(prompt, '')
-      await expect(page.getByText(copy.session.slash.agentNotice.created, { exact: true })).toBeVisible()
-      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(0)
+      await expect
+        .poll(
+          async () =>
+            (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs[0]?.status,
+        )
+        .toBe('completed')
+      const snapshot = await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })
+      expect(snapshot.runs).toHaveLength(1)
+      expect(snapshot.runs[0]?.input.text).toBe(`/agent explore ${objective}`)
+      expect(
+        snapshot.messages.some((message) =>
+          message.content.some((part) => part.type === 'tool_result' && part.name === 'agent' && !part.isError),
+        ),
+      ).toBe(true)
+      const created = (await agents.execute('agent.list', { parentSessionId: host.ready.sessionId })).items[0]
+      if (!created) throw new Error('The parent Agent tool did not create a child')
+      const draft = 'Keep this parent draft while checking the Agent result — 保留原草稿。'
+      await prompt.fill(draft)
+      await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
+      const activity = page.locator('.hbar-session-activity-workspace')
+      const row = activity.locator(`[data-activity-agent-id="${created.agentId}"]`)
+      await expect(row).toBeVisible()
 
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(
-        page.getByRole('button', { name: copy.session.slash.agentNotice.open, exact: true }),
+        row.getByRole('button', { name: copy.activity.agents.open(objective), exact: true }),
       ).toBeInViewport()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`agent-created-${locale}-320.png`) })
-      await page.getByRole('button', { name: copy.session.slash.agentNotice.open, exact: true }).click()
-      await expect(page.getByRole('heading', { name: copy.agents.detailTitle, exact: true })).toBeVisible()
+      await row.getByRole('button', { name: copy.activity.agents.open(objective), exact: true }).click()
+      await page.getByRole('button', { name: copy.agents.returnToParent(host.ready.sessionTitle), exact: true }).click()
+      await expect(activity).toBeVisible()
+      await activity.getByRole('button', { name: copy.activity.close, exact: true }).click()
+      await expectComposerText(prompt, draft)
       expect(pageErrors).toEqual([])
     } finally {
       await context.close()

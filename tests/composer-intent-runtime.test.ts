@@ -278,6 +278,58 @@ test('Goal submission can run in the confirmed Host Plan mode and rechecks a cha
   }
 })
 
+test('parent Agent prompt uses ordinary Run receipt recovery and preserves images and files until acceptance', async () => {
+  const f = fixture()
+  const text = '/agent explore Inspect this exact prompt\nthen report the findings'
+  const image = { id: 'a'.repeat(64), name: 'diagram.png', mime: 'image/png', size: 12 }
+  const file = { id: 'b'.repeat(64), name: 'notes.txt', mime: 'text/plain', size: 25 }
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text })
+    const revision = f.drafts.reader.getSnapshot().one?.revision
+    if (revision === undefined) throw new Error('Missing parent prompt draft')
+    await f.local.execute('draft.setAttachments', {
+      sessionId: 'one',
+      attachments: [
+        { kind: 'image', artifact: image },
+        { kind: 'file', artifact: file },
+      ],
+      expectedRevision: revision,
+    })
+    const captured = f.drafts.reader.getSnapshot().one
+    if (!captured) throw new Error('Missing parent prompt attachments')
+    f.failures({ run: 'unknown' })
+    await expect(
+      f.local.execute('composerIntent.submit', {
+        sessionId: 'one',
+        modelId: 'provider/model',
+        expectedDraftRevision: captured.revision,
+        input: { text, images: [image], files: [file] },
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const calls = f.calls.filter((call) => call.name === 'run.submit')
+    expect(calls).toHaveLength(1)
+    expect(submitRunInputSchema.parse(calls[0]?.input).input).toMatchObject({
+      text,
+      images: [image],
+      files: [file],
+      source: 'user',
+      mode: 'default',
+    })
+    expect(f.calls.filter((call) => call.name === 'agent.create' || call.name === 'goal.create')).toHaveLength(0)
+    expect(f.drafts.reader.getSnapshot().one).toMatchObject({
+      text,
+      attachments: captured.attachments,
+      status: 'unknown',
+    })
+    await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(1)
+    expect(f.drafts.reader.getSnapshot().one).toMatchObject({ text: '', attachments: [], status: 'idle' })
+  } finally {
+    f.dispose()
+  }
+})
+
 test('Goal intent excludes conversation quotes while Run receives both workspace and chat context', async () => {
   const message: Message = {
     id: 'assistant-message',

@@ -30,6 +30,7 @@ import {
   pathAllowed,
   synchronizeScope,
 } from './patches'
+import { advertiseAgentTool, createAgentTool } from './agent-tool'
 
 const MAX_CHILDREN = 128
 const MAX_SCANNED_CHILD_SESSIONS = 2_000
@@ -691,6 +692,8 @@ export const agentPlugin = definePlugin({
       api,
     )
     provide<AgentService>(ctx, 'agent', runtime)
+    api.tools.register(createAgentTool(runtime, api.sessions))
+    api.hooks.on('tools.advertise', (event) => advertiseAgentTool(event))
     api.hooks.on('tools.select', (event) => runtime.selectProfileTools(event))
     api.hooks.on('tools.advertise', (event) => runtime.advertiseProfile(event))
     api.hooks.on('tool.before', async (event) => {
