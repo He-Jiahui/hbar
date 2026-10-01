@@ -135,6 +135,26 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       if (!created) throw new Error('The parent Agent tool did not create a child')
       const draft = 'Keep this parent draft while checking the Agent result — 保留原草稿。'
       await prompt.fill(draft)
+      const openFromTool = page.getByRole('button', {
+        name: copy.session.agentToolOpen.openNamed(objective),
+        exact: true,
+      })
+      await expect(openFromTool).toBeVisible()
+      const toolHeading = page.locator('.hbar-session-tool[data-tool-name="agent"] .hbar-session-disclosure-heading')
+      await expect(toolHeading.getByRole('button', { expanded: false }).first()).toBeVisible()
+      await page.screenshot({ path: testInfo.outputPath(`agent-tool-open-${locale}-1440.png`) })
+      await page.setViewportSize({ width: 390, height: 800 })
+      await expect(openFromTool).toBeInViewport()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: testInfo.outputPath(`agent-tool-open-${locale}-390.png`) })
+      await openFromTool.click()
+      await expect(
+        page.getByRole('button', { name: copy.agents.returnToParent(host.ready.sessionTitle), exact: true }),
+      ).toBeVisible()
+      await page.getByRole('button', { name: copy.agents.returnToParent(host.ready.sessionTitle), exact: true }).click()
+      await expectComposerText(prompt, draft)
+      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(1)
+      expect((await agents.execute('agent.list', { parentSessionId: host.ready.sessionId })).items).toHaveLength(1)
       await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
       const activity = page.locator('.hbar-session-activity-workspace')
       const row = activity.locator(`[data-activity-agent-id="${created.agentId}"]`)

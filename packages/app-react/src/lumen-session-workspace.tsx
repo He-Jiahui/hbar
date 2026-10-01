@@ -57,6 +57,8 @@ import { addComposerAttachments, type HbarSessionAttachmentSelection } from './c
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 import { HbarComposerAgentNotice } from './composer-agent-notice'
+import { HbarAgentToolOpen, type HbarAgentToolOpenLabels } from './agent-tool-open'
+import { agentToolOpenIdentity } from './agent-tool-open-model'
 import {
   HbarSessionProjectContext,
   useHbarSessionProjectContext,
@@ -133,6 +135,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  readonly agentToolOpen: HbarAgentToolOpenLabels
   readonly messageFork: {
     readonly ready: string
     readonly submitting: string
@@ -1086,6 +1089,26 @@ function SessionWorkspaceContent({
     }
   }, [connected, forkCandidateIds, runtime.commands, sessionId, timeline.cursor, timeline.sessionId, timeline.status])
   const sourceTab = tabs.items.find((item) => item.kind === 'session' && item.sessionId === sessionId)
+  const toolActionForMessage =
+    (messageId: string): HbarMessageBlocksProps['renderToolAction'] =>
+    (row) => {
+      if (!sessionId || !sourceTab || sourceTab.kind !== 'session') return null
+      const identity = agentToolOpenIdentity(row, sessionId)
+      if (!identity || !row.call) return null
+      return (
+        <HbarAgentToolOpen
+          key={`${sourceTab.instanceKey}:${messageId}:${row.call.callId}`}
+          parentSessionId={sessionId}
+          messageId={messageId}
+          callId={row.call.callId}
+          childSessionId={identity.sessionId}
+          objective={identity.objective}
+          sourceTabInstanceKey={sourceTab.instanceKey}
+          connected={connected}
+          labels={labels.agentToolOpen}
+        />
+      )
+    }
   const eligibilityCurrent =
     messageFork.eligibility.sessionId === sessionId && messageFork.eligibility.cursor === timeline.cursor
   const decisionProjection = useMemo(
@@ -1236,6 +1259,7 @@ function SessionWorkspaceContent({
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
+            renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             document={proposal}
             plan={{
@@ -1269,6 +1293,7 @@ function SessionWorkspaceContent({
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
+            renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             readOnlyLabel={labels.proposedPlanReadOnly}
           />
@@ -1283,6 +1308,7 @@ function SessionWorkspaceContent({
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
+            renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
           />
         )

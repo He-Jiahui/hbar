@@ -1,0 +1,23 @@
+.hbar-agent-tool-open {
+  display: flex;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hbar-agent-tool-open > button {
+  max-inline-size: 100%;
+  gap: 4px;
+  padding: 4px 6px;
+  white-space: normal;
+  text-align: start;
+}
+
+.hbar-agent-tool-open > span {
+  max-inline-size: 24rem;
+  font-size: 0.75rem;
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}

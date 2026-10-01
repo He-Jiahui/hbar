@@ -13,6 +13,18 @@
 .hbar-session-message-blocks {
   gap: 12px;
 }
+.hbar-session-disclosure-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.hbar-session-disclosure-heading > .hbar-session-disclosure-trigger {
+  flex: 1 1 14rem;
+  inline-size: auto;
+}
 .hbar-session-message-prose {
   min-inline-size: 0;
   font-size: 0.90625rem;

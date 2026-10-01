@@ -965,6 +965,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     workflows: workflowWorkspace.reader,
     presentation: presentation.reader,
     navigation: navigation.reader,
+    timeline: timeline.reader,
     selectSession: (sessionId, workspaceId, execution) =>
       local.execute('app.setSession', { sessionId, workspaceId }, execution),
     isDisposed: () => disposed,

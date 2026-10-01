@@ -95,6 +95,8 @@ export interface HbarMessageBlocksProps {
   readonly renderText?: (row: Extract<SessionMessageRow, { kind: 'text' }>) => ReactNode
   /** Decisions are siblings after their tool disclosure, never inside its collapsed details. */
   readonly toolDecisions?: ReadonlyMap<string, ReactNode> | undefined
+  /** Parent-owned actions stay visible beside the exact tool, outside collapsed JSON details. */
+  readonly renderToolAction?: ((row: SessionToolRow) => ReactNode) | undefined
   readonly renderImages?: HbarMessageImageRenderer | undefined
 }
 
@@ -166,6 +168,7 @@ function Disclosure({
   className,
   failed = false,
   tool,
+  action,
 }: {
   readonly label: string
   readonly preview?: string | undefined
@@ -182,9 +185,40 @@ function Disclosure({
     readonly outcome: ReturnType<typeof sessionToolOutcome>
     readonly icon: HbarMessageToolPresentation['icon']
   }
+  readonly action?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
+  const trigger = (
+    <LumenButton
+      variant="text"
+      indicator="none"
+      size="s"
+      className="hbar-session-disclosure-trigger"
+      aria-expanded={open}
+      aria-controls={id}
+      title={title}
+      onClick={() => setOpen(!open)}
+    >
+      <LumenIcon icon={icon} tier="sm" />
+      <LumenText as="span" className="hbar-session-disclosure-identity">
+        <LumenText as="span" className="hbar-session-disclosure-label">
+          {label}
+        </LumenText>
+        {preview ? (
+          <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
+            {preview}
+          </LumenText>
+        ) : null}
+      </LumenText>
+      {status ? (
+        <LumenText as="span" className="hbar-session-disclosure-status">
+          {status}
+        </LumenText>
+      ) : null}
+      <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
+    </LumenButton>
+  )
   return (
     <LumenFrame
       className={['hbar-session-disclosure', className].filter(Boolean).join(' ')}
@@ -194,34 +228,14 @@ function Disclosure({
       data-outcome={tool?.outcome}
       data-presentation-icon={tool?.icon}
     >
-      <LumenButton
-        variant="text"
-        indicator="none"
-        size="s"
-        className="hbar-session-disclosure-trigger"
-        aria-expanded={open}
-        aria-controls={id}
-        title={title}
-        onClick={() => setOpen(!open)}
-      >
-        <LumenIcon icon={icon} tier="sm" />
-        <LumenText as="span" className="hbar-session-disclosure-identity">
-          <LumenText as="span" className="hbar-session-disclosure-label">
-            {label}
-          </LumenText>
-          {preview ? (
-            <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
-              {preview}
-            </LumenText>
-          ) : null}
-        </LumenText>
-        {status ? (
-          <LumenText as="span" className="hbar-session-disclosure-status">
-            {status}
-          </LumenText>
-        ) : null}
-        <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
-      </LumenButton>
+      {action ? (
+        <LumenFrame className="hbar-session-disclosure-heading">
+          {trigger}
+          {action}
+        </LumenFrame>
+      ) : (
+        trigger
+      )}
       <LumenFrame id={id} className="hbar-session-disclosure-content" hidden={!open}>
         {open ? children : null}
       </LumenFrame>
@@ -236,6 +250,7 @@ function ToolRow({
   sessionId,
   messageId,
   clipboard,
+  renderToolAction,
 }: {
   readonly row: SessionToolRow
   readonly labels: HbarMessageBlocksLabels
@@ -243,6 +258,7 @@ function ToolRow({
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
+  readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon = toolIcons[presentation?.icon ?? 'tool']
@@ -266,6 +282,7 @@ function ToolRow({
       icon={icon}
       className="hbar-session-tool"
       failed={outcome === 'failed'}
+      action={renderToolAction?.(row)}
       tool={{
         callId: row.call?.callId ?? row.result?.callId,
         name: row.name,
@@ -295,6 +312,7 @@ function Activity({
   sessionId,
   messageId,
   clipboard,
+  renderToolAction,
 }: {
   readonly rows: readonly ActivityRow[]
   readonly streaming: boolean
@@ -303,6 +321,7 @@ function Activity({
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
+  readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
 }) {
   const [pinnedOpen, setPinnedOpen] = useState<boolean | null>(null)
   const contentId = useId()
@@ -348,6 +367,7 @@ function Activity({
         sessionId={sessionId}
         messageId={messageId}
         clipboard={clipboard}
+        renderToolAction={renderToolAction}
       />
     ),
   )
@@ -387,6 +407,7 @@ function MessageBlocksContent({
   renderText,
   toolDecisions,
   renderImages,
+  renderToolAction,
 }: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
@@ -415,7 +436,7 @@ function MessageBlocksContent({
       continue
     }
     flushImages()
-    if (row.kind === 'tool' && toolDecisions?.has(row.id)) {
+    if (row.kind === 'tool' && (toolDecisions?.has(row.id) || renderToolAction?.(row))) {
       flush()
       groups.push(row)
     } else if (row.kind === 'thinking' || row.kind === 'tool') activity.push(row)
@@ -439,6 +460,7 @@ function MessageBlocksContent({
             sessionId={sessionId}
             messageId={messageId}
             clipboard={clipboard}
+            renderToolAction={renderToolAction}
           />
         ) : group.kind === 'images' ? (
           <LumenFrame key={group.id} className="hbar-session-message-images">
@@ -453,6 +475,7 @@ function MessageBlocksContent({
               sessionId={sessionId}
               messageId={messageId}
               clipboard={clipboard}
+              renderToolAction={renderToolAction}
             />
             {toolDecisions?.get(group.id)}
           </LumenFrame>

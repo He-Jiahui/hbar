@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { agentProfileIdSchema, agentStatusSchema, type AgentProfileId } from '@hbar/contracts/commands/agents'
+import { agentProfileIdSchema, agentToolResultSchema, type AgentProfileId } from '@hbar/contracts/commands/agents'
 import type { AgentService, HookEvents, SessionService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 
 export const AGENT_TOOL_NAME = 'agent'
@@ -14,19 +14,6 @@ export const agentToolInputSchema = z.strictObject({
   subagent_type: agentProfileIdSchema,
   prompt: z.string().trim().min(1).max(4_000),
 })
-
-const identitySchema = z.strictObject({
-  agentId: z.string().min(1).max(160),
-  parentSessionId: z.string().min(1).max(160),
-  sessionId: z.string().min(1).max(160),
-  requestId: z.string().min(1).max(160),
-  profileId: agentProfileIdSchema,
-  objective: z.string().min(1).max(4_000),
-  modelId: z.string().min(1).max(160),
-  status: agentStatusSchema,
-})
-
-type AgentToolIdentity = z.output<typeof identitySchema>
 
 function digest(value: string): string {
   return createHash('sha256').update(value).digest('hex')
@@ -118,7 +105,7 @@ export function createAgentTool(agents: AgentService, sessions: SessionService):
         record.modelId !== target.run.modelId
       )
         throw new HbarError('INVALID_OUTPUT', 'The Agent service returned a different target or task')
-      const identity: AgentToolIdentity = identitySchema.parse({
+      const identity = agentToolResultSchema.parse({
         agentId: record.agentId,
         parentSessionId: record.parentSessionId,
         sessionId: record.sessionId,

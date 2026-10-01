@@ -996,6 +996,20 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ? { user: '你', assistant: 'AI', system: '系', tool: '工' }
       : { user: 'You', assistant: 'AI', system: 'Sy', tool: 'Tl' },
     copy: choose('复制消息', 'Copy message'),
+    agentToolOpen: {
+      open: choose('打开子任务', 'Open child run'),
+      openNamed: (objective) => choose(`打开子任务：${objective}`, `Open child run: ${objective}`),
+      opening: choose('正在打开…', 'Opening…'),
+      error: (code) =>
+        code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED' || code === 'HOST_DISCONNECTED'
+          ? choose('连接已中断。重连后可在此重试打开。', 'Disconnected. Reconnect, then retry opening here.')
+          : code === 'TAB_LIMIT'
+            ? choose('页签已满，请先关闭一个。', 'Close a tab before opening this run.')
+            : choose(
+                '未能打开这个子任务。请重试或从活动面板查看。',
+                'Could not open this child run. Retry or view Activity.',
+              ),
+    },
     goalLifecycle: goalLifecycleCopy(zh),
     goalHistory: goalHistoryCopy(zh),
     goalContinuation: {
