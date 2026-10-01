@@ -12,6 +12,10 @@ Provider 变更失效链路，保留已选择模型/思考与草稿；其新证�
 [差异评论后继续输入](desktop-file-review-continuity.md)随后补齐可见原会话 composer
 的连续衔接，窄屏保持阅读与原草稿/引用/唯一 Run；没有以自动导航代替来源归属。
 
+[首发选择失效恢复](desktop-first-send-selection-validity.md)进一步处理 Provider
+删除模型或调整思考等级后的真实显示与发送有效性：保留显式选择及草稿，
+就近提示并等待用户确认，不用显示 fallback 冒充已确认选择。
+
 ## 当前入口组织与可观察完成条件
 
 | 核心路径                           | 当前实现与完成条件                                                                                      | 当前证据范围                                                                                                                        |

@@ -12,6 +12,8 @@ export interface WebPreSessionCopy {
   readonly retryModels: string
   readonly configureProviders: string
   readonly modelReadFailed: string
+  readonly selectedModelUnavailable: string
+  readonly selectedThinkingUnavailable: string
   readonly modelActionFailed: string
   readonly slashActionFailed: string
   readonly slashRequiresSession: string
@@ -70,6 +72,14 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
     retryModels: choose('重试读取模型', 'Retry models'),
     configureProviders: choose('配置模型提供商', 'Configure providers'),
     modelReadFailed: choose('模型暂时无法加载，请重试。', 'Models could not be loaded. Try again.'),
+    selectedModelUnavailable: choose(
+      '所选模型已不可用，请重新选择模型。草稿会保留。',
+      'The selected model is no longer available. Choose another model; your draft is kept.',
+    ),
+    selectedThinkingUnavailable: choose(
+      '所选思考等级已不受支持，请确认一个可用等级后发送。',
+      'The selected thinking level is no longer supported. Confirm an available level before sending.',
+    ),
     modelActionFailed: choose('无法打开提供商设置，请重试。', 'Could not open provider settings. Try again.'),
     slashActionFailed: choose('无法打开此入口，请重试。', 'Could not open this action. Try again.'),
     slashRequiresSession: choose(

@@ -40,22 +40,31 @@ export function HbarPreSessionThinkingPicker({
       ? model.defaultThinkingLevel
       : (levels[0] ?? 'off')
   const confirmed = level && levels.includes(level) ? level : modelDefault
+  const unavailable = Boolean(level && !levels.includes(level))
+  const displayed = level ?? confirmed
   const confirmedIndex = Math.max(0, levels.indexOf(confirmed))
-  const identity = JSON.stringify([model?.id ?? null, levels, confirmed])
+  const identity = JSON.stringify([model?.id ?? null, levels, displayed])
   const selectedIndex = preview?.identity === identity ? preview.index : confirmedIndex
   const selectedLevel = levels[selectedIndex] ?? confirmed
 
   useEffect(() => {
-    if (levels.length > 1 && !disabled) return
+    if ((levels.length > 1 || unavailable) && !disabled) return
     popup.current?.hidePopover()
-  }, [disabled, levels.length])
+  }, [disabled, levels.length, unavailable])
 
-  if (!model || levels.length < 2) return null
+  if (!model || (levels.length < 2 && !unavailable)) return null
 
-  const commit = (input: HTMLInputElement) => {
-    if (disabled || inFlight.current || cancelled.current || !model || preview?.identity !== identity) return
+  const commit = (input: HTMLInputElement, confirmUnavailable = false) => {
+    if (
+      disabled ||
+      inFlight.current ||
+      cancelled.current ||
+      !model ||
+      (preview?.identity !== identity && !(unavailable && confirmUnavailable))
+    )
+      return
     const next = levels[Number(input.value)]
-    if (!next || next === confirmed) {
+    if (!next || (next === confirmed && !unavailable)) {
       setPreview(null)
       return
     }
@@ -91,14 +100,15 @@ export function HbarPreSessionThinkingPicker({
         variant="text"
         indicator="none"
         className="hbar-composer-thinking-trigger"
-        aria-label={labels.thinkingTrigger(labels.thinkingLevel(confirmed))}
+        aria-label={labels.thinkingTrigger(labels.thinkingLevel(displayed))}
+        aria-invalid={unavailable || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
         disabled={disabled}
         popoverTarget={popupId}
       >
-        {labels.thinkingLevel(confirmed)}
+        {labels.thinkingLevel(displayed)}
       </LumenButton>
       <LumenFrame
         ref={popup}
@@ -185,7 +195,7 @@ export function HbarPreSessionThinkingPicker({
             onPointerDown={() => {
               cancelled.current = false
             }}
-            onPointerUp={(event) => commit(event.currentTarget)}
+            onPointerUp={(event) => commit(event.currentTarget, true)}
             onPointerCancel={() => {
               cancelled.current = true
               setPreview(null)
@@ -194,7 +204,7 @@ export function HbarPreSessionThinkingPicker({
               if (event.key !== 'Enter') return
               event.preventDefault()
               event.stopPropagation()
-              commit(event.currentTarget)
+              commit(event.currentTarget, true)
             }}
             onBlur={(event) => commit(event.currentTarget)}
           />

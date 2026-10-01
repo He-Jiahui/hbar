@@ -23,7 +23,12 @@ import {
   type HbarSessionImagesOptions,
   type PreSessionLocalSlashCommand,
 } from '@hbar/app-react'
-import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanMode } from '@hbar/app-runtime'
+import {
+  workspaceDisplayName,
+  preSessionModelSelection,
+  type ComposerPermissionChoice,
+  type ComposerPlanMode,
+} from '@hbar/app-runtime'
 import { workspacePageSchema } from '@hbar/contracts/directory'
 import type { ThinkingLevel } from '@hbar/contracts'
 import type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
@@ -60,6 +65,7 @@ export function WebPreSessionLanding({
   const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const modelCatalog = useHbarRuntimeState(runtime.state.preSessionModelCatalog)
   const draft = preSessionDrafts[draftId]
+  const modelSelection = preSessionModelSelection(modelCatalog, draft)
   const shell = getShellCopy(locale)
   const labels = preSessionCopy(locale)
   const launchLabels = preSessionLaunchCopy(locale)
@@ -602,6 +608,9 @@ export function WebPreSessionLanding({
       labels={modelLabels}
       items={modelChoices}
       selectedId={draft?.modelId ?? null}
+      unavailableLabel={
+        modelSelection.unavailable === 'model' ? shell.session.modelPicker.unavailableTrigger : undefined
+      }
       disabled={!connected || busy || draft?.phase === 'unknown'}
       loading={modelsLoading}
       extra={(closePicker) =>
@@ -632,7 +641,7 @@ export function WebPreSessionLanding({
       onChoose={chooseModel}
     />
   )
-  const selectedModel = models.find((model) => model.id === draft?.modelId) ?? null
+  const selectedModel = modelSelection.model
   const modelControls = (
     <LumenFrame className="hbar-web-pre-session-model-controls">
       {modelControl}
@@ -702,10 +711,18 @@ export function WebPreSessionLanding({
       </LumenButton>
     ) : null
   const modelGuidance =
-    !modelsLoading && (modelError || models.length === 0 || providerRouteError) ? (
+    !modelsLoading && (modelError || models.length === 0 || providerRouteError || modelSelection.unavailable) ? (
       <LumenFrame className="hbar-web-pre-session-model-guidance">
-        <LumenText as="p" role={modelError || providerRouteError ? 'alert' : undefined}>
-          {providerRouteError ? labels.modelActionFailed : modelError ? labels.modelReadFailed : labels.model.empty}
+        <LumenText as="p" role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}>
+          {providerRouteError
+            ? labels.modelActionFailed
+            : modelError
+              ? labels.modelReadFailed
+              : modelSelection.unavailable === 'model'
+                ? labels.selectedModelUnavailable
+                : modelSelection.unavailable === 'thinking'
+                  ? labels.selectedThinkingUnavailable
+                  : labels.model.empty}
         </LumenText>
         {modelError ? (
           <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
@@ -778,6 +795,7 @@ export function WebPreSessionLanding({
                 : draft?.workspaceId &&
                   !modelsLoading &&
                   !modelError &&
+                  !modelSelection.unavailable &&
                   models.length > 0 &&
                   (text.trim() || (draft?.intent !== 'goal' && Boolean(draft?.attachments.length)))),
             ) && !unsupportedSlash,

@@ -29,6 +29,8 @@ export interface HbarPreSessionChoicePickerProps {
   readonly labels: HbarPreSessionChoiceLabels
   readonly items: readonly HbarPreSessionChoice[]
   readonly selectedId: string | null
+  /** A host-owned unavailable label, not an invented selectable row or implicit selection. */
+  readonly unavailableLabel?: string | undefined
   readonly placement?: 'dialog' | 'composer'
   readonly menuPresentation?: 'native' | 'web'
   readonly disabled?: boolean
@@ -49,6 +51,7 @@ export function HbarPreSessionChoicePicker({
   labels,
   items,
   selectedId,
+  unavailableLabel,
   placement = 'dialog',
   menuPresentation = 'web',
   disabled = false,
@@ -339,12 +342,12 @@ export function HbarPreSessionChoicePicker({
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={labels.trigger(selectedTriggerLabel)}
+        aria-label={unavailableLabel ?? labels.trigger(selectedTriggerLabel)}
         popoverTarget={placement === 'composer' ? popupId : undefined}
         onClick={placement === 'dialog' ? () => setOpen(true) : undefined}
       >
         <LumenIcon icon={icon} tier="sm" />
-        <LumenText as="span">{selectedTriggerLabel ?? labels.title}</LumenText>
+        <LumenText as="span">{unavailableLabel ?? selectedTriggerLabel ?? labels.title}</LumenText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       {placement === 'composer' ? (
