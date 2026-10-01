@@ -74,6 +74,7 @@ import { DashboardPreviewHost } from './DashboardPreviewHost'
 import { AnalyticsPreviewHost } from './AnalyticsPreviewHost'
 import { ListPreviewHost } from './ListPreviewHost'
 import { FilteringPreviewHost } from './FilteringPreviewHost'
+import { FileManagerPreviewHost } from './FileManagerPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -89,7 +90,6 @@ import {
   HbarAppUiAiChatProvider,
   HbarAppUiAgentActivityProvider,
   HbarAppUiPaywallProvider,
-  HbarAppUiFileManagerProvider,
   HbarAppUiBillingProvider,
   HbarAppUiIntegrationProvider,
   HbarAppUiChatProvider,
@@ -169,11 +169,6 @@ import {
   createHbarAppUiPaywallOverflowFixtures,
   HBAR_APP_UI_PAYWALL_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-paywall-fixtures'
-import {
-  createHbarAppUiFileManagerLocalizedFixtures,
-  createHbarAppUiFileManagerOverflowFixtures,
-  HBAR_APP_UI_FILE_MANAGER_FIXTURES,
-} from '../../../tests/fixtures/hbar-app-ui-file-manager-fixtures'
 import {
   createHbarAppUiFeedbackLocalizedFixtures,
   createHbarAppUiFeedbackOverflowFixtures,
@@ -377,17 +372,6 @@ function PreviewApp() {
       case null:
       default:
         return HBAR_APP_UI_PAYWALL_FIXTURES
-    }
-  }, [])
-  const fileManagerContent = useMemo(() => {
-    switch (new URLSearchParams(window.location.search).get('fileManagerFixture')) {
-      case 'overflow':
-        return createHbarAppUiFileManagerOverflowFixtures()
-      case 'localized':
-        return createHbarAppUiFileManagerLocalizedFixtures()
-      case null:
-      default:
-        return HBAR_APP_UI_FILE_MANAGER_FIXTURES
     }
   }, [])
   const feedbackContent = useMemo(() => {
@@ -873,7 +857,7 @@ function PreviewApp() {
               <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
               <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
-                  <HbarAppUiFileManagerProvider content={fileManagerContent}>
+                  <FileManagerPreviewHost spec={selected.spec} onAction={handleAction}>
                     <FeedbackPreviewHost content={feedbackContent}>
                       <SettingsPreviewHost
                         content={settingsFormContent}
@@ -1226,7 +1210,7 @@ function PreviewApp() {
                         </SettingsForm2PreviewHost>
                       </SettingsPreviewHost>
                     </FeedbackPreviewHost>
-                  </HbarAppUiFileManagerProvider>
+                  </FileManagerPreviewHost>
                 </AppShellPreviewHost>
               </AppSidebarPreviewHost>
               </AiChatReferencePreviewHost>
@@ -1365,7 +1349,7 @@ function PreviewApp() {
                         <AiChatReferencePreviewHost content={aiChatContent} reference={aiChatReference} locale={aiChatLocale} spec={selected.spec} onAction={handleAction}>
                         <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
                           <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
-                            <HbarAppUiFileManagerProvider content={fileManagerContent}>
+                            <FileManagerPreviewHost spec={selected.spec} onAction={handleAction}>
                               <FeedbackPreviewHost content={feedbackContent}>
                                 <SettingsPreviewHost
                                   content={settingsFormContent}
@@ -1740,7 +1724,7 @@ function PreviewApp() {
                                   </SettingsForm2PreviewHost>
                                 </SettingsPreviewHost>
                               </FeedbackPreviewHost>
-                            </HbarAppUiFileManagerProvider>
+                            </FileManagerPreviewHost>
                           </AppShellPreviewHost>
                         </AppSidebarPreviewHost>
                         </AiChatReferencePreviewHost>

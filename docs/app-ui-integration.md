@@ -1261,3 +1261,60 @@ typecheck (`guided` terminal comparison and a missing localized label). The
 Filtering dependency-scoped root typecheck and Lumen package typecheck pass.
 Existing user and concurrent-task changes remain untouched; this category does
 not claim a globally clean working tree.
+
+### File Manager 1–4 practical reference closure
+
+Four optional typed reference structures retain the drive tree/table, asset
+folders/cards and selection bar, file list/detail panel, and uploader queue.
+Existing File Manager and workspace-file exports remain compatible. Host-owned
+copy and records are injected through the public Lumen content contract. A single
+active-variant Zustand owner manages query, location, current folder, view, sort,
+filters, selection, expansion, stars, menus, transfer states and exact request
+intent. Actions re-check currently visible IDs; bulk requests preserve the exact
+selected IDs, including selections temporarily hidden by a type filter.
+
+The references keep twelve drive records, three asset folders and eight assets,
+five detail files and five initial transfers. The asset records and sizes are
+corrected to the rendered reference, including hero-still-b at 3.9 MB, storyboard,
+press kit, sizzle and teaser. Hero-still-a and teaser are the two default selected
+assets. Captured Key art navigation supplies campaign-brief, hero-still-a and
+hero-still-b without borrowing the full root dataset. Source search no-match and
+select-all states support the drive empty recovery and selected count. Name
+reversal, size/date sorting, stars and grid switching derive from existing records;
+the small row action group is explicitly local preview behavior where the source
+menu contents were not captured.
+
+Other drive/asset folders, Shared/Recent/Bin membership and non-Northwind full
+details are unavailable rather than fabricated. Detail selection changes the
+known name/format/size without leaking the first file's metadata. Download, Share,
+Copy link, Make a copy, access, New folder and Upload record target-scoped intent;
+they do not create, delete, copy, download or share real files. Asset Delete also
+remains a request rather than silently removing remote facts.
+
+The upload snapshot preserves its original completed/active/waiting/failed rows.
+Pause/start/retry, local remove, clear completed, cancel, close and reopen are
+explicit local preview transitions because direct source-after outcomes were not
+captured. Native browse/drop reads file metadata only, validates each file against
+the 2 GB bound, and adds a waiting row without reading or uploading file bytes.
+After Start or Retry, a bounded local simulation advances only active transfers;
+pause, close, completion and unmount release the timer. Counts and transferred
+amounts derive from the current queue after changes. The initial captured amount
+is retained because the reference timer advances independently during capture.
+
+Ordinary regions use flex flow. The drive table owns horizontal scrolling, while
+bounded collections and the uploader queue own vertical scrolling with actions
+outside. Assets wrap four/two/one cards; details stack at narrower widths. Shared
+empty, one, eighty, overflow and long localized fixtures cover the content bound.
+The [core browser check](../scripts/verify-hbar-app-ui-file-manager-core.ts) passes
+fourteen records with no browser diagnostics, two narrow representatives, an
+81-file scroll and three inspected screenshots. Seven practical tests plus six
+legacy/compatibility tests pass 117 assertions; seven owned-model checks separately
+cover owner isolation, refresh, stale IDs, exact intent and transfer transitions.
+Scoped lint/typechecks, declarations, content/icon/flow guards and package/preview
+builds support practical functional/layout acceptance, not a repeated
+button/theme/viewport matrix, pixel sign-off or real storage-service acceptance.
+
+At this checkpoint global types still fail only in unrelated SessionStop changes
+(`guided` terminal comparison and a missing localized label). File Manager's
+dependency-scoped root types and Lumen package types pass. Existing user and other
+task changes are preserved; this category does not claim a globally clean tree.
