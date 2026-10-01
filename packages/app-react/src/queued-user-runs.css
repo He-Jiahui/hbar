@@ -59,6 +59,16 @@
   gap: 0.25rem;
 }
 
+/* A native editor viewport grows with the message, within the bounded queue pane. */
+.hbar-queued-user-run-edit-input.lumen-control {
+  inline-size: auto;
+  min-block-size: var(--lumen-control-size, 2.25rem);
+  max-block-size: min(25vh, 8rem);
+  field-sizing: content;
+  resize: none;
+  overflow: auto;
+}
+
 .hbar-queued-user-run-edit-feedback {
   display: flex;
   flex: 1 0 100%;

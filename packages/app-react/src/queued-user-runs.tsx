@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
 import { QUEUED_USER_RUNS_PAGE_SIZE, type QueuedUserRunsState } from '@hbar/app-runtime'
 import { CornerDownRight, Pencil, Trash2 } from 'lucide-react'
 import './queued-user-runs.css'
@@ -16,6 +16,7 @@ export interface HbarQueuedUserRunsLabels {
   readonly ellipsis: string
   readonly edit: (position: number) => string
   readonly editInput: (position: number) => string
+  readonly editHint: string
   readonly editLoading: string
   readonly editSaving: string
   readonly saveEdit: string
@@ -131,12 +132,14 @@ export function HbarQueuedUserRuns({
                       {labels.editLoading}
                     </LumenText>
                   ) : (
-                    <LumenInput
+                    <LumenTextarea
                       className="hbar-queued-user-run-edit-input"
-                      type="text"
                       variant="boxed"
                       aria-label={labels.editInput(position)}
+                      aria-description={labels.editHint}
+                      title={labels.editHint}
                       value={edit.text}
+                      rows={Math.min(6, edit.text.split(/\r\n|\r|\n/).length)}
                       maxLength={200_000}
                       autoFocus
                       disabled={edit.status !== 'ready'}
@@ -146,7 +149,7 @@ export function HbarQueuedUserRuns({
                           event.preventDefault()
                           event.stopPropagation()
                           if (edit.status !== 'submitting') onCancelEdit()
-                        } else if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                        } else if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                           event.preventDefault()
                           event.stopPropagation()
                           if (edit.status === 'ready' && edit.revision !== null && edit.text.trim())

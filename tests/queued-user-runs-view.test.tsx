@@ -16,6 +16,7 @@ const labels: HbarQueuedUserRunsLabels = {
   ellipsis: '…',
   edit: (position) => `编辑第 ${position} 条`,
   editInput: (position) => `第 ${position} 条内容`,
+  editHint: 'Enter 保存 · Shift+Enter 换行 · Esc 取消',
   editLoading: '正在读取全文',
   editSaving: '正在保存',
   saveEdit: '保存',
@@ -110,10 +111,13 @@ test('editing stays in the queued card and disables blank save while preserving 
     items: [
       { operationId: 'first', revision: 1, createdAt: 1, textPreview: '预览', truncated: false, attachmentCount: 0 },
     ],
-    editing: { operationId: 'first', status: 'ready', text: '全文', revision: 1, error: null },
+    editing: { operationId: 'first', status: 'ready', text: '全文\n第二段', revision: 1, error: null },
   }
   const html = render(state)
-  expect(html).toContain('value="全文"')
+  expect(html).toContain('<textarea')
+  expect(html).toContain('全文\n第二段</textarea>')
+  expect(html).toContain('rows="2"')
+  expect(html).toContain(labels.editHint)
   expect(html).toContain('保存')
   expect(html).toContain('取消')
   expect(html).not.toContain('编辑第 1 条')

@@ -1220,6 +1220,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ellipsis: '…',
       edit: (position) => choose(`编辑第 ${position} 条排队消息`, `Edit queued message ${position}`),
       editInput: (position) => choose(`第 ${position} 条排队消息内容`, `Queued message ${position} text`),
+      editHint: choose(
+        'Enter 保存 · Shift+Enter 换行 · Esc 取消',
+        'Enter to save · Shift+Enter for a new line · Esc to cancel',
+      ),
       editLoading: choose('正在读取完整内容…', 'Loading full message…'),
       editSaving: choose('正在保存…', 'Saving…'),
       saveEdit: choose('保存', 'Save'),
@@ -1233,7 +1237,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       guide: (position) => choose(`引导第 ${position} 条排队消息`, `Guide queued message ${position}`),
       guideLabel: choose('引导', 'Guide'),
       guideSubmitting: choose('正在引导至当前任务…', 'Guiding into the current task…'),
-      guideUnknown: choose('引导结果尚未确认，请核对原请求。', 'Guidance is not confirmed. Check the original request.'),
+      guideUnknown: choose(
+        '引导结果尚未确认，请核对原请求。',
+        'Guidance is not confirmed. Check the original request.',
+      ),
       guideFailed: (code) =>
         code === 'COMMAND_CONFLICT'
           ? choose(
