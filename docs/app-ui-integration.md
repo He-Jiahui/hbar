@@ -1169,3 +1169,44 @@ inventory and integration notes together with its visual-language work before th
 Analytics path-only commit ran. No Analytics changes were lost or left uncommitted,
 and that shared history was not rewritten. A separate follow-up records the captured
 alternate-period regression and this delivery boundary.
+
+### List 1–12 practical reference closure
+
+Twelve typed, host-owned reference structures preserve performance metrics,
+infrastructure spend, grouped security activity, publishing order, asset selection,
+webhook deliveries, supplier search, inbox state, contact navigation, sequential
+runbooks, agent ranking and repository hierarchy. The legacy List API remains
+compatible. Content and localized copy stay outside the Lumen package; a single
+active-variant Zustand preview owner manages stable IDs, query, selection, flags,
+queue order and allowlisted request intent. Refresh preserves valid local state,
+prunes removed targets and rejects stale callbacks against current visible data.
+
+The defaults retain 4/6/12/8/11/8/14/8/31/8/9 records and 22 repository nodes from
+cached public rendered references. Source-after evidence supplies the actual
+7-day performance values, the single flagged Impossible travel event, supplier
+no-match recovery, first delivery disclosure, Mark all read, first runbook step
+unlock and all expanded tree children. Query/category intersections, ranking
+orders and further sequential steps derive from existing data and rules rather
+than repeating every equivalent control. Queue reordering and inbox archive/Undo
+are explicit local preview behavior, not claimed captured source-after equivalence.
+Unknown quarters, contact membership and the leaderboard month show unavailable
+content without substituting the default dataset. Download/Move/Delete report
+the exact selected asset IDs; billing, Replay, Snooze, Email and runbook links
+remain request-only without claiming remote delivery, file mutations or recovery.
+
+Ordinary layout uses flex flow. Native tables own horizontal scrolling; 81
+synthetic supplier records own bounded vertical pane scrolling. Empty, one-row,
+80-row, overflow and long localized fixtures exercise the shared capacity
+contract without a button/theme/viewport matrix. The
+[core browser check](../scripts/verify-hbar-app-ui-list.ts) passes 20 records with
+no browser diagnostics, two narrow representatives and three inspected screenshots.
+Eighteen focused model, semantic rendering and legacy tests pass 229 assertions.
+Scoped lint/typechecks, Lumen declarations, content/icon/flow guards and both
+package/preview builds support the practical inventory status, not strict pixel,
+desktop or production-backend acceptance.
+
+At this checkpoint the unrelated SessionStop work still fails the global
+typecheck (`guided` terminal comparison and a missing localized label). The List
+dependency-scoped root typecheck and the Lumen package typecheck pass. Existing
+user and concurrent-task changes are preserved; this category does not claim a
+globally clean working tree.
