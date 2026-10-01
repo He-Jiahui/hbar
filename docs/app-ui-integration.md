@@ -1470,3 +1470,53 @@ typecheck still reports only the two pre-existing SessionStop `guided` errors;
 it is not reported as passing. The preview's existing large-chunk build warning
 is unchanged. Unrelated working-tree changes are preserved, and this category
 remains one incremental part of the wider implementation goal.
+
+### Comments 1–6 practical workflow closure
+
+The six captured reference surfaces remain separate: discussion threads, linked
+document annotations, code-review suggestions, the mention composer, the comment
+inbox and canvas review pins. Existing flex flow, continuous document prose,
+code scrolling, attachment wrapping and pane-owned history boundaries are retained.
+Canvas pin coordinates locate actual review markers over the artwork; they do not
+position ordinary text or controls. Visible content and localization stay host-owned.
+
+The preview now creates one active-variant Zustand owner instead of initializing
+all six workflows under every catalog selection. State contains only the active
+draft, choices, record flags and selection. Sort/filter IDs and target records are
+checked against the current owner; blank or duplicate IDs cannot create extra
+mutable targets. A new input or variant creates an independent owner/store.
+
+Discussion sort changes preserve reactions, nested replies and draft text. Row
+resolution updates annotation/inbox/canvas records without moving an unrelated
+active selection. An inbox callback cannot reopen a row hidden by its current
+filter. A mention callback rechecks the current query before inserting a handle,
+so an earlier candidate cannot alter a later query. Removing an attachment only
+removes its exact record. Canvas retains the source's shared draft when locating
+another pin, but a draft callback captured for the previous pin is ignored.
+
+Source-passive Comment/Reply/Send, formatting/attach tools and review actions
+remain preview intents, not fabricated posts, uploads or successful remote work.
+Code suggestions stay read-only. The [core browser check](../scripts/verify-hbar-app-ui-comments-core.ts)
+replaces the prior button/viewport loops with each variant's primary workflow and
+two representative narrow/localized or overflowing cases.
+
+The historical Comments 6 strict pixel audit remains `needs-review`: the source
+narrow preview clips its title above the scroll origin, while the local safe flow
+keeps the title reachable. Under the user's revised practical acceptance scope,
+the local accessible layout is retained; there is no pixel-matching or strict
+ledger sign-off. The previous evidence remains historical rather than being
+rewritten into a broader acceptance claim.
+
+Verification passes 31 focused tests / 263 assertions (23 existing surface tests
+and eight active-owner tests), eight core browser records with zero diagnostics
+and four inspected representative screenshots. Scoped ESLint, Prettier, the
+changed Host content guard and the direct Vite preview build pass. No reusable
+Lumen view or stylesheet was changed. Global typecheck still reports only the two
+existing SessionStop `guided` errors, so no global typecheck pass is claimed.
+The existing large-chunk build warning remains. Unrelated working-tree changes
+are preserved; this is one incremental category in the broader implementation goal.
+
+The inventory's full-file Prettier check fails both for its existing `HEAD` version
+and the updated six rows. Only those category rows were changed; unrelated table
+alignment was not reformatted. The scoped formatting pass above covers the changed
+runtime, test, verifier and integration-document files, not the full inventory.

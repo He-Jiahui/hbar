@@ -892,7 +892,7 @@ function PreviewApp() {
                                   onAction={handleAction}
                                   locale={integrationsLocale === 'de-long' ? 'de' : 'en'}
                                 >
-                                <CommentsPreviewHost content={commentsContent}>
+                                <CommentsPreviewHost content={commentsContent} spec={selected.spec}>
                                   <SchedulingPreviewHost content={schedulingContent}>
                                     <HbarAppUiChatProvider content={chatContent}>
                                       <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
@@ -1382,7 +1382,7 @@ function PreviewApp() {
                                             onAction={handleAction}
                                             locale={integrationsLocale === 'de-long' ? 'de' : 'en'}
                                           >
-                                          <CommentsPreviewHost content={commentsContent}>
+                                          <CommentsPreviewHost content={commentsContent} spec={selected.spec}>
                                             <SchedulingPreviewHost content={schedulingContent}>
                                               <HbarAppUiChatProvider content={chatContent}>
                                                 <ChatPreviewHost content={chatContent} spec={selected.spec} onAction={handleAction} locale={chatLocale} submitPreviewOutcome={chatPreviewOutcome}>
