@@ -20,6 +20,7 @@ import { createUsageFact } from '@hbar/usage'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
+import { createDriverSteeringReader } from './steering'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -319,6 +320,7 @@ function contentOf(message: AssistantMessage): ContentBlock[] {
 }
 
 export class PiDriver implements HarnessDriver {
+  readonly supportsCanonicalSteering = true
   async run(input: DriverInput) {
     let stepId = '',
       streamId = '',
@@ -330,6 +332,7 @@ export class PiDriver implements HarnessDriver {
     const completedTools = new Set<string>()
     let goalCompleted = false
     let requestFailure: unknown
+    const readSteering = createDriverSteeringReader(input)
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
@@ -421,6 +424,8 @@ export class PiDriver implements HarnessDriver {
     }
     const streamFn: StreamFn = async () => {
       try {
+        if (requestFailure !== undefined) throw requestFailure
+        input.signal.throwIfAborted()
         const request = await input.beforeRequest(input.request, stepId)
         attemptModel = request.model
         const toolNames = request.toolNames
@@ -464,6 +469,28 @@ export class PiDriver implements HarnessDriver {
         convertToLlm: (messages) => messages as PiMessage[],
         toolExecution: 'sequential',
         shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
+        ...(input.getSteeringMessages
+          ? {
+              getSteeringMessages: async () => {
+                if (input.signal.aborted || goalCompleted || requestFailure !== undefined) return []
+                try {
+                  // These messages only keep the Pi loop alive. The provider
+                  // payload is rebuilt by beforeRequest, with its actual model,
+                  // so do not hydrate attachments against the prior model here.
+                  return (await readSteering()).map((message) => ({
+                    role: 'user' as const,
+                    content: message.content.filter((block) => block.type === 'text'),
+                    timestamp: message.createdAt,
+                  }))
+                } catch (error) {
+                  // Pi requires polling not to reject. Retain the cause and fail
+                  // before another provider request, not silently ignore input.
+                  requestFailure = error ?? new Error('Run steering source failed')
+                  return []
+                }
+              },
+            }
+          : {}),
       },
       emit,
       input.signal,

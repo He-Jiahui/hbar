@@ -198,8 +198,23 @@ export interface DriverInput {
   execute(name: string, args: Record<string, unknown>, callId: string): Promise<ToolResult>
   beforeRequest(request: ModelRequest, stepId: string): Promise<ModelRequest>
   stepEnded(stepId: string): Promise<{ stop: 'goal_complete' } | void>
+  /** Optional live steering source. Return the next unconsumed canonical,
+   * already committed user messages for this exact Run, in sequence order,
+   * at most 20 per read. The source owns its delivery cursor; do not rescan
+   * compacted history as fresh steering. beforeRequest must include
+   * them in authoritative history. Drivers must not commit these messages again.
+   * Cancellation/Goal termination remain authoritative; this does not grant tool
+   * permission, change the model, or admit queued operations by itself. */
+  getSteeringMessages?(target: {
+    readonly sessionId: string
+    readonly runId: string
+    readonly signal: AbortSignal
+  }): Promise<readonly Message[]>
 }
 export interface HarnessDriver {
+  /** Explicit opt-in; a Host must not admit live steering to a legacy driver
+   * merely because DriverInput has an optional source callback. */
+  readonly supportsCanonicalSteering?: boolean
   run(input: DriverInput): Promise<void>
   summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
 }
