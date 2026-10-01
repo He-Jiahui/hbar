@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { contentBlockSchema, idSchema, runSchema } from '../index'
+import type { SessionEvent } from '../index'
 
 export const queuedUserRunsCursorSchema = z.strictObject({
   afterOperationId: idSchema,
@@ -138,3 +139,60 @@ export type QueuedRunGuidance = z.output<typeof queuedRunGuidanceSchema>
 export type RunSteeringReadInput = z.input<typeof runSteeringReadInputSchema>
 export type RunSteeringMessage = z.output<typeof runSteeringMessageSchema>
 export type RunSteeringReadResult = z.output<typeof runSteeringReadResultSchema>
+
+/** Returns the consumed queued operation only for a coherent canonical
+ * guidance fact. Operation subscriptions must not mistake its active Run ID
+ * for the queued operation whose terminal state changed. */
+export function queuedRunGuidedOperationId(event: SessionEvent): string | null {
+  if (event.type !== 'message.committed' || !event.runId) return null
+  const parsed = z
+    .object({
+      id: idSchema,
+      role: z.literal('user'),
+      content: z.array(contentBlockSchema),
+      queueGuidance: queuedRunGuidanceSchema,
+    })
+    .safeParse(event.data)
+  if (!parsed.success) return null
+  const { id, content, queueGuidance: guidance } = parsed.data
+  const { receipt, guidedRun } = guidance
+  if (
+    guidance.activeRunId !== event.runId ||
+    receipt.activeRunId !== event.runId ||
+    receipt.eventId !== event.eventId ||
+    receipt.messageId !== id ||
+    receipt.sessionId !== event.sessionId ||
+    guidedRun.sessionId !== event.sessionId ||
+    receipt.operationId !== guidedRun.id ||
+    guidedRun.id === event.runId ||
+    receipt.revision !== event.seq ||
+    receipt.sessionSeq !== event.seq ||
+    receipt.queueRevision !== guidance.expectedRevision ||
+    receipt.guidedAt !== event.time ||
+    guidedRun.status !== 'guided' ||
+    guidedRun.startedAt !== null ||
+    guidedRun.endedAt !== event.time ||
+    guidedRun.error !== null ||
+    guidedRun.failure !== undefined ||
+    (guidedRun.input.source ?? 'user') !== 'user'
+  )
+    return null
+  const expectedContent = [
+    ...(guidedRun.input.text ? [{ type: 'text' as const, text: guidedRun.input.text }] : []),
+    ...guidedRun.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
+    ...(guidedRun.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
+  ]
+  return stableGuidanceJson(content) === stableGuidanceJson(expectedContent) ? guidedRun.id : null
+}
+
+function stableGuidanceJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableGuidanceJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableGuidanceJson(record[key])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'undefined'
+}

@@ -60,7 +60,10 @@ export function buildSteeringContext(messages: readonly Message[], options: RunS
   // prevents a consumed guide from being emitted twice when it is reinserted.
   const base = canonical.filter((message) => !steeringCandidateIds.has(message.id))
   const canonicalById = new Map(canonical.map((message) => [message.id, message]))
-  const expectedSessionId = canonical.find((message) => message.id === options.initialUserMessageId)?.sessionId
+  // Compaction may remove the initial row from a caller-owned snapshot. Any
+  // remaining canonical row still identifies the Session for delivery checks.
+  const expectedSessionId =
+    canonical.find((message) => message.id === options.initialUserMessageId)?.sessionId ?? canonical[0]?.sessionId
   const deliveries = collectDeliveries(options, canonicalById, expectedSessionId)
   if (deliveries.length === 0) return base
 

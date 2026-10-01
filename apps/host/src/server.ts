@@ -42,7 +42,10 @@ import { extensionCommands as extensionDefinitions } from '@hbar/contracts/comma
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
-import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
+import {
+  queuedRunGuidedOperationId as guidedOperationId,
+  runCommands as runDefinitions,
+} from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
@@ -400,6 +403,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           return runCommands.getQueuedEditTextReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
         if (input.commandId === 'queuedRun.remove')
           return runCommands.getQueuedRemoveReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.guide')
+          return runCommands.getQueuedRunGuideReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
         return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
       }
       case 'operation.watch': {
@@ -413,7 +418,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const reset = events.length > 200 || input.cursor > session.seq
         return {
           snapshot,
-          events: reset ? [] : events.filter((event) => event.runId === input.operationId),
+          events: reset
+            ? []
+            : events.filter(
+                (event) => event.runId === input.operationId || guidedOperationId(event) === input.operationId,
+              ),
           cursor: session.seq,
           reset,
         }
@@ -1170,7 +1179,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       if (event.method === 'session.event' || event.method === 'stream.update') {
         const bySession = socket.data.follows.has(event.params.sessionId)
         const byOperation = Boolean(event.params.runId && socket.data.operationFollows.has(event.params.runId))
-        if (!bySession && !byOperation) continue
+        const guidedId = event.method === 'session.event' ? guidedOperationId(event.params) : null
+        const byGuidedOperation = guidedId !== null && socket.data.operationFollows.has(guidedId)
+        if (!bySession && !byOperation && !byGuidedOperation) continue
       }
       send(socket, { jsonrpc: '2.0', ...event })
     }

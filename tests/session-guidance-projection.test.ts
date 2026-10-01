@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { createAppRuntime, type SessionTimelinePort, type SessionTimelineUpdate } from '@hbar/app-runtime'
 import type { Run, SessionEvent, SessionSnapshot } from '@hbar/contracts'
 import { isQueuedRunGuidanceEvent } from '../packages/app-runtime/src/session-timeline'
+import { queuedRunGuidedOperationId } from '@hbar/contracts/commands/run'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const session = {
@@ -16,6 +17,19 @@ const session = {
 }
 const activeRunId = 'run-active'
 const queuedRunId = 'run-queued'
+
+test('operation watchers recognize only the coherent consumed-operation guidance identity', () => {
+  const event = guidanceEvent('guide-event', 2)
+  expect(queuedRunGuidedOperationId(event)).toBe(queuedRunId)
+  expect(queuedRunGuidedOperationId({ ...event, runId: 'other-active' })).toBeNull()
+  expect(queuedRunGuidedOperationId({ ...event, sessionId: 'other-session' })).toBeNull()
+  expect(queuedRunGuidedOperationId({ ...event, seq: 3 })).toBeNull()
+  expect(queuedRunGuidedOperationId({ ...event, time: 99 })).toBeNull()
+  if (event.data && typeof event.data === 'object') {
+    expect(queuedRunGuidedOperationId({ ...event, data: { ...event.data, content: [] } })).toBeNull()
+    expect(queuedRunGuidedOperationId({ ...event, data: { ...event.data, role: 'assistant' } })).toBeNull()
+  }
+})
 
 function run(id: string, status: Run['status'], createdAt: number, source?: 'user'): Run {
   return {

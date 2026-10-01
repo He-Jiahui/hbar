@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { runCommands, runCommandRecordSchema } from '@hbar/contracts/commands/run'
-import type { RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
+import type { QueuedRunGuideReceipt, RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
 import type { Run } from '@hbar/contracts'
 import type { Kernel } from './index'
 
@@ -256,6 +256,37 @@ export function createRunCommands(kernel: Kernel) {
     },
     { durable: true },
   )
+  registry.register(
+    runCommands['queuedRun.guide'],
+    async (input, context) => {
+      const actorId = context.actorId,
+        idempotencyKey = context.idempotencyKey
+      if (!actorId || !idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      try {
+        return await kernel.guideQueuedRun({ request: input, actorId, idempotencyKey })
+      } catch (error) {
+        if (
+          error instanceof HbarError &&
+          [
+            'NOT_FOUND',
+            'FORBIDDEN',
+            'COMMAND_CONFLICT',
+            'IDEMPOTENCY_CONFLICT',
+            'INVALID_INPUT',
+            'INPUT_TOO_LARGE',
+            'EMPTY_INPUT',
+            'FILE_LIMIT',
+            'ARCHIVED',
+            'BUSY',
+          ].includes(error.code)
+        )
+          throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue guidance requires receipt reconciliation')
+      }
+    },
+    { durable: true },
+  )
   registry.register(runCommands['operation.get'], async ({ operationId }) => {
     try {
       const run = await kernel.storage.call('run', operationId)
@@ -351,6 +382,18 @@ export function createRunCommands(kernel: Kernel) {
       } catch (error) {
         if (error instanceof HbarError) throw new CommandError(error.code, error.message)
         throw new CommandError('RESULT_UNKNOWN', 'Queue edit receipt is unavailable')
+      }
+    },
+    async getQueuedRunGuideReceipt(
+      sessionId: string,
+      actorId: string,
+      idempotencyKey: string,
+    ): Promise<QueuedRunGuideReceipt | null> {
+      try {
+        return await kernel.storage.call('queuedRunGuideReceipt', actorId, idempotencyKey, sessionId)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue guidance receipt is unavailable')
       }
     },
     dispose: () => registry.dispose(),

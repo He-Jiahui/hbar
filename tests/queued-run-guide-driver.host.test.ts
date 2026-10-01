@@ -5,6 +5,11 @@ import { basename, dirname, join } from 'node:path'
 import { z } from 'zod'
 import { createRunCommands, Kernel, MemorySecrets } from '@hbar/kernel'
 import { providerSchema } from '@hbar/contracts'
+import { HbarClient, createOperationWatcher, createRunCommandClient } from '@hbar/client'
+import { queuedRunGuidedOperationId } from '@hbar/contracts/commands/run'
+import { startServer } from '../apps/host/src/server'
+import { waitForRun } from '../apps/cli/src/runtime'
+import { definePlugin, provide, type HarnessDriver } from '@hbar/plugin-sdk'
 
 const payloadSchema = z.object({ messages: z.array(z.object({ role: z.string(), content: z.unknown() })) })
 
@@ -35,6 +40,8 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
   const release = Promise.withResolvers<void>()
   const requests: z.infer<typeof payloadSchema>[] = []
   let kernel: Kernel | undefined
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -96,12 +103,30 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
     const queue = await kernel.storage.call('queuedUserRuns', { sessionId: session.id })
     const revision = queue.items.find((item) => item.operationId === selected.id)?.revision
     if (revision === undefined) throw new Error('Selected queue revision missing')
-    const mutation = {
-      actorId: 'fixture-device',
-      idempotencyKey: 'guide-exact-item',
-      request: { sessionId: session.id, operationId: selected.id, activeRunId: active.id, expectedRevision: revision },
+    host = await startServer(kernel, { hostname: '127.0.0.1', port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'Guide fixture actor')
+    const publicRuns = createRunCommandClient(client)
+    const guidedEvent = Promise.withResolvers<void>()
+    const watch = await createOperationWatcher(client).watch(selected.id, 0, (update) => {
+      if (update.kind === 'event' && queuedRunGuidedOperationId(update.event) === selected.id) guidedEvent.resolve()
+    })
+    const cliResult = waitForRun(client, session, selected, 'silent', 'defer')
+    const request = {
+      sessionId: session.id,
+      operationId: selected.id,
+      activeRunId: active.id,
+      expectedRevision: revision,
     }
-    const receipt = await kernel.guideQueuedRun(mutation)
+    const receipt = await publicRuns.guideQueuedRun(request, 'guide-exact-item')
+    await bounded(guidedEvent.promise)
+    expect((await bounded(cliResult)).run.status).toBe('guided')
+    expect(
+      (await client.call('operation.watch', { operationId: selected.id, cursor: 0 })).events.some(
+        (event) => queuedRunGuidedOperationId(event) === selected.id,
+      ),
+    ).toBe(true)
+    await watch.close()
     expect(receipt).toMatchObject({ status: 'accepted', operationStatus: 'guided', activeRunId: active.id })
     expect((await kernel.storage.call('run', selected.id)).status).toBe('guided')
     expect((await kernel.storage.call('run', active.id)).status).toBe('running')
@@ -110,7 +135,7 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
       (await kernel.storage.call('queuedUserRuns', { sessionId: session.id })).items.map((item) => item.operationId),
     ).toEqual([untouched.id])
     const cursor = (await kernel.storage.call('session', session.id)).seq
-    expect(await kernel.guideQueuedRun(mutation)).toEqual(receipt)
+    expect(await publicRuns.guideQueuedRun(request, 'guide-exact-item')).toEqual(receipt)
     expect((await kernel.storage.call('session', session.id)).seq).toBe(cursor)
     release.resolve()
     const commands = createRunCommands(kernel)
@@ -174,14 +199,90 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
     expect(events.filter((event) => event.type === 'request.started' && event.runId === active.id)).toHaveLength(2)
     expect(events.filter((event) => event.type === 'request.started' && event.runId === selected.id)).toHaveLength(0)
     expect(events.filter((event) => event.type === 'run.cancelRequested')).toHaveLength(0)
-    expect(
-      await kernel.storage.call('queuedRunGuideReceipt', 'fixture-device', 'guide-exact-item', session.id),
-    ).toEqual(receipt)
-    expect(await kernel.guideQueuedRun(mutation)).toEqual(receipt)
+    expect(await publicRuns.getQueuedRunGuideReceipt(session.id, 'guide-exact-item')).toEqual(receipt)
+    expect(await publicRuns.guideQueuedRun(request, 'guide-exact-item')).toEqual(receipt)
+    await expect(
+      publicRuns.guideQueuedRun({ ...request, operationId: untouched.id }, 'guide-exact-item'),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
   } finally {
     release.resolve()
+    client?.disconnect()
+    await host?.close()
     if (kernel) await kernel.close()
     await server.stop(true)
     await removeOwnedFixture(root)
+  }
+}, 15_000)
+
+test('a legacy or polling-only driver rejects live guidance without consuming the queue item', async () => {
+  for (const polling of [false, true]) {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'hbar-queue-guide-driver-')))
+    const ready = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    let kernel: Kernel | undefined
+    const plugin = definePlugin({
+      manifest: {
+        id: 'driver.pi',
+        name: 'Legacy fixture',
+        description: 'Controlled legacy capability boundary',
+        permissions: [],
+        version: '1.0.0',
+        apiVersion: '^1.0.0',
+        scope: 'host',
+        provides: { driver: '1.0.0' },
+      },
+      apply(ctx) {
+        provide<HarnessDriver>(ctx, 'driver', {
+          ...(polling ? { supportsCanonicalSteering: true } : {}),
+          async run(input) {
+            expect(input.getSteeringMessages).toBeUndefined()
+            ready.resolve()
+            await release.promise
+          },
+          summarize: async () => ({ text: '', usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } }),
+        })
+      },
+    })
+    try {
+      kernel = await Kernel.create({
+        home: join(root, 'data'),
+        workspace: root,
+        demo: true,
+        secrets: new MemorySecrets(),
+        profile: { replacements: { 'driver.pi': plugin } },
+      })
+      const workspace = (await kernel.storage.call('workspaces'))[0]
+      if (!workspace) throw new Error('Missing owned workspace')
+      const session = await kernel.createSession(workspace.id)
+      const active = await kernel.submit(session.id, 'active', { text: 'original', images: [] }, 'local-fixture')
+      await bounded(ready.promise)
+      const queued = await bounded(
+        kernel.storage.call('enqueue', session.id, 'queued', { text: 'remain queued', images: [] }, 'local-fixture'),
+      )
+      const revision = (await kernel.storage.call('queuedUserRuns', { sessionId: session.id })).items[0]?.revision
+      if (revision === undefined) throw new Error('Missing queue revision')
+      try {
+        await bounded(
+          kernel.guideQueuedRun({
+            request: {
+              sessionId: session.id,
+              operationId: queued.id,
+              activeRunId: active.id,
+              expectedRevision: revision,
+            },
+            actorId: 'fixture',
+            idempotencyKey: 'legacy-guide',
+          }),
+        )
+        throw new Error('Unsupported driver incorrectly consumed guidance')
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'COMMAND_CONFLICT' })
+      }
+      expect((await kernel.storage.call('run', queued.id)).status).toBe('queued')
+    } finally {
+      release.resolve()
+      await kernel?.close()
+      await removeOwnedFixture(root)
+    }
   }
 }, 15_000)
