@@ -60,6 +60,7 @@ import {
   type WorkspaceOrganizationLabels,
 } from './workspace-organization'
 import { useWorkspaceOrganizationFocus } from './workspace-organization-focus'
+import { useWorkspaceProjectReorder } from './workspace-project-reorder'
 import {
   WorkspaceHeaderSortMenu,
   type WorkspaceHeaderSortMenuLabels,
@@ -109,6 +110,11 @@ export interface HbarWorkspaceShellLabels {
     readonly sessionCapacityReached: string
     readonly organization: WorkspaceHeaderOrganizationLabels
     readonly time: HbarSidebarTimeLabels
+    readonly reorder: {
+      readonly moveUp: string
+      readonly moveDown: string
+      readonly dragHint: (name: string) => string
+    }
   }
   readonly displayNames: WorkspaceDisplayNamesLabels
   readonly noWorkspaces: string
@@ -638,6 +644,40 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [hiddenWorkspaceIds, workspaceActivity, workspacePins, directory.workspaces, organizationInitializing])
   const organizationBusy =
     organization.requestInFlight || ['submitting', 'unknown', 'reconciling'].includes(organization.action.status)
+  const manualProjectView = workspaceActivity.organization === 'recentProject'
+  const projectReorderEnabled =
+    manualProjectView &&
+    !activityPreferenceBusy &&
+    !organizationBusy &&
+    !batchSelecting &&
+    workspacePins.status === 'ready' &&
+    !['submitting', 'unknown'].includes(workspacePins.action.status) &&
+    workspaceActivity.organizationPreferenceStatus === 'ready' &&
+    workspaceActivity.workspaces.status === 'ready'
+  const sidebarOrder = orderWorkspaceActivityIds(workspaceActivity, workspacePins, hiddenWorkspaceIds)
+  const moveProject = (
+    sourceId: string,
+    targetId: string,
+    placement: 'before' | 'after',
+    expectedOrder: readonly string[],
+  ) => {
+    if (!projectReorderEnabled) return
+    void execute('workspaceActivity.moveProject', {
+      sourceWorkspaceId: sourceId,
+      targetWorkspaceId: targetId,
+      placement,
+      expectedOrder: [...expectedOrder],
+      expectedSortBy: workspaceActivity.sortBy,
+    }).catch(() => {
+      // Confirmed order and failure/retry stay in the existing sidebar preference owner.
+    })
+  }
+  const projectReorder = useWorkspaceProjectReorder({
+    enabled: projectReorderEnabled,
+    workspaceIds: sidebarOrder,
+    pinnedIds: workspacePins.ids,
+    onMove: moveProject,
+  })
   const organizationCanWrite = props.connection === 'connected' && organization.status === 'ready' && !organizationBusy
   const organizationTarget = organization.action.request?.change
   const organizationTargetName =
@@ -1421,12 +1461,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 const displayName = workspaceDisplayName(workspace, displayNames.snapshot)
                 const isExpanded = expanded.has(workspace.id)
                 const isPinned = workspacePins.ids.includes(workspace.id)
+                const partition = sidebarWorkspaces.filter((item) => workspacePins.ids.includes(item.id) === isPinned)
+                const projectIndex = partition.findIndex((item) => item.id === workspace.id)
+                const previousProject = partition[projectIndex - 1]
+                const nextProject = partition[projectIndex + 1]
                 const sessions = sessionsByWorkspace.get(workspace.id) ?? []
                 const activitySessions = workspaceActivity.sessions[workspace.id]
                 return (
-                  <LumenFrame as="section" key={workspace.id} data-workspace-id={workspace.id}>
+                  <LumenFrame
+                    as="section"
+                    key={workspace.id}
+                    data-workspace-id={workspace.id}
+                    {...projectReorder.sectionProps(workspace.id)}
+                  >
                     <LumenFrame className="hbar-app-react-workspace-line">
                       <LumenButton
+                        {...projectReorder.handleProps(workspace.id)}
+                        aria-description={
+                          manualProjectView ? props.labels.sort.reorder.dragHint(displayName) : undefined
+                        }
                         className="hbar-app-react-workspace-row"
                         size="s"
                         variant="text"
@@ -1478,6 +1531,20 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             label: isPinned ? props.labels.unpinWorkspace : props.labels.pinWorkspace,
                             disabled: pinBusy || workspacePins.status !== 'ready',
                           },
+                          ...(manualProjectView
+                            ? [
+                                {
+                                  id: 'move-up',
+                                  label: props.labels.sort.reorder.moveUp,
+                                  disabled: !projectReorderEnabled || !previousProject,
+                                },
+                                {
+                                  id: 'move-down',
+                                  label: props.labels.sort.reorder.moveDown,
+                                  disabled: !projectReorderEnabled || !nextProject,
+                                },
+                              ]
+                            : []),
                           { id: 'archived', label: props.labels.archive.openList(displayName), disabled: !connected },
                           {
                             id: 'refresh',
@@ -1491,6 +1558,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           else if (action === 'files' || action === 'settings')
                             openWorkspaceSurface(workspace.id, action)
                           else if (action === 'pin') toggleWorkspacePin(workspace.id)
+                          else if (action === 'move-up' && previousProject)
+                            moveProject(workspace.id, previousProject.id, 'before', sidebarOrder)
+                          else if (action === 'move-down' && nextProject)
+                            moveProject(workspace.id, nextProject.id, 'after', sidebarOrder)
                           else if (action === 'refresh') refreshProjectSessions(workspace.id)
                           else if (action === 'hide') hideWorkspace(workspace.id)
                           else if (action === 'archived')

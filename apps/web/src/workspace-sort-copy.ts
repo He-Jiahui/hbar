@@ -10,6 +10,11 @@ export interface WorkspaceSortLabels extends WorkspaceHeaderSortMenuLabels {
   readonly sessionCapacityReached: string
   readonly organization: WorkspaceHeaderOrganizationLabels
   readonly time: HbarSidebarTimeLabels
+  readonly reorder: {
+    readonly moveUp: string
+    readonly moveDown: string
+    readonly dragHint: (name: string) => string
+  }
 }
 
 export function workspaceSortCopy(locale: ShellLocale): WorkspaceSortLabels {
@@ -22,6 +27,14 @@ export function workspaceSortCopy(locale: ShellLocale): WorkspaceSortLabels {
     restoreHidden: (count) => (zh ? `恢复隐藏项目（${count}）` : `Restore hidden projects (${count})`),
     refresh: zh ? '刷新侧栏' : 'Refresh sidebar',
     updating: zh ? '正在更新侧栏…' : 'Updating sidebar…',
+    reorder: {
+      moveUp: zh ? '上移项目' : 'Move project up',
+      moveDown: zh ? '下移项目' : 'Move project down',
+      dragHint: (name) =>
+        zh
+          ? `拖动 ${name} 调整近期项目顺序；也可使用项目菜单上下移动。`
+          : `Drag ${name} to reorder recent projects, or use the project menu to move up or down.`,
+    },
     organization: {
       organize: zh ? '整理侧栏' : 'Organize sidebar',
       byProject: zh ? '按项目' : 'By project',

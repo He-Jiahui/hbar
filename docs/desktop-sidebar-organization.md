@@ -49,10 +49,12 @@ CC evaluates the clock when its memo recalculates; the existing hbar minute
 clock also recalculates date groups. Neither behavior is evidence of a native
 calendar scheduler.
 
-Manual project drag ordering is outside this slice. The default migrated
-organization and sort rules are deterministic; no hidden manual order is
-invented. No native installation, real provider call, real profile mutation,
-primary-worktree merge or push is part of this change.
+Manual project drag ordering was delivered in the subsequent
+[project-movement slice](desktop-project-reorder.md), using the same recent-project
+view and preference owner. This document's verification below records the original
+organization delivery; the linked record identifies the newer exact assets and
+normal-flow checks. No native installation, real provider call, real profile
+mutation, primary-worktree merge or push is part of either change.
 
 ## Delivery and verification
 

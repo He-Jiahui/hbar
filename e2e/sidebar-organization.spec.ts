@@ -404,6 +404,85 @@ function expectNoCreationOrRunCommands(f: SidebarFixture): void {
 }
 
 test.describe('sidebar organization modes', () => {
+  test('recent projects use native title drag and keyboard menu moves without changing the open session', async ({
+    browser,
+  }) => {
+    test.setTimeout(180_000)
+    const host = await startHost()
+    let f: SidebarFixture | undefined
+    try {
+      f = await openPage(host, browser, 'en-US', 1440)
+      let sidebar = await showSidebar(f)
+      await selectFixtureSession(f)
+      await pinFixtureProject(f)
+      await expectOrganizationOrder(f, sidebar, 'recentProject')
+      const draft = 'Project movement must leave this draft alone.'
+      await composer(f.page, f).fill(draft)
+      const modelText = await f.page.locator('.hbar-composer-model-trigger').innerText()
+      const thinkingText = await f.page.locator('.hbar-composer-thinking-trigger').innerText()
+      const original = await projectIds(sidebar)
+      const sourceId = original.at(-1)
+      const targetId = original[1]
+      if (!sourceId || !targetId) throw new Error('Missing ordinary projects to reorder')
+      for (const id of original) {
+        const disclosure = projectRow(sidebar, id).locator('.hbar-app-react-workspace-row')
+        if ((await disclosure.getAttribute('aria-expanded')) === 'true') await disclosure.click()
+      }
+      const source = projectRow(sidebar, sourceId).locator('.hbar-app-react-workspace-row')
+      await expect(source).toHaveAttribute('draggable', 'true')
+      await capture(f, 'en1440-projects-before.png')
+      const sourceBox = await source.boundingBox()
+      const targetBox = await projectRow(sidebar, targetId).boundingBox()
+      if (!sourceBox || !targetBox) throw new Error('Missing project drag geometry')
+      await f.page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2)
+      await f.page.mouse.down()
+      await f.page.mouse.move(sourceBox.x + sourceBox.width / 2 + 12, sourceBox.y + sourceBox.height / 2, { steps: 4 })
+      await f.page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 8, { steps: 10 })
+      await f.page.mouse.move(targetBox.x + targetBox.width / 2 + 2, targetBox.y + 8)
+      await expect(projectRow(sidebar, targetId)).toHaveAttribute('data-project-drop', 'before')
+      await capture(f, 'en1440-project-drag-before.png')
+      await f.page.mouse.up()
+      const dragged = [original[0], sourceId, ...original.slice(1, -1)]
+      await expect.poll(() => projectIds(sidebar)).toEqual(dragged)
+      await expect(source).toHaveAttribute('aria-expanded', 'false')
+      await expectComposerText(composer(f.page, f), draft)
+      await expect(f.page.locator('.hbar-composer-model-trigger')).toHaveText(modelText)
+      await expect(f.page.locator('.hbar-composer-thinking-trigger')).toHaveText(thinkingText)
+      await expect(
+        f.page.getByRole('tab', { name: host.ready.selectedSession.title, exact: true, includeHidden: true }),
+      ).toHaveAttribute('aria-selected', 'true')
+      await capture(f, 'en1440-project-drag-after.png')
+      const sourceAlias = host.ready.aliases.find((item) => item.workspaceId === sourceId)
+      if (!sourceAlias) throw new Error('Missing moved project alias')
+      await projectRow(sidebar, sourceId)
+        .getByTitle(f.copy.shell.workspaceActions(sourceAlias.displayName), { exact: true })
+        .click()
+      await expect(f.page.getByRole('menuitem', { name: f.copy.shell.sort.reorder.moveUp, exact: true })).toBeDisabled()
+      const down = f.page.getByRole('menuitem', { name: f.copy.shell.sort.reorder.moveDown, exact: true })
+      await capture(f, 'en1440-project-move-menu.png')
+      await down.focus()
+      await down.press('Enter')
+      const moved = [dragged[0], dragged[2], dragged[1], ...dragged.slice(3)]
+      await expect.poll(() => projectIds(sidebar)).toEqual(moved)
+      await expectComposerText(composer(f.page, f), draft)
+      await f.page.reload()
+      sidebar = await showSidebar(f)
+      await expect.poll(() => projectIds(sidebar)).toEqual(moved)
+      await chooseOrganization(f, 'project')
+      await expect(projectRow(sidebar, sourceId).locator('.hbar-app-react-workspace-row')).toHaveAttribute(
+        'draggable',
+        'false',
+      )
+      await chooseOrganization(f, 'recentProject')
+      await expectOrganizationOrder(f, sidebar, 'recentProject')
+      expectNoCreationOrRunCommands(f)
+      expect(f.errors).toEqual([])
+      expect(f.warnings).toEqual([])
+    } finally {
+      if (f) await stopPage(f)
+      await stopHost(host)
+    }
+  })
   test('project alias order, recent activity, time groups and saved Bell return preserve the open session', async ({
     browser,
   }) => {
@@ -659,6 +738,25 @@ test.describe('sidebar organization modes', () => {
     try {
       f = await openPage(host, browser, 'zh-CN', 320)
       const sidebar = await showSidebar(f)
+      await expect.poll(() => projectIds(sidebar)).toHaveLength(5)
+      const initialProjects = await projectIds(sidebar)
+      const firstId = initialProjects[0]
+      const firstAlias = host.ready.aliases.find((item) => item.workspaceId === firstId)
+      if (!firstId || !firstAlias) throw new Error('Missing first narrow project')
+      const firstProject = projectRow(sidebar, firstId)
+      await firstProject.getByTitle(f.copy.shell.workspaceActions(firstAlias.displayName), { exact: true }).click()
+      const projectMenu = firstProject.getByRole('menu')
+      await expect(
+        projectMenu.getByRole('menuitem', { name: f.copy.shell.sort.reorder.moveUp, exact: true }),
+      ).toBeDisabled()
+      await expectSubmenuFitsViewport(f, projectMenu)
+      await capture(f, 'zh320-project-move-menu.png')
+      const moveDown = projectMenu.getByRole('menuitem', { name: f.copy.shell.sort.reorder.moveDown, exact: true })
+      await moveDown.focus()
+      await moveDown.press('Enter')
+      await expect
+        .poll(() => projectIds(sidebar))
+        .toEqual([initialProjects[1], initialProjects[0], ...initialProjects.slice(2)])
       const { trigger, organize, submenu } = await openOrganizationSubmenu(f)
       await expect(submenu.getByRole('menuitemradio', { checked: true })).toHaveCount(1)
       await expect(
@@ -706,6 +804,7 @@ test.afterAll(async () => {
         source: 'Playwright against a disposable real Host and production Web assets',
         expectedAsset: process.env.HBAR_SIDEBAR_ORGANIZATION_EXPECTED_ASSET ?? null,
         originalReference: 'artifacts/project-sort-reference-v5/manifest.json',
+        projectDragReference: 'artifacts/project-drag-reference-v6/manifest.json',
         fixtureBoundary:
           'Six synthetic projects and 69 Sessions in a temporary profile; one directly stored mock Run is never dispatched. No paid provider or real profile.',
         captures: [...screenshots].sort(),

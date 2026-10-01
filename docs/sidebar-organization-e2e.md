@@ -1,6 +1,6 @@
 # Sidebar organization E2E
 
-Run the focused scenario after the production Web assets are available:
+Run the focused scenarios after the production Web assets are available:
 
 ```powershell
 bun run build
@@ -37,6 +37,8 @@ claim unsent drafts survive a page reload, and instead enters a fresh draft befo
 After a successful run, real screenshots and a capture manifest are written under the ignored path
 `artifacts/sidebar-organization/hbar-e2e/`. If `dist/web/index.html` is missing, the test stops at its build-asset gate
 before it spawns the temporary Host.
+
+The project-movement scenario uses a native browser title drag and the existing project's keyboard menu. It checks insertion feedback, pin separation, unchanged disclosure/Session/draft/model/thinking, persisted order after reload, and removal of ineffective dragging in Project mode. The narrow scenario also checks the localized project-move menu and keyboard action at 320px. The latest exact-asset run and reference boundaries are recorded in [project movement](desktop-project-reorder.md). When using an isolated build, set both `HBAR_SIDEBAR_ORGANIZATION_WEB_DIST` and `HBAR_WORKSPACE_SORT_WEB_DIST` to that build directory, with their corresponding expected-asset variables; the separate sort fixture otherwise defaults to `dist/web`.
 
 ## Verified delivery
 
