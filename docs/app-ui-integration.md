@@ -1127,3 +1127,38 @@ has 34 records, two narrow representatives, one 81-row scroll and three inspecte
 screenshots. Seventeen model/SSR/legacy tests with 215 assertions, scoped lint,
 typechecks, content/icon/flow guards and builds support the practical inventory
 status; no repeated button/theme/viewport matrix or remote/desktop acceptance.
+
+### Analytics 1–16 practical reference closure
+
+Sixteen typed, host-owned reference variants preserve pulse metrics, revenue,
+grouped tickets, latency percentiles, channel distribution, referrals, service
+selection, signup funnel, deployment calendar, goal rings, cohort retention,
+storage tiers, candles, account scatter, quota bullets and a live-style curve.
+Legacy analytics contracts remain compatible. The package renders content and
+callbacks; an owner-scoped Zustand preview model manages stable IDs, selection,
+series flags, pause state and allowlisted report intent.
+
+Default labels and totals come from cached public rendered previews. Captured
+source-after values additionally supply revenue 7D, referral 7-day and service
+1-hour selections. Channel selection replaces the donut center. Series toggles,
+quota sorting and storage percentage normalization derive from supplied values.
+Uncaptured periods or measures show an explicit unavailable state and recover
+when the default selection is restored. Chart paths and unobserved heat cells,
+candles or account locations are illustrative, not recovered source datasets.
+Absolute cohort counts are labeled estimates rounded from captured percentages.
+The bounded local stream pauses/resumes and releases its timer on pause, range
+change or unmount; it is explicitly not a connected live metrics service.
+
+Ordinary content uses flex flow, while SVG owns only data-mark coordinates.
+Native cohort tables own horizontal scrolling; eighty-one synthetic referral
+rows own vertical pane scrolling. The [core browser check](../scripts/verify-hbar-app-ui-analytics.ts)
+samples distinct state mechanisms and two narrow layouts, with eighteen records,
+three inspected screenshots and no browser diagnostics. Model, semantic rendering,
+legacy API tests (seventeen tests, 237 assertions), scoped lint/typechecks and content/icon/flow checks support the
+practical inventory status. This is not a button/theme/viewport matrix, a strict
+pixel sign-off or remote report/service acceptance.
+
+At this checkpoint the unrelated in-progress SessionStop changes fail the global
+typecheck (`guided` terminal comparison and a missing localized label). The
+Analytics dependency-scoped root typecheck, Lumen package typecheck and declaration
+build pass; this category does not claim a globally clean working tree.

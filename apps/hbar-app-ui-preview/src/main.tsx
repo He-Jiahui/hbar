@@ -71,6 +71,7 @@ import { MobilePreviewHost } from './MobilePreviewHost'
 import { CardPreviewHost } from './CardPreviewHost'
 import { DataTablePreviewHost } from './DataTablePreviewHost'
 import { DashboardPreviewHost } from './DashboardPreviewHost'
+import { AnalyticsPreviewHost } from './AnalyticsPreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -91,7 +92,6 @@ import {
   HbarAppUiIntegrationProvider,
   HbarAppUiChatProvider,
   HbarAppUiPromptInputProvider,
-  HbarAppUiAnalyticsProvider,
   HbarAppUiFormsProvider,
   HbarAppUiAppDialogProvider,
   HbarAppUiNotificationsProvider,
@@ -212,7 +212,6 @@ import {
   createHbarAppUiPromptInputLocalizedFixtures,
   HBAR_APP_UI_PROMPT_INPUT_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-prompt-input-fixtures'
-import { HBAR_APP_UI_ANALYTICS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-analytics-fixtures'
 import { HBAR_APP_UI_FORMS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-forms-fixtures'
 import { createFormsForm1PreviewFixture } from './formsForm1PreviewFixtures'
 import { createForms2PreviewFixture } from './forms2PreviewFixtures'
@@ -568,7 +567,6 @@ function PreviewApp() {
     () => createPromptReferenceFixture(selected.spec.variant, promptReferenceLocale),
     [selected.spec.variant, promptReferenceLocale],
   )
-  const analyticsContent = useMemo(() => HBAR_APP_UI_ANALYTICS_FIXTURES, [])
   const emptyStateContent = useMemo(() => {
     const fixture = new URLSearchParams(window.location.search).get('emptyStateFixture')
     return fixture === 'localized' || fixture === 'long'
@@ -931,7 +929,7 @@ function PreviewApp() {
                                         <CardPreviewHost spec={selected.spec} onAction={handleAction}>
                                           <DataTablePreviewHost spec={selected.spec} onAction={handleAction}>
                                             <DashboardPreviewHost spec={selected.spec} onAction={handleAction}>
-                                              <HbarAppUiAnalyticsProvider content={analyticsContent}>
+                                              <AnalyticsPreviewHost spec={selected.spec} onAction={handleAction}>
                                                 <HbarAppUiFormsProvider content={formsContent}>
                                                   <HbarAppUiAppDialogProvider content={appDialogContent}>
                                                     <HbarAppUiNotificationsProvider content={notificationsContent}>
@@ -1214,7 +1212,7 @@ function PreviewApp() {
                                                     </HbarAppUiNotificationsProvider>
                                                   </HbarAppUiAppDialogProvider>
                                                 </HbarAppUiFormsProvider>
-                                              </HbarAppUiAnalyticsProvider>
+                                              </AnalyticsPreviewHost>
                                             </DashboardPreviewHost>
                                           </DataTablePreviewHost>
                                         </CardPreviewHost>
@@ -1423,7 +1421,7 @@ function PreviewApp() {
                                                   <CardPreviewHost spec={selected.spec} onAction={handleAction}>
                                                     <DataTablePreviewHost spec={selected.spec} onAction={handleAction}>
                                                       <DashboardPreviewHost spec={selected.spec} onAction={handleAction}>
-                                                        <HbarAppUiAnalyticsProvider content={analyticsContent}>
+                                                        <AnalyticsPreviewHost spec={selected.spec} onAction={handleAction}>
                                                           <HbarAppUiFormsProvider content={formsContent}>
                                                             <HbarAppUiAppDialogProvider content={appDialogContent}>
                                                               <HbarAppUiNotificationsProvider
@@ -1730,7 +1728,7 @@ function PreviewApp() {
                                                               </HbarAppUiNotificationsProvider>
                                                             </HbarAppUiAppDialogProvider>
                                                           </HbarAppUiFormsProvider>
-                                                        </HbarAppUiAnalyticsProvider>
+                                                        </AnalyticsPreviewHost>
                                                       </DashboardPreviewHost>
                                                     </DataTablePreviewHost>
                                                   </CardPreviewHost>

@@ -23,6 +23,7 @@ const copy = {
   toggle: '自动同步工作区',
   toggleButton: '允许后台检查',
   range: '交互强度',
+  defaultRange: '使用原生默认范围的滑块',
   combo: '选择工作区',
   open: '展开工作区列表',
   empty: '没有匹配的工作区',
@@ -38,6 +39,7 @@ function ControlsFixture() {
   const [toggled, setToggled] = useState(false)
   const [buttonToggled, setButtonToggled] = useState(false)
   const [range, setRange] = useState(42)
+  const [lastRangeInput, setLastRangeInput] = useState(25)
   const [nativeValue, setNativeValue] = useState(25)
   const [nativeChecked, setNativeChecked] = useState(false)
   const [radio, setRadio] = useState(false)
@@ -110,6 +112,12 @@ function ControlsFixture() {
             onChange={(event) => setRange(event.currentTarget.valueAsNumber)}
           />
           <output aria-label="当前强度">{range}</output>
+          <LumenRange
+            aria-label={copy.defaultRange}
+            defaultValue={25}
+            onInput={(event) => setLastRangeInput(event.currentTarget.valueAsNumber)}
+          />
+          <output aria-label={copy.defaultRange}>{lastRangeInput}</output>
         </section>
         <section className="control-fixture-fields" aria-label="MUI 原生控件">
           <TextField label="MUI 描边" variant="outlined" size="small" />

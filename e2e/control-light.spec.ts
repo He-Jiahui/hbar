@@ -65,6 +65,14 @@ test('outlined fields, choice controls and native MUI keep accessible shapes in 
       await expect(range).toHaveValue('43')
       await expect(page.getByRole('status', { name: '当前强度' })).toHaveText('43')
       expect(await range.evaluate((element) => element.style.getPropertyValue('--lumen-range-progress'))).toBe('43%')
+      const defaultRange = page.getByRole('slider', { name: '使用原生默认范围的滑块', exact: true })
+      await defaultRange.focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(defaultRange).toHaveValue('26')
+      await expect(page.getByRole('status', { name: '使用原生默认范围的滑块' })).toHaveText('26')
+      expect(await defaultRange.evaluate((element) => element.style.getPropertyValue('--lumen-range-progress'))).toBe(
+        '26%',
+      )
       await page.getByLabel('MUI 描边', { exact: true }).focus()
       expect(
         await page.locator('.MuiOutlinedInput-root').evaluate((element) => getComputedStyle(element).boxShadow),
@@ -153,4 +161,21 @@ test('glow off preserves field focus and checked markers', async ({ page }) => {
       .locator('xpath=ancestor::*[contains(@class,"lumen-outlined-field")]')
       .evaluate((element) => getComputedStyle(element).outlineStyle),
   ).toBe('solid')
+})
+
+test('native MUI internal labels, marks and thumbs stop transitions for motion off and system reduction', async ({
+  page,
+}) => {
+  for (const reduced of [false, true]) {
+    await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' })
+    await mountControlFixture(page, { theme: 'dark', motion: reduced, styles })
+    await page.getByRole('radio', { name: 'MUI 单选' }).check()
+    await page.getByRole('checkbox', { name: 'MUI 复选' }).check()
+    await page.getByLabel('MUI 开关', { exact: true }).uncheck()
+    await page.getByLabel('MUI 填充', { exact: true }).focus()
+    const running = await page
+      .locator('.MuiRadio-root, .MuiCheckbox-root, .MuiSwitch-root, .MuiFormControl-root')
+      .evaluateAll((elements) => elements.flatMap((element) => element.getAnimations({ subtree: true })))
+    expect(running).toHaveLength(0)
+  }
 })
