@@ -23,4 +23,8 @@ hbar 的 `7d9f0f78` 已交付同 Run 审批，但同样没有给完成态 card �
 
 既有 Host/storage **16 tests / 121 assertions** 通过。修改范围严格 TypeScript、零警告 ESLint、文案/图标 guard、Prettier 和 diff 检查通过。测试的 held release 原先用闭包变量导致 TS 控制流收窄为 never，改为有类型的对象字段后检查通过。未运行全仓/native/旧 Lumen SSR，不安装缺失的 submodule 依赖。自有 Host/Web preview 都已停止；teardown 的 Vite ECONNRESET 不等于页面错误。
 
-连续阅读截图还暴露了另一个待核对问题：继续规划的用户决定之后，通用工具结果仍可显示“Tool failed / User denied the tool call”。该工具拒绝事实与“返回规划”用户意图的显示关系需要独立审查；本单元不把它悄悄改成工具成功。
+## 截图中测试模型回复的辨析
+
+连续截图的“Tool failed / User denied the tool call”最初被列为待核对问题。后续核对 `plugins/pi-driver/src/index.ts:146-152` 确认：“Tool failed”是本地 `fixtureStream` 根据 toolResult.isError 合成的 **assistant 正文标题**，不是 hbar 工具行的状态文案。`packages/kernel/src/index.ts` 的审批 denied 分支保留 `{ kind: 'denied', executionStarted: false }`，没有把未执行的请求记成工具故障；计划卡显示“已返回规划”，相邻工具摘要显示真实“已拒绝”。这张合成模型截图不能证明产品 UI 将 continue 决定标成 failed，也不代表真实外部模型会生成同样的正文。
+
+因此这轮不改正文 renderer、不把 DENIED/isError 改成 succeeded，也不修改 fixture 回复来获得貌似一致的画面。拒绝是“不要实施”的真实控制事实，返回规划是用户意图，现有两层状态继续保留。未来若调整展示，需要基于真实审批身份和 outcome 合同独立实施，而不是匹配模型输出字符串。
