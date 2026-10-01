@@ -23,6 +23,10 @@ export async function mountControlFixture(page: Page, options: VisualFixtureOpti
   await mountVisualFixture(page, options, 'tests/fixtures/control-primitives-browser.tsx')
 }
 
+export async function mountSurfaceFixture(page: Page, options: VisualFixtureOptions): Promise<void> {
+  await mountVisualFixture(page, options, 'tests/fixtures/surface-light-browser.tsx')
+}
+
 async function mountVisualFixture(page: Page, options: VisualFixtureOptions, entry: string): Promise<void> {
   let bundle = bundles.get(entry)
   if (!bundle) {
