@@ -139,7 +139,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 test('failed no-tab model read offers Retry without creating a Session or losing text', async ({ browser }) => {
   test.setTimeout(120_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-pre-session-model-retry-'))
-  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 720 } })
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 720 }, hasTouch: true })
   const copy = getShellCopy('en-US')
   const labels = preSessionCopy('en-US')
   const location = preSessionLaunchCopy('en-US').location
@@ -186,6 +186,7 @@ test('failed no-tab model read offers Retry without creating a Session or losing
     const landing = page.locator('.hbar-pre-session-landing')
     const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
     const message = 'Keep this draft while retrying the model catalog'
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
     await prompt.fill(message)
     await expect(landing.getByRole('alert')).toContainText(labels.modelReadFailed)
     await expect(landing.getByRole('alert')).not.toContainText(faultCode)
@@ -221,7 +222,9 @@ test('failed no-tab model read offers Retry without creating a Session or losing
   }
 })
 
-test('first-send model preflight catches a catalog change before Session creation', async ({ browser }) => {
+test('a live first-send catalog change blocks Session creation and recovers without losing Plan or text', async ({
+  browser,
+}) => {
   test.setTimeout(120_000)
   const root = await mkdtemp(join(tmpdir(), 'hbar-pre-session-model-change-'))
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 900 } })
@@ -265,8 +268,8 @@ test('first-send model preflight catches a catalog change before Session creatio
       .getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.plan.label) })
       .click()
     await configuration.execute('provider.delete', { id: 'local-fixture' })
-    await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
-    await expect(landing.getByRole('alert')).toContainText('MODEL_NOT_FOUND')
+    await expect(landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })).toBeDisabled()
+    await expect(landing.locator('.hbar-web-pre-session-model-guidance')).toContainText(labels.model.empty)
     await expect(page.getByRole('tab')).toHaveCount(0)
     expect(await count()).toBe(1)
     await expect(prompt).toHaveValue(message)
@@ -282,6 +285,7 @@ test('first-send model preflight catches a catalog change before Session creatio
         reasoning: true,
       },
     })
+    await expect(landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })).toBeEnabled()
     await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
     await expect.poll(count).toBe(2)
     const created = (

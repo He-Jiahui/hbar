@@ -24,9 +24,7 @@ import {
   type PreSessionLocalSlashCommand,
 } from '@hbar/app-react'
 import { workspaceDisplayName, type ComposerPermissionChoice, type ComposerPlanMode } from '@hbar/app-runtime'
-import { modelCommands } from '@hbar/contracts/commands/models'
 import { workspacePageSchema } from '@hbar/contracts/directory'
-import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { ThinkingLevel } from '@hbar/contracts'
 import type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
 import { getShellCopy, type ShellLocale } from './shell-copy'
@@ -60,6 +58,7 @@ export function WebPreSessionLanding({
   const launchBranchCreation = useHbarRuntimeState(runtime.state.preSessionLaunchBranchCreation)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
+  const modelCatalog = useHbarRuntimeState(runtime.state.preSessionModelCatalog)
   const draft = preSessionDrafts[draftId]
   const shell = getShellCopy(locale)
   const labels = preSessionCopy(locale)
@@ -69,9 +68,10 @@ export function WebPreSessionLanding({
   const [path, setPath] = useState('')
   const [pathError, setPathError] = useState<string | null>(null)
   const [openingPath, setOpeningPath] = useState(false)
-  const [models, setModels] = useState<readonly ModelDescriptor[]>([])
-  const [modelError, setModelError] = useState<string | null>(null)
-  const [modelsLoading, setModelsLoading] = useState(true)
+  const [defaultModelError, setDefaultModelError] = useState<string | null>(null)
+  const models = modelCatalog.models
+  const modelError = defaultModelError ?? modelCatalog.error
+  const modelsLoading = modelCatalog.status === 'idle' || modelCatalog.status === 'loading'
   const [modelRefresh, setModelRefresh] = useState(0)
   const [openingProviders, setOpeningProviders] = useState(false)
   const [providerRouteError, setProviderRouteError] = useState<string | null>(null)
@@ -127,27 +127,8 @@ export function WebPreSessionLanding({
 
   useEffect(() => {
     if (!connected) return
-    let live = true
-    setModelsLoading(true)
-    void runtime.commands
-      .execute('model.list', {})
-      .then((value) => {
-        if (!live) return
-        setModels(modelCommands['model.list'].output.parse(value))
-        setModelError(null)
-      })
-      .catch((reason: unknown) => {
-        if (!live) return
-        setModels([])
-        setModelError(code(reason))
-      })
-      .finally(() => {
-        if (live) setModelsLoading(false)
-      })
-    return () => {
-      live = false
-    }
-  }, [connected, runtime, modelRefresh])
+    return runtime.preSessionModelCatalog.retain()
+  }, [connected, runtime])
 
   useEffect(() => {
     if (!connected || !composerPermission.available || composerPermission.hostDefault.status !== 'idle') return
@@ -169,7 +150,7 @@ export function WebPreSessionLanding({
       )
       .catch((reason: unknown) => {
         if (controller.signal.aborted || code(reason) === 'VERSION_CONFLICT') return
-        setModelError(code(reason))
+        setDefaultModelError(code(reason))
       })
     return () => controller.abort()
   }, [connected, defaultModelWorkspaceId, draftId, modelRefresh, resolveDefaultModel, runtime])
@@ -373,8 +354,8 @@ export function WebPreSessionLanding({
 
   const retryModels = () => {
     if (!connected || modelsLoading) return
-    setModelError(null)
-    setModelsLoading(true)
+    setDefaultModelError(null)
+    runtime.preSessionModelCatalog.refresh()
     setModelRefresh((current) => current + 1)
   }
 

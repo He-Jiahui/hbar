@@ -112,6 +112,8 @@ import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
+import { createPreSessionModelCatalog } from './pre-session-model-catalog'
+export type { PreSessionModelCatalogState, PreSessionModelCatalogActions } from './pre-session-model-catalog'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { composerPermissionCommands, createComposerPermission } from './composer-permission'
 import { composerPlanModeCommands, createComposerPlanMode } from './composer-plan-mode'
@@ -856,6 +858,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     executionPreparation,
     isCurrentRunActive,
   )
+  const preSessionModelCatalog = createPreSessionModelCatalog(options.models, options.modelEvents, onSubscriberError)
   const preSessionDrafts = createPreSessionDrafts(local, {
     navigation: navigation.reader,
     controls: controls.reader,
@@ -1179,6 +1182,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       queuedUserRuns: queuedUserRuns.reader,
       drafts: drafts.reader,
       preSessionDrafts: preSessionDrafts.reader,
+      preSessionModelCatalog: preSessionModelCatalog.reader,
       preSessionLaunchBranches: preSessionLaunchBranches.reader,
       preSessionLaunchBranchCreation: preSessionLaunchBranchCreation.reader,
       runActions: drafts.actions,
@@ -1210,6 +1214,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       preferences: clientPersistence.preferences,
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
+    preSessionModelCatalog: preSessionModelCatalog.actions,
     getSessionExecutionAccess: sessionExecutionAccess.get,
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const [name, ...arguments_] = tokenizeCommand(source)
@@ -1263,6 +1268,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       offModelConnection?.()
       controls.dispose()
       composerModel.dispose()
+      preSessionModelCatalog.dispose()
       sessionGitContext.dispose()
       sessionRosterRefresh.dispose()
       settingsUsage.dispose()
