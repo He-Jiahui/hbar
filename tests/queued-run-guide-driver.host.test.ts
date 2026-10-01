@@ -5,9 +5,6 @@ import { basename, dirname, join } from 'node:path'
 import { z } from 'zod'
 import { createRunCommands, Kernel, MemorySecrets } from '@hbar/kernel'
 import { providerSchema } from '@hbar/contracts'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { DriverInput, HarnessDriver } from '@hbar/plugin-sdk'
-import { PiDriver } from '@hbar/pi-driver'
 
 const payloadSchema = z.object({ messages: z.array(z.object({ role: z.string(), content: z.unknown() })) })
 
@@ -34,7 +31,6 @@ async function removeOwnedFixture(root: string) {
 
 test('atomic queue guidance reaches real Pi under the original Run and only the untouched item drains later', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'hbar-queue-guide-driver-')))
-  const ready = Promise.withResolvers<DriverInput>()
   const firstRequest = Promise.withResolvers<void>()
   const release = Promise.withResolvers<void>()
   const requests: z.infer<typeof payloadSchema>[] = []
@@ -60,57 +56,10 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
     },
   })
   try {
-    const pi = new PiDriver()
-    const driver = definePlugin({
-      manifest: {
-        id: 'driver.pi',
-        name: 'Owned queue guidance fixture',
-        description: 'Real durable queue and Pi; fixture-owned bridge only',
-        permissions: [],
-        version: '1.0.0',
-        apiVersion: '^1.0.0',
-        scope: 'host',
-        provides: { driver: '1.0.0' },
-      },
-      apply(ctx) {
-        provide<HarnessDriver>(ctx, 'driver', {
-          supportsCanonicalSteering: true,
-          supportsSteeringAdmissionClosure: true,
-          async run(input) {
-            const storage = kernel?.storage
-            if (!storage) throw new Error('Owned Kernel has not been assembled')
-            await storage.call('openRunSteering', input.session.id, input.run.id)
-            let afterSeq = 0
-            ready.resolve(input)
-            try {
-              await pi.run({
-                ...input,
-                getSteeringMessages: async (target) => {
-                  target.signal.throwIfAborted()
-                  const page = await storage.call('readRunSteering', {
-                    sessionId: target.sessionId,
-                    runId: target.runId,
-                    afterSeq,
-                    ...(target.closeWhenEmpty ? { closeWhenEmpty: true } : {}),
-                  })
-                  target.signal.throwIfAborted()
-                  afterSeq = page.nextSeq
-                  return page.messages
-                },
-              })
-            } finally {
-              await storage.call('closeRunSteering', input.session.id, input.run.id)
-            }
-          },
-          summarize: (request, apiKey, signal) => pi.summarize(request, apiKey, signal),
-        })
-      },
-    })
     kernel = await Kernel.create({
       home: join(root, 'data'),
       workspace: root,
       secrets: new MemorySecrets(),
-      profile: { replacements: { 'driver.pi': driver } },
     })
     await kernel.saveProvider(
       providerSchema.parse({
@@ -131,7 +80,6 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
       { text: 'Initial task', images: [] },
       'queue-guide-fixture',
     )
-    await bounded(ready.promise)
     await bounded(firstRequest.promise)
     const selected = await kernel.submit(
       session.id,
@@ -153,9 +101,8 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
       idempotencyKey: 'guide-exact-item',
       request: { sessionId: session.id, operationId: selected.id, activeRunId: active.id, expectedRevision: revision },
     }
-    const guided = await kernel.storage.call('guideQueuedRun', mutation)
-    expect(guided.receipt).toMatchObject({ status: 'accepted', operationStatus: 'guided', activeRunId: active.id })
-    expect(guided.message).toMatchObject({ sessionId: session.id, runId: active.id, role: 'user' })
+    const receipt = await kernel.guideQueuedRun(mutation)
+    expect(receipt).toMatchObject({ status: 'accepted', operationStatus: 'guided', activeRunId: active.id })
     expect((await kernel.storage.call('run', selected.id)).status).toBe('guided')
     expect((await kernel.storage.call('run', active.id)).status).toBe('running')
     expect((await kernel.storage.call('run', untouched.id)).status).toBe('queued')
@@ -163,7 +110,7 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
       (await kernel.storage.call('queuedUserRuns', { sessionId: session.id })).items.map((item) => item.operationId),
     ).toEqual([untouched.id])
     const cursor = (await kernel.storage.call('session', session.id)).seq
-    expect((await kernel.storage.call('guideQueuedRun', mutation)).receipt).toEqual(guided.receipt)
+    expect(await kernel.guideQueuedRun(mutation)).toEqual(receipt)
     expect((await kernel.storage.call('session', session.id)).seq).toBe(cursor)
     release.resolve()
     const commands = createRunCommands(kernel)
@@ -203,6 +150,11 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
       { role: 'user', content: [{ type: 'text', text: 'Initial task' }] },
       { role: 'user', content: [{ type: 'text', text: '同一轮引导：先检查当前更改' }] },
     ])
+    expect(requests[1]?.messages.at(-1)).toEqual({
+      role: 'user',
+      content: [{ type: 'text', text: '同一轮引导：先检查当前更改' }],
+    })
+    expect(requests[1]?.messages.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user'])
     expect(snapshot.runs.find((run) => run.id === active.id)).toMatchObject({
       requestId: 'original-task',
       status: 'completed',
@@ -213,7 +165,7 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
       startedAt: null,
     })
     expect(snapshot.runs.find((run) => run.id === untouched.id)?.status).toBe('completed')
-    expect(snapshot.messages.filter((message) => message.id === guided.message.id)).toHaveLength(1)
+    expect(snapshot.messages.filter((message) => message.id === receipt.messageId)).toHaveLength(1)
     expect(snapshot.messages.filter((message) => message.runId === selected.id)).toHaveLength(0)
     expect(
       snapshot.messages.filter((message) => message.runId === active.id && message.role === 'assistant'),
@@ -224,7 +176,8 @@ test('atomic queue guidance reaches real Pi under the original Run and only the 
     expect(events.filter((event) => event.type === 'run.cancelRequested')).toHaveLength(0)
     expect(
       await kernel.storage.call('queuedRunGuideReceipt', 'fixture-device', 'guide-exact-item', session.id),
-    ).toEqual(guided.receipt)
+    ).toEqual(receipt)
+    expect(await kernel.guideQueuedRun(mutation)).toEqual(receipt)
   } finally {
     release.resolve()
     if (kernel) await kernel.close()

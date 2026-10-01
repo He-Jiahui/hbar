@@ -60,7 +60,13 @@ import type {
   SessionLaunchTargetPreparationStartReceipt,
 } from '@hbar/contracts/commands/session-launch-target'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
-import type { QueuedRunEditTextInput, QueuedRunRemoveInput, RunCommandRecord } from '@hbar/contracts/commands/run'
+import type {
+  QueuedRunEditTextInput,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  QueuedRunRemoveInput,
+  RunCommandRecord,
+} from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
@@ -109,6 +115,7 @@ import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
+import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
 import { SettingsService, SESSION_APPROVAL_SETTING_PATH } from './settings-service'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
@@ -251,6 +258,7 @@ interface ActiveRun {
   run: Run
   controller: AbortController
   context: RuntimeScope
+  steeringReady?: boolean
 }
 type ApprovalResolution =
   | { source: 'approval'; status: 'allowed' | 'denied' | 'cancelled'; feedback?: string }
@@ -1101,7 +1109,8 @@ export class Kernel {
           ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
           ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
         ]
-        this.publishEvent((await this.storage.call('commit', sessionId, run.id, 'user', content)).event)
+        const initialCommit = await this.storage.call('commit', sessionId, run.id, 'user', content)
+        this.publishEvent(initialCommit.event)
         if (session.title === 'New session')
           await this.updateSession(sessionId, {
             title: (
@@ -1112,6 +1121,18 @@ export class Kernel {
             ).slice(0, 80),
           })
         const driver = this.plugins.get<HarnessDriver>('driver')
+        const supportsSteering =
+          driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
+        const steeringDeliveries: SteeringDelivery[] = []
+        const steeringContext: RunSteeringContext | undefined = supportsSteering
+          ? { runId: run.id, initialUserMessageId: initialCommit.message.id, deliveries: steeringDeliveries }
+          : undefined
+        let steeringAfterSeq = initialCommit.message.seq
+        const closeSteering = async () => {
+          const active = this.active.get(sessionId)
+          if (active?.run.id === run.id) active.steeringReady = false
+          if (supportsSteering) await this.storage.call('closeRunSteering', sessionId, run.id)
+        }
         const selectedTools = await scope.hooks.dispatch('tools.select', {
           sessionId,
           runId: run.id,
@@ -1123,7 +1144,7 @@ export class Kernel {
           session,
           workspace: workspaceForRun,
           run,
-          request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun),
+          request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
           apiKey,
           signal: controller.signal,
           tools: selectedTools.tools,
@@ -1166,6 +1187,8 @@ export class Kernel {
             return this.append(sessionId, type, data, run.id, stepId)
           },
           commit: async (role, blocks, messageId, providerData) => {
+            if (supportsSteering && role === 'user')
+              throw new HbarError('RESERVED_EVENT', 'Live user messages are owned by Host queue guidance')
             const content = enrichToolCallPresentations(role, blocks, toolPresentations)
             const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
             if (messageId) this.clearStream(messageId)
@@ -1199,10 +1222,17 @@ export class Kernel {
           },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
-            let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun)
+            let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             if (this.plugins.get<CompactionProvider>('compaction').shouldCompact(request)) {
-              await this.compactInternal(sessionId, model, controller.signal, run.id, workspaceForRun)
-              request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun)
+              await this.compactInternal(
+                sessionId,
+                model,
+                controller.signal,
+                run.id,
+                workspaceForRun,
+                supportsSteering ? initialCommit.message.seq : undefined,
+              )
+              request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             }
             request = await scope.hooks.dispatch('model.request', request)
             const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
@@ -1251,8 +1281,47 @@ export class Kernel {
           },
           stepEnded: async (stepId) => {
             const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
+            if (settled.stop) await closeSteering()
             return settled.stop ? { stop: settled.stop } : undefined
           },
+          ...(supportsSteering
+            ? {
+                getSteeringMessages: async (target) => {
+                  if (target.sessionId !== sessionId || target.runId !== run.id)
+                    throw new HbarError('COMMAND_CONFLICT', 'Steering source belongs to the original Run')
+                  target.signal.throwIfAborted()
+                  controller.signal.throwIfAborted()
+                  const page = await this.storage.call('readRunSteering', {
+                    sessionId,
+                    runId: run.id,
+                    afterSeq: steeringAfterSeq,
+                    ...(target.closeWhenEmpty ? { closeWhenEmpty: true } : {}),
+                  })
+                  target.signal.throwIfAborted()
+                  controller.signal.throwIfAborted()
+                  if (page.messages.length) {
+                    const context = await this.storage.call('context', sessionId)
+                    target.signal.throwIfAborted()
+                    controller.signal.throwIfAborted()
+                    const insertionAfterSeq = context.messages.at(-1)?.seq ?? initialCommit.message.seq
+                    for (const message of page.messages) steeringDeliveries.push({ message, insertionAfterSeq })
+                  }
+                  steeringAfterSeq = page.nextSeq
+                  if (page.closed) {
+                    const active = this.active.get(sessionId)
+                    if (active?.run.id === run.id) active.steeringReady = false
+                  }
+                  return page.messages
+                },
+                closeSteeringAdmission: closeSteering,
+              }
+            : {}),
+        }
+        if (supportsSteering) {
+          controller.signal.throwIfAborted()
+          await this.storage.call('openRunSteering', sessionId, run.id)
+          const active = this.active.get(sessionId)
+          if (active?.run.id === run.id) active.steeringReady = true
         }
         await driver.run(input)
       } catch (error) {
@@ -1267,6 +1336,11 @@ export class Kernel {
         failure = cause instanceof Error ? cause.message : String(cause)
       } finally {
         clearTimeout(timer)
+        const active = this.active.get(sessionId)
+        if (active?.run.id === run.id && active.steeringReady) {
+          active.steeringReady = false
+          await this.storage.call('closeRunSteering', sessionId, run.id)
+        }
         for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
         const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
         this.publishEvent(settledEvent)
@@ -1286,13 +1360,14 @@ export class Kernel {
     hooks = this.hooks,
     run?: Run,
     workspaceOverride?: Workspace,
+    steering?: RunSteeringContext,
   ): Promise<ModelRequest> {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
     const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
     return hooks.dispatch('context.build', {
       system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
-      messages: context.messages,
+      messages: steering ? buildSteeringContext(context.messages, steering) : context.messages,
       model,
       context: {
         sessionId,
@@ -1717,6 +1792,34 @@ export class Kernel {
     this.publishEvent(event)
     return receipt
   }
+  async guideQueuedRun(input: {
+    actorId: string
+    idempotencyKey: string
+    request: QueuedRunGuideInput
+  }): Promise<QueuedRunGuideReceipt> {
+    // Durable replay is valid even after the original driver has settled.
+    // The storage transaction verifies the exact input hash and actor/key.
+    const prior = await this.storage.call(
+      'queuedRunGuideReceipt',
+      input.actorId,
+      input.idempotencyKey,
+      input.request.sessionId,
+    )
+    if (!prior) {
+      const active = this.active.get(input.request.sessionId)
+      if (
+        this.closing ||
+        !active?.steeringReady ||
+        active.run.id !== input.request.activeRunId ||
+        active.controller.signal.aborted
+      )
+        throw new HbarError('COMMAND_CONFLICT', 'The original Run is not accepting live guidance')
+    }
+    const result = await this.storage.call('guideQueuedRun', input)
+    this.publishEvent(result.event)
+    this.changed('session-activity')
+    return result.receipt
+  }
   async compact(sessionId: string, modelId: string, signal?: AbortSignal) {
     this.assertIdle()
     this.maintenance = true
@@ -1736,11 +1839,16 @@ export class Kernel {
     signal: AbortSignal,
     runId?: string,
     workspaceOverride?: Workspace,
+    protectedInitialSeq?: number,
   ) {
     const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     let boundary = -1
-    for (let i = 1; i <= request.messages.length - retain; i++) if (request.messages[i]?.role === 'user') boundary = i
+    for (let i = 1; i <= request.messages.length - retain; i++) {
+      const message = request.messages[i]
+      if (message?.role === 'user' && (protectedInitialSeq === undefined || message.seq <= protectedInitialSeq))
+        boundary = i
+    }
     if (boundary < 1) {
       if (!runId) throw new HbarError('NOTHING_TO_COMPACT', 'More completed conversation history is needed')
       return { summary: '' }
