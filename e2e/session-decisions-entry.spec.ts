@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
@@ -96,6 +96,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       await page.screenshot({ path: testInfo.outputPath(`approval-confirmed-${locale}-320.png`) })
 
+      await page.reload()
+      await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.openSession(initial.session.title), exact: true }).click()
+      await expect(card.getByRole('status')).toHaveText(labels.allowed)
+      await expect(page.locator(`[data-decision-id="${approval.id}"]`)).toHaveCount(1)
+      await expect(card.getByRole('button', { name: labels.allow, exact: true })).toHaveCount(0)
+      expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(1)
+      await page.screenshot({ path: testInfo.outputPath(`approval-restored-${locale}-320.png`) })
+
       const questions = [
         {
           id: 'placement',
@@ -184,7 +193,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      const target = resolve(root)
+      expect(dirname(target)).toBe(resolve(tmpdir()))
+      expect(basename(target).startsWith('hbar-session-decisions-')).toBe(true)
+      await rm(target, { recursive: true, force: true })
     }
   })
 }

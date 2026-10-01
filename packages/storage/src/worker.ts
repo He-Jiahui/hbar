@@ -1109,6 +1109,8 @@ const methods: StorageMethods = {
         .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
         .all(sessionId) as Row[]
     ).map(approvalRow)
+    // Pending decisions keep priority; resolved facts belong only to this loaded
+    // message page and retain their original session/Run/call/tool identity.
     if (messages.length && approvals.length < 80) {
       const pageIds = messages.map((message) => message.id)
       const completed = db
@@ -1119,7 +1121,7 @@ const methods: StorageMethods = {
           JOIN json_each(messages.content) AS block
             ON json_extract(block.value,'$.callId')=approvals.callId
             AND json_extract(block.value,'$.name')=approvals.tool
-          WHERE approvals.sessionId=? AND approvals.tool='exit_plan_mode' AND approvals.status<>'pending'
+          WHERE approvals.sessionId=? AND approvals.status<>'pending'
             AND ((messages.role='assistant' AND json_extract(block.value,'$.type')='tool_call')
               OR (messages.role='tool' AND json_extract(block.value,'$.type')='tool_result'))
             AND messages.id IN (${pageIds.map(() => '?').join(',')})

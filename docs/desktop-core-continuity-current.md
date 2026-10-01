@@ -10,6 +10,10 @@
 waiting-approval Guide 保留限制。
 下文的“未决”是本次基础复核时的历史状态，不再要求用户重复选择。
 
+后续[普通审批历史衔接](desktop-approval-history-continuity.md)补齐了原工具旁的
+已决定卡片在刷新后的恢复，来源是 Host 保存的原审批，而不是工具结果推断。
+它保留有界当前消息页和 pending 优先级；该单元的新证据独立记录。
+
 后续独立交付包括[排队卡动作层级](desktop-queued-action-hierarchy.md)与
 [首发模型目录连续刷新](desktop-first-send-model-catalog.md)。后者补上存活首发页的
 Provider 变更失效链路，保留已选择模型/思考与草稿；其新证据独立记录，不混入下面

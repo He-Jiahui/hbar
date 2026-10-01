@@ -104,9 +104,7 @@ function fromSnapshot(
   const snapshotFirst = snapshot.messages[0]?.seq
   const previousFirst = previous?.messages[0]?.seq
   const preservesOlder = previousFirst !== undefined && snapshotFirst !== undefined && previousFirst <= snapshotFirst
-  const historical = (previous?.approvals ?? []).filter(
-    (approval) => approval.tool === 'exit_plan_mode' && approval.status !== 'pending',
-  )
+  const historical = (previous?.approvals ?? []).filter((approval) => approval.status !== 'pending')
   return {
     sessionId: snapshot.session.id,
     status: 'ready',

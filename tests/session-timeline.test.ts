@@ -87,6 +87,56 @@ function directory() {
   }
 }
 
+test('resnapshot preserves resolved ordinary approval facts for loaded history but drops missing pending requests', async () => {
+  const resolved = {
+    id: 'resolved-edit',
+    sessionId: 'session-one',
+    runId: 'run-1',
+    callId: 'edit-call',
+    tool: 'edit_file',
+    args: { path: 'draft.md' },
+    status: 'allowed' as const,
+    createdAt: 1,
+  }
+  const pending = { ...resolved, id: 'pending-edit', callId: 'pending-call', status: 'pending' as const }
+  const initial = snapshot('session-one', 1, 'Original call')
+  const message = initial.messages[0]
+  if (!message) throw new Error('Original approval call fixture is missing')
+  let current: SessionSnapshot = {
+    ...initial,
+    messages: [
+      {
+        ...message,
+        content: [{ type: 'tool_call', name: resolved.tool, callId: resolved.callId, args: resolved.args }],
+      },
+    ],
+    approvals: [resolved, pending],
+  }
+  const timeline: SessionTimelinePort = {
+    async snapshot(sessionId) {
+      return structuredClone(sessionId === 'session-one' ? current : snapshot(sessionId, 3, 'Other Session'))
+    },
+    async watch() {
+      return () => undefined
+    },
+  }
+  const runtime = createAppRuntime({ instanceId: 'approval-history', hostId: 'host', directory: directory(), timeline })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
+    expect(runtime.view.state.timeline.getSnapshot().approvals).toHaveLength(2)
+    current = snapshot('session-one', 2, 'Newer page without the older call')
+    await runtime.view.commands.execute('timeline.retry', { sessionId: 'session-one' })
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(2)
+    expect(runtime.view.state.timeline.getSnapshot().approvals).toEqual([resolved])
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-two' })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().sessionId === 'session-two')
+    expect(runtime.view.state.timeline.getSnapshot().approvals).toEqual([])
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('timeline follows the selected session incrementally and rejects stale or malformed updates', async () => {
   const updates = new Map<string, (update: SessionTimelineUpdate) => void>()
   const closed: string[] = []

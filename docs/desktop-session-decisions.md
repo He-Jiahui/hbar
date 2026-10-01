@@ -4,6 +4,8 @@
 
 本单元迁移 cc-haha desktop 的就近决定方式：工具摘要后直接出现需要用户行动的内容；参数细节可展开；决定完成后保留明确结果。不是将所有工具调用伪装成审批，也不把缺少原文件内容的写入请求渲染成完整 diff。
 
+后续[普通审批历史衔接](desktop-approval-history-continuity.md)已补齐当前消息页中的真实决定恢复；下文 pending-only 快照与刷新缺口是本单元初始交付时的边界，不再作为当前普通审批的现状。
+
 实际参考为 `D:/Git/cc-haha/desktop/src/components/chat/PermissionDialog.tsx` 与 `AskUserQuestion.tsx`。原组件运行截图保存在本地忽略目录：
 
 - `artifacts/reference-ux-v2/14-decisions-pending.png`
