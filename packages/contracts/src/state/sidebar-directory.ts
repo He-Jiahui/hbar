@@ -122,7 +122,7 @@ export const sessionActivityGlobalListInputSchema = z.strictObject({
 
 export const sessionActivityExecutionSchema = z.strictObject({
   state: z.enum(['idle', 'queued', 'running', 'waiting_approval', 'cancelRequested']),
-  /** Count of all direct nonterminal Runs, including queued items. */
+  /** Nonterminal Runs owned by this Session or its direct non-fork children; not a Goal-completion signal. */
   activeCount: z.number().int().nonnegative().safe(),
   queuedCount: z.number().int().nonnegative().safe(),
 })

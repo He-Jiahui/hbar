@@ -379,3 +379,132 @@ test('durable Run activity events publish one global invalidation hint without r
   expect(runningIndex).toBeGreaterThan(queuedIndex)
   expect(lifecycle.slice(queuedIndex + 1, runningIndex).filter((entry) => entry === 'hint')).toHaveLength(2)
 })
+
+test('Time activity ranks an idle parent before paging while direct background children run, not forks or grandchildren', async () => {
+  const { root, databasePath, storage, queries } = await fixture()
+  const workspace = await storage.call('createWorkspace', join(root, 'parent'), 'Parent workspace')
+  const isolated = await storage.call('createWorkspace', join(root, 'isolated'), 'Isolated child workspace')
+  const parent = await storage.call('createSession', workspace.id, 'Parent is idle')
+  const child = await storage.call('createSession', isolated.id, 'Background child', parent.id)
+  const fork = await storage.call('fork', parent.id)
+  const grandchild = await storage.call('createSession', isolated.id, 'Grandchild', child.id)
+  const unrelated = await storage.call('createSession', workspace.id, 'Unrelated idle')
+  const childRun = await storage.call(
+    'enqueue',
+    child.id,
+    'child-run',
+    { text: 'private child prompt', images: [] },
+    'fixture',
+  )
+  const forkRun = await storage.call('enqueue', fork.id, 'fork-run', { text: 'fork prompt', images: [] }, 'fixture')
+  const grandchildRun = await storage.call(
+    'enqueue',
+    grandchild.id,
+    'grandchild-run',
+    { text: 'grandchild prompt', images: [] },
+    'fixture',
+  )
+  await storage.call('setRun', childRun.id, 'waiting_approval')
+  setUpdatedAt(databasePath, parent.id, 1)
+  setUpdatedAt(databasePath, unrelated.id, 100_000)
+  await storage.call('updateSession', child.id, { archived: true })
+  await hideWorkspace(storage, isolated.id, 'hide-background-workspace')
+
+  const active = await queries.execute('session.activity.global.list', { limit: 2 })
+  expect(active.items.map((item) => item.session.id)).toEqual([fork.id, parent.id])
+  expect(active.items[1]?.execution).toEqual({ state: 'waiting_approval', activeCount: 1, queuedCount: 0 })
+  expect(JSON.stringify(active)).not.toContain('private child prompt')
+  if (!active.nextCursor) throw new Error('Expected an idle second page')
+  const rest = await queries.execute('session.activity.global.list', { limit: 2, cursor: active.nextCursor })
+  expect(rest.items.map((item) => item.session.id)).toEqual([unrelated.id])
+
+  await storage.call('requestCancel', childRun.id)
+  await expectCode(queries.execute('session.activity.global.list', { cursor: active.nextCursor }), 'STALE_CURSOR')
+  const cancelling = await queries.execute('session.activity.global.list', { limit: 200 })
+  expect(cancelling.items.find((item) => item.session.id === parent.id)?.execution.state).toBe('cancelRequested')
+  await storage.call('setRun', childRun.id, 'cancelled')
+  const settled = await queries.execute('session.activity.global.list', { limit: 200 })
+  expect(settled.items.find((item) => item.session.id === parent.id)?.execution).toEqual({
+    state: 'idle',
+    activeCount: 0,
+    queuedCount: 0,
+  })
+  // The independently active fork and grandchild do not keep this parent busy.
+  expect(settled.items[0]?.session.id).toBe(fork.id)
+  expect(forkRun.id).toBeString()
+  expect(grandchildRun.id).toBeString()
+
+  await storage.call('updateSession', child.id, { archived: false })
+  const ownRun = await storage.call(
+    'enqueue',
+    parent.id,
+    'parent-run',
+    { text: 'parent prompt', images: [] },
+    'fixture',
+  )
+  const nextChildRun = await storage.call(
+    'enqueue',
+    child.id,
+    'next-child-run',
+    { text: 'child prompt', images: [] },
+    'fixture',
+  )
+  const mixed = await queries.execute('session.activity.global.list', { limit: 1 })
+  expect(mixed.items[0]?.session.id).toBe(parent.id)
+  expect(mixed.items[0]?.execution).toEqual({ state: 'queued', activeCount: 2, queuedCount: 2 })
+  if (!mixed.nextCursor) throw new Error('Expected a parent-link cursor')
+  const database = new Database(databasePath)
+  try {
+    database.query('UPDATE sessions SET parentId=? WHERE id=?').run(unrelated.id, child.id)
+  } finally {
+    database.close()
+  }
+  await expectCode(queries.execute('session.activity.global.list', { cursor: mixed.nextCursor }), 'STALE_CURSOR')
+  const moved = await queries.execute('session.activity.global.list', { limit: 200 })
+  expect(moved.items.find((item) => item.session.id === parent.id)?.execution.activeCount).toBe(1)
+  expect(moved.items.find((item) => item.session.id === unrelated.id)?.execution.activeCount).toBe(1)
+  expect(ownRun.id).toBeString()
+  expect(nextChildRun.id).toBeString()
+})
+
+test('schema 14 upgrade restores parent activity from persisted public facts without plugin history reads', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-sidebar-directory-'))
+  const databasePath = join(root, 'upgrade.sqlite')
+  let storage = new Storage(databasePath)
+  resources.push({ root, close: () => storage.close() })
+  await storage.call('ready')
+  const workspace = await storage.call('createWorkspace', join(root, 'project'), 'Project')
+  const parent = await storage.call('createSession', workspace.id, 'Parent')
+  const child = await storage.call('createSession', workspace.id, 'Child', parent.id)
+  await storage.call('enqueue', child.id, 'persisted-child', { text: 'private persisted input', images: [] }, 'fixture')
+  await storage.close()
+  const database = new Database(databasePath)
+  try {
+    database.exec(
+      'DROP TRIGGER directory_activity_session_parent_update; DROP INDEX events_session_type; PRAGMA user_version=14;',
+    )
+  } finally {
+    database.close()
+  }
+  storage = new Storage(databasePath)
+  await storage.call('ready')
+  const page = await storage.call('globalSessionActivityPage', { limit: 200 })
+  expect(page.items.find((item) => item.session.id === parent.id)?.execution).toEqual({
+    state: 'queued',
+    activeCount: 1,
+    queuedCount: 1,
+  })
+  const upgraded = new Database(databasePath, { readonly: true })
+  try {
+    expect(upgraded.query('PRAGMA user_version').get()).toEqual({ user_version: 15 })
+    expect(
+      upgraded
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='trigger' AND name='directory_activity_session_parent_update'",
+        )
+        .get(),
+    ).not.toBeNull()
+  } finally {
+    upgraded.close()
+  }
+})

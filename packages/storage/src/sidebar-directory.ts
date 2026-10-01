@@ -53,6 +53,15 @@ export const SIDEBAR_DIRECTORY_SCHEMA_SQL = `
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
 
+/** Public parent links may change independently of timestamps; invalidate revision-bound pages. */
+export const SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL = `
+  CREATE INDEX IF NOT EXISTS events_session_type ON events(sessionId,type);
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_parent_update
+    AFTER UPDATE OF parentId ON sessions
+    WHEN OLD.parentId IS NOT NEW.parentId
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+`
+
 function compareBinary(left: string, right: string): number {
   const leftBytes = utf8Encoder.encode(left)
   const rightBytes = utf8Encoder.encode(right)
@@ -301,16 +310,26 @@ export function createSidebarDirectoryStorage(
       const hiddenJson = JSON.stringify(current.organization.hiddenWorkspaceIds)
       const rows = db
         .query(
-          `WITH run_activity AS (
+          `WITH active_runs AS (
+             SELECT r.id,r.sessionId,r.status,
+               CASE WHEN EXISTS (SELECT 1 FROM events e WHERE e.runId=r.id AND e.type='run.cancelRequested')
+                 THEN 1 ELSE 0 END AS cancelRequested
+             FROM runs r WHERE r.status IN ('queued','running','waiting_approval')
+           ), activity_owners AS (
+             SELECT r.sessionId,r.id,r.status,r.cancelRequested FROM active_runs r
+             UNION ALL
+             SELECT child.parentId AS sessionId,r.id,r.status,r.cancelRequested
+             FROM active_runs r JOIN sessions child ON child.id=r.sessionId
+             WHERE child.parentId IS NOT NULL AND child.parentId<>child.id
+               AND NOT EXISTS (SELECT 1 FROM events e WHERE e.sessionId=child.id AND e.type='session.forked')
+           ), run_activity AS (
              SELECT r.sessionId,
-               SUM(CASE WHEN r.status IN ('queued','running','waiting_approval') THEN 1 ELSE 0 END) AS activeCount,
+               COUNT(*) AS activeCount,
                SUM(CASE WHEN r.status='queued' THEN 1 ELSE 0 END) AS queuedCount,
                SUM(CASE WHEN r.status='running' THEN 1 ELSE 0 END) AS runningCount,
                SUM(CASE WHEN r.status='waiting_approval' THEN 1 ELSE 0 END) AS waitingCount,
-               SUM(CASE WHEN EXISTS (SELECT 1 FROM events e WHERE e.runId=r.id AND e.type='run.cancelRequested')
-                   THEN 1 ELSE 0 END) AS cancelRequestedCount
-             FROM runs r
-             WHERE r.status IN ('queued','running','waiting_approval')
+               SUM(r.cancelRequested) AS cancelRequestedCount
+             FROM activity_owners r
              GROUP BY r.sessionId
            ), ranked AS (
              SELECT s.id AS sessionId,s.workspaceId,s.title,s.archived,s.parentId,s.createdAt,s.updatedAt,s.seq,
