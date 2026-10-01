@@ -954,3 +954,33 @@ questionnaire/plan/budget/activity flows; AiUsage has a 48-case viewport/theme
 check. These are incremental results, not final all-package or desktop acceptance.
 Desktop build/smoke, the complete E2E suite and the remaining 280 variant
 contracts are still outstanding at this checkpoint.
+
+### Command Menu 1–6 practical reference closure
+
+The newer practical increment closes all six preview flows without claiming the
+historical strict matrix or real Host services are complete. Each active variant
+owns one Zustand store, initialized from typed EN/DE host fixtures; the reusable
+Lumen contracts receive data, localized labels and exact-target callbacks.
+
+Grouped commands, nested project/theme/status pages, typed search and distinct
+entity details, invite/rerun/archive argument review, assistant fallback/matching
+results, and local room selection now preserve the visible reference differences.
+Review is an actual summary, Back preserves drafts, and switching actions resets
+the review phase. Confirmation, Ask and external commands remain request-only;
+the preview never sends invitations, calls models, runs workflows or changes a
+real project. Room selection updates only its owned local projection.
+
+`LumenCommandList` retains its explicit `content-grown`/`virtual` contract. Short
+host-bounded menus grow naturally; the preview selects virtualization above 50
+items. Large collections now use TanStack virtualization with measured rows and
+normal-flow spacers, rather than mounting the whole collection behind CSS.
+The 10,000-item browser fixture renders 18 initial options and reaches the last
+record. Typed search uses top query, scope tabs and a desktop detail pane; narrow
+layouts omit the detail pane as the reference does.
+
+The [core browser check](../scripts/verify-hbar-app-ui-command.ts) samples all six
+distinct flows once, two narrow cases and one large-list scroll, with 18 check
+records and three representative screenshots. Command model/SSR/compatibility
+tests and targeted workbench command palette regressions pass. These results
+justify the practical function/layout status in the inventory, not a new full
+viewport/theme/button audit or desktop/service acceptance.
