@@ -2071,6 +2071,14 @@ function SessionWorkspaceContent({
                 sessionId={sessionId}
                 connected={connected}
                 labels={labels.queuedUserRuns}
+                activeRunId={
+                  timeline.sessionId === sessionId &&
+                  timeline.status === 'ready' &&
+                  activeRun?.sessionId === sessionId &&
+                  activeRun.status === 'running'
+                    ? activeRun.id
+                    : null
+                }
                 onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
                 onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
                 onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
@@ -2080,6 +2088,11 @@ function SessionWorkspaceContent({
                 }
                 onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
                 onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
+                onGuide={(operationId, expectedRevision, activeRunId) =>
+                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })
+                }
+                onRetryGuide={(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })}
+                onDismissGuide={() => void invoke('queuedUserRuns.dismissGuide', { sessionId })}
                 onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
                 onRemove={(operationId, expectedRevision) =>
                   void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })

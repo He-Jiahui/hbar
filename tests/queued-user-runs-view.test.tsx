@@ -23,6 +23,13 @@ const labels: HbarQueuedUserRunsLabels = {
   editUnknown: '编辑结果未知',
   editFailed: (code) => `编辑失败：${code}`,
   retryEdit: '重试编辑',
+  guide: (position) => `引导第 ${position} 条`,
+  guideLabel: '引导',
+  guideSubmitting: '正在引导',
+  guideUnknown: '请核对原请求',
+  guideFailed: (code) => `引导失败：${code}`,
+  retryGuide: '核对结果',
+  dismissGuide: '关闭提示',
   remove: (position) => `删除第 ${position} 条`,
   removing: '正在移除',
   removeUnknown: '结果未知',
@@ -49,6 +56,7 @@ function render(state: QueuedUserRunsState, sessionId = 'one', connected = true)
       state={state}
       sessionId={sessionId}
       connected={connected}
+      activeRunId={null}
       labels={labels}
       onRefresh={() => undefined}
       onPrevious={() => undefined}
@@ -57,6 +65,9 @@ function render(state: QueuedUserRunsState, sessionId = 'one', connected = true)
       onEditText={() => undefined}
       onSaveEdit={() => undefined}
       onRetryEdit={() => undefined}
+      onGuide={() => undefined}
+      onRetryGuide={() => undefined}
+      onDismissGuide={() => undefined}
       onCancelEdit={() => undefined}
       onRemove={() => undefined}
       onRetryRemoval={() => undefined}

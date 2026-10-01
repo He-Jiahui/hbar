@@ -1230,6 +1230,21 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ),
       editFailed: (code) => choose(`无法编辑排队消息：${code}`, `Could not edit queued message: ${code}`),
       retryEdit: choose('重试确认', 'Retry confirmation'),
+      guide: (position) => choose(`引导第 ${position} 条排队消息`, `Guide queued message ${position}`),
+      guideLabel: choose('引导', 'Guide'),
+      guideSubmitting: choose('正在引导至当前任务…', 'Guiding into the current task…'),
+      guideUnknown: choose('引导结果尚未确认，请核对原请求。', 'Guidance is not confirmed. Check the original request.'),
+      guideFailed: (code) =>
+        code === 'COMMAND_CONFLICT'
+          ? choose(
+              '当前任务已结束或无法接收此消息；消息仍按队列状态处理。',
+              'The original task cannot accept this message. It remains governed by the queue.',
+            )
+          : code === 'CAPABILITY_UNAVAILABLE'
+            ? choose('当前驱动不支持即时引导。', 'The current driver does not support live guidance.')
+            : choose(`无法引导排队消息：${code}`, `Could not guide queued message: ${code}`),
+      retryGuide: choose('核对结果', 'Check result'),
+      dismissGuide: choose('关闭提示', 'Dismiss'),
       remove: (position) => choose(`删除第 ${position} 条排队消息`, `Remove queued message ${position}`),
       removing: choose('正在移除', 'Removing'),
       removeUnknown: choose(

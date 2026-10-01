@@ -120,3 +120,7 @@ Send/Stop 已补当前原 `ChatInput` 的真实组件截图：`artifacts/referen
 5. **跨端验收**：每个子功能测中文/英文长标签、空/一/边界/超限、键盘、快速切会话、失败恢复，再看桌面+窄屏截图。区分已有契约未接线的 session fork、已有 per-run Plan mode，以及尚需扩约的 sessionallow 等能力；明确保留未完成项，不能用外观相似替代事实闭环。
 
 总体验收应覆盖本文每行，不因模型、Goal、Plan或五个工具按钮已调整而把整会话迁移标完成。
+
+### 后续交付更新：运行中队列引导
+
+上述审计时记录的 Guide 缺口现已接通：composer 上方逐行「引导／编辑／删除」，通过公开 `queuedRun.guide` 将选中项送入原运行，不取消、不重开、不清草稿；未知结果只按原键核对。已完成一次真实 Host、默认 Pi、本地测试提供商的中文宽屏到窄屏连续流程。具体范围、策略限制、视觉依据和验证见 [同运行队列引导](queued-run-guidance-storage.md#public-command-and-composer-flow)。此更新不改变 Goal+Plan 与 `/agent` 的待选语义，也不代表全部桌面迁移已完成。

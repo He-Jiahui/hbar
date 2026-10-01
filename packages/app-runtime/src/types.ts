@@ -24,6 +24,8 @@ import type {
 import type {
   ActiveOperationsPage,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
   QueuedRunRemoveReceipt,
   RunAccepted,
 } from '@hbar/contracts/commands/run'
@@ -771,6 +773,8 @@ export interface RunCommandPort extends CommandExecutor {
   ): Promise<RunAccepted | null>
   getQueuedRemoveReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunRemoveReceipt | null>
   getQueuedEditTextReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunEditTextReceipt | null>
+  guideQueuedRun?(request: QueuedRunGuideInput, idempotencyKey: string): Promise<QueuedRunGuideReceipt>
+  getQueuedRunGuideReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunGuideReceipt | null>
 }
 
 export interface ActivityWorkspaceEntryState {

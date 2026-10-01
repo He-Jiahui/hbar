@@ -27,3 +27,7 @@ Root inspected the original reference and final Hbar desktop/narrow screenshots.
 ## Remaining execution semantics
 
 CC queued-message Guide now sends the selected message over live `user_message` transport without cancelling the current turn (`ChatInput.tsx:1252-1262`, `chatStore.ts:2656-2697`, covered by `ChatInput.test.tsx:682-720`). Hbar's public contract has durable FIFO submission, edit/remove and cancellation, but no same-turn steering command. Cancelling and resubmitting would not reproduce CC's behavior. This remains a backend-led parity requirement, not an omitted visual button. Goal + Plan combination remains a separate user choice; this menu does not change those execution rules. Overall desktop parity is not complete.
+
+### 后续交付更新：运行中队列引导
+
+上述审计时记录的 Guide 缺口现已接通：composer 上方逐行「引导／编辑／删除」，通过公开 `queuedRun.guide` 将选中项送入原运行，不取消、不重开、不清草稿；未知结果只按原键核对。已完成一次真实 Host、默认 Pi、本地测试提供商的中文宽屏到窄屏连续流程。具体范围、策略限制、视觉依据和验证见 [同运行队列引导](queued-run-guidance-storage.md#public-command-and-composer-flow)。此更新不改变 Goal+Plan 与 `/agent` 的待选语义，也不代表全部桌面迁移已完成。

@@ -32,8 +32,14 @@
 }
 
 .hbar-queued-user-run-edit,
+.hbar-queued-user-run-guide,
 .hbar-queued-user-run-remove {
   flex: 0 0 auto;
+}
+
+.hbar-queued-user-run-guide {
+  color: var(--lumen-accent, var(--lumen-ink));
+  white-space: nowrap;
 }
 
 .hbar-queued-user-run-editing {
@@ -79,6 +85,7 @@
 
 .hbar-queued-user-runs-pagination,
 .hbar-queued-user-runs-notice,
+.hbar-queued-user-runs-guide-feedback,
 .hbar-queued-user-runs-feedback {
   display: flex;
   align-items: center;
@@ -101,5 +108,10 @@
 .hbar-queued-user-runs-feedback {
   flex-wrap: wrap;
   color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+.hbar-queued-user-runs-guide-feedback {
+  flex-wrap: wrap;
   overflow-wrap: anywhere;
 }

@@ -4,11 +4,15 @@ import {
   queuedRunEditableSchema,
   queuedRunEditTextInputSchema,
   queuedRunEditTextReceiptSchema,
+  queuedRunGuideInputSchema,
+  queuedRunGuideReceiptSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
   queuedUserRunsPageSchema,
   type QueuedRunEditTextInput,
   type QueuedRunEditTextReceipt,
+  type QueuedRunGuideInput,
+  type QueuedRunGuideReceipt,
   type QueuedRunRemoveInput,
   type QueuedRunRemoveReceipt,
   type QueuedUserRunsPage,
@@ -57,6 +61,17 @@ export const queuedUserRunsCommands = {
     editTarget,
     queuedRunEditTextReceiptSchema,
   ),
+  'queuedUserRuns.guide': defineCommand(
+    metadata('queuedUserRuns.guide', 'command'),
+    queuedRunGuideInputSchema,
+    queuedRunGuideReceiptSchema,
+  ),
+  'queuedUserRuns.retryGuide': defineCommand(
+    metadata('queuedUserRuns.retryGuide', 'command'),
+    editTarget,
+    queuedRunGuideReceiptSchema,
+  ),
+  'queuedUserRuns.dismissGuide': defineCommand(metadata('queuedUserRuns.dismissGuide', 'command'), input, input),
   'queuedUserRuns.cancelEdit': defineCommand(metadata('queuedUserRuns.cancelEdit', 'command'), input, input),
   'queuedUserRuns.remove': defineCommand(
     metadata('queuedUserRuns.remove', 'command'),
@@ -88,6 +103,11 @@ export interface QueuedRunEditingState {
   readonly revision: number | null
   readonly error: string | null
 }
+export interface QueuedRunGuidingState {
+  readonly operationId: string
+  readonly status: 'submitting' | 'unknown' | 'failed'
+  readonly error: string | null
+}
 export interface QueuedUserRunsState {
   readonly sessionId: string | null
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
@@ -100,6 +120,8 @@ export interface QueuedUserRunsState {
   readonly error: string | null
   readonly removal: QueuedRunRemovalState | null
   readonly editing: QueuedRunEditingState | null
+  /** Optional for compatibility with older external projections; Runtime state includes it. */
+  readonly guiding?: QueuedRunGuidingState | null
 }
 
 function empty(sessionId: string | null): QueuedUserRunsState {
@@ -115,6 +137,7 @@ function empty(sessionId: string | null): QueuedUserRunsState {
     error: null,
     removal: null,
     editing: null,
+    guiding: null,
   }
 }
 
@@ -153,6 +176,26 @@ export function createQueuedUserRuns(
   let selected = navigation.getSnapshot().sessionId
   let pendingRemoval: { readonly request: QueuedRunRemoveInput; readonly idempotencyKey: string } | null = null
   let pendingEdit: { readonly request: QueuedRunEditTextInput; readonly idempotencyKey: string } | null = null
+  let pendingGuide: { readonly request: QueuedRunGuideInput; readonly idempotencyKey: string } | null = null
+  let guideReceiptRead: Promise<QueuedRunGuideReceipt | null> | null = null
+  let guideWrite: Promise<QueuedRunGuideReceipt> | null = null
+
+  const boundedGuide = async <T>(physical: Promise<T>): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        physical,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new CommandError('RESULT_UNKNOWN', 'Original guidance needs receipt reconciliation')),
+            10_000,
+          )
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
 
   const setRemoval = (sessionId: string, removal: QueuedRunRemovalState | null) => {
     const current = state.reader.getSnapshot()
@@ -164,6 +207,23 @@ export function createQueuedUserRuns(
     if (current.sessionId === sessionId && navigation.getSnapshot().sessionId === sessionId)
       state.replace({ ...current, editing })
   }
+  const setGuiding = (sessionId: string, guiding: QueuedRunGuidingState | null) => {
+    const current = state.reader.getSnapshot()
+    if (current.sessionId === sessionId && navigation.getSnapshot().sessionId === sessionId)
+      state.replace({ ...current, guiding })
+  }
+
+  const requireActiveRun = (sessionId: string, activeRunId: string) => {
+    const current = timeline.getSnapshot()
+    if (
+      current.sessionId !== sessionId ||
+      current.status !== 'ready' ||
+      !current.runs.some(
+        (entry) => entry.sessionId === sessionId && entry.id === activeRunId && entry.status === 'running',
+      )
+    )
+      throw new CommandError('COMMAND_CONFLICT', 'The original active Run is no longer running')
+  }
 
   const read = async (sessionId: string, cursor: Cursor, previousCursors: readonly Cursor[]) => {
     if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Queued Run reads are unavailable')
@@ -173,6 +233,8 @@ export function createQueuedUserRuns(
     controller = request
     const removal = state.reader.getSnapshot().sessionId === sessionId ? state.reader.getSnapshot().removal : null
     const editing = state.reader.getSnapshot().sessionId === sessionId ? state.reader.getSnapshot().editing : null
+    const guiding =
+      state.reader.getSnapshot().sessionId === sessionId ? (state.reader.getSnapshot().guiding ?? null) : null
     state.replace({
       ...empty(sessionId),
       status: 'loading',
@@ -181,6 +243,7 @@ export function createQueuedUserRuns(
       previousCursors,
       removal,
       editing,
+      guiding,
     })
     try {
       const parsed = queuedUserRunsPageSchema.safeParse(
@@ -214,6 +277,7 @@ export function createQueuedUserRuns(
         error: null,
         removal: state.reader.getSnapshot().removal,
         editing: state.reader.getSnapshot().editing,
+        guiding: state.reader.getSnapshot().guiding ?? null,
       })
       return { sessionId, pageIndex: previousCursors.length, totalQueued: page.totalQueued }
     } catch (reason) {
@@ -226,6 +290,7 @@ export function createQueuedUserRuns(
         error: errorCode(reason),
         removal: state.reader.getSnapshot().removal,
         editing: state.reader.getSnapshot().editing,
+        guiding: state.reader.getSnapshot().guiding ?? null,
       })
       throw reason
     } finally {
@@ -260,7 +325,14 @@ export function createQueuedUserRuns(
   local.register(queuedUserRunsCommands['queuedUserRuns.startEdit'], async ({ sessionId, operationId }) => {
     if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Queued Run editing is unavailable')
     const current = requireTarget(sessionId)
-    if (current.status !== 'ready' || current.editing || current.removal || pendingEdit || pendingRemoval)
+    if (
+      current.status !== 'ready' ||
+      current.editing ||
+      current.removal ||
+      pendingEdit ||
+      pendingRemoval ||
+      pendingGuide
+    )
       throw new CommandError('BUSY', 'Queue item cannot be edited now')
     const item = current.items.find((entry) => entry.operationId === operationId)
     if (!item) throw new CommandError('COMMAND_CONFLICT', 'Queued Run is no longer on this page')
@@ -369,7 +441,7 @@ export function createQueuedUserRuns(
     const editing = current.editing
     if (!editing || editing.operationId !== operationId || editing.status !== 'ready' || editing.revision === null)
       throw new CommandError('BUSY', 'Queued Run edit is not ready')
-    if (pendingEdit || pendingRemoval || current.removal)
+    if (pendingEdit || pendingRemoval || pendingGuide || current.removal)
       throw new CommandError('BUSY', 'Another queue action is pending')
     const text = editing.text.trim()
     if (!text) throw new CommandError('INVALID_INPUT', 'Queued Run text cannot be blank')
@@ -402,6 +474,138 @@ export function createQueuedUserRuns(
     pendingEdit = null
     setEditing(sessionId, null)
     void read(sessionId, null, []).catch(() => undefined)
+    return { sessionId }
+  })
+  const confirmGuide = (
+    pending: { readonly request: QueuedRunGuideInput; readonly idempotencyKey: string },
+    receipt: QueuedRunGuideReceipt,
+  ): QueuedRunGuideReceipt => {
+    const { request, idempotencyKey } = pending
+    if (
+      receipt.sessionId !== request.sessionId ||
+      receipt.operationId !== request.operationId ||
+      receipt.activeRunId !== request.activeRunId ||
+      receipt.queueRevision !== request.expectedRevision ||
+      receipt.revision !== receipt.sessionSeq ||
+      receipt.idempotencyKey !== idempotencyKey
+    )
+      throw new CommandError('RESULT_UNKNOWN', 'Queue guide receipt does not match its target')
+    if (pendingGuide === pending) {
+      pendingGuide = null
+      setGuiding(request.sessionId, null)
+    }
+    if (navigation.getSnapshot().sessionId === request.sessionId)
+      void read(request.sessionId, null, []).catch(() => undefined)
+    return receipt
+  }
+  const reconcileGuide = async (pending: {
+    readonly request: QueuedRunGuideInput
+    readonly idempotencyKey: string
+  }): Promise<QueuedRunGuideReceipt> => {
+    if (!run?.getQueuedRunGuideReceipt)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Queued Run guide receipt reads are unavailable')
+    if (guideReceiptRead) throw new CommandError('BUSY', 'Original guidance receipt is already being checked')
+    const physical = run.getQueuedRunGuideReceipt(pending.request.sessionId, pending.idempotencyKey)
+    guideReceiptRead = physical
+    const release = () => {
+      if (guideReceiptRead === physical) guideReceiptRead = null
+    }
+    // A deadline does not cancel an ignored-abort transport. Keep the physical
+    // read slot occupied until it settles; repeated checks cannot accumulate.
+    physical.then(release, release)
+    const receipt = await boundedGuide(physical)
+    if (!receipt) throw new CommandError('RESULT_UNKNOWN', 'The original queue guide receipt is not available')
+    const parsed = queuedRunGuideReceiptSchema.safeParse(receipt)
+    if (!parsed.success) throw new CommandError('RESULT_UNKNOWN', 'Original guidance receipt is invalid')
+    return confirmGuide(pending, parsed.data)
+  }
+  const submitGuide = async (pending: {
+    readonly request: QueuedRunGuideInput
+    readonly idempotencyKey: string
+  }): Promise<QueuedRunGuideReceipt> => {
+    if (!run?.guideQueuedRun) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Queued Run guide is unavailable')
+    const { request, idempotencyKey } = pending
+    setGuiding(request.sessionId, { operationId: request.operationId, status: 'submitting', error: null })
+    try {
+      const physical = run.guideQueuedRun(request, idempotencyKey)
+      guideWrite = physical
+      const release = () => {
+        if (guideWrite === physical) guideWrite = null
+      }
+      physical.then(release, release)
+      const receipt = queuedRunGuideReceiptSchema.safeParse(await boundedGuide(physical))
+      if (!receipt.success) throw new CommandError('RESULT_UNKNOWN', 'Guidance response could not be verified')
+      return confirmGuide(pending, receipt.data)
+    } catch (reason) {
+      if (pendingGuide !== pending) throw reason
+      const code = errorCode(reason)
+      const uncertain = ![
+        'COMMAND_CONFLICT',
+        'IDEMPOTENCY_CONFLICT',
+        'INVALID_INPUT',
+        'NOT_FOUND',
+        'FORBIDDEN',
+        'ARCHIVED',
+        'BUSY',
+        'INPUT_TOO_LARGE',
+        'EMPTY_INPUT',
+        'FILE_LIMIT',
+        'CAPABILITY_UNAVAILABLE',
+      ].includes(code)
+      if (uncertain) {
+        try {
+          return await reconcileGuide(pending)
+        } catch {
+          // The same receipt read may be retried explicitly; never create a new key.
+        }
+      }
+      if (!uncertain) pendingGuide = null
+      setGuiding(request.sessionId, {
+        operationId: request.operationId,
+        status: pendingGuide === pending ? 'unknown' : 'failed',
+        error: code,
+      })
+      throw reason
+    }
+  }
+  local.register(queuedUserRunsCommands['queuedUserRuns.guide'], (request) => {
+    const current = requireTarget(request.sessionId)
+    if (current.status !== 'ready') throw new CommandError('BUSY', 'Queue is not ready')
+    if (!run?.guideQueuedRun) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Queued Run guide is unavailable')
+    requireActiveRun(request.sessionId, request.activeRunId)
+    if (guideWrite || pendingGuide || pendingRemoval || pendingEdit || current.editing || current.removal)
+      throw new CommandError('BUSY', 'Another queue action is pending')
+    if (
+      !current.items.some(
+        (item) => item.operationId === request.operationId && item.revision === request.expectedRevision,
+      )
+    )
+      throw new CommandError('COMMAND_CONFLICT', 'Queued Run is no longer on this page')
+    const pending = { request, idempotencyKey: crypto.randomUUID() }
+    pendingGuide = pending
+    return submitGuide(pending)
+  })
+  local.register(queuedUserRunsCommands['queuedUserRuns.retryGuide'], ({ sessionId, operationId }) => {
+    const current = requireTarget(sessionId)
+    const pending = pendingGuide
+    if (
+      !pending ||
+      pending.request.sessionId !== sessionId ||
+      pending.request.operationId !== operationId ||
+      current.guiding?.status !== 'unknown'
+    )
+      throw new CommandError('INVALID_INPUT', 'No unknown queue guide belongs to this target')
+    setGuiding(sessionId, { operationId, status: 'submitting', error: null })
+    return reconcileGuide(pending).catch((reason: unknown) => {
+      if (pendingGuide === pending) setGuiding(sessionId, { operationId, status: 'unknown', error: errorCode(reason) })
+      throw reason
+    })
+  })
+  local.register(queuedUserRunsCommands['queuedUserRuns.dismissGuide'], ({ sessionId }) => {
+    const current = requireTarget(sessionId)
+    if (pendingGuide || (current.guiding && current.guiding.status !== 'failed'))
+      throw new CommandError('BUSY', 'The original guidance still needs reconciliation')
+    setGuiding(sessionId, null)
     return { sessionId }
   })
   const confirmRemoval = (
@@ -464,7 +668,7 @@ export function createQueuedUserRuns(
   local.register(queuedUserRunsCommands['queuedUserRuns.remove'], (request) => {
     const current = requireTarget(request.sessionId)
     if (current.status !== 'ready') throw new CommandError('BUSY', 'Queue is not ready')
-    if (pendingRemoval || pendingEdit || current.editing)
+    if (pendingRemoval || pendingEdit || pendingGuide || current.editing)
       throw new CommandError('BUSY', 'Another queue action is pending')
     if (
       !current.items.some(
@@ -500,8 +704,13 @@ export function createQueuedUserRuns(
     controller?.abort()
     pendingRemoval = null
     pendingEdit = null
-    state.replace(empty(selected))
+    const guiding =
+      pendingGuide && pendingGuide.request.sessionId === selected
+        ? { operationId: pendingGuide.request.operationId, status: 'unknown' as const, error: 'RESULT_UNKNOWN' }
+        : null
+    state.replace({ ...empty(selected), guiding })
     if (selected && run) void read(selected, null, []).catch(() => undefined)
+    if (selected && guiding && pendingGuide) void reconcileGuide(pendingGuide).catch(() => undefined)
   }
   const offNavigation = navigation.subscribe(() => {
     if (navigation.getSnapshot().sessionId !== selected) loadSelected()
