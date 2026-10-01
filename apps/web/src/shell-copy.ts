@@ -288,6 +288,8 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.workspace.sidebar.list.description': '按项目名称或会话活动分页查询可见项目。',
         'commands.session.activity.global.list.title': '列出跨项目会话活动',
         'commands.session.activity.global.list.description': '分页查询可见会话与运行状态，进行中的会话优先。',
+        'commands.session.sidebar.list.title': '列出项目会话活动',
+        'commands.session.sidebar.list.description': '按时间分页查询项目会话及后台执行状态。',
         'commands.workspace.open.title': '打开工作区',
         'commands.workspace.open.description': '按目录路径在 Host 注册工作区并切换当前工作台。',
         'commands.session.list.title': '列出会话',
@@ -334,6 +336,8 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.session.activity.global.list.title': 'List cross-project session activity',
         'commands.session.activity.global.list.description':
           'Page visible sessions and Run status, active sessions first.',
+        'commands.session.sidebar.list.title': 'List project session activity',
+        'commands.session.sidebar.list.description': 'Page project sessions and background execution status by time.',
         'commands.workspace.open.title': 'Open workspace',
         'commands.workspace.open.description': 'Register a Host workspace by directory path and select it here.',
         'commands.session.list.title': 'List sessions',

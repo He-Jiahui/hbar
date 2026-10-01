@@ -6,6 +6,9 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { createDirectoryQueries } from '../packages/kernel/src/directory-queries.ts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { Storage } from '@hbar/storage'
+import { HbarClient, createDirectoryQueryAdapter } from '@hbar/client'
+import { sessionSidebarPageSchema } from '@hbar/contracts/sidebar-directory'
+import { startServer } from '../apps/host/src/server'
 
 const resources: { readonly root: string; readonly close: () => Promise<void> }[] = []
 
@@ -551,4 +554,48 @@ test('project Session pages attach the same background summary without changing 
   const settled = await queries.execute('session.sidebar.list', { workspaceId: workspace.id, limit: 200 })
   expect(settled.items.find((item) => item.session.id === parent.id)?.execution.activeCount).toBe(0)
   await expectCode(queries.execute('session.sidebar.list', { workspaceId: 'missing' }), 'WORKSPACE_NOT_FOUND')
+})
+
+test('the public directory adapter routes project activity through the real Host command dispatcher', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-sidebar-directory-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  const server = await startServer(kernel, { port: 0 })
+  const client = new HbarClient(`http://127.0.0.1:${server.server.port}`)
+  resources.push({
+    root,
+    close: async () => {
+      client.disconnect()
+      await server.close()
+      await kernel.close()
+    },
+  })
+  await client.pair(server.pairing.code, 'sidebar adapter fixture')
+  const workspace = (await kernel.storage.call('workspaces'))[0]
+  if (!workspace) throw new Error('Missing test workspace')
+  const parent = await kernel.createSession(workspace.id, 'Adapter parent')
+  const child = await kernel.createSession(workspace.id, 'Adapter child', parent.id)
+  await kernel.storage.call(
+    'enqueue',
+    child.id,
+    'adapter-background',
+    { text: 'private adapter input', images: [] },
+    'local-fixture',
+  )
+  const adapter = createDirectoryQueryAdapter(client)
+  const page = sessionSidebarPageSchema.parse(
+    await adapter.execute('session.sidebar.list', { workspaceId: workspace.id, limit: 60 }),
+  )
+  expect(page.items.find((item) => item.session.id === parent.id)?.execution).toEqual({
+    state: 'queued',
+    activeCount: 1,
+    queuedCount: 1,
+  })
+  expect(page.items).toHaveLength(2)
+  expect(JSON.stringify(page)).not.toContain('private adapter input')
+  await expectCode(adapter.execute('session.sidebar.list', { workspaceId: 'missing' }), 'WORKSPACE_NOT_FOUND')
 })
