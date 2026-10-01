@@ -1,75 +1,50 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { HbarAppUiWizardProvider, type HbarAppUiWizardContent } from 'hbar-app-ui/catalog'
+import { useEffect, useMemo, type ReactNode } from 'react'
+import { useStore } from 'zustand'
+import { HbarAppUiWizardProvider, type HbarAppUiWizardContent, type HbarAppUiVariantSpec } from 'hbar-app-ui/catalog'
+import { createWizardPreviewStore, type WizardPreviewScope, type WizardPreviewVariant } from './wizardPreviewModel'
+import { createWizardPreviewSeed, projectWizardPreview } from './wizardPreviewProjection'
 
-export function WizardPreviewHost({content, children}: {readonly content: HbarAppUiWizardContent; readonly children: ReactNode}) {
-  const [fields, setFields] = useState(content.referenceInformation?.fields ?? [])
-  const [stepId, setStepId] = useState(content.referenceInformation?.stepId ?? '')
-  const [invoiceCustomerFields, setInvoiceCustomerFields] = useState(content.referenceInvoice?.customerFields ?? [])
-  const [invoiceTermsFields, setInvoiceTermsFields] = useState(content.referenceInvoice?.termsFields ?? [])
-  const [upgradeStepId, setUpgradeStepId] = useState(content.referenceUpgrade?.stepId ?? '')
-  const [upgradePlanId, setUpgradePlanId] = useState(content.referenceUpgrade?.selectedPlanId ?? '')
-  const [environmentSelectedIds, setEnvironmentSelectedIds] = useState(content.referenceEnvironment?.selectedServiceIds ?? [])
-  const [reviewConfirmed, setReviewConfirmed] = useState(content.referenceReview?.confirmed ?? false)
-  const [migrationProgress, setMigrationProgress] = useState(content.referenceMigration?.progress ?? 0)
-  const [shippingQuestionId, setShippingQuestionId] = useState(content.referenceShipping?.currentQuestionId ?? '')
-  const [shippingSelectedIds, setShippingSelectedIds] = useState(content.referenceShipping?.selectedOptionIds ?? {})
+interface HostProps {
+  readonly spec: HbarAppUiVariantSpec
+  readonly content: HbarAppUiWizardContent
+  readonly children: ReactNode
+}
+function isWizardVariant(variant: number): variant is WizardPreviewVariant {
+  return (
+    variant === 1 || variant === 2 || variant === 3 || variant === 4 || variant === 5 || variant === 6 || variant === 7
+  )
+}
+export function WizardPreviewHost(props: HostProps) {
+  if (props.spec.category !== 'wizard' || !isWizardVariant(props.spec.variant)) return <>{props.children}</>
+  const mode =
+    typeof location === 'undefined'
+      ? 'default'
+      : (new URLSearchParams(location.search).get('wizardFixture') ?? 'default')
+  return <WizardOwner key={`${props.spec.id}:${mode}`} {...props} variant={props.spec.variant} mode={mode} />
+}
+function WizardOwner({
+  spec,
+  content: input,
+  variant,
+  mode,
+  children,
+}: HostProps & {
+  readonly variant: WizardPreviewVariant
+  readonly mode: string
+}) {
+  const scope = useMemo<WizardPreviewScope>(
+    () => ({ ownerId: `wizard-preview-${spec.id}`, variant, fixtureId: mode }),
+    [spec.id, variant, mode],
+  )
+  const store = useMemo(() => createWizardPreviewStore(createWizardPreviewSeed(input, scope)), [input, scope])
+  useStore(store, (state) => state.flow)
   useEffect(() => {
-    setFields(content.referenceInformation?.fields ?? [])
-    setStepId(content.referenceInformation?.stepId ?? '')
-    setInvoiceCustomerFields(content.referenceInvoice?.customerFields ?? [])
-    setInvoiceTermsFields(content.referenceInvoice?.termsFields ?? [])
-    setUpgradeStepId(content.referenceUpgrade?.stepId ?? '')
-    setUpgradePlanId(content.referenceUpgrade?.selectedPlanId ?? '')
-    setEnvironmentSelectedIds(content.referenceEnvironment?.selectedServiceIds ?? [])
-    setReviewConfirmed(content.referenceReview?.confirmed ?? false)
-    setMigrationProgress(content.referenceMigration?.progress ?? 0)
-    setShippingQuestionId(content.referenceShipping?.currentQuestionId ?? '')
-    setShippingSelectedIds(content.referenceShipping?.selectedOptionIds ?? {})
-  }, [content])
-  useEffect(() => {
-    const migration = content.referenceMigration
-    if (!migration || !Number.isFinite(migration.progressIntervalMs) || migration.progressIntervalMs <= 0) return
-    const timer = window.setInterval(() => setMigrationProgress((value) => Math.min(migration.progressCeiling, value + migration.progressStep)), migration.progressIntervalMs)
+    const { scope: activeScope, flow } = store.getState()
+    if (flow.kind !== 'migration' || flow.intervalMs <= 0 || flow.step <= 0 || flow.progress >= flow.ceiling) return
+    const timer = window.setInterval(() => {
+      if (!store.getState().tick(activeScope)) window.clearInterval(timer)
+    }, flow.intervalMs)
     return () => window.clearInterval(timer)
-  }, [content.referenceMigration])
-  const flow = content.referenceInformation
-  const invoice = content.referenceInvoice
-  const upgrade = content.referenceUpgrade
-  const environment = content.referenceEnvironment
-  const review = content.referenceReview
-  const migration = content.referenceMigration
-  const shipping = content.referenceShipping
-  return <HbarAppUiWizardProvider content={{
-    ...content,
-    referenceShipping: shipping && {
-      ...shipping, currentQuestionId: shippingQuestionId, selectedOptionIds: shippingSelectedIds,
-      onQuestionChange: setShippingQuestionId,
-      onOptionChange: (questionId, optionId) => setShippingSelectedIds((current) => ({...current, [questionId]: optionId})),
-    },
-    referenceMigration: migration && {...migration, progress: migrationProgress},
-    referenceReview: review && {...review, confirmed: reviewConfirmed, onConfirmationChange: setReviewConfirmed},
-    referenceEnvironment: environment && {
-      ...environment, selectedServiceIds: environmentSelectedIds,
-      onServiceToggle: (serviceId) => setEnvironmentSelectedIds((current) => current.includes(serviceId) ? current.filter((id) => id !== serviceId) : [...current, serviceId]),
-    },
-    referenceInformation: flow && {
-      ...flow, fields, stepId,
-      onStepChange: setStepId,
-      onFieldChange: (fieldId, value) => setFields((current) => current.map((field) => field.id === fieldId ? {...field, value} : field)),
-    },
-    referenceInvoice: invoice && {
-      ...invoice,
-      customerFields: invoiceCustomerFields,
-      termsFields: invoiceTermsFields,
-      onFieldChange: (fieldId, value) => {
-        setInvoiceCustomerFields((current) => current.map((field) => field.id === fieldId ? {...field, value} : field))
-        setInvoiceTermsFields((current) => current.map((field) => field.id === fieldId ? {...field, value} : field))
-      },
-    },
-    referenceUpgrade: upgrade && {
-      ...upgrade, stepId: upgradeStepId, selectedPlanId: upgradePlanId,
-      onStepChange: setUpgradeStepId,
-      onPlanChange: setUpgradePlanId,
-    },
-  }}>{children}</HbarAppUiWizardProvider>
+  }, [store])
+  return <HbarAppUiWizardProvider content={projectWizardPreview(input, store)}>{children}</HbarAppUiWizardProvider>
 }

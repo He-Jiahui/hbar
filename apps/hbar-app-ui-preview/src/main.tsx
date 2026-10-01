@@ -916,7 +916,7 @@ function PreviewApp() {
                                                           <SupportReferencePreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} locale={supportLocale} assistantOutcome={supportAssistantOutcome}>
                                                           <SupportThreadPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportThreadCopy} replyPreviewOutcome={supportReplyOutcome}>
                                                           <SupportTicketPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportTicketCopy} submitPreviewOutcome={supportTicketOutcome}>
-                                                          <WizardPreviewHost content={wizardContent}>
+                                                          <WizardPreviewHost content={wizardContent} spec={selected.spec}>
                                                             <HbarAppUiOnboardingProvider content={onboardingContent}>
                                                               <ListPreviewHost spec={selected.spec} onAction={handleAction}>
                                                                 <FilteringPreviewHost spec={selected.spec} onAction={handleAction}>
@@ -1408,7 +1408,7 @@ function PreviewApp() {
                                                                     <SupportReferencePreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} locale={supportLocale} assistantOutcome={supportAssistantOutcome}>
                                                                     <SupportThreadPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportThreadCopy} replyPreviewOutcome={supportReplyOutcome}>
                                                                     <SupportTicketPreviewHost content={supportContent} spec={selected.spec} onAction={handleAction} labels={supportTicketCopy} submitPreviewOutcome={supportTicketOutcome}>
-                                                                    <WizardPreviewHost content={wizardContent}>
+                                                                    <WizardPreviewHost content={wizardContent} spec={selected.spec}>
                                                                       <HbarAppUiOnboardingProvider
                                                                         content={onboardingContent}
                                                                       >

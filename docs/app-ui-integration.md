@@ -1424,3 +1424,49 @@ changed reference views; no full-module content-guard pass is claimed.
 This is practical core-functional and natural-layout acceptance under the user's
 revised scope. The unrelated working-tree changes are preserved; this category is
 one incremental part of the broader 300-variant implementation goal.
+
+### Wizard 1–7 practical workflow closure
+
+The seven existing reference surfaces remain distinct: owner information, invoice
+customer/terms fields, billing plan selection, environment services, pre-send
+review, migration progress and shipping questions. Their existing flex-based
+content and pane-scroll boundaries are retained rather than rebuilt for pixel
+alignment. The host still owns all visible copy, editable values and records.
+
+The preview now creates a Zustand owner only for the active Wizard variant. It
+projects only that workflow's contract, guards field/choice/record IDs, and rejects
+callbacks from a superseded owner generation. Shipping answers remain attached to
+their question IDs; a callback from a question that is no longer displayed cannot
+rewrite it. Invoice field IDs are unique across the customer and terms groups.
+
+Commit `bac63dc9` added the migration timer against a content object containing
+every Wizard reference. Because the common wrapper was mounted for other catalog
+selections too, unrelated previews initialized the migration and all seven sets of
+mutable state. The active-owner boundary removes those inactive models. Migration
+ticks now run only for variant 6, stop at the supplied ceiling, and are released
+when the input owner changes or unmounts. Invalid progress configuration does not
+start an unbounded timer, and no tick fabricates completed tasks or remote success.
+
+Captured source behavior is intentionally unchanged. Information and billing
+navigation update their progress rail while retaining the displayed form/plan
+body. A billing plan choice does not recalculate the passive invoice quote; invoice
+currency/terms badges likewise remain captured copy. Source-passive save, clear,
+close, review-send, migration cancel/background, and final shipping/skip controls
+are not promoted into real delivery, provisioning, cancellation or persistence.
+The preview's editable and selectable flows do not imply those service capabilities.
+
+The [core browser check](../scripts/verify-hbar-app-ui-wizard-core.ts) replaces the
+previous repeated button and viewport loops with one primary workflow per variant
+and two representative narrow/localized or overflowing cases. This is practical
+functional and natural-layout acceptance under the user's revised scope, not an
+exhaustive interaction matrix, pixel sign-off or real backend acceptance.
+
+Verification passes 31 focused tests / 1,270 assertions (18 existing surface tests
+and 13 owned-model/projection tests), nine core browser records with zero
+diagnostics, and four inspected representative screenshots. Scoped ESLint,
+Prettier, the changed Host's content guard and the direct existing Vite preview
+build pass. No reusable Lumen component or stylesheet was changed. Global
+typecheck still reports only the two pre-existing SessionStop `guided` errors;
+it is not reported as passing. The preview's existing large-chunk build warning
+is unchanged. Unrelated working-tree changes are preserved, and this category
+remains one incremental part of the wider implementation goal.
