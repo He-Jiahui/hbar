@@ -80,7 +80,12 @@ function projectLumenContent(content: SettingsForm3PreviewContent): LumenSetting
   }
 }
 
-export function SettingsForm3PreviewHost({
+export function SettingsForm3PreviewHost(props: Parameters<typeof SettingsForm3PreviewOwner>[0]) {
+  if (props.spec.category !== 'settings-form' || props.spec.variant !== 3) return props.children
+  return <SettingsForm3PreviewOwner key={props.spec.id} {...props} />
+}
+
+function SettingsForm3PreviewOwner({
   content,
   spec,
   onAction,

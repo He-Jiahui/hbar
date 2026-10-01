@@ -6,7 +6,12 @@ import type { LumenSettingsForm5KeyAction, LumenSettingsForm5ViewModel } from '@
 import { createSettingsForm5PreviewStore } from './settingsForm5PreviewStore'
 import type { SettingsForm5PreviewFixture } from './settingsForm5PreviewFixtures'
 
-export function SettingsForm5PreviewHost({
+export function SettingsForm5PreviewHost(props: Parameters<typeof SettingsForm5PreviewOwner>[0]) {
+  if (props.spec.category !== 'settings-form' || props.spec.variant !== 5) return props.children
+  return <SettingsForm5PreviewOwner key={props.spec.id} {...props} />
+}
+
+function SettingsForm5PreviewOwner({
   content,
   spec,
   onAction,

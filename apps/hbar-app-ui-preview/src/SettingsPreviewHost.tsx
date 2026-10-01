@@ -42,7 +42,12 @@ function projectField(field: LumenSettingsForm1Field, stateField: SettingsForm1P
   }
 }
 
-export function SettingsPreviewHost({
+export function SettingsPreviewHost(props: Parameters<typeof SettingsPreviewOwner>[0]) {
+  if (props.spec.category !== 'settings-form' || props.spec.variant !== 1) return props.children
+  return <SettingsPreviewOwner key={props.spec.id} {...props} />
+}
+
+function SettingsPreviewOwner({
   content,
   spec,
   onAction,
@@ -57,16 +62,16 @@ export function SettingsPreviewHost({
     [draft, setDraft] = useState(() => values(content.preferences)),
     [saved, setSaved] = useState(draft),
     [dirty, setDirty] = useState(true)
-  const referenceStore = useMemo(
-    () => createSettingsForm1PreviewStore(referenceFixture.storeSeed),
-    [referenceFixture],
-  )
+  const referenceStore = useMemo(() => createSettingsForm1PreviewStore(referenceFixture.storeSeed), [referenceFixture])
   const referenceState = useStore(referenceStore)
   const failedOnce = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => {
-    if (saveTimer.current !== undefined) clearTimeout(saveTimer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (saveTimer.current !== undefined) clearTimeout(saveTimer.current)
+    },
+    [],
+  )
   if (source !== content) {
     const next = values(content.preferences)
     setSource(content)
@@ -91,43 +96,44 @@ export function SettingsPreviewHost({
     <HbarAppUiSettingsFormProvider
       content={{
         ...content,
-        workspaceReference: spec.variant === 1
-          ? {
-              content: workspaceReferenceContent,
-              saveState: referenceState.saveState,
-              statusMessage: referenceFixture.content.feedbackMessages[referenceState.feedback] || undefined,
-              onSelectSection(sectionId) {
-                if (referenceStore.getState().selectSection(sectionId)) {
-                  onAction?.({ variantId: spec.id, actionId: 'select-settings-section', value: sectionId })
-                }
-              },
-              onFieldChange(fieldId, value: SettingsForm1PreviewValue) {
-                if (referenceStore.getState().changeField(fieldId, value)) {
-                  onAction?.({ variantId: spec.id, actionId: 'change-settings-field', value: fieldId })
-                }
-              },
-              onCancel() {
-                if (referenceStore.getState().cancel()) {
-                  onAction?.({ variantId: spec.id, actionId: 'cancel-settings' })
-                }
-              },
-              onSave() {
-                if (!referenceStore.getState().beginSave()) return
-                const failThisAttempt = referenceFixture.saveBehavior === 'fail-once' && !failedOnce.current
-                if (failThisAttempt) failedOnce.current = true
-                saveTimer.current = setTimeout(() => {
-                  saveTimer.current = undefined
-                  if (failThisAttempt) {
-                    referenceStore.getState().rejectSave()
-                    onAction?.({ variantId: spec.id, actionId: 'save-settings-failed' })
-                    return
+        workspaceReference:
+          spec.variant === 1
+            ? {
+                content: workspaceReferenceContent,
+                saveState: referenceState.saveState,
+                statusMessage: referenceFixture.content.feedbackMessages[referenceState.feedback] || undefined,
+                onSelectSection(sectionId) {
+                  if (referenceStore.getState().selectSection(sectionId)) {
+                    onAction?.({ variantId: spec.id, actionId: 'select-settings-section', value: sectionId })
                   }
-                  referenceStore.getState().resolveSave()
-                  onAction?.({ variantId: spec.id, actionId: 'save-settings' })
-                }, 1200)
-              },
-            }
-          : content.workspaceReference,
+                },
+                onFieldChange(fieldId, value: SettingsForm1PreviewValue) {
+                  if (referenceStore.getState().changeField(fieldId, value)) {
+                    onAction?.({ variantId: spec.id, actionId: 'change-settings-field', value: fieldId })
+                  }
+                },
+                onCancel() {
+                  if (referenceStore.getState().cancel()) {
+                    onAction?.({ variantId: spec.id, actionId: 'cancel-settings' })
+                  }
+                },
+                onSave() {
+                  if (!referenceStore.getState().beginSave()) return
+                  const failThisAttempt = referenceFixture.saveBehavior === 'fail-once' && !failedOnce.current
+                  if (failThisAttempt) failedOnce.current = true
+                  saveTimer.current = setTimeout(() => {
+                    saveTimer.current = undefined
+                    if (failThisAttempt) {
+                      referenceStore.getState().rejectSave()
+                      onAction?.({ variantId: spec.id, actionId: 'save-settings-failed' })
+                      return
+                    }
+                    referenceStore.getState().resolveSave()
+                    onAction?.({ variantId: spec.id, actionId: 'save-settings' })
+                  }, 1200)
+                },
+              }
+            : content.workspaceReference,
         preferences: preference && {
           ...preference,
           themeId: draft.themeId,

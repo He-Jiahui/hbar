@@ -10,7 +10,12 @@ import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createSettingsForm6PreviewStore, type SettingsForm6PreviewAction } from './settingsForm6PreviewStore'
 import type { SettingsForm6PreviewFixture } from './settingsForm6PreviewFixtures'
 
-export function SettingsForm6PreviewHost({
+export function SettingsForm6PreviewHost(props: Parameters<typeof SettingsForm6PreviewOwner>[0]) {
+  if (props.spec.category !== 'settings-form' || props.spec.variant !== 6) return props.children
+  return <SettingsForm6PreviewOwner key={props.spec.id} {...props} />
+}
+
+function SettingsForm6PreviewOwner({
   content,
   spec,
   onAction,

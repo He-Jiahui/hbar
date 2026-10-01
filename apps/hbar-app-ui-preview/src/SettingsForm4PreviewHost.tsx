@@ -6,7 +6,12 @@ import { createSettingsForm4PreviewStore } from './settingsForm4PreviewStore'
 import type { SettingsForm4PreviewAssignableRoleId } from './settingsForm4PreviewStore'
 import type { SettingsForm4PreviewFixture } from './settingsForm4PreviewFixtures'
 
-export function SettingsForm4PreviewHost({
+export function SettingsForm4PreviewHost(props: Parameters<typeof SettingsForm4PreviewOwner>[0]) {
+  if (props.spec.category !== 'settings-form' || props.spec.variant !== 4) return props.children
+  return <SettingsForm4PreviewOwner key={props.spec.id} {...props} />
+}
+
+function SettingsForm4PreviewOwner({
   content,
   spec,
   onAction,

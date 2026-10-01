@@ -1673,3 +1673,40 @@ claimed. The existing large-chunk warning and inventory-wide formatting debt
 remain. Only the six Feedback inventory rows are updated; unrelated working-tree
 changes are preserved. This closes Feedback's practical functional/layout scope,
 not the full 300-variant goal or an exhaustive pixel/backend acceptance.
+
+### Settings 1–6 active-owner boundary
+
+Each nested Settings preview Host now checks its exact active variant before
+reading a seed, creating a store or subscribing to it. The six existing reference
+models and projections remain unchanged. Settings 2's older ID-only Host contract
+is retained; it checks the stable variant ID. Save timers in Settings 1 and 3 are
+released when navigation unmounts their active owner. No reusable view, CSS or
+icon was changed.
+
+The original wrappers in `978baa09`, `9649e60d`, `7372450e`, `bb1114c2`,
+`b894b6fe` and `0af3a007` initialized their stores inside the common catalog chain.
+The new SSR owner tests inspect the public content hook across all six active
+variants and deliberately make inactive seeds unreadable. Only the selected
+reference key is supplied; an unrelated Editor selection reads no Settings seed.
+
+All 43 existing Settings tests pass with 372 assertions. The first new-test run
+failed on an unsupported test import alias, not a runtime state transition; after
+using the existing repository test entry, both owner tests pass with seven
+assertions. Scoped ESLint, formatting, the six Host content guards and the
+production preview build pass. Global typecheck retains the two unrelated
+SessionStop `guided` errors. Unrelated changes remain untouched.
+
+The [practical Settings check](../scripts/verify-hbar-app-ui-settings-core.ts)
+records four representative workflows with zero diagnostics. Workspace local
+save and Cancel restore, redacted-key Reveal/Hide and local integration changes,
+the callback-only danger draft, and the localized narrow danger footer were
+checked. Two screenshots were inspected; the existing six-store tests and
+historical source-layout evidence support unchanged fields and rows, without a
+repeat button/viewport matrix.
+
+Settings 6 still has one explicit source-parity gap: the captured source Cancel
+hides confirmation and shows Review deletion, while the preview currently only
+reports its Cancel callback. The next Review outcome and actual transfer,
+archive/deletion remain unknown. The active-owner change does not claim to fix
+that transition or deliver remote operations; its historical strict ledger stays
+unapproved. This difference is tracked separately from natural layout acceptance.

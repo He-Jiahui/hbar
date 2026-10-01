@@ -8,7 +8,12 @@ import {
 import { createSettingsForm2PreviewStore, type SettingsForm2PreviewStoreState } from './settingsForm2PreviewStore'
 import type { SettingsForm2PreviewFixture } from './settingsForm2PreviewFixtures'
 
-export function SettingsForm2PreviewHost({
+export function SettingsForm2PreviewHost(props: Parameters<typeof SettingsForm2PreviewOwner>[0]) {
+  if (props.spec.id !== 'hbar-app-ui-settings-form-2') return props.children
+  return <SettingsForm2PreviewOwner key={props.spec.id} {...props} />
+}
+
+function SettingsForm2PreviewOwner({
   content,
   spec,
   onAction,
