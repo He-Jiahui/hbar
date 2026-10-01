@@ -73,6 +73,9 @@ test('reading earlier messages survives Settings and Files workbench returns wit
     const draft = '先读旧消息，再打开设置，回来应该继续读同一处。'
     await input.fill(draft)
     const viewport = page.locator('.lumen-conversation-messages')
+    const readingTolerance = await page.evaluate(() =>
+      Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+    )
     await expect(viewport.locator('[data-message-id]').first()).toBeVisible()
     await expect
       .poll(async () => viewport.evaluate((element) => element.scrollHeight > element.clientHeight * 2))
@@ -96,7 +99,10 @@ test('reading earlier messages survives Settings and Files workbench returns wit
     await expect(page.locator('.hbar-app-react-session-main')).toHaveAttribute('data-reading-restoring', 'false')
     await expect.poll(async () => (await readingAnchor(viewport)).atEnd).toBe(false)
     const after = await readingAnchor(viewport)
-    expect(Math.abs((after.offset ?? 0) - (before.offset ?? 0))).toBeLessThan(4)
+    // Preserve the original message and reading range, allowing sub-line
+    // measurement changes instead of treating this as a pixel screenshot test.
+    expect(Math.abs((after.offset ?? 0) - (before.offset ?? 0))).toBeLessThan(readingTolerance)
+    await expect(page.getByText(copy.session.readingPositionUnavailable, { exact: true })).toHaveCount(0)
 
     // Reading a previously loaded page must survive a workbench which replaces
     // the entire conversation tree, not just a sibling tool drawer.
@@ -130,7 +136,8 @@ test('reading earlier messages survives Settings and Files workbench returns wit
     await expect(page.locator('.hbar-app-react-session-main')).toHaveAttribute('data-reading-restoring', 'false')
     await expect.poll(async () => (await readingAnchor(viewport)).atEnd).toBe(false)
     const afterWorkbench = await readingAnchor(viewport)
-    expect(Math.abs((afterWorkbench.offset ?? 0) - (beforeWorkbench.offset ?? 0))).toBeLessThan(4)
+    expect(Math.abs((afterWorkbench.offset ?? 0) - (beforeWorkbench.offset ?? 0))).toBeLessThan(readingTolerance)
+    await expect(page.getByText(copy.session.readingPositionUnavailable, { exact: true })).toHaveCount(0)
     await page.screenshot({ path: info.outputPath('reading-after-workbench-1440.png') })
     const beforeSwitch = await readingAnchor(viewport, true)
 

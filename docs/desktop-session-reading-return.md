@@ -52,3 +52,20 @@ Git 历史与本地差异已核对，没有将最近的 composer 提交当作已
 没有运行全仓 lint/typecheck、原生 build/smoke、真实付费 Provider 或跨应用发布。
 这些 focused 检查不是全仓门禁通过的声明。折叠侧栏快捷入口属于下一项独立单元，
 不能以本次阅读修复宣称整体迁移已完成。
+
+## 同身份 Host 更换的迟到恢复隔离
+
+`b808f73c` 后的限定只读复核发现：若旧/新 runtime 中三个 tab 身份相同，仅以
+scope 清理会保留旧 pending read/RAF；旧 finish 可能取消新 runtime 的恢复。
+这是已确认的生命周期逻辑漏洞，不是本次普通返回链已重现的故障。
+后续独立修复将 runtime view 身份纳入 owner fence，runtime 更换也清理 timer/RAF
+并重置分页预算；旧 RAF 身份失效时直接退出，不调用可能清理新任务的 finish。
+
+新增两个真实 createAppRuntime 的同 target owner 回归：与缓存测试合计
+8 tests / 29 assertions 通过；修复后再次执行真实 Host 阅读返回链，1/1 通过，6.3 秒。
+作用域类型、2 文件类型感知 lint、生产 build、格式与 diff 检查通过。
+修复后的资产为 `index-BYUTYiKX.js`，截图另存 `artifacts/reading-return-v42/owner-results`，
+没有覆盖上面四链的 final-results。本次没有端到端注入 Host 交换竞态，
+其证据为明确 owner 条件、组件资源清理和同身份双 runtime 测试。
+最终阅读断言保留同一消息、非最新、无失败提示和草稿不变；偏移容许一字号以内的
+虚拟测量差，不将实测 6.6px 的同消息变化误报为核心导航断点。

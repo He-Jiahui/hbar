@@ -42,6 +42,20 @@ interface ReadingOptions {
   readonly olderStatus: string
 }
 
+/** A same tab identity on another Host/runtime is not the same reading owner. */
+export function isConversationReadingOwner(
+  current: Pick<ReadingOptions, 'runtime' | 'target'>,
+  runtime: HbarRuntimeView,
+  captured: ConversationReadingTarget,
+): boolean {
+  return (
+    current.runtime === runtime &&
+    current.target?.sessionId === captured.sessionId &&
+    current.target.workspaceId === captured.workspaceId &&
+    current.target.sourceTabInstanceKey === captured.sourceTabInstanceKey
+  )
+}
+
 /** Restores through the public controlled-scroll seam, including measured virtual rows. */
 export function useSessionReadingPosition(options: ReadingOptions) {
   const { runtime, target, ready, findOpen, messageIds, hasOlder, olderStatus } = options
@@ -109,15 +123,11 @@ export function useSessionReadingPosition(options: ReadingOptions) {
     },
     [scope, ticket],
   )
-  const isCurrent = (captured: ConversationReadingTarget) => {
-    const current = latest.current.target
-    return (
-      mounted.current &&
-      current?.sessionId === captured.sessionId &&
-      current.workspaceId === captured.workspaceId &&
-      current.sourceTabInstanceKey === captured.sourceTabInstanceKey
-    )
-  }
+  const isCurrent = useCallback(
+    (captured: ConversationReadingTarget) =>
+      mounted.current && isConversationReadingOwner(latest.current, runtime, captured),
+    [runtime],
+  )
 
   useEffect(() => {
     mounted.current = true
@@ -135,8 +145,9 @@ export function useSessionReadingPosition(options: ReadingOptions) {
         clearTimeout(alignment.timer)
       }
       pendingAlignment.current = null
+      readBudget.current = { scope: null, attempts: 0 }
     }
-  }, [scope])
+  }, [runtime, scope])
 
   useEffect(() => {
     if (readBudget.current.scope !== scope) readBudget.current = { scope, attempts: 0 }
@@ -195,6 +206,7 @@ export function useSessionReadingPosition(options: ReadingOptions) {
     olderStatus,
     retry,
     finish,
+    isCurrent,
   ])
 
   const remember = useCallback(
@@ -202,6 +214,7 @@ export function useSessionReadingPosition(options: ReadingOptions) {
       const current = latest.current
       if (
         !current.target ||
+        current.runtime !== runtime ||
         !current.ready ||
         root.current?.dataset.readingScope !== scope ||
         (ticket && finishedRequest.current !== ticket.scroll.requestId)
@@ -270,7 +283,10 @@ export function useSessionReadingPosition(options: ReadingOptions) {
       let stable = 0
       let geometry: string | null = null
       const align = () => {
-        if (!isCurrent(ticket.source) || !element.isConnected || latest.current.findOpen) {
+        // A replaced runtime's callback must never finish/cancel the new
+        // runtime's read or alignment stored in these reusable hook refs.
+        if (!isCurrent(ticket.source)) return
+        if (!element.isConnected || latest.current.findOpen) {
           finish()
           return
         }
