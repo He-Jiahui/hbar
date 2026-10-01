@@ -8,6 +8,7 @@ export function createDirectoryQueryAdapter(client: ClientTransport) {
   return {
     async execute(name: string, input: unknown): Promise<unknown> {
       switch (name) {
+        case 'session.execution.get':
         case 'workspace.sidebar.list':
         case 'session.activity.global.list':
         case 'workspace.activity.list':

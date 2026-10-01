@@ -19,12 +19,15 @@ import type {
   WorkspaceSidebarListInput,
   WorkspaceSidebarPage,
   SessionSidebarPage,
+  SessionExecutionGetInput,
+  SessionExecutionSnapshot,
 } from '@hbar/contracts/sidebar-directory'
 
 export interface DirectoryRepository {
   workspacePage(input: WorkspaceListInput): Promise<WorkspacePage>
   workspaceSidebarPage(input: WorkspaceSidebarListInput): Promise<WorkspaceSidebarPage>
   globalSessionActivityPage(input: SessionActivityGlobalListInput): Promise<SessionActivityGlobalPage>
+  sessionExecutionSnapshot(input: SessionExecutionGetInput): Promise<SessionExecutionSnapshot>
   workspaceActivityPage(input: WorkspaceActivityListInput): Promise<WorkspaceActivityPage>
   sessionActivityPage(input: SessionActivityListInput): Promise<SessionActivityPage>
   sidebarSessionActivityPage(input: SessionActivityListInput): Promise<SessionSidebarPage>
@@ -47,6 +50,14 @@ export function createDirectoryQueries(repository: DirectoryRepository) {
   registry.register(directoryCommands['session.activity.global.list'], async (input) => {
     try {
       return await repository.globalSessionActivityPage(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(directoryCommands['session.execution.get'], async (input) => {
+    try {
+      return await repository.sessionExecutionSnapshot(input)
     } catch (error) {
       if (error instanceof HbarError) throw new CommandError(error.code, error.message)
       throw error

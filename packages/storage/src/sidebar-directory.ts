@@ -7,6 +7,8 @@ import {
   sessionActivityGlobalPageSchema,
   workspaceSidebarListInputSchema,
   workspaceSidebarPageSchema,
+  sessionExecutionGetInputSchema,
+  sessionExecutionSnapshotSchema,
 } from '@hbar/contracts/sidebar-directory'
 import type {
   SessionActivityGlobalListInput,
@@ -14,6 +16,8 @@ import type {
   WorkspaceSidebarListInput,
   WorkspaceSidebarPage,
   SessionActivityExecution,
+  SessionExecutionGetInput,
+  SessionExecutionSnapshot,
 } from '@hbar/contracts/sidebar-directory'
 import type { WorkspaceDisplayNamesSnapshot } from '@hbar/contracts/commands/workspace-display-names'
 import type { WorkspaceOrganizationSnapshot } from '@hbar/contracts/commands/workspace-organization'
@@ -426,6 +430,53 @@ export function createSidebarDirectoryStorage(
     })()
   }
 
+  /** Read one selected Session's execution facts without paging or reading private history. */
+  function sessionExecutionSnapshot(value: SessionExecutionGetInput): SessionExecutionSnapshot {
+    const parsedInput = sessionExecutionGetInputSchema.safeParse(value)
+    if (!parsedInput.success) return invalidInput()
+    const input = parsedInput.data
+    return db.transaction(() => {
+      const revision = activityRevision(db)
+      const session = db
+        .query<{ id: string; workspaceId: string }, [string]>('SELECT id,workspaceId FROM sessions WHERE id=?')
+        .get(input.sessionId)
+      if (!session) throw new HbarError('SESSION_NOT_FOUND', 'Session not found')
+      if (session.workspaceId !== input.workspaceId)
+        throw new HbarError('SESSION_WORKSPACE_MISMATCH', 'Session does not belong to the requested workspace')
+
+      // Keep the aggregate target-filtered: own Runs and direct non-fork child Runs only.
+      const row = db
+        .query(
+          `WITH active_runs AS (
+             SELECT r.id,r.sessionId,r.status,
+               CASE WHEN EXISTS (SELECT 1 FROM events e WHERE e.runId=r.id AND e.type='run.cancelRequested')
+                 THEN 1 ELSE 0 END AS cancelRequested
+             FROM runs r
+             WHERE r.status IN ('queued','running','waiting_approval')
+               AND (r.sessionId=? OR EXISTS (
+                 SELECT 1 FROM sessions child
+                 WHERE child.id=r.sessionId AND child.parentId=? AND child.parentId<>child.id
+                   AND NOT EXISTS (SELECT 1 FROM events e WHERE e.sessionId=child.id AND e.type='session.forked')
+               ))
+           )
+           SELECT COUNT(*) AS activeCount,
+             SUM(CASE WHEN status='queued' THEN 1 ELSE 0 END) AS queuedCount,
+             SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) AS runningCount,
+             SUM(CASE WHEN status='waiting_approval' THEN 1 ELSE 0 END) AS waitingCount,
+             SUM(cancelRequested) AS cancelRequestedCount
+           FROM active_runs`,
+        )
+        .get(input.sessionId, input.sessionId)
+      const executionRow = z.record(z.string(), z.unknown()).parse(row ?? {})
+      return sessionExecutionSnapshotSchema.parse({
+        sessionId: input.sessionId,
+        workspaceId: input.workspaceId,
+        revision,
+        execution: executionFromRow(executionRow),
+      })
+    })()
+  }
+
   /** Called inside the Session-page transaction; no separate revision or private plugin history. */
   function executionSummaries(sessionIds: readonly string[]): ReadonlyMap<string, SessionActivityExecution> {
     const ids = z.array(z.string().min(1).max(160)).max(200).parse(sessionIds)
@@ -446,5 +497,5 @@ export function createSidebarDirectoryStorage(
     return summaries
   }
 
-  return { workspaceSidebarPage, globalSessionActivityPage, executionSummaries }
+  return { workspaceSidebarPage, globalSessionActivityPage, sessionExecutionSnapshot, executionSummaries }
 }

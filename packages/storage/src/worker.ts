@@ -803,6 +803,7 @@ const methods: StorageMethods = {
   },
   workspaceSidebarPage: (input) => sidebarDirectory.workspaceSidebarPage(input),
   globalSessionActivityPage: (input) => sidebarDirectory.globalSessionActivityPage(input),
+  sessionExecutionSnapshot: (input) => sidebarDirectory.sessionExecutionSnapshot(input),
   workspaceActivityPage: (input) => workspaceActivityPage(input),
   sessionActivityPage: (input) => sessionActivityPage(input),
   sidebarSessionActivityPage(input) {

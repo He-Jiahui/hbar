@@ -30,6 +30,7 @@ async function fixture() {
     workspacePage: (input) => storage.call('workspacePage', input),
     workspaceSidebarPage: (input) => storage.call('workspaceSidebarPage', input),
     globalSessionActivityPage: (input) => storage.call('globalSessionActivityPage', input),
+    sessionExecutionSnapshot: (input) => storage.call('sessionExecutionSnapshot', input),
     workspaceActivityPage: (input) => storage.call('workspaceActivityPage', input),
     sessionActivityPage: (input) => storage.call('sessionActivityPage', input),
     sidebarSessionActivityPage: (input) => storage.call('sidebarSessionActivityPage', input),
@@ -343,6 +344,88 @@ test('session.activity.global.list returns cross-workspace execution summaries, 
   expect(runningRun.id).toBeString()
 })
 
+test('session.execution.get reads one target with own and direct non-fork child activity only', async () => {
+  const { root, storage, queries } = await fixture()
+  const workspace = await storage.call('createWorkspace', join(root, 'parent'), 'Parent workspace')
+  const childWorkspace = await storage.call('createWorkspace', join(root, 'child'), 'Child workspace')
+  const parent = await storage.call('createSession', workspace.id, 'Parent')
+  const child = await storage.call('createSession', childWorkspace.id, 'Archived child', parent.id)
+  const fork = await storage.call('fork', parent.id)
+  const grandchild = await storage.call('createSession', childWorkspace.id, 'Grandchild', child.id)
+  const ownRun = await storage.call(
+    'enqueue',
+    parent.id,
+    'selected-own',
+    { text: 'private parent input', images: [] },
+    'fixture',
+  )
+  const childRun = await storage.call(
+    'enqueue',
+    child.id,
+    'selected-child',
+    { text: 'private child input', images: [] },
+    'fixture',
+  )
+  const forkRun = await storage.call(
+    'enqueue',
+    fork.id,
+    'selected-fork',
+    { text: 'private fork input', images: [] },
+    'fixture',
+  )
+  const grandchildRun = await storage.call(
+    'enqueue',
+    grandchild.id,
+    'selected-grandchild',
+    { text: 'private grandchild input', images: [] },
+    'fixture',
+  )
+  await storage.call('setRun', childRun.id, 'waiting_approval')
+  await storage.call('setRun', forkRun.id, 'waiting_approval')
+  await storage.call('setRun', grandchildRun.id, 'waiting_approval')
+  await storage.call('updateSession', child.id, { archived: true })
+  await hideWorkspace(storage, childWorkspace.id, 'hide-selected-child-workspace')
+
+  const selected = await queries.execute('session.execution.get', {
+    sessionId: parent.id,
+    workspaceId: workspace.id,
+  })
+  expect(selected).toMatchObject({
+    sessionId: parent.id,
+    workspaceId: workspace.id,
+    execution: { state: 'waiting_approval', activeCount: 2, queuedCount: 1 },
+  })
+  expect(JSON.stringify(selected)).not.toContain('private ')
+
+  await storage.call('requestCancel', childRun.id)
+  const cancelling = await queries.execute('session.execution.get', {
+    sessionId: parent.id,
+    workspaceId: workspace.id,
+  })
+  expect(cancelling.execution).toEqual({ state: 'cancelRequested', activeCount: 2, queuedCount: 1 })
+  await storage.call('setRun', childRun.id, 'cancelled')
+  await storage.call('setRun', ownRun.id, 'cancelled')
+  const idle = await queries.execute('session.execution.get', { sessionId: parent.id, workspaceId: workspace.id })
+  expect(idle.execution).toEqual({ state: 'idle', activeCount: 0, queuedCount: 0 })
+
+  // The child owns its direct grandchild, while the parent does not recursively inherit it.
+  const childExecution = await queries.execute('session.execution.get', {
+    sessionId: child.id,
+    workspaceId: childWorkspace.id,
+  })
+  expect(childExecution.execution).toEqual({ state: 'waiting_approval', activeCount: 1, queuedCount: 0 })
+  expect(forkRun.id).toBeString()
+  expect(grandchildRun.id).toBeString()
+  await expectCode(
+    queries.execute('session.execution.get', { sessionId: parent.id, workspaceId: childWorkspace.id }),
+    'SESSION_WORKSPACE_MISMATCH',
+  )
+  await expectCode(
+    queries.execute('session.execution.get', { sessionId: 'missing', workspaceId: workspace.id }),
+    'SESSION_NOT_FOUND',
+  )
+})
+
 test('durable Run activity events publish one global invalidation hint without reacting to other events', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-sidebar-directory-'))
   const kernel = await Kernel.create({
@@ -597,5 +680,18 @@ test('the public directory adapter routes project activity through the real Host
   })
   expect(page.items).toHaveLength(2)
   expect(JSON.stringify(page)).not.toContain('private adapter input')
+  const selected = await adapter.execute('session.execution.get', {
+    sessionId: parent.id,
+    workspaceId: workspace.id,
+  })
+  expect(selected).toMatchObject({
+    sessionId: parent.id,
+    workspaceId: workspace.id,
+    execution: { state: 'queued', activeCount: 1, queuedCount: 1 },
+  })
+  await expectCode(
+    adapter.execute('session.execution.get', { sessionId: parent.id, workspaceId: 'missing' }),
+    'SESSION_WORKSPACE_MISMATCH',
+  )
   await expectCode(adapter.execute('session.sidebar.list', { workspaceId: 'missing' }), 'WORKSPACE_NOT_FOUND')
 })

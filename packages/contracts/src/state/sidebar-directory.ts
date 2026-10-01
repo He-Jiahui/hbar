@@ -120,11 +120,33 @@ export const sessionActivityGlobalListInputSchema = z.strictObject({
   limit: z.number().int().min(1).max(200).default(60),
 })
 
-export const sessionActivityExecutionSchema = z.strictObject({
-  state: z.enum(['idle', 'queued', 'running', 'waiting_approval', 'cancelRequested']),
-  /** Nonterminal Runs owned by this Session or its direct non-fork children; not a Goal-completion signal. */
-  activeCount: z.number().int().nonnegative().safe(),
-  queuedCount: z.number().int().nonnegative().safe(),
+export const sessionActivityExecutionSchema = z
+  .strictObject({
+    state: z.enum(['idle', 'queued', 'running', 'waiting_approval', 'cancelRequested']),
+    /** Nonterminal Runs owned by this Session or its direct non-fork children; not a Goal-completion signal. */
+    activeCount: z.number().int().nonnegative().safe(),
+    queuedCount: z.number().int().nonnegative().safe(),
+  })
+  .superRefine((execution, context) => {
+    if ((execution.activeCount === 0) !== (execution.state === 'idle'))
+      context.addIssue({ code: 'custom', path: ['state'], message: 'Idle execution must have no active Runs' })
+    if (execution.queuedCount > execution.activeCount)
+      context.addIssue({ code: 'custom', path: ['queuedCount'], message: 'Queued Runs cannot exceed active Runs' })
+    if (execution.state === 'queued' && execution.queuedCount === 0)
+      context.addIssue({ code: 'custom', path: ['state'], message: 'Queued execution must have a queued Run' })
+  })
+
+/** Exact selected-Session execution read; the revision covers the Session and Run snapshot. */
+export const sessionExecutionGetInputSchema = z.strictObject({
+  sessionId: entityId,
+  workspaceId: entityId,
+})
+
+export const sessionExecutionSnapshotSchema = z.strictObject({
+  sessionId: entityId,
+  workspaceId: entityId,
+  revision,
+  execution: sessionActivityExecutionSchema,
 })
 
 export const sessionActivityGlobalItemSchema = z.strictObject({
@@ -203,5 +225,7 @@ export type WorkspaceSidebarPage = z.output<typeof workspaceSidebarPageSchema>
 export type SessionActivityGlobalCursor = z.output<typeof sessionActivityGlobalCursorSchema>
 export type SessionActivityGlobalListInput = z.input<typeof sessionActivityGlobalListInputSchema>
 export type SessionActivityExecution = z.output<typeof sessionActivityExecutionSchema>
+export type SessionExecutionGetInput = z.input<typeof sessionExecutionGetInputSchema>
+export type SessionExecutionSnapshot = z.output<typeof sessionExecutionSnapshotSchema>
 export type SessionActivityGlobalItem = z.output<typeof sessionActivityGlobalItemSchema>
 export type SessionActivityGlobalPage = z.output<typeof sessionActivityGlobalPageSchema>

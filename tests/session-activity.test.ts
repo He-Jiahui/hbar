@@ -32,6 +32,7 @@ async function fixture() {
     workspacePage: (input) => storage.call('workspacePage', input),
     workspaceSidebarPage: (input) => storage.call('workspaceSidebarPage', input),
     globalSessionActivityPage: (input) => storage.call('globalSessionActivityPage', input),
+    sessionExecutionSnapshot: (input) => storage.call('sessionExecutionSnapshot', input),
     workspaceActivityPage: (input) => storage.call('workspaceActivityPage', input),
     sessionActivityPage: (input) => storage.call('sessionActivityPage', input),
     sidebarSessionActivityPage: (input) => storage.call('sidebarSessionActivityPage', input),

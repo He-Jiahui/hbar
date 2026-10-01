@@ -5,6 +5,8 @@ import {
   workspaceSidebarListInputSchema,
   workspaceSidebarPageSchema,
   sessionSidebarPageSchema,
+  sessionExecutionGetInputSchema,
+  sessionExecutionSnapshotSchema,
 } from '../state/sidebar-directory'
 import { sessionActivityListInputSchema } from '../state/directory'
 
@@ -25,6 +27,21 @@ function query(id: string) {
 }
 
 export const sidebarDirectoryCommands = {
+  'session.execution.get': defineCommand(
+    {
+      ...query('session.execution.get'),
+      category: 'session.execution',
+      scope: 'workspace',
+      cli: {
+        arguments: [
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+        ],
+      },
+    },
+    sessionExecutionGetInputSchema,
+    sessionExecutionSnapshotSchema,
+  ),
   'session.sidebar.list': defineCommand(
     {
       ...query('session.sidebar.list'),
