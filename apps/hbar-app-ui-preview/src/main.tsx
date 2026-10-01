@@ -69,6 +69,7 @@ import { AppSidebarPreviewHost } from './AppSidebarPreviewHost'
 import { NavbarPreviewHost } from './NavbarPreviewHost'
 import { MobilePreviewHost } from './MobilePreviewHost'
 import { CardPreviewHost } from './CardPreviewHost'
+import { DataTablePreviewHost } from './DataTablePreviewHost'
 import { PlanPreviewHost } from './PlanPreviewHost'
 import './agent-plan-preview.css'
 import { EditorPreviewHost } from './EditorPreviewHost'
@@ -89,7 +90,6 @@ import {
   HbarAppUiIntegrationProvider,
   HbarAppUiChatProvider,
   HbarAppUiPromptInputProvider,
-  HbarAppUiDataTableProvider,
   HbarAppUiDashboardProvider,
   HbarAppUiAnalyticsProvider,
   HbarAppUiFormsProvider,
@@ -212,7 +212,6 @@ import {
   createHbarAppUiPromptInputLocalizedFixtures,
   HBAR_APP_UI_PROMPT_INPUT_FIXTURES,
 } from '../../../tests/fixtures/hbar-app-ui-prompt-input-fixtures'
-import { HBAR_APP_UI_DATA_TABLE_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-data-table-fixtures'
 import { HBAR_APP_UI_DASHBOARD_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-dashboard-fixtures'
 import { HBAR_APP_UI_ANALYTICS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-analytics-fixtures'
 import { HBAR_APP_UI_FORMS_FIXTURES } from '../../../tests/fixtures/hbar-app-ui-forms-fixtures'
@@ -570,7 +569,6 @@ function PreviewApp() {
     () => createPromptReferenceFixture(selected.spec.variant, promptReferenceLocale),
     [selected.spec.variant, promptReferenceLocale],
   )
-  const dataTableContent = useMemo(() => HBAR_APP_UI_DATA_TABLE_FIXTURES, [])
   const dashboardContent = useMemo(() => HBAR_APP_UI_DASHBOARD_FIXTURES, [])
   const analyticsContent = useMemo(() => HBAR_APP_UI_ANALYTICS_FIXTURES, [])
   const emptyStateContent = useMemo(() => {
@@ -933,7 +931,7 @@ function PreviewApp() {
                                           onAction={handleAction}
                                         >
                                         <CardPreviewHost spec={selected.spec} onAction={handleAction}>
-                                          <HbarAppUiDataTableProvider content={dataTableContent}>
+                                          <DataTablePreviewHost spec={selected.spec} onAction={handleAction}>
                                             <HbarAppUiDashboardProvider content={dashboardContent}>
                                               <HbarAppUiAnalyticsProvider content={analyticsContent}>
                                                 <HbarAppUiFormsProvider content={formsContent}>
@@ -1220,7 +1218,7 @@ function PreviewApp() {
                                                 </HbarAppUiFormsProvider>
                                               </HbarAppUiAnalyticsProvider>
                                             </HbarAppUiDashboardProvider>
-                                          </HbarAppUiDataTableProvider>
+                                          </DataTablePreviewHost>
                                         </CardPreviewHost>
                                         </PromptReferencePreviewHost>
                                       </HbarAppUiPromptInputProvider>
@@ -1425,7 +1423,7 @@ function PreviewApp() {
                                                     onAction={handleAction}
                                                   >
                                                   <CardPreviewHost spec={selected.spec} onAction={handleAction}>
-                                                    <HbarAppUiDataTableProvider content={dataTableContent}>
+                                                    <DataTablePreviewHost spec={selected.spec} onAction={handleAction}>
                                                       <HbarAppUiDashboardProvider content={dashboardContent}>
                                                         <HbarAppUiAnalyticsProvider content={analyticsContent}>
                                                           <HbarAppUiFormsProvider content={formsContent}>
@@ -1736,7 +1734,7 @@ function PreviewApp() {
                                                           </HbarAppUiFormsProvider>
                                                         </HbarAppUiAnalyticsProvider>
                                                       </HbarAppUiDashboardProvider>
-                                                    </HbarAppUiDataTableProvider>
+                                                    </DataTablePreviewHost>
                                                   </CardPreviewHost>
                                                   </PromptReferencePreviewHost>
                                                 </HbarAppUiPromptInputProvider>

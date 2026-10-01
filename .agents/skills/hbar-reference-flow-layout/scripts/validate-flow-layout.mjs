@@ -609,7 +609,26 @@ function validateCss(path, source) {
         /(?:^|\n)\s*position:\s*sticky;/.test(rule.body) &&
         property === 'inset-block-start' &&
         value.trim() === '0'
-      if (coordinateProperties.has(property) && !isOverlay && !isObservedStickyColumns) {
+      // The captured table previews have sticky table headers; capacity also has
+      // a sticky first column inside its horizontal scroll pane. Only zero anchors
+      // on those exact selectors are permitted, never ordinary content offsets.
+      const tableStickyVertical = new Set(['.lumen-data-table thead th', '.lumen-data-table-reference-scroll thead th'])
+      const tableStickyHorizontal = new Set([
+        '.lumen-data-table-wide tbody th',
+        '.lumen-data-table-wide thead th:first-child',
+        '.hbar-app-ui-table-variant-8 .lumen-data-table-reference-scroll tbody th',
+        '.hbar-app-ui-table-variant-8 .lumen-data-table-reference-scroll thead th:first-child',
+      ])
+      const tableStickySelectors = rule.selector.split(',').map((selector) => selector.trim())
+      const isObservedTableSticky =
+        /packages\/lumen-app-ui\/src\/data-table\.css$/.test(path.replaceAll('\\', '/')) &&
+        /(?:^|\n)\s*position:\s*sticky;/.test(rule.body) &&
+        value.trim() === '0' &&
+        ((property === 'inset-block-start' &&
+          tableStickySelectors.every((selector) => tableStickyVertical.has(selector))) ||
+          (property === 'inset-inline-start' &&
+            tableStickySelectors.every((selector) => tableStickyHorizontal.has(selector))))
+      if (coordinateProperties.has(property) && !isOverlay && !isObservedStickyColumns && !isObservedTableSticky) {
         errors.push(`${location}: ${property} is reserved for a real overlay container; use flex flow for content.`)
       }
       const isShellAccessibleText =
@@ -809,6 +828,23 @@ inset-inline-end: 0;
     ).length === 0
   )
     throw new Error('Observed swimlane sticky header exception must remain exact and path-scoped')
+  const tableSticky = `.lumen-data-table-reference-scroll thead th {
+  position: sticky;
+  inset-block-start: 0;
+}`
+  const capacitySticky = `.hbar-app-ui-table-variant-8 .lumen-data-table-reference-scroll tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+}`
+  for (const example of [tableSticky, capacitySticky]) {
+    if (
+      validateCss('packages/lumen-app-ui/src/data-table.css', example).length ||
+      validateCss('packages/lumen-app-ui/src/other.css', example).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/data-table.css', example.replace('sticky', 'absolute')).length === 0 ||
+      validateCss('packages/lumen-app-ui/src/data-table.css', example.replace(': 0', ': 1rem')).length === 0
+    )
+      throw new Error('Observed table sticky exception must be exact, path-scoped and zero-anchored')
+  }
   const detailBackdrop = '.hbar-app-ui-kanban-detail-backdrop { position: absolute; inset-inline-start: 0; }'
   if (
     validateCss('packages/lumen-app-ui/src/kanban-detail-reference.css', detailBackdrop).length ||

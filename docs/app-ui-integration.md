@@ -1065,3 +1065,31 @@ Natural flex flow supports wrapping and local scrolling. The [core browser check
 samples one path per composition, two narrow cases and a 61-file pane scroll. Its
 28 check records and three inspected screenshots establish the practical inventory
 status without a repeated button/theme/viewport matrix or service/desktop acceptance.
+
+### Data Table 1–8 practical reference closure
+
+Eight optional reference contracts retain accounts, payments, workstream budgets,
+overnight checks, grouped dispatch, shipments, connected-source states and dock
+capacity rather than reusing six generic records. A single active-variant Zustand
+owner controls queries, plan filters, sort, column/selection/expansion flags,
+pagination, density, shipment selection and numeric cell drafts. IDs, disabled or
+locked fields, visible targets and owner identity guard mutations; refresh prunes
+removed records and preserves valid local values.
+
+Accounts have ten rows, seven columns, four observed column toggles and narrow
+cards. Payments retain the two initial selections, derived selected amount and
+28-row source total; only ten cached records are supplied, so other pages are
+explicitly unavailable. Hours/rate edit commits local preview values and recomputes
+both totals; invalid numbers retain the draft for recovery and locked rows remain
+read-only. Check details expand in place. Dispatch keeps three groups and two
+density modes. Shipments keep eleven summaries and the first complete metadata,
+notes and activity panel; unavailable detail is not fabricated. Source Empty/Error
+copy is a host-owned preview extension because only Loading was captured.
+
+Native tables own horizontal scrolling; ordinary layout uses flex flow. Only the
+observed sticky table header/first-column zero anchors get narrowly scoped guard
+exceptions. The [core browser check](../scripts/verify-hbar-app-ui-data-table.ts)
+has 22 records, three inspected screenshots, two narrow cases and one 81-row pane
+scroll. Fifteen focused tests with 155 assertions support the practical status,
+not an exhaustive theme/viewport/button matrix. Export, Hold, source connection,
+Retry, driver messaging and delivery remain request-only, not remote success.
