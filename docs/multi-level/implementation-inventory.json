@@ -512,6 +512,7 @@
     "preSessionDraft.close",
     "preSessionDraft.open",
     "preSessionDraft.reconcile",
+    "preSessionDraft.resolveDefaultModel",
     "preSessionDraft.setApprovalChoice",
     "preSessionDraft.setIntent",
     "preSessionDraft.setModel",

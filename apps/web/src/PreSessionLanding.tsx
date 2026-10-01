@@ -154,6 +154,26 @@ export function WebPreSessionLanding({
     void runtime.commands.execute('composerPermission.refresh', {}).catch(() => undefined)
   }, [connected, composerPermission.available, composerPermission.hostDefault.status, runtime])
 
+  const defaultModelWorkspaceId = draft?.workspaceId
+  const resolveDefaultModel = Boolean(draft && !draft.modelId && !draft.sessionId && draft.phase === 'idle')
+  useEffect(() => {
+    if (!connected || !resolveDefaultModel) return
+    const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+    if (!current) return
+    const controller = new AbortController()
+    void runtime.commands
+      .execute(
+        'preSessionDraft.resolveDefaultModel',
+        { draftId, expectedRevision: current.revision },
+        { signal: controller.signal },
+      )
+      .catch((reason: unknown) => {
+        if (controller.signal.aborted || code(reason) === 'VERSION_CONFLICT') return
+        setModelError(code(reason))
+      })
+    return () => controller.abort()
+  }, [connected, defaultModelWorkspaceId, draftId, modelRefresh, resolveDefaultModel, runtime])
+
   useEffect(() => {
     if (!connected || !draft?.workspaceId || directory.workspaces[draft.workspaceId]) return
     void runtime.commands.execute('workspace.get', { workspaceId: draft.workspaceId }).catch(() => undefined)

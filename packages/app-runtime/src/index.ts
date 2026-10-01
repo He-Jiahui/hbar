@@ -873,6 +873,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.files ? { files: options.files } : {}),
     ...(options.workspaces ? { workspaces: options.workspaces } : {}),
     ...(options.models ? { models: options.models } : {}),
+    ...(options.settings ? { settings: options.settings } : {}),
     ...(options.run ? { run: options.run } : {}),
     ...(options.sessionLaunchTargetPreparation
       ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }

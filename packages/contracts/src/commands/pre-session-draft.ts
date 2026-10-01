@@ -111,6 +111,11 @@ export const preSessionDraftCommands = {
     z.strictObject({ draftId, text: z.string().max(200_000), expectedRevision: revision }),
     result,
   ),
+  'preSessionDraft.resolveDefaultModel': defineCommand(
+    metadata('preSessionDraft.resolveDefaultModel'),
+    z.strictObject({ draftId, expectedRevision: revision }),
+    result,
+  ),
   'preSessionDraft.reserveAttachments': defineCommand(
     metadata('preSessionDraft.reserveAttachments'),
     z.strictObject({

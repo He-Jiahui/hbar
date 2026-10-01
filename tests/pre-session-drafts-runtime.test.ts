@@ -84,6 +84,40 @@ function initialModel(sessionId: string): ModelConfiguration {
   }
 }
 
+function defaultModelSnapshot(
+  scope: { kind: 'global' } | { kind: 'workspace'; targetId: string },
+  modelId: string | null,
+  thinkingLevel: string | null,
+): SettingsSnapshot {
+  const report = (name: string, effectiveValue: unknown) => ({
+    path: encodePath([{ kind: 'field', name }]),
+    localPresence: false,
+    effectiveValue,
+    sourceLayer: 'settings:global',
+    sourceRevision: 1,
+    inherited: true,
+    validation: 'valid',
+    applyMode: 'nextRun',
+    applyState: 'applied',
+    provenance: {},
+  })
+  return settingsCommands['settings.get'].output.parse({
+    schemaVersion: 1,
+    scope,
+    revisions: { 'settings:global': 1 },
+    resolution: {
+      layers: [{ id: 'settings:global', kind: 'global', revision: 1 }],
+      reports: {
+        [encodePath([{ kind: 'field', name: 'provider.model' }])]: report('provider.model', modelId),
+        [encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])]: report(
+          'provider.thinkingLevel',
+          thinkingLevel,
+        ),
+      },
+    },
+  })
+}
+
 const approvalPath = [{ kind: 'field' as const, name: 'session.approval' }]
 const approvalField = encodePath(approvalPath)
 
@@ -252,6 +286,8 @@ function launchPreparationManager(
 function fixture(
   options: {
     readonly sessionSettings?: boolean
+    readonly modelDefaults?: { readonly modelId: string | null; readonly thinkingLevel: string | null }
+    readonly defaultReadGate?: ReturnType<typeof gate>
     readonly invalidateApprovalOnWrite?: boolean
     readonly planMode?: boolean
     readonly goals?: boolean
@@ -553,7 +589,14 @@ function fixture(
     async execute(name, raw, execution: ExecuteOptions = {}) {
       if (name === 'settings.get') {
         const input = settingsCommands[name].input.parse(raw)
-        if (input.scope.kind !== 'session') throw new Error('Expected session-scoped settings read')
+        if (input.scope.kind !== 'session') {
+          if (!options.modelDefaults) throw new Error('Expected session-scoped settings read')
+          if (options.defaultReadGate) {
+            options.defaultReadGate.markEntered()
+            await options.defaultReadGate.promise
+          }
+          return defaultModelSnapshot(input.scope, options.modelDefaults.modelId, options.modelDefaults.thinkingLevel)
+        }
         if (blockNextPermissionRead) {
           blockNextPermissionRead = false
           const held = permissionReadGateAfterWrite
@@ -759,7 +802,7 @@ function fixture(
     ...(options.sessionLaunchTargetPreparation
       ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
       : {}),
-    ...(options.sessionSettings ? { settings: sessionSettings, configuration } : {}),
+    ...(options.sessionSettings || options.modelDefaults ? { settings: sessionSettings, configuration } : {}),
     ...(options.planMode ? { planMode: configuration } : {}),
     ...(options.goals ? { goals: goalPort } : {}),
     ...(options.invalidateApprovalOnWrite
@@ -964,6 +1007,135 @@ async function attachBeforeSession(
   })
   return result.attachment
 }
+
+test('initial Host defaults become visible local choices without creating a Session, and survive typing and Workspace selection', async () => {
+  const held = gate()
+  const f = fixture({ modelDefaults: { modelId: model.id, thinkingLevel: 'high' }, defaultReadGate: held })
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+    const resolving = f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+      draftId,
+      expectedRevision: opened.revision,
+    })
+    await held.entered
+    await f.runtime.view.commands.execute('preSessionDraft.setText', {
+      draftId,
+      text: 'Typing while the default loads',
+      expectedRevision: opened.revision,
+    })
+    held.release()
+    await resolving
+    const current = f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]!
+    expect(current).toMatchObject({ text: 'Typing while the default loads', modelId: model.id, thinkingLevel: 'high' })
+    await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId,
+      workspaceId: 'workspace-b',
+      expectedRevision: current.revision,
+    })
+    const moved = f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]!
+    await f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+      draftId,
+      expectedRevision: moved.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      modelId: model.id,
+      thinkingLevel: 'high',
+      workspaceId: 'workspace-b',
+    })
+    expect(f.createCalls).toHaveLength(0)
+    expect(f.runCalls).toHaveLength(0)
+    expect(f.modelWrites).toHaveLength(0)
+  } finally {
+    held.release()
+    f.runtime.dispose()
+  }
+})
+
+test('an unset Host default remains an explicit model choice instead of selecting the first catalog record', async () => {
+  const f = fixture({ modelDefaults: { modelId: null, thinkingLevel: null } })
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', {
+      draftId,
+      workspaceId: 'workspace-a',
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+      draftId,
+      expectedRevision: opened.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      modelId: null,
+      thinkingLevel: null,
+      revision: opened.revision,
+    })
+    expect(f.createCalls).toHaveLength(0)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a late initial default cannot replace an explicit model or resume a closed landing draft', async () => {
+  for (const close of [false, true]) {
+    const held = gate()
+    const f = fixture({ modelDefaults: { modelId: model.id, thinkingLevel: 'high' }, defaultReadGate: held })
+    const draftId = crypto.randomUUID()
+    try {
+      const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+      const resolving = f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+        draftId,
+        expectedRevision: opened.revision,
+      })
+      const cancelled = resolving.then(
+        () => null,
+        (error: unknown) => error,
+      )
+      await held.entered
+      if (close) await f.runtime.view.commands.execute('preSessionDraft.close', { draftId })
+      else
+        await f.runtime.view.commands.execute('preSessionDraft.setModel', {
+          draftId,
+          modelId: compatibleModel.id,
+          expectedRevision: opened.revision,
+        })
+      expect(await cancelled).toMatchObject({ code: 'CANCELLED' })
+      held.release()
+      await Promise.resolve()
+      if (close) expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toBeUndefined()
+      else
+        expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+          modelId: compatibleModel.id,
+          thinkingLevel: null,
+        })
+      expect(f.createCalls).toHaveLength(0)
+      expect(f.runCalls).toHaveLength(0)
+    } finally {
+      held.release()
+      f.runtime.dispose()
+    }
+  }
+})
+
+test('a stale Host default reports the missing model and does not invent a fallback', async () => {
+  const f = fixture({ modelDefaults: { modelId: 'provider/missing', thinkingLevel: 'high' } })
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+        draftId,
+        expectedRevision: opened.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      modelId: null,
+      thinkingLevel: null,
+    })
+    expect(f.createCalls).toHaveLength(0)
+  } finally {
+    f.runtime.dispose()
+  }
+})
 
 test('no-tab file selection creates no Session, survives Workspace choice, and permits an attachment-only first Run', async () => {
   const f = fixture()

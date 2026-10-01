@@ -21,6 +21,7 @@ import type { ComposerPermissionEntry, ComposerPermissionState } from './compose
 import type { ComposerPlanModeEntry, ComposerPlanModeState } from './composer-plan-mode'
 import type { ComposerIntentState } from './composer-intent'
 import { registerPreSessionAttachments } from './pre-session-attachments'
+import { readPreSessionDefaultModel } from './pre-session-default-model'
 import {
   capturePreSessionLaunchPreparation,
   PreSessionLaunchPreparation,
@@ -99,6 +100,7 @@ interface PreSessionDraftOptions {
   ) => Promise<Session>
   readonly workspaces?: CommandExecutor
   readonly models?: CommandExecutor
+  readonly settings?: CommandExecutor
   readonly attachments?: CommandExecutor
   readonly files?: CommandExecutor
   readonly run?: RunCommandPort
@@ -174,6 +176,7 @@ function sameLaunchSelection(left: SessionLaunchSelection, right: SessionLaunchS
 export function createPreSessionDrafts(local: CommandRegistry, options: PreSessionDraftOptions) {
   const state = createState<Readonly<Record<string, Readonly<PreSessionDraftState>>>>({}, options.onSubscriberError)
   const pending = new Map<string, PendingSubmission>()
+  const defaultModelReads = new Map<string, AbortController>()
   let disposed = false
 
   const entry = (draftId: string): PreSessionDraftState => {
@@ -1104,6 +1107,50 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
   })
 
   local.register(
+    preSessionDraftCommands['preSessionDraft.resolveDefaultModel'],
+    async ({ draftId, expectedRevision }, execution) => {
+      const current = entry(draftId)
+      requireEditable(draftId, current)
+      checkRevision(current, expectedRevision)
+      if (current.modelId || current.sessionId || !options.settings || !options.models)
+        return { draftId, revision: current.revision }
+      const previous = defaultModelReads.get(draftId)
+      if (previous && !previous.signal.aborted)
+        throw new CommandError('BUSY', 'Default model is already being resolved')
+      const controller = new AbortController()
+      const abort = () => controller.abort()
+      execution.signal.addEventListener('abort', abort, { once: true })
+      if (execution.signal.aborted) abort()
+      defaultModelReads.set(draftId, controller)
+      let selection: Awaited<ReturnType<typeof readPreSessionDefaultModel>>
+      try {
+        selection = await readPreSessionDefaultModel(
+          options.settings,
+          options.models,
+          current.workspaceId,
+          controller.signal,
+        )
+      } finally {
+        execution.signal.removeEventListener('abort', abort)
+        if (defaultModelReads.get(draftId) === controller) defaultModelReads.delete(draftId)
+      }
+      if (controller.signal.aborted || disposed || options.isDisposed())
+        throw new CommandError('CANCELLED', 'Default model no longer belongs to this draft')
+      const latest = entry(draftId)
+      requireEditable(draftId, latest)
+      if (latest.workspaceId !== current.workspaceId || latest.sessionId || latest.modelId)
+        throw new CommandError('VERSION_CONFLICT', 'Default model read belongs to an earlier draft')
+      if (!selection) return { draftId, revision: latest.revision }
+      // Typing and other unrelated local controls may advance the draft while
+      // this read is pending. Preserve them; only the model/Workspace identity
+      // must still belong to this initial default resolution.
+      const value = { ...latest, ...selection, revision: latest.revision + 1 }
+      publish(value)
+      return { draftId, revision: value.revision }
+    },
+  )
+
+  local.register(
     preSessionDraftCommands['preSessionDraft.setWorkspace'],
     async ({ draftId, workspaceId, expectedRevision }) => {
       const current = entry(draftId)
@@ -1111,6 +1158,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       checkRevision(current, expectedRevision)
       if (current.sessionId) throw new CommandError('STALE_TARGET', 'A created Session cannot change Workspaces')
       if (current.workspaceId === workspaceId) return { draftId, revision: current.revision }
+      defaultModelReads.get(draftId)?.abort()
       const workspace = await options.queries.execute('workspace.get', { workspaceId })
       if (!workspace || workspace.id !== workspaceId)
         throw new CommandError('WORKSPACE_NOT_FOUND', 'Workspace is no longer available')
@@ -1160,6 +1208,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       requireEditable(draftId, current)
       checkRevision(current, expectedRevision)
       if (current.modelId === modelId) return { draftId, revision: current.revision }
+      defaultModelReads.get(draftId)?.abort()
 
       let thinkingLevel = current.thinkingLevel
       if (thinkingLevel !== null) {
@@ -1205,6 +1254,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       checkRevision(current, expectedRevision)
       if (current.modelId !== expectedModelId)
         throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before thinking selection')
+      defaultModelReads.get(draftId)?.abort()
 
       if (thinkingLevel !== null) {
         if (!expectedModelId) throw new CommandError('MODEL_NOT_READY', 'Choose a model before setting thinking')
@@ -1573,6 +1623,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       return { draftId, closed: false }
     }
     if (current.phase === 'unknown') return { draftId, closed: false }
+    defaultModelReads.get(draftId)?.abort()
     const next = { ...state.reader.getSnapshot() }
     delete next[draftId]
     state.replace(next)
@@ -1595,6 +1646,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     reader: state.reader,
     dispose() {
       disposed = true
+      for (const controller of defaultModelReads.values()) controller.abort()
+      defaultModelReads.clear()
       unsubscribeComposerIntents()
       for (const operation of pending.values()) {
         operation.observationController.abort()
