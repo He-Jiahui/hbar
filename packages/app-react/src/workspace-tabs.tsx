@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { Bot, ChevronLeft, ChevronRight, Ellipsis, PanelRight, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import './workspace-tabs.css'
+import { workspaceTabMenuPosition } from './workspace-tab-menu-layout'
 
 export type HbarWorkspaceTabCloseScope = 'one' | 'others' | 'left' | 'right' | 'all'
 export interface HbarWorkspaceTabItem {
@@ -59,15 +60,68 @@ export function HbarWorkspaceTabs({
   const buttons = useRef(new Map<string, HTMLButtonElement>())
   const popup = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
+  const menuAnchor = useRef<HTMLElement | null>(null)
   const manualScroll = useRef(false)
   const dragging = useRef<string | null>(null)
   const lastFocusedId = useRef<string | null>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   const [menuId, setMenuId] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const menuItem = items.find((item) => item.id === menuId)
+  const menuPresent = menuItem !== undefined
   const menuIndex = items.findIndex((item) => item.id === menuId)
   const menuDomId = useId()
   const itemIdentity = items.map((item) => item.id).join('\u0000')
+  const positionMenu = useCallback(() => {
+    const anchor = menuAnchor.current
+    const menu = popup.current
+    if (!anchor || !menu) return false
+    if (!anchor.isConnected || anchor.getClientRects().length === 0 || anchor.closest('[inert],[hidden]')) {
+      menu.hidePopover()
+      return false
+    }
+    const rect = anchor.getBoundingClientRect()
+    if (rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) {
+      menu.hidePopover()
+      return false
+    }
+    const position = workspaceTabMenuPosition(rect, {
+      width: innerWidth,
+      height: innerHeight,
+      rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+    })
+    menu.style.setProperty('--workspace-tab-menu-left', `${position.left}px`)
+    menu.style.setProperty('--workspace-tab-menu-top', `${position.top}px`)
+    menu.style.setProperty('--workspace-tab-menu-height', `${position.availableHeight}px`)
+    return true
+  }, [])
+  useEffect(() => {
+    if (!menuOpen) return
+    if (!menuPresent || busy) {
+      popup.current?.hidePopover()
+      return
+    }
+    let frame: number | null = null
+    const schedule = () => {
+      if (frame !== null) return
+      frame = requestAnimationFrame(() => {
+        frame = null
+        if (popup.current?.matches(':popover-open')) positionMenu()
+      })
+    }
+    const observer = new ResizeObserver(schedule)
+    if (strip.current) observer.observe(strip.current)
+    if (menuAnchor.current) observer.observe(menuAnchor.current)
+    window.addEventListener('resize', schedule)
+    window.addEventListener('scroll', schedule, true)
+    schedule()
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', schedule)
+      window.removeEventListener('scroll', schedule, true)
+      if (frame !== null) cancelAnimationFrame(frame)
+    }
+  }, [menuOpen, menuId, menuPresent, busy, itemIdentity, positionMenu])
 
   useEffect(() => {
     const element = strip.current
@@ -106,15 +160,13 @@ export function HbarWorkspaceTabs({
   const openMenu = (id: string, anchor: HTMLElement) => {
     if (busy || !items.some((item) => item.id === id)) return
     setMenuId(id)
-    const rect = anchor.getBoundingClientRect()
-    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-    popup.current?.style.setProperty(
-      '--workspace-tab-menu-left',
-      `${Math.max(rem / 2, Math.min(rect.left, innerWidth - Math.min(18 * rem, innerWidth - rem) - rem / 2))}px`,
-    )
-    popup.current?.style.setProperty('--workspace-tab-menu-top', `${rect.bottom + rem / 4}px`)
+    menuAnchor.current = anchor
+    if (!positionMenu()) return
     popup.current?.showPopover()
-    requestAnimationFrame(() => popup.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus())
+    requestAnimationFrame(() => {
+      if (popup.current?.matches(':popover-open'))
+        popup.current.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus()
+    })
   }
   const closeMenu = () => {
     popup.current?.hidePopover()
@@ -306,9 +358,11 @@ export function HbarWorkspaceTabs({
         role="menu"
         aria-label={menuItem ? labels.menu(menuItem.title) : labels.tabs}
         className="hbar-workspace-tab-menu-popover"
+        onToggle={(event) => setMenuOpen(event.newState === 'open')}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()
+            event.stopPropagation()
             closeMenu()
             return
           }
