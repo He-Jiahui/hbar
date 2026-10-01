@@ -134,17 +134,17 @@ Notifications 5 的独立证据在 `artifacts/reactbits-pro-visual-audit/notific
 | hbar-app-ui-mobile-3 | [hbar-app-ui-mobile-3](../packages/hbar-app-ui/src/components/Mobile.tsx) | 功能与布局通过 | 五张非交互卡片与浮动图标 dock，本地搜索匹配/空态 | 实用闭环；搜索形态按公开描述推导，结果来自宿主卡片，不冒充源动态结果或搜索服务 |
 | hbar-app-ui-mobile-4 | [hbar-app-ui-mobile-4](../packages/hbar-app-ui/src/components/Mobile.tsx) | 功能与布局通过 | 六订单、More 两档面板、四快捷目标与三个次级入口 | 实用闭环；窄屏末入口可达，打开订单与目的地仅报告精确目标请求 |
 | hbar-app-ui-mobile-5 | [hbar-app-ui-mobile-5](../packages/hbar-app-ui/src/components/Mobile.tsx) | 功能与布局通过 | Running 八项/Queue 三项、完整导航外形与 Workflows 四入口 | 实用闭环；菜单关闭恢复触发器，Data/Settings 未知子项不编造，新建运行只记录请求 |
-| hbar-app-ui-card-1            | [hbar-app-ui-card-1](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-2            | [hbar-app-ui-card-2](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-3            | [hbar-app-ui-card-3](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-4            | [hbar-app-ui-card-4](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-5            | [hbar-app-ui-card-5](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-6            | [hbar-app-ui-card-6](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-7            | [hbar-app-ui-card-7](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-8            | [hbar-app-ui-card-8](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-9            | [hbar-app-ui-card-9](../packages/hbar-app-ui/src/components/Card.tsx)                      | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-10           | [hbar-app-ui-card-10](../packages/hbar-app-ui/src/components/Card.tsx)                     | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
-| hbar-app-ui-card-11           | [hbar-app-ui-card-11](../packages/hbar-app-ui/src/components/Card.tsx)                     | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
+| hbar-app-ui-card-1 | [hbar-app-ui-card-1](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 六成员原生列表；独立连接状态；content-grown | 实用参考闭环；宿主提供姓名、描述、文案，本地连接显示不代表服务连接 |
+| hbar-app-ui-card-2 | [hbar-app-ui-card-2](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 六集成行与独立 switch；Premium 为标记 | 实用参考闭环；保留初始三项开启，Premium 不错误禁用控件 |
+| hbar-app-ui-card-3 | [hbar-app-ui-card-3](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 四编号步骤、说明、独立完成和真实 Reset | 实用参考闭环；进度由步骤推导，德语长文案窄屏自然增长 |
+| hbar-app-ui-card-4 | [hbar-app-ui-card-4](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 六日程行；日期、元数据和 Going/Decline | 实用参考闭环；取消 Going 不自动等于 Decline；修复行点击遮挡 |
+| hbar-app-ui-card-5 | [hbar-app-ui-card-5](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 三方案、四元数据行、说明和特性；自然分栏 | 实用参考闭环；Current plan 保持可用，选择只记录目标请求 |
+| hbar-app-ui-card-6 | [hbar-app-ui-card-6](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 原生日期范围 radio、四指标与宿主图形数据 | 7d/30d 使用观察值；90d 来源数据缺失呈空态，图形趋势按截图推导 |
+| hbar-app-ui-card-7 | [hbar-app-ui-card-7](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 六更新卡、标题链接、作者和独立书签 | 实用参考闭环；书签本地更新，打开更新只报告请求 |
+| hbar-app-ui-card-8 | [hbar-app-ui-card-8](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 八文件多选；Clear/Download；超容量 pane-scroll | 实用参考闭环；61 项末项可达，清空禁用下载，未真实传输文件 |
+| hbar-app-ui-card-9 | [hbar-app-ui-card-9](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 认证资料、标签、统计、Follow 与 Message 链接 | 实用参考闭环；Follow 按 owner 隔离，Message 只记录请求 |
+| hbar-app-ui-card-10 | [hbar-app-ui-card-10](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 余额、两组元数据、三交易和动作区 | 实用参考闭环；窄屏金额与文案合理换行，加款/转账不改余额事实 |
+| hbar-app-ui-card-11 | [hbar-app-ui-card-11](../packages/hbar-app-ui/src/components/Card.tsx) | 功能与布局通过 | 发票标题、条目、汇总与全宽下载；content-grown | 实用参考闭环；延续已校正来源结构，PDF 下载只报告请求 |
 | hbar-app-ui-data-table-1      | [hbar-app-ui-data-table-1](../packages/hbar-app-ui/src/components/DataTable.tsx)           | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-data-table-2      | [hbar-app-ui-data-table-2](../packages/hbar-app-ui/src/components/DataTable.tsx)           | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |
 | hbar-app-ui-data-table-3      | [hbar-app-ui-data-table-3](../packages/hbar-app-ui/src/components/DataTable.tsx)           | 待数据化               | 待逐变体验证；不能视为已完成                                     | 移出示例内容与模拟业务状态，补齐必需文案、具名动作和容量策略 |

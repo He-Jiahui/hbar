@@ -1044,3 +1044,24 @@ samples five paths, two narrow representatives and one list scroll: 16 check rec
 three inspected screenshots and no browser diagnostics. Fifteen focused tests with
 134 assertions support the practical inventory status, not a fresh full strict
 matrix, protected-source equivalence, real service or desktop acceptance.
+
+### Card 1–11 practical reference closure
+
+The optional reference contract supplies ten distinct compositions alongside the
+existing invoice API. A single active-variant Zustand owner projects connection
+flags, onboarding progress/reset, agenda responses, native date-range radios,
+bookmarks, file multiselection and profile follow state. Labels, records, counts,
+empty states and collection capacity come from the host. Refresh and exact IDs
+guard removed/disabled targets; external plan/link/message/balance/download actions
+record intent without changing remote facts.
+
+Observed structure retains all six members/integrations/events/updates, four steps,
+three plans, four account metrics, eight files, profile details, three transactions
+and the invoice. The cached 7d/30d datasets are available; 90d is an explicit empty
+state because its source data is unavailable. Chart shapes are inferred from the
+visible reference rather than claimed as exact data.
+
+Natural flex flow supports wrapping and local scrolling. The [core browser check](../scripts/verify-hbar-app-ui-card.ts)
+samples one path per composition, two narrow cases and a 61-file pane scroll. Its
+28 check records and three inspected screenshots establish the practical inventory
+status without a repeated button/theme/viewport matrix or service/desktop acceptance.
