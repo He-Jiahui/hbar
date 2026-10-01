@@ -22,6 +22,16 @@ import './pre-session-slash-editor.css'
 
 export type PreSessionLocalSlashCommand = Extract<LocalSlashCommand, 'model' | 'settings' | 'goal'>
 
+function isPreSessionSuggestion(command: LocalSlashCommand): boolean {
+  return (
+    command === 'model' ||
+    command === 'settings' ||
+    command === 'goal' ||
+    command === 'agent' ||
+    command.startsWith('agent ')
+  )
+}
+
 export interface HbarPreSessionSlashEditorProps {
   readonly value: string
   readonly inputLabel: string
@@ -63,7 +73,7 @@ function isSubmitShortcut(
   return event.ctrlKey || event.metaKey
 }
 
-/** Controlled no-tab text input with local model/settings/Goal preparation actions. */
+/** Controlled no-tab input: local setup actions and completion-only Agent parent prompts. */
 export function HbarPreSessionSlashEditor({
   value,
   inputLabel,
@@ -87,18 +97,13 @@ export function HbarPreSessionSlashEditor({
   const dismissedSlashRef = useRef<SlashTrigger | null>(null)
 
   const availableCommands = useMemo(
-    () =>
-      labels.commands
-        .filter((command) => command.id === 'model' || command.id === 'settings' || command.id === 'goal')
-        .map((command) => command.id),
+    () => labels.commands.filter((command) => isPreSessionSuggestion(command.id)).map((command) => command.id),
     [labels.commands],
   )
   const slashLabels = useMemo<HbarComposerSlashLabels>(
     () => ({
       ...labels,
-      commands: labels.commands.filter(
-        (command) => command.id === 'model' || command.id === 'settings' || command.id === 'goal',
-      ),
+      commands: labels.commands.filter((command) => isPreSessionSuggestion(command.id)),
     }),
     [labels],
   )
@@ -177,7 +182,7 @@ export function HbarPreSessionSlashEditor({
 
   const chooseSlashCommand = (command: LocalSlashCommand) => {
     const trigger = slashTriggerRef.current
-    if (!trigger || disabled || (command !== 'model' && command !== 'settings' && command !== 'goal')) return
+    if (!trigger || disabled || !isPreSessionSuggestion(command)) return
     if (!slashMatches(trigger.term, availableCommands).includes(command)) return
     const currentToken = slashTokenAt(value, trigger.to)
     if (!currentToken || currentToken.from !== trigger.from || currentToken.to !== trigger.to) return
@@ -225,7 +230,7 @@ export function HbarPreSessionSlashEditor({
             activeTerm: slashTrigger?.term ?? '',
             selectedCommand: command,
             availableCommands,
-            submitCommands: availableCommands,
+            submitCommands: ['model', 'settings', 'goal'],
             sendShortcut: isSubmitShortcut(event, sendBehavior),
           })
         ) {

@@ -17,6 +17,7 @@ import {
   firstSendIsLocked,
   localGoalSlash,
   localSlashCommand,
+  composerAgentSlashLabels,
   useHbarRuntime,
   useHbarRuntimeState,
   type HbarSessionAttachmentSelection,
@@ -64,6 +65,7 @@ export function WebPreSessionLanding({
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
   const composerPlanMode = useHbarRuntimeState(runtime.state.composerPlanMode)
   const modelCatalog = useHbarRuntimeState(runtime.state.preSessionModelCatalog)
+  const agentComposer = useHbarRuntimeState(runtime.state.agentComposer)
   const draft = preSessionDrafts[draftId]
   const modelSelection = preSessionModelSelection(modelCatalog, draft)
   const shell = getShellCopy(locale)
@@ -99,6 +101,13 @@ export function WebPreSessionLanding({
   const initialized = useRef(false)
   const mountLease = useRef(0)
   const editor = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!connected) return
+    void runtime.commands.execute('agentComposer.refreshProfiles', {}).catch(() => {
+      // The shared catalog retains a failure; Send can retry with nearby draft feedback.
+    })
+  }, [connected, runtime.commands])
 
   useEffect(() => {
     const lease = ++mountLease.current
@@ -456,6 +465,8 @@ export function WebPreSessionLanding({
   }
 
   const busy = submitting || firstSendIsLocked(draft)
+  const agentPreflightFailed =
+    draft?.phase === 'failed' && !draft.sessionId && Boolean(draft.error?.startsWith('AGENT_'))
   const attachmentTransfers = draft?.attachmentTransfers ?? []
   const attachmentIntakeEnabled = Boolean(
     connected &&
@@ -485,20 +496,25 @@ export function WebPreSessionLanding({
       text,
       shell.session.slash.commands.map((item) => item.id),
     )
-  const slashLabels = {
-    ...shell.session.slash,
-    commands: shell.session.slash.commands
-      .filter((item) => item.id === 'model' || item.id === 'settings' || item.id === 'goal')
-      .map((item) => ({
-        ...item,
-        description:
-          item.id === 'model'
-            ? labels.slashModelDescription
-            : item.id === 'goal'
-              ? labels.slashGoalDescription
-              : labels.slashSettingsDescription,
-      })),
-  }
+  const slashLabels = composerAgentSlashLabels(
+    {
+      ...shell.session.slash,
+      commands: shell.session.slash.commands
+        .filter((item) => item.id === 'model' || item.id === 'settings' || item.id === 'goal' || item.id === 'agent')
+        .map((item) => ({
+          ...item,
+          description:
+            item.id === 'model'
+              ? labels.slashModelDescription
+              : item.id === 'goal'
+                ? labels.slashGoalDescription
+                : item.id === 'settings'
+                  ? labels.slashSettingsDescription
+                  : item.description,
+        })),
+    },
+    agentComposer.profileCatalog,
+  )
   const workspaceChoices = Object.values(directory.workspaces).map((workspace) => ({
     id: workspace.id,
     label: workspaceDisplayName(workspace, displayNames),
@@ -847,7 +863,7 @@ export function WebPreSessionLanding({
                     )
                   }
                 />
-                {draft && (
+                {draft && !agentPreflightFailed && (
                   <HbarPreSessionLaunchStatus draft={draft} labels={launchLabels.status} connected={connected} />
                 )}
                 {preparedGoal}

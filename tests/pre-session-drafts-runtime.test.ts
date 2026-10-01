@@ -13,6 +13,7 @@ import { runCommands, type RunAccepted } from '@hbar/contracts/commands/run'
 import { attachmentUploadInputSchema, type AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { ArtifactRef } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { type AgentProfileId } from '@hbar/contracts/commands/agents'
 import { settingsCommands, type SettingsReceipt, type SettingsSnapshot } from '@hbar/contracts/commands/settings'
 import {
   sessionLaunchTargetPreparationSnapshotSchema,
@@ -291,6 +292,9 @@ function fixture(
     readonly invalidateApprovalOnWrite?: boolean
     readonly planMode?: boolean
     readonly goals?: boolean
+    readonly agentProfiles?: readonly AgentProfileId[]
+    readonly agentProfileError?: string
+    readonly agentProfileGate?: ReturnType<typeof gate>
     readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   } = {},
 ) {
@@ -351,6 +355,12 @@ function fixture(
   let loseNextThinkingWriteReply = false
   let failModelReads = false
   let unknownNextRun = false
+  let agentProfiles: readonly AgentProfileId[] = options.agentProfiles ?? ['explore']
+  let agentProfileError: CommandError | null = options.agentProfileError
+    ? new CommandError(options.agentProfileError, 'Fixture Agent profile catalog read failed')
+    : null
+  let agentProfileGate = options.agentProfileGate ?? null
+  const agentProfileCalls: string[] = []
   let nextSession = 0
 
   const directory: CommandExecutor = {
@@ -805,6 +815,24 @@ function fixture(
     ...(options.sessionSettings || options.modelDefaults ? { settings: sessionSettings, configuration } : {}),
     ...(options.planMode ? { planMode: configuration } : {}),
     ...(options.goals ? { goals: goalPort } : {}),
+    ...(options.agentProfiles || options.agentProfileError || options.agentProfileGate
+      ? {
+          agents: {
+            async execute(name: string, _raw: unknown) {
+              if (name !== 'agent.profiles.list') throw new Error(`Unexpected Agent command: ${name}`)
+              agentProfileCalls.push(name)
+              if (agentProfileError) throw agentProfileError
+              const held = agentProfileGate
+              if (held) {
+                agentProfileGate = null
+                held.markEntered()
+                await held.promise
+              }
+              return [...agentProfiles]
+            },
+          } satisfies CommandExecutor,
+        }
+      : {}),
     ...(options.invalidateApprovalOnWrite
       ? {
           permissionEvents: {
@@ -911,6 +939,19 @@ function fixture(
     unknownRun(value: boolean) {
       unknownNextRun = value
     },
+    setAgentProfiles(value: readonly AgentProfileId[]) {
+      agentProfiles = [...value]
+      agentProfileError = null
+    },
+    failAgentProfileRead(code: string) {
+      agentProfileError = new CommandError(code, 'Fixture Agent profile catalog read failed')
+    },
+    holdNextAgentProfileRead() {
+      const held = gate()
+      agentProfileGate = held
+      return held
+    },
+    agentProfileCalls,
   }
 }
 
@@ -1170,6 +1211,189 @@ test('no-tab file selection creates no Session, survives Workspace choice, and p
     expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.attachments).toEqual([])
   } finally {
     f.runtime.dispose()
+  }
+})
+
+test('no-tab Agent validation fails closed and preserves the draft for invalid syntax, profile, and objective', async () => {
+  const cases = [
+    { text: '/agent', code: 'AGENT_REQUIRED' },
+    { text: '/agent missing inspect the workspace', code: 'AGENT_PROFILE_UNAVAILABLE' },
+    { text: `/agent explore ${'x'.repeat(4_001)}`, code: 'AGENT_OBJECTIVE_TOO_LONG' },
+  ] as const
+  for (const current of cases) {
+    const f = fixture({ agentProfiles: ['explore'] })
+    try {
+      const target = await createDraft(f.runtime, {
+        workspaceId: 'workspace-a',
+        text: current.text,
+        modelId: model.id,
+      })
+      await expect(
+        f.runtime.view.commands.execute('preSessionDraft.submit', {
+          draftId: target.draftId,
+          expectedRevision: target.revision,
+        }),
+      ).rejects.toMatchObject({ code: current.code })
+      expect(f.createCalls).toEqual([])
+      expect(f.sessions.size).toBe(0)
+      expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+        phase: 'failed',
+        error: current.code,
+        sessionId: null,
+        text: current.text,
+      })
+    } finally {
+      f.runtime.dispose()
+    }
+  }
+})
+
+test('no-tab Agent catalog failure preserves the draft and retries through the same global query', async () => {
+  const f = fixture({ agentProfiles: ['explore'], agentProfileError: 'DISCONNECTED' })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'AGENT_CATALOG_UNAVAILABLE' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'AGENT_CATALOG_UNAVAILABLE',
+      sessionId: null,
+      text: '/agent explore inspect the workspace',
+    })
+
+    f.setAgentProfiles(['explore'])
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(f.agentProfileCalls).toHaveLength(2)
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('no-tab Agent profile query is global, cached, and does not materialize a Session before ordinary parent Run', async () => {
+  const f = fixture({ agentProfiles: ['explore'] })
+  try {
+    await expect(f.runtime.view.commands.execute('agentComposer.refreshProfiles', {})).resolves.toEqual(['explore'])
+    expect(f.runtime.view.state.navigation.getSnapshot()).toMatchObject({ sessionId: null, workspaceId: null })
+    expect(f.agentProfileCalls).toHaveLength(1)
+
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(f.agentProfileCalls).toHaveLength(1)
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toMatchObject([{ text: '/agent explore inspect the workspace' }])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('valid no-tab Agent text and attachments use one ordinary parent Run', async () => {
+  const f = fixture({ agentProfiles: ['explore'] })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    const attachment = await attachBeforeSession(f.runtime, target.draftId, 'file')
+    const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: before.revision,
+    })
+    expect(f.agentProfileCalls).toHaveLength(1)
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({
+      sessionId: 'session-1',
+      text: '/agent explore inspect the workspace',
+      files: [attachment.artifact],
+      images: [],
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      attachments: [],
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('cancel or navigation change during no-tab Agent catalog read prevents Session creation', async () => {
+  const cancelled = fixture({ agentProfiles: ['explore'] })
+  const cancelledRead = cancelled.holdNextAgentProfileRead()
+  try {
+    const target = await createDraft(cancelled.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    const submit = cancelled.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await cancelledRead.entered
+    const pending = cancelled.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await cancelled.runtime.view.commands.execute('preSessionDraft.cancel', {
+      draftId: target.draftId,
+      expectedRevision: pending.revision,
+    })
+    cancelledRead.release()
+    await expect(submit).rejects.toMatchObject({ code: 'CANCELLED' })
+    expect(cancelled.createCalls).toEqual([])
+    expect(cancelled.sessions.size).toBe(0)
+  } finally {
+    cancelled.runtime.dispose()
+  }
+
+  const stale = fixture({ agentProfiles: ['explore'] })
+  const staleRead = stale.holdNextAgentProfileRead()
+  try {
+    const target = await createDraft(stale.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    const submit = stale.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await staleRead.entered
+    await stale.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    staleRead.release()
+    await expect(submit).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    expect(stale.createCalls).toEqual([])
+    expect(stale.sessions.size).toBe(0)
+    expect(stale.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'STALE_TARGET',
+      sessionId: null,
+      text: '/agent explore inspect the workspace',
+    })
+  } finally {
+    stale.runtime.dispose()
   }
 })
 

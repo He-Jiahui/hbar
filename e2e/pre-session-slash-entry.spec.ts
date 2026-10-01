@@ -2,13 +2,20 @@ import { expect, test } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 test.use({ actionTimeout: 10_000 })
+
+async function removeOwnedFixture(root: string): Promise<void> {
+  const target = resolve(root)
+  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-pre-session-slash-'))
+    throw new Error('Refusing cleanup outside the owned pre-session slash fixture')
+  await rm(target, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab slash actions stay local and keep the first-send draft: ${locale}`, async ({ browser }) => {
@@ -40,8 +47,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
-      await expect(menu.getByRole('option')).toHaveCount(3)
-      await prompt.press('Tab')
+      await expect(menu.getByRole('option')).toHaveCount(5)
+      // The Host catalog includes Agent entries now; choose the intended action,
+      // not the former first-row position. Keyboard token completion is tested below.
+      await menu.getByRole('option', { name: copy.session.slash.select('/model'), exact: true }).click()
       await expect(prompt).toHaveValue('/model ')
       await send.click()
       const modelPicker = page.getByRole('dialog', { name: labels.model.title })
@@ -99,7 +108,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button', { name: copy.session.addMenu.slash, exact: true })
         .click()
       await expect(prompt).toHaveValue('/')
-      await expect(menu.getByRole('option')).toHaveCount(3)
+      await expect(menu.getByRole('option')).toHaveCount(5)
       await expect(prompt).toBeFocused()
       await expect(menu).toBeInViewport({ ratio: 0.9 })
       await expect(menu.getByRole('option').last()).toBeInViewport({ ratio: 0.9 })
@@ -116,8 +125,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button', { name: copy.session.addMenu.slash, exact: true })
         .click()
       await expect(prompt).toHaveValue('/')
-      await expect(menu.getByRole('option')).toHaveCount(3)
-      await prompt.press('ArrowDown')
+      await expect(menu.getByRole('option')).toHaveCount(5)
+      await prompt.fill('/set')
       await prompt.press('Tab')
       await expect(prompt).toHaveValue('/settings ')
       await expect(send).toBeEnabled()
@@ -174,7 +183,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 }

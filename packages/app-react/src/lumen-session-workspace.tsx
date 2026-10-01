@@ -73,6 +73,7 @@ import {
 } from './composer-slash'
 import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
+import { composerAgentSlashLabels } from './composer-agent-slash-labels'
 import {
   HbarComposerAttachmentDropTarget,
   HbarComposerAttachmentTransfers,
@@ -293,24 +294,10 @@ function SessionWorkspaceContent({
       entry.phase !== 'idle',
   )
   const firstSendLocked = firstSendIsLocked(firstSendDraft)
-  const slashLabels = useMemo<HbarComposerSlashLabels>(() => {
-    const profiles =
-      agentComposer.profileCatalog.status === 'ready'
-        ? agentComposer.profileCatalog.profiles.map((profileId) => {
-            const copy = labels.slash.agentProfile(profileId)
-            return {
-              id: `agent ${profileId}` as const,
-              label: copy.label,
-              argumentHint: labels.slash.agentTaskHint,
-              description: copy.description,
-            }
-          })
-        : []
-    return {
-      ...labels.slash,
-      commands: labels.slash.commands.flatMap((item) => (item.id === 'agent' ? [item, ...profiles] : [item])),
-    }
-  }, [agentComposer.profileCatalog, labels.slash])
+  const slashLabels = useMemo<HbarComposerSlashLabels>(
+    () => composerAgentSlashLabels(labels.slash, agentComposer.profileCatalog),
+    [agentComposer.profileCatalog, labels.slash],
+  )
   useEffect(() => {
     if (!connected || !sessionId || !navigation.workspaceId) return
     void runtime.commands

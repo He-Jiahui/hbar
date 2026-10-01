@@ -860,6 +860,10 @@ export function createAppRuntime(options: RuntimeOptions) {
     isCurrentRunActive,
   )
   const preSessionModelCatalog = createPreSessionModelCatalog(options.models, options.modelEvents, onSubscriberError)
+  const agentProfileCatalogClient = createCommandClient(
+    { 'agentComposer.refreshProfiles': agentComposerCommands['agentComposer.refreshProfiles'] },
+    local,
+  )
   const preSessionDrafts = createPreSessionDrafts(local, {
     navigation: navigation.reader,
     controls: controls.reader,
@@ -879,6 +883,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.models ? { models: options.models } : {}),
     ...(options.settings ? { settings: options.settings } : {}),
     ...(options.run ? { run: options.run } : {}),
+    readAgentProfiles: (signal) => agentProfileCatalogClient.execute('agentComposer.refreshProfiles', {}, { signal }),
     ...(options.sessionLaunchTargetPreparation
       ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
       : {}),

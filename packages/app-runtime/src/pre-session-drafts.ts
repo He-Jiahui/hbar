@@ -1,5 +1,6 @@
 import { CommandError, type CommandExecutor, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { sessionSchema, type Session } from '@hbar/contracts/directory'
+import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { modelCommands, modelConfigurationSchema, type ModelDescriptor } from '@hbar/contracts/commands/models'
 import {
   preSessionDraftCommands,
@@ -104,9 +105,28 @@ interface PreSessionDraftOptions {
   readonly attachments?: CommandExecutor
   readonly files?: CommandExecutor
   readonly run?: RunCommandPort
+  /** Read the Host-advertised Agent profiles without requiring a materialized Session. */
+  readonly readAgentProfiles: (signal: AbortSignal) => Promise<readonly AgentProfileId[]>
   readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   readonly onSubscriberError: (error: unknown) => void
   readonly isDisposed: () => boolean
+}
+
+interface PreSessionAgentPrompt {
+  readonly profileId: string
+  readonly objective: string
+}
+
+function parsePreSessionAgentPrompt(text: string): PreSessionAgentPrompt | null {
+  const value = text.trim()
+  if (!/^\/agent(?:\s|$)/.test(value)) return null
+  const match = /^\/agent\s+(\S+)(?:\s+([\s\S]*))?$/.exec(value)
+  if (!match) throw new CommandError('AGENT_REQUIRED', 'An Agent profile and objective are required')
+  const objective = (match[2] ?? '').trim()
+  if (!objective) throw new CommandError('AGENT_REQUIRED', 'An Agent profile and objective are required')
+  if (objective.length > 4_000)
+    throw new CommandError('AGENT_OBJECTIVE_TOO_LONG', 'The Agent objective must not exceed 4,000 characters')
+  return { profileId: match[1]!, objective }
 }
 
 function errorCode(error: unknown): string {
@@ -269,6 +289,19 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       if (timeout !== undefined) clearTimeout(timeout)
       stopWaitingForCancellation()
     }
+  }
+  const validateAgentPrompt = async (text: string, signal: AbortSignal): Promise<void> => {
+    const prompt = parsePreSessionAgentPrompt(text)
+    if (!prompt) return
+    let profiles: readonly AgentProfileId[]
+    try {
+      profiles = await options.readAgentProfiles(signal)
+    } catch (error) {
+      if (errorCode(error) === 'CANCELLED') throw error
+      throw new CommandError('AGENT_CATALOG_UNAVAILABLE', 'Agent profile catalog is unavailable')
+    }
+    if (!profiles.some((profile) => profile === prompt.profileId))
+      throw new CommandError('AGENT_PROFILE_UNAVAILABLE', 'The selected Agent profile is not advertised by this Host')
   }
   const pauseForNavigation = (operation: PendingSubmission): void => {
     operation.pausedForNavigation = true
@@ -1463,6 +1496,14 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     setPhase(operation, 'preparing')
     operation.inFlight = true
     try {
+      await validateAgentPrompt(current.text, observationSignal)
+      if (observationSignal.aborted)
+        throw new CommandError('CANCELLED', 'First submission was cancelled before creation')
+      if (operation.cancelRequested)
+        throw new CommandError('CANCELLED', 'First submission was cancelled before creation')
+      if (operation.closeRequested)
+        throw new CommandError('CANCELLED', 'Pre-session draft was closed before Session creation')
+      assertSelectionFence(operation)
       const catalog = await readModelCatalog(observationSignal)
       if (observationSignal.aborted) throw new CommandError('CANCELLED', 'Model catalog preflight was cancelled')
       if (operation.cancelRequested)

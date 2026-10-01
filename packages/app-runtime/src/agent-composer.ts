@@ -63,6 +63,11 @@ const resultSchema = z.strictObject({
   error: z.string().nullable(),
 })
 export const agentComposerCommands = {
+  'agentComposer.refreshProfiles': defineCommand(
+    { ...metadata('agentComposer.refreshProfiles'), kind: 'query', stateEffect: 'none' },
+    z.strictObject({}),
+    agentProfileCatalogSchema,
+  ),
   'agentComposer.refresh': defineCommand(
     { ...metadata('agentComposer.refresh'), kind: 'query', stateEffect: 'none' },
     z.strictObject({ sessionId: idSchema, workspaceId: idSchema }),
@@ -685,6 +690,9 @@ export function createAgentComposer(
     return { sessionId: input.sessionId, agentId: input.agentId, panelInstanceId: opened.instanceId, selected: true }
   }
 
+  local.register(agentComposerCommands['agentComposer.refreshProfiles'], async (_input, execution) => [
+    ...(await refreshProfiles(execution.signal)),
+  ])
   local.register(agentComposerCommands['agentComposer.refresh'], refresh)
   local.register(agentComposerCommands['agentComposer.invoke'], invoke)
   local.register(agentComposerCommands['agentComposer.openResult'], openResult)

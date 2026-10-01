@@ -1,11 +1,18 @@
 import { expect, test } from '@playwright/test'
-import { HbarClient, createAgentCommandClient } from '@hbar/client'
+import {
+  HbarClient,
+  createAgentCommandClient,
+  createModelCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { expectComposerText } from './support/composer-text'
 import {
   waitForWebSessionHostReady,
@@ -55,6 +62,124 @@ async function cleanupFixture(root: string): Promise<void> {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`First-send Agent completion validates before materializing the ordinary parent Run: ${locale}`, async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(90_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-agent-slash-'))
+    const width = locale === 'en-US' ? 1440 : 390
+    const context = await browser.newContext({ locale, viewport: { width, height: 900 } })
+    let host: WebSessionHost | undefined
+    try {
+      host = await startParentHost(root)
+      const copy = getShellCopy(locale)
+      const labels = preSessionCopy(locale)
+      const location = preSessionLaunchCopy(locale).location
+      const sessions = createWorkspaceSessionCommandClient(host.client)
+      const agents = createAgentCommandClient(host.client)
+      const models = createModelCommandClient(host.client)
+      const model = (await models.execute('model.list', {})).find((item) => item.id === 'local-fixture')
+      if (!model) throw new Error('The owned first-send model is unavailable')
+      const count = async () =>
+        (await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })).items.length
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.goto(base)
+      const landing = page.locator('.hbar-pre-session-landing')
+      const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input, exact: true })
+      const send = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
+      await landing.locator('.hbar-pre-session-location-picker > button').click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRoot.isVisible())
+        await locationRoot.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      await page
+        .getByRole('dialog', { name: location.chooseDirectory, exact: true })
+        .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
+        .click()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await landing.locator('.hbar-web-pre-session-model-controls .hbar-pre-session-choice-picker > button').click()
+      await page
+        .getByRole('dialog', { name: labels.model.title, exact: true })
+        .getByRole('group', { name: model.providerName, exact: true })
+        .getByRole('button')
+        .filter({ hasText: model.modelName })
+        .click()
+
+      await prompt.fill('/agent debugger Inspect the panes')
+      await send.click()
+      await expect(landing.getByText(labels.error('AGENT_PROFILE_UNAVAILABLE'), { exact: true })).toBeVisible()
+      await expect(prompt).toHaveValue('/agent debugger Inspect the panes')
+      expect(await count()).toBe(1)
+      await prompt.fill('/agent explore')
+      await send.click()
+      await expect(landing.getByText(labels.error('AGENT_REQUIRED'), { exact: true })).toBeVisible()
+      await expect(prompt).toHaveValue('/agent explore')
+      await expect(landing.locator('.hbar-pre-session-launch-status')).toHaveCount(0)
+      expect(await count()).toBe(1)
+      await page.screenshot({ path: testInfo.outputPath(`agent-first-send-invalid-${locale}-${width}.png`) })
+
+      await prompt.fill('/ag')
+      const option = page.getByRole('option', {
+        name: copy.session.slash.select(copy.session.slash.agentProfile('explore').label),
+        exact: true,
+      })
+      await expect(option).toBeVisible()
+      await expect(option).toBeInViewport()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: testInfo.outputPath(`agent-first-send-menu-${locale}-${width}.png`) })
+      await prompt.press('ArrowDown')
+      await prompt.press('Tab')
+      await expect(prompt).toHaveValue('/agent explore ')
+      expect(await count()).toBe(1)
+
+      const objective = 'Inspect first-send navigation and report the relevant files — 核查首次发送入口。'
+      await prompt.fill(`/agent explore ${objective}`)
+      await send.click()
+      await expect(landing).toBeHidden()
+      const approval = page.getByRole('region', { name: copy.session.decisions.approval, exact: true })
+      await expect(approval).toBeVisible()
+      const parent = (
+        await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
+      ).items.find((item) => item.id !== host!.ready.sessionId)
+      if (!parent) throw new Error('First send did not create the ordinary parent Session')
+      expect(await count()).toBe(2)
+      expect((await agents.execute('agent.list', { parentSessionId: parent.id })).items).toHaveLength(0)
+      await approval.getByRole('button', { name: copy.session.decisions.allow, exact: true }).click()
+      await expect
+        .poll(async () => (await host!.client.call('session.snapshot', { sessionId: parent.id })).runs[0]?.status)
+        .toBe('completed')
+      const snapshot = await host.client.call('session.snapshot', { sessionId: parent.id })
+      expect(snapshot.runs).toHaveLength(1)
+      expect(snapshot.runs[0]?.input.text).toBe(`/agent explore ${objective}`)
+      expect(snapshot.runs[0]?.modelId).toBe('local-fixture')
+      expect(
+        snapshot.messages.some((message) =>
+          message.content.some((part) => part.type === 'tool_result' && part.name === 'agent' && !part.isError),
+        ),
+      ).toBe(true)
+      const children = (await agents.execute('agent.list', { parentSessionId: parent.id })).items
+      expect(children).toHaveLength(1)
+      expect(children[0]?.objective).toBe(objective)
+      expect(await count()).toBe(3)
+      await expect(
+        page.getByRole('button', {
+          name: copy.session.agentToolOpen.openNamed(objective),
+          exact: true,
+        }),
+      ).toBeVisible()
+      await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), '')
+      await page.screenshot({ path: testInfo.outputPath(`agent-first-send-completed-${locale}-${width}.png`) })
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await cleanupFixture(root)
+    }
+  })
+
   test(`Agent completion defers execution to the parent Run and creates a tool-owned child: ${locale}`, async ({
     browser,
   }, testInfo) => {

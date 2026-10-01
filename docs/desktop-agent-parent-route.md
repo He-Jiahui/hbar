@@ -48,6 +48,8 @@ Read-only CC-haha source: `D:/Git/cc-haha` at
 - The no-tab first-send catalog was not expanded with Agent profile suggestions in
   this slice. A manually entered `/agent` remains ordinary first-send text; the new
   profile/task validation and completion evidence below concern an existing Session.
+  The subsequent [first-send Agent slice](desktop-agent-first-send.md) closes that
+  separately recorded gap without changing the parent-tool dispatch ownership.
 
 ## Verification boundary
 

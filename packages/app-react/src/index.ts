@@ -91,6 +91,7 @@ export {
   type PreSessionLocalSlashCommand,
 } from './pre-session-slash-editor'
 export type { HbarComposerSlashLabels } from './composer-slash-menu'
+export { composerAgentSlashLabels } from './composer-agent-slash-labels'
 export { localGoalSlash, localSlashCommand, type LocalSlashCommand } from './composer-slash'
 export {
   HbarPreSessionChoicePicker,
