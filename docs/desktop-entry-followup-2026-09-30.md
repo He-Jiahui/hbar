@@ -59,7 +59,7 @@ The directly constrained original 320px component has a cramped header and fallb
 
 ### `/agent` task semantics
 
-Activity → child-Agent 查看入口已在后续单元交付：同一面板分组显示真实 Run 和子 Agent，状态提示只驱动可见面板，行点击沿原来源打开子会话并返回原父页签。原组件证据和中英文宽／窄屏正常路径见[Activity 交付记录](desktop-activity-agents.md)。这不等同于下面的 `/agent` 发送语义改变，也不关闭 Tasks／Goal／Workflow 或全局父会话运行状态聚合的剩余差距。
+Activity → child-Agent 查看入口已在后续单元交付：同一面板分组显示真实 Run 和子 Agent，状态提示只驱动可见面板，行点击沿原来源打开子会话并返回原父页签。原组件证据和中英文宽／窄屏正常路径见[Activity 交付记录](desktop-activity-agents.md)。随后补上了[实时 Plan 任务进度](desktop-activity-tasks.md)，直接复用现有宿主事实，任务状态、完成数与清空结果在原面板更新。源码审查也确认 CC 的 Goal 不属于 Activity checklist，仍应保留独立的会话标题区生命周期。这不等同于下面的 `/agent` 发送语义改变，也不关闭 Workflow 或全局父会话运行状态聚合的剩余差距。
 
 CC sends `/agent …` as a parent prompt, while hbar directly creates a child Session/Run through its Agent contract. The user's prior choice request remains pending. Do not silently select between these materially different behaviors or claim parity. This does not block independent entrance work.
 

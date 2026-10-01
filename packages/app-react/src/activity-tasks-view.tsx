@@ -1,0 +1,82 @@
+import { CheckCircle2, Circle, LoaderCircle } from 'lucide-react'
+import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import type { ComposerIntentState } from '@hbar/app-runtime'
+import type { PlanStepStatus } from '@hbar/contracts'
+import { projectActivityTasks } from './activity-tasks-model'
+import './activity-tasks-view.css'
+
+export interface ActivityTaskLabels {
+  readonly title: string
+  readonly loading: string
+  readonly retry: string
+  readonly error: (code: string) => string
+  readonly progress: (completed: number, total: number) => string
+  readonly step: (text: string, status: PlanStepStatus) => string
+}
+
+/** Read-only, at most MAX_PLAN_STEPS (100). The containing Activity pane owns scrolling. */
+export function ActivityTasksView({
+  facts,
+  sessionId,
+  connected,
+  labels,
+  onRefresh,
+}: {
+  readonly facts: ComposerIntentState['facts']
+  readonly sessionId: string
+  readonly connected: boolean
+  readonly labels: ActivityTaskLabels
+  readonly onRefresh: () => void
+}) {
+  const { steps, revision, completed, loading, failed } = projectActivityTasks(facts, sessionId)
+  if (!loading && !failed && steps.length === 0) return null
+  return (
+    <LumenFrame as="section" className="hbar-activity-tasks" aria-label={labels.title}>
+      <LumenFrame className="hbar-activity-section-heading">
+        <LumenText as="h3">{labels.title}</LumenText>
+        {steps.length > 0 && (
+          <LumenFrame className="hbar-activity-task-progress">
+            <progress max={steps.length} value={completed} aria-label={labels.progress(completed, steps.length)} />
+            <LumenText as="span">{labels.progress(completed, steps.length)}</LumenText>
+          </LumenFrame>
+        )}
+      </LumenFrame>
+      {loading && (
+        <LumenText as="p" role="status">
+          {labels.loading}
+        </LumenText>
+      )}
+      {failed && (
+        <LumenFrame className="hbar-session-activity-recovery">
+          <LumenText as="p" role="alert">
+            {labels.error(facts.error ?? 'EXECUTION_FAILED')}
+          </LumenText>
+          <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
+            {labels.retry}
+          </LumenButton>
+        </LumenFrame>
+      )}
+      {steps.length > 0 && (
+        <LumenCollection as="ol" className="hbar-activity-task-list">
+          {steps.map((step, index) => (
+            <LumenCollectionItem
+              key={`${revision}:${index}`}
+              className="hbar-activity-task-row"
+              data-activity-task-status={step.status}
+              aria-label={labels.step(step.step, step.status)}
+              title={labels.step(step.step, step.status)}
+            >
+              <LumenIcon
+                icon={
+                  step.status === 'completed' ? CheckCircle2 : step.status === 'in_progress' ? LoaderCircle : Circle
+                }
+                tier="md"
+              />
+              <LumenText as="span">{step.step}</LumenText>
+            </LumenCollectionItem>
+          ))}
+        </LumenCollection>
+      )}
+    </LumenFrame>
+  )
+}

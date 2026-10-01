@@ -1,0 +1,58 @@
+.hbar-activity-tasks,
+.hbar-activity-task-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.hbar-activity-tasks p,
+.hbar-activity-task-list {
+  margin: 0;
+}
+.hbar-activity-tasks p {
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.hbar-activity-task-list {
+  padding: 0;
+  list-style: none;
+}
+.hbar-activity-task-list > li.hbar-activity-task-row,
+.hbar-activity-task-progress {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hbar-activity-task-row {
+  padding-block: 0.25rem;
+  padding-inline: 0.375rem;
+}
+.hbar-activity-task-row > span {
+  min-inline-size: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.8125rem;
+}
+.hbar-activity-task-row[data-activity-task-status='completed'] {
+  color: var(--lumen-muted);
+}
+.hbar-activity-task-row[data-activity-task-status='completed'] > span {
+  text-decoration: line-through;
+}
+.hbar-activity-task-row[data-activity-task-status='completed'] > svg {
+  color: var(--lumen-success);
+}
+.hbar-activity-task-row[data-activity-task-status='in_progress'] > svg {
+  color: var(--lumen-warning);
+}
+.hbar-activity-task-progress {
+  flex: 0 0 auto;
+}
+.hbar-activity-task-progress progress {
+  inline-size: 3.25rem;
+  block-size: 0.375rem;
+  accent-color: var(--lumen-success);
+}

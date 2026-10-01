@@ -1959,6 +1959,25 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     title: choose('活动', 'Activity'),
     runs: choose('运行', 'Runs'),
     description: '',
+    tasks: {
+      title: choose('任务', 'Tasks'),
+      loading: choose('正在读取任务进度…', 'Loading task progress…'),
+      retry: choose('重试读取任务', 'Retry task progress'),
+      error: () => choose('无法确认任务进度，请重试。', 'Could not confirm task progress. Try again.'),
+      progress: (completed, total) =>
+        choose(
+          `${number.format(completed)} / ${number.format(total)} 已完成`,
+          `${number.format(completed)} / ${number.format(total)} completed`,
+        ),
+      step: (text, status) => {
+        const state = {
+          pending: choose('待处理', 'Pending'),
+          in_progress: choose('进行中', 'In progress'),
+          completed: choose('已完成', 'Completed'),
+        }[status]
+        return `${state}: ${text}`
+      },
+    },
     agents: {
       title: choose('子 Agent', 'Subagents'),
       loading: choose('正在读取子 Agent…', 'Loading subagents…'),
@@ -1983,7 +2002,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     refresh: choose('刷新活动', 'Refresh activity'),
     loading: choose('正在读取当前运行…', 'Loading active runs…'),
     empty: choose('此会话目前没有活动运行。', 'This session has no active runs.'),
-    offline: choose('连接已断开；显示的运行状态可能已过时。', 'Disconnected; shown run states may be stale.'),
+    offline: choose('连接已断开；显示的活动状态可能已过时。', 'Disconnected; shown activity states may be stale.'),
     retry: choose('重新读取', 'Try again'),
     loadMore: choose('加载更多运行', 'Load more runs'),
     loadingMore: choose('正在加载更多运行…', 'Loading more runs…'),

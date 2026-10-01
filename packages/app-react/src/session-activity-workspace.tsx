@@ -16,6 +16,7 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-activity-workspace.css'
 import { ActivityAgentsView, type ActivityAgentLabels, type ActivityAgentOpenState } from './activity-agents-view'
 import type { ActivityAgentEntryState } from '@hbar/app-runtime'
+import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
 
 type Operation = ActivityWorkspaceEntryState['items'][number]
 
@@ -23,6 +24,7 @@ export interface HbarSessionActivityLabels {
   readonly title: string
   readonly runs: string
   readonly agents: ActivityAgentLabels
+  readonly tasks: ActivityTaskLabels
   readonly description: string
   readonly close: string
   readonly refresh: string
@@ -147,6 +149,7 @@ export function HbarSessionActivityWorkspace({
 }) {
   const runtime = useHbarRuntime()
   const activity = useHbarRuntimeState(runtime.state.activity)
+  const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
@@ -229,6 +232,10 @@ export function HbarSessionActivityWorkspace({
           onClick={() => {
             invoke('activityWorkspace.refresh')
             invoke('activityWorkspace.refreshAgents')
+            if (targetReady && panel?.sessionId)
+              void runtime.commands
+                .execute('composerIntent.refresh', { sessionId: panel.sessionId })
+                .catch(() => undefined)
           }}
         >
           <LumenIcon icon={RefreshCw} tier="sm" />
@@ -237,6 +244,20 @@ export function HbarSessionActivityWorkspace({
       className="hbar-session-activity-workspace"
     >
       <LumenFrame as="main" className="hbar-session-activity-body">
+        {panel?.sessionId && (
+          <ActivityTasksView
+            facts={composerIntent.facts}
+            sessionId={panel.sessionId}
+            connected={connected}
+            labels={labels.tasks}
+            onRefresh={() => {
+              if (targetReady && panel.sessionId)
+                void runtime.commands
+                  .execute('composerIntent.refresh', { sessionId: panel.sessionId })
+                  .catch(() => undefined)
+            }}
+          />
+        )}
         <HbarSessionActivityView
           entry={entry?.sessionId === panel?.sessionId ? entry : undefined}
           connected={connected}
