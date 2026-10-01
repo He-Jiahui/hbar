@@ -65,6 +65,10 @@ test('operator text stays literal while assistant Markdown, Copy and Find remain
     await expect(literal.locator('h1,strong,code,pre,ul,li')).toHaveCount(0)
     await expect(literal.getByRole('link')).toHaveAttribute('href', 'https://example.invalid/docs')
     await expect(page.locator('article[data-role="assistant"] strong').first()).toHaveText('不要变成粗体')
+    await expect(page.locator('article[data-role="assistant"] a').first()).toHaveAttribute(
+      'href',
+      'https://example.invalid/docs',
+    )
     await row.getByRole('button', { name: copyMessage, exact: true }).click()
     await expect(row.getByRole('status')).toHaveText(copy.session.messageActions.copied)
     expect((await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n')).toBe(text)
@@ -91,6 +95,26 @@ test('operator text stays literal while assistant Markdown, Copy and Find remain
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.screenshot({ path: info.outputPath('literal-narrow-find.png') })
     await find.getByRole('button', { name: copy.session.find.close, exact: true }).click()
+    await expectComposerText(prompt, '保留这份未发送草稿')
+    const assistantLink = page.locator('article[data-role="assistant"] a').first()
+    await expect(assistantLink).toHaveAttribute('target', '_blank')
+    await context.route('https://example.invalid/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<main>Owned local link destination</main>',
+      }),
+    )
+    await assistantLink.scrollIntoViewIfNeeded()
+    const originalUrl = page.url()
+    const popupReady = page.waitForEvent('popup')
+    await assistantLink.click()
+    const popup = await popupReady
+    await popup.waitForURL('https://example.invalid/docs')
+    await popup.close()
+    expect(page.url()).toBe(originalUrl)
+    await expect(assistantLink).toBeFocused()
+    await page.screenshot({ path: info.outputPath('assistant-url-narrow.png') })
     await expectComposerText(prompt, '保留这份未发送草稿')
     expect((await owned.client.call('session.snapshot', { sessionId: owned.ready.sessionId })).runs).toHaveLength(1)
     expect(errors).toEqual([])

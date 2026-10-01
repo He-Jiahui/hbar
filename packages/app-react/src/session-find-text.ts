@@ -5,10 +5,11 @@ import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
+import { sessionCjkAutolink } from './session-markdown-autolink'
 
 /** Shared by the real Markdown renderer and the non-DOM, loaded-history index. */
 export const sessionMarkdownRemarkPlugins: PluggableList = [remarkGfm]
-export const sessionMarkdownRehypePlugins: PluggableList = [rehypeSanitize]
+export const sessionMarkdownRehypePlugins: PluggableList = [sessionCjkAutolink, rehypeSanitize]
 export const sessionMarkdownRehypeOptions = { allowDangerousHtml: true }
 
 export interface SessionFindTextSpan {
@@ -88,7 +89,7 @@ function generatedFootnoteNavigation(node: Element): boolean {
  * deliberately not reused: entities, links, GFM and code all transform them.
  */
 export function projectSessionFindText(markdown: string): SessionFindTextProjection {
-  const tree: Root = processor.runSync(processor.parse(markdown))
+  const tree: Root = processor.runSync(processor.parse(markdown), markdown)
   const text: string[] = []
   const domText: string[] = []
   const spans: SessionFindTextSpan[] = []

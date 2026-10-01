@@ -113,7 +113,16 @@ function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & Extr
     </LumenText>
   )
 }
-const components = { pre: MarkdownPre }
+function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
+  // The parser's AST node is not a DOM attribute. Retain the sanitized anchor
+  // metadata (including footnote navigation) without passing that object on.
+  void node
+  const external = props.href !== undefined && /^https?:\/\//i.test(props.href)
+  return <a {...props} target={external ? '_blank' : undefined} rel={external ? 'noreferrer noopener' : undefined} />
+}
+
+const linkComponents = { a: MarkdownLink }
+const components = { ...linkComponents, pre: MarkdownPre }
 
 /** One sanitized Markdown body shared by messages and Plan documents. */
 export function MessageMarkdown({
@@ -131,7 +140,7 @@ export function MessageMarkdown({
         remarkPlugins={sessionMarkdownRemarkPlugins}
         rehypePlugins={sessionMarkdownRehypePlugins}
         remarkRehypeOptions={sessionMarkdownRehypeOptions}
-        {...(code ? { components } : {})}
+        components={code ? components : linkComponents}
       >
         {text}
       </ReactMarkdown>
