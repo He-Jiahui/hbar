@@ -14,4 +14,6 @@ The focused Workflow owner + Agent navigation suite passes **16 tests / 81 asser
 
 The first new cleanup regression showed that closing a Session tool hides it rather than deleting its surface. Activity-specific hidden projections now release immediately; Goals cached data are preserved. The source/history baseline is `cdf2b49c` (Session tools) and `870d9c98` (Activity Agent source), not an asserted single introducing commit for all prior Workflow read races.
 
+Subsequent independent source review found that the first timeout guard did not check an aborted controller after each await. The owner now includes that signal in its current-read predicate; a dedicated 12-second regression confirms that a transport ignoring cancellation cannot publish its late snapshot. Malformed watch payloads explicitly map to `INVALID_OUTPUT`. This repairs `92a93cd7`, without altering the UI fixture or adding authority.
+
 No full-repository/native/paid-provider validation is claimed. Visual and temporary-real-Host workflow entrance verification belongs to the subsequent UI slice.

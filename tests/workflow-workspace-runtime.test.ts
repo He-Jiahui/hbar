@@ -282,6 +282,37 @@ test('Workflow subscribes before its read and a concurrent clear or foreign even
   }
 })
 
+test('a timed-out Workflow read cannot publish its late snapshot even if the transport ignores abort', async () => {
+  let finish!: (value: WorkflowSnapshot) => void
+  const pending = new Promise<WorkflowSnapshot>((resolve) => {
+    finish = resolve
+  })
+  const runtime = createAppRuntime({
+    instanceId: 'workflow-timeout',
+    hostId: 'host',
+    directory: directory(),
+    workflows: {
+      async execute() {
+        return pending
+      },
+    },
+    surfaces: { canRender: (id) => id === 'goals' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
+    await expect(
+      runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId }),
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
+    finish(snapshot())
+    await Bun.sleep(0)
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.status).toBe('error')
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot.workflow).toBeNull()
+  } finally {
+    runtime.dispose()
+  }
+}, 15_000)
+
 test('workflow workspace projects Host facts, pages evidence, and reconciles row actions', async () => {
   let current = snapshot()
   let listener: ((value: WorkflowSnapshot) => void) | undefined

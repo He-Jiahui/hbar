@@ -37,7 +37,8 @@ function duplicate(values: readonly string[]) {
 }
 
 function validateSnapshot(snapshot: WorkflowSnapshot, sessionId?: string) {
-  workflowSnapshotSchema.parse(snapshot)
+  if (!workflowSnapshotSchema.safeParse(snapshot).success)
+    throw new CommandError('INVALID_OUTPUT', 'Workflow snapshot is invalid')
   if (
     sessionId &&
     ((snapshot.plan && snapshot.plan.sessionId !== sessionId) ||
@@ -80,6 +81,7 @@ export function createWorkflowWorkspace(
     isSessionToolVisible(surfaces.getSnapshot().panels[instanceId], presentation?.getSnapshot())
   const isReadCurrent = (instanceId: string, sessionId: string, generation: number) =>
     !isDisposed() &&
+    !readControllers.get(instanceId)?.signal.aborted &&
     surfaces.getSnapshot().panels[instanceId]?.sessionId === sessionId &&
     visible(instanceId) &&
     generations.get(instanceId) === generation
