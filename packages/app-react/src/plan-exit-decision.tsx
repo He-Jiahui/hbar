@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Check, FileText, PencilLine, RefreshCw } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
 import type { InteractionActionState, SessionDecision } from '@hbar/app-runtime'
@@ -58,6 +58,8 @@ export function HbarPlanExitDecision({
   readonly onReconcile: (target: { readonly sessionId: string; readonly actionId: string }) => void
 }) {
   const id = useId()
+  const region = useRef<HTMLElement | null>(null)
+  const actionFocus = useRef<HTMLButtonElement | null>(null)
   // This is the card's explicitly owned feedback draft, not a copy of Host state.
   const [feedback, setFeedback] = useState('')
   const scoped = action?.sessionId === decision.sessionId && action.targetId === decision.id ? action : undefined
@@ -68,6 +70,44 @@ export function HbarPlanExitDecision({
         ? scoped.resolution.status
         : null
   const complete = status !== null
+  useEffect(() => {
+    const cancel = () => {
+      actionFocus.current = null
+    }
+    const moved = (event: FocusEvent) => {
+      if (event.target !== actionFocus.current && event.target !== document.body) cancel()
+    }
+    const interacted = (event: Event) => {
+      // A disabled button may blur to BODY before a repeated activation key.
+      // That is not a deliberate transfer to a new focus owner.
+      if (
+        event instanceof KeyboardEvent &&
+        event.target === document.body &&
+        actionFocus.current?.disabled &&
+        (event.key === 'Enter' || event.key === ' ')
+      )
+        return
+      if (!(event.target instanceof Node) || !actionFocus.current?.contains(event.target)) cancel()
+    }
+    document.addEventListener('pointerdown', interacted, true)
+    document.addEventListener('keydown', interacted, true)
+    document.addEventListener('focusin', moved, true)
+    return () => {
+      cancel()
+      document.removeEventListener('pointerdown', interacted, true)
+      document.removeEventListener('keydown', interacted, true)
+      document.removeEventListener('focusin', moved, true)
+    }
+  }, [])
+  useEffect(() => {
+    if (!complete) return
+    const source = actionFocus.current
+    actionFocus.current = null
+    if (!source || !document.hasFocus() || document.querySelector('dialog:modal, :popover-open')) return
+    if (document.activeElement !== document.body && document.activeElement !== source) return
+    if (!region.current?.isConnected || region.current.getClientRects().length === 0) return
+    region.current.focus({ preventScroll: true })
+  }, [complete])
   const unknown = !complete && scoped?.status === 'unknown'
   const busy = !complete && (scoped?.status === 'submitting' || scoped?.status === 'succeeded')
   const raw = decision.approval.args.plan
@@ -95,8 +135,13 @@ export function HbarPlanExitDecision({
   return (
     <LumenFrame
       as="section"
+      ref={(node) => {
+        region.current = node
+      }}
+      tabIndex={-1}
       className="hbar-plan-exit"
       aria-label={labels.title}
+      aria-describedby={`${id}-status`}
       data-decision-id={decision.id}
       data-decision-kind="planExit"
       data-complete={complete || undefined}
@@ -105,7 +150,7 @@ export function HbarPlanExitDecision({
       <LumenFrame className="hbar-plan-exit-heading">
         <LumenIcon icon={PencilLine} tier="md" />
         <LumenText as="strong">{labels.title}</LumenText>
-        <LumenText as="span" role="status" className="hbar-plan-exit-status">
+        <LumenText as="span" id={`${id}-status`} role="status" className="hbar-plan-exit-status">
           {statusText}
         </LumenText>
       </LumenFrame>
@@ -162,7 +207,10 @@ export function HbarPlanExitDecision({
             tone="primary"
             indicator="none"
             disabled={blocked || !plan}
-            onClick={() => onDecision({ ...target, decision: 'implement' })}
+            onClick={(event) => {
+              actionFocus.current = event.currentTarget
+              onDecision({ ...target, decision: 'implement' })
+            }}
           >
             <LumenIcon icon={Check} tier="sm" />
             {labels.implement}
@@ -172,9 +220,10 @@ export function HbarPlanExitDecision({
             variant="text"
             indicator="none"
             disabled={blocked}
-            onClick={() =>
+            onClick={(event) => {
+              actionFocus.current = event.currentTarget
               onDecision({ ...target, decision: 'continue', ...(feedback.trim() ? { feedback: feedback.trim() } : {}) })
-            }
+            }}
           >
             <LumenIcon icon={PencilLine} tier="sm" />
             {labels.continuePlanning}
@@ -185,8 +234,11 @@ export function HbarPlanExitDecision({
               variant="text"
               indicator="none"
               disabled={!connected || scoped?.reconciling}
-              onClick={() => {
-                if (scoped) onReconcile({ sessionId: decision.sessionId, actionId: scoped.id })
+              onClick={(event) => {
+                if (scoped) {
+                  actionFocus.current = event.currentTarget
+                  onReconcile({ sessionId: decision.sessionId, actionId: scoped.id })
+                }
               }}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />
