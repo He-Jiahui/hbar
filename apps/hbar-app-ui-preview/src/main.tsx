@@ -856,7 +856,7 @@ function PreviewApp() {
               <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
                 <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                   <FileManagerPreviewHost spec={selected.spec} onAction={handleAction}>
-                    <FeedbackPreviewHost content={feedbackContent}>
+                    <FeedbackPreviewHost spec={selected.spec} content={feedbackContent}>
                       <SettingsPreviewHost
                         content={settingsFormContent}
                         spec={selected.spec}
@@ -1347,7 +1347,7 @@ function PreviewApp() {
                         <AppSidebarPreviewHost content={appSidebarContent} spec={selected.spec} onAction={handleAction}>
                           <AppShellPreviewHost content={appShellContent} spec={selected.spec} onAction={handleAction}>
                             <FileManagerPreviewHost spec={selected.spec} onAction={handleAction}>
-                              <FeedbackPreviewHost content={feedbackContent}>
+                              <FeedbackPreviewHost spec={selected.spec} content={feedbackContent}>
                                 <SettingsPreviewHost
                                   content={settingsFormContent}
                                   spec={selected.spec}

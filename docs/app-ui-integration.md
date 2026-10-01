@@ -1623,3 +1623,53 @@ existing Vite preview build pass. Global typecheck still fails only on the two
 existing SessionStop `guided` errors. The existing build chunk warning and legacy
 inventory formatting debt remain; no exhaustive pixel audit or backend acceptance
 is claimed. Unrelated working-tree changes are preserved.
+
+### Feedback 1–6 practical workflow closure
+
+The six existing reference views retain their distinct feedback widget, survey,
+post-resolution rating, feature board, inbox and insights report. Their semantic
+text, native fields, flexible groups and bounded list/detail scrolling are
+unchanged. No reusable Lumen view, stylesheet or icon was edited. Cached visible
+source evidence was reviewed for the six structures; shared flow layout is not
+retested through every button, viewport or theme combination.
+
+The preview now mounts only the selected Feedback variant's existing Zustand
+store. Each typed projection provides only that surface's rich and legacy content
+keys. Unrelated catalog selections bypass the provider instead of initializing
+all six workflows. Replacing the input creates an independent owner immediately,
+including when the new payload has the same widget or inbox ID; a callback kept
+from the old owner cannot change the replacement. Labels, records, charts and
+editable values remain host-owned.
+
+Commits `d3ee15f4`, `4a5f132b`, `3e469575`, `c95340c5`, `8613c767` and `32d05394`
+introduced the common wrapper and its six existing stores. Their core transitions
+are reused, not replaced with another state framework. Widget recovery clears
+the draft but keeps the selected type and attachment choice. Survey score zero
+is valid, changing score retains reasons/comment, and its submitted state is
+terminal. Rating switches between low/high reason families and clears obsolete
+reasons while retaining the comment. Board votes remain ID-bound across source
+sort/search changes. Inbox selection changes the detail while retaining the
+source's shared note. Insights changes period-owned metrics and sentiment while
+preserving the captured common volume series.
+
+Source behavior remains the boundary: widget and survey acknowledgements are
+local demonstrations, not remote delivery. Rating Send/No thanks, board New
+request and inbox reply/issue/archive actions do not invent service results.
+Board search is an input draft, not a fabricated filter. These source-passive
+actions do not imply persistence or backend integration.
+
+The [core browser check](../scripts/verify-hbar-app-ui-feedback-core.ts) replaces
+the historical repeated button/breakpoint verifier and its automatic server
+startup. Six primary workflows and two representative content changes pass:
+localized narrow rating with reachable footer, and an overflowing narrow inbox
+with all 25 threads retained and its last target accessible. The eight records
+have zero runtime diagnostics; four representative screenshots were inspected.
+
+Verification passes all 33 focused tests / 222 assertions (26 existing tests and
+seven active-owner/projection tests), scoped ESLint, scoped formatting, the Host
+content guard and the direct existing Vite preview build. Global typecheck still
+reports only the two existing SessionStop `guided` errors, so a global pass is not
+claimed. The existing large-chunk warning and inventory-wide formatting debt
+remain. Only the six Feedback inventory rows are updated; unrelated working-tree
+changes are preserved. This closes Feedback's practical functional/layout scope,
+not the full 300-variant goal or an exhaustive pixel/backend acceptance.
