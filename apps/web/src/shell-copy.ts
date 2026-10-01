@@ -1221,6 +1221,27 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       queueLabel: choose('加入队列', 'Add to queue'),
       queueTitle: choose('在当前运行结束后处理此消息', 'Process this message after the current run'),
     },
+    backgroundAgents: {
+      stop: (count) =>
+        choose(`停止 ${count} 个后台 Agent`, `Stop ${count} background ${count === 1 ? 'agent' : 'agents'}`),
+      stopping: choose('正在请求停止后台 Agent…', 'Requesting background Agent cancellation…'),
+      requested: choose(
+        '已请求停止后台 Agent，正在等待实际结束。',
+        'Background Agent cancellation requested; waiting for settlement.',
+      ),
+      unknown: choose(
+        '停止结果尚未确认，请先核对原目标。',
+        'Cancellation is unconfirmed. Check the original Agents before retrying.',
+      ),
+      checking: choose('正在核对原后台 Agent…', 'Checking the original background Agents…'),
+      settled: choose('本次停止目标已结束。', 'The background Agents targeted by this request have settled.'),
+      failed: (code) =>
+        choose(`后台 Agent 停止未完成：${code}`, `Background Agent cancellation did not finish: ${code}`),
+      readFailed: (code) => choose(`无法读取后台 Agent：${code}`, `Could not load background Agents: ${code}`),
+      reconcile: choose('核对停止结果', 'Check cancellation'),
+      retry: choose('重试停止原目标', 'Retry original targets'),
+      refresh: choose('重新读取后台 Agent', 'Reload background Agents'),
+    },
     queuedUserRuns: {
       queued: choose('已排队', 'Queued'),
       loading: choose('正在读取排队消息…', 'Loading queued messages…'),

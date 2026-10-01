@@ -166,6 +166,7 @@ function createRuntime(
               'workspace-display-names',
               'workspace-organization',
               'session-activity',
+              'agents',
               'resync',
             ].includes(event.params.kind)
           )

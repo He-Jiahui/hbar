@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ArrowUp, File, LoaderCircle, Plus, Square, X } from 'lucide-react'
 import {
   LumenButton,
@@ -19,7 +20,7 @@ import './prompt-composer.css'
  * attachments/transfers. This View deduplicates but never silently truncates.
  * The lumen-* hooks intentionally preserve existing host styles/find/tests.
  */
-export function HbarPromptComposer(props: LumenPromptComposerProps) {
+export function HbarPromptComposer(props: LumenPromptComposerProps & { readonly backgroundAction?: ReactNode }) {
   const runningActions = props.canStop ? props.runningActions : undefined
   const seen = new Set<string>()
   const attachments = props.attachments.filter((attachment) => {
@@ -136,6 +137,7 @@ export function HbarPromptComposer(props: LumenPromptComposerProps) {
         </div>
         <div className={runningActions ? 'hbar-prompt-running-actions lumen-composer-running-actions' : undefined}>
           {props.modelPicker}
+          {props.backgroundAction}
           {runningActions?.submit === 'queue' ? (
             <LumenButton
               type="submit"

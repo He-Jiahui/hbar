@@ -46,6 +46,12 @@ import {
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
+import {
+  HbarComposerBackgroundAgentStop,
+  HbarComposerBackgroundAgentFeedback,
+  type HbarComposerBackgroundAgentLabels,
+  type HbarBackgroundAgentFeedbackKind,
+} from './composer-background-agents'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
@@ -148,6 +154,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly error: (code: string) => string
   }
   readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
+  readonly backgroundAgents: HbarComposerBackgroundAgentLabels
   readonly queuedUserRuns: HbarQueuedUserRunsLabels
   readonly decisions: HbarSessionDecisionLabels
   readonly goalContinuation: HbarGoalContinuationLabels
@@ -265,6 +272,7 @@ function SessionWorkspaceContent({
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const agentComposer = useHbarRuntimeState(runtime.state.agentComposer)
+  const backgroundAgents = useHbarRuntimeState(runtime.state.composerBackgroundAgents)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
   const goalHistory = useHbarRuntimeState(runtime.state.goalHistory)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
@@ -1076,6 +1084,57 @@ function SessionWorkspaceContent({
     }
   }, [connected, forkCandidateIds, runtime.commands, sessionId, timeline.cursor, timeline.sessionId, timeline.status])
   const sourceTab = tabs.items.find((item) => item.kind === 'session' && item.sessionId === sessionId)
+  const backgroundTarget =
+    sessionId && navigation.workspaceId && sourceTab?.kind === 'session'
+      ? { sessionId, workspaceId: navigation.workspaceId, sourceTabInstanceKey: sourceTab.instanceKey }
+      : null
+  const backgroundCandidate = sessionId ? backgroundAgents.entries[sessionId] : undefined
+  const backgroundEntry =
+    backgroundTarget &&
+    backgroundCandidate?.workspaceId === backgroundTarget.workspaceId &&
+    backgroundCandidate.sourceTabInstanceKey === backgroundTarget.sourceTabInstanceKey
+      ? backgroundCandidate
+      : undefined
+  const backgroundCount =
+    backgroundEntry?.items.filter((item) =>
+      ['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(item.status),
+    ).length ?? 0
+  const backgroundPending = backgroundEntry?.action.status === 'busy'
+  const backgroundUnknown = backgroundEntry?.action.status === 'unknown'
+  const backgroundDisabled =
+    !connected ||
+    !activeConversationOwner ||
+    workspaceMoveLocked ||
+    firstSendLocked ||
+    timeline.sessionId !== sessionId ||
+    timeline.status !== 'ready' ||
+    backgroundEntry?.readStatus !== 'ready'
+  const backgroundFeedback: HbarBackgroundAgentFeedbackKind | null = backgroundPending
+    ? backgroundEntry?.action.phase === 'reconcile'
+      ? 'checking'
+      : 'submitting'
+    : backgroundUnknown
+      ? 'unknown'
+      : backgroundEntry?.action.status === 'failed'
+        ? 'failed'
+        : backgroundEntry?.action.status === 'requested'
+          ? 'requested'
+          : backgroundEntry?.action.status === 'settled'
+            ? 'settled'
+            : backgroundEntry?.readStatus === 'error' || backgroundEntry?.readStatus === 'unknown'
+              ? 'read-error'
+              : null
+  const reconcileBackground = () => {
+    if (backgroundTarget && backgroundEntry?.action.id)
+      invoke('composerBackgroundAgents.reconcile', { ...backgroundTarget, actionId: backgroundEntry.action.id })
+  }
+  const stopBackground = () => {
+    if (backgroundTarget) invoke('composerBackgroundAgents.cancel', backgroundTarget)
+  }
+  const retryBackground = () => {
+    if (backgroundTarget && backgroundEntry?.action.id)
+      invoke('composerBackgroundAgents.cancel', { ...backgroundTarget, actionId: backgroundEntry.action.id })
+  }
   const toolActionForMessage =
     (messageId: string): HbarMessageBlocksProps['renderToolAction'] =>
     (row) => {
@@ -2051,6 +2110,22 @@ function SessionWorkspaceContent({
           }
           context={
             <>
+              <HbarComposerBackgroundAgentFeedback
+                kind={backgroundFeedback}
+                error={
+                  backgroundEntry?.action.error ??
+                  backgroundEntry?.action.targets.find((target) => target.error)?.error ??
+                  backgroundEntry?.error ??
+                  null
+                }
+                disabled={!connected || backgroundPending || !activeConversationOwner}
+                labels={labels.backgroundAgents}
+                onReconcile={reconcileBackground}
+                onRetry={retryBackground}
+                onRefresh={() => {
+                  if (backgroundTarget) invoke('composerBackgroundAgents.refresh', backgroundTarget)
+                }}
+              />
               {firstSendDraft && firstSendLabels && (
                 <HbarPreSessionLaunchStatus
                   key={firstSendDraft.draftId}
@@ -2175,6 +2250,22 @@ function SessionWorkspaceContent({
                 }}
               />
             </LumenFrame>
+          }
+          backgroundAction={
+            !activeRun ? (
+              <HbarComposerBackgroundAgentStop
+                count={backgroundCount}
+                disabled={
+                  backgroundDisabled ||
+                  backgroundUnknown ||
+                  backgroundEntry?.action.status === 'requested' ||
+                  backgroundEntry?.action.status === 'failed'
+                }
+                pending={backgroundPending}
+                labels={labels.backgroundAgents}
+                onStop={stopBackground}
+              />
+            ) : undefined
           }
           onChange={(text) => {
             setSlashFailure(null)
