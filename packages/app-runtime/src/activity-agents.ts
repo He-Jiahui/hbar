@@ -87,12 +87,13 @@ export function createActivityAgentReads(options: Options) {
         ? Math.min(before.length + ACTIVITY_AGENT_PAGE_SIZE, ACTIVITY_AGENT_MAX_ITEMS)
         : Math.max(ACTIVITY_AGENT_PAGE_SIZE, before.length)
       for (let pageIndex = 0; pageIndex < 4; pageIndex++) {
+        const limit = Math.min(ACTIVITY_AGENT_PAGE_SIZE, ACTIVITY_AGENT_MAX_ITEMS - items.length)
         const page = await Promise.race([
           client.execute(
             'agent.list',
             {
               parentSessionId: target.sessionId,
-              limit: ACTIVITY_AGENT_PAGE_SIZE,
+              limit,
               ...(cursor ? { after: cursor } : {}),
             },
             { signal: controller.signal },
@@ -106,7 +107,7 @@ export function createActivityAgentReads(options: Options) {
           ids.add(item.agentId)
         }
         if (
-          page.items.length > ACTIVITY_AGENT_PAGE_SIZE ||
+          page.items.length > limit ||
           (page.nextCursor && (page.nextCursor !== page.items.at(-1)?.agentId || page.nextCursor === cursor))
         )
           throw new CommandError('INVALID_OUTPUT', 'Agent activity returned an invalid cursor')

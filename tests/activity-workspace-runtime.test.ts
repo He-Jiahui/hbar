@@ -234,6 +234,37 @@ test('Activity coalesces visible Agent changes, and ignores hidden late reads an
   expect(listeners.size).toBe(0)
 })
 
+test('short Agent pages still respect the remaining display budget', async () => {
+  const records = Array.from({ length: 201 }, (_, index) => agent(index))
+  const limits: number[] = []
+  const example = fixture(() => page('session-a', 1, []), ['activity'], {
+    async execute(_name, raw) {
+      const input = raw as { after?: string; limit: number }
+      limits.push(input.limit)
+      const start = input.after ? records.findIndex((item) => item.agentId === input.after) + 1 : 0
+      const items = records.slice(start, start + (start === 100 ? 1 : input.limit))
+      return { items, nextCursor: items.at(-1)?.agentId ?? null }
+    },
+  })
+  try {
+    await example.runtime.ready
+    const opened = await example.open()
+    await example.runtime.view.commands.execute('activityWorkspace.refreshAgents', { instanceId: opened.instanceId })
+    for (let count = 0; count < 3; count++)
+      await example.runtime.view.commands.execute('activityWorkspace.loadMoreAgents', { instanceId: opened.instanceId })
+    expect(limits.at(-1)).toBe(49)
+    expect(example.runtime.view.state.activity.getSnapshot().agents[opened.instanceId]).toMatchObject({
+      items: records.slice(0, 200),
+      limitReached: true,
+    })
+    await expect(
+      example.runtime.view.commands.execute('activityWorkspace.loadMoreAgents', { instanceId: opened.instanceId }),
+    ).rejects.toMatchObject({ code: 'NOT_READY' })
+  } finally {
+    example.runtime.dispose()
+  }
+})
+
 test('Activity refresh distinguishes a confirmed empty Host page from loading and query errors, with retry', async () => {
   let attempt = 0
   const example = fixture(() => {
