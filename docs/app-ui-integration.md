@@ -1154,7 +1154,7 @@ Native cohort tables own horizontal scrolling; eighty-one synthetic referral
 rows own vertical pane scrolling. The [core browser check](../scripts/verify-hbar-app-ui-analytics.ts)
 samples distinct state mechanisms and two narrow layouts, with eighteen records,
 three inspected screenshots and no browser diagnostics. Model, semantic rendering,
-legacy API tests (seventeen tests, 237 assertions), scoped lint/typechecks and content/icon/flow checks support the
+legacy API tests (eighteen tests, 246 assertions), scoped lint/typechecks and content/icon/flow checks support the
 practical inventory status. This is not a button/theme/viewport matrix, a strict
 pixel sign-off or remote report/service acceptance.
 
@@ -1162,3 +1162,10 @@ At this checkpoint the unrelated in-progress SessionStop changes fail the global
 typecheck (`guided` terminal comparison and a missing localized label). The
 Analytics dependency-scoped root typecheck, Lumen package typecheck and declaration
 build pass; this category does not claim a globally clean working tree.
+
+Delivery checkpoint: Lumen implementation is committed in `adb8f05c8b`. A concurrent
+workspace commit, `a84cf4a8`, included the staged Analytics Host, tests, browser check,
+inventory and integration notes together with its visual-language work before the
+Analytics path-only commit ran. No Analytics changes were lost or left uncommitted,
+and that shared history was not rewritten. A separate follow-up records the captured
+alternate-period regression and this delivery boundary.

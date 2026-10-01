@@ -110,6 +110,32 @@ test('an uncaptured range becomes unavailable and recovers to its captured defau
   expect(recoveredSeries.chart.series.find((series) => series.id === 'previous')?.visible).toBe(true)
 })
 
+test('captured alternate periods replace the corresponding facts instead of retaining default-period totals', () => {
+  const revenue = setup(2)
+  revenue.project().onSelect('range', '7d')
+  const sevenDays = revenue.project()
+  if (sevenDays.kind !== 'revenue') throw new Error('expected revenue reference')
+  expect(sevenDays.available).not.toBe(false)
+  expect(sevenDays.value).toBe('$47,904')
+  expect(sevenDays.metrics.map(({ value }) => value)).toEqual(['$47,904', '$43,022', '$40,742'])
+
+  const referrals = setup(6)
+  referrals.project().onSelect('range', '7d')
+  const sources = referrals.project()
+  if (sources.kind !== 'referrals') throw new Error('expected referrals reference')
+  expect(sources.value).toBe('3,180')
+  expect(sources.entries.map(({ amount }) => amount)).toEqual([940, 610, 505, 300, 210, 165])
+  expect(sources.entries.map(({ delta }) => delta)).toEqual(['+24.0%', '+5.2%', '−2.0%', '+31.0%', '−9.0%', '+6.0%'])
+  expect(sources.footer).toContain('65%')
+
+  const service = setup(7)
+  service.project().onSelect('range', '1h')
+  const hourly = service.project()
+  if (hourly.kind !== 'service') throw new Error('expected service reference')
+  expect(hourly.metrics.map(({ value }) => value)).toEqual(['4.8k req/s', '169ms', '0.47%', '64%'])
+  expect(hourly.detailTitle).toBe('Request rate · last 1h')
+})
+
 test('service metric and channel entry selections own their projected detail', () => {
   const service = setup(7)
   const serviceInitial = service.project()
