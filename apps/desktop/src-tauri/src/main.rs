@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -41,7 +41,33 @@ struct UiZoomPath(PathBuf);
 
 #[derive(Default)]
 struct NativeNotificationState {
-    delivered: Mutex<HashSet<String>>,
+    delivered: Mutex<DeliveredNotificationIds>,
+}
+
+const MAX_DELIVERED_NOTIFICATION_IDS: usize = 400;
+
+#[derive(Default)]
+struct DeliveredNotificationIds {
+    ids: HashSet<String>,
+    order: VecDeque<String>,
+}
+
+impl DeliveredNotificationIds {
+    fn contains(&self, id: &str) -> bool {
+        self.ids.contains(id)
+    }
+
+    fn insert(&mut self, id: String) {
+        if !self.ids.insert(id.clone()) {
+            return;
+        }
+        self.order.push_back(id);
+        while self.order.len() > MAX_DELIVERED_NOTIFICATION_IDS {
+            if let Some(evicted) = self.order.pop_front() {
+                self.ids.remove(&evicted);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Deserialize)]
@@ -522,6 +548,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_notification_deduplication_is_bounded_and_fifo() {
+        let mut delivered = DeliveredNotificationIds::default();
+        delivered.insert("first".to_string());
+        for index in 0..MAX_DELIVERED_NOTIFICATION_IDS {
+            delivered.insert(format!("event-{index}"));
+        }
+        assert_eq!(delivered.order.len(), MAX_DELIVERED_NOTIFICATION_IDS);
+        assert!(!delivered.contains("first"));
+        assert!(delivered.contains("event-0"));
+        delivered.insert("newest".to_string());
+        assert_eq!(delivered.order.len(), MAX_DELIVERED_NOTIFICATION_IDS);
+        assert!(!delivered.contains("event-0"));
+        assert!(delivered.contains("newest"));
+    }
 
     fn fixture_path(name: &str) -> (PathBuf, PathBuf) {
         let root = std::env::temp_dir().join(format!(
