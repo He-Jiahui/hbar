@@ -88,6 +88,8 @@ async function terminateOwnedHost(metadata: ReturnType<typeof parseNativeSmokeCo
 try {
   await mkdir(workspaceRoot)
   await writeFile(join(workspaceRoot, 'native-visual.md'), '# Owned native smoke project\n')
+  await mkdir(join(workspaceRoot, 'nested'))
+  await writeFile(join(workspaceRoot, 'nested', 'native-search-proof.txt'), 'Owned nested native search proof.\n')
   await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
   const debugProbe = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('fixture') })
   const debugPort = debugProbe.port
@@ -434,6 +436,19 @@ try {
   await expect(nativePreview).toContainText('Owned native smoke project')
   if (!(await noHorizontalOverflow())) throw new Error('Desktop tool window has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-default-window.png' })
+  await page.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
+  const pathSearch = page.getByRole('textbox', { name: copy.files.tree.filter, exact: true })
+  await pathSearch.fill('native-search-proof')
+  const nestedResult = page.getByRole('button', { name: 'nested/native-search-proof.txt', exact: true })
+  await expect(nestedResult).toBeVisible()
+  await pathSearch.press('ArrowDown')
+  await expect(nestedResult).toBeFocused()
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-search-default-window.png' })
+  await nestedResult.press('Enter')
+  await expect(page.locator('.hbar-file-text-preview')).toContainText('Owned nested native search proof.')
+  await page.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
+  await expect(pathSearch).toHaveValue('native-search-proof')
+  await expect(nestedResult).toBeVisible()
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
   const beforeExplicitCreation = await listSessions()
   await page.getByRole('button', { name: copy.shell.newSession, exact: true }).click()
@@ -513,7 +528,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; owned project file listed and read; session and file tool rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; session and file tool rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {

@@ -162,3 +162,32 @@ profile 与项目目录已由有界 cleanup 删除，只有 ignored 截图、日
 实现或全套 `bun run check` 通过声明。PTY、内嵌 Browser、Team 等需要新公开后端
 契约，仍按[当前交互地图](desktop-interaction-map-current.md)单独列范围；本轮
 未新增静态按钮冒充这些能力。
+
+## 文件搜索连续性补充（2026-10-02）
+
+核心入口复核没有把旧审计里的已交付项目重复列为缺口，但新增的真实搜索链发现了
+上一轮“文件列表／正文读取”不能覆盖的情况。CC 的 `WorkspacePanel` 把 All 路径
+搜索、实际结果焦点、打开与返回保留查询放在同一 Files 流程；视觉／键盘来源与
+原组件隔离边界见[路径搜索交付](desktop-files-path-search.md)。
+
+`run-20261002-14` 的真实原生红证据：在 `plugin.set` 更新设置后，文件列表与正文
+读取仍可用，搜索未展开目录里的文件却在原面板显示 `QUERY_UNAVAILABLE`。
+Host 的文件用例持有启动时的 ExecutionProvider；插件重载释放了它的 workspaceQuery，
+因此原搜索入口存在却无法完成。`7b36faf1` 将文件命令的装配改为有类型的当前服务
+转发，并在缺少真实搜索能力时仍返回原 capability 错误；没有降低保护、回落到假
+本地过滤或顺带重构一般插件服务。
+
+维护的 native smoke 追加一条连续路径：fixture 在未展开的 nested 目录写入文件，
+插件重载后搜索 → ArrowDown 聚焦真正结果 → Enter 读取正文 → Back 保留查询。
+这不是新的按钮 × 尺寸矩阵，也没有商业模型或真实项目操作。更新 Host 资源后的
+最终 `run-20261002-15` 全流程 exit 0，原模型/high、Goal Plan、草稿、文件正文和
+窗口／Host 生命周期断言仍通过。主 agent 亲看搜索焦点图及 900×600 的结果／预览
+标签／草稿并存图；没有横向文档溢出，预览标签的 pane-owned 滚动不是整页溢出。
+红／绿截图与日志分别保留在两次运行的 `artifacts/ui-redesign/tauri` 子目录。
+
+本次原生进程与 owned Host 已确认退出，临时 profile／项目由原脚本有界清理。
+独立 Host 回归、严格类型与 lint 结果由修复提交保留；最终脚本 scoped 类型感知
+ESLint、Prettier、边界 19 tests／30 assertions 和 staged diff 检查通过。
+MSVC 环境下离线 Host 资源构建通过，Cargo 配置弃用／linker 诊断仍保留。
+没有新增 UI 样式，没有安装、重启用户桌面、调用付费 Provider 或声明完整 CC 能力
+已迁移。
