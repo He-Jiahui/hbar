@@ -32,7 +32,7 @@ describe('usage budget runtime', () => {
     const f = fixture(); let release!: () => void
     const original = f.commands.execute.bind(f.commands)
     const commands = { execute: async (id: string, input: unknown, options?: unknown) => { if (id === 'session.setBudget') await new Promise<void>((resolve) => { release = resolve }); return original(id, input, options) } } as unknown as CommandExecutor
-    const runtime = createUsageBudget({ commands, target: f.target.reader }); runtime.setDraftLimit('300'); const first = runtime.save(); const second = runtime.save(); await Promise.resolve(); expect(f.calls).toBe(0); release(); await Promise.all([first, second]); expect(f.calls).toBe(1); runtime.dispose()
+    const runtime = createUsageBudget({ commands, target: f.target.reader }); runtime.setDraftLimit('300'); const first = runtime.save(); const second = runtime.save(); await Promise.resolve(); await expect(second).rejects.toMatchObject({ code: 'BUSY' }); expect(f.calls).toBe(0); release(); await first; expect(f.calls).toBe(1); runtime.dispose()
   })
 })
 

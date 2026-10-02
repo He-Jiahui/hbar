@@ -42,6 +42,7 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
   let disposed = false
   let generation = 0
   let pending: { readonly sessionId: string; readonly key: string } | null = null
+  let saveInFlight = false
   let unsubscribeTarget = options.target.subscribe(() => { void refresh().catch(options.onError ?? (() => undefined)) })
 
   function currentTarget(): string {
@@ -68,12 +69,15 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
     const limit = Number(snapshot.draftLimit)
     const parsed = setBudgetInputSchema.safeParse({ sessionId, tokens: limit, expectedRevision: snapshot.budget?.revision ?? null })
     if (!parsed.success) throw new CommandError('INVALID_INPUT', 'Token budget must be a positive whole number')
-    if (snapshot.status === 'submitting' || snapshot.status === 'unknown') return
+    if (saveInFlight || snapshot.status === 'submitting' || snapshot.status === 'unknown') {
+      throw new CommandError('BUSY', 'A budget update is already pending')
+    }
     const requestKey = `usage-budget:${crypto.randomUUID()}`; pending = { sessionId, key: requestKey }
+    saveInFlight = true
     replace({ ...snapshot, targetSessionId: sessionId, status: 'submitting', error: null })
     try {
       const receipt = budgetReceiptSchema.parse(await options.commands.execute('session.setBudget', parsed.data, { idempotencyKey: requestKey }))
-      if (disposed || currentTarget() !== sessionId) return
+      if (disposed || options.target.getSnapshot()?.sessionId !== sessionId) return
       replace({ ...state.reader.getSnapshot(), targetSessionId: sessionId, status: 'ready', budget: receipt.budget, draftLimit: String(receipt.budget.limit), receipt, error: null }); pending = null
     } catch (error) {
       if (disposed) return
@@ -82,6 +86,8 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
         replace({ ...state.reader.getSnapshot(), status: 'unknown', error: message(error) }); return
       }
       pending = null; replace({ ...state.reader.getSnapshot(), status: 'error', error: message(error) }); options.onError?.(error)
+    } finally {
+      saveInFlight = false
     }
   }
   async function reconcile() {
