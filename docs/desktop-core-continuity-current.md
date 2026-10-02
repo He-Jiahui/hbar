@@ -4,6 +4,65 @@
 `e28d0a653481ef41b7a329411eeb2f0fd5656731`。它收敛当前事实与下一步，
 不把早期审计中的“当时缺失”继续当作当前缺陷，也不声明完整桌面体验已经迁移完成。
 
+## 2026-10-02 主工作区当前复核
+
+此补充绑定同步后的 `codex/hbar-app-ui` / `9f9ba9b9`，不是下文隔离树的旧执行统计。
+主 agent 新执行四条代表路径，最终各通过一次：跨项目首次发送与目标 Files、
+Goal + Plan 同 Run 审批、会话设置中修改全局 Provider 默认值，以及 Files dirty
+文档往返 Settings／Status／工具后回到原稿。只沿用用例已有的内容变化与宽窄流程，
+没有新增逐按钮／尺寸矩阵。
+
+跨项目旧断言来自 `931b5c70`，仍要求 Markdown 阅读区出现原始 `#`。
+`6ce5527f` 已把默认阅读改为语义 Markdown；本次分别验证真实标题，以及切 Source
+后 `[data-source-code]` 的逐字原文，避免将行号混入正文比较。初跑三条通过、一条
+旧断言失败；第一次 Source 断言也错误包含行号。修正后的单独目标流程通过，
+前两次失败日志保留，不计成通过或产品回退。
+
+补充草稿基础回归暴露另一旧同步假设：`prompt-drafts.test.ts` 在 dispatch 后立即
+断言 uploading。`c6c2e52a` 引入 Host 会话校验，`27a38f1c` 的共享 transfer core
+在 reservation 前保留该异步校验。测试现在等待受控上传 port 真正进入，再验证
+12 项容量、上传中修改正文和最终合并；没有 sleep，也没有修改产品上传策略。
+首次五文件组合为 80 pass / 1 fail；最终加入现有附件恢复测试后六文件
+**95 pass / 586 assertions**。中间失败及最终通过分别记录，不能宣称全套 Bun 已通过。
+
+本次生产资产仍为 `dist/web` 与 `dist/desktop-resources/web` 的
+`index-ntEDYbqQ.js` / `index-D2rR5rhZ.css`，与已通过的 owned 临时原生
+`run-20261002-30` 相同。本次只改测试与记录，未重新启动原生或构建；旧 native run
+不能记成新一次原生通过。主 agent 亲看该 run 的模型／思考、Goal + Plan 准备／
+批准、Files 阅读和 contextual Provider 图，并查看本次真实 Host 的 Markdown
+Reading／Source、390 审批与 session settings dirty 图。
+
+日志：`artifacts/desktop-experience/core-current-9f9ba9b9.log`、
+`core-current-project-final.log`、`core-current-project-confirmed.log`、
+`core-current-focused-unit.log`、`core-current-focused-unit-confirmed.log`。
+实际新截图位于 `artifacts/desktop-experience/core-current-9f9ba9b9/results` 与
+`project-confirmed`。临时 Host／preview 的 45539／45540 已释放，没有付费 Provider。
+
+这些证据证明四条核心路径在当前资产上成立，不替代完整 E2E、商业 Provider、
+原生英文／故障分支、Edit／Save／长 diff 的 native 验收或新后台能力实现。
+两个独立只读 gpt-6-luna/max agent 另按当前源码和实际参考／native 图核对核心入口。
+导航 agent 曾将 generic `app.openPanel` 的 followActive 测试误判为当前会话 Files
+差异；主线追踪实际按钮的 `sessionTools.toggle` 与按 workspace/session 保存的 Owner
+后，agent 已撤回该结论。`cdf2b49c` 已交付该行为；旧 P2 审计不能覆盖当前事实。
+本次另新执行英文 A Files／dirty／材料 → B 初次关闭 → B Monitoring → A 恢复 →
+Settings／Status Back → 主动切 B 的完整路径，**1/1 通过，18.9 秒**，零 Run／写入。
+沿用该维护用例已有 viewport 循环，不增加新矩阵。日志为
+`core-current-session-ownership.log`，截图写入既有
+`artifacts/session-tool-ownership/final/`；此后 45539／45540 仍无监听。
+
+根 `bun run lint`、`bun run typecheck`、四个改动文件的 Prettier 检查及
+`git diff --check` 均通过；未执行全套 `bun run check`／E2E，未重建或安装桌面。
+根检查日志为 `core-current-root-lint.log` 与 `core-current-typecheck-final.log`。
+
+当前收束按用户后续明确的完成条件：核心流程成立、内容变化后布局自然，不再扩展
+逐按钮／尺寸校验。模型／思考、Goal + Plan、运行／排队／Guide／Stop、真实父 Agent
+路径、侧栏／搜索／标签、Files 阅读／编辑／diff 和 Settings／Provider／Skills／Plugins
+入口及返回均有对应完整交付，权威索引见[当前交互地图](desktop-interaction-map-current.md)。
+保存、主工作区同步和授权临时原生核心验收均已完成，因此本次现有 UI 体验迁移目标
+可收束；不等于完整 CC 产品功能复制，也不把尚无契约的新后台能力纳入已完成范围。
+
+## 基础复核与后续交付索引（历史）
+
 2026-10-01 更新：用户已确认推荐语义。Goal + Plan 共存已在后续
 [composer 交付](desktop-composer-entry-parity.md)实现并验证；`/agent` 的
 [父会话 prompt 与真实 Host/tool 路径](desktop-agent-parent-route.md)已独立实现并验证。
@@ -107,4 +166,5 @@ local-fixture 模型与独占 localhost 49168；Vite preview 使用 49169。
 Terminal PTY、不可信内嵌 Browser、Team、市场安装、定时任务等仍见
 [公开能力与参考边界](desktop-workbench-remaining-audit.md)和
 [Browser 安全边界](desktop-browser-preview-boundary.md)。不能用静态入口冒充后端能力，
-也不能用本轮四条流程替代这些未完成项。Goal 保持 active。
+也不能用基础复核时的四条流程替代这些能力。它们是独立产品功能范围，
+不是当前核心 UI 迁移尚缺的静态按钮；本次完成范围以本页顶部当前收束为准。

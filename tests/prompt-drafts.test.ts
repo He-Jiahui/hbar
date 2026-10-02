@@ -195,6 +195,7 @@ test('draft validation retains failed input and keeps runtime instances private'
 })
 
 test('attachment commands reserve draft slots and merge uploaded artifacts with newer text', async () => {
+  const uploadStarted = Promise.withResolvers<void>()
   let finishUpload!: () => void
   const held = new Promise<void>((resolve) => {
     finishUpload = resolve
@@ -202,6 +203,7 @@ test('attachment commands reserve draft slots and merge uploaded artifacts with 
   let fail = false
   const attachments = {
     async execute(_name: string, input: unknown) {
+      uploadStarted.resolve()
       await held
       if (fail) throw new CommandError('UPLOAD_FAILED', 'Upload rejected')
       const upload = input as { sha256: string; name: string; mime: string; size: number }
@@ -241,6 +243,9 @@ test('attachment commands reserve draft slots and merge uploaded artifacts with 
       kind: 'image',
       upload,
     })
+    // Reservation now checks the Host session before touching the draft. Wait
+    // for the held upload port, not a synchronous command-dispatch side effect.
+    await uploadStarted.promise
     expect(runtime.view.state.drafts.getSnapshot().session).toMatchObject({ uploading: 1, uploadError: null })
     await runtime.view.commands.execute('draft.setText', { sessionId: 'session', text: 'edited during upload' })
     await expect(

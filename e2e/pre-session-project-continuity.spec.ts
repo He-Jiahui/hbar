@@ -207,7 +207,14 @@ test('first-send project switch preserves current model and effort, then tab Fil
     const results = navigator.getByRole('list', { name: copy.files.tree.searchResults, exact: true })
     await results.getByRole('button').filter({ hasText: path }).click()
     const preview = files.getByLabel(copy.files.textPreview(path), { exact: true })
-    await expect(preview).toContainText(fileText)
+    await expect(preview.getByRole('heading', { level: 1, name: fileText.slice(2), exact: true })).toBeVisible()
+    await page.screenshot({ path: info.outputPath('target-tab-markdown-reading-1440.png') })
+    // Markdown defaults to semantic reading; inspect Source to prove the same
+    // target document still retains the exact original text, including '#'.
+    await files.getByRole('button', { name: copy.files.source, exact: true }).click()
+    const source = files.getByLabel(copy.files.textPreview(path), { exact: true }).locator('[data-source-code]')
+    await expect(source).toHaveCount(1)
+    expect(await source.textContent()).toBe(fileText)
     await expectComposerText(next, nextDraft)
     await page.screenshot({ path: info.outputPath('target-tab-files-1440.png') })
     await files.getByRole('button', { name: copy.files.close, exact: true }).click()
