@@ -1269,6 +1269,21 @@ function SessionWorkspaceContent({
     [timeline.sessionId, timeline.messages, timeline.approvals, timeline.userInputs, timeline.events, interactions],
   )
   const renderDecision = (decision: SessionDecision) => {
+    const resolvePlanExit = async (input: Parameters<typeof invoke>[1]) => {
+      const targetSessionId =
+        input && typeof input === 'object' && 'sessionId' in input && typeof input.sessionId === 'string'
+          ? input.sessionId
+          : undefined
+      const pending = targetSessionId && composerWrite.current?.sessionId === targetSessionId ? composerWrite.current : null
+      if (pending) {
+        try {
+          await pending.promise
+        } catch {
+          return
+        }
+      }
+      await execute('planExit.resolve', input)
+    }
     const body = (
       <HbarSessionDecision
         copyOwner={runtime}
@@ -1283,7 +1298,7 @@ function SessionWorkspaceContent({
         labels={labels.decisions}
         connected={connected}
         onDecision={(input) => invoke('approval.resolve', input)}
-        onPlanExit={(input) => invoke('planExit.resolve', input)}
+        onPlanExit={(input) => void resolvePlanExit(input)}
         onAnswer={(input) => invoke('questionnaire.setAnswer', input)}
         onSubmit={(input) => invoke('questionnaire.answer', input)}
         onReconcile={(target) => invoke('interaction.reconcile', target)}
