@@ -2,11 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashSet,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::atomic::{AtomicU64, Ordering},
+    sync::Mutex,
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -17,6 +19,7 @@ use tauri::{
     window::{Effect, EffectsBuilder},
     Manager, WebviewUrl, WebviewWindowBuilder,
 };
+use tauri_plugin_notification::NotificationExt;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +38,29 @@ struct PathPointer {
 }
 
 struct UiZoomPath(PathBuf);
+
+#[derive(Default)]
+struct NativeNotificationState {
+    delivered: Mutex<HashSet<String>>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct NativeNotificationRequest {
+    id: String,
+    title: String,
+    body: String,
+}
+
+fn valid_notification_text(value: &str, field: &str, max_bytes: usize) -> Result<(), String> {
+    if value.trim().is_empty() {
+        return Err(format!("Notification {field} must not be empty"));
+    }
+    if value.len() > max_bytes {
+        return Err(format!("Notification {field} exceeds {max_bytes} bytes"));
+    }
+    Ok(())
+}
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -168,6 +194,61 @@ fn write_ui_zoom(
 ) -> Result<f64, String> {
     require_main_workbench(&window, &connection)?;
     write_ui_zoom_file(&preference.0, zoom)
+}
+
+#[tauri::command]
+fn native_notification_permission(
+    window: tauri::WebviewWindow,
+    connection: tauri::State<'_, Connection>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    require_main_workbench(&window, &connection)?;
+    app.notification()
+        .permission_state()
+        .map(|state| format!("{state:?}"))
+        .map_err(|error| format!("Unable to read notification permission: {error}"))
+}
+
+#[tauri::command]
+fn request_native_notification_permission(
+    window: tauri::WebviewWindow,
+    connection: tauri::State<'_, Connection>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    require_main_workbench(&window, &connection)?;
+    app.notification()
+        .request_permission()
+        .map(|state| format!("{state:?}"))
+        .map_err(|error| format!("Unable to request notification permission: {error}"))
+}
+
+#[tauri::command]
+fn send_native_notification(
+    window: tauri::WebviewWindow,
+    connection: tauri::State<'_, Connection>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, NativeNotificationState>,
+    request: NativeNotificationRequest,
+) -> Result<bool, String> {
+    require_main_workbench(&window, &connection)?;
+    valid_notification_text(&request.id, "id", 256)?;
+    valid_notification_text(&request.title, "title", 256)?;
+    valid_notification_text(&request.body, "body", 4096)?;
+    let mut delivered = state
+        .delivered
+        .lock()
+        .map_err(|_| "Notification delivery state is unavailable".to_string())?;
+    if delivered.contains(&request.id) {
+        return Ok(false);
+    }
+    app.notification()
+        .builder()
+        .title(request.title)
+        .body(request.body)
+        .show()
+        .map_err(|error| format!("Unable to show native notification: {error}"))?;
+    delivered.insert(request.id);
+    Ok(true)
 }
 
 fn existing(data_root: &Path) -> Option<Connection> {
@@ -344,10 +425,14 @@ fn native_window_profile() -> (&'static str, &'static str, Option<Effect>) {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             connection_info,
             read_ui_zoom,
-            write_ui_zoom
+            write_ui_zoom,
+            native_notification_permission,
+            request_native_notification_permission,
+            send_native_notification
         ])
         .setup(|app| {
             let (connection, data_root) = launch(app.handle())?;
@@ -361,6 +446,7 @@ fn main() {
             app.manage(UiZoomPath(
                 data_root.join("settings").join("desktop-ui-zoom.json"),
             ));
+            app.manage(NativeNotificationState::default());
             app.manage(connection);
             let mut window_builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))

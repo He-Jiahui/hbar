@@ -6,6 +6,7 @@
   "remote": { "urls": ["http://127.0.0.1:*"] },
   "permissions": [
     "core:default",
+    "notification:default",
     "allow-connection-info",
     "allow-read-ui-zoom",
     "allow-write-ui-zoom",
