@@ -429,6 +429,7 @@ try {
     objective,
     status: 'active',
   })
+  await readComposerDiagnostic('before-final-assert')
   await expectLiveComposerText(page, draft)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
