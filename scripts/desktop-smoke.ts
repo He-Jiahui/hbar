@@ -4,17 +4,21 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import {
   HbarClient,
+  createConfigurationCommandClient,
   createExtensionCommandClient,
   createGoalPlanCommandClient,
   createModelCommandClient,
+  createSettingsCommandClient,
   createSystemCommandClient,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import { z } from 'zod'
+import { encodePath } from '@hbar/schema-core'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { expectComposerText } from '../e2e/support/composer-text'
+import { openSessionTool } from '../e2e/support/session-tools-menu'
 import {
   nativeSmokeFixtureRoot,
   ownsNativeSmokeHost,
@@ -575,6 +579,72 @@ try {
   await expect(skillOpener).toBeFocused()
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
   await expectComposerText(composer, draft)
+  // Providers is Host-owned even when entered through a layered Session form.
+  // Keep both the original explicit Session selection and the unsaved settings draft.
+  const settings = createSettingsCommandClient(api)
+  const contextualProviderId = 'native-context-provider'
+  await createConfigurationCommandClient(api).execute('provider.save', {
+    provider: {
+      id: contextualProviderId,
+      name: 'Native contextual gateway — 原生上下文供应商',
+      protocol: 'mock',
+      baseUrl: 'http://127.0.0.1',
+      model: 'context-primary',
+      models: [{ id: 'context-primary', name: 'Context primary — 上下文主模型' }],
+    },
+  })
+  const contextualModel = (await models.execute('model.list', {})).find(
+    (model) => model.providerId === contextualProviderId && model.modelId === 'context-primary',
+  )
+  if (!contextualModel) throw new Error('Native configured primary is missing from the Host model catalog')
+  const beforeDefault = await settings.execute('settings.get', { scope: { kind: 'global' } })
+  const originalSessionModel = await models.execute('session.getModel', { sessionId })
+  const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
+  const thinkingPath = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
+  const selectSettingsGroup = async (group: 'providers' | 'model') => {
+    if (await settingsGroups.isVisible()) await settingsGroups.selectOption(group)
+    else
+      await page
+        .getByRole('navigation', { name: copy.settings.groups, exact: true })
+        .getByRole('button', { name: copy.settings.resolve(`i18n:settings.groups.${group}`), exact: true })
+        .click()
+  }
+  await openSessionTool(page, copy.session.tools, 'settings')
+  const settingsScope = page.getByRole('combobox', { name: copy.settings.scopes, exact: true })
+  await expect(settingsScope).toHaveValue('session')
+  const settingsModel = page.locator(`[id="hbar-schema-field-${modelPath}"]`)
+  const originalModelLabel = await settingsModel.inputValue()
+  const settingsThinking = page.locator(`[id="hbar-schema-field-${thinkingPath}"]`)
+  const dirtyLevel = locale === 'zh-CN' ? '低' : 'Low'
+  await settingsThinking.click()
+  await page.getByRole('option', { name: dirtyLevel, exact: true }).click()
+  await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
+  await selectSettingsGroup('providers')
+  await expect(settingsScope).toHaveCount(0)
+  await expect(page.getByText(copy.settings.hostScope, { exact: true })).toBeVisible()
+  // The extra profile was created through the fixture SDK after the first list read.
+  await page.getByRole('button', { name: copy.providers.list.refresh, exact: true }).click()
+  const contextualProvider = page.locator(`[data-provider-id="${contextualProviderId}"]`)
+  await contextualProvider.getByTestId('provider-default-action').click()
+  await expect(contextualProvider.getByTestId('provider-global-default')).toBeVisible()
+  const afterDefault = await settings.execute('settings.get', { scope: { kind: 'global' } })
+  expect(afterDefault.resolution.reports[modelPath]?.effectiveValue).toBe(contextualModel.id)
+  expect(afterDefault.resolution.reports[thinkingPath]?.effectiveValue).toEqual(
+    beforeDefault.resolution.reports[thinkingPath]?.effectiveValue,
+  )
+  const preservedSessionModel = await models.execute('session.getModel', { sessionId })
+  expect(preservedSessionModel.modelId).toBe(originalSessionModel.modelId)
+  expect(preservedSessionModel.thinkingLevel).toBe(originalSessionModel.thinkingLevel)
+  if (!(await noHorizontalOverflow())) throw new Error('Native contextual Providers has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-default-min-window.png' })
+  await selectSettingsGroup('model')
+  await expect(settingsScope).toHaveValue('session')
+  await expect(settingsModel).toHaveValue(originalModelLabel)
+  await expect(settingsThinking).toHaveValue(dirtyLevel)
+  await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-draft-min-window.png' })
+  await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+  await expectComposerText(composer, draft)
   const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
@@ -596,7 +666,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {

@@ -555,6 +555,7 @@ function globalDefaultFixture(initialModelSelectionId: string | null = 'current'
   let selectedModelId = initialModelSelectionId
   let revision = 0
   let loseNextApply = false
+  let nextProfilesRead: Promise<void> | null = null
   const writes: Array<{ input: unknown; idempotencyKey: string | undefined }> = []
   const receiptReads: Array<{ key: string; input: unknown }> = []
   const receipts = new Map<string, { input: unknown; receipt: unknown }>()
@@ -597,7 +598,11 @@ function globalDefaultFixture(initialModelSelectionId: string | null = 'current'
   const configuration: CommandExecutor = {
     execute(name) {
       if (name === 'provider.describe') return Promise.resolve(HBAR_PROVIDER_EDITOR_DESCRIPTION)
-      if (name === 'provider.list') return Promise.resolve([...profiles.values()])
+      if (name === 'provider.list') {
+        const held = nextProfilesRead
+        nextProfilesRead = null
+        return held ? held.then(() => [...profiles.values()]) : Promise.resolve([...profiles.values()])
+      }
       return Promise.reject(new Error(`Unexpected provider command: ${name}`))
     },
   }
@@ -671,8 +676,19 @@ function globalDefaultFixture(initialModelSelectionId: string | null = 'current'
     loseNextApply() {
       loseNextApply = true
     },
-    async openProviders() {
-      await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
+    holdNextProfilesRead() {
+      let release = () => {}
+      nextProfilesRead = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return release
+    },
+    async openProviders(scope: 'global' | 'workspace' | 'session' = 'global') {
+      await runtime.view.commands.execute('app.openSettings', {
+        scope,
+        section: 'providers',
+        ...(scope === 'global' ? {} : { targetId: `context-${scope}`, workspaceId: 'context-workspace' }),
+      })
       const form = await waitFor(() => {
         const state = runtime.view.state.settings.getSnapshot()
         const active = state.activeFormId ? state.forms[state.activeFormId] : undefined
@@ -1163,5 +1179,111 @@ test('global default leaves an unrelated dirty settings draft untouched', async 
     expect(current?.form?.baseline[modelPath]).toBe('current')
   } finally {
     fixture.runtime.dispose()
+  }
+})
+
+test('contextual Providers writes only globally and preserves layered model and thinking drafts', async () => {
+  const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
+  const thinkingPath = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
+  for (const scope of ['session', 'workspace'] as const) {
+    const fixture = globalDefaultFixture()
+    try {
+      const form = await fixture.openProviders(scope)
+      await fixture.runtime.view.commands.execute('settingsForm.setField', {
+        formId: form.formId,
+        field: modelPath,
+        value: 'target/first',
+      })
+      await fixture.runtime.view.commands.execute('settingsForm.setField', {
+        formId: form.formId,
+        field: thinkingPath,
+        value: 'off',
+      })
+      const dirty = fixture.runtime.view.state.settings.getSnapshot().forms[form.formId]
+      expect([...(dirty?.form?.dirty ?? [])].sort()).toEqual([modelPath, thinkingPath].sort())
+      await fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' })
+      expect(fixture.writes).toHaveLength(1)
+      expect(settingsCommands['settings.apply'].input.parse(fixture.writes[0]?.input)).toMatchObject({
+        scope: { kind: 'global' },
+        changes: [{ op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'target/secondary' }],
+      })
+      const state = fixture.runtime.view.state.settings.getSnapshot()
+      expect(state.activeFormId).toBe(form.formId)
+      expect(state.forms[form.formId]).toBe(dirty)
+      await fixture.runtime.view.commands.execute('settingsForm.selectGroup', { formId: form.formId, groupId: 'model' })
+      const restored = fixture.runtime.view.state.settings.getSnapshot().forms[form.formId]
+      expect(restored?.scope).toEqual({ kind: scope, targetId: `context-${scope}` })
+      expect(restored?.form?.draft[modelPath]).toBe('target/first')
+      expect(restored?.form?.draft[thinkingPath]).toBe('off')
+      expect(restored?.form?.baseline[modelPath]).toBe('current')
+    } finally {
+      fixture.runtime.dispose()
+    }
+  }
+})
+
+test('scoped Providers reconciles the original global receipt without replaying or replacing a newer draft', async () => {
+  const fixture = globalDefaultFixture()
+  const thinkingPath = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
+  try {
+    await fixture.openProviders('session')
+    fixture.loseNextApply()
+    await expect(
+      fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(fixture.runtime.view.state.providers.getSnapshot().globalDefaultAction.status).toBe('unknown')
+    const workspace = await fixture.openProviders('workspace')
+    await fixture.runtime.view.commands.execute('settingsForm.setField', {
+      formId: workspace.formId,
+      field: thinkingPath,
+      value: 'off',
+    })
+    const dirty = fixture.runtime.view.state.settings.getSnapshot().forms[workspace.formId]
+    await expect(
+      fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'current' }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const result = await fixture.runtime.view.commands.execute('providerEditor.reconcileGlobalDefault', {})
+    expect(result).toMatchObject({ status: 'succeeded', providerId: 'target', modelSelectionId: 'target/secondary' })
+    expect(fixture.writes).toHaveLength(1)
+    const originalWrite = fixture.writes[0]
+    if (!originalWrite?.idempotencyKey) throw new Error('Original global write must have an idempotency key')
+    expect(fixture.receiptReads).toEqual([{ key: originalWrite.idempotencyKey, input: originalWrite.input }])
+    expect(settingsCommands['settings.apply'].input.parse(fixture.receiptReads[0]?.input).scope).toEqual({
+      kind: 'global',
+    })
+    expect(fixture.runtime.view.state.settings.getSnapshot().forms[workspace.formId]).toBe(dirty)
+    expect(dirty?.form?.draft[thinkingPath]).toBe('off')
+  } finally {
+    fixture.runtime.dispose()
+  }
+})
+
+test('a contextual default read cannot write after its Providers category or scoped form departs', async () => {
+  for (const departure of ['category', 'scope'] as const) {
+    const fixture = globalDefaultFixture()
+    let release = () => {}
+    try {
+      const form = await fixture.openProviders('session')
+      release = fixture.holdNextProfilesRead()
+      const pending = fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' })
+      if (departure === 'category')
+        await fixture.runtime.view.commands.execute('settingsForm.selectGroup', {
+          formId: form.formId,
+          groupId: 'model',
+        })
+      else await fixture.openProviders('workspace')
+      release()
+      await expect(pending).rejects.toMatchObject({ code: 'CONTENT_SUPERSEDED' })
+      expect(fixture.writes).toEqual([])
+      expect(fixture.selectedModel()).toBe('current')
+      expect(fixture.runtime.view.state.providers.getSnapshot().globalDefaultAction).toMatchObject({
+        status: 'failed',
+        providerId: 'target',
+        error: 'CONTENT_SUPERSEDED',
+      })
+    } finally {
+      release()
+      fixture.runtime.dispose()
+    }
   }
 })

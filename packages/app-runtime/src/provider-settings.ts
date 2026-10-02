@@ -560,27 +560,20 @@ export function createProviderSettings(
       projection: globalDefaultState(modelSelectionId, profiles, catalog),
     }
   }
-  const currentGlobalProvidersFormId = (): string => {
+  const currentProvidersFormId = (): string => {
     const current = settings.getSnapshot()
     const formId = current.activeFormId
-    if (!formId)
-      throw new CommandError('SETTINGS_SCOPE_MISMATCH', 'Use global provider settings to change the default model')
+    if (!formId) throw new CommandError('SETTINGS_SCOPE_MISMATCH', 'Use provider settings to change the default model')
     const form = current.forms[formId]
-    if (!form || form.status !== 'ready' || form.scope.kind !== 'global' || form.selectedGroup !== 'providers')
-      throw new CommandError('SETTINGS_SCOPE_MISMATCH', 'Use global provider settings to change the default model')
+    if (!form || form.status !== 'ready' || form.selectedGroup !== 'providers')
+      throw new CommandError('SETTINGS_SCOPE_MISMATCH', 'Use provider settings to change the default model')
     return formId
   }
-  const assertGlobalProvidersForm = (formId: string): void => {
+  const assertCurrentProvidersForm = (formId: string): void => {
     const current = settings.getSnapshot()
     const form = current.forms[formId]
-    if (
-      current.activeFormId !== formId ||
-      !form ||
-      form.status !== 'ready' ||
-      form.scope.kind !== 'global' ||
-      form.selectedGroup !== 'providers'
-    )
-      throw new CommandError('CONTENT_SUPERSEDED', 'Global provider settings changed before the default model write')
+    if (current.activeFormId !== formId || !form || form.status !== 'ready' || form.selectedGroup !== 'providers')
+      throw new CommandError('CONTENT_SUPERSEDED', 'Provider settings changed before the default model write')
   }
   const updateGlobalDefaultAction = (action: ProviderSettingsState['globalDefaultAction']) => {
     const current = state.reader.getSnapshot()
@@ -694,7 +687,7 @@ export function createProviderSettings(
   }
 
   const setGlobalDefault = async (providerId: string) => {
-    const ownerFormId = currentGlobalProvidersFormId()
+    const ownerFormId = currentProvidersFormId()
     const source = state.reader.getSnapshot()
     if (source.status !== 'ready' || !source.list)
       throw new CommandError('FORM_NOT_READY', 'Provider list has not loaded')
@@ -724,7 +717,7 @@ export function createProviderSettings(
       if (!latestProfile) throw new CommandError('PROVIDER_NOT_FOUND', 'Provider profile no longer exists')
       if (latestProfile.provider.model !== sourcePrimaryModelId)
         throw new CommandError('VERSION_CONFLICT', 'Provider primary model changed; refresh the provider list')
-      assertGlobalProvidersForm(ownerFormId)
+      assertCurrentProvidersForm(ownerFormId)
       const latestState = state.reader.getSnapshot()
       if (latestState.status !== 'ready' || latestState.profiles[providerId]?.provider.model !== sourcePrimaryModelId)
         throw new CommandError('VERSION_CONFLICT', 'Provider primary model changed; refresh the provider list')
@@ -808,7 +801,7 @@ export function createProviderSettings(
   }
 
   const reconcileGlobalDefault = async () => {
-    currentGlobalProvidersFormId()
+    currentProvidersFormId()
     const operation = pendingGlobalDefault
     if (!operation || state.reader.getSnapshot().globalDefaultAction.status !== 'unknown')
       throw new CommandError('INVALID_STATE', 'No unknown global default model action needs reconciliation')

@@ -38,6 +38,14 @@ profile 和项目分别使用系统 temp 下本脚本创建的直接子目录，
 
 Skills 的核心回归使用 `e2e/extension-skill-detail.spec.ts`：真实隔离 Host 发现 21 个技能，列表第二页进入详情，读取入口正文及分页后的参考文件，切换 Plugins 后回到同一技能详情，再返回原筛选／页码／键盘行焦点和未发送草稿。只跑英文桌面与中文窄屏两条代表性完整路径，不增加按钮乘视口矩阵。原生 smoke 另在 owned profile 放置一份只读技能，核对 900×600 内窗的概览／文件／返回；本轮实际通过与否以执行记录为准，不把脚本中存在断言算作已验收。
 
+Provider 上下文默认回归使用 `e2e/provider-context-default.spec.ts`：真实 Session／Workspace
+设置的 dirty thinking → Host-owned Providers → 单字段 global default → 返回原 layered
+scope／draft → 返回聊天草稿。中文 Workspace 另保留真实显式 model／thinking 覆盖及本层
+revision；WebSocket 只观察并转发 Host 写入，不伪造响应。原有 global 入口仍由
+`e2e/provider-global-default.spec.ts` 独立验证。原生 smoke 另走 Session 设置路径，核对
+Host 全局事实、原显式选择与 dirty draft；不知道结果时的精确 receipt 和离开入口前禁止
+派发由运行时回归覆盖，不冒充 native 故障注入。实际结果见[上下文默认交付](desktop-provider-context-default.md)。
+
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
 ## 性能基准

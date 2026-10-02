@@ -1,19 +1,22 @@
 # Provider global-default Runtime contract
 
 `providerEditor.setGlobalDefault` is the Runtime action for the provider-row
-default operation on the global Providers settings page. Its input is a
+default operation on the Host-owned Providers settings page. Its input is a
 `providerId`; it resolves that profile's configured `provider.model` and writes
 only the global `provider.model` field. A multi-model provider uses the
 qualified selection ID from the canonical model catalog. Runtime never picks
 the first catalog model or changes the provider editor draft, global thinking
 level, or an explicit workspace/session override.
 
-The action requires a ready global Settings form with the Providers group
+The action requires a ready active Settings form with the Providers group
 selected. It captures that form and the row's configured primary model before
 reading fresh profiles, the global settings snapshot, and the selectable model
 catalog. Before writing, it verifies that the captured target still exists,
 still has the same configured primary, remains visible/selectable, and that the
-same global Providers form still owns the action. The write uses a single-field
+same Providers form still owns the action. The form may retain a global,
+workspace, or session layered context: that context owns navigation and its
+unsaved draft, not the destination of this explicitly global operation. The
+write always uses the global snapshot and a single-field
 `settings.apply` with the snapshot's revisions and an idempotency key. The
 Host's exact settings receipt is the only confirmation of an ambiguous result.
 
@@ -21,7 +24,7 @@ If the selected global model already belongs to the requested provider, the
 action is an idempotent no-op. This deliberately preserves a non-primary model
 already selected for that provider. Otherwise the operation selects the
 provider's configured primary model. A confirmed write refreshes the active
-matching settings form only when it is clean; a dirty, unsets-bearing,
+matching settings form only when it is global and clean; a layered, dirty, unsets-bearing,
 submitting, unknown, inactive, or editor-covered form is left untouched.
 
 The `providers` Runtime state exposes two domain projections:
@@ -46,3 +49,6 @@ assertions. The affected Runtime/contract graph and the Provider test passed
 scoped strict TypeScript, scoped ESLint and Prettier checks. This is the Runtime
 slice only; the row UI, production Web build and browser evidence are delivered
 separately. No full-repository, native or external-model validation is claimed.
+
+The later contextual-entry regression and its current validation are recorded
+in [Contextual Providers defaults](desktop-provider-context-default.md).

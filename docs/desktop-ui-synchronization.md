@@ -210,3 +210,19 @@ Overview／Files 同页的关系。此前真实 Host 没有 `skill.inspect`；�
 仍通过。主 agent 亲看概览与文件画面，内容自然进入 Settings 的所属滚动区。
 owned 临时 profile／项目及进程由原脚本精确清理，最终 ignored 图和日志保留。
 这里没有安装、重启用户应用或调用付费模型，也没有扩大 Browser 的可信地址范围。
+
+## Provider 上下文默认入口补充（2026-10-02）
+
+从 Session Settings 进入 Host-owned Providers 的真实生产红测确认了
+`SETTINGS_SCOPE_MISMATCH`：页面允许默认行动作，但 runtime 把 retained layered form
+错误当成写入 scope。修复仅放宽当前 ready Providers 的入口 owner，Host 读取、单字段
+写入和精确 receipt 仍固定 global；不自动跳页，不刷新 session／workspace dirty draft。
+参考证据、历史原因和回归范围见[上下文默认交付](desktop-provider-context-default.md)。
+
+最终生产 `index-wuYBKNVU.js`／`index-Fadl9qq8.css`（3548 modules）已同步到
+`dist/desktop-resources`；MSVC 环境的离线 Host 资源和 debug Tauri 构建通过。独立
+`run-20261002-21` 原生核心流程终端 exit 0：900×600 内窗从 Session 设置切换
+Providers、选择新 mock 默认、返回 Model 和会话，原显式模型／thinking、未保存设置
+和未发送草稿仍保留；已有首发、Goal/Plan、Files、Skills、搜索与生命周期步骤未移除。
+主 agent 亲看实际全局 badge 和 scoped dirty Model 画面；不是原生 workspace 或网络
+故障注入证明。临时数据与 owned 进程按原脚本清理，不安装／重启实际用户软件。
