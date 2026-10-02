@@ -28,6 +28,9 @@ import {
 } from './desktop-smoke-fixture'
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-'))
+const nativeSmokeNotificationId = `hbar-os-qa-${Date.now()}`
+const nativeSmokeNotificationTitle = nativeSmokeNotificationId
+const nativeSmokeNotificationBody = 'hbar isolated native smoke notification acceptance probe.'
 // Workspace tools must not browse the protected Host data root, including its descendants.
 const projectFixtureRoot = await mkdtemp(join(tmpdir(), 'hbar-native-'))
 const workspaceRoot = join(projectFixtureRoot, 'native-project')
@@ -46,6 +49,18 @@ async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
       await Bun.sleep(100)
     }
   }
+}
+async function expectLiveComposerText(page: Page, expected: string): Promise<void> {
+  await expect
+    .poll(() =>
+      page.locator('.cm-content[contenteditable="true"]').evaluateAll((nodes) =>
+        nodes.filter((node) => {
+          const element = node as HTMLElement
+          return Boolean(element.offsetWidth || element.offsetHeight)
+        }).at(-1)?.textContent ?? '',
+      ),
+    )
+    .toBe(expected)
 }
 async function invokeNative(page: Page, command: string, args: unknown): Promise<unknown> {
   return page.evaluate(
@@ -395,7 +410,7 @@ try {
   }
   await readComposerDiagnostic('before-typing')
   await composer.pressSequentially(draft)
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   await readComposerDiagnostic('before-approval')
   const decision = page.locator(`[data-decision-id="${approval.id}"]`)
   await decision.getByRole('button', { name: copy.session.decisions.planExit.implement, exact: true }).click()
@@ -414,7 +429,7 @@ try {
     objective,
     status: 'active',
   })
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
     throw new Error('Known-workspace new session unexpectedly opened the command catalog')
@@ -436,7 +451,7 @@ try {
   await expect(page.locator('.hbar-composer-picker-popover[data-kind="model"]').getByRole('option')).not.toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(modelTrigger).toBeFocused()
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
   const fileChooser = page.waitForEvent('filechooser')
   await page
@@ -479,7 +494,7 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/chat-search-keyboard-selected.png' })
   await searchInput.press('Escape')
   await expect(chatSearch).toHaveCount(0)
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   const noHorizontalOverflow = async () =>
     page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
   const readSessionGeometry = async () =>
@@ -628,7 +643,7 @@ try {
   await expect(page.locator(`[data-session-id="${explicitSession.id}"][data-selected="true"]`)).toBeVisible()
   expect(explicitSession.workspaceId).toBe(workspace.id)
   await page.getByRole('button', { name: copy.shell.openSession('Tauri visual session'), exact: true }).click()
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   await expect(page.locator(`[data-session-id="${sessionId}"][data-selected="true"]`)).toBeVisible()
 
   await invokeNative(page, 'plugin:window|set_size', {
@@ -723,7 +738,7 @@ try {
   await expect(skillFilter).toHaveValue('native-review')
   await expect(skillOpener).toBeFocused()
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   // Providers is Host-owned even when entered through a layered Session form.
   // Keep both the original explicit Session selection and the unsaved settings draft.
   const settings = createSettingsCommandClient(api)
@@ -789,7 +804,7 @@ try {
   await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-draft-min-window.png' })
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   // One owned, bounded stdout-only command verifies native reading continuity.
   // SDK starts the fixture Run without consuming the user's existing composer draft.
   const command =
@@ -853,7 +868,7 @@ try {
   await commandDisclosure.press('Space')
   await expect(commandCard).toHaveCount(0)
   await composer.focus()
-  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
+  await expectLiveComposerText(page, draft)
   const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
@@ -865,10 +880,14 @@ try {
   const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (hidden !== false) throw new Error('Close did not hide the desktop window')
   const nativeNotification = {
-    id: `native-smoke-${Date.now()}`,
-    title: 'hbar native smoke',
-    body: 'Accepted notification probe; OS display must be observed separately.',
+    id: nativeSmokeNotificationId,
+    title: nativeSmokeNotificationTitle,
+    body: nativeSmokeNotificationBody,
   }
+  await writeFile(
+    'artifacts/app-ui-migration-audit/native-notification-qa.json',
+    JSON.stringify({ ...nativeNotification, createdAt: new Date().toISOString() }, null, 2),
+  )
   const firstNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
   const duplicateNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
   if (firstNativeAcceptance !== true || duplicateNativeAcceptance !== false)
