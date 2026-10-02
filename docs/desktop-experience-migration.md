@@ -1,6 +1,8 @@
 # Desktop 操作体验迁移记录
 
-当前核心主流程及未决差异请先看[当前连续流程复核](desktop-core-continuity-current.md)。
+当前核心主流程及整合边界请先看[当前交互地图](desktop-interaction-map-current.md)。
+较早的[连续流程复核](desktop-core-continuity-current.md)保留其当时的执行统计；
+其中模型／Goal／Plan／Agent 的未决选择已在后续确认与交付，不再要求重复选择。
 本文件后文包含历史实施阶段与当时的“尚缺”列表；它们不是最新缺陷清单，
 不能将后来已交付的聊天搜索、同 Run Plan Exit、首发默认模型等重报为缺失。
 
