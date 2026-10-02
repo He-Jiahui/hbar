@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CommandError } from '@hbar/commands'
-import { LumenButton, LumenDialog, LumenFormField, LumenFrame, LumenInput, LumenSelect, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenDialog, LumenFormField, LumenFrame, LumenInput, LumenOption, LumenSelect, LumenText } from '@lumen/app-ui'
 import { PromptTemplateEditor, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import { preSessionDraftStateSchema } from '@hbar/contracts/commands/pre-session-draft'
 import {

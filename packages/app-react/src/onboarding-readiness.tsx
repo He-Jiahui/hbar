@@ -32,7 +32,7 @@ export function OnboardingReadinessView({ readiness, labels, actions }: { readon
     return <LumenFrame className="hbar-onboarding-wizard-flow">
       <LumenWizard07 content={{ shipping: { labels: { title: labels.setupTitle, detail: labels.setupDescription, options: labels.project, back: labels.back, continue: labels.continue, empty: labels.empty }, options: [{ id: 'workspace', label: labels.workspace }, { id: 'model', label: labels.model }, { id: 'project', label: labels.project }], initialOptionId: selectedOptionId, selectedOptionId, onOptionChange: (id) => actions.onConfigure(id === 'workspace' ? 'workspace' : id === 'model' ? 'model' : 'project'), listStrategy: { kind: 'content-grown', expectedMaximum: 3 } } }} onAction={(event) => { if (event.actionId === 'continue' || event.actionId === 'save-shipping') { if (event.value === 'workspace') actions.onCreate(actions.setupPath?.trim() ?? ''); else actions.onConfigure(event.value === 'model' ? 'model' : 'project') } if (event.actionId === 'back') actions.onBack?.() }} />
       {workspaceSelected ? <LumenFrame className="hbar-onboarding-workspace-form">
-        <LumenText as="label" htmlFor="hbar-onboarding-workspace-path">{labels.setupPath}</LumenText>
+        <LumenFrame as="label" htmlFor="hbar-onboarding-workspace-path">{labels.setupPath}</LumenFrame>
         <LumenInput id="hbar-onboarding-workspace-path" value={actions.setupPath ?? ''} onChange={(event) => actions.onPathChange?.(event.target.value)} placeholder={labels.setupPathPlaceholder} disabled={actions.busy === true} />
         <LumenText as="small">{labels.setupPathHint}</LumenText>
       </LumenFrame> : null}

@@ -69,7 +69,7 @@ export function MessageFileReferenceLink({
     )
   }
   return (
-    <LumenText as="span" ref={root} className="hbar-message-file-reference">
+    <LumenFrame as="span" ref={root} className="hbar-message-file-reference">
       <LumenFrame
         as="a"
         role="link"
@@ -92,7 +92,7 @@ export function MessageFileReferenceLink({
       >
         {children}
       </LumenFrame>
-      <LumenText as="span" ref={feedback} data-session-find-exclude="file-navigation">
+      <LumenFrame as="span" ref={feedback} data-session-find-exclude="file-navigation">
         {status.busy && (
           <LumenText as="small" role="status" data-session-find-exclude="file-navigation">
             {context.labels.opening}
@@ -103,7 +103,7 @@ export function MessageFileReferenceLink({
             {context.labels.error(status.error)}
           </LumenText>
         )}
-      </LumenText>
-    </LumenText>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

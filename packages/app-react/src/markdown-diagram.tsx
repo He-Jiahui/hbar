@@ -226,11 +226,11 @@ export function MarkdownDiagram({
           </LumenFrame>
         )}
       </LumenFrame>
-      <LumenText as="pre" ref={source} className="hbar-message-code-body" hidden={!showSource} tabIndex={0}>
+      <LumenFrame as="pre" ref={source} className="hbar-message-code-body" hidden={!showSource} tabIndex={0}>
         <LumenText as="code" variant="code">
           {sourceText}
         </LumenText>
-      </LumenText>
+      </LumenFrame>
       <LumenFrame ref={modalChrome} data-session-find-exclude="code-chrome">
         {open && ready && (
           <LumenDialog
