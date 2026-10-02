@@ -17,7 +17,6 @@ import { encodePath } from '@hbar/schema-core'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
-import { expectComposerText } from '../e2e/support/composer-text'
 import { openSessionTool } from '../e2e/support/session-tools-menu'
 import {
   nativeSmokeFixtureRoot,
@@ -53,11 +52,14 @@ async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
 async function expectLiveComposerText(page: Page, expected: string): Promise<void> {
   await expect
     .poll(() =>
-      page.locator('.cm-content[contenteditable="true"]').evaluateAll((nodes) =>
-        nodes.filter((node) => {
-          const element = node as HTMLElement
-          return Boolean(element.offsetWidth || element.offsetHeight)
-        }).at(-1)?.textContent ?? '',
+      page.locator('.cm-content[contenteditable="true"]').evaluateAll(
+        (nodes) =>
+          nodes
+            .filter((node) => {
+              const element = node as HTMLElement
+              return Boolean(element.offsetWidth || element.offsetHeight)
+            })
+            .at(-1)?.textContent ?? '',
       ),
     )
     .toBe(expected)
@@ -196,6 +198,38 @@ try {
     .locator('footer')
     .getByText(/^(已连接|Connected)$/)
     .waitFor({ timeout: 15_000 })
+  if (process.env.HBAR_NATIVE_NOTIFICATION_PROBE === '1') {
+    const probeId = `hbar-os-qa-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
+    const probe = {
+      id: probeId,
+      title: probeId,
+      body: `${probeId} isolated native notification acceptance probe.`,
+    }
+    const permission = await invokeNative(page, 'native_notification_permission', {})
+    const requestedPermission = await invokeNative(page, 'request_native_notification_permission', {})
+    const firstAcceptance = await invokeNative(page, 'send_native_notification', { request: probe })
+    const duplicateAcceptance = await invokeNative(page, 'send_native_notification', { request: probe })
+    await writeFile(
+      'artifacts/app-ui-migration-audit/native-notification-qa.json',
+      JSON.stringify(
+        {
+          ...probe,
+          createdAt: new Date().toISOString(),
+          binary: resolve(process.env.HBAR_DESKTOP_EXE ?? 'apps/desktop/src-tauri/target/debug/hbar-desktop.exe'),
+          permission,
+          requestedPermission,
+          firstAcceptance,
+          duplicateAcceptance,
+        },
+        null,
+        2,
+      ),
+    )
+    console.log(JSON.stringify({ probe, permission, requestedPermission, firstAcceptance, duplicateAcceptance }))
+    child.kill()
+    await waitForNativeSmokeExit(child.exited)
+    process.exit(0)
+  }
   const locale = await page.evaluate(() => (document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en-US'))
   const copy = getShellCopy(locale)
   const preSession = preSessionCopy(locale)
@@ -352,18 +386,41 @@ try {
       const reactKey = editor ? Object.keys(editor).find((key) => key.startsWith('__reactFiber$')) : undefined
       const fiber = reactKey && editor ? (editor as unknown as Record<string, unknown>)[reactKey] : undefined
       const rootElement = document.getElementById('root')
-      const rootKey = rootElement ? Object.keys(rootElement).find((key) => key.startsWith('__reactContainer$')) : undefined
-      const rootFiber = rootKey && rootElement ? (rootElement as unknown as Record<string, unknown>)[rootKey] : undefined
+      const rootKey = rootElement
+        ? Object.keys(rootElement).find((key) => key.startsWith('__reactContainer$'))
+        : undefined
+      const rootContainer =
+        rootKey && rootElement ? (rootElement as unknown as Record<string, unknown>)[rootKey] : undefined
+      const rootFiber =
+        rootContainer && typeof rootContainer === 'object' && 'current' in rootContainer
+          ? (rootContainer as { current?: unknown }).current
+          : rootContainer
       const runtimeCandidates: unknown[] = []
       const walk = (node: unknown, depth: number): void => {
         if (!node || typeof node !== 'object' || depth > 30 || runtimeCandidates.length > 8) return
         const candidate = node as { memoizedProps?: Record<string, unknown>; child?: unknown; sibling?: unknown }
-        const value = candidate.memoizedProps?.value
+        const props = candidate.memoizedProps
+        const value = props?.value ?? props?.view ?? props?.runtime
         if (value && typeof value === 'object') {
-          const view = (value as { view?: unknown }).view
-          const state = view && typeof view === 'object' ? (view as { state?: unknown }).state : undefined
+          const state = (value as { state?: unknown }).state
           const drafts = state && typeof state === 'object' ? (state as { drafts?: unknown }).drafts : undefined
-          if (drafts) runtimeCandidates.push({ hasDrafts: true, hasView: Boolean(view), hasState: Boolean(state) })
+          const navigation =
+            state && typeof state === 'object' ? (state as { navigation?: unknown }).navigation : undefined
+          const snapshot = (reader: unknown): unknown => {
+            if (!reader || typeof reader !== 'object' || !('getSnapshot' in reader)) return null
+            try {
+              return (reader as { getSnapshot: () => unknown }).getSnapshot()
+            } catch {
+              return null
+            }
+          }
+          if (drafts)
+            runtimeCandidates.push({
+              instanceId: (value as { instanceId?: unknown }).instanceId ?? null,
+              hostId: (value as { hostId?: unknown }).hostId ?? null,
+              navigation: snapshot(navigation),
+              drafts: snapshot(drafts),
+            })
         }
         walk(candidate.child, depth + 1)
         walk(candidate.sibling, depth + 1)
@@ -380,8 +437,11 @@ try {
             lines: Array.from(editor.querySelectorAll('.cm-line')).map((line) => ({
               text: line.textContent,
               html: line.innerHTML,
-              placeholder: Boolean(line.querySelector('.cm-placeholder')),
+            placeholder: Boolean(line.querySelector('.cm-placeholder')),
             })),
+            propText: editor.dataset.hbarEditorPropText ?? null,
+            propRevision: editor.dataset.hbarEditorPropRevision ?? null,
+            editorRevisionRef: editor.dataset.hbarEditorRevisionRef ?? null,
           }
         : null
       return {
@@ -390,22 +450,27 @@ try {
         editorValue: editor?.textContent ?? null,
         fiberHasProps: Boolean(fiber && typeof fiber === 'object' && 'memoizedProps' in fiber),
         composerDetails,
-        allCodeMirror: Array.from(document.querySelectorAll<HTMLElement>('.cm-content[contenteditable="true"]')).map((node) => ({
-          text: node.innerText,
-          visible: Boolean(node.offsetWidth || node.offsetHeight),
-          html: node.innerHTML,
-        })),
+        allCodeMirror: Array.from(document.querySelectorAll<HTMLElement>('.cm-content[contenteditable="true"]')).map(
+          (node) => ({
+            text: node.innerText,
+            visible: Boolean(node.offsetWidth || node.offsetHeight),
+            html: node.innerHTML,
+          }),
+        ),
         runtimeCandidates,
         composerCandidates: Array.from(document.querySelectorAll('[role="textbox"]')).map((node) => ({
           text: (node as HTMLElement).innerText,
           aria: node.getAttribute('aria-label'),
           visible: Boolean((node as HTMLElement).offsetWidth || (node as HTMLElement).offsetHeight),
         })),
-        url: location.href,
+        url: window.location.href,
       }
     }, phase)
     composerDiagnostics.push(diagnostic)
-    await writeFile('artifacts/ui-redesign/tauri/composer-diagnostic.json', JSON.stringify(composerDiagnostics, null, 2))
+    await writeFile(
+      'artifacts/ui-redesign/tauri/composer-diagnostic.json',
+      JSON.stringify(composerDiagnostics, null, 2),
+    )
     return diagnostic
   }
   await readComposerDiagnostic('before-typing')
@@ -632,8 +697,13 @@ try {
     tabs: element.querySelectorAll('.flexlayout__tab').length,
   }))
   if (restoredLayoutShape.roots !== 1 || restoredLayoutShape.tabs < 1)
-    throw new Error(`Canonical desktop layout was not restored as one projection: ${JSON.stringify(restoredLayoutShape)}`)
-  await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click().catch(() => {})
+    throw new Error(
+      `Canonical desktop layout was not restored as one projection: ${JSON.stringify(restoredLayoutShape)}`,
+    )
+  await page
+    .getByRole('button', { name: copy.shell.showSidebar, exact: true })
+    .click()
+    .catch(() => {})
   const beforeExplicitCreation = await listSessions()
   await page.getByRole('button', { name: copy.shell.newSession, exact: true }).click()
   await expect.poll(async () => (await listSessions()).length).toBe(beforeExplicitCreation.length + 1)
@@ -679,27 +749,37 @@ try {
     Math.abs(sidebarGeometry.right - separatorGeometry.left) > 1 ||
     Math.abs(separatorGeometry.right - expandedGeometry.frame.left) > 1 ||
     expandedGeometry.frame.width >= collapsedGeometry.frame.width
-    )
+  )
     throw new Error(
       `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, separatorGeometry, collapsedGeometry, expandedGeometry })}`,
     )
   const splitter = page.locator('.hbar-desktop-layout-projection .flexlayout__splitter').first()
   await expect(splitter).toBeVisible()
-  const beforeSplitterWidths = await page.locator('.hbar-desktop-layout-projection .flexlayout__tabset').evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().width)))
+  const beforeSplitterWidths = await page
+    .locator('.hbar-desktop-layout-projection .flexlayout__tabset')
+    .evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().width)))
   const splitterBounds = await splitter.boundingBox()
   if (!splitterBounds) throw new Error('Canonical FlexLayout splitter has no measurable bounds')
   await page.mouse.move(splitterBounds.x + splitterBounds.width / 2, splitterBounds.y + splitterBounds.height / 2)
   await page.mouse.down()
   await page.mouse.move(splitterBounds.x + splitterBounds.width / 2 + 32, splitterBounds.y + splitterBounds.height / 2)
   await page.mouse.up()
-  const afterSplitterWidths = await page.locator('.hbar-desktop-layout-projection .flexlayout__tabset').evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().width)))
+  const afterSplitterWidths = await page
+    .locator('.hbar-desktop-layout-projection .flexlayout__tabset')
+    .evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().width)))
   if (JSON.stringify(afterSplitterWidths) === JSON.stringify(beforeSplitterWidths))
-    throw new Error(`Canonical FlexLayout splitter did not change pane widths: ${JSON.stringify({ beforeSplitterWidths, afterSplitterWidths })}`)
+    throw new Error(
+      `Canonical FlexLayout splitter did not change pane widths: ${JSON.stringify({ beforeSplitterWidths, afterSplitterWidths })}`,
+    )
   await page.reload()
   await page.locator('[data-hbar-app-ui-shell="app"]').waitFor()
-  const restoredSplitterWidths = await page.locator('.hbar-desktop-layout-projection .flexlayout__tabset').evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().width)))
+  const restoredSplitterWidths = await page
+    .locator('.hbar-desktop-layout-projection .flexlayout__tabset')
+    .evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().width)))
   if (JSON.stringify(restoredSplitterWidths) !== JSON.stringify(afterSplitterWidths))
-    throw new Error(`Canonical FlexLayout splitter width was not restored: ${JSON.stringify({ afterSplitterWidths, restoredSplitterWidths })}`)
+    throw new Error(
+      `Canonical FlexLayout splitter width was not restored: ${JSON.stringify({ afterSplitterWidths, restoredSplitterWidths })}`,
+    )
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-sidebar-min-window.png' })
   await page.getByRole('button', { name: /^(隐藏工程与会话侧栏|Hide projects and sessions sidebar)$/ }).click()
   await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).waitFor()
@@ -890,7 +970,9 @@ try {
     JSON.stringify({ ...nativeNotification, createdAt: new Date().toISOString() }, null, 2),
   )
   const firstNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
-  const duplicateNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
+  const duplicateNativeAcceptance = await invokeNative(page, 'send_native_notification', {
+    request: nativeNotification,
+  })
   if (firstNativeAcceptance !== true || duplicateNativeAcceptance !== false)
     throw new Error(
       `Native background notification did not provide fresh-only acceptance semantics: ${JSON.stringify({ firstNativeAcceptance, duplicateNativeAcceptance })}`,
