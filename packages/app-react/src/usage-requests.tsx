@@ -1,4 +1,4 @@
-import { LumenText, LumenUsage07, type LumenUsageContent, type LumenUsageRequestRecord } from '@lumen/app-ui'
+import { LumenButton, LumenText, LumenUsage07, type LumenUsageContent, type LumenUsageRequestRecord } from '@lumen/app-ui'
 import type { UsageRequestsRuntime, UsageRequestItem } from '@hbar/app-runtime'
 import type { UsageSource } from '@hbar/contracts/usage'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
@@ -17,6 +17,8 @@ export interface HbarUsageRequestsLabels {
   readonly open: string
   readonly previous: string
   readonly next: string
+  readonly retry: string
+  readonly error: (code: string) => string
   readonly page: (from: number, to: number, total: number) => string
   readonly time: (value: number) => string
   readonly tokenCount: (value: number) => string
@@ -46,7 +48,7 @@ function latency(item: UsageRequestItem): number | null {
 
 function status(item: UsageRequestItem): LumenUsageRequestRecord['status'] {
   if (item.runStatus === 'failed' || item.runStatus === 'cancelled') return 'error'
-  if (item.runStatus === 'unknown' || item.runStatus === 'running' || item.runStatus === 'accepted') return 'capped'
+  if (item.runStatus === 'queued' || item.runStatus === 'running' || item.runStatus === 'waiting_approval' || item.runStatus === 'guided' || item.runStatus === 'interrupted') return 'capped'
   return 'success'
 }
 
@@ -118,6 +120,11 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest }: HbarUsageR
       },
     },
   }
-  if (snapshot.status === 'error') return <LumenText as="p" role="alert">{snapshot.error}</LumenText>
+  if (snapshot.status === 'error') return (
+    <LumenText as="p" role="alert">
+      {labels.error(snapshot.error ?? 'EXECUTION_FAILED')}{' '}
+      <LumenButton type="button" variant="text" onClick={() => void runtime.refresh()}>{labels.retry}</LumenButton>
+    </LumenText>
+  )
   return <LumenUsage07 content={content} state={snapshot.status} />
 }

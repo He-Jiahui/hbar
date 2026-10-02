@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createUsageRequests } from '../packages/app-runtime/src/usage-requests'
+import { usageExportInputSchema } from '@hbar/contracts/commands/usage'
 
 const attempt = (id: string, endedAt = 10) => ({
   usageId: id, attemptId: `attempt-${id}`, sessionId: 'session-1', workspaceId: 'workspace-1', runId: 'run-1', source: 'model' as const,
@@ -19,7 +20,7 @@ describe('usage request projection', () => {
   })
   test('paginates and deduplicates ids', async () => {
     let page = 0
-    const runtime = createUsageRequests({ usage: { execute: async (_name, input) => page++ === 0 ? result([attempt('u1')], 'cursor') : result([attempt('u1'), attempt('u2')]) } })
+    const runtime = createUsageRequests({ usage: { execute: async () => page++ === 0 ? result([attempt('u1')], 'cursor') : result([attempt('u1'), attempt('u2')]) } })
     await runtime.refresh(); await runtime.loadMore()
     expect(runtime.reader.getSnapshot().items.map((item) => item.id)).toEqual(['u1', 'u2'])
     runtime.dispose()
@@ -27,12 +28,14 @@ describe('usage request projection', () => {
   test('drops a late response after scope changes', async () => {
     let resolve: ((value: unknown) => void) | undefined
     let calls = 0
-    const runtime = createUsageRequests({ usage: { execute: async () => calls++ === 0 ? await new Promise((done) => { resolve = done }) : result([]) } })
+    const runtime = createUsageRequests({ usage: { execute: async (_name, raw) => calls++ === 0 ? await new Promise((done) => { resolve = done }) : { ...result([]), scope: usageExportInputSchema.parse(raw).scope } } })
     const pending = runtime.refresh()
     await runtime.setScope({ kind: 'workspace', workspaceId: 'workspace-2' })
     resolve?.(result([attempt('stale')]))
     await pending
     expect(runtime.reader.getSnapshot().items).toEqual([])
+    expect(runtime.reader.getSnapshot().scope).toEqual({ kind: 'workspace', workspaceId: 'workspace-2' })
+    expect(runtime.reader.getSnapshot().status).toBe('ready')
     runtime.dispose()
   })
   test('stops at the 400 item and 100 page bounds', async () => {
@@ -55,5 +58,13 @@ describe('usage request projection', () => {
     resolve?.(result([attempt('late')]))
     await pending
     expect(runtime.reader.getSnapshot().items).toEqual([])
+  })
+  test('refresh and loadMore reject after dispose without querying Host', async () => {
+    let calls = 0
+    const runtime = createUsageRequests({ usage: { execute: async () => { calls += 1; return result([]) } } })
+    runtime.dispose()
+    await expect(runtime.refresh()).rejects.toMatchObject({ code: 'DISPOSED' })
+    await expect(runtime.loadMore()).resolves.toBeUndefined()
+    expect(calls).toBe(0)
   })
 })

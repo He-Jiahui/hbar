@@ -4,7 +4,7 @@ import { HbarUsageRequests } from '../packages/app-react/src/usage-requests'
 import type { UsageRequestsRuntime } from '@hbar/app-runtime'
 
 const labels = {
-  title: 'Request log', description: 'Recent requests', request: 'Request', open: 'Open request', timeLabel: 'Time', filterOptions: [{ id: 'all' as const, label: 'All' }], model: 'Model', tokens: 'Tokens', latency: 'Latency', cost: 'Cost', empty: 'No requests', previous: 'Previous', next: 'Next',
+  title: 'Request log', description: 'Recent requests', request: 'Request', open: 'Open request', timeLabel: 'Time', filterOptions: [{ id: 'all' as const, label: 'All' }], model: 'Model', tokens: 'Tokens', latency: 'Latency', cost: 'Cost', empty: 'No requests', previous: 'Previous', next: 'Next', retry: 'Retry', error: (code: string) => `Could not load (${code})`,
   page: (from: number, to: number, total: number) => `${from}-${to}/${total}`, time: (value: number) => String(value), tokenCount: (value: number) => String(value), duration: (value: number | null) => value === null ? 'Unknown' : `${value}ms`,
   costValue: (value: { readonly availability: string; readonly value: number | null }) => value.availability === 'available' && value.value !== null ? String(value.value) : 'Unavailable',
   status: (value: string | null) => value ?? 'Unknown', source: (value: string) => value === 'model' ? 'Model request' : 'Compaction', detail: { attempt: 'Attempt', session: 'Session', provider: 'Provider', source: 'Source', status: 'Status' },

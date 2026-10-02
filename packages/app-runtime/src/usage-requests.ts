@@ -134,7 +134,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       ...(append && snapshot.cursor ? { after: snapshot.cursor } : {}),
     }
     const timeout = setTimeout(() => controller.abort(new CommandError('TIMEOUT', 'Usage export timed out')), USAGE_REQUEST_TIMEOUT_MS)
-    let removeAbort = () => undefined
+    let removeAbort: () => void = () => undefined
     try {
       const interrupted = new Promise<never>((_resolve, reject) => {
         const onAbort = () => reject(controller.signal.reason instanceof Error ? controller.signal.reason : new CommandError('QUERY_SUPERSEDED', 'Usage export interrupted'))
@@ -169,6 +169,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
   }
 
   const run = (append: boolean) => {
+    if (disposed) return Promise.reject(new CommandError('DISPOSED', 'Usage runtime disposed'))
     if (pending) return pending
     const controller = new AbortController()
     const token = ++generation
