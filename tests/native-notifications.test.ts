@@ -14,7 +14,7 @@ test('native notification port maps permission and accepts only boolean delivery
   const scope = {
     __TAURI_INTERNALS__: {
       invoke: async (command: string, args?: Record<string, unknown>) => {
-        calls.push({ command, args })
+        calls.push(args === undefined ? { command } : { command, args })
         if (command === 'native_notification_permission') return 'Granted'
         if (command === 'request_native_notification_permission') return 'Denied'
         return true
@@ -33,6 +33,6 @@ test('native notification port maps permission and accepts only boolean delivery
 })
 
 test('hidden visibility is the only native delivery eligibility signal', () => {
-  expect(shouldNotifyWhileHidden({ visibilityState: 'hidden' } as Document)).toBe(true)
-  expect(shouldNotifyWhileHidden({ visibilityState: 'visible' } as Document)).toBe(false)
+  expect(shouldNotifyWhileHidden({ visibilityState: 'hidden' } as Pick<Document, 'visibilityState'>)).toBe(true)
+  expect(shouldNotifyWhileHidden({ visibilityState: 'visible' } as Pick<Document, 'visibilityState'>)).toBe(false)
 })
