@@ -16,7 +16,22 @@ export interface CodeBlockCopyInput extends CodeBlockCopyTarget {
 }
 
 export interface CodeBlockCopyResult extends CodeBlockCopyTarget {
-  readonly status: 'copied' | 'empty' | 'unavailable' | 'failed' | 'too_large'
+  readonly status: CodeTextCopyStatus
+}
+
+export type CodeTextCopyStatus = 'copied' | 'empty' | 'unavailable' | 'failed' | 'too_large'
+
+/** Shared local write policy; callers own their message or file lifetime. */
+export async function copyCodeText(text: string, clipboard: MessageClipboardPort | null): Promise<CodeTextCopyStatus> {
+  if (text.length > MAX_CODE_BLOCK_COPY_CHARACTERS) return 'too_large'
+  if (!/\S/u.test(text)) return 'empty'
+  if (!clipboard) return 'unavailable'
+  try {
+    await clipboard.writeText(text)
+    return 'copied'
+  } catch {
+    return 'failed'
+  }
 }
 
 /**
@@ -34,16 +49,5 @@ export async function copyCodeBlockText(
     segmentId: input.segmentId,
     occurrenceId: input.occurrenceId,
   }
-  const text = input.text
-  // Capacity precedes the scan and platform call; never allocate a truncated or
-  // UTF-8-encoded substitute merely to decide whether this input is allowed.
-  if (text.length > MAX_CODE_BLOCK_COPY_CHARACTERS) return { ...target, status: 'too_large' }
-  if (!/\S/u.test(text)) return { ...target, status: 'empty' }
-  if (!clipboard) return { ...target, status: 'unavailable' }
-  try {
-    await clipboard.writeText(text)
-    return { ...target, status: 'copied' }
-  } catch {
-    return { ...target, status: 'failed' }
-  }
+  return { ...target, status: await copyCodeText(input.text, clipboard) }
 }

@@ -6,8 +6,10 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
+const longCode = Array.from({ length: 25 }, (_, i) => `const line${i + 1} = "Markdown file proof ${i + 1}";`).join('\n')
 const text =
   '# Project notes — 项目说明\n\nRead the document, keep its original file identity.\n\n## Review steps\n\n1. **Read** the proposal.\n2. Inspect the source.\n3. Return to the conversation.\n\n| State | Next action |\n| --- | --- |\n| Draft | Review |\n| Confirmed | Continue |\n\n```ts\nexport const ready = true\n```\n\n![Remote image must not load](https://markdown-fixture.invalid/pixel.png)\n\n<script>window.markdownExecuted = true</script>\n\n' +
+  `\n\`\`\`typescript\n${longCode}\n\`\`\`\n\n` +
   Array.from(
     { length: 28 },
     (_, i) =>
@@ -30,7 +32,11 @@ for (const scenario of [
   }, info) => {
     test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-markdown-reading-'))
-    const context = await browser.newContext({ locale: scenario.locale, viewport: { width: 1440, height: 900 } })
+    const context = await browser.newContext({
+      locale: scenario.locale,
+      viewport: { width: 1440, height: 900 },
+      permissions: ['clipboard-read', 'clipboard-write'],
+    })
     const copy = getShellCopy(scenario.locale)
     let host: WebSessionHost | undefined
     try {
@@ -62,6 +68,43 @@ for (const scenario of [
       await expect(markdown.locator('img,script,iframe')).toHaveCount(0)
       expect(await page.evaluate(() => 'markdownExecuted' in window)).toBe(false)
       expect(remoteRequests).toEqual([])
+      const longBlock = markdown.locator('.hbar-file-markdown-code').nth(1)
+      await expect(longBlock.locator('[data-code-tail]')).toBeHidden()
+      await longBlock.getByRole('button', { name: copy.files.markdownCode.copy, exact: true }).click()
+      await expect
+        .poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n'))
+        .toBe(longCode)
+      await expect(longBlock.getByRole('button', { name: copy.files.markdownCode.copied, exact: true })).toBeVisible()
+      const more = longBlock.getByRole('button', { name: copy.files.markdownCode.showMore(5), exact: true })
+      await more.focus()
+      await more.press('Enter')
+      const less = longBlock.getByRole('button', { name: copy.files.markdownCode.showLess, exact: true })
+      await expect(less).toBeFocused()
+      await expect(longBlock.locator('[data-code-tail]')).toBeVisible()
+      const codeBody = longBlock.locator('.hbar-message-code-body')
+      await codeBody.hover()
+      await page.mouse.wheel(0, 800)
+      await expect.poll(() => codeBody.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+      expect(
+        await codeBody.evaluate((element) => {
+          const tail = element.querySelector('[data-code-tail]')?.firstChild
+          if (!tail || !tail.textContent) return false
+          const range = document.createRange()
+          const start = tail.textContent.lastIndexOf('const line25')
+          if (start < 0) return false
+          range.setStart(tail, start)
+          range.setEnd(tail, tail.textContent.length - 1)
+          const line = range.getBoundingClientRect()
+          const pane = element.getBoundingClientRect()
+          return line.top >= pane.top && line.bottom <= pane.bottom
+        }),
+      ).toBe(true)
+      await less.press('Enter')
+      await expect(more).toBeFocused()
+      await expect(longBlock.locator('[data-code-tail]')).toBeHidden()
+      await markdown.evaluate((element) => {
+        element.scrollTop = 0
+      })
       await page.screenshot({ path: info.outputPath(`markdown-read-${scenario.locale}.png`) })
       await markdown.evaluate((element) => {
         element.scrollTop = 480

@@ -28,6 +28,7 @@ import { canFocusWorkspaceElement } from './workspace-tool-focus'
 import { HbarFilePreviewTabs, type HbarFilePreviewItem, type HbarFilePreviewLabels } from './file-preview-tabs'
 import { HbarFileSourceSurface, type HbarFileContextLabels } from './file-context-surfaces'
 import { HbarFileMarkdownPreview, canRenderFileMarkdown, isMarkdownFile } from './file-markdown-preview'
+import type { HbarCodeBlockLabels } from './code-block-copy-action'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
@@ -41,6 +42,7 @@ export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly markdownTooLarge: string
   readonly markdownImage: (alt: string) => string
   readonly openLinkedFile: (path: string) => string
+  readonly markdownCode: HbarCodeBlockLabels
   readonly textPreview: (path: string) => string
   readonly close: string
   readonly closeWorkbench: string
@@ -727,13 +729,15 @@ export function HbarFileWorkspace({
                       })
                     }
                   />
-                ) : renderedMarkdown ? (
+                ) : renderedMarkdown && previewId ? (
                   <HbarFileMarkdownPreview
+                    key={previewId}
                     path={document.path}
                     value={document.draft}
                     label={labels.textPreview(document.path)}
                     imageLabel={labels.markdownImage}
                     openFileLabel={labels.openLinkedFile}
+                    code={{ previewId, owner: runtime, labels: labels.markdownCode }}
                     onOpenFile={(path) =>
                       invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
                     }

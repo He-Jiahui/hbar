@@ -45,7 +45,7 @@ test.afterAll(async () => {
     server.httpServer.close((error) => (error ? reject(error) : resolve()))
   })
 })
-async function open(browser: Browser, locale: ShellLocale, longLabels = false) {
+async function open(browser: Browser, locale: ShellLocale, longLabels = false, filePreview = false) {
   const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
   const errors: string[] = []
   const forbidden: string[] = []
@@ -62,12 +62,62 @@ async function open(browser: Browser, locale: ShellLocale, longLabels = false) {
   page.on('console', (message) => {
     if (message.type() === 'warning' || message.type() === 'error') errors.push(`${message.type()}: ${message.text()}`)
   })
-  await page.goto(`${base}/${longLabels ? '?long-labels' : ''}`)
+  await page.goto(`${base}/?${longLabels ? 'long-labels&' : ''}${filePreview ? 'file-preview' : ''}`)
   await expect(page.locator('[data-fixture-output]')).toBeVisible()
   return { page, context, errors, forbidden }
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`file code Copy retains the original source and pane-owned actions: ${locale}`, async ({ browser }) => {
+    const f = await open(browser, locale, true, true)
+    try {
+      const labels = codeBlockCopyLabels(locale)
+      await expect(copies(f.page)).toHaveCount(2)
+      await copy(f.page)
+      await copy(f.page, 1)
+      await count(f.page, 2)
+      await expect(f.page.locator('[data-write-index="0"]')).toHaveText(repeated)
+      await expect(f.page.locator('[data-write-index="1"]')).toHaveText(repeated)
+      await action(f.page, 'b')
+      await action(f.page, 'a')
+      await action(f.page, 'resolve')
+      await action(f.page, 'reject')
+      await status(f.page, 'idle')
+      await status(f.page, 'idle', 1)
+      await copy(f.page)
+      await action(f.page, 'reject')
+      await expect(copies(f.page).first().getByRole('alert')).toBeVisible()
+      await copies(f.page).first().getByRole('button', { name: labels.retry, exact: true }).click()
+      await count(f.page, 4)
+      await action(f.page, 'owner')
+      await action(f.page, 'resolve')
+      await status(f.page, 'idle')
+      await action(f.page, 'unavailable')
+      await copies(f.page).first().getByRole('button').click()
+      await status(f.page, 'unavailable')
+      await count(f.page, 4)
+      await action(f.page, 'available')
+      await action(f.page, 'long')
+      const block = f.page.locator('.hbar-file-markdown-code')
+      await expect(block.locator('[data-code-tail]')).toBeHidden()
+      await copy(f.page)
+      await expect(f.page.locator('[data-write-index]').last()).toHaveText(longCode)
+      await action(f.page, 'resolve')
+      await status(f.page, 'copied')
+      const more = block.getByRole('button', { name: labels.showMore(5), exact: true })
+      await more.focus()
+      await more.press('Enter')
+      await expect(block.getByRole('button', { name: labels.showLess, exact: true })).toBeFocused()
+      await expect(block.locator('[data-code-tail]')).toBeVisible()
+      await f.page.setViewportSize({ width: locale === 'zh-CN' ? 320 : 1440, height: 960 })
+      expect(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await block.screenshot({ path: join(evidence, `file-code-${locale}.png`) })
+      expect(f.errors).toEqual([])
+      expect(f.forbidden).toEqual([])
+    } finally {
+      await f.context.close()
+    }
+  })
   test(`PlanExit code Copy stays readable across decisions, offline and owner lifetimes: ${locale}`, async ({
     browser,
   }) => {

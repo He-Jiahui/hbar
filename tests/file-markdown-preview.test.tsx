@@ -18,6 +18,7 @@ test('file Markdown renders semantic content and never loads or executes embedde
       imageLabel={labels.markdownImage}
       openFileLabel={labels.openLinkedFile}
       onOpenFile={() => {}}
+      code={{ previewId: 'first', owner: {}, labels: labels.markdownCode }}
       value={
         '# 项目说明\n\n1. **检查**长标题和内容自然换行。\n\n| 状态 | 动作 |\n|---|---|\n| 草稿 | 审核 |\n\n```ts\nconst ready = true\n```\n\n![很长的中文图片说明](https://example.invalid/pixel.png)\n\n[链接](javascript:alert(1))\n\n<script>alert(1)</script>\n<iframe src="https://example.invalid"></iframe>\n'
       }
@@ -55,6 +56,7 @@ test('file Markdown empty, single, long and exact UTF-8 capacity are explicit wi
         imageLabel={(alt) => alt}
         openFileLabel={(path) => path}
         onOpenFile={() => {}}
+        code={{ previewId: 'capacity', owner: {}, labels: getShellCopy('zh-CN').files.markdownCode }}
       />,
     )
     expect(html).toContain('role="region"')
@@ -87,10 +89,43 @@ test('Markdown links keep the original document-relative target and do not autho
       imageLabel={(alt) => alt}
       openFileLabel={(path) => `Open ${path}`}
       onOpenFile={() => {}}
+      code={{ previewId: 'links', owner: {}, labels: getShellCopy('zh-CN').files.markdownCode }}
     />,
   )
   expect(html).toContain('aria-label="Open other.txt"')
   expect(html).toContain('aria-label="Open docs/other.txt"')
   expect(html).toContain('target="_blank"')
   expect(html).toContain('rel="noreferrer noopener"')
+})
+
+test('file code has localized metadata and per-occurrence Copy without mixing fences, prose or inline code', () => {
+  const labels = getShellCopy('zh-CN').files
+  const owner = {}
+  const render = (value: string) =>
+    renderToStaticMarkup(
+      <HbarFileMarkdownPreview
+        path="docs/长文档.md"
+        value={value}
+        label={labels.textPreview('docs/长文档.md')}
+        imageLabel={labels.markdownImage}
+        openFileLabel={labels.openLinkedFile}
+        onOpenFile={() => {}}
+        code={{ previewId: 'same-preview', owner, labels: labels.markdownCode }}
+      />,
+    )
+  for (const count of [0, 1, 20, 21, 25]) {
+    const body = Array.from({ length: count }, (_, i) => `line ${i + 1}`).join('\n')
+    const html = render(`Before \`inline\`\n\n\`\`\`typescript\n${body}\n\`\`\`\n\nAfter`)
+    expect(html).toContain(labels.markdownCode.lines(count))
+    expect(html.match(/data-copy-status=/g)?.length ?? 0).toBe(count ? 1 : 0)
+    expect(html).toContain('hbar-file-markdown-code')
+    if (count > 20) {
+      expect(html).toContain(labels.markdownCode.showMore(count - 20))
+      expect(html).toContain('data-code-tail="" hidden=""')
+    } else expect(html).not.toContain('data-code-tail=')
+  }
+  const duplicate = render('```\nsame\n```\n\n```\nsame\n```')
+  expect(duplicate.match(/data-code-occurrence="\d+"/g)).toHaveLength(2)
+  expect(duplicate.match(/data-copy-status="idle"/g)).toHaveLength(2)
+  expect(render('Inline `only`')).not.toContain('data-copy-status=')
 })

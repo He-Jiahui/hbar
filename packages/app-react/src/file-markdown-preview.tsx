@@ -3,6 +3,7 @@ import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { PluggableList } from 'unified'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
+import { FileCodeContext, FileMarkdownPre, type FileMarkdownCodeContext } from './file-markdown-code-block'
 import './file-markdown-preview.css'
 
 export const FILE_MARKDOWN_PREVIEW_BYTES = 128 * 1024
@@ -57,6 +58,7 @@ export function HbarFileMarkdownPreview({
   imageLabel,
   openFileLabel,
   onOpenFile,
+  code,
 }: {
   readonly path: string
   readonly value: string
@@ -64,45 +66,49 @@ export function HbarFileMarkdownPreview({
   readonly imageLabel: (alt: string) => string
   readonly openFileLabel: (path: string) => string
   readonly onOpenFile: (path: string) => void
+  readonly code: Omit<FileMarkdownCodeContext, 'source' | 'path'>
 }) {
   return (
     <LumenFrame className="hbar-file-markdown-preview" role="region" aria-label={label} tabIndex={0}>
-      <ReactMarkdown
-        skipHtml
-        remarkPlugins={fileMarkdownRemarkPlugins}
-        rehypePlugins={fileMarkdownRehypePlugins}
-        components={{
-          a: ({ href, children }) => {
-            const file = href ? resolveMarkdownFileLink(path, href) : null
-            if (file)
-              return (
-                <LumenButton
-                  variant="text"
-                  className="hbar-file-markdown-local-link"
-                  aria-label={openFileLabel(file)}
-                  onClick={() => onOpenFile(file)}
-                >
-                  {children}
-                </LumenButton>
-              )
-            // External addresses follow the existing message-link contract: explicit click only.
-            if (href && /^(?:https?:|mailto:)/i.test(href))
-              return (
-                <a href={href} target="_blank" rel="noreferrer noopener">
-                  {children}
-                </a>
-              )
-            return <span>{children}</span>
-          },
-          img: ({ alt }) => (
-            <LumenText as="span" className="hbar-file-markdown-image">
-              {imageLabel(alt ?? '')}
-            </LumenText>
-          ),
-        }}
-      >
-        {value}
-      </ReactMarkdown>
+      <FileCodeContext value={{ ...code, source: value, path }}>
+        <ReactMarkdown
+          skipHtml
+          remarkPlugins={fileMarkdownRemarkPlugins}
+          rehypePlugins={fileMarkdownRehypePlugins}
+          components={{
+            pre: FileMarkdownPre,
+            a: ({ href, children }) => {
+              const file = href ? resolveMarkdownFileLink(path, href) : null
+              if (file)
+                return (
+                  <LumenButton
+                    variant="text"
+                    className="hbar-file-markdown-local-link"
+                    aria-label={openFileLabel(file)}
+                    onClick={() => onOpenFile(file)}
+                  >
+                    {children}
+                  </LumenButton>
+                )
+              // External addresses follow the existing message-link contract: explicit click only.
+              if (href && /^(?:https?:|mailto:)/i.test(href))
+                return (
+                  <a href={href} target="_blank" rel="noreferrer noopener">
+                    {children}
+                  </a>
+                )
+              return <span>{children}</span>
+            },
+            img: ({ alt }) => (
+              <LumenText as="span" className="hbar-file-markdown-image">
+                {imageLabel(alt ?? '')}
+              </LumenText>
+            ),
+          }}
+        >
+          {value}
+        </ReactMarkdown>
+      </FileCodeContext>
     </LumenFrame>
   )
 }

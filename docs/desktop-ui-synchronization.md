@@ -241,3 +241,10 @@ Providers、选择新 mock 默认、返回 Model 和会话，原显式模型／t
 和生命周期断言未移除。主 agent 亲看最终文档画面，不安装／重启用户软件，不调用
 付费模型。全仓 lint、默认 typecheck 与最终 owned 路径检查通过；定向 Bun 为
 54 tests／348 assertions，Host E2E 3/3，生命周期另 2/2，不声称完整 check 或 E2E。
+
+后续代码块入口进一步同步到 `index-D2DgJJXI.js`／`index-DPbBTXP0.css`（3552 modules）：
+Files 文档具有语言／行数、局部 Copy 与长代码展开，不必切源码后再手工选择。
+`run-20261002-24` 全原生 smoke exit 0，实际 Copy 后原代码块显示已复制；主 agent
+亲看该图。真实 Host 两条路径确认折叠 Copy 的完整 25 行与末行可滚达；共用复制
+组件的受控生命周期／消息／Plan 10/10，Find chrome 另 2/2。详细边界与定向静态
+验证见[阅读交付补充](desktop-file-markdown-reading.md#文档代码块入口补充2026-10-02)。

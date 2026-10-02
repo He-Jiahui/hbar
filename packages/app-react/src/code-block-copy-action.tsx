@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { Check, Copy, LoaderCircle, RotateCcw } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
-import { copyCodeBlockText, MAX_CODE_BLOCK_COPY_CHARACTERS, type CodeBlockCopyInput } from './code-block-copy'
+import { copyCodeText, MAX_CODE_BLOCK_COPY_CHARACTERS, type CodeBlockCopyInput } from './code-block-copy'
 
 export interface HbarCodeBlockLabels {
   readonly copy: string
@@ -18,12 +18,15 @@ export interface HbarCodeBlockLabels {
   readonly showLess: string
 }
 
-interface CodeBlockCopyActionProps extends CodeBlockCopyInput {
+export interface CodeTextCopyActionProps {
+  readonly identity: readonly string[]
+  readonly text: string
   readonly source: string
   readonly owner?: object | undefined
   readonly labels: HbarCodeBlockLabels
   readonly clipboard?: MessageClipboardPort | null | undefined
 }
+interface CodeBlockCopyActionProps extends CodeBlockCopyInput, Omit<CodeTextCopyActionProps, 'identity' | 'text'> {}
 
 type CopyStatus = 'idle' | 'copying' | 'copied' | 'failed' | 'unavailable'
 
@@ -35,7 +38,7 @@ function platformClipboard(): MessageClipboardPort | null {
   }
 }
 
-function CopyAction({ labels, clipboard, source, owner, ...input }: CodeBlockCopyActionProps) {
+function CopyAction({ labels, clipboard, source, owner, text }: CodeTextCopyActionProps) {
   const [status, setStatus] = useState<CopyStatus>('idle')
   const generation = useRef(0)
   const pending = useRef(false)
@@ -50,9 +53,9 @@ function CopyAction({ labels, clipboard, source, owner, ...input }: CodeBlockCop
       if (timer.current !== null) clearTimeout(timer.current)
       timer.current = null
     }
-  }, [source, owner, input.text])
-  const tooLarge = input.text.length > MAX_CODE_BLOCK_COPY_CHARACTERS
-  if (!tooLarge && !/\S/u.test(input.text)) return null
+  }, [source, owner, text])
+  const tooLarge = text.length > MAX_CODE_BLOCK_COPY_CHARACTERS
+  if (!tooLarge && !/\S/u.test(text)) return null
   const failure = status === 'failed' || status === 'unavailable'
   const notice = tooLarge
     ? labels.tooLarge(MAX_CODE_BLOCK_COPY_CHARACTERS)
@@ -68,15 +71,15 @@ function CopyAction({ labels, clipboard, source, owner, ...input }: CodeBlockCop
     if (timer.current !== null) clearTimeout(timer.current)
     timer.current = null
     setStatus('copying')
-    void copyCodeBlockText(input, clipboard === undefined ? platformClipboard() : clipboard).then((result) => {
+    void copyCodeText(text, clipboard === undefined ? platformClipboard() : clipboard).then((result) => {
       if (generation.current !== captured) return
       pending.current = false
-      if (result.status === 'empty' || result.status === 'too_large') {
+      if (result === 'empty' || result === 'too_large') {
         setStatus('idle')
         return
       }
-      setStatus(result.status)
-      if (result.status === 'copied')
+      setStatus(result)
+      if (result === 'copied')
         timer.current = setTimeout(() => {
           if (generation.current === captured) setStatus('idle')
           timer.current = null
@@ -119,10 +122,11 @@ function CopyAction({ labels, clipboard, source, owner, ...input }: CodeBlockCop
 }
 
 export function CodeBlockCopyAction(props: CodeBlockCopyActionProps) {
-  return (
-    <CopyAction
-      key={JSON.stringify([props.sessionId, props.messageId, props.segmentId, props.occurrenceId])}
-      {...props}
-    />
-  )
+  const { sessionId, messageId, segmentId, occurrenceId, ...copyProps } = props
+  return <CodeTextCopyAction identity={[sessionId, messageId, segmentId, occurrenceId]} {...copyProps} />
+}
+
+/** A semantic source identity, not a fabricated message target for file code. */
+export function CodeTextCopyAction(props: CodeTextCopyActionProps) {
+  return <CopyAction key={JSON.stringify(props.identity)} {...props} />
 }

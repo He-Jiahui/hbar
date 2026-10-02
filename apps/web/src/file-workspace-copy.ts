@@ -1,4 +1,5 @@
 import type { HbarFileWorkspaceLabels } from '@hbar/app-react'
+import { codeBlockCopyLabels } from './code-block-copy-labels'
 
 export function fileWorkspaceErrorCopy(zh: boolean, code: string): string | null {
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
@@ -39,6 +40,7 @@ export function fileWorkspaceCopy(
   | 'markdownTooLarge'
   | 'markdownImage'
   | 'openLinkedFile'
+  | 'markdownCode'
   | 'textPreview'
   | 'previews'
   | 'context'
@@ -144,6 +146,7 @@ export function fileWorkspaceCopy(
     ),
     markdownImage: (alt) => choose(`图片未加载${alt ? `：${alt}` : ''}`, `Image not loaded${alt ? `: ${alt}` : ''}`),
     openLinkedFile: (path) => choose(`打开链接文件：${path}`, `Open linked file: ${path}`),
+    markdownCode: codeBlockCopyLabels(zh ? 'zh-CN' : 'en-US'),
     textPreview: (path) => choose(`文本预览：${path}`, `Text preview: ${path}`),
     changes: {
       mode: choose('文件视图', 'File view'),

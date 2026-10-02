@@ -55,6 +55,12 @@ Markdown 文件阅读回归使用 `e2e/file-markdown-reading.spec.ts`，只保�
 [Markdown 阅读交付](desktop-file-markdown-reading.md)，不是脚本存在断言就算通过。
 这不新增 Browser 或 Markdown 图片资源服务。
 
+该阅读路径还真实回读代码块剪贴板，确认折叠 Copy 包含完整代码、展开／收起保焦点，
+真实滚动后第 25 行 Range 位于代码自身 pane 内。`code-block-copy-lifecycle.spec.ts`
+使用同一受控夹具的 Files 模式复核迟到结果、双块身份、失败重试和 owner 变化；
+它是注入剪贴板的组件验证，不冒充 OS clipboard 或真实 Host。原生 smoke 另在实际
+文档代码块点击 Copy 并确认反馈，payload 的逐字回读与故障注入范围由独立测试负责。
+
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
 ## 性能基准

@@ -5,6 +5,7 @@ import { LumenButton, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui
 import type { ContentBlock } from '@hbar/contracts'
 import { HbarMessageBlocks } from '../../packages/app-react/src/session-message'
 import { MessageMarkdown } from '../../packages/app-react/src/message-markdown'
+import { HbarFileMarkdownPreview } from '../../packages/app-react/src/file-markdown-preview'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from '../../packages/app-react/src/proposed-plan-message'
 import { HbarSessionDecision, type HbarSessionDecisionProps } from '../../packages/app-react/src/session-interactions'
 import type { MessageClipboardPort } from '../../packages/app-react/src/message-copy'
@@ -174,6 +175,8 @@ function PlanExitFixture({
 function Fixture({ locale }: { readonly locale: ShellLocale }) {
   const labels = fixtureLabels(locale)
   const shell = getShellCopy(locale).session
+  const fileLabels = getShellCopy(locale).files
+  const filePreview = new URL(location.href).searchParams.has('file-preview')
   const [scenario, setScenario] = useState<Scenario>('a')
   const [unavailable, setUnavailable] = useState(false)
   const [writes, setWrites] = useState<readonly string[]>([])
@@ -267,7 +270,24 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
       </LumenFrame>
       {scenario !== 'unmounted' && (
         <LumenFrame data-fixture-output="" className="hbar-session-message-prose">
-          {scenario === 'plan-exit' ? (
+          {filePreview ? (
+            <HbarFileMarkdownPreview
+              path={scenario === 'b' ? 'B.md' : 'A.md'}
+              value={text}
+              label={fileLabels.textPreview(scenario === 'b' ? 'B.md' : 'A.md')}
+              imageLabel={fileLabels.markdownImage}
+              openFileLabel={fileLabels.openLinkedFile}
+              onOpenFile={() => {
+                throw new Error('Unexpected file navigation in code fixture')
+              }}
+              code={{
+                previewId: scenario === 'segment' ? 'preview-reopened' : 'preview-original',
+                owner: context.owner,
+                labels: copyLabels,
+                clipboard: context.clipboard,
+              }}
+            />
+          ) : scenario === 'plan-exit' ? (
             <PlanExitFixture locale={locale} clipboard={context.clipboard} />
           ) : capacityText !== null ? (
             <CodeBlockCopyAction {...context} occurrenceId="capacity" text={capacityText} source={scenario} />

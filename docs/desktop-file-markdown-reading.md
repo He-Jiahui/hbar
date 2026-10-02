@@ -83,3 +83,47 @@ Files 搜索、Skills、Provider scoped draft 与默认／最小窗口、退出�
 本子功能不代表整个 CC 体验迁移完成。Browser 的可信本地站点与任意不可信网页仍需
 独立范围决策，见[Browser 边界](desktop-browser-preview-boundary.md)。PTY／Team／
 MCP／插件安装等没有因阅读 UI 而被假装可用；以[当前地图](desktop-interaction-map-current.md)为准。
+
+## 文档代码块入口补充（2026-10-02）
+
+`6ce5527f` 已形成文档阅读闭环，但其代码块仍是普通 pre，没有 CC 文档图中的语言／
+行数与 Copy。主 agent 再次亲看上方原 WorkspacePanel 图，以及原 CodeViewer 的
+`artifacts/code-block-copy/reference/evidence-reference-final/reference-en-US-1440-long-expanded.png`；
+它们支持普通流 header、右侧 Copy、超过 20 行的展开／收起和代码自身滚动。
+原 renderer／CodeViewer 对应关系见[原代码阅读记录](desktop-code-block-copy.md)。
+
+现为 Files 文档接入相同的本地化入口：语言和总行数在左、Copy 与反馈在右，长代码
+底部展开／收起，键盘切换后保留原按钮焦点。折叠不限制复制内容；AST 提供完整代码，
+不含围栏、相邻正文或其他块，也不执行代码。空／纯空白代码没有无意义 Copy。
+复用消息已有的 1,000,000 UTF-16 单元复制预算、失败／不可用／重试与 1.5 秒反馈。
+Markdown 整文格式容量仍为 128 KiB UTF-8，因此文件路径不放宽复制预算或读取权限。
+
+`CodeTextCopyAction` 和纯 `copyCodeText` 承接本地复制策略；消息 wrapper 保留原
+Session／message／segment／occurrence 身份。Files 使用真实 preview UUID、相对 path、
+AST occurrence 和 runtime owner，不捏造消息 ID。源码变化、owner 切换、卸载及 A→B→A
+会使旧局部反馈失效；已经发出的系统剪贴板写入不能撤销，不声称能取消 OS 写入。
+共用 AST parser 的消息旧入口保留转导出；Find 的注册、原文投影与 DOM chrome 排除
+不变。文件视图离开后展开状态不作持久化保证。
+
+本次实际验证：
+
+- 定向 7 个 Bun 文件 51 tests／344 assertions 全通过；Find／整消息 Copy 另 4 个文件
+  89／621 全通过。没有累加重复运行。严格 typecheck、owned 类型感知 lint、变更格式、
+  content／icon／flow guards 通过；本次没有再跑全仓 lint 或完整 check。
+- 新 Files 受控生命周期两条与既有消息／Plan 八条共 10/10 通过；使用 injected
+  clipboard 明确验证重复块独立、A→B→A 迟到结果、失败重试和 owner 变更／不可用。
+  首次测试误用“等待 copying”的 helper 检查同步 unavailable，失败保留；改为点击
+  后断言真实 unavailable，未修改产品或放宽断言。
+- 中英文两条真实 Host 路径另 2/2 通过：真实剪贴板回读完整 25 行、键盘展开／收起、
+  真实滚动后末行 Range 位于代码 pane 内，并继续完成源码／编辑／保存／链接／返回。
+  最终图在 `artifacts/desktop-experience/file-markdown-code/host-final-results`。
+  Find chrome 浏览器回归另 2/2，不冒充完整 Find 矩阵。
+- 最终 Web 3552 modules，`index-D2DgJJXI.js`／`index-DPbBTXP0.css`；构建大 chunk
+  警告与 Bun directory-mismatch 保留。Host 和 locked／offline debug Tauri 离线同步。
+- 新临时原生 `run-20261002-24` 全流程终端 exit 0，实际代码 Copy 收到已确认反馈；
+  主 agent 亲看 `file-code-copy-default-window.png`。原有模型／high、Goal Plan、审批、
+  Files／Skills／Provider 和生命周期步骤保留通过。这是原生一次真实写入反馈，
+  payload 逐字回读由 Web Host E2E 证明，不混同不同层的验证。
+
+临时 profile、工程和拥有的进程按原脚本清理；CC 与共享 Lumen 没有被修改，也没有
+安装／重启用户软件、真实供应商请求或 push。Browser 范围选择仍未得到回复。
