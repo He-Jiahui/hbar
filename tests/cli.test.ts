@@ -1028,6 +1028,7 @@ test('classified command catalog and Run operations are usable without a GUI', a
     'questionnaire.answer',
     'queuedRun.editText',
     'queuedRun.getEditable',
+    'queuedRun.guide',
     'queuedRun.remove',
     'run.retry',
     'run.submit',

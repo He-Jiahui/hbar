@@ -62,6 +62,7 @@ test('approval and questionnaire commands validate session targets and converge 
     'questionnaire.answer',
     'queuedRun.editText',
     'queuedRun.getEditable',
+    'queuedRun.guide',
     'queuedRun.remove',
     'run.retry',
     'run.submit',
