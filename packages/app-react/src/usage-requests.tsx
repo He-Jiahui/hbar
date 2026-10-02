@@ -1,11 +1,14 @@
 import { LumenText, LumenUsage07, type LumenUsageContent, type LumenUsageRequestRecord } from '@lumen/app-ui'
 import type { UsageRequestsRuntime, UsageRequestItem } from '@hbar/app-runtime'
+import type { UsageSource } from '@hbar/contracts/usage'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 export interface HbarUsageRequestsLabels {
   readonly title: string
   readonly description: string
   readonly request: string
+  readonly timeLabel: string
+  readonly filterOptions: readonly { readonly id: 'all' | UsageSource; readonly label: string }[]
   readonly model: string
   readonly tokens: string
   readonly latency: string
@@ -19,6 +22,7 @@ export interface HbarUsageRequestsLabels {
   readonly duration: (value: number | null) => string
   readonly costValue: (value: UsageRequestItem['cost']) => string
   readonly status: (value: UsageRequestItem['runStatus']) => string
+  readonly source: (value: UsageRequestItem['source']) => string
   readonly detail: {
     readonly attempt: string
     readonly session: string
@@ -55,7 +59,7 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest }: HbarUsageR
     () => snapshot.items.map((item) => ({
       id: item.id,
       time: labels.time(item.endedAt),
-      endpoint: item.source,
+      endpoint: labels.source(item.source),
       model: item.modelId,
       mobileSummary: labels.tokenCount(item.input + item.output),
       tokens: labels.tokenCount(item.input + item.output),
@@ -66,7 +70,8 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest }: HbarUsageR
         { id: 'attempt', label: labels.detail.attempt, value: item.attemptId },
         { id: 'session', label: labels.detail.session, value: item.sessionId },
         { id: 'provider', label: labels.detail.provider, value: item.providerId },
-        { id: 'source', label: labels.detail.source, value: labels.status(item.runStatus) },
+        { id: 'source', label: labels.detail.source, value: labels.source(item.source) },
+        { id: 'status', label: labels.detail.status, value: labels.status(item.runStatus) },
       ],
     })),
     [labels, snapshot.items],
@@ -75,17 +80,29 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest }: HbarUsageR
     requests: {
       title: labels.title,
       description: labels.description,
+      strategy: 'content-grown',
+      emptyLabel: labels.empty,
       rows: [],
       table: {
         rows,
-        filter: { label: labels.request, value: 'all', options: [{ id: 'all', label: labels.request }], onChange: () => undefined },
+        filter: {
+          label: labels.request,
+          value: snapshot.filters.source ?? 'all',
+          options: labels.filterOptions,
+          onChange: (value) => {
+            const source = value === 'all' || (value !== 'model' && value !== 'compaction') ? undefined : value
+            const filters = { ...snapshot.filters }
+            delete filters.source
+            void runtime.setScope(snapshot.scope, source ? { ...filters, source } : filters)
+          },
+        },
         expandedId,
         onToggle: (id) => {
           setExpandedId((current) => (current === id ? null : id))
           const item = snapshot.items.find((candidate) => candidate.id === id)
           if (item) onOpenRequest?.({ sessionId: item.sessionId, runId: item.runId, usageId: item.id })
         },
-        columns: { time: labels.time(0), request: labels.request, model: labels.model, tokens: labels.tokens, latency: labels.latency, cost: labels.cost },
+        columns: { time: labels.timeLabel, request: labels.request, model: labels.model, tokens: labels.tokens, latency: labels.latency, cost: labels.cost },
         emptyLabel: labels.empty,
         pagination: snapshot.hasMore || snapshot.items.length > 0 ? {
           label: labels.page(1, snapshot.items.length, snapshot.items.length),

@@ -178,15 +178,16 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       pageCount = 0
       state.replace({ ...state.reader.getSnapshot(), items: [], cursor: null, hasMore: false, status: 'loading', error: null })
     } else state.replace({ ...state.reader.getSnapshot(), status: 'loading', error: null })
-    pending = request(append, token, controller)
+    const operation = request(append, token, controller)
       .catch((reason: unknown) => {
         if (current(token)) state.replace({ ...state.reader.getSnapshot(), status: 'error', error: errorCode(reason) })
       })
       .finally(() => {
         if (active?.generation === token) active = null
-        pending = null
+        if (pending === operation) pending = null
       })
-    return pending
+    pending = operation
+    return operation
   }
 
   return {
