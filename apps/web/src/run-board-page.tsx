@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo } from 'react'
-import { LumenButton, LumenFrame, LumenText, LumenKanban01, LumenKanban04, LumenKanban06, type LumenKanbanAction, type LumenKanbanContent } from '@lumen/app-ui'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { LumenAgentPlan05, LumenButton, LumenDialog, LumenFrame, LumenText, LumenKanban01, LumenKanban04, LumenKanban06, type LumenKanbanAction, type LumenKanbanContent } from '@lumen/app-ui'
 import { useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import type { RunBoardItem } from '@hbar/contracts/commands/run-board'
 import type { ShellLocale } from './shell-copy'
 import { runBoardCopy, type RunBoardPageLabels } from './run-board-copy'
 
-export interface RunBoardPageProps { readonly runtime: HbarRuntimeView; readonly locale: ShellLocale; readonly variant?: 1 | 4 | 6 }
+export interface RunBoardPageProps { readonly runtime: HbarRuntimeView; readonly locale: ShellLocale; readonly variant?: 1 | 4 | 6; readonly instanceId?: string | undefined }
 
 const statuses = ['queued', 'running', 'waiting_approval', 'guided', 'completed', 'cancelled', 'failed', 'interrupted'] as const
 type Status = typeof statuses[number]
@@ -46,34 +46,52 @@ function contentFor(items: readonly RunBoardItem[], labels: RunBoardPageLabels):
   }
 }
 
-export function RunBoardPage({ runtime, locale, variant = 1 }: RunBoardPageProps) {
+export function RunBoardPage({ runtime, locale, variant = 1, instanceId }: RunBoardPageProps) {
   const labels = useMemo(() => runBoardCopy(locale), [locale])
   const board = useHbarRuntimeState(runtime.state.runBoard)
-  const refresh = useCallback(() => { void runtime.commands.execute('runBoard.refresh', { instanceId: runtime.instanceId }).catch(() => undefined) }, [runtime])
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const boardInstanceId = instanceId ?? runtime.instanceId
+  const refresh = useCallback(() => { void runtime.commands.execute('runBoard.refresh', { instanceId: boardInstanceId }).catch(() => undefined) }, [boardInstanceId, runtime])
   const loadMore = useCallback(() => {
-    void runtime.commands.execute('runBoard.loadMore', { instanceId: runtime.instanceId }).catch((reason: unknown) => {
+    void runtime.commands.execute('runBoard.loadMore', { instanceId: boardInstanceId }).catch((reason: unknown) => {
       const code = reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string' ? reason.code : ''
       if (code === 'STALE_CURSOR') refresh()
     })
-  }, [refresh, runtime])
+  }, [boardInstanceId, refresh, runtime])
   useEffect(() => { refresh() }, [refresh])
   const items = useMemo(() => { const seen = new Set<string>(); return board.items.filter((item) => { if (seen.has(item.run.id)) return false; seen.add(item.run.id); return true }).slice(0, 400) }, [board.items])
   const onAction = useCallback((action: LumenKanbanAction) => {
     const item = items.find((candidate) => candidate.run.id === action.value)
+    if (action.actionId === 'open' && item) { setSelectedRunId(item.run.id); return }
     const resolved = resolveRunBoardAction(action, item, board.workspaceId)
     if (!resolved) return
-    void runtime.commands.execute(resolved.command, resolved.input).catch(() => undefined)
+    setActionError(null)
+    void runtime.commands.execute(resolved.command, resolved.input).catch(() => setActionError(labels.operationFailed))
   }, [board.workspaceId, items, runtime])
   const Kanban = variant === 4 ? LumenKanban04 : variant === 6 ? LumenKanban06 : LumenKanban01
   const content = useMemo(() => contentFor(items, labels), [items, labels])
   const error = board.error ? `${labels.pageLoadError}: ${board.error}` : null
+  const selectedItem = selectedRunId ? items.find((item) => item.run.id === selectedRunId) : undefined
+  useEffect(() => { if (selectedRunId && !selectedItem) setSelectedRunId(null) }, [selectedItem, selectedRunId])
+  const closeDetails = useCallback(() => setSelectedRunId(null), [])
+  const openConversation = useCallback(() => {
+    if (!selectedItem || !board.workspaceId) return
+    void runtime.commands.execute('app.setSession', { sessionId: selectedItem.run.sessionId, workspaceId: board.workspaceId }).catch(() => undefined)
+  }, [board.workspaceId, runtime, selectedItem])
+  const plan = selectedItem?.plan
+  const planBody = plan ? <LumenFrame><LumenText as="p">{labels.planSteps(plan.plan.length, plan.revision)}</LumenText>{plan.plan.map((step) => <LumenText as="p" key={step.step}>{step.step} · {labels.statusLabel(step.status)}</LumenText>)}</LumenFrame> : <LumenText>{labels.noPlan}</LumenText>
   return <LumenFrame className="hbar-web-run-board" aria-busy={board.status === 'loading'}>
     <LumenFrame as="header"><LumenText as="h2">{labels.title}</LumenText><LumenText as="p">{labels.description}</LumenText><LumenButton onClick={refresh}>{labels.refresh}</LumenButton></LumenFrame>
     {board.status === 'loading' ? <LumenText role="status">{labels.loading}</LumenText> : null}
     {error ? <LumenText tone="danger" role="alert">{error}</LumenText> : null}
+    {actionError ? <LumenText tone="danger" role="alert">{actionError}</LumenText> : null}
     {board.status === 'ready' && items.length === 0 ? <LumenText>{labels.empty}</LumenText> : null}
     <Kanban content={content} readOnly onAction={onAction} />
     {board.nextCursor ? <LumenButton onClick={loadMore} disabled={board.status === 'loading'}>{labels.loadMore}</LumenButton> : null}
+    <LumenDialog open={Boolean(selectedItem)} title={selectedItem?.sessionTitle ?? labels.missingSession} closeLabel={labels.closeDetails} onClose={closeDetails} appearance="panel" footer={<LumenButton onClick={openConversation}>{selectedItem ? labels.openRun(selectedItem.sessionTitle ?? labels.missingSession) : labels.openRun(labels.missingSession)}</LumenButton>}>
+      {selectedItem ? <><LumenText as="p">{labels.detailStatus(labels.statusLabel(selectedItem.run.status))}</LumenText><LumenText as="p">{labels.detailWorkspace(selectedItem.workspaceName ?? labels.missingWorkspace)}</LumenText><LumenText as="p">{labels.detailSession(selectedItem.sessionTitle ?? labels.missingSession)}</LumenText><LumenText as="p">{selectedItem.usage?.cost.availability === 'available' && selectedItem.usage.cost.value !== null ? labels.usageCost(`${selectedItem.usage.cost.value} ${selectedItem.usage.cost.unit}`) : labels.usageUnavailable}</LumenText><LumenAgentPlan05 slots={{ body: planBody }} /></> : null}
+    </LumenDialog>
   </LumenFrame>
 }
 
