@@ -583,7 +583,7 @@ test('schema 14 upgrade restores parent activity from persisted public facts wit
   })
   const upgraded = new Database(databasePath, { readonly: true })
   try {
-    expect(upgraded.query('PRAGMA user_version').get()).toEqual({ user_version: 15 })
+    expect(upgraded.query('PRAGMA user_version').get()).toEqual({ user_version: 18 })
     expect(
       upgraded
         .query(
