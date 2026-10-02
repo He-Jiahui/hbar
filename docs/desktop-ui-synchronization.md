@@ -87,3 +87,9 @@ profile 同时隔离到系统临时目录。保留外观、附件、文件、窗
 声称 native smoke 已通过。临时原生启动仍等待用户确认。两位 gpt-6-luna/max agent
 只读复核入口契约与已保存视觉证据，没有对真实软件进行操作；未发现新的、证据充分
 的五条核心路线缺陷，不作为整个迁移完成证明。
+
+入口复核返回后，补充了原生脚本的三项明确断言：批准前 Host mode 确为 Plan；
+批准后仍是原 Goal ID 且 active；JSON 计划正文没有被误识为文件引用。它们沿用已通过
+的 `e2e/goal-plan-coexistence.spec.ts` 契约，没有扩展视口／按钮矩阵。原生附件步骤
+仍只证明 chooser 与附件呈现，不能替代 `e2e/pre-session-attachments.spec.ts` 对
+Run files／images 的 Host 事实验证；原生执行依然待确认。

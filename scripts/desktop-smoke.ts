@@ -286,8 +286,12 @@ try {
   expect(planned.runs).toHaveLength(1)
   expect(originalRun.input.mode).toBe('plan')
   expect(approval.runId).toBe(originalRun.id)
+  expect(await api.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
   expect((await models.execute('session.getModel', { sessionId })).modelId).toBe(fixtureModel.id)
-  expect((await goals.execute('goal.get', { sessionId })).goal).toMatchObject({ objective, status: 'active' })
+  const originalGoal = (await goals.execute('goal.get', { sessionId })).goal
+  if (!originalGoal) throw new Error('First-send Goal is missing before plan approval')
+  expect(originalGoal).toMatchObject({ objective, status: 'active', tokensUsed: 0 })
+  await expect(page.locator('.hbar-session-message-literal .hbar-message-file-link')).toHaveCount(0)
   const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
   const draft = 'Keep this unsent native draft while approving the plan.'
   await composer.pressSequentially(draft)
@@ -303,6 +307,11 @@ try {
     .toBe('completed')
   expect((await api.call('session.snapshot', { sessionId })).runs.map((item) => item.id)).toEqual([originalRun.id])
   expect(await api.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
+  expect((await goals.execute('goal.get', { sessionId })).goal).toMatchObject({
+    goalId: originalGoal.goalId,
+    objective,
+    status: 'active',
+  })
   await expectComposerText(composer, draft)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
