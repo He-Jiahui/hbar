@@ -390,7 +390,7 @@ try {
   }
   await readComposerDiagnostic('before-typing')
   await composer.pressSequentially(draft)
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   await readComposerDiagnostic('before-approval')
   const decision = page.locator(`[data-decision-id="${approval.id}"]`)
   await decision.getByRole('button', { name: copy.session.decisions.planExit.implement, exact: true }).click()
@@ -409,7 +409,7 @@ try {
     objective,
     status: 'active',
   })
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
     throw new Error('Known-workspace new session unexpectedly opened the command catalog')
@@ -431,7 +431,7 @@ try {
   await expect(page.locator('.hbar-composer-picker-popover[data-kind="model"]').getByRole('option')).not.toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(modelTrigger).toBeFocused()
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
   const fileChooser = page.waitForEvent('filechooser')
   await page
@@ -474,7 +474,7 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/chat-search-keyboard-selected.png' })
   await searchInput.press('Escape')
   await expect(chatSearch).toHaveCount(0)
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   const noHorizontalOverflow = async () =>
     page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
   const readSessionGeometry = async () =>
@@ -623,7 +623,7 @@ try {
   await expect(page.locator(`[data-session-id="${explicitSession.id}"][data-selected="true"]`)).toBeVisible()
   expect(explicitSession.workspaceId).toBe(workspace.id)
   await page.getByRole('button', { name: copy.shell.openSession('Tauri visual session'), exact: true }).click()
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   await expect(page.locator(`[data-session-id="${sessionId}"][data-selected="true"]`)).toBeVisible()
 
   await invokeNative(page, 'plugin:window|set_size', {
@@ -718,7 +718,7 @@ try {
   await expect(skillFilter).toHaveValue('native-review')
   await expect(skillOpener).toBeFocused()
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   // Providers is Host-owned even when entered through a layered Session form.
   // Keep both the original explicit Session selection and the unsaved settings draft.
   const settings = createSettingsCommandClient(api)
@@ -784,7 +784,7 @@ try {
   await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-draft-min-window.png' })
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   // One owned, bounded stdout-only command verifies native reading continuity.
   // SDK starts the fixture Run without consuming the user's existing composer draft.
   const command =
@@ -848,7 +848,7 @@ try {
   await commandDisclosure.press('Space')
   await expect(commandCard).toHaveCount(0)
   await composer.focus()
-  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
+  await expectComposerText(page.locator('.cm-content[contenteditable="true"]').last(), draft)
   const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
