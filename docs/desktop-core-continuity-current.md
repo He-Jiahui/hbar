@@ -8,7 +8,13 @@
 [composer 交付](desktop-composer-entry-parity.md)实现并验证；`/agent` 的
 [父会话 prompt 与真实 Host/tool 路径](desktop-agent-parent-route.md)已独立实现并验证。
 waiting-approval Guide 保留限制。
-下文的“未决”是本次基础复核时的历史状态，不再要求用户重复选择。
+下文保留基础复核时的历史行为，并明确对应的当前处理结果；不再要求用户重复选择。
+
+2026-10-02 核心只读审计与后续 owned 原生验收进一步确认：模型／思考 → Goal + Plan →
+同 Run 审批 → 原草稿返回没有发现新的、证据充分的 UI 缺口。实际执行仍以
+[同步记录](desktop-ui-synchronization.md)中对应资产／run 的范围为准；最新图示
+[阅读交付](desktop-mermaid-reading.md)的 `run-20261002-26` 也保留并通过这些核心断言。
+这不证明商业模型、全部页面、英文原生故障分支或完整 CC 能力已经迁移。
 
 后续[普通审批历史衔接](desktop-approval-history-continuity.md)补齐了原工具旁的
 已决定卡片在刷新后的恢复，来源是 Host 保存的原审批，而不是工具结果推断。
@@ -77,15 +83,20 @@ local-fixture 模型与独占 localhost 49168；Vite preview 使用 49169。
 按仓库配置且规范化 CRLF/LF 后，历史正文与当前已提交内容都匹配 Prettier；
 重新格式化未产生 Git 内容差异，最终两篇文档格式检查通过。
 
-## 未决差异，不默默选择
+## 历史差异及当前处理结果
 
-1. **Goal + Plan 组合。** 当前准备 Goal 会离开 Plan；是否改为先规划、审批后执行 Goal，
-   需要用户选择。已经重新发出自包含的问题，未以无回复当作同意。
-2. **`/agent` 语义。** CC 将整条指令发给父会话；hbar 直接创建子 Session/Run。
-   这是执行路径差异，不是仅改菜单位置。已经请求选择，未擅自切换。
+1. **Goal + Plan 组合已确认并交付。** 基础复核时准备 Goal 会离开 Plan；用户随后
+   明确选择共存。[composer 交付](desktop-composer-entry-parity.md)与
+   [当前交互地图](desktop-interaction-map-current.md)记录独立准备和同 Run 的审批／
+   执行衔接。不能继续把历史“需要选择”写成当前行为，也不应再次询问相同选择。
+2. **`/agent` 父会话路径已确认并交付。** 基础复核时 hbar 直接创建子 Session／Run，
+   与 CC 把整条指令交给父会话不同。用户明确选择父会话路径，随后
+   [Agent Tool 交付](desktop-agent-parent-route.md)通过真实父 Run 创建／打开子会话并
+   返回原草稿；没有把改菜单位置当作执行路径已经相同。
 3. **等待审批时 Guide。** CC 仍显示入口；hbar 的 View 和 runtime 都只接受 running。
-   暂不绕过审批等待边界。当前行为与完整入口一致性仍有差距，不能视为已对齐。
-4. **装饰与状态区分。** 当前某些按钮短横线来自 Lumen 默认 lamp。
+   用户已确认保持 restricted；这是有意执行边界，不是本轮待补的核心 UI 缺口，
+   也不声称与 CC 的完整入口行为相同。
+4. **装饰与状态区分。** 基础复核时某些按钮短横线来自 Lumen 默认 lamp。
    `LumenButton` 可显式选择 none 且保留 focus-visible；`LumenIconButton` 没有该公开选项。
    不向后者传无效 prop，不改只读共享组件，也不把状态/焦点显示当装饰删除。
    随后的[排队卡动作层级](desktop-queued-action-hierarchy.md)已对 queued surface 实施；
