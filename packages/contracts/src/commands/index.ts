@@ -38,6 +38,10 @@ import { sessionLaunchBranchesCommands } from './session-launch-branches'
 import { workspaceActivityCommands } from './workspace-activity'
 import { sessionActivityCommands } from './session-activity'
 import { sidebarDirectoryCommands } from './sidebar-directory'
+import { notificationCommands } from './notifications'
+import { promptTemplateCommands } from './prompt-templates'
+import { runBoardCommands } from './run-board'
+import { scheduleCommands } from './schedules'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -255,6 +259,10 @@ export { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 export { workflowWorkspaceCommands } from './workflow-workspace'
 export { extensionWorkspaceCommands } from './extension-workspace'
 export { statusWorkspaceCommands } from './status-workspace'
+export { notificationCommands } from './notifications'
+export { promptTemplateCommands } from './prompt-templates'
+export { runBoardCommands } from './run-board'
+export { scheduleCommands } from './schedules'
 export { clientPersistenceCommands } from './client-persistence'
 export { terminalApplicationCommands } from './terminal-application'
 export { sessionTimelineCommands } from './session-timeline'
@@ -313,6 +321,10 @@ export const applicationCommands = {
   ...workflowWorkspaceCommands,
   ...extensionWorkspaceCommands,
   ...statusWorkspaceCommands,
+  ...notificationCommands,
+  ...promptTemplateCommands,
+  ...runBoardCommands,
+  ...scheduleCommands,
   ...clientPersistenceCommands,
   ...terminalApplicationCommands,
   ...sessionTimelineCommands,

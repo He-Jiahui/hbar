@@ -47,6 +47,29 @@ test('idempotent commands enqueue one durable run and claim only one at a time',
   await store.call('setRun', a.id, 'completed')
   expect((await store.call('claim', session.id))?.id).not.toBe(a.id)
 })
+
+test('run board pages real names, stable cursors, and null usage', async () => {
+  const { store, workspace, session } = await fixture()
+  const first = await store.call('enqueue', session.id, 'board-1', { text: 'one', images: [] }, 'test')
+  await store.call('enqueue', session.id, 'board-2', { text: 'two', images: [] }, 'test')
+  const page = await store.call('runBoard', { workspaceId: workspace.id, limit: 1 })
+  expect(page.items).toHaveLength(1)
+  expect(page.items[0]?.run.workspaceName).toBe('test')
+  expect(page.items[0]?.run.sessionTitle).toBe('New session')
+  expect(page.items[0]?.usage).toBeNull()
+  expect(page.nextCursor).not.toBeNull()
+  const next = await store.call('runBoard', { workspaceId: workspace.id, limit: 1, cursor: page.nextCursor! })
+  expect(next.items).toHaveLength(1)
+  expect(next.items[0]?.run.id).not.toBe(page.items[0]?.run.id)
+  await store.call('setRun', first.id, 'completed')
+  let cursorError: unknown
+  try {
+    await store.call('runBoard', { workspaceId: workspace.id, limit: 1, cursor: page.nextCursor! })
+  } catch (error) {
+    cursorError = error
+  }
+  expect(cursorError).toMatchObject({ code: 'INVALID_CURSOR' })
+})
 test('recovery preserves an unknown tool outcome without replaying it', async () => {
   const { store, session } = await fixture()
   const run = await store.call('enqueue', session.id, 'request', { text: 'write', images: [] }, 'test')

@@ -102,6 +102,22 @@ export { createSettingsCommands } from './settings-commands'
 export { createUsageCommands } from './usage-commands'
 export { createWorkflowCommands } from './workflow-commands'
 export {
+  createScheduleCommands,
+  createPromptTemplateCommands,
+  createNotificationCommands,
+  createRunBoardCommands,
+} from './feature-commands'
+export { createScheduleService } from './schedule-service'
+export type { ScheduleService } from './schedule-service'
+export { previewSchedule } from './schedule-service'
+export { latestDueSchedule } from './schedule-service'
+export { createScheduleDueReader } from './schedule-due-reader'
+export type { ScheduleDueReaderPort } from './schedule-due-reader'
+export { createPromptTemplateService } from './prompt-template-service'
+export { createNotificationService } from './notification-service'
+export { createScheduleRunner, ScheduleRunFailure } from './schedule-runner'
+export type { ScheduleExecutionPort } from './schedule-runner'
+export {
   SettingsService,
   HBAR_SETTINGS_DEFINITIONS,
   HBAR_SETTINGS_DESCRIPTION,

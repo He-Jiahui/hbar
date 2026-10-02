@@ -40,6 +40,10 @@ import type {
 import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
+import type { NotificationStorage } from './notifications'
+import type { createPromptTemplateStorage } from './prompt-templates'
+import type { createScheduleStorage } from './schedules'
+import type { RunBoardInput, RunBoardPage } from '@hbar/contracts/commands/run-board'
 import type {
   SessionRecentInput,
   SessionRecentPage,
@@ -244,6 +248,32 @@ export interface GuideQueuedRunResult {
 }
 
 export interface StorageMethods {
+  notificationPage: NotificationStorage['page']
+  insertNotification: NotificationStorage['insert']
+  markNotificationRead: NotificationStorage['markRead']
+  markAllNotificationsRead: NotificationStorage['markAllRead']
+  notificationPreferences: NotificationStorage['preferences']
+  setNotificationPreferences: NotificationStorage['setPreferences']
+  notificationReceipt: NotificationStorage['receipt']
+  promptTemplatePage: ReturnType<typeof createPromptTemplateStorage>['list']
+  promptTemplate: ReturnType<typeof createPromptTemplateStorage>['get']
+  savePromptTemplate: ReturnType<typeof createPromptTemplateStorage>['save']
+  deletePromptTemplate: ReturnType<typeof createPromptTemplateStorage>['delete']
+  promptTemplateReceipt: ReturnType<typeof createPromptTemplateStorage>['receipt']
+  schedulePage: ReturnType<typeof createScheduleStorage>['list']
+  schedule: ReturnType<typeof createScheduleStorage>['get']
+  createSchedule: ReturnType<typeof createScheduleStorage>['create']
+  updateSchedule: ReturnType<typeof createScheduleStorage>['update']
+  deleteSchedule: ReturnType<typeof createScheduleStorage>['delete']
+  scheduleReceipt: ReturnType<typeof createScheduleStorage>['receipt']
+  scheduleOccurrences: ReturnType<typeof createScheduleStorage>['occurrences']
+  claimScheduleOccurrence: ReturnType<typeof createScheduleStorage>['claim']
+  transitionScheduleOccurrence: ReturnType<typeof createScheduleStorage>['transition']
+  enabledSchedules: ReturnType<typeof createScheduleStorage>['enabledSchedules']
+  activeScheduleOccurrences: ReturnType<typeof createScheduleStorage>['activeScheduleOccurrences']
+  scheduleRuntime: ReturnType<typeof createScheduleStorage>['scheduleRuntime']
+  recordScheduleCandidate: ReturnType<typeof createScheduleStorage>['recordCandidate']
+  runBoard(input: RunBoardInput): RunBoardPage
   ready(): { version: number }
   searchIndexStatus(): { complete: boolean }
   searchIndexStep(): { complete: boolean }

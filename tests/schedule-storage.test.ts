@@ -7,16 +7,78 @@ import { createScheduleStorage } from '../packages/storage/src/schedules'
 import type { ScheduleDefinition } from '@hbar/contracts/commands/schedules'
 import { HbarError } from '@hbar/contracts'
 
-const schedule = (id: string, enabled = true): ScheduleDefinition => ({ id, workspaceId: 'w', name: id, input: 'x', modelId: 'm', timezone: 'UTC', target: { mode: 'new-session' }, spec: { kind: 'once', at: 10_000 }, enabled, revision: 0, createdAt: 1, updatedAt: 1 })
-function fixture() { const db = new Database(':memory:'); db.exec('PRAGMA foreign_keys=ON; CREATE TABLE workspaces(id TEXT PRIMARY KEY); INSERT INTO workspaces VALUES (\'w\')'); const storage = createScheduleStorage(db); for (const value of [schedule('a'), schedule('b', false), schedule('c')]) db.query('INSERT INTO schedules VALUES(?,?,?,?,?,?)').run(value.id, value.workspaceId, JSON.stringify(value), 0, 1, 1); return { db, storage } }
+const schedule = (id: string, enabled = true): ScheduleDefinition => ({
+  id,
+  workspaceId: 'w',
+  name: id,
+  input: 'x',
+  modelId: 'm',
+  timezone: 'UTC',
+  target: { mode: 'new-session' },
+  spec: { kind: 'once', at: 10_000 },
+  enabled,
+  revision: 0,
+  createdAt: 1,
+  updatedAt: 1,
+})
+function fixture() {
+  const db = new Database(':memory:')
+  db.exec("PRAGMA foreign_keys=ON; CREATE TABLE workspaces(id TEXT PRIMARY KEY); INSERT INTO workspaces VALUES ('w')")
+  const storage = createScheduleStorage(db)
+  for (const value of [schedule('a'), schedule('b', false), schedule('c')])
+    db.query('INSERT INTO schedules VALUES(?,?,?,?,?,?)').run(
+      value.id,
+      value.workspaceId,
+      JSON.stringify(value),
+      0,
+      1,
+      1,
+    )
+  return { db, storage }
+}
 describe('schedule storage recovery', () => {
+  test('preserves active audit on delete, keeps terminal facts, and resets obsolete pending on timing changes', () => {
+    const { db, storage } = fixture()
+    try {
+      const active = storage.claim('a', 100, 200)
+      if (!active) throw new Error('Expected a durable occurrence')
+      expect(storage.scheduleRuntime('a')?.lastDueAt).toBe(100)
+      expect(() => storage.delete('a', 0)).toThrow('active execution')
+      expect(storage.occurrences('a', null, 100).items.map((row) => row.id)).toEqual([active.id])
+      const terminal = storage.transition(active.id, 'completed', 'run-a')
+      expect(storage.transition(active.id, 'running', 'replacement')).toEqual(terminal)
+      storage.recordCandidate('a', 120, 211)
+      const current = storage.get('a')
+      if (!current) throw new Error('Expected a schedule')
+      const updated = storage.update({
+        ...current,
+        scheduleId: current.id,
+        expectedRevision: current.revision,
+        spec: { kind: 'daily', hour: 9, minute: 0 },
+      })
+      expect(storage.scheduleRuntime('a')).toMatchObject({ lastDueAt: updated.updatedAt, pendingDueAt: null })
+      expect(storage.delete('a', updated.revision)).toEqual({ scheduleId: 'a', revision: updated.revision + 1 })
+    } finally {
+      db.close()
+    }
+  })
   test('create update delete receipts replay by key and reject payload conflicts across reopen', () => {
     const root = mkdtempSync(join(tmpdir(), 'hbar-schedule-receipts-'))
     const path = join(root, 'receipts.sqlite')
-    const input = { workspaceId: 'w', name: 'receipt', input: 'x', modelId: 'm', timezone: 'UTC', target: { mode: 'new-session' as const }, spec: { kind: 'once' as const, at: 4_102_444_800_000 } }
+    const input = {
+      workspaceId: 'w',
+      name: 'receipt',
+      input: 'x',
+      modelId: 'm',
+      timezone: 'UTC',
+      target: { mode: 'new-session' as const },
+      spec: { kind: 'once' as const, at: 4_102_444_800_000 },
+    }
     try {
       const db = new Database(path)
-      db.exec("PRAGMA foreign_keys=ON; CREATE TABLE workspaces(id TEXT PRIMARY KEY); INSERT INTO workspaces VALUES ('w')")
+      db.exec(
+        "PRAGMA foreign_keys=ON; CREATE TABLE workspaces(id TEXT PRIMARY KEY); INSERT INTO workspaces VALUES ('w')",
+      )
       const storage = createScheduleStorage(db)
       const createKey = { actorId: 'scheduler', idempotencyKey: 'create-key' }
       const created = storage.create(input, createKey)
@@ -39,7 +101,54 @@ describe('schedule storage recovery', () => {
       rmSync(root, { recursive: true, force: true })
     }
   })
-  test('enabled schedules are paged with stable id cursor', () => { const { db, storage } = fixture(); try { expect(storage.enabledSchedules(null, 1).items.map((x) => x.id)).toEqual(['a']); expect(storage.enabledSchedules('a', 10).items.map((x) => x.id)).toEqual(['c']) } finally { db.close() } })
-  test('claim is idempotent by stable occurrence key and runtime coalesces newest', () => { const { db, storage } = fixture(); try { const first = storage.claim('a', 100, 200); const again = storage.claim('a', 100, 201); expect(again?.id).toBe(first?.id); storage.recordCandidate('a', 90, 210); storage.recordCandidate('a', 120, 211); expect(storage.scheduleRuntime('a')?.pendingDueAt).toBe(120) } finally { db.close() } })
-  test('runtime and occurrence survive reopening database', () => { const root = mkdtempSync(join(tmpdir(), 'hbar-schedule-')); const path = join(root, 'schedule.sqlite'); try { const db = new Database(path); db.exec('PRAGMA foreign_keys=ON; CREATE TABLE workspaces(id TEXT PRIMARY KEY); INSERT INTO workspaces VALUES (\'w\')'); const storage = createScheduleStorage(db); const value = schedule('persist'); db.query('INSERT OR REPLACE INTO schedules VALUES(?,?,?,?,?,?)').run(value.id, value.workspaceId, JSON.stringify(value), 0, 1, 1); storage.recordCandidate(value.id, 50, 60); db.close(); const reopened = new Database(path); const next = createScheduleStorage(reopened); expect(next.scheduleRuntime(value.id)?.pendingDueAt).toBe(50); reopened.close() } finally { rmSync(root, { recursive: true, force: true }) } })
+  test('enabled schedules are paged with stable id cursor', () => {
+    const { db, storage } = fixture()
+    try {
+      expect(storage.enabledSchedules(null, 1).items.map((x) => x.id)).toEqual(['a'])
+      expect(storage.enabledSchedules('a', 10).items.map((x) => x.id)).toEqual(['c'])
+    } finally {
+      db.close()
+    }
+  })
+  test('claim is idempotent by stable occurrence key and runtime coalesces newest', () => {
+    const { db, storage } = fixture()
+    try {
+      const first = storage.claim('a', 100, 200)
+      const again = storage.claim('a', 100, 201)
+      expect(again?.id).toBe(first?.id)
+      storage.recordCandidate('a', 90, 210)
+      storage.recordCandidate('a', 120, 211)
+      expect(storage.scheduleRuntime('a')?.pendingDueAt).toBe(120)
+    } finally {
+      db.close()
+    }
+  })
+  test('runtime and occurrence survive reopening database', () => {
+    const root = mkdtempSync(join(tmpdir(), 'hbar-schedule-'))
+    const path = join(root, 'schedule.sqlite')
+    try {
+      const db = new Database(path)
+      db.exec(
+        "PRAGMA foreign_keys=ON; CREATE TABLE workspaces(id TEXT PRIMARY KEY); INSERT INTO workspaces VALUES ('w')",
+      )
+      const storage = createScheduleStorage(db)
+      const value = schedule('persist')
+      db.query('INSERT OR REPLACE INTO schedules VALUES(?,?,?,?,?,?)').run(
+        value.id,
+        value.workspaceId,
+        JSON.stringify(value),
+        0,
+        1,
+        1,
+      )
+      storage.recordCandidate(value.id, 50, 60)
+      db.close()
+      const reopened = new Database(path)
+      const next = createScheduleStorage(reopened)
+      expect(next.scheduleRuntime(value.id)?.pendingDueAt).toBe(50)
+      reopened.close()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
 })

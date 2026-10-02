@@ -14,6 +14,7 @@
     "@hbar/schema-core": "workspace:*",
     "@hbar/settings-core": "workspace:*",
     "@hbar/usage": "workspace:*",
-    "@hbar/workflow": "workspace:*"
+    "@hbar/workflow": "workspace:*",
+    "cron-parser": "5.10.1"
   }
 }

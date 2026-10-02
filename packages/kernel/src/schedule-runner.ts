@@ -37,6 +37,13 @@ export interface ScheduleExecutionPort {
 
 const terminal = new Set<ScheduleOperationStatus>(['completed', 'failed', 'cancelled', 'interrupted'])
 const unknownError = (error: unknown) => (error instanceof Error ? error.message : String(error))
+const isUnknownResult = (error: unknown) => {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : ''
+  return (
+    ['RESULT_UNKNOWN', 'TIMEOUT', 'DISCONNECTED', 'CONNECTION_CLOSED', 'INVALID_OUTPUT'].includes(code) ||
+    /unknown|timeout|timed out|disconnected/i.test(unknownError(error))
+  )
+}
 
 export class ScheduleRunFailure extends Error {
   constructor(
@@ -138,8 +145,7 @@ export function createScheduleRunner(
       } catch (error) {
         const message = unknownError(error)
         if (occurrence) {
-          const lower = message.toLowerCase()
-          const unknown = lower.includes('unknown') || lower.includes('timeout') || lower.includes('timed out')
+          const unknown = isUnknownResult(error)
           occurrence = await service.transition(
             occurrence.id,
             unknown ? 'unknown' : 'failed',
@@ -174,14 +180,30 @@ export function createScheduleRunner(
           if (!occurrence.runId && !occurrence.sessionId && occurrence.status === 'pending') {
             const schedule = await service.get(occurrence.scheduleId)
             if (!schedule || !schedule.enabled) {
-              const failed = await service.transition(occurrence.id, 'failed', undefined, 'Schedule is unavailable for recovery')
+              const failed = await service.transition(
+                occurrence.id,
+                'failed',
+                undefined,
+                'Schedule is unavailable for recovery',
+              )
               failures.push(failed)
               done = true
               continue
             }
-            const prepared = await execution.prepare({ scheduleId: schedule.id, workspaceId: schedule.workspaceId, target: schedule.target.mode, occurrenceId: occurrence.id, ...(schedule.target.mode === 'existing-session' ? { sessionId: schedule.target.sessionId } : {}) })
+            const prepared = await execution.prepare({
+              scheduleId: schedule.id,
+              workspaceId: schedule.workspaceId,
+              target: schedule.target.mode,
+              occurrenceId: occurrence.id,
+              ...(schedule.target.mode === 'existing-session' ? { sessionId: schedule.target.sessionId } : {}),
+            })
             await service.transition(occurrence.id, 'running', undefined, undefined, prepared.sessionId)
-            const accepted = await execution.submit({ sessionId: prepared.sessionId, input: schedule.input, modelId: schedule.modelId, idempotencyKey: occurrence.idempotencyKey })
+            const accepted = await execution.submit({
+              sessionId: prepared.sessionId,
+              input: schedule.input,
+              modelId: schedule.modelId,
+              idempotencyKey: occurrence.idempotencyKey,
+            })
             await service.transition(occurrence.id, 'running', accepted.operationId, undefined, prepared.sessionId)
             continue
           }
@@ -224,12 +246,17 @@ export function createScheduleRunner(
           else if (terminal.has(status)) {
             const settled: ScheduleOccurrence = await service.transition(
               occurrence.id,
-              status === 'interrupted' ? 'failed' : status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'cancelled',
+              status === 'interrupted'
+                ? 'failed'
+                : status === 'completed'
+                  ? 'completed'
+                  : status === 'failed'
+                    ? 'failed'
+                    : 'cancelled',
               occurrence.runId,
               undefined,
               occurrence.sessionId ?? undefined,
             )
-            if (settled.status === 'failed') failures.push(settled)
             if (settled.status === 'failed') failures.push(settled)
             done = true
           } else
@@ -242,8 +269,14 @@ export function createScheduleRunner(
             )
         } catch (error) {
           const message = unknownError(error)
-          const failed = await service.transition(occurrence.id, 'failed', occurrence.runId ?? undefined, message, occurrence.sessionId ?? undefined)
-          failures.push(failed)
+          const result = await service.transition(
+            occurrence.id,
+            isUnknownResult(error) ? 'unknown' : 'failed',
+            occurrence.runId ?? undefined,
+            message,
+            occurrence.sessionId ?? undefined,
+          )
+          if (result.status === 'failed') failures.push(result)
           done = true
         } finally {
           if (done) release(occurrence.scheduleId)
@@ -253,4 +286,3 @@ export function createScheduleRunner(
     },
   }
 }
-

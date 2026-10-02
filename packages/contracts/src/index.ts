@@ -935,6 +935,7 @@ export interface Bootstrap {
   panels: UIContribution[]
 }
 export type WireNotification =
+  | { method: 'notifications.created'; params: import('./commands/notifications').NotificationFreshEvent }
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'stream.update'; params: StreamDelta }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
