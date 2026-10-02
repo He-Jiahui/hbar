@@ -24,7 +24,13 @@ const allowedFrameworkDependencies: Readonly<Record<string, readonly string[]>> 
   '@hbar/schema-react': ['@hbar/schema-core'],
   '@hbar/settings-core': ['@hbar/schema-core'],
   '@hbar/app-runtime': ['@hbar/commands', '@hbar/schema-core', '@hbar/settings-core', '@hbar/contracts'],
-  '@hbar/app-react': ['@hbar/app-runtime', '@hbar/schema-core', '@hbar/schema-react', 'hbar-app-ui'],
+  '@hbar/app-react': [
+    '@hbar/app-runtime',
+    '@hbar/contracts',
+    '@hbar/schema-core',
+    '@hbar/schema-react',
+    '@lumen/app-ui',
+  ],
 }
 
 function owner(path: string, workspaces: readonly WorkspaceModule[]): WorkspaceModule | undefined {

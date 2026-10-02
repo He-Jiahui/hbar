@@ -45,9 +45,9 @@
     "build": "vite build --config apps/web/vite.config.ts",
     "native:build": "bun scripts/build-native-tools.ts",
     "build:cli": "bun run native:build && bun build --compile apps/cli/src/main.ts packages/storage/src/worker.ts --outfile dist/hbar.exe --external @aws-sdk/client-s3 --external chromium-bidi/lib/cjs/bidiMapper/BidiMapper --external chromium-bidi/lib/cjs/cdp/CdpConnection",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node --stack-size=8192 node_modules/typescript/bin/tsc --noEmit",
     "lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js --config eslint.config.js . --max-warnings 0",
-    "test": "bun run native:build && bun test tests --tsconfig-override ./tsconfig.json --timeout 20000",
+    "test": "bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000",
     "test:e2e": "playwright test",
     "bench": "bun scripts/benchmark.ts",
     "bench:workspace-query": "bun run native:build && bun scripts/benchmark-workspace-query.ts",
@@ -56,7 +56,7 @@
     "desktop:build": "bun scripts/desktop.ts build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run native:build && bun run lint && bun run typecheck && bun test tests --tsconfig-override ./tsconfig.json --timeout 20000"
+    "check": "bun run lint && bun run typecheck && bun run test"
   },
   "dependencies": {
     "@lumen/app-ui": "workspace:*",
