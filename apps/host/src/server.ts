@@ -66,6 +66,7 @@ import type {
   GoalService,
   ModeService,
   PlanService,
+  WorkspaceQueryProvider,
   WorkflowService,
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
@@ -140,6 +141,22 @@ function resolvePlanService(kernel: Kernel): PlanService {
   }
 }
 
+function resolveExecutionProvider(kernel: Kernel): ExecutionProvider {
+  return {
+    list: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').list(workspace, path),
+    read: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').read(workspace, path),
+    readBytes: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').readBytes(workspace, path),
+    write: (workspace, path, text) => kernel.plugins.get<ExecutionProvider>('execution').write(workspace, path, text),
+    exec: (workspace, command, signal) =>
+      kernel.plugins.get<ExecutionProvider>('execution').exec(workspace, command, signal),
+    get workspaceQuery(): WorkspaceQueryProvider {
+      const query = kernel.plugins.get<ExecutionProvider>('execution').workspaceQuery
+      if (!query) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
+      return query
+    },
+  }
+}
+
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
     createHostPerformanceProvider(async () => ({
@@ -192,7 +209,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     kernel.plugins.get<GitService>('git'),
   )
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
-  const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'), {
+  const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
     resolveSessionPath: (sessionId, workspacePath, signal) =>
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
   })
