@@ -83,6 +83,32 @@ plugin-sdk `index.ts` 也与本功能路径重叠。不能夹带、清除或自�
 已向用户请求选择先整合现有 UI 并原生验收，还是继续隔离开发底层能力；尚未收到
 该选择时，不执行 merge／覆盖／安装／重启。
 
+### 只读合并预检，尚未整合
+
+后续 continuation 在双方 HEAD 未变化时执行
+`git merge-tree --write-tree --messages 89408ba5 3880c93f`。它仅在 Git 对象库生成
+不挂任何 ref 的预览树，不改变分支、index 或工作区；exit 1 表示发现内容冲突，
+不是一次已经开始但失败的工作区 merge。预览树 `d255ed65` 仍含冲突标记，
+不可用作可构建产品。双方 `git ls-files -u` 为空，主目录原修改未被清除。
+
+13 个双向改动路径中，7 个实际冲突，6 个由 Git 文本自动合并；后者不代表行为验证：
+
+| 实际冲突                                                                               | 双方变更与整合时必须保留的行为                                                                                                                                                    |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/src/App.tsx`、`lumen-workspace-shell.tsx`                                    | 主分支的宿主 `mobileNavigationLabel` 与本分支 `locale`／侧栏组织并存，不能丢掉新窄屏导航契约或本地化入口                                                                          |
+| `lumen-session-workspace.tsx`                                                          | 主分支注册窄屏 header menu 的 find/工具/设置动作；本分支加入 background Agent、reading owner、工具内 child 入口及 labelled More。需按宽窄上下文组合，避免重复入口与失去来源       |
+| `provider-settings.tsx`                                                                | 主分支 `isCatalogReadIntent`、load-presets/models generation 与原位 retry；本分支 `ProviderListViewLabels`、全局 default 动作。不能拿列表 refactor 覆盖编辑器读取恢复             |
+| `e2e/session-tool-navigation.spec.ts`、`e2e/workbench-navigation-presentation.spec.ts` | 主分支窄屏统一菜单与本分支 More／来源返回／真实临时目录保护各有断言；需保留正常宽屏和窄屏入口语义，而非删一套测试换取通过                                                         |
+| `validate-flow-layout.mjs`                                                             | 主分支的真实 mobile／consent／sticky-table 例外及 self-test；本分支的会话工具／项目排序／消息选区 overlay 精确例外及 self-test。每个许可仍需 path/selector 限定，不能通用放开定位 |
+
+`session-stop-model.ts` 的用户未提交变更新增 `guided` 终态支持，不能简单丢弃；
+另外 kernel/plugin-sdk 的未提交重叠共涉及运行契约。这里只检查归属，不代替用户
+决定是否保存／纳入其工作。合并确认后应先在隔离整合环境保留双方已提交功能并验证，
+再处理这些用户工作；不会自动 stash、提交或 reset 主目录。
+
+本预检仅更新交付信息，没有跑新的业务测试或原生验收，也没有解决上述冲突。
+它将“路径重叠”缩小为明确的 7 个整合点；继续执行仍等待已发出的用户选择。
+
 另外，CC 的 interactive PTY、内嵌 Browser、Team replay/inbox、Scheduled、市场
 安装／MCP 等并非 hbar 已有 UI 的漏按钮。本轮当前源码确认：
 
