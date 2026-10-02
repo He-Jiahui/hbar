@@ -96,7 +96,8 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
     ticking = (async () => {
       const timestamp = now()
       const activePage = await options.reader.activeScheduleOccurrences(64, recoveryCursor)
-      const recoveredFailures = await runner.recover(Array.isArray(activePage) ? activePage : activePage.items)
+      const activeItems: readonly ScheduleOccurrence[] = Array.isArray(activePage) ? activePage : activePage.items
+      const recoveredFailures = await runner.recover(activeItems)
       for (const failed of recoveredFailures) await notifyFailure(failed, 'Scheduled run failed')
       recoveryCursor = Array.isArray(activePage) ? null : activePage.next
       const due = await options.reader.dueScheduleOccurrences(timestamp, 32)
