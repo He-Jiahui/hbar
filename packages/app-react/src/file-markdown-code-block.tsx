@@ -4,6 +4,8 @@ import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { CodeTextCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
 import type { MessageClipboardPort } from './message-copy'
 import { CODE_BLOCK_PREVIEW_LINES, markdownCodeBlock } from './markdown-code-block-model'
+import { MarkdownDiagram } from './markdown-diagram'
+import { isDiagramCode } from './markdown-diagram-model'
 import './message-code-block.css'
 
 export interface FileMarkdownCodeContext {
@@ -76,6 +78,29 @@ function FileCodeBlock({
 export function FileMarkdownPre({ node, children, className }: ComponentProps<'pre'> & ExtraProps) {
   const context = useContext(FileCodeContext)
   const code = markdownCodeBlock(node)
+  if (context && code && isDiagramCode(code.language, code.text))
+    return (
+      <MarkdownDiagram
+        key={JSON.stringify([context.previewId, context.path, code.occurrenceId])}
+        className="hbar-file-markdown-code"
+        text={code.text}
+        sourceText={code.domText}
+        owner={context.owner}
+        labels={context.labels.diagram}
+        occurrenceId={code.occurrenceId}
+        find={false}
+        copy={
+          <CodeTextCopyAction
+            identity={['file', context.previewId, context.path, code.occurrenceId]}
+            source={context.source}
+            owner={context.owner}
+            labels={context.labels}
+            clipboard={context.clipboard}
+            text={code.text}
+          />
+        }
+      />
+    )
   // The provider mounts once per actual file-preview/runtime lifetime. Replacing
   // source text updates Copy's generation, without constructing a fake message.
   return context && code ? (

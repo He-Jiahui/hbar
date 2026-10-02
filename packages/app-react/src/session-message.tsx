@@ -501,6 +501,7 @@ function MessageBlocksContent({
                   messageId,
                   segmentId: group.id,
                   labels: labels.codeBlock,
+                  streaming,
                   clipboard,
                   owner: copyOwner,
                 }}

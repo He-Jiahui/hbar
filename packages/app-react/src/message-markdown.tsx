@@ -6,6 +6,8 @@ import type { MessageClipboardPort } from './message-copy'
 import { CodeBlockCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
 import { CODE_BLOCK_PREVIEW_LINES, messageCodeBlock } from './message-code-block-model'
 import { registerSessionCodeBlock } from './session-code-block-dom'
+import { MarkdownDiagram } from './markdown-diagram'
+import { isDiagramCode } from './markdown-diagram-model'
 import {
   sessionMarkdownRemarkPlugins,
   sessionMarkdownRehypePlugins,
@@ -20,10 +22,13 @@ export interface MessageCodeContext {
   readonly messageId: string
   readonly segmentId: string
   readonly labels: HbarCodeBlockLabels
+  readonly streaming?: boolean | undefined
   readonly owner?: object | undefined
   readonly clipboard?: MessageClipboardPort | null | undefined
 }
-const CodeContext = createContext<(MessageCodeContext & { readonly source: string }) | null>(null)
+const CodeContext = createContext<
+  (MessageCodeContext & { readonly source: string; readonly streaming?: boolean | undefined }) | null
+>(null)
 const FileContext = createContext<MessageFileReferenceContext | null>(null)
 
 function MessageCodeBlock({
@@ -104,6 +109,20 @@ function MessageCodeBlock({
 function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & ExtraProps) {
   const context = useContext(CodeContext)
   const code = messageCodeBlock(node)
+  if (context && code && isDiagramCode(code.language, code.text))
+    return (
+      <MarkdownDiagram
+        key={JSON.stringify([context.sessionId, context.messageId, context.segmentId, code.occurrenceId])}
+        text={code.text}
+        sourceText={code.domText}
+        owner={context.owner}
+        streaming={context.streaming}
+        labels={context.labels.diagram}
+        occurrenceId={code.occurrenceId}
+        find
+        copy={<CodeBlockCopyAction {...context} occurrenceId={code.occurrenceId} text={code.text} />}
+      />
+    )
   return context && code ? (
     <MessageCodeBlock
       key={JSON.stringify([context.sessionId, context.messageId, context.segmentId, code.occurrenceId])}
@@ -158,7 +177,9 @@ export function MessageMarkdown({
 }) {
   const content = (
     <FileContext.Provider value={fileReferences ?? null}>
-      <CodeContext.Provider value={code ? { ...code, source: text } : null}>
+      <CodeContext.Provider
+        value={code ? { ...code, source: text, streaming: code.streaming ?? fileReferences?.streaming } : null}
+      >
         <ReactMarkdown
           remarkPlugins={sessionMarkdownRemarkPlugins}
           rehypePlugins={sessionMarkdownRehypePlugins}

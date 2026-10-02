@@ -3,8 +3,10 @@ import { Check, Copy, LoaderCircle, RotateCcw } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { copyCodeText, MAX_CODE_BLOCK_COPY_CHARACTERS, type CodeBlockCopyInput } from './code-block-copy'
+import type { HbarDiagramLabels } from './markdown-diagram-model'
 
 export interface HbarCodeBlockLabels {
+  readonly diagram: HbarDiagramLabels
   readonly copy: string
   readonly copying: string
   readonly copied: string

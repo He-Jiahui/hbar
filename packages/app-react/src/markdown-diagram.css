@@ -1,0 +1,94 @@
+.hbar-diagram-actions,
+.hbar-diagram-preview-tools {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.hbar-diagram-actions {
+  margin-inline-start: auto;
+}
+.hbar-diagram-actions > button,
+.hbar-diagram-preview-tools > button {
+  max-inline-size: 100%;
+  white-space: normal;
+}
+.hbar-markdown-diagram [hidden] {
+  display: none;
+}
+.hbar-diagram-inline {
+  display: flex;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  max-block-size: 25rem;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 0;
+}
+.hbar-diagram-svg {
+  display: block;
+  min-inline-size: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+.hbar-diagram-svg > svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+.hbar-diagram-inline .hbar-diagram-svg {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+.hbar-diagram-inline .hbar-diagram-svg > svg {
+  block-size: auto;
+  max-block-size: 23rem;
+}
+.hbar-diagram-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+}
+.hbar-diagram-status > p,
+.hbar-diagram-help {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-diagram-preview-overlay {
+  --lumen-dialog-width: 68.75rem;
+}
+.hbar-diagram-preview-tools {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 8px 16px;
+}
+.hbar-diagram-preview-viewport {
+  min-block-size: 0;
+  max-block-size: 65vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  cursor: grab;
+  touch-action: none;
+  background: var(--lumen-reading);
+}
+.hbar-diagram-zoom-canvas {
+  flex: 0 0 auto;
+  margin: auto;
+  padding: 16px;
+  box-sizing: content-box;
+  user-select: none;
+}
+.hbar-diagram-help {
+  padding: 8px 16px;
+  font-size: 0.75rem;
+}
+/* Private temporary render surface, never an ordinary content layout. */
+.hbar-diagram-measure-overlay {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}

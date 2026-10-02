@@ -93,7 +93,7 @@ try {
   await mkdir(workspaceRoot)
   await writeFile(
     join(workspaceRoot, 'native-visual.md'),
-    '# Owned native smoke project\n\n## Review steps\n\n1. Read the document.\n2. Inspect its source.\n3. Return to the conversation.\n\n| State | Next action |\n| --- | --- |\n| Draft | Review |\n\n```ts\nexport const ready = true\n```\n\n[Related proof](nested/native-search-proof.txt)\n',
+    '# Owned native smoke project\n\n## Review steps\n\n1. Read the document.\n2. Inspect its source.\n3. Return to the conversation.\n\n| State | Next action |\n| --- | --- |\n| Draft | Review |\n\n```ts\nexport const ready = true\n```\n\n```mermaid\nflowchart TD\n  Start[Open document] --> Parse[Parse Markdown]\n  Parse --> Render[Render Mermaid]\n```\n\n[Related proof](nested/native-search-proof.txt)\n',
   )
   await mkdir(join(workspaceRoot, 'nested'))
   await writeFile(join(workspaceRoot, 'nested', 'native-search-proof.txt'), 'Owned nested native search proof.\n')
@@ -478,11 +478,34 @@ try {
   await expect(nativePreview).toHaveAttribute('aria-label', copy.files.textPreview('native-visual.md'))
   await expect(nativePreview).toContainText('Owned native smoke project')
   await expect(nativePreview.getByRole('heading', { name: 'Owned native smoke project', exact: true })).toBeVisible()
-  const fileCode = nativePreview.locator('.hbar-file-markdown-code')
+  const fileCode = nativePreview.locator('.hbar-file-markdown-code').first()
   await expect(fileCode).toContainText(copy.files.markdownCode.lines(1))
   await fileCode.getByRole('button', { name: copy.files.markdownCode.copy, exact: true }).click()
   await expect(fileCode.getByRole('button', { name: copy.files.markdownCode.copied, exact: true })).toBeVisible()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/file-code-copy-default-window.png' })
+  const diagram = nativePreview.locator('.hbar-markdown-diagram')
+  await expect(diagram.locator('.hbar-diagram-inline svg')).toBeVisible()
+  await diagram.getByRole('button', { name: copy.files.markdownCode.copy, exact: true }).click()
+  await expect(diagram.getByRole('button', { name: copy.files.markdownCode.copied, exact: true })).toBeVisible()
+  const diagramPreview = diagram
+    .getByRole('button', { name: copy.files.markdownCode.diagram.preview, exact: true })
+    .first()
+  await diagramPreview.focus()
+  await diagramPreview.press('Enter')
+  const diagramDialog = page.getByRole('dialog', { name: copy.files.markdownCode.diagram.previewTitle, exact: true })
+  await expect(diagramDialog.locator('.hbar-diagram-svg svg')).toBeVisible()
+  await diagramDialog.getByRole('button', { name: copy.files.markdownCode.diagram.zoomIn, exact: true }).click()
+  await expect(
+    diagramDialog.getByRole('button', { name: copy.files.markdownCode.diagram.resetZoom, exact: true }),
+  ).toHaveText('125%')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/file-mermaid-preview-default-window.png' })
+  await page.keyboard.press('Escape')
+  await expect(diagramDialog).toHaveCount(0)
+  await expect(diagramPreview).toBeFocused()
+  await diagram.getByRole('button', { name: copy.files.markdownCode.diagram.source, exact: true }).click()
+  await expect(diagram.locator('pre')).toContainText('Start[Open document] --> Parse[Parse Markdown]')
+  await diagram.getByRole('button', { name: copy.files.markdownCode.diagram.diagram, exact: true }).click()
+  await expect(diagram.locator('pre')).toBeHidden()
   await page.getByRole('button', { name: copy.files.source, exact: true }).click()
   await expect(page.locator('.hbar-file-text-preview')).toContainText('# Owned native smoke project')
   await page.getByRole('button', { name: copy.files.preview, exact: true }).click()

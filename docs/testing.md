@@ -55,6 +55,11 @@ Markdown 文件阅读回归使用 `e2e/file-markdown-reading.spec.ts`，只保�
 [Markdown 阅读交付](desktop-file-markdown-reading.md)，不是脚本存在断言就算通过。
 这不新增 Browser 或 Markdown 图片资源服务。
 
+Mermaid 阅读回归见[图示交付](desktop-mermaid-reading.md)：`e2e/markdown-diagram.spec.ts`
+用实际组件与本地合成内容走图示／源码／Copy／大图／缩放／平移／Find；无 Host 或
+Provider，不能冒充真实文件读取。`e2e/file-markdown-reading.spec.ts` 与原生 smoke
+另从实际 owned Markdown 读取图示，保留原编辑保存和草稿往返；执行结果单独记录。
+
 该阅读路径还真实回读代码块剪贴板，确认折叠 Copy 包含完整代码、展开／收起保焦点，
 真实滚动后第 25 行 Range 位于代码自身 pane 内。`code-block-copy-lifecycle.spec.ts`
 使用同一受控夹具的 Files 模式复核迟到结果、双块身份、失败重试和 owner 变化；

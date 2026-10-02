@@ -12,6 +12,7 @@ function codeContext(message: HbarMessageBlocksProps, segmentId: string) {
     messageId: message.messageId,
     segmentId,
     labels: message.labels.codeBlock,
+    streaming: message.streaming,
     owner: message.copyOwner,
     clipboard: message.clipboard,
   }

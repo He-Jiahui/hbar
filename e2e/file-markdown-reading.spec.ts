@@ -7,9 +7,11 @@ import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const longCode = Array.from({ length: 25 }, (_, i) => `const line${i + 1} = "Markdown file proof ${i + 1}";`).join('\n')
+const diagramCode = 'flowchart TD\n  Start[Open document] --> Parse[Parse Markdown]\n  Parse --> Render[Render Mermaid]'
 const text =
   '# Project notes — 项目说明\n\nRead the document, keep its original file identity.\n\n## Review steps\n\n1. **Read** the proposal.\n2. Inspect the source.\n3. Return to the conversation.\n\n| State | Next action |\n| --- | --- |\n| Draft | Review |\n| Confirmed | Continue |\n\n```ts\nexport const ready = true\n```\n\n![Remote image must not load](https://markdown-fixture.invalid/pixel.png)\n\n<script>window.markdownExecuted = true</script>\n\n' +
   `\n\`\`\`typescript\n${longCode}\n\`\`\`\n\n` +
+  `\n\`\`\`mermaid\n${diagramCode}\n\`\`\`\n\n` +
   Array.from(
     { length: 28 },
     (_, i) =>
@@ -66,6 +68,26 @@ for (const scenario of [
       await expect(markdown.locator('strong').first()).toHaveText('Read')
       await expect(markdown.locator('table')).toHaveCount(1)
       await expect(markdown.locator('img,script,iframe')).toHaveCount(0)
+      const diagram = markdown.locator('.hbar-markdown-diagram')
+      await expect(diagram.locator('.hbar-diagram-inline svg')).toBeVisible()
+      await diagram.getByRole('button', { name: copy.files.markdownCode.copy, exact: true }).click()
+      await expect
+        .poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n'))
+        .toBe(diagramCode)
+      const opener = diagram.getByRole('button', { name: copy.files.markdownCode.diagram.preview, exact: true }).first()
+      await opener.focus()
+      await opener.press('Enter')
+      const diagramDialog = page.getByRole('dialog', {
+        name: copy.files.markdownCode.diagram.previewTitle,
+        exact: true,
+      })
+      await expect(diagramDialog.locator('.hbar-diagram-svg svg')).toBeVisible()
+      await page.screenshot({ path: info.outputPath(`markdown-diagram-preview-${scenario.locale}.png`) })
+      await page.keyboard.press('Escape')
+      await expect(opener).toBeFocused()
+      await diagram.getByRole('button', { name: copy.files.markdownCode.diagram.source, exact: true }).click()
+      await expect(diagram.locator('pre')).toHaveText(`${diagramCode}\n`)
+      await diagram.getByRole('button', { name: copy.files.markdownCode.diagram.diagram, exact: true }).click()
       expect(await page.evaluate(() => 'markdownExecuted' in window)).toBe(false)
       expect(remoteRequests).toEqual([])
       const longBlock = markdown.locator('.hbar-file-markdown-code').nth(1)

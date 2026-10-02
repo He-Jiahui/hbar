@@ -248,3 +248,11 @@ Files 文档具有语言／行数、局部 Copy 与长代码展开，不必切�
 亲看该图。真实 Host 两条路径确认折叠 Copy 的完整 25 行与末行可滚达；共用复制
 组件的受控生命周期／消息／Plan 10/10，Find chrome 另 2/2。详细边界与定向静态
 验证见[阅读交付补充](desktop-file-markdown-reading.md#文档代码块入口补充2026-10-02)。
+
+Mermaid 阅读随后补齐原位图示／源码 Copy／放大阅读／缩放平移／返回；与消息和
+Plan 共用入口，Files 保留同一原文档。CC 原组件实渲与 hbar 的新增源码 fallback
+分别说明，边界见[图示交付](desktop-mermaid-reading.md)。生产资产
+`index-DA53z1En.js`／`index-Dd-QrWYe.css` 已离线同步 standalone；独立
+`run-20261002-26` 原生 smoke exit 0，主 agent 亲看中文 125% 图示预览。真实
+Host 中英两条 2/2，受控图示／Copy 生命周期 12/12；没有移除已有核心验收，
+也不冒充完整 Mermaid family、网络沙箱或整个 CC 迁移已完成。

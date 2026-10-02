@@ -89,6 +89,14 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Mermaid's temporary DOM measurement surface must have SVG layout without
+  // entering document flow. It is private, inert, invisible and removed after
+  // render. The visible card, zoom canvas and all controls remain normal flow.
+  if (
+    /packages\/app-react\/src\/markdown-diagram\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-diagram-measure-overlay'
+  )
+    return true
   // Mobile 2/3/4/5 cached iframe states confirm phone-owned quick actions,
   // floating dock/FAB, a More sheet and Navigation drawer. Only these containers
   // may float; all menu choices and content remain in normal flex flow.
@@ -999,6 +1007,16 @@ inset-inline-end: 0;
     )
     process.exit(1)
   }
+  const diagramPath = 'packages/app-react/src/markdown-diagram.css'
+  if (validateCss(diagramPath, '.hbar-diagram-measure-overlay { position: fixed; inset: 0; }').length)
+    throw new Error('Rejected private Mermaid measurement overlay')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-diagram-measure-overlay'],
+    [diagramPath, '.hbar-diagram-measure-overlay > svg'],
+    [diagramPath, '.hbar-diagram-zoom-canvas'],
+  ])
+    if (!validateCss(path, `${selector} { position: fixed; inset: 0; }`).length)
+      throw new Error('Mermaid measurement exception leaked to content or another file')
   const overlay = validateCss(
     'self-test-overlay.css',
     `.hbar-app-ui-dialog-backdrop {
