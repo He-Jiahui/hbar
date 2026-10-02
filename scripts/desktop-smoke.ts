@@ -336,11 +336,46 @@ try {
       const editor = document.querySelector<HTMLElement>('[contenteditable="true"]')
       const reactKey = editor ? Object.keys(editor).find((key) => key.startsWith('__reactFiber$')) : undefined
       const fiber = reactKey && editor ? (editor as unknown as Record<string, unknown>)[reactKey] : undefined
+      const rootElement = document.getElementById('root')
+      const rootKey = rootElement ? Object.keys(rootElement).find((key) => key.startsWith('__reactContainer$')) : undefined
+      const rootFiber = rootKey && rootElement ? (rootElement as unknown as Record<string, unknown>)[rootKey] : undefined
+      const runtimeCandidates: unknown[] = []
+      const walk = (node: unknown, depth: number): void => {
+        if (!node || typeof node !== 'object' || depth > 30 || runtimeCandidates.length > 8) return
+        const candidate = node as { memoizedProps?: Record<string, unknown>; child?: unknown; sibling?: unknown }
+        const value = candidate.memoizedProps?.value
+        if (value && typeof value === 'object') {
+          const view = (value as { view?: unknown }).view
+          const state = view && typeof view === 'object' ? (view as { state?: unknown }).state : undefined
+          const drafts = state && typeof state === 'object' ? (state as { drafts?: unknown }).drafts : undefined
+          if (drafts) runtimeCandidates.push({ hasDrafts: true, hasView: Boolean(view), hasState: Boolean(state) })
+        }
+        walk(candidate.child, depth + 1)
+        walk(candidate.sibling, depth + 1)
+      }
+      walk(rootFiber, 0)
+      const composerDetails = editor
+        ? {
+            tagName: editor.tagName,
+            className: editor.className,
+            innerText: editor.innerText,
+            textContent: editor.textContent,
+            value: 'value' in editor ? (editor as HTMLInputElement).value : null,
+            contentEditable: editor.contentEditable,
+            lines: Array.from(editor.querySelectorAll('.cm-line')).map((line) => ({
+              text: line.textContent,
+              html: line.innerHTML,
+              placeholder: Boolean(line.querySelector('.cm-placeholder')),
+            })),
+          }
+        : null
       return {
         phase,
         editorText: editor?.innerText ?? null,
         editorValue: editor?.textContent ?? null,
         fiberHasProps: Boolean(fiber && typeof fiber === 'object' && 'memoizedProps' in fiber),
+        composerDetails,
+        runtimeCandidates,
         composerCandidates: Array.from(document.querySelectorAll('[role="textbox"]')).map((node) => ({
           text: (node as HTMLElement).innerText,
           aria: node.getAttribute('aria-label'),
