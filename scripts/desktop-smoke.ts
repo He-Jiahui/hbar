@@ -375,6 +375,11 @@ try {
         editorValue: editor?.textContent ?? null,
         fiberHasProps: Boolean(fiber && typeof fiber === 'object' && 'memoizedProps' in fiber),
         composerDetails,
+        allCodeMirror: Array.from(document.querySelectorAll<HTMLElement>('.cm-content[contenteditable="true"]')).map((node) => ({
+          text: node.innerText,
+          visible: Boolean(node.offsetWidth || node.offsetHeight),
+          html: node.innerHTML,
+        })),
         runtimeCandidates,
         composerCandidates: Array.from(document.querySelectorAll('[role="textbox"]')).map((node) => ({
           text: (node as HTMLElement).innerText,
