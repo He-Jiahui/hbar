@@ -103,6 +103,43 @@ export interface ServerOptions {
   metricsIntervalMs?: number
   restart?: () => boolean | Promise<boolean>
 }
+
+function resolveModeService(kernel: Kernel): ModeService {
+  return {
+    get: (sessionId) => kernel.plugins.get<ModeService>('mode').get(sessionId),
+    set: (sessionId, mode) => kernel.plugins.get<ModeService>('mode').set(sessionId, mode),
+    effectiveMode: (run) => kernel.plugins.get<ModeService>('mode').effectiveMode(run),
+    commitExit: (sessionId, commit) => kernel.plugins.get<ModeService>('mode').commitExit(sessionId, commit),
+  }
+}
+
+function resolveGoalService(kernel: Kernel): GoalService {
+  return {
+    snapshot: (sessionId) => kernel.plugins.get<GoalService>('goal').snapshot(sessionId),
+    get: (sessionId) => kernel.plugins.get<GoalService>('goal').get(sessionId),
+    create: (sessionId, objective, tokenBudget, runId, startedAt) =>
+      kernel.plugins.get<GoalService>('goal').create(sessionId, objective, tokenBudget, runId, startedAt),
+    set: (sessionId, input) => kernel.plugins.get<GoalService>('goal').set(sessionId, input),
+    update: (sessionId, status, runId, reason) =>
+      kernel.plugins.get<GoalService>('goal').update(sessionId, status, runId, reason),
+    clear: (sessionId, expectedGoalId) => kernel.plugins.get<GoalService>('goal').clear(sessionId, expectedGoalId),
+    requestContinuation: (sessionId, input) =>
+      kernel.plugins.get<GoalService>('goal').requestContinuation(sessionId, input),
+  }
+}
+
+function resolvePlanService(kernel: Kernel): PlanService {
+  return {
+    snapshot: (sessionId) => kernel.plugins.get<PlanService>('plan').snapshot(sessionId),
+    get: (sessionId) => kernel.plugins.get<PlanService>('plan').get(sessionId),
+    withRevision: (sessionId, revision, commit) =>
+      kernel.plugins.get<PlanService>('plan').withRevision(sessionId, revision, commit),
+    update: (sessionId, plan, explanation, turnId, expectedRevision) =>
+      kernel.plugins.get<PlanService>('plan').update(sessionId, plan, explanation, turnId, expectedRevision),
+    clear: (sessionId, expectedRevision) => kernel.plugins.get<PlanService>('plan').clear(sessionId, expectedRevision),
+  }
+}
+
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
     createHostPerformanceProvider(async () => ({
@@ -117,7 +154,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
-  const configurationCommands = createConfigurationCommands(kernel, kernel.plugins.get<ModeService>('mode'))
+  const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
   const extensionCommands = createExtensionCommands({
     list: () => kernel.plugins.list(),
     set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
@@ -160,8 +197,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
   })
   const goalPlanCommands = createGoalPlanCommands(
-    kernel.plugins.get<GoalService>('goal'),
-    kernel.plugins.get<PlanService>('plan'),
+    resolveGoalService(kernel),
+    resolvePlanService(kernel),
     kernel.storage,
   )
   const interactionCommands = createInteractionCommands(kernel)
