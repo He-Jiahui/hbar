@@ -57,6 +57,12 @@ export {
   type HbarWorkspaceShellProps,
 } from './lumen-workspace-shell'
 export {
+  HbarDesktopLayoutProjection,
+  HbarFlexLayoutAdapter,
+  type HbarDesktopLayoutProjectionProps,
+  type HbarFlexLayoutAdapterProps,
+} from './lumen-flex-layout-adapter'
+export {
   useHbarMobileHeaderMenuSection,
   type HbarMobileHeaderMenuItem,
   type HbarMobileHeaderMenuSection,
@@ -172,6 +178,14 @@ export { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extensi
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
 export { HbarSettingsUsage, SETTINGS_USAGE_MODELS_PER_PAGE, type HbarSettingsUsageLabels } from './settings-usage'
+export { HbarUsageFeatures, type HbarUsageFeaturesLabels, type HbarUsageFeaturesProps } from './usage-features'
+export { HbarUsageRequests, type HbarUsageRequestsLabels, type HbarUsageRequestsProps } from './usage-requests'
+export { HbarUsageBudget, type HbarUsageBudgetLabels, type HbarUsageBudgetProps } from './usage-budget'
+export { HbarUsageRequests, type HbarUsageRequestsLabels, type HbarUsageRequestsProps } from './usage-requests'
+export { HbarUsageBudget, type HbarUsageBudgetLabels, type HbarUsageBudgetProps } from './usage-budget'
+export { HbarNotifications, type HbarNotificationsLabels, type HbarNotificationsProps } from './notifications'
+export { PromptTemplateEditor, type PromptTemplateEditorLabels, type PromptTemplateEditorProps } from './prompt-template-editor'
+export { HbarRunBoard, type HbarRunBoardLabels, type HbarRunBoardProps } from './run-board'
 export type { HbarRuntimeView } from './runtime'
 export {
   HbarWorkspaceTabs,

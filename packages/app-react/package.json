@@ -4,13 +4,34 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./notifications": "./src/notifications.tsx",
+    "./prompt-templates": "./src/prompt-template-editor.tsx",
+    "./prompt-template-picker": "./src/prompt-template-picker.tsx",
+    "./onboarding": "./src/onboarding-readiness.tsx",
+    "./run-board": "./src/run-board.tsx",
+    "./file-workspace": "./src/lumen-file-workspace.tsx",
+    "./goal-plan": "./src/goal-plan-workspace.tsx",
+    "./settings": "./src/lumen-settings-workspace.tsx",
+    "./status": "./src/lumen-status-workspace.tsx",
+    "./agents": "./src/lumen-agent-workspace.tsx",
+    "./extensions": "./src/extension-workspace.tsx",
+    "./monitoring": "./src/session-monitoring.tsx",
+    "./activity": "./src/session-activity-workspace.tsx",
+    "./settings-usage": "./src/settings-usage.tsx",
+    "./usage-features": "./src/usage-features.tsx",
+    "./diagnostics": "./src/system-diagnostics.tsx",
+    "./providers": "./src/provider-settings.tsx"
   },
+  "sideEffects": [
+    "**/*.css"
+  ],
   "dependencies": {
     "@codemirror/commands": "6.11.0",
     "@codemirror/state": "6.7.4",
     "@codemirror/view": "6.43.11",
     "@hbar/app-runtime": "workspace:*",
+    "@hbar/contracts": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/schema-react": "workspace:*",
     "@lumen/app-ui": "workspace:*",
