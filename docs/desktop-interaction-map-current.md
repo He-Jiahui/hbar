@@ -70,6 +70,8 @@
 - 根 `bun run typecheck` 因 root tests/preview 无法解析未链接的 Lumen 公开包失败。
   仅映射三个公开入口并继承根全部 include／严格选项的诊断检查通过；不安装依赖、
   不排除源码，也不把这个结果写成根门禁已通过。
+  后续[公开解析修复](desktop-verification-resolution.md)已将同样的三个精确入口落实
+  到根配置，默认类型检查通过；前面的失败仍是本轮实渲基线的历史记录。
 - 拥有的 Host／preview 已停止，4317／4329 无监听。没有真实付费 Provider，
   没有本轮原生启动、打包、安装或全套门禁。
 
