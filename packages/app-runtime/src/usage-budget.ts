@@ -81,7 +81,7 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
       replace({ ...state.reader.getSnapshot(), targetSessionId: sessionId, status: 'ready', budget: receipt.budget, draftLimit: String(receipt.budget.limit), receipt, error: null }); pending = null
     } catch (error) {
       if (disposed) return
-      if (error instanceof CommandError && error.code === 'RESULT_UNKNOWN') {
+      if ((error instanceof CommandError && error.code === 'RESULT_UNKNOWN') || (typeof error === 'object' && error !== null && 'code' in error && error.code === 'RESULT_UNKNOWN')) {
         replace({ ...state.reader.getSnapshot(), status: 'unknown', error: message(error) }); return
       }
       pending = null; replace({ ...state.reader.getSnapshot(), status: 'error', error: message(error) }); options.onError?.(error)
@@ -89,7 +89,9 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
   }
   async function reconcile() {
     const current = pending; if (!current || !options.getReceipt) return null
-    const found = options.getReceipt ? budgetReceiptSchema.parse(await options.getReceipt(current.sessionId, current.key)) : null
+    const raw = await options.getReceipt(current.sessionId, current.key)
+    const parsed = budgetReceiptSchema.safeParse(raw)
+    const found = parsed.success ? parsed.data : null
     if (found && !disposed && currentTarget() === current.sessionId) {
       replace({ ...state.reader.getSnapshot(), status: 'ready', budget: found.budget, draftLimit: String(found.budget.limit), receipt: found, error: null }); pending = null
     }
@@ -99,3 +101,4 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
   function dispose() { disposed = true; generation += 1; unsubscribeTarget(); state.dispose() }
   return Object.freeze({ state: state.reader, setDraftLimit, refresh, save, reconcile, dispose })
 }
+
