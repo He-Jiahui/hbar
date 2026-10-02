@@ -605,7 +605,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBe(true)
       await sidebar(page, copy, false)
       await expect(page.locator('.lumen-app-tool-drawer')).toBeVisible()
-      await expect.poll(() => focusInTool(page)).toBe(true)
+      await expect(page.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeFocused()
+      // Escape belongs to the focused surface: primary navigation remains
+      // available while a generic tool page is open.
+      await page.keyboard.press('Escape')
+      await expect(page.locator('.lumen-app-tool-drawer')).toBeVisible()
+      await page.locator('.lumen-app-tool-drawer').getByRole('button', { name: copy.files.close, exact: true }).focus()
       await page.keyboard.press('Escape')
       await expect(page.locator('.lumen-app-tool-drawer')).toHaveCount(0)
       const card = page.locator(`[data-decision-id="${approval.id}"]`)

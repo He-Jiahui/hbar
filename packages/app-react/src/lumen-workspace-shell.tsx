@@ -417,8 +417,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       canFocusWorkspaceElement(active)
     )
       return
-    const destination = sidebarFocusRef.current ?? sidebarShowFocusRef.current
-    if (destination && canFocusWorkspaceElement(destination)) destination.focus({ preventScroll: true })
+    const destination = [sidebarFocusRef.current, sidebarShowFocusRef.current].find(
+      (node) => node !== null && canFocusWorkspaceElement(node),
+    )
+    destination?.focus({ preventScroll: true })
   }, [presentation.sidebarOpen, railCollapsed])
   const captureDisplayNameFocus = useWorkspaceDisplayNameFocus(
     runtime,
