@@ -23,7 +23,7 @@ test('message file references open the source session reader, reveal new locatio
   let host: WebSessionHost | undefined
   const held: { release: (() => void) | null } = { release: null }
   try {
-    const path = 'src/reference.ts'
+    const path = 'src/reference.vue'
     const original = Array.from({ length: 120 }, (_, index) => `export const line${index + 1} = ${index + 1}`).join(
       '\n',
     )
@@ -32,7 +32,7 @@ test('message file references open the source session reader, reveal new locatio
     host = await startWebSessionHost({
       root,
       historyCount: 2,
-      historyText: `查看 src/reference.ts:2，再读 \`src/reference.ts:80:4\`，或者 [尾部](src/reference.ts:110)。缺失文件 missing.ts:2。`,
+      historyText: `查看 ${path}:2，再读 \`${path}:80:4\`，或者 [尾部](${path}:110)。缺失文件 missing.ts:2。`,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
     })
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`

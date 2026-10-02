@@ -86,6 +86,24 @@ describe('message file reference parser', () => {
     expect(parseMessageFileReference('and/or')).toBeNull()
     expect(parseMessageFileReference('再执行\\n-')).toBeNull()
   })
+
+  it('keeps common source and configuration files linkable without accepting binary viewer targets', () => {
+    for (const path of [
+      'src/App.vue',
+      'src/Panel.svelte',
+      'src/index.mts',
+      'scripts/start.ps1',
+      'config/settings.xml',
+      'src/value.hpp',
+      'docs/readme.rst',
+      'src/main.conf',
+      'assets/logo.svg',
+    ])
+      expect(parseMessageFileReference(`${path}:2`)).toEqual({ path, line: 2 })
+    expect(parseMessageFileReference('logger.conf')).toBeNull()
+    expect(parseMessageFileReference('picture.png')).toBeNull()
+    expect(parseMessageFileReference('archive.zip')).toBeNull()
+  })
 })
 
 describe('messageFileReferenceLinks', () => {

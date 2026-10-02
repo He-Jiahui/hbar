@@ -47,3 +47,22 @@ fixture 关闭阶段，流程内 pageerror 均为零。
 没有排除源码、降级规则或改写类型。完整诊断 TypeScript 检查通过，既有的全部
 include 均参与检查；结果单独记录，不冒充根命令通过。
 原生 App、全套 lint/test、主分支整合、安装、真实付费 Provider 均不在本轮验证范围。
+
+## 后续常见源码／配置格式
+
+修复不应以缩减真正文件入口换取少误识别。CC `filePathBoundary.ts` 的可链接集合
+还包含 Vue/Svelte/Astro、ES module 变体、PowerShell、XML/INI/CSV/lock 与常见语言
+源码。hbar Host `packages/kernel/src/file-commands.ts:decodeText` 只要求内容为合法
+UTF-8，并由既有文件契约限制路径与 2 MiB 大小，没有按扩展名拒绝这些文件。
+
+后续独立单元将这批文本／源码扩展纳入 parser，保留 ambiguous standalone
+例外和全部路径安全条件。PNG、Office、PDF、音视频、压缩包等二进制／system-open
+格式未加入；Files 文本读取并不等价于这些专用 viewer。
+
+测试改用 `src/reference.vue` 跑已有完整消息到文件链：正文/inline/authored 引用、
+目标行、迟到焦点中断、已有 Workbench、dirty 编辑、窄屏与错误恢复，未增加尺寸矩阵。
+parser/React/Find/literal 30 tests / 518 assertions 通过；三份变更 TS 的类型感知 lint、
+作用域严格 TypeScript、格式与 diff 检查通过。最终生产 build 3411 modules，资产
+`index-D2kO73SQ.js` / `index-DqultGzR.css`；上述 Vue 文件链与 Goal/Plan 原文回归
+2/2 通过，12.8 秒。主 agent 查看最终 Vue line 80 实渲，定位正常、原稿仍在。
+这次资产替代上节构建用于后续手动预览；上节测试结果仍绑定其历史资产，不累计统计。
