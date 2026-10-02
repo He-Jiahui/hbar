@@ -21,7 +21,7 @@ async function openSession(page: Page, host: WebSessionHost, locale: 'en-US' | '
   const copy = getShellCopy(locale)
   await page.goto(`http://127.0.0.1:${WEB_PORT}`)
   await expect(page.getByText(copy.shell.connected, { exact: true }).first()).toBeVisible()
-  const sessionEntry = page.getByText(host.ready.sessionTitle, { exact: true }).first()
+  const sessionEntry = page.locator(`[data-session-id="${host.ready.sessionId}"]`)
   await expect(sessionEntry).toBeVisible()
   await sessionEntry.click()
 }
