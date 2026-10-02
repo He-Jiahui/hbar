@@ -92,6 +92,11 @@ test.describe('production app-ui feature surfaces', () => {
         await page.getByRole('textbox', { name: 'Body', exact: true }).fill('Release build')
         await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Release template')
         await page.getByRole('textbox', { name: /Description|描述/ }).fill('A release template for browser acceptance')
+        await page.getByRole('button', { name: labels.addVar, exact: true }).click()
+        const variable = page.locator('.hbar-prompt-variable').last()
+        await variable.locator('input').nth(0).fill('environment')
+        await variable.locator('input').nth(1).fill('Environment')
+        await page.getByRole('textbox', { name: 'Body', exact: true }).fill('Release {{environment}}')
         await page.getByRole('button', { name: labels.save, exact: true }).click()
         await expect(page.getByRole('status')).toContainText(/saved|已保存/i)
         await page.getByRole('button', { name: 'Release template', exact: true }).click()
@@ -99,13 +104,13 @@ test.describe('production app-ui feature surfaces', () => {
         await page.getByRole('combobox', { name: labels.target }).selectOption({ label: host.ready.sessionTitle })
         await page.getByRole('textbox', { name: 'Environment' }).fill('production')
         await page.getByRole('combobox').filter({ hasText: labels.append }).selectOption('append')
-        await page.getByRole('button', { name: labels.apply, exact: true }).click()
+        await page.getByRole('button', { name: /Apply to draft|写入草稿/, exact: true }).click()
         await expect(page.getByRole('status')).toContainText(/applied|已套用/i)
         const prompt = page.getByRole('textbox', { name: 'Prompt' })
         await expect(prompt).toHaveValue(/Release production/)
         await page.getByRole('combobox', { name: labels.target }).selectOption({ label: host.ready.sessionTitle })
         await page.getByRole('combobox').filter({ hasText: labels.append }).selectOption('replace')
-        await page.getByRole('button', { name: labels.apply, exact: true }).click()
+        await page.getByRole('button', { name: /Apply to draft|写入草稿/, exact: true }).click()
         await expect(page.getByText(/confirm|确认/i)).toBeVisible()
         await page
           .getByRole('button', { name: /confirm|确认/i })
@@ -137,16 +142,17 @@ test.describe('production app-ui feature surfaces', () => {
       await openSession(page, host, 'en-US')
       await openFeature(page, 'Schedules')
       await page.getByLabel('Name').fill('Nightly verification')
-      await page.getByLabel('Prompt').fill('Run the nightly verification')
-      await page.getByLabel('Model').selectOption('local-fixture')
-      await page.getByLabel('Type').selectOption('daily')
-      await page.getByLabel('Timezone').fill('America/Los_Angeles')
-      await page.getByLabel('Target').selectOption('existing-session')
-      await page.getByLabel('Existing session').selectOption(host.ready.sessionId)
-      await page.getByRole('button', { name: 'Preview', exact: true }).click()
-      await expect(page.getByRole('region', { name: /Preview/ })).toBeVisible()
-      await expect(page.getByRole('region', { name: /Preview/ }).locator('li')).toHaveCount(5)
-      await page.getByRole('button', { name: 'Create', exact: true }).click()
+      const schedule = page.locator('.hbar-schedule-page')
+      await schedule.getByLabel('Prompt').fill('Run the nightly verification')
+      await schedule.getByLabel('Model').selectOption('local-fixture')
+      await schedule.getByLabel('Type').selectOption('daily')
+      await schedule.getByLabel('Timezone').fill('America/Los_Angeles')
+      await schedule.getByLabel('Target').selectOption('existing-session')
+      await schedule.getByLabel('Existing session').selectOption(host.ready.sessionId)
+      await schedule.getByRole('button', { name: 'Preview', exact: true }).click()
+      await expect(schedule.getByRole('region', { name: /Preview/ })).toBeVisible()
+      await expect(schedule.getByRole('region', { name: /Preview/ }).locator('li')).toHaveCount(5)
+      await schedule.getByRole('button', { name: 'Create', exact: true }).click()
       await expect(page.getByRole('status')).toContainText('Schedule saved.')
       await expect(page.getByText('Nightly verification', { exact: true })).toBeVisible()
       await page.getByRole('button', { name: 'Pause', exact: true }).click()
@@ -184,6 +190,17 @@ test.describe('production app-ui feature surfaces', () => {
         },
         { idempotencyKey: crypto.randomUUID() },
       )
+      await expect
+        .poll(async () =>
+          (
+            await createRunBoardCommandClient(host.client).list({
+              workspaceId: host.ready.workspaceId,
+              limit: 50,
+              statuses: [],
+            })
+          ).items.some((item) => item.run.status === 'completed'),
+        )
+        .toBe(true)
       await expect
         .poll(
           async () =>
