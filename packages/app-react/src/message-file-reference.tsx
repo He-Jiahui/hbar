@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageFileReference } from './message-file-reference-model'
 import './message-file-reference.css'
 import { registerSessionNavigationChrome } from './session-navigation-chrome'
@@ -68,8 +69,9 @@ export function MessageFileReferenceLink({
     )
   }
   return (
-    <span ref={root} className="hbar-message-file-reference">
-      <a
+    <LumenText as="span" ref={root} className="hbar-message-file-reference">
+      <LumenFrame
+        as="a"
         role="link"
         tabIndex={0}
         aria-label={context.labels.open(reference)}
@@ -89,19 +91,19 @@ export function MessageFileReferenceLink({
         }}
       >
         {children}
-      </a>
-      <span ref={feedback} data-session-find-exclude="file-navigation">
+      </LumenFrame>
+      <LumenText as="span" ref={feedback} data-session-find-exclude="file-navigation">
         {status.busy && (
-          <small role="status" data-session-find-exclude="file-navigation">
+          <LumenText as="small" role="status" data-session-find-exclude="file-navigation">
             {context.labels.opening}
-          </small>
+          </LumenText>
         )}
         {status.error && (
-          <small role="alert" data-session-find-exclude="file-navigation">
+          <LumenText as="small" role="alert" data-session-find-exclude="file-navigation">
             {context.labels.error(status.error)}
-          </small>
+          </LumenText>
         )}
-      </span>
-    </span>
+      </LumenText>
+    </LumenText>
   )
 }

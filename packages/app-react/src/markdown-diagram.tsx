@@ -202,7 +202,7 @@ export function MarkdownDiagram({
             aria-label={labels.preview}
             onClick={(event) => preview(event.currentTarget)}
           >
-            <span
+            <LumenFrame
               className="hbar-diagram-svg"
               style={{ inlineSize: `min(100%, ${ready.width / 16}rem)` }}
               dangerouslySetInnerHTML={{ __html: ready.svg }}
@@ -226,11 +226,11 @@ export function MarkdownDiagram({
           </LumenFrame>
         )}
       </LumenFrame>
-      <pre ref={source} className="hbar-message-code-body" hidden={!showSource} tabIndex={0}>
+      <LumenText as="pre" ref={source} className="hbar-message-code-body" hidden={!showSource} tabIndex={0}>
         <LumenText as="code" variant="code">
           {sourceText}
         </LumenText>
-      </pre>
+      </LumenText>
       <LumenFrame ref={modalChrome} data-session-find-exclude="code-chrome">
         {open && ready && (
           <LumenDialog
@@ -315,7 +315,7 @@ export function MarkdownDiagram({
                 className="hbar-diagram-zoom-canvas"
                 style={{ inlineSize: `${(ready.width * zoom) / 16}rem`, blockSize: `${(ready.height * zoom) / 16}rem` }}
               >
-                <span className="hbar-diagram-svg" dangerouslySetInnerHTML={{ __html: ready.previewSvg }} />
+                <LumenFrame className="hbar-diagram-svg" dangerouslySetInnerHTML={{ __html: ready.previewSvg }} />
               </LumenFrame>
             </LumenFrame>
             <LumenText as="p" className="hbar-diagram-help" tone="muted">

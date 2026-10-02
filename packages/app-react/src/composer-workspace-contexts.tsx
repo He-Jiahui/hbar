@@ -86,7 +86,13 @@ export function HbarComposerWorkspaceContexts({
                     </LumenText>
                   )}
                   <LumenDisclosure className="hbar-composer-workspace-context-quote" summary={labels.quoteDisclosure}>
-                    <blockquote className="hbar-composer-workspace-context-quote-text">{context.quote}</blockquote>
+                    <LumenFrame
+                      as="div"
+                      role="blockquote"
+                      className="hbar-composer-workspace-context-quote-text"
+                    >
+                      {context.quote}
+                    </LumenFrame>
                   </LumenDisclosure>
                 </LumenFrame>
                 <LumenButton

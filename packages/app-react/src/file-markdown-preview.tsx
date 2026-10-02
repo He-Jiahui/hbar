@@ -93,11 +93,17 @@ export function HbarFileMarkdownPreview({
               // External addresses follow the existing message-link contract: explicit click only.
               if (href && /^(?:https?:|mailto:)/i.test(href))
                 return (
-                  <a href={href} target="_blank" rel="noreferrer noopener">
+                  <LumenFrame
+                    as="a"
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="hbar-file-markdown-external-link"
+                  >
                     {children}
-                  </a>
+                  </LumenFrame>
                 )
-              return <span>{children}</span>
+              return <LumenText as="span">{children}</LumenText>
             },
             img: ({ alt }) => (
               <LumenText as="span" className="hbar-file-markdown-image">
