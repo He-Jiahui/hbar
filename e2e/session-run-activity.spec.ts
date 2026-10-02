@@ -84,6 +84,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBe('running')
       await submit('/slow')
       await expect(activity.locator('.hbar-session-run-current')).toHaveAttribute('data-run-id', running.operationId)
+      await expect(page.locator('.hbar-app-react-shell-header')).toBeVisible()
+      await expect(page.locator('.hbar-app-react-session-workspace > .lumen-page-header')).toBeHidden()
+      await page.setViewportSize({ width: 1440, height: 900 })
       await expect(page.locator('.hbar-app-react-session-workspace > .lumen-page-header')).toBeVisible()
       expect(
         (await page.locator('.hbar-app-react-session-workspace > .lumen-page-header').boundingBox())?.height,

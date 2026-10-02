@@ -2,6 +2,14 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LumenAiChat01 } from '@lumen/app-ui'
 import { LumenPromptInput01, LumenPromptInput04, LumenPromptInput07 } from '@lumen/app-ui'
+import {
+  LumenAgentActivity03,
+  LumenAgentActivity05,
+  LumenAgentActivity07,
+  LumenToolCalls01,
+  LumenToolCalls06,
+} from '@lumen/app-ui'
+import { LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06 } from '@lumen/app-ui'
 import { HbarPromptComposer } from '../packages/app-react/src/prompt-composer'
 
 const labels = {
@@ -55,6 +63,15 @@ test.each([LumenPromptInput01, LumenPromptInput04, LumenPromptInput07])(
   },
 )
 
+test.each([LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06])(
+  'approval numbered controlled slots render host decision',
+  (Variant) => {
+    const html = renderToStaticMarkup(<Variant controlled={{ body: <div data-testid="decision">host decision</div> }} />)
+    expect(html).toContain('data-testid="decision"')
+    expect(html).toContain('host decision')
+  },
+)
+
 test('composer parity keeps host gates, deduplicates attachment identity and preserves original removal id', () => {
   const html = renderToStaticMarkup(<HbarPromptComposer {...base} disabled />)
   expect(html.match(/data-kind="file"/g)).toHaveLength(1)
@@ -70,3 +87,12 @@ test('composer parity renders background action before stop/send controls', () =
   expect(html.indexOf('data-testid="background"')).toBeGreaterThan(-1)
   expect(html.indexOf('data-testid="background"')).toBeLessThan(html.lastIndexOf('aria-label="Stop"'))
 })
+
+test.each([LumenAgentActivity03, LumenAgentActivity05, LumenAgentActivity07, LumenToolCalls01, LumenToolCalls06])(
+  'activity and tool numbered controlled slots render host trace',
+  (Variant) => {
+    const html = renderToStaticMarkup(<Variant controlled={{ body: <div data-testid="trace">host trace</div> }} />)
+    expect(html).toContain('data-testid="trace"')
+    expect(html).toContain('host trace')
+  },
+)

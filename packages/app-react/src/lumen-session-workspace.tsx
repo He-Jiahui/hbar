@@ -15,6 +15,8 @@ import {
   LumenButton,
   LumenConversation,
   LumenAiChat01,
+  LumenAgentActivity03,
+  LumenAgentApproval01,
   LumenIcon,
   LumenPageHeader,
   type LumenApprovalRequestLabels,
@@ -1266,26 +1268,29 @@ function SessionWorkspaceContent({
       }),
     [timeline.sessionId, timeline.messages, timeline.approvals, timeline.userInputs, timeline.events, interactions],
   )
-  const renderDecision = (decision: SessionDecision) => (
-    <HbarSessionDecision
-      copyOwner={runtime}
-      key={`${decision.kind}:${decision.id}`}
-      decision={decision}
-      action={sessionDecisionAction(decision, interactions)}
-      answers={
-        decision.kind === 'questionnaire' && decision.requestId
-          ? questionnaires[decision.requestId]?.answers
-          : undefined
-      }
-      labels={labels.decisions}
-      connected={connected}
-      onDecision={(input) => invoke('approval.resolve', input)}
-      onPlanExit={(input) => invoke('planExit.resolve', input)}
-      onAnswer={(input) => invoke('questionnaire.setAnswer', input)}
-      onSubmit={(input) => invoke('questionnaire.answer', input)}
-      onReconcile={(target) => invoke('interaction.reconcile', target)}
-    />
-  )
+  const renderDecision = (decision: SessionDecision) => {
+    const body = (
+      <HbarSessionDecision
+        copyOwner={runtime}
+        key={`${decision.kind}:${decision.id}`}
+        decision={decision}
+        action={sessionDecisionAction(decision, interactions)}
+        answers={
+          decision.kind === 'questionnaire' && decision.requestId
+            ? questionnaires[decision.requestId]?.answers
+            : undefined
+        }
+        labels={labels.decisions}
+        connected={connected}
+        onDecision={(input) => invoke('approval.resolve', input)}
+        onPlanExit={(input) => invoke('planExit.resolve', input)}
+        onAnswer={(input) => invoke('questionnaire.setAnswer', input)}
+        onSubmit={(input) => invoke('questionnaire.answer', input)}
+        onReconcile={(target) => invoke('interaction.reconcile', target)}
+      />
+    )
+    return <LumenAgentApproval01 controlled={{ body }} />
+  }
   const toolDecisionsByMessage = new Map(
     [...decisionProjection.byMessage].map(([messageId, rows]) => [
       messageId,
@@ -1591,55 +1596,61 @@ function SessionWorkspaceContent({
     timeline.runs.length > 0 || decisionProjection.fallback.length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {timeline.runs.length > 0 && (
-          <HbarSessionRunActivity
-            key={sessionId}
-            runs={timeline.runs.map((run) => ({
-              id: run.id,
-              label: labels.timestamp(run.createdAt),
-              status: run.status,
-              detail: run.error ?? labels.runDetail(run.modelId),
-              duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
-            }))}
-            labels={labels.runs}
-            plan={
-              timeline.plan && (timeline.plan.plan.length > 0 || timeline.plan.explanation)
-                ? {
-                    runId: timeline.plan.turnId,
-                    explanation: timeline.plan.explanation ?? undefined,
-                    steps: timeline.plan.plan.map((step, index) => ({
-                      id: `${timeline.plan!.updatedAt}:${index}`,
-                      title: step.step,
-                      status: step.status,
-                    })),
+          <LumenAgentActivity03
+            controlled={{
+              body: (
+                <HbarSessionRunActivity
+                  key={sessionId}
+                  runs={timeline.runs.map((run) => ({
+                    id: run.id,
+                    label: labels.timestamp(run.createdAt),
+                    status: run.status,
+                    detail: run.error ?? labels.runDetail(run.modelId),
+                    duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
+                  }))}
+                  labels={labels.runs}
+                  plan={
+                    timeline.plan && (timeline.plan.plan.length > 0 || timeline.plan.explanation)
+                      ? {
+                          runId: timeline.plan.turnId,
+                          explanation: timeline.plan.explanation ?? undefined,
+                          steps: timeline.plan.plan.map((step, index) => ({
+                            id: `${timeline.plan!.updatedAt}:${index}`,
+                            title: step.step,
+                            status: step.status,
+                          })),
+                        }
+                      : undefined
                   }
-                : undefined
-            }
-            cancellingRunIds={activeRuns
-              .filter(
-                (run) =>
-                  runActions[run.id]?.commandId === 'operation.cancel' &&
-                  (runActions[run.id]?.requestInFlight ||
-                    ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? '')),
-              )
-              .map((run) => run.id)}
-            canCancelRun={canCancelRun}
-            retryingRunIds={timeline.runs
-              .filter((run) => runActions[run.id]?.status === 'submitting')
-              .map((run) => run.id)}
-            canRetryNewRun={canPrepare}
-            unknownRetryRunIds={timeline.runs
-              .filter(
-                (run) =>
-                  runActions[run.id]?.commandId === 'run.retry' &&
-                  (runActions[run.id]?.status === 'unknown' ||
-                    (runActions[run.id]?.status === 'submitting' && runActions[run.id]?.phase === 'receipt')),
-              )
-              .map((run) => run.id)}
-            feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
-            onCancelRun={(operationId) =>
-              stopRun ? stopRun(operationId) : invoke('operation.cancel', { operationId })
-            }
-            onRetryRun={(operationId: string) => invoke('run.retry', { sessionId, operationId })}
+                  cancellingRunIds={activeRuns
+                    .filter(
+                      (run) =>
+                        runActions[run.id]?.commandId === 'operation.cancel' &&
+                        (runActions[run.id]?.requestInFlight ||
+                          ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? '')),
+                    )
+                    .map((run) => run.id)}
+                  canCancelRun={canCancelRun}
+                  retryingRunIds={timeline.runs
+                    .filter((run) => runActions[run.id]?.status === 'submitting')
+                    .map((run) => run.id)}
+                  canRetryNewRun={canPrepare}
+                  unknownRetryRunIds={timeline.runs
+                    .filter(
+                      (run) =>
+                        runActions[run.id]?.commandId === 'run.retry' &&
+                        (runActions[run.id]?.status === 'unknown' ||
+                          (runActions[run.id]?.status === 'submitting' && runActions[run.id]?.phase === 'receipt')),
+                    )
+                    .map((run) => run.id)}
+                  feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
+                  onCancelRun={(operationId) =>
+                    stopRun ? stopRun(operationId) : invoke('operation.cancel', { operationId })
+                  }
+                  onRetryRun={(operationId: string) => invoke('run.retry', { sessionId, operationId })}
+                />
+              ),
+            }}
           />
         )}
         {decisionProjection.fallback.map(renderDecision)}

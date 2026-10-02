@@ -16,7 +16,7 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenToolCalls01, LumenToolCalls06 } from '@lumen/app-ui'
 import { MessageMarkdown } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import { MessageLiteralText } from './message-literal-text'
@@ -274,7 +274,7 @@ function ToolRow({
         : outcome === 'legacy-error'
           ? labels.incomplete
           : labels[outcome]
-  return (
+  const disclosure = (
     <Disclosure
       label={presentation?.label ?? labels.tool(row.name)}
       preview={errorPreview || presentation?.summary}
@@ -301,6 +301,11 @@ function ToolRow({
         clipboard={clipboard}
       />
     </Disclosure>
+  )
+  return outcome === 'pending' ? (
+    <LumenToolCalls06 controlled={{ body: disclosure }} />
+  ) : (
+    <LumenToolCalls01 controlled={{ body: disclosure }} />
   )
 }
 
