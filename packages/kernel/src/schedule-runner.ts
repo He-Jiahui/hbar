@@ -173,7 +173,12 @@ export function createScheduleRunner(
         try {
           if (!occurrence.runId && !occurrence.sessionId && occurrence.status === 'pending') {
             const schedule = await service.get(occurrence.scheduleId)
-            if (!schedule) { done = true; continue }
+            if (!schedule || !schedule.enabled) {
+              const failed = await service.transition(occurrence.id, 'failed', undefined, 'Schedule is unavailable for recovery')
+              failures.push(failed)
+              done = true
+              continue
+            }
             const prepared = await execution.prepare({ scheduleId: schedule.id, workspaceId: schedule.workspaceId, target: schedule.target.mode, occurrenceId: occurrence.id, ...(schedule.target.mode === 'existing-session' ? { sessionId: schedule.target.sessionId } : {}) })
             await service.transition(occurrence.id, 'running', undefined, undefined, prepared.sessionId)
             const accepted = await execution.submit({ sessionId: prepared.sessionId, input: schedule.input, modelId: schedule.modelId, idempotencyKey: occurrence.idempotencyKey })
