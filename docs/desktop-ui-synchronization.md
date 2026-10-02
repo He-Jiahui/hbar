@@ -67,3 +67,23 @@ Vite ECONNRESET 诊断仍保留。构建报告大 chunk 警告，不忽略该交
 临时 Host 使用独立目录与 mock Provider；不是原生 Tauri 验收。原生启动／打包、完整
 业务 test／check 未因代码同步自动宣称完成。当前交互能力与独立底层能力范围仍见
 [当前交互地图](desktop-interaction-map-current.md)。
+
+## 原生构建与验收准备（后续记录）
+
+在同步后的 `ccbface7` 上，以现有 MSVC 环境执行离线构建：`bun scripts/build-host.ts`
+和 `cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml
+--target-dir artifacts/desktop-native-acceptance/target --features custom-protocol` 均通过。
+原生 debug 程序为 `artifacts/desktop-native-acceptance/target/debug/hbar-desktop.exe`；
+Host／Bun 资源位于 `dist/desktop-resources`。未安装／下载依赖／生成 NSIS 安装包。
+构建后主仓库和共享 `hbar-ui` 仍干净；离线编译成功不证明窗口交互成功。
+
+原 `desktop-smoke.ts` 的即时创建会话和 `.hbar-composer-intents` 循环仍属于旧入口，
+不能检验当前首发／Goal Plan。后续脚本改为当前入口和 Host 事实断言，并将项目和
+profile 同时隔离到系统临时目录。保留外观、附件、文件、窗口和 Host 生命周期验收，
+不删除它们来取得绿色结果。失败日志脱敏、连接文件校验、精确临时目录清理与 Host
+命令行所有权另有 17 项纯单测覆盖。
+
+本次只是更新验收入口并验证脚本的类型、lint 和边界单测；尚未启动原生窗口，也未
+声称 native smoke 已通过。临时原生启动仍等待用户确认。两位 gpt-6-luna/max agent
+只读复核入口契约与已保存视觉证据，没有对真实软件进行操作；未发现新的、证据充分
+的五条核心路线缺陷，不作为整个迁移完成证明。

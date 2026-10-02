@@ -1,28 +1,31 @@
-import { chromium } from '@playwright/test'
-import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises'
+import { chromium, expect, type Page } from '@playwright/test'
+import { mkdtemp, readFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { HbarClient } from '@hbar/client'
+import {
+  HbarClient,
+  createExtensionCommandClient,
+  createGoalPlanCommandClient,
+  createModelCommandClient,
+  createSystemCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
+import { z } from 'zod'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
+import { expectComposerText } from '../e2e/support/composer-text'
+import {
+  nativeSmokeFixtureRoot,
+  ownsNativeSmokeHost,
+  parseNativeSmokeConnection,
+  redactNativeSmokeDiagnostics,
+} from './desktop-smoke-fixture'
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-'))
-const child = Bun.spawn(
-  [resolve(process.env.HBAR_DESKTOP_EXE ?? 'apps/desktop/src-tauri/target/debug/hbar-desktop.exe')],
-  {
-    env: {
-      ...process.env,
-      HBAR_HOME: root,
-      HBAR_WORKSPACE: process.cwd(),
-      HBAR_DEMO: '1',
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9431',
-      WEBVIEW2_USER_DATA_FOLDER: join(root, 'webview-profile'),
-    },
-    stdin: 'ignore',
-    stdout: 'ignore',
-    stderr: 'pipe',
-    windowsHide: true,
-  },
-)
-let hostPid: number | undefined
+const workspaceRoot = join(root, 'native-project')
+let child: ReturnType<typeof Bun.spawn> | undefined
+let connection: ReturnType<typeof parseNativeSmokeConnection> | undefined
 let api: HbarClient | undefined
 let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined
 async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
@@ -36,47 +39,120 @@ async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
     }
   }
 }
-try {
-  const connection = await until(
-    async () =>
-      JSON.parse(await readFile(join(root, 'settings', 'connection.json'), 'utf8')) as {
-        url: string
-        token: string
-        pid: number
-      },
+async function invokeNative(page: Page, command: string, args: unknown): Promise<unknown> {
+  return page.evaluate(
+    async ({ command, args }) => {
+      const tauri: unknown = Reflect.get(window, '__TAURI_INTERNALS__')
+      if (typeof tauri !== 'object' || tauri === null) throw new Error('Tauri initialization is missing')
+      const invoke: unknown = Reflect.get(tauri, 'invoke')
+      if (typeof invoke !== 'function') throw new Error('Tauri invoke is missing')
+      const result: unknown = await Reflect.apply(invoke, tauri, [command, args])
+      return result
+    },
+    { command, args },
   )
-  hostPid = connection.pid
-  browser = await until(() => chromium.connectOverCDP('http://127.0.0.1:9431'))
+}
+
+async function terminateOwnedHost(metadata: ReturnType<typeof parseNativeSmokeConnection>): Promise<void> {
+  const inspector = Bun.spawn(
+    [
+      'powershell.exe',
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `$nativeSmokeProcess = Get-CimInstance Win32_Process -Filter 'ProcessId = ${metadata.pid}'; if ($nativeSmokeProcess) { $nativeSmokeProcess.CommandLine | ConvertTo-Json -Compress }`,
+    ],
+    { stdin: 'ignore', stdout: 'pipe', stderr: 'ignore', windowsHide: true, timeout: 5_000 },
+  )
+  const output = await new Response(inspector.stdout).text()
+  if ((await inspector.exited) !== 0) throw new Error('Could not verify native smoke Host ownership')
+  if (!output.trim()) return
+  const commandLine = z.string().parse(JSON.parse(output))
+  if (!ownsNativeSmokeHost(commandLine, root)) throw new Error('Refusing to stop an unowned Host PID')
+  process.kill(metadata.pid)
+  await until(async () => {
+    try {
+      process.kill(metadata.pid, 0)
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return
+      throw error
+    }
+    throw new Error('Owned native smoke Host has not exited')
+  }, 5_000)
+}
+
+try {
+  await mkdir(workspaceRoot)
+  await writeFile(join(workspaceRoot, 'native-visual.md'), '# Owned native smoke project\n')
+  await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
+  const debugProbe = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('fixture') })
+  const debugPort = debugProbe.port
+  await debugProbe.stop(true)
+  if (!debugPort) throw new Error('Could not reserve a loopback WebView debugging port')
+  child = Bun.spawn([resolve(process.env.HBAR_DESKTOP_EXE ?? 'apps/desktop/src-tauri/target/debug/hbar-desktop.exe')], {
+    env: {
+      ...process.env,
+      HBAR_HOME: root,
+      HBAR_DATA_ROOT: root,
+      HBAR_CACHE_ROOT: join(root, 'cache'),
+      HBAR_WORKSPACE: workspaceRoot,
+      HBAR_DEMO: '1',
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort}`,
+      WEBVIEW2_USER_DATA_FOLDER: join(root, 'webview-profile'),
+    },
+    stdin: 'ignore',
+    stdout: 'ignore',
+    stderr: 'ignore',
+    windowsHide: true,
+  })
+  const nativeConnection = await until(async () =>
+    parseNativeSmokeConnection(JSON.parse(await readFile(join(root, 'settings', 'connection.json'), 'utf8'))),
+  )
+  connection = nativeConnection
+  api = new HbarClient(nativeConnection.url, nativeConnection.token)
+  await api.connect()
+  const paths = await createSystemCommandClient(api).execute('system.paths.get', {})
+  if (resolve(paths.dataRoot) !== resolve(root)) throw new Error('Native Host is not using the owned temporary profile')
+  const sessions = createWorkspaceSessionCommandClient(api)
+  const models = createModelCommandClient(api)
+  const goals = createGoalPlanCommandClient(api)
+  const data = await api.call('system.bootstrap', {})
+  const workspace = data.workspaces.find((item) => resolve(item.path) === resolve(workspaceRoot))
+  if (!workspace || data.workspaces.length !== 1) throw new Error('Native fixture must expose only its owned project')
+  await createExtensionCommandClient(api).execute('plugin.set', {
+    id: 'goal.codex',
+    enabled: true,
+    config: { autoContinue: false },
+  })
+  const fixtureModel = (await models.execute('model.list', {})).find((item) => item.id === 'local-fixture')
+  if (!fixtureModel) throw new Error('Native smoke requires the local mock model')
+  const listSessions = async () =>
+    (await sessions.execute('session.list', { workspaceId: workspace.id, limit: 100 })).items
+  browser = await until(() => chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, { timeout: 2_000 }))
+  const nativeBrowser = browser
   const page = await until(async () => {
-    const page = browser!.contexts()[0]?.pages()[0]
+    const page = nativeBrowser
+      .contexts()
+      .flatMap((context) => context.pages())
+      .find((candidate) => candidate.url().startsWith(`${nativeConnection.url}/`))
     if (!page) throw new Error('WebView not created')
     return page
   })
+  page.setDefaultTimeout(15_000)
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => {
-    if (message.type() === 'error') console.error(message.text())
+    if (message.type() === 'error') console.error(redactNativeSmokeDiagnostics(message.text(), nativeConnection.token))
   })
   try {
     await page.locator('[data-hbar-app-ui-shell="app"]').waitFor({ timeout: 15_000 })
   } catch (error) {
     await page.screenshot({ path: 'artifacts/tauri-startup-failure.png' })
-    console.error(`WebView URL: ${page.url()}\n${await page.locator('body').innerText()}\n${errors.join('\n')}`)
     console.error(
-      await page.evaluate(async () => {
-        const tauri = (
-          window as unknown as {
-            __TAURI_INTERNALS__?: { invoke(command: string): Promise<{ url: string; token: string }> }
-          }
-        ).__TAURI_INTERNALS__
-        if (!tauri) return 'No Tauri initialization script'
-        try {
-          const result = await tauri.invoke('connection_info')
-          return { url: result.url, hasToken: Boolean(result.token) }
-        } catch (error) {
-          return String(error)
-        }
-      }),
+      redactNativeSmokeDiagnostics(
+        `WebView URL: ${page.url()}\n${await page.locator('body').innerText()}\n${errors.join('\n')}`,
+        nativeConnection.token,
+      ),
     )
     throw error
   }
@@ -84,6 +160,10 @@ try {
     .locator('footer')
     .getByText(/^(已连接|Connected)$/)
     .waitFor({ timeout: 15_000 })
+  const locale = await page.evaluate(() => (document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en-US'))
+  const copy = getShellCopy(locale)
+  const preSession = preSessionCopy(locale)
+  const location = preSessionLaunchCopy(locale).location
   await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
   await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
   const appearanceNavigation = page.getByRole('button', { name: /^(外观|Appearance)$/ })
@@ -97,7 +177,9 @@ try {
     }
   })
   if (navigationMarker.radius !== '0px' || navigationMarker.shadow === 'none' || navigationMarker.width < 2)
-    throw new Error(`Desktop selected navigation marker is not a square glowing line: ${JSON.stringify(navigationMarker)}`)
+    throw new Error(
+      `Desktop selected navigation marker is not a square glowing line: ${JSON.stringify(navigationMarker)}`,
+    )
   const controlSize = page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ })
   const textSize = page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ })
   const cornerSize = page.getByRole('combobox', { name: /^(圆角尺寸|Corner size)$/ })
@@ -144,36 +226,90 @@ try {
   await page.locator('html[data-lumen-control-size="m"]').waitFor()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-reset-default-window.png' })
   await page.getByRole('button', { name: /^(返回会话|Back to session)$/ }).click()
+  const beforeFirstSend = await listSessions()
   await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
-  // A fresh profile has no selected project. The first creation makes that choice explicit.
-  const projectPicker = page.getByRole('dialog', { name: /^(选择项目|Choose a project)$/ })
-  await projectPicker.waitFor()
-  const projects = projectPicker.locator('.hbar-app-react-workspace-picker-item')
-  if ((await projects.count()) !== 1) throw new Error('Native fixture did not expose its single project')
-  await projects.click()
-  await projectPicker.waitFor({ state: 'hidden' })
-  const initialRow = page.locator('[data-session-id][data-selected="true"]')
-  await initialRow.waitFor()
-  const initialSessionId = await initialRow.getAttribute('data-session-id')
-  // Once a project is selected, the same entry creates and opens directly.
-  await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
-  await until(async () => {
-    const activeId = await page.locator('[data-session-id][data-selected="true"]').getAttribute('data-session-id')
-    if (!activeId || activeId === initialSessionId) throw new Error('Direct creation has not opened the new session')
-  })
+  const landing = page.locator('.hbar-pre-session-landing')
+  await expect(landing).toBeVisible()
+  await expect.poll(async () => (await listSessions()).length).toBe(beforeFirstSend.length)
+  await landing.locator('.hbar-pre-session-location-picker > button').click()
+  const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+  if (await locationRoot.isVisible())
+    await locationRoot.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
   await page
-    .getByRole('textbox', { name: /^(提示词|Prompt)$/ })
-    .waitFor()
-    .catch(async (error: unknown) => {
-      await page.screenshot({ path: 'artifacts/ui-redesign/tauri/new-session-failure.png' })
-      await Bun.write('artifacts/ui-redesign/tauri/new-session-failure.txt', await page.locator('body').innerText())
-      throw error
-    })
+    .getByRole('dialog', { name: location.chooseDirectory, exact: true })
+    .locator('.hbar-pre-session-location-list')
+    .getByRole('button')
+    .filter({ hasText: workspace.name })
+    .click()
+  await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+  await landing.locator('[data-placement="composer"] > button').click()
+  await page
+    .getByRole('dialog', { name: preSession.model.title, exact: true })
+    .getByRole('button')
+    .filter({ hasText: fixtureModel.modelName })
+    .click()
+  const objective = `/tool exit_plan_mode ${JSON.stringify({ plan: '# Native smoke plan\n\n- Keep the goal and plan together.' })}`
+  const landingPrompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input, exact: true })
+  await landingPrompt.fill(objective)
+  await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
+  await landing
+    .getByRole('group', { name: copy.session.addMenu.menu })
+    .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
+    .click()
+  const cancelPreparedGoal = landing.getByRole('button', { name: copy.session.intent.cancelGoal, exact: true })
+  const execution = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+  await execution.click()
+  await page.locator('.hbar-pre-session-approval-popover [data-choice="plan"]').click()
+  await expect(cancelPreparedGoal).toBeVisible()
+  await expect(execution).toHaveAttribute('data-choice', 'plan')
+  await expect(landingPrompt).toHaveValue(objective)
+  expect((await listSessions()).length).toBe(beforeFirstSend.length)
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-prepared-default-window.png' })
+  await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
+  await expect(landing).toBeHidden()
+  await expect.poll(async () => (await listSessions()).length).toBe(beforeFirstSend.length + 1)
+  const currentSession = (await listSessions()).find((item) => !beforeFirstSend.some((before) => before.id === item.id))
+  if (!currentSession) throw new Error('First send did not create the owned Session')
+  const sessionId = currentSession.id
+  const nativeApi = api
+  await expect
+    .poll(async () =>
+      (await nativeApi.call('session.snapshot', { sessionId })).approvals.some(
+        (item) => item.tool === 'exit_plan_mode' && item.status === 'pending',
+      ),
+    )
+    .toBe(true)
+  const planned = await api.call('session.snapshot', { sessionId })
+  const originalRun = planned.runs.find((item) => item.input.source === 'user')
+  const approval = planned.approvals.find((item) => item.tool === 'exit_plan_mode' && item.status === 'pending')
+  if (!originalRun || !approval) throw new Error('First-send Plan Run and approval are missing')
+  expect(planned.runs).toHaveLength(1)
+  expect(originalRun.input.mode).toBe('plan')
+  expect(approval.runId).toBe(originalRun.id)
+  expect((await models.execute('session.getModel', { sessionId })).modelId).toBe(fixtureModel.id)
+  expect((await goals.execute('goal.get', { sessionId })).goal).toMatchObject({ objective, status: 'active' })
+  const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+  const draft = 'Keep this unsent native draft while approving the plan.'
+  await composer.pressSequentially(draft)
+  await expectComposerText(composer, draft)
+  const decision = page.locator(`[data-decision-id="${approval.id}"]`)
+  await decision.getByRole('button', { name: copy.session.decisions.planExit.implement, exact: true }).click()
+  await expect
+    .poll(
+      async () =>
+        (await nativeApi.call('session.snapshot', { sessionId })).runs.find((item) => item.id === originalRun.id)
+          ?.status,
+    )
+    .toBe('completed')
+  expect((await api.call('session.snapshot', { sessionId })).runs.map((item) => item.id)).toEqual([originalRun.id])
+  expect(await api.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
+  await expectComposerText(composer, draft)
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
     throw new Error('Known-workspace new session unexpectedly opened the command catalog')
   const currentRow = page.locator('[data-session-id][data-selected="true"]')
-  await currentRow.locator('summary').click()
-  await currentRow.getByRole('menuitem', { name: /^(重命名|Rename)$/ }).click()
+  await currentRow.getByRole('button', { name: copy.shell.sessionActions(currentSession.title), exact: true }).click()
+  await page.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
   const titleInput = currentRow.getByRole('textbox', { name: /^(会话标题|Session title)$/ })
   await titleInput.fill('Tauri visual session')
   await titleInput.press('Enter')
@@ -181,19 +317,16 @@ try {
   const modelTrigger = page.locator('.hbar-composer-model-trigger')
   await modelTrigger.click()
   await page.locator('.hbar-composer-picker-popover[data-kind="model"]:popover-open').waitFor()
+  await expect(page.locator('.hbar-composer-picker-popover[data-kind="model"]').getByRole('option')).not.toHaveCount(0)
   await page.keyboard.press('Escape')
-  for (const intent of await page.locator('.hbar-composer-intents button').all()) {
-    await intent.click()
-    await until(async () => {
-      if ((await intent.getAttribute('aria-pressed')) !== 'true') throw new Error('Composer intent did not activate')
-    })
-    await intent.click()
-    await until(async () => {
-      if ((await intent.getAttribute('aria-pressed')) !== 'false') throw new Error('Composer intent did not clear')
-    })
-  }
+  await expect(modelTrigger).toBeFocused()
+  await expectComposerText(composer, draft)
+  await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
   const fileChooser = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: /^(添加附件|Add attachment)$/ }).click()
+  await page
+    .getByRole('group', { name: copy.session.addMenu.menu })
+    .getByRole('button', { name: copy.session.addMenu.files, exact: true })
+    .click()
   await (
     await fileChooser
   ).setFiles({
@@ -253,14 +386,9 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-default-window.png' })
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
 
-  await page.evaluate(async () => {
-    const tauri = (
-      window as unknown as { __TAURI_INTERNALS__: { invoke(command: string, args: unknown): Promise<unknown> } }
-    ).__TAURI_INTERNALS__
-    await tauri.invoke('plugin:window|set_size', {
-      label: 'main',
-      value: { Logical: { width: 900, height: 600 } },
-    })
+  await invokeNative(page, 'plugin:window|set_size', {
+    label: 'main',
+    value: { Logical: { width: 900, height: 600 } },
   })
   await until(async () => {
     const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
@@ -295,52 +423,54 @@ try {
   if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop tool window has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-min-window.png' })
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
-  api = new HbarClient(connection.url, connection.token)
-  await api.connect()
-  const data = await api.call('system.bootstrap', {})
-  const session = await api.call('session.create', { workspaceId: data.workspaces[0]!.id })
+  const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
     requestId: 'native-background',
     modelId: 'local-fixture',
     input: { text: '/slow' },
   })
-  const hidden = await page.evaluate(async () => {
-    const tauri = (
-      window as unknown as { __TAURI_INTERNALS__: { invoke(command: string, args: unknown): Promise<unknown> } }
-    ).__TAURI_INTERNALS__
-    await tauri.invoke('plugin:window|close', { label: 'main' })
-    return tauri.invoke('plugin:window|is_visible', { label: 'main' })
-  })
+  await invokeNative(page, 'plugin:window|close', { label: 'main' })
+  const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (hidden !== false) throw new Error('Close did not hide the desktop window')
   child.kill()
   await child.exited
-  const health = await fetch(`${connection.url}/healthz`)
+  const health = await fetch(`${nativeConnection.url}/healthz`, { signal: AbortSignal.timeout(5_000) })
   if (!health.ok) throw new Error('Host stopped with the desktop')
   await api.call('run.cancel', { runId: run.id })
   await until(async () => {
-    if ((await api!.call('session.snapshot', { sessionId: session.id })).runs[0]?.status !== 'cancelled')
+    if ((await nativeApi.call('session.snapshot', { sessionId: session.id })).runs[0]?.status !== 'cancelled')
       throw new Error('Run has not settled')
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected; appearance preferences applied, survived reload, and reset through the real WebView; the WebView file chooser uploaded an attachment; session content aligned at both edges; the medium-width sidebar shrank the main workspace without overlap; session and file tool rendered at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK run cancellation works.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, Goal and Plan; approval resumed the original Run without losing the draft; model picker and native attachment chooser worked; session and file tool rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
-  console.error(await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'))
+  console.error(
+    redactNativeSmokeDiagnostics(
+      await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'),
+      connection?.token,
+    ),
+  )
   throw error
 } finally {
   api?.disconnect()
   await browser?.close().catch(() => {})
-  if (child.exitCode === null) child.kill()
-  await child.exited
-  if (hostPid) {
-    try {
-      process.kill(hostPid)
-    } catch {
-      // The Host may already have exited with the desktop process.
-    }
+  if (child) {
+    if (child.exitCode === null) child.kill()
+    await until(async () => {
+      if (child?.exitCode === null) throw new Error('Owned native desktop has not exited')
+    }, 5_000)
+    await child.exited
   }
+  // A failed startup can still have created a Host; recover only validated fixture metadata.
+  const host =
+    connection ??
+    (await readFile(join(root, 'settings', 'connection.json'), 'utf8')
+      .then((text) => parseNativeSmokeConnection(JSON.parse(text)))
+      .catch(() => undefined))
+  if (host) await terminateOwnedHost(host)
   await Bun.sleep(200)
-  await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  await rm(nativeSmokeFixtureRoot(root), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }
