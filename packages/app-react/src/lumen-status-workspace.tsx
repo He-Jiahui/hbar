@@ -866,25 +866,31 @@ export function HbarStatusWorkspace({
           )}
           <LumenUsage08
             content={{
-              title: labels.usage.title,
-              description: labels.description,
-              value: labels.number(usageReport.totals.input + usageReport.totals.output),
-              detail: usageValue(usageReport.cost, labels, labels.currency),
-              progressLabel: labels.usage.tokens,
-              tone: 'neutral',
-              sparkline: usageReport.series.map((point) => ({
-                id: String(point.start),
-                value: point.input + point.output,
-              })),
-              sparklineLabel: labels.usage.timeline,
-              metrics: [
-                {
-                  id: 'tokens',
-                  label: labels.usage.tokens,
-                  value: labels.number(usageReport.totals.input + usageReport.totals.output),
-                },
-                { id: 'cost', label: labels.usage.cost, value: usageValue(usageReport.cost, labels, labels.currency) },
-              ],
+              compact: {
+                title: labels.usage.title,
+                description: labels.description,
+                value: labels.number(usageReport.totals.input + usageReport.totals.output),
+                detail: usageValue(usageReport.cost, labels, labels.currency),
+                progressLabel: labels.usage.tokens,
+                tone: 'neutral',
+                sparkline: usageReport.series.map((point) => ({
+                  id: String(point.start),
+                  value: point.input + point.output,
+                })),
+                sparklineLabel: labels.usage.timeline,
+                metrics: [
+                  {
+                    id: 'tokens',
+                    label: labels.usage.tokens,
+                    value: labels.number(usageReport.totals.input + usageReport.totals.output),
+                  },
+                  {
+                    id: 'cost',
+                    label: labels.usage.cost,
+                    value: usageValue(usageReport.cost, labels, labels.currency),
+                  },
+                ],
+              },
             }}
           />
           {usageReport.gap && (
