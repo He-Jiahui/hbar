@@ -114,6 +114,8 @@ test('Goal and Plan survive first send and explicit approval resumes the origina
     expect(goal).toMatchObject({ objective, status: 'active', tokensUsed: 0 })
     const strip = page.locator('.hbar-composer-goal-strip')
     await expect(strip).toContainText(objective)
+    // JSON newlines in the original instruction are not workspace file targets.
+    await expect(page.locator('.hbar-session-message-literal .hbar-message-file-link')).toHaveCount(0)
     const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '保留下一条未发送草稿；批准计划不能覆盖它。'
     await composer.fill(draft)

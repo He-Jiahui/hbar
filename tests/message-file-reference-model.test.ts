@@ -48,8 +48,12 @@ describe('message file reference parser', () => {
       expect(parseMessageFileReference(value)).toBeNull()
   })
 
-  it('requires a path shape for extensionless prose and avoids domain-like prefixes', () => {
-    expect(parseMessageFileReference('src/main')).toEqual({ path: 'src/main' })
+  it('requires a known file basename and avoids domain-like prefixes', () => {
+    expect(parseMessageFileReference('src/main')).toBeNull()
+    expect(parseMessageFileReference('Dockerfile')).toEqual({ path: 'Dockerfile' })
+    expect(parseMessageFileReference('build/Makefile')).toEqual({ path: 'build/Makefile' })
+    expect(parseMessageFileReference('src/main.c')).toEqual({ path: 'src/main.c' })
+    expect(parseMessageFileReference('object.c')).toBeNull()
     expect(parseMessageFileReference('.env.local')).toEqual({ path: '.env.local' })
     expect(parseMessageFileReference('example.com')).toBeNull()
     expect(parseMessageFileReference('example.com/src/main.ts')).toBeNull()
@@ -73,6 +77,14 @@ describe('message file reference parser', () => {
     expect(parseMessageFileReference(`src/${'a'.repeat(4000)}.ts`)).toBeNull()
     const longPunctuation = '.'.repeat(20_000)
     expect(splitMessageFileReferences(longPunctuation)).toEqual([{ kind: 'text', value: longPunctuation }])
+  })
+
+  it('does not treat serialized plan newlines or arbitrary slash prose as files', () => {
+    const plan = '# 先计划，再执行\n\n- 明确交互入口与当前状态。\n- 批准后在原始任务中实施，保留未发送草稿。'
+    const value = `/tool exit_plan_mode ${JSON.stringify({ plan })}`
+    expect(splitMessageFileReferences(value)).toEqual([{ kind: 'text', value }])
+    expect(parseMessageFileReference('and/or')).toBeNull()
+    expect(parseMessageFileReference('再执行\\n-')).toBeNull()
   })
 })
 

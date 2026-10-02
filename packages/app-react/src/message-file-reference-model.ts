@@ -10,8 +10,8 @@ export type MessageFileReferenceSegment =
 
 /**
  * File extensions that are useful in the workspace and unlikely to be prose.
- * A slash is enough to identify a path without an extension; bare names use
- * this allow-list so domains such as `example.com` do not become file links.
+ * A separator proves path shape, not that the token is a file. Require a
+ * known file basename too, so slash prose and serialized `\\n` stay text.
  */
 const LINKABLE_EXTENSIONS: ReadonlySet<string> = new Set([
   'ts',
@@ -71,6 +71,20 @@ const COMMON_DOTFILES: ReadonlySet<string> = new Set([
   '.bashrc',
 ])
 
+const COMMON_BARE_FILENAMES: ReadonlySet<string> = new Set([
+  'Dockerfile',
+  'Makefile',
+  'Gemfile',
+  'Rakefile',
+  'Procfile',
+  'Vagrantfile',
+  'Brewfile',
+  'Justfile',
+  'CODEOWNERS',
+  'LICENSE',
+  'NOTICE',
+])
+
 const SEGMENT_RE = /^[\p{L}\p{N}._+@~_-]+$/u
 const FILE_TOKEN_RE = /[\p{L}\p{N}._+@~][^\s"'`<>[\]{}(),;!?，。；：！？、]*/gu
 const TRAILING_BOUNDARY_RE = /[.,;:!?，。；：！？、)\]}>'"`]+$/u
@@ -93,10 +107,9 @@ function isLinkablePath(path: string, segments: readonly string[], hadSeparator:
   const dotfile = basename.startsWith('.') && COMMON_DOTFILES.has(`.${basename.slice(1).split('.')[0]}`)
 
   if (hadSeparator && isDomainLikeFirstSegment(segments[0] ?? '')) return false
-  if (hadSeparator) return true
-  if (dotfile) return true
+  if (dotfile || COMMON_BARE_FILENAMES.has(basename)) return true
   if (!extension || !LINKABLE_EXTENSIONS.has(extension)) return false
-  return !AMBIGUOUS_STANDALONE_EXTENSIONS.has(extension)
+  return hadSeparator || !AMBIGUOUS_STANDALONE_EXTENSIONS.has(extension)
 }
 
 function lineSuffix(value: string): { readonly path: string; readonly line?: number; readonly column?: number } | null {

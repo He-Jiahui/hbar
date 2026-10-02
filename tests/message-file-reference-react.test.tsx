@@ -15,6 +15,13 @@ const context: MessageFileReferenceContext = {
   onOpen: () => Promise.resolve(),
 }
 
+test('serialized Goal/Plan instructions stay literal instead of exposing false file actions', () => {
+  const prompt = `/tool exit_plan_mode ${JSON.stringify({ plan: '# 先计划，再执行\n\n- 明确当前状态。' })}`
+  const html = renderToStaticMarkup(<MessageLiteralText text={prompt} fileReferences={context} />)
+  expect(html).not.toContain('hbar-message-file-link')
+  expect(html).toContain('再执行\\n\\n-')
+})
+
 test('host-owned Chinese file links preserve text and sanitized external URL/code boundaries', () => {
   const html = renderToStaticMarkup(<MessageMarkdown text={text} fileReferences={context} />)
   expect(html.match(/class="hbar-message-file-link"/g)).toHaveLength(3)
