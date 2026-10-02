@@ -1,0 +1,39 @@
+import { LumenButton, LumenFrame, LumenText, LumenUsage05 } from '@lumen/app-ui'
+import type { UsageBudgetRuntime } from '@hbar/app-runtime'
+import { useHbarRuntimeState } from './runtime'
+
+export interface HbarUsageBudgetLabels {
+  readonly title: string
+  readonly description: string
+  readonly cap: string
+  readonly save: string
+  readonly saving: string
+  readonly loading: string
+  readonly unknown: string
+  readonly error: (message: string) => string
+  readonly status: string
+}
+export interface HbarUsageBudgetProps {
+  readonly runtime: UsageBudgetRuntime
+  readonly labels: HbarUsageBudgetLabels
+}
+
+export function HbarUsageBudget({ runtime, labels }: HbarUsageBudgetProps) {
+  const state = useHbarRuntimeState(runtime.state)
+  const busy = state.status === 'loading' || state.status === 'submitting'
+  const value = state.draftLimit
+  const valid = /^\d+$/.test(value) && Number(value) > 0 && Number(value) <= 1_000_000_000
+  const content = {
+    title: labels.title,
+    description: labels.description,
+    labels: { cap: labels.cap, save: labels.save, saving: labels.saving },
+    cap: { value, display: value, input: 'number' as const, minimum: 1, maximum: 1_000_000_000, step: 1 },
+    busy,
+    canSave: valid && !busy && state.targetSessionId !== null,
+    ...(state.error ? { error: state.error } : {}),
+    onCapChange: runtime.setDraftLimit,
+    onSave: () => { void runtime.save() },
+    ...(state.status === 'unknown' ? { status: { label: labels.unknown, tone: 'warning' as const } } : {}),
+  }
+  return <LumenFrame as="section" aria-label={labels.title}><LumenText as="h2">{labels.title}</LumenText><LumenUsage05 content={content} /></LumenFrame>
+}
