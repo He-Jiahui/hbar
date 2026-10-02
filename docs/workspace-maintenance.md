@@ -26,3 +26,22 @@ Cargo、rustc 或桌面程序会保护 Rust 构建目录。
 
 组件预览开发服务使用源码，可以在删除旧 dist 后继续浏览。
 有未完成合并或用户改动时，代码整理在独立工作树提交，不清理或重置共享 Git 状态。
+
+## React 预览边界
+
+`main.tsx` 只加载样式、解析入口参数和启动 React。
+`PreviewApp` 装配独立的 Header、Catalog、Stage 与 Inspector；
+`preview-workspace-store` 持有选择、搜索、主题、尺寸和有界交互记录。
+页面不再复制业务状态，也不会把旧组件的延迟回调记入新组件的检查面板。
+
+独立预览与工作台预览共用 `PreviewScene`。
+`PreviewCategoryHost` 按公开类别契约选用一个交互宿主；
+表单、设置、引导、订阅和支持流程由各自的 Scene 组装。
+`PreviewContentProviders` 只负责共享内容契约，预览数据来自宿主 fixture。
+新增组件时在类别宿主中接入，不向入口文件继续添加嵌套组件树。
+
+局部回归：`bun node_modules/@playwright/test/cli.js test --config apps/hbar-app-ui-preview/playwright.config.ts`。
+可通过 `HBAR_APP_UI_PREVIEW_PORT` 使用隔离服务端口。
+大范围宿主重构可保留旧版本构建，并设置 `HBAR_PREVIEW_BEFORE_URL`、
+`HBAR_PREVIEW_AFTER_URL` 后运行 `bun scripts/verify-preview-scene-parity.ts`，
+逐项核对全部组件的文本、控件、输入值和布局。

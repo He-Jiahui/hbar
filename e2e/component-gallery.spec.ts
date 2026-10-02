@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { mountComponentGalleryFixture } from './support/button-fixture'
 
-const galleryUrl = 'http://127.0.0.1:5180/components.html?locale=zh-CN&theme=dark'
+const baseUrl = `http://127.0.0.1:${process.env.HBAR_APP_UI_PREVIEW_PORT ?? 5180}`
+const galleryUrl = `${baseUrl}/components.html?locale=zh-CN&theme=dark`
 const longGalleryTitle = '所有组件及完整交互预览：由宿主提供的长中文标题需要在窄屏中自然换行，不能遮挡搜索与翻页操作'
 
 test('the entire catalog is reachable through search, categories and pagination', async ({ page }) => {
@@ -102,7 +103,7 @@ test('desktop and narrow layouts keep long names, categories and preview scrolli
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 960 })
     for (const theme of ['dark', 'light']) {
-      await page.goto(`http://127.0.0.1:5180/components.html?locale=zh-CN&theme=${theme}&category=agent-approval`)
+      await page.goto(`${baseUrl}/components.html?locale=zh-CN&theme=${theme}&category=agent-approval`)
       await expect(page.locator('[data-gallery-entry]')).toHaveCount(6)
       await expect(page.frameLocator('iframe').first().locator('[data-hbar-app-ui-component]').first()).toBeVisible()
       const geometry = await page.evaluate(() => {
