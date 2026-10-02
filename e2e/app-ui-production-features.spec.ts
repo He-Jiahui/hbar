@@ -243,7 +243,7 @@ test.describe('production app-ui feature surfaces', () => {
       )
       await openSession(page, host, 'en-US')
       await openFeature(page, 'Run board')
-      await expect(page.getByRole('heading', { name: 'Run board' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Run board' }).first()).toBeVisible()
       await expect(page.getByRole('button', { name: /Move|Add card|New card/ })).toHaveCount(0)
       await expect(page.getByRole('button', { name: /Cancel run/ }).first()).toBeVisible()
       await page
