@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import {
+  LumenFrame,
   LumenAuthenticationProvider,
   useLumenAuthenticationContent,
   type LumenAuthContent,
