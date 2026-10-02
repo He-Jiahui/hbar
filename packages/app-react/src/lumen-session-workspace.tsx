@@ -102,6 +102,16 @@ import {
 import { HbarComposerWorkspaceContexts, type HbarComposerWorkspaceContextLabels } from './composer-workspace-contexts'
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
+
+/** Waits for every editor write captured for the selected Session before a Plan decision is sent. */
+export async function awaitComposerWrites(
+  writesBySession: ReadonlyMap<string, ReadonlySet<Promise<unknown>>>,
+  sessionId: string | null,
+): Promise<void> {
+  const writes = sessionId ? writesBySession.get(sessionId) : undefined
+  if (!writes || writes.size === 0) return
+  await Promise.all([...writes])
+}
 import {
   HbarPreSessionLaunchStatus,
   firstSendIsLocked,
@@ -1279,13 +1289,10 @@ function SessionWorkspaceContent({
   const renderDecision = (decision: SessionDecision) => {
     const resolvePlanExit = async (input: Parameters<typeof invoke>[1]) => {
       const decisionSessionId = typeof decision.sessionId === 'string' ? decision.sessionId : sessionId
-      const pending = decisionSessionId ? composerWrites.current.get(decisionSessionId) : undefined
-      if (pending && pending.size > 0) {
-        try {
-          await Promise.all([...pending])
-        } catch {
-          return
-        }
+      try {
+        await awaitComposerWrites(composerWrites.current, decisionSessionId)
+      } catch {
+        return
       }
       await execute('planExit.resolve', input)
     }
