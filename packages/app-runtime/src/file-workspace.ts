@@ -43,6 +43,7 @@ import type { WorkspaceTabsState } from './workspace-tabs-runtime'
 const PAGE_SIZE = 200
 const MAX_ENTRIES = 500
 const MAX_PANELS = 8
+type FilePreviewReveal = Readonly<{ line: number; column?: number | undefined }>
 
 function code(reason: unknown): string {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
@@ -435,12 +436,14 @@ export function createFileWorkspace(
     preservePreview = false,
     expected: ExpectedTarget = {},
     signal?: AbortSignal,
+    reveal?: FilePreviewReveal,
   ) => {
     if (directory) {
       const current = state.reader.getSnapshot().entries[instanceId]
       if (current) assertSourceTarget(instanceId, expected, current)
       return load(instanceId, rawPath, preservePreview, expected.sourceSessionId, signal)
     }
+    if (signal?.aborted) throw new CommandError('CANCELLED', 'File preview opening was cancelled')
     const path = canonicalFilePath(rawPath)
     const entry = state.reader.getSnapshot().entries[instanceId]
     const target = panel(instanceId)
@@ -458,6 +461,14 @@ export function createFileWorkspace(
     const reading = documents.open(target.workspaceId, path, false, entry.sessionTarget)
     const document = documents.get(target.workspaceId, path, entry.sessionTarget)
     const previewId = existing?.id ?? crypto.randomUUID()
+    const requestedReveal = reveal
+      ? {
+          requestId: crypto.randomUUID(),
+          line: reveal.line,
+          ...(reveal.column === undefined ? {} : { column: reveal.column }),
+        }
+      : undefined
+    let removeRevealAbort: (() => void) | undefined
     if (document) {
       const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
       replace(
@@ -469,11 +480,38 @@ export function createFileWorkspace(
             path,
             documentMode: existing?.kind === 'document' ? existing.documentMode : 'preview',
             document,
+            ...(requestedReveal
+              ? { reveal: requestedReveal }
+              : existing?.kind === 'document' && existing.reveal
+                ? { reveal: existing.reveal }
+                : {}),
           },
           true,
         ),
       )
       chatReference?.onPreviewOpened?.(instanceId)
+      if (requestedReveal && signal) {
+        const clearReveal = () => {
+          const latest = state.reader.getSnapshot().entries[instanceId]
+          const current = latest?.previews.find((preview) => preview.id === previewId)
+          if (
+            !latest ||
+            !current ||
+            current.kind !== 'document' ||
+            current.reveal?.requestId !== requestedReveal.requestId
+          )
+            return
+          const previews = latest.previews.map((preview) => {
+            if (preview.id !== previewId || preview.kind !== 'document') return preview
+            const { reveal: _reveal, ...withoutReveal } = preview
+            return withoutReveal
+          })
+          replace(projectFileEntry({ ...latest, previews }))
+        }
+        signal.addEventListener('abort', clearReveal, { once: true })
+        if (signal.aborted) clearReveal()
+        removeRevealAbort = () => signal.removeEventListener('abort', clearReveal)
+      }
     }
     try {
       await reading
@@ -489,6 +527,8 @@ export function createFileWorkspace(
         if (!document || latest.activePreviewId === previewId) replace({ ...latest, error: code(reason) })
       }
       throw commandFailure(reason)
+    } finally {
+      removeRevealAbort?.()
     }
   }
   const showBrowser = (instanceId: string, expected?: ExpectedPreview) => {
@@ -898,7 +938,32 @@ export function createFileWorkspace(
   )
   local.register(fileWorkspaceCommands['fileWorkspace.openEntry'], (input, execution) => {
     if (input.workspaceId) requireEntry(input.instanceId, input.workspaceId, input)
-    return openEntry(input.instanceId, input.path, input.directory, input.preservePreview, input, execution.signal)
+    return openEntry(
+      input.instanceId,
+      input.path,
+      input.directory,
+      input.preservePreview,
+      input,
+      execution.signal,
+      input.reveal,
+    )
+  })
+  local.register(fileWorkspaceCommands['fileWorkspace.consumeReveal'], (input) => {
+    const entry = requireEntry(input.instanceId, input.workspaceId, input)
+    const preview = entry.previews.find((value) => value.id === input.previewId)
+    if (!preview || preview.kind !== 'document')
+      throw new CommandError('VERSION_CONFLICT', 'The original file preview is closed')
+    if (preview.reveal?.requestId !== input.requestId) return summary(entry)
+    const next = projectFileEntry({
+      ...entry,
+      previews: entry.previews.map((value) => {
+        if (value.id !== preview.id || value.kind !== 'document') return value
+        const { reveal: _reveal, ...withoutReveal } = value
+        return withoutReveal
+      }),
+    })
+    replace(next)
+    return summary(next)
   })
   local.register(fileWorkspaceCommands['fileWorkspace.showBrowser'], (input) => showBrowser(input.instanceId, input))
   local.register(fileWorkspaceCommands['fileWorkspace.setText'], (input) =>

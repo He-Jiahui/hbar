@@ -177,6 +177,7 @@ export function HbarFileSourceSurface({
   previewLabel,
   labels,
   disabled,
+  revealedLine,
   onAdd,
 }: {
   readonly path: string
@@ -185,6 +186,7 @@ export function HbarFileSourceSurface({
   readonly previewLabel: string
   readonly labels: HbarFileContextLabels
   readonly disabled: boolean
+  readonly revealedLine?: number | undefined
   readonly onAdd: (selection: FileComposerContextSelection) => Promise<boolean>
 }) {
   const root = useRef<HTMLDivElement>(null)
@@ -224,7 +226,11 @@ export function HbarFileSourceSurface({
     >
       {lines.map((line, index) => (
         <LumenFrame key={index}>
-          <LumenFrame className="hbar-file-source-row" data-selected={index >= startLine && index <= endLine}>
+          <LumenFrame
+            className="hbar-file-source-row"
+            data-selected={index >= startLine && index <= endLine}
+            data-revealed={index + 1 === revealedLine || undefined}
+          >
             <LumenButton
               ref={(element) => {
                 if (element) buttons.current.set(index, element)

@@ -4,6 +4,12 @@ import { sessionFileTargetSchema } from './files'
 
 const instanceId = z.string().min(1).max(160)
 const previewId = z.string().uuid()
+const revealLine = z.number().int().positive().safe().max(2_000_000)
+const revealColumn = z.number().int().positive().safe().max(2_000_000)
+const previewReveal = z.strictObject({
+  line: revealLine,
+  column: revealColumn.optional(),
+})
 const sourceSelection = {
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   startOffset: z
@@ -73,6 +79,33 @@ const metadata = (id: string) => ({
   descriptionKey: `commands.${id}.description`,
   surfaces: ['api'] as ('api' | 'palette' | 'cli' | 'tui')[],
 })
+const messageFilesMetadata = (id: string) => ({
+  id,
+  version: 1,
+  owner: 'hbar.message-files',
+  kind: 'command' as const,
+  execution: 'client' as const,
+  stateEffect: 'application' as const,
+  category: 'app.navigation',
+  scope: 'client' as const,
+  visibility: 'internal' as const,
+  titleKey: `commands.${id}.title`,
+  descriptionKey: `commands.${id}.description`,
+  surfaces: ['api'] as ('api' | 'palette' | 'cli' | 'tui')[],
+})
+const messageFileOpenInput = z
+  .strictObject({
+    workspaceId: z.string().min(1).max(160),
+    sessionId: z.string().min(1).max(160),
+    sourceTabInstanceKey: z.string().uuid().nullable(),
+    messageId: z.string().min(1).max(160),
+    path: z.string().min(1).max(4000),
+    line: revealLine.optional(),
+    column: revealColumn.optional(),
+  })
+  .refine((value) => value.line !== undefined || value.column === undefined, {
+    message: 'column requires line',
+  })
 
 export const fileWorkspaceCommands = {
   'fileWorkspace.selectPreview': defineCommand(metadata('fileWorkspace.selectPreview'), previewTarget, summary),
@@ -235,9 +268,24 @@ export const fileWorkspaceCommands = {
       workspaceId: z.string().min(1).max(160).optional(),
       path: z.string().min(1).max(4000),
       directory: z.boolean(),
+      reveal: previewReveal.optional(),
       ...sourceTarget,
     }),
     summary,
+  ),
+  'fileWorkspace.consumeReveal': defineCommand(
+    metadata('fileWorkspace.consumeReveal'),
+    z.strictObject({
+      ...previewTarget.shape,
+      requestId: z.string().min(1).max(160),
+      ...sourceTarget,
+    }),
+    summary,
+  ),
+  'messageFiles.open': defineCommand(
+    messageFilesMetadata('messageFiles.open'),
+    messageFileOpenInput,
+    z.strictObject({ instanceId, previewId, path: z.string().min(1).max(4000) }),
   ),
   'fileWorkspace.showBrowser': defineCommand(metadata('fileWorkspace.showBrowser'), editablePreviewTarget, summary),
   'fileWorkspace.setText': defineCommand(

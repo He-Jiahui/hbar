@@ -128,6 +128,8 @@ import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
+import { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
+export { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
 export { filteredFileChanges, FILE_CHANGES_PAGE_SIZE } from './file-workspace-changes'
 import { createAgentWorkspace } from './agent-workspace'
 import { agentComposerCommands, createAgentComposer } from './agent-composer'
@@ -405,6 +407,7 @@ const runtimeCommands = {
   ...sessionLaunchDraftCommands,
   ...sessionWorkspaceMoveCommands,
   ...systemDiagnosticsCommands,
+  ...sessionFileReferenceCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -946,6 +949,16 @@ export function createAppRuntime(options: RuntimeOptions) {
     sessions: directory.queries,
     onPreviewOpened: sessionTools.previewOpened,
   })
+  const sessionFileReferenceNavigation = createSessionFileReferenceNavigation(local, {
+    navigation: navigation.reader,
+    tabs: workspaceTabs.reader,
+    timeline: timeline.reader,
+    surfaces: surfaces.reader,
+    presentation: presentation.reader,
+    files: fileWorkspace.reader,
+    isDisposed: () => disposed,
+    onSubscriberError,
+  })
   const agentWorkspace = createAgentWorkspace(
     local,
     options,
@@ -1304,6 +1317,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionLaunchDrafts.dispose()
       preSessionLaunchBranches.dispose()
       selectedSessionExecution.dispose()
+      sessionFileReferenceNavigation.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()

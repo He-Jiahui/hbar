@@ -548,6 +548,12 @@ export type FileWorkspacePreviewState =
       readonly path: string
       readonly documentMode: 'preview' | 'edit'
       readonly document: Readonly<FileWorkspaceDocumentState>
+      /** One-shot visual reveal requested by a message/file navigation intent. */
+      readonly reveal?: Readonly<{
+        readonly requestId: string
+        readonly line: number
+        readonly column?: number
+      }>
     }
   | {
       readonly id: string

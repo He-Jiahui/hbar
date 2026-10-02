@@ -20,6 +20,7 @@ import { HbarFileChanges, HbarFileDiff, type HbarFileChangesLabels } from './fil
 import { HbarFileTree, type HbarFileTreeLabels } from './file-workspace-tree'
 import { useFileNavigatorPresentation } from './file-navigator-presentation'
 import { useFilePreviewReadingPosition } from './file-preview-reading-position'
+import { useFilePreviewReveal } from './file-preview-reveal'
 import { useFilePreviewPagination } from './file-preview-pagination'
 import { filePreviewOwnsFailure, focusVisibleFilePreviewControl } from './file-preview-feedback'
 import { captureFileReviewFocus } from './file-review-focus'
@@ -170,6 +171,32 @@ export function HbarFileWorkspace({
     (entry?.previews ?? []).map((item) => item.id).join('\u0000'),
     diffPagination?.page,
   )
+  const revealPreviewId = entry?.activePreviewId ?? null
+  const documentPreview = entry?.previews.find((item) => item.id === revealPreviewId && item.kind === 'document')
+  const consumeReveal = useCallback(
+    async (requestId: string) => {
+      if (!instanceId || !panel?.workspaceId || !revealPreviewId) return
+      await runtime.commands.execute('fileWorkspace.consumeReveal', {
+        instanceId,
+        workspaceId: panel.workspaceId,
+        previewId: revealPreviewId,
+        requestId,
+        sourceSessionId,
+        sessionTarget: entry?.sessionTarget ?? null,
+      })
+    },
+    [runtime.commands, instanceId, panel?.workspaceId, revealPreviewId, sourceSessionId, entry?.sessionTarget],
+  )
+  const revealedLine = useFilePreviewReveal({
+    reader,
+    owner: runtime,
+    previewId: revealPreviewId,
+    request: documentPreview?.kind === 'document' ? documentPreview.reveal : undefined,
+    value: entry?.document?.draft ?? '',
+    ready: Boolean(entry?.document?.sha256 && entry.document.status !== 'loading'),
+    editing: entry?.documentMode === 'edit',
+    onConsume: consumeReveal,
+  })
   const invoke = useCallback(
     (name: string, input: unknown) => {
       const payload = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
@@ -677,6 +704,7 @@ export function HbarFileWorkspace({
                     previewLabel={labels.textPreview(document.path)}
                     labels={labels.context}
                     disabled={!canAdd || addingTarget !== null}
+                    revealedLine={revealedLine}
                     onAdd={addCurrentFile}
                   />
                 )}

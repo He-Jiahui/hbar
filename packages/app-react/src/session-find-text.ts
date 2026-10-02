@@ -4,12 +4,32 @@ import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
 import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { sessionCjkAutolink } from './session-markdown-autolink'
+import { messageFileReferenceLinks } from './message-file-reference-links'
 
 /** Shared by the real Markdown renderer and the non-DOM, loaded-history index. */
 export const sessionMarkdownRemarkPlugins: PluggableList = [remarkGfm]
-export const sessionMarkdownRehypePlugins: PluggableList = [sessionCjkAutolink, rehypeSanitize]
+export const sessionMarkdownRehypePlugins: PluggableList = [
+  sessionCjkAutolink,
+  messageFileReferenceLinks,
+  [
+    rehypeSanitize,
+    {
+      ...defaultSchema,
+      attributes: {
+        ...defaultSchema.attributes,
+        a: [
+          ...(defaultSchema.attributes?.a ?? []),
+          'dataHbarFilePath',
+          'dataHbarFileLine',
+          'dataHbarFileColumn',
+          'dataHbarFileKind',
+        ],
+      },
+    },
+  ],
+]
 export const sessionMarkdownRehypeOptions = { allowDangerousHtml: true }
 
 export interface SessionFindTextSpan {

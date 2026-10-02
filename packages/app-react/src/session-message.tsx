@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { MessageMarkdown } from './message-markdown'
+import type { MessageFileReferenceContext } from './message-file-reference'
 import { MessageLiteralText } from './message-literal-text'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { MessageMarkdown } from './message-markdown'
@@ -89,6 +90,7 @@ export interface HbarMessageBlocksProps {
   readonly clipboard?: MessageClipboardPort | null | undefined
   /** Invalidate local copy receipts when the owning runtime/Host is replaced. */
   readonly copyOwner?: object | undefined
+  readonly fileReferences?: MessageFileReferenceContext | undefined
   /** Domain-owned display metadata, not a hard-coded plugin/tool catalog in the view. */
   readonly describeTool?: ((call: SessionToolCall) => HbarMessageToolPresentation) | undefined
   /** Domain-owned text rendering, keyed to original block identity; non-text rows retain their order. */
@@ -398,6 +400,7 @@ function MessageBlocksContent({
   messageId,
   clipboard,
   copyOwner,
+  fileReferences,
   blocks,
   textFormat = 'markdown',
   results,
@@ -488,10 +491,11 @@ function MessageBlocksContent({
             {renderText ? (
               renderText(group)
             ) : textFormat === 'literal' ? (
-              <MessageLiteralText text={group.text} />
+              <MessageLiteralText text={group.text} fileReferences={fileReferences} />
             ) : (
               <MessageMarkdown
                 text={group.text}
+                fileReferences={fileReferences ? { ...fileReferences, streaming } : undefined}
                 code={{
                   sessionId,
                   messageId,

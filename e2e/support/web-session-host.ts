@@ -129,6 +129,8 @@ export async function startWebSessionHost(
     port?: number
     sessionCount?: number
     historyCount?: number
+    /** Test-only authored message content; never sent to a real Provider. */
+    historyText?: string
     goalAutoContinue?: boolean
   }>,
 ): Promise<WebSessionHost> {
@@ -142,6 +144,7 @@ export async function startWebSessionHost(
       HBAR_E2E_HOST_PORT: String(port),
       HBAR_E2E_SESSION_COUNT: String(options.sessionCount ?? 1),
       HBAR_E2E_HISTORY_COUNT: String(options.historyCount ?? 0),
+      HBAR_E2E_HISTORY_TEXT: options.historyText ?? '',
       HBAR_E2E_GOAL_AUTO_CONTINUE: options.goalAutoContinue === false ? '0' : '1',
       HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
     },

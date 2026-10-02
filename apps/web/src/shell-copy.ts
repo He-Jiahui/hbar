@@ -993,6 +993,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       '暂时无法恢复上次阅读位置。',
       'The previous reading position could not be restored.',
     ),
+    fileReferences: {
+      open: ({ path, line, column }) =>
+        choose(
+          `打开文件 ${path}${line ? `，第 ${line} 行${column ? `，第 ${column} 列` : ''}` : ''}`,
+          `Open file ${path}${line ? `, line ${line}${column ? `, column ${column}` : ''}` : ''}`,
+        ),
+      opening: choose('正在打开文件…', 'Opening file…'),
+      error,
+    },
     author: zh
       ? { user: '你', assistant: '助手', system: '系统', tool: '工具' }
       : { user: 'You', assistant: 'Assistant', system: 'System', tool: 'Tool' },

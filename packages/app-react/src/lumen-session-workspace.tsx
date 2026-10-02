@@ -79,6 +79,7 @@ import {
   type LocalSlashCommand,
 } from './composer-slash'
 import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
+import type { MessageFileReferenceContext, MessageFileReferenceLabels } from './message-file-reference'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
 import { composerAgentSlashLabels } from './composer-agent-slash-labels'
 import {
@@ -123,6 +124,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly historyLimit: string
   readonly latest: string
   readonly readingPositionUnavailable: string
+  readonly fileReferences: MessageFileReferenceLabels
   readonly author: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly avatar: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly copy: string
@@ -1305,9 +1307,34 @@ function SessionWorkspaceContent({
   }
   const messageRows: LumenMessageProps[] = [
     ...projectedMessages.map(({ message, blocks, results }) => {
+      const fileWorkspaceId = navigation.workspaceId
+      const fileReferences: MessageFileReferenceContext | undefined =
+        files && message.sessionId === sessionId && fileWorkspaceId
+          ? {
+              owner: runtime,
+              targetKey: JSON.stringify([
+                navigation.workspaceId,
+                message.sessionId,
+                sourceTab?.instanceKey ?? null,
+                message.id,
+              ]),
+              labels: labels.fileReferences,
+              streaming: unfinishedRuns.has(message.runId),
+              onOpen: async (reference) => {
+                await runtime.commands.execute('messageFiles.open', {
+                  workspaceId: fileWorkspaceId,
+                  sessionId: message.sessionId,
+                  sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
+                  messageId: message.id,
+                  ...reference,
+                })
+              },
+            }
+          : undefined
       const body =
         proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
           <HbarProposedPlanMessage
+            fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
@@ -1342,6 +1369,7 @@ function SessionWorkspaceContent({
           />
         ) : message.role === 'assistant' ? (
           <HbarHistoricalPlanMessage
+            fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
@@ -1356,6 +1384,7 @@ function SessionWorkspaceContent({
           />
         ) : (
           <HbarMessageBlocks
+            fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}

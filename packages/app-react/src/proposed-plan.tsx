@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { FileText, PencilLine, Play, RefreshCw } from 'lucide-react'
 import { LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
 import { MessageMarkdown, type MessageCodeContext } from './message-markdown'
+import type { MessageFileReferenceContext } from './message-file-reference'
 import './proposed-plan.css'
 
 export interface HbarProposedPlanTarget {
@@ -35,6 +36,7 @@ export interface HbarProposedPlanProps {
   readonly markdown: string
   readonly findSegmentId?: string
   readonly code?: MessageCodeContext | undefined
+  readonly fileReferences?: MessageFileReferenceContext | undefined
   readonly labels: HbarProposedPlanLabels
   readonly state: {
     readonly status: 'idle' | 'submitting' | 'unknown' | 'accepted' | 'failed'
@@ -54,6 +56,7 @@ function ProposedPlanContent({
   markdown,
   findSegmentId,
   code,
+  fileReferences,
   labels,
   state,
   onSubmit,
@@ -133,7 +136,7 @@ function ProposedPlanContent({
         tabIndex={0}
         data-session-find-segment={findSegmentId}
       >
-        <MessageMarkdown text={markdown} code={code} />
+        <MessageMarkdown text={markdown} code={code} fileReferences={fileReferences} />
       </LumenFrame>
       {state.status !== 'accepted' && (
         <LumenText as="p" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">
