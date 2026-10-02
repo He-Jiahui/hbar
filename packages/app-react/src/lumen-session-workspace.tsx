@@ -523,6 +523,7 @@ function SessionWorkspaceContent({
       .catch(() => undefined)
   }
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
+  const composerWrites = useRef(new Map<string, Set<Promise<unknown>>>())
   const firstSessionRunInFlight = useRef<string | null>(null)
   const composerGoalTrigger = useRef<HTMLButtonElement>(null)
   const [goalMenuSlot, setGoalMenuSlot] = useState<HTMLDivElement | null>(null)
@@ -565,16 +566,23 @@ function SessionWorkspaceContent({
   ) => {
     setSlashFailure((current) => (current?.sessionId === targetSessionId ? null : current))
     const promise = execute('draft.setContent', { sessionId: targetSessionId, text, mentions, expectedRevision })
+    const writes = composerWrites.current.get(targetSessionId) ?? new Set<Promise<unknown>>()
+    writes.add(promise)
+    composerWrites.current.set(targetSessionId, writes)
     const token = { sessionId: targetSessionId, promise }
     composerWrite.current = token
     void promise.then(
       () => {
+        writes.delete(promise)
+        if (writes.size === 0) composerWrites.current.delete(targetSessionId)
         if (composerWrite.current === token) {
           composerWrite.current = null
           composerWriteError.current = null
         }
       },
       (error) => {
+        writes.delete(promise)
+        if (writes.size === 0) composerWrites.current.delete(targetSessionId)
         if (composerWrite.current === token) {
           composerWrite.current = null
           composerWriteError.current = { sessionId: targetSessionId, error }
@@ -1270,11 +1278,11 @@ function SessionWorkspaceContent({
   )
   const renderDecision = (decision: SessionDecision) => {
     const resolvePlanExit = async (input: Parameters<typeof invoke>[1]) => {
-      const targetSessionId = sessionId
-      const pending = targetSessionId && composerWrite.current?.sessionId === targetSessionId ? composerWrite.current : null
-      if (pending) {
+      const decisionSessionId = typeof decision.sessionId === 'string' ? decision.sessionId : sessionId
+      const pending = decisionSessionId ? composerWrites.current.get(decisionSessionId) : undefined
+      if (pending && pending.size > 0) {
         try {
-          await pending.promise
+          await Promise.all([...pending])
         } catch {
           return
         }
