@@ -1,6 +1,6 @@
 import { LumenText, LumenUsage07, type LumenUsageContent, type LumenUsageRequestRecord } from '@lumen/app-ui'
 import type { UsageRequestsRuntime, UsageRequestItem } from '@hbar/app-runtime'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 export interface HbarUsageRequestsLabels {
   readonly title: string
@@ -46,11 +46,10 @@ function status(item: UsageRequestItem): LumenUsageRequestRecord['status'] {
 }
 
 export function HbarUsageRequests({ runtime, labels, onOpenRequest }: HbarUsageRequestsProps) {
-  const snapshot = runtime.reader.getSnapshot()
+  const snapshot = useSyncExternalStore(runtime.reader.subscribe, runtime.reader.getSnapshot, runtime.reader.getSnapshot)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   useEffect(() => {
     void runtime.refresh()
-    return () => runtime.dispose()
   }, [runtime])
   const rows = useMemo<readonly LumenUsageRequestRecord[]>(
     () => snapshot.items.map((item) => ({
