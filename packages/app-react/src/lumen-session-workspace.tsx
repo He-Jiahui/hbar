@@ -1270,10 +1270,7 @@ function SessionWorkspaceContent({
   )
   const renderDecision = (decision: SessionDecision) => {
     const resolvePlanExit = async (input: Parameters<typeof invoke>[1]) => {
-      const targetSessionId =
-        input && typeof input === 'object' && 'sessionId' in input && typeof input.sessionId === 'string'
-          ? input.sessionId
-          : undefined
+      const targetSessionId = sessionId
       const pending = targetSessionId && composerWrite.current?.sessionId === targetSessionId ? composerWrite.current : null
       if (pending) {
         try {
