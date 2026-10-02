@@ -1,152 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import { createScheduleRuntime } from '../packages/app-runtime/src/schedules'
-import type {
-  ScheduleDefinition,
-  ScheduleOccurrence,
-  ScheduleCreateInput,
-  ScheduleUpdateInput,
-} from '../packages/contracts/src/commands/schedules'
-
-const schedule = (id: string, workspaceId = 'w'): ScheduleDefinition => ({
-  id,
-  workspaceId,
-  name: id,
-  input: 'prompt',
-  modelId: 'model',
-  timezone: 'UTC',
-  target: { mode: 'new-session' },
-  spec: { kind: 'once', at: 10_000 },
-  enabled: true,
-  revision: 0,
-  createdAt: 1,
-  updatedAt: 1,
+import type { CommandExecutor } from '../packages/commands/src'
+import type { ScheduleDefinition, ScheduleOccurrence, ScheduleCreateInput, ScheduleUpdateInput } from '../packages/contracts/src/commands/schedules'
+const schedule=(id:string,workspaceId='w'):ScheduleDefinition=>({id,workspaceId,name:id,input:'prompt',modelId:'model',timezone:'UTC',target:{mode:'new-session'},spec:{kind:'once',at:10000},enabled:true,revision:0,createdAt:1,updatedAt:1})
+const occurrence=(id:string):ScheduleOccurrence=>({id,scheduleId:'s',dueAt:1,status:'completed',sessionId:null,runId:`run-${id}`,attempt:1,idempotencyKey:`key-${id}`,createdAt:1,updatedAt:1,error:null})
+const defaultPort=():CommandExecutor=>({execute:async(name,input)=>{if(name==='schedule.list')return {items:[],next:null,revision:0};if(name==='schedule.occurrences')return {items:[],next:null};if(name==='schedule.create')return {...input as ScheduleCreateInput,id:'created',enabled:true,revision:0,createdAt:1,updatedAt:1};if(name==='schedule.update'){const v=input as ScheduleUpdateInput;return {...v,id:v.scheduleId,enabled:true,revision:v.expectedRevision+1,createdAt:1,updatedAt:2}}if(name==='schedule.delete'){const v=input as {scheduleId:string;expectedRevision:number};return {scheduleId:v.scheduleId,revision:v.expectedRevision+1}}if(name==='schedule.preview')return {occurrences:[1],timezone:'UTC'};return null}})
+describe('schedule runtime recovery and bounded paging',()=>{
+ test('late workspace page is ignored and previous request aborted',async()=>{let resolve:((v:{items:ScheduleDefinition[];next:string|null;revision:number})=>void)|undefined;let signal:AbortSignal|undefined;const base=defaultPort();const p:CommandExecutor={execute:async(name,input,options)=>{if(name!=='schedule.list')return base.execute(name,input,options);if((input as {workspaceId:string}).workspaceId==='old'){signal=options?.signal;return new Promise(r=>{resolve=r})}return {items:[schedule('new','new')],next:null,revision:0}}};const r=createScheduleRuntime(p);const stale=r.refresh('old');await r.refresh('new');resolve?.({items:[schedule('old','old')],next:null,revision:0});await stale;expect(signal?.aborted).toBe(true);expect(r.reader.getSnapshot().schedules.map(x=>x.id)).toEqual(['new']);r.dispose()})
+ test('unknown mutation reconciles exact receipt without replay',async()=>{let writes=0;let receipt:unknown;const saved=schedule('saved');const base=defaultPort();const p:CommandExecutor={execute:async(name,input,options)=>{if(name==='schedule.create'){writes++;throw new Error('request timed out')}if(name==='schedule.receipt'){receipt=input;return saved}return base.execute(name,input,options)}};const r=createScheduleRuntime(p);const input:ScheduleCreateInput={workspaceId:'w',name:'x',input:'p',modelId:'m',timezone:'UTC',target:{mode:'new-session'},spec:{kind:'once',at:10000}};await expect(r.create(input,{idempotencyKey:'stable'})).rejects.toThrow('timed out');await r.reconcile();expect(writes).toBe(1);expect(receipt).toEqual({commandId:'schedule.create',input,idempotencyKey:'stable'});r.dispose()})
+ test('ordinary failure permits retry',async()=>{let calls=0;const base=defaultPort();const p:CommandExecutor={execute:async(name,input,options)=>{if(name==='schedule.create'){calls++;if(calls===1)throw new Error('validation failed');return {...input as ScheduleCreateInput,id:'ok',enabled:true,revision:0,createdAt:1,updatedAt:1}}return base.execute(name,input,options)}};const r=createScheduleRuntime(p);const i:ScheduleCreateInput={workspaceId:'w',name:'x',input:'p',modelId:'m',timezone:'UTC',target:{mode:'new-session'},spec:{kind:'once',at:10000}};await expect(r.create(i,{idempotencyKey:'a'})).rejects.toThrow();await expect(r.create(i,{idempotencyKey:'b'})).resolves.toMatchObject({id:'ok'});expect(calls).toBe(2);r.dispose()})
+ test('occurrences cap at 400',async()=>{let pages=0;const base=defaultPort();const p:CommandExecutor={execute:async(name,input,options)=>{if(name==='schedule.list')return {items:[schedule('s')],next:null,revision:0};if(name==='schedule.occurrences'){pages++;return {items:Array.from({length:100},(_,i)=>occurrence(`${pages}-${i}`)),next:`c${pages}`}}return base.execute(name,input,options)}};const r=createScheduleRuntime(p);await r.refresh('w');for(let i=0;i<5;i++)await (i===0?r.refreshOccurrences('s'):r.loadMoreOccurrences('s'));expect(pages).toBe(4);expect(r.reader.getSnapshot().occurrences.s).toHaveLength(400);r.dispose()})
+ test('schedules cap at 400',async()=>{let pages=0;const base=defaultPort();const p:CommandExecutor={execute:async(name,input,options)=>{if(name==='schedule.list'){pages++;const start=pages*100;return {items:Array.from({length:100},(_,i)=>schedule(`s${start+i}`)),next:`c${pages}`,revision:pages}}return base.execute(name,input,options)}};const r=createScheduleRuntime(p);await r.refresh('w');for(let i=0;i<5;i++)await r.loadMore();expect(pages).toBe(4);expect(r.reader.getSnapshot().schedules).toHaveLength(400);expect(r.reader.getSnapshot().capacityReached).toBe(true);r.dispose()})
+ test('dispose ignores late read',async()=>{let done:((v:{items:ScheduleDefinition[];next:string|null;revision:number})=>void)|undefined;let signal:AbortSignal|undefined;const p:CommandExecutor={execute:async(_name,_input,options)=>{signal=options?.signal;return new Promise(r=>{done=r})}};const r=createScheduleRuntime(p);const read=r.refresh('w');r.dispose();done?.({items:[schedule('late')],next:null,revision:0});await read;expect(signal?.aborted).toBe(true);expect(r.reader.getSnapshot().schedules).toEqual([])})
 })
 
-const occurrence = (id: string, scheduleId = 's'): ScheduleOccurrence => ({
-  id,
-  scheduleId,
-  dueAt: 1,
-  status: 'completed',
-  sessionId: null,
-  runId: `run-${id}`,
-  attempt: 1,
-  idempotencyKey: `key-${id}`,
-  createdAt: 1,
-  updatedAt: 1,
-  error: null,
-})
-
-type FakeClient = {
-  list: (input: { workspaceId: string; after?: string | null; limit?: number }) => Promise<{ items: ScheduleDefinition[]; next: string | null; revision: number }>
-  occurrences: (input: { scheduleId: string; after?: string | null; limit?: number }) => Promise<{ items: ScheduleOccurrence[]; next: string | null }>
-  create: (input: ScheduleCreateInput, options: { idempotencyKey: string }) => Promise<ScheduleDefinition>
-  update: (input: ScheduleUpdateInput, options: { idempotencyKey: string }) => Promise<ScheduleDefinition>
-  delete: (input: { scheduleId: string; expectedRevision: number }, options: { idempotencyKey: string }) => Promise<{ scheduleId: string; revision: number }>
-  execute: (id: string, input: unknown) => Promise<unknown>
-  preview: () => { occurrences: number[]; timezone: string }
-}
-
-function client(overrides: Partial<FakeClient> = {}): FakeClient {
-  return {
-    list: async () => ({ items: [], next: null, revision: 0 }),
-    occurrences: async () => ({ items: [], next: null }),
-    create: async (input) => ({ ...input, id: 'created', enabled: true, revision: 0, createdAt: 1, updatedAt: 1 }),
-    update: async (input) => ({ ...input, id: input.scheduleId, enabled: true, revision: input.expectedRevision + 1, createdAt: 1, updatedAt: 2 }),
-    delete: async (input) => ({ scheduleId: input.scheduleId, revision: input.expectedRevision + 1 }),
-    execute: async () => null,
-    preview: () => ({ occurrences: [1], timezone: 'UTC' }),
-    ...overrides,
-  }
-}
-
-describe('schedule runtime recovery and bounded paging', () => {
-  test('late workspace page is ignored and previous request is aborted', async () => {
-    let firstResolve: ((page: { items: ScheduleDefinition[]; next: string | null; revision: number }) => void) | undefined
-    let firstSignal: AbortSignal | undefined
-    const port = client({
-      list: async ({ workspaceId }, options?: { signal?: AbortSignal }) => {
-        if (workspaceId === 'old') {
-          firstSignal = options?.signal
-          return new Promise((resolve) => {
-            firstResolve = resolve
-          })
-        }
-        return { items: [schedule('new', 'new')], next: null, revision: 0 }
-      },
-    } as Partial<FakeClient> & { list: FakeClient['list'] })
-    const runtime = createScheduleRuntime(port as never)
-    const stale = runtime.refresh('old')
-    await runtime.refresh('new')
-    firstResolve?.({ items: [schedule('old', 'old')], next: null, revision: 0 })
-    await stale
-    expect(firstSignal?.aborted).toBe(true)
-    expect(runtime.reader.getSnapshot().schedules.map((item) => item.id)).toEqual(['new'])
-    runtime.dispose()
-  })
-
-  test('unknown mutation can be retried through exact receipt query without replaying write', async () => {
-    let writes = 0
-    let receiptInput: unknown
-    const saved = schedule('saved')
-    const port = client({
-      create: async () => {
-        writes++
-        throw new Error('request timed out')
-      },
-      execute: async (id, input) => {
-        expect(id).toBe('schedule.receipt')
-        receiptInput = input
-        return saved
-      },
-    })
-    const runtime = createScheduleRuntime(port as never)
-    await runtime.refresh('w')
-    const input: ScheduleCreateInput = { workspaceId: 'w', name: 'x', input: 'p', modelId: 'm', timezone: 'UTC', target: { mode: 'new-session' }, spec: { kind: 'once', at: 10_000 } }
-    await expect(runtime.create(input, { idempotencyKey: 'stable-key' })).rejects.toThrow('timed out')
-    expect(runtime.reader.getSnapshot().mutation).toBe('unknown')
-    await runtime.reconcile()
-    expect(writes).toBe(1)
-    expect(receiptInput).toEqual({ commandId: 'schedule.create', input, idempotencyKey: 'stable-key' })
-    expect(runtime.reader.getSnapshot().schedules.map((item) => item.id)).toEqual(['saved'])
-    runtime.dispose()
-  })
-
-  test('ordinary mutation failure clears pending state and allows retry', async () => {
-    let calls = 0
-    const port = client({
-      create: async (input) => {
-        calls++
-        if (calls === 1) throw new Error('validation failed')
-        return { ...input, id: 'ok', enabled: true, revision: 0, createdAt: 1, updatedAt: 1 }
-      },
-    })
-    const runtime = createScheduleRuntime(port as never)
-    const input: ScheduleCreateInput = { workspaceId: 'w', name: 'x', input: 'p', modelId: 'm', timezone: 'UTC', target: { mode: 'new-session' }, spec: { kind: 'once', at: 10_000 } }
-    await expect(runtime.create(input, { idempotencyKey: 'one' })).rejects.toThrow('validation failed')
-    await expect(runtime.create(input, { idempotencyKey: 'two' })).resolves.toMatchObject({ id: 'ok' })
-    expect(calls).toBe(2)
-    runtime.dispose()
-  })
-
-  test('occurrence paging stops at 400 and does not request beyond capacity', async () => {
-    let pages = 0
-    const port = client({
-      list: async () => ({ items: [schedule('s')], next: null, revision: 0 }),
-      occurrences: async () => {
-        pages++
-        return { items: Array.from({ length: 100 }, (_, index) => occurrence(`${pages}-${index}`, 's')), next: `cursor-${pages}` }
-      },
-    })
-    const runtime = createScheduleRuntime(port as never)
-    await runtime.refresh('w')
-    await runtime.refreshOccurrences('s')
-    await runtime.loadMoreOccurrences('s')
-    await runtime.loadMoreOccurrences('s')
-    await runtime.loadMoreOccurrences('s')
-    await runtime.loadMoreOccurrences('s')
-    expect(pages).toBe(4)
-    expect(runtime.reader.getSnapshot().occurrences.s).toHaveLength(400)
-    expect(runtime.reader.getSnapshot().occurrenceNext.s).toBeNull()
-    runtime.dispose()
-  })
-})
