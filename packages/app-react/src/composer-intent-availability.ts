@@ -65,7 +65,6 @@ export function composerGoalAvailability(input: ComposerGoalAvailabilityInput): 
   if (input.plan.available) {
     if (!mode || mode.status === 'loading') return block('planLoading')
     if (mode.status === 'failed' || !mode.mode) return block('planFailed', 'refreshPlan')
-    if (mode.mode === 'plan') return block('plan', 'exitPlan')
   }
   return { kind: 'ready' }
 }

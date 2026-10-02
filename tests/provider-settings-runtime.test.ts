@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test'
 import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
-import { HbarError, providerSchema, type ProviderConfig } from '@hbar/contracts'
+import { HbarError, providerModelSelectionId, providerSchema, type ProviderConfig } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { modelCommands, type ModelDescriptor } from '@hbar/contracts/commands/models'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { HBAR_PROVIDER_EDITOR_DESCRIPTION, HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
@@ -534,6 +535,156 @@ async function waitFor<Value>(read: () => Value | undefined): Promise<Value> {
   throw new Error('Timed out waiting for provider state')
 }
 
+function globalDefaultFixture(initialModelSelectionId: string | null = 'current') {
+  const secondary = model('secondary')
+  const profiles = new Map<string, { provider: ProviderConfig; hasKey: boolean }>([
+    ['current', { provider: provider('current', 'Current provider'), hasKey: false }],
+    [
+      'target',
+      {
+        provider: providerSchema.parse({
+          ...provider('target', 'Target provider'),
+          model: secondary.id,
+          models: [model('first'), secondary],
+        }),
+        hasKey: false,
+      },
+    ],
+  ])
+  const modelPath = encodePath([{ kind: 'field' as const, name: 'provider.model' }])
+  let selectedModelId = initialModelSelectionId
+  let revision = 0
+  let loseNextApply = false
+  const writes: Array<{ input: unknown; idempotencyKey: string | undefined }> = []
+  const receiptReads: Array<{ key: string; input: unknown }> = []
+  const receipts = new Map<string, { input: unknown; receipt: unknown }>()
+
+  const catalog = (): ModelDescriptor[] =>
+    [...profiles.values()].flatMap(({ provider: item, hasKey }) =>
+      item.visible
+        ? item.models
+            .filter((entry) => entry.visible)
+            .map((entry) => ({
+              id: providerModelSelectionId(item, entry.id),
+              providerId: item.id,
+              providerName: item.name,
+              modelId: entry.id,
+              modelName: entry.name,
+              contextWindow: entry.contextWindow,
+              maxOutput: entry.maxOutput,
+              imageInput: entry.imageInput,
+              reasoning: entry.reasoning,
+              thinkingLevels: [...entry.thinkingLevels],
+              defaultThinkingLevel: entry.defaultThinkingLevel,
+              hasKey,
+            }))
+        : [],
+    )
+  const snapshot = (scope: unknown) =>
+    settingsCommands['settings.get'].output.parse({
+      schemaVersion: 1,
+      scope,
+      revisions: { 'settings:global': revision },
+      resolution: resolveSettings(HBAR_SETTINGS_DEFINITIONS, [
+        {
+          id: 'settings:global',
+          kind: 'global',
+          revision,
+          values: selectedModelId === null ? {} : { [modelPath]: selectedModelId },
+        },
+      ]),
+    })
+  const configuration: CommandExecutor = {
+    execute(name) {
+      if (name === 'provider.describe') return Promise.resolve(HBAR_PROVIDER_EDITOR_DESCRIPTION)
+      if (name === 'provider.list') return Promise.resolve([...profiles.values()])
+      return Promise.reject(new Error(`Unexpected provider command: ${name}`))
+    },
+  }
+  const models: CommandExecutor = {
+    execute(name) {
+      if (name === 'model.list') return Promise.resolve(modelCommands['model.list'].output.parse(catalog()))
+      return Promise.reject(new Error(`Unexpected model command: ${name}`))
+    },
+  }
+  const settings: CommandExecutor = {
+    execute(name, raw, options) {
+      if (name === 'settings.describe') return Promise.resolve(HBAR_SETTINGS_DESCRIPTION)
+      if (name === 'settings.get') {
+        const input = settingsCommands[name].input.parse(raw)
+        return Promise.resolve(snapshot(input.scope))
+      }
+      if (name === 'settings.apply') {
+        const input = settingsCommands[name].input.parse(raw)
+        const idempotencyKey = options?.idempotencyKey
+        writes.push({ input, idempotencyKey })
+        const values: Record<string, unknown> = {}
+        for (const change of input.changes) {
+          const key = encodePath(change.path)
+          if (change.op === 'set') {
+            values[key] = change.value
+            if (key === modelPath && typeof change.value === 'string') selectedModelId = change.value
+          } else if (key === modelPath) selectedModelId = null
+        }
+        revision += 1
+        const receipt = settingsCommands['settings.apply'].output.parse({
+          commitId: `settings-commit-${revision}`,
+          layerId: 'settings:global',
+          revision,
+          schemaVersion: 1,
+          values,
+          resolution: snapshot({ kind: 'global' }).resolution,
+        })
+        if (idempotencyKey) receipts.set(idempotencyKey, { input, receipt })
+        if (loseNextApply) {
+          loseNextApply = false
+          return Promise.reject(new CommandError('RESULT_UNKNOWN', 'Response was lost after commit'))
+        }
+        return Promise.resolve(receipt)
+      }
+      if (name === 'settings.receipt') {
+        const input = settingsCommands[name].input.parse(raw)
+        receiptReads.push({ key: input.idempotencyKey, input: input.input })
+        const saved = receipts.get(input.idempotencyKey)
+        return Promise.resolve(
+          saved && JSON.stringify(saved.input) === JSON.stringify(input.input) ? saved.receipt : null,
+        )
+      }
+      return Promise.reject(new Error(`Unexpected settings command: ${name}`))
+    },
+  }
+  const runtime = createAppRuntime({
+    instanceId: 'provider-global-default',
+    hostId: 'host',
+    directory,
+    settings,
+    models,
+    configuration,
+    surfaces: { canRender: (panelId) => ['settings', 'settings-editor'].includes(panelId) },
+  })
+  return {
+    runtime,
+    profiles,
+    writes,
+    receiptReads,
+    selectedModel: () => selectedModelId,
+    loseNextApply() {
+      loseNextApply = true
+    },
+    async openProviders() {
+      await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
+      const form = await waitFor(() => {
+        const state = runtime.view.state.settings.getSnapshot()
+        const active = state.activeFormId ? state.forms[state.activeFormId] : undefined
+        return active?.status === 'ready' && active.selectedGroup === 'providers' ? active : undefined
+      })
+      await runtime.view.commands.execute('providerEditor.refresh', {})
+      await waitFor(() => (runtime.view.state.providers.getSnapshot().status === 'ready' ? true : undefined))
+      return form
+    },
+  }
+}
+
 test('provider model lists keep original targets and enforce empty, single, duplicate, and capacity boundaries', async () => {
   const configuration = fixture()
   const runtime = createAppRuntime({
@@ -867,5 +1018,150 @@ test('provider save refreshes loaded settings model content without rebuilding t
   } finally {
     runtime.dispose()
     callbacks.dispose()
+  }
+})
+
+test('global provider default uses the configured multi-model primary in one field write and refreshes a clean settings form', async () => {
+  const fixture = globalDefaultFixture()
+  const modelPath = encodePath([{ kind: 'field' as const, name: 'provider.model' }])
+  try {
+    const form = await fixture.openProviders()
+    const result = await fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', {
+      providerId: 'target',
+    })
+
+    expect(result).toMatchObject({ status: 'succeeded', providerId: 'target', modelSelectionId: 'target/secondary' })
+    expect(fixture.writes).toHaveLength(1)
+    expect(fixture.writes[0]?.input).toMatchObject({
+      scope: { kind: 'global' },
+      changes: [{ op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'target/secondary' }],
+    })
+    expect(fixture.selectedModel()).toBe('target/secondary')
+    const refreshed = await waitFor(() => {
+      const current = fixture.runtime.view.state.settings.getSnapshot().forms[form.formId]
+      return current?.form?.baseline[modelPath] === 'target/secondary' ? current : undefined
+    })
+    expect(refreshed.form?.draft[modelPath]).toBe('target/secondary')
+    expect(fixture.runtime.view.state.providers.getSnapshot().globalDefault).toMatchObject({
+      status: 'ready',
+      providerId: 'target',
+      modelSelectionId: 'target/secondary',
+      modelId: 'secondary',
+      selectable: true,
+    })
+  } finally {
+    fixture.runtime.dispose()
+  }
+})
+
+test('setting the already active provider default preserves its selected non-primary global model without writing', async () => {
+  const fixture = globalDefaultFixture('target/first')
+  try {
+    await fixture.openProviders()
+    const result = await fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', {
+      providerId: 'target',
+    })
+
+    expect(result).toMatchObject({ status: 'succeeded', providerId: 'target', modelSelectionId: 'target/first' })
+    expect(fixture.selectedModel()).toBe('target/first')
+    expect(fixture.writes).toEqual([])
+    expect(fixture.runtime.view.state.providers.getSnapshot().globalDefault).toMatchObject({
+      providerId: 'target',
+      modelSelectionId: 'target/first',
+      modelId: 'first',
+      selectable: true,
+    })
+  } finally {
+    fixture.runtime.dispose()
+  }
+})
+
+test('global provider default refuses a hidden configured primary and a changed source primary without writing', async () => {
+  const hidden = globalDefaultFixture()
+  try {
+    await hidden.openProviders()
+    const profile = hidden.profiles.get('target')!
+    hidden.profiles.set('target', {
+      ...profile,
+      provider: providerSchema.parse({
+        ...profile.provider,
+        models: profile.provider.models.map((entry) =>
+          entry.id === 'secondary' ? { ...entry, visible: false } : entry,
+        ),
+      }),
+    })
+    await expect(
+      hidden.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    expect(hidden.writes).toEqual([])
+  } finally {
+    hidden.runtime.dispose()
+  }
+
+  const stale = globalDefaultFixture()
+  try {
+    await stale.openProviders()
+    const profile = stale.profiles.get('target')!
+    stale.profiles.set('target', {
+      ...profile,
+      provider: providerSchema.parse({ ...profile.provider, model: 'first' }),
+    })
+    await expect(
+      stale.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' }),
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(stale.writes).toEqual([])
+  } finally {
+    stale.runtime.dispose()
+  }
+})
+
+test('unknown global provider default reconciles only the exact receipt and does not write twice', async () => {
+  const fixture = globalDefaultFixture()
+  try {
+    await fixture.openProviders()
+    fixture.loseNextApply()
+    await expect(
+      fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(fixture.runtime.view.state.providers.getSnapshot().globalDefaultAction.status).toBe('unknown')
+    expect(fixture.selectedModel()).toBe('target/secondary')
+
+    const result = await fixture.runtime.view.commands.execute('providerEditor.reconcileGlobalDefault', {})
+    expect(result).toMatchObject({ status: 'succeeded', providerId: 'target', modelSelectionId: 'target/secondary' })
+    expect(fixture.writes).toHaveLength(1)
+    expect(fixture.receiptReads).toHaveLength(1)
+    expect(fixture.receiptReads[0]?.key).toBe(fixture.writes[0]?.idempotencyKey)
+    expect(fixture.receiptReads[0]?.input).toEqual(fixture.writes[0]?.input)
+  } finally {
+    fixture.runtime.dispose()
+  }
+})
+
+test('global default leaves an unrelated dirty settings draft untouched', async () => {
+  const fixture = globalDefaultFixture()
+  const modelPath = encodePath([{ kind: 'field' as const, name: 'provider.model' }])
+  const behaviorPath = encodePath([{ kind: 'field' as const, name: 'client.chatSendBehavior' }])
+  try {
+    const form = await fixture.openProviders()
+    await fixture.runtime.view.commands.execute('settingsForm.setField', {
+      formId: form.formId,
+      field: behaviorPath,
+      value: 'modifierEnter',
+    })
+    const dirtyForm = fixture.runtime.view.state.settings.getSnapshot().forms[form.formId]
+    expect(dirtyForm?.form?.dirty).toContain(behaviorPath)
+
+    await fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', { providerId: 'target' })
+
+    expect(fixture.writes).toHaveLength(1)
+    expect(settingsCommands['settings.apply'].input.parse(fixture.writes[0]?.input).changes).toEqual([
+      { op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'target/secondary' },
+    ])
+    const current = fixture.runtime.view.state.settings.getSnapshot().forms[form.formId]
+    expect(current).toBe(dirtyForm)
+    expect(current?.form?.draft[behaviorPath]).toBe('modifierEnter')
+    expect(current?.form?.baseline[modelPath]).toBe('current')
+  } finally {
+    fixture.runtime.dispose()
   }
 })

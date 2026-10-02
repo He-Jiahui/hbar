@@ -80,7 +80,7 @@
   margin: 0;
   padding: 0.375rem;
   inline-size: min(18rem, calc(100vw - 1rem));
-  max-block-size: calc(100dvh - 4rem);
+  max-block-size: var(--workspace-tab-menu-height, calc(100dvh - 4rem));
   overflow: auto;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: 0.625rem;

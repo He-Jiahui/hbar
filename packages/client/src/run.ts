@@ -5,11 +5,15 @@ import {
   operationWatchResultSchema,
   operationCancelResultSchema,
   queuedRunEditTextReceiptSchema,
+  queuedRunGuideReceiptSchema,
+  queuedRunGuidedOperationId as guidedOperationId,
   queuedRunRemoveReceiptSchema,
 } from '@hbar/contracts/commands/run'
 import type {
   OperationWatchResult,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
   QueuedRunRemoveReceipt,
   RunAccepted,
 } from '@hbar/contracts/commands/run'
@@ -24,7 +28,7 @@ export function createRunCommandClient(client: ClientTransport) {
       if (id === 'operation.cancel' && options?.signal?.aborted)
         throw new CommandError('CANCELLED', 'Cancellation was not dispatched')
       if (
-        ['run.submit', 'run.retry', 'queuedRun.editText', 'queuedRun.remove'].includes(id) &&
+        ['run.submit', 'run.retry', 'queuedRun.editText', 'queuedRun.remove', 'queuedRun.guide'].includes(id) &&
         !options?.idempotencyKey
       )
         throw new CommandError('INVALID_INPUT', `An idempotency key is required for ${id}`)
@@ -65,6 +69,20 @@ export function createRunCommandClient(client: ClientTransport) {
           )
             throw new CommandError('RESULT_UNKNOWN', 'Queue edit response could not be verified')
         }
+        if (id === 'queuedRun.guide') {
+          const result = queuedRunGuideReceiptSchema.safeParse(output)
+          const requested = runCommands['queuedRun.guide'].input.parse(input)
+          if (
+            !result.success ||
+            result.data.sessionId !== requested.sessionId ||
+            result.data.operationId !== requested.operationId ||
+            result.data.activeRunId !== requested.activeRunId ||
+            result.data.queueRevision !== requested.expectedRevision ||
+            result.data.revision !== result.data.sessionSeq ||
+            result.data.idempotencyKey !== options?.idempotencyKey
+          )
+            throw new CommandError('RESULT_UNKNOWN', 'Queue guidance response could not be verified')
+        }
         return output
       } catch (error) {
         if (
@@ -89,7 +107,14 @@ export function createRunCommandClient(client: ClientTransport) {
             'Cancellation response was not confirmed; read the original operation state',
           )
         if (
-          ['run.submit', 'run.retry', 'queuedRun.editText', 'queuedRun.remove', 'context.compact'].includes(id) &&
+          [
+            'run.submit',
+            'run.retry',
+            'queuedRun.editText',
+            'queuedRun.remove',
+            'queuedRun.guide',
+            'context.compact',
+          ].includes(id) &&
           error instanceof HbarError &&
           ['DISCONNECTED', 'TIMEOUT'].includes(error.code)
         )
@@ -144,6 +169,23 @@ export function createRunCommandClient(client: ClientTransport) {
         throw new CommandError('INVALID_OUTPUT', 'Invalid queue edit receipt')
       return parsed.data
     },
+    async guideQueuedRun(request: QueuedRunGuideInput, idempotencyKey: string): Promise<QueuedRunGuideReceipt> {
+      return commands.execute('queuedRun.guide', request, { idempotencyKey })
+    },
+    async getQueuedRunGuideReceipt(sessionId: string, idempotencyKey: string): Promise<QueuedRunGuideReceipt | null> {
+      const result = await client.call('command.getReceipt', {
+        commandId: 'queuedRun.guide',
+        sessionId,
+        idempotencyKey,
+      })
+      const parsed = queuedRunGuideReceiptSchema.nullable().safeParse(result)
+      if (
+        !parsed.success ||
+        (parsed.data && (parsed.data.sessionId !== sessionId || parsed.data.idempotencyKey !== idempotencyKey))
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Invalid queue guidance receipt')
+      return parsed.data
+    },
   }
 }
 
@@ -178,6 +220,7 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         }
       }
       const deliver = (event: SessionEvent) => {
+        if (event.runId !== operationId && guidedOperationId(event) !== operationId) return
         if (seen.has(event.eventId)) return
         seen.add(event.eventId)
         if (seen.size > 4096) seen.delete(seen.values().next().value!)
@@ -185,7 +228,12 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         emit({ kind: 'event', event })
       }
       const offEvent = client.onEvent((notification) => {
-        if (notification.method !== 'session.event' || notification.params.runId !== operationId || closed) return
+        if (
+          notification.method !== 'session.event' ||
+          (notification.params.runId !== operationId && guidedOperationId(notification.params) !== operationId) ||
+          closed
+        )
+          return
         if (loading) {
           if (pending.length < 2048) pending.push(notification.params)
           else overflow = true
@@ -227,7 +275,9 @@ export function createOperationWatcher(client: OperationWatchTransport) {
           loading = false
           return { initial: { ...initial, events: [], reset: true }, close }
         }
-        for (const event of initial.events) seen.add(event.eventId)
+        for (const event of initial.events) {
+          if (event.runId === operationId || guidedOperationId(event) === operationId) seen.add(event.eventId)
+        }
         loading = false
         for (const event of pending.splice(0)) deliver(event)
         return { initial, close }

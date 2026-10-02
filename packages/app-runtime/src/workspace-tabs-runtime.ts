@@ -591,6 +591,45 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
         sessionId: item.kind === 'session' ? item.sessionId : null,
       }))
   }
+  /** Finish a confirmed empty-draft handoff without moving unrelated tabs or navigating again. */
+  function replaceCapturedSession(source: WorkspaceTabCloseTarget, replacementSessionId: string): void {
+    if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
+    const before = current()
+    const sourceIndex = before.items.findIndex(
+      (item) =>
+        item.kind === 'session' &&
+        item.id === source.id &&
+        item.sessionId === source.sessionId &&
+        item.instanceKey === source.instanceKey,
+    )
+    const replacement = before.items.find((item) => item.kind === 'session' && item.sessionId === replacementSessionId)
+    const nav = options.navigation.getSnapshot()
+    if (
+      sourceIndex < 0 ||
+      !replacement ||
+      source.id === replacement.id ||
+      nav.status !== 'idle' ||
+      nav.sessionId !== replacementSessionId ||
+      nav.workspaceId !== replacement.workspaceId ||
+      selected() !== replacement.id
+    )
+      throw new CommandError('SOURCE_CHANGED', 'The original or replacement Session tab changed')
+    const items = before.items.flatMap((item) => {
+      if (item.id === source.id) return [replacement]
+      if (item.id === replacement.id) return []
+      if (
+        item.kind === 'session' &&
+        item.agentSource?.parentSessionId === source.sessionId &&
+        item.agentSource.sourceTabInstanceKey === source.instanceKey
+      ) {
+        const { agentSource: _discarded, ...withoutSource } = item
+        return [withoutSource]
+      }
+      return [item]
+    })
+    publish({ items, revision: before.revision + 1 })
+    persist()
+  }
   function attachAgentSource(childSessionId: string, childTabInstanceKey: string, origin: AgentChildSource) {
     if (disposed) throw new CommandError('DISPOSED', 'Tabs runtime is disposed')
     const before = current()
@@ -1025,6 +1064,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     ready,
     capture,
     move,
+    replaceCapturedSession,
     closeCaptured,
     attachAgentSource,
     whenIdle: () => writeTail,

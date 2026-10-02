@@ -4,11 +4,32 @@ import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
 import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import { sessionCjkAutolink } from './session-markdown-autolink'
+import { messageFileReferenceLinks } from './message-file-reference-links'
 
 /** Shared by the real Markdown renderer and the non-DOM, loaded-history index. */
 export const sessionMarkdownRemarkPlugins: PluggableList = [remarkGfm]
-export const sessionMarkdownRehypePlugins: PluggableList = [rehypeSanitize]
+export const sessionMarkdownRehypePlugins: PluggableList = [
+  sessionCjkAutolink,
+  messageFileReferenceLinks,
+  [
+    rehypeSanitize,
+    {
+      ...defaultSchema,
+      attributes: {
+        ...defaultSchema.attributes,
+        a: [
+          ...(defaultSchema.attributes?.a ?? []),
+          'dataHbarFilePath',
+          'dataHbarFileLine',
+          'dataHbarFileColumn',
+          'dataHbarFileKind',
+        ],
+      },
+    },
+  ],
+]
 export const sessionMarkdownRehypeOptions = { allowDangerousHtml: true }
 
 export interface SessionFindTextSpan {
@@ -66,6 +87,15 @@ const blocks = new Set([
 const structuralParents = new Set(['root', 'ul', 'ol', 'blockquote', 'section', ...tableParents])
 const htmlWhitespace = /^[\t\n\f\r ]*$/
 
+/** Literal prompts preserve authored whitespace and syntax in both DOM and search. */
+export function projectSessionFindLiteralText(text: string): SessionFindTextProjection {
+  return {
+    text,
+    domText: text,
+    spans: text.length ? [{ start: 0, end: text.length, domStart: 0, domEnd: text.length, kind: 'text' }] : [],
+  }
+}
+
 function generatedFootnoteNavigation(node: Element): boolean {
   return (
     node.properties.dataFootnoteBackref !== undefined ||
@@ -79,7 +109,7 @@ function generatedFootnoteNavigation(node: Element): boolean {
  * deliberately not reused: entities, links, GFM and code all transform them.
  */
 export function projectSessionFindText(markdown: string): SessionFindTextProjection {
-  const tree: Root = processor.runSync(processor.parse(markdown))
+  const tree: Root = processor.runSync(processor.parse(markdown), markdown)
   const text: string[] = []
   const domText: string[] = []
   const spans: SessionFindTextSpan[] = []

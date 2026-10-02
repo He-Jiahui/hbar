@@ -4,6 +4,11 @@ import { artifactSchema, idSchema } from '../index'
 import { workspaceFindResultSchema } from '../workspace-query'
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
+/** A Host-owned session context, never a client-selected filesystem root. */
+export const sessionFileTargetSchema = z.strictObject({
+  sessionId: idSchema,
+  expectedRevision: z.number().int().nonnegative().safe(),
+})
 export const workspaceFileEntrySchema = z.strictObject({
   name: z.string().min(1).max(1024),
   path: z.string().min(1).max(4000),
@@ -15,6 +20,7 @@ export const workspaceFilePageSchema = z.strictObject({
 })
 export const workspaceTextFileSchema = z.strictObject({
   workspaceId: idSchema,
+  sessionTarget: sessionFileTargetSchema.optional(),
   path: z.string().min(1).max(4000),
   text: z.string().max(2 * 1024 * 1024),
   size: z
@@ -26,6 +32,7 @@ export const workspaceTextFileSchema = z.strictObject({
 })
 export const workspaceFileWriteSchema = z.strictObject({
   workspaceId: idSchema,
+  sessionTarget: sessionFileTargetSchema.optional(),
   path: z.string().min(1).max(4000),
   created: z.boolean(),
   beforeSha256: sha256Schema.nullable(),
@@ -70,6 +77,7 @@ export const fileCommands = {
         arguments: [
           { field: 'query', type: 'string' as const, position: 0 },
           { field: 'workspaceId', type: 'string' as const, flag: 'workspace' },
+          { field: 'sessionTarget', type: 'json' as const, flag: 'session-target-json' },
           { field: 'path', type: 'string' as const, flag: 'path' },
           { field: 'limit', type: 'number' as const, flag: 'limit' },
         ],
@@ -77,6 +85,7 @@ export const fileCommands = {
     },
     z.strictObject({
       workspaceId: idSchema,
+      sessionTarget: sessionFileTargetSchema.optional(),
       query: z.string().trim().min(1).max(160),
       path: z.string().max(4000).default('.'),
       limit: z.number().int().min(1).max(200).default(50),
@@ -90,6 +99,7 @@ export const fileCommands = {
         arguments: [
           { field: 'path', type: 'string' as const, position: 0 },
           { field: 'workspaceId', type: 'string' as const, flag: 'workspace' },
+          { field: 'sessionTarget', type: 'json' as const, flag: 'session-target-json' },
           { field: 'after', type: 'string' as const, flag: 'after' },
           { field: 'limit', type: 'number' as const, flag: 'limit' },
         ],
@@ -97,6 +107,7 @@ export const fileCommands = {
     },
     z.strictObject({
       workspaceId: idSchema,
+      sessionTarget: sessionFileTargetSchema.optional(),
       path: z.string().max(4000).default('.'),
       after: z.string().min(1).max(4000).optional(),
       limit: z.number().int().min(1).max(500).default(200),
@@ -110,10 +121,15 @@ export const fileCommands = {
         arguments: [
           { field: 'path', type: 'string' as const, position: 0 },
           { field: 'workspaceId', type: 'string' as const, flag: 'workspace' },
+          { field: 'sessionTarget', type: 'json' as const, flag: 'session-target-json' },
         ],
       },
     },
-    z.strictObject({ workspaceId: idSchema, path: z.string().min(1).max(4000) }),
+    z.strictObject({
+      workspaceId: idSchema,
+      sessionTarget: sessionFileTargetSchema.optional(),
+      path: z.string().min(1).max(4000),
+    }),
     workspaceTextFileSchema,
   ),
   'file.write': defineCommand(
@@ -123,6 +139,7 @@ export const fileCommands = {
         arguments: [
           { field: 'path', type: 'string' as const, position: 0 },
           { field: 'workspaceId', type: 'string' as const, flag: 'workspace' },
+          { field: 'sessionTarget', type: 'json' as const, flag: 'session-target-json' },
           { field: 'text', type: 'string' as const, flag: 'text' },
           { field: 'expectedSha256', type: 'string' as const, flag: 'expected-sha256' },
         ],
@@ -130,6 +147,7 @@ export const fileCommands = {
     },
     z.strictObject({
       workspaceId: idSchema,
+      sessionTarget: sessionFileTargetSchema.optional(),
       path: z.string().min(1).max(4000),
       text: z.string().max(2 * 1024 * 1024),
       expectedSha256: sha256Schema.nullable(),
@@ -171,5 +189,6 @@ export const attachmentCommands = {
 }
 
 export type WorkspaceTextFile = z.output<typeof workspaceTextFileSchema>
+export type SessionFileTarget = z.output<typeof sessionFileTargetSchema>
 export type WorkspaceFileWrite = z.output<typeof workspaceFileWriteSchema>
 export type AttachmentUploadInput = z.output<typeof attachmentUploadInputSchema>

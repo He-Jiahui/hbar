@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarComposerAddMenu, HbarPreSessionApprovalPicker } from '@hbar/app-react'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab add menu offers only the supported localized Goal action: ${locale}`, () => {
@@ -40,9 +39,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain('hbar-composer-add-goal-slot')
   })
 
-  test(`Plan conflict is explained in the no-tab Goal menu: ${locale}`, () => {
+  test(`no-tab Goal menu keeps its independent action in Plan setup: ${locale}`, () => {
     const copy = getShellCopy(locale)
-    const blocked = preSessionCopy(locale).goalPlanConflict
+    const goalLabel = copy.session.intent.goalMenu
     const html = renderToStaticMarkup(
       <HbarComposerAddMenu
         labels={copy.session.addMenu}
@@ -51,26 +50,22 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         showSlash={false}
         onOpenSlash={() => undefined}
         goalAction={{
-          label: copy.session.intent.goalMenu,
-          disabled: true,
-          disabledHint: blocked,
+          label: goalLabel,
           onChoose: () => undefined,
         }}
       />,
     )
-    expect(html).toContain(blocked)
-    expect(html).toContain('disabled=""')
+    expect(html).toContain(goalLabel)
+    expect(html).not.toMatch(/class="hbar-composer-add-item hbar-composer-add-goal"[^>]*disabled=""/)
   })
 
-  test(`prepared Goal explains why no-tab Plan is unavailable: ${locale}`, () => {
+  test(`prepared Goal keeps no-tab Plan available with its normal execution description: ${locale}`, () => {
     const copy = getShellCopy(locale)
-    const blocked = preSessionCopy(locale).planGoalConflict
     const html = renderToStaticMarkup(
       <HbarPreSessionApprovalPicker
         choice="inherit"
         planMode="default"
         planAvailable
-        planBlockedReason={blocked}
         hostDefault={null}
         sessionLabel={copy.preSession.hero.title}
         labels={copy.session.permissionPicker}
@@ -78,7 +73,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         onPlanMode={async () => undefined}
       />,
     )
-    expect(html).toContain(blocked)
-    expect(html).toMatch(/data-choice="plan"[^>]*disabled=""/)
+    expect(html).toContain(copy.session.permissionPicker.plan.description)
+    expect(html).not.toMatch(/data-choice="plan"[^>]*disabled=""/)
   })
 }

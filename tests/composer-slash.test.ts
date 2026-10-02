@@ -6,6 +6,7 @@ import {
   localGoalSlash,
   slashMatches,
   slashTokenAt,
+  shouldSubmitExactSlashOnSend,
 } from '../packages/app-react/src/composer-slash'
 
 test('only entire supported local command is intercepted, preserving ordinary Run text', () => {
@@ -32,10 +33,29 @@ test('only entire supported local command is intercepted, preserving ordinary Ru
   ])
     expect(localSlashCommand(text, available)).toBeNull()
   expect(localSlashCommand('/model', [])).toBeNull()
-  expect(localSlashCommand('/agent explore Review this', [...available, 'agent'])).toBe('agent')
-  expect(localSlashCommand('/agent debugger investigate', [...available, 'agent'])).toBe('agent')
-  expect(localSlashCommand('/agent', [...available, 'agent'])).toBe('agent')
+  expect(localSlashCommand('/agent explore Review this', [...available, 'agent'])).toBeNull()
+  expect(localSlashCommand('/agent debugger investigate', [...available, 'agent'])).toBeNull()
+  expect(localSlashCommand('/agent', [...available, 'agent'])).toBeNull()
   expect(localSlashCommand('Explain /agent explore', [...available, 'agent'])).toBeNull()
+})
+
+test('only an exact selected allowlisted slash uses the configured send shortcut', () => {
+  const exact = {
+    text: '/model',
+    activeTerm: 'model',
+    selectedCommand: 'model',
+    availableCommands: ['model', 'settings'],
+    submitCommands: ['model', 'settings'],
+    sendShortcut: true,
+  } as const
+  expect(shouldSubmitExactSlashOnSend(exact)).toBe(true)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, sendShortcut: false })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, text: '/mo', activeTerm: 'mo' })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, text: 'Review /model' })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, activeTerm: 'mo' })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, availableCommands: ['settings'] })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, submitCommands: ['settings'] })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...exact, selectedCommand: undefined })).toBe(false)
 })
 
 test('Agent slash requires a type and a nonempty exact objective', () => {

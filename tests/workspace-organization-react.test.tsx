@@ -5,6 +5,8 @@ import { HbarRuntimeProvider, HbarWorkspaceShell } from '@hbar/app-react'
 import { WorkspaceOrganizationFeedback } from '../packages/app-react/src/workspace-organization'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
+import { sessionActivityListInputSchema } from '@hbar/contracts/directory'
+import { workspaceSidebarListInputSchema } from '@hbar/contracts/sidebar-directory'
 
 const first = {
   id: 'organization-A',
@@ -30,6 +32,37 @@ async function shell(hidden: string[], locale: ShellLocale) {
     hostId: 'confirmed-fixture-host',
     directory: {
       async execute(id, input) {
+        if (id === 'workspace.sidebar.list') {
+          const target = workspaceSidebarListInputSchema.parse(input)
+          const visible = [first, second].filter((workspace) => !hidden.includes(workspace.id))
+          const item = (workspace: typeof first) => ({
+            workspace,
+            displayName: workspace.name,
+            latestSessionCreatedAt: workspace.id === first.id ? session.createdAt : null,
+            latestSessionUpdatedAt: workspace.id === first.id ? session.updatedAt : null,
+          })
+          return {
+            displayNamesRevision: 0,
+            organizationRevision: 3,
+            revision: 1,
+            items: visible.map(item),
+            includedItems: [first, second]
+              .filter((workspace) => target.includeWorkspaceIds?.includes(workspace.id))
+              .map(item),
+            nextCursor: null,
+          }
+        }
+        if (id === 'session.sidebar.list') {
+          const target = sessionActivityListInputSchema.parse(input)
+          return {
+            revision: 1,
+            items:
+              target.workspaceId === first.id
+                ? [{ session, execution: { state: 'idle', activeCount: 0, queuedCount: 0 } }]
+                : [],
+            nextCursor: null,
+          }
+        }
         if (id === 'workspace.list') return { items: [first, second], nextCursor: null }
         if (id === 'workspace.get') {
           const target =
@@ -51,10 +84,13 @@ async function shell(hidden: string[], locale: ShellLocale) {
     },
   })
   try {
+    await runtime.ready
     await runtime.view.commands.execute('workspace.list', { limit: 100 })
     await runtime.view.commands.execute('session.list', { workspaceId: first.id, limit: 100 })
     await runtime.view.commands.execute('app.setSession', { workspaceId: first.id, sessionId: session.id })
     await runtime.view.commands.execute('workspaceSidebar.refresh', {})
+    await runtime.view.commands.execute('workspaceActivity.refresh', {})
+    await runtime.view.commands.execute('workspaceActivity.refresh', { workspaceId: first.id })
     const before = runtime.view.state.navigation.getSnapshot()
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
@@ -88,7 +124,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const zero = await shell([], locale)
     expect(zero).toContain(`data-workspace-id="${first.id}"`)
     expect(zero).toContain(`data-workspace-id="${second.id}"`)
-    expect(zero).toContain(labels.menu)
+    expect(zero).toContain(getShellCopy(locale).shell.sort.menu)
     expect(zero).not.toContain(labels.restore(0))
     const one = await shell([first.id], locale)
     expect(one).not.toContain(`data-workspace-id="${first.id}"`)

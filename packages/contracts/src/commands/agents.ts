@@ -16,6 +16,18 @@ export const agentStatusSchema = z.enum([
 ])
 export const agentProfileIdSchema = z.enum(['explore'])
 export type AgentProfileId = z.output<typeof agentProfileIdSchema>
+/** Persisted model-tool output identity; navigation must recheck the current Agent record. */
+export const agentToolResultSchema = z.strictObject({
+  agentId: idSchema,
+  parentSessionId: idSchema,
+  sessionId: idSchema,
+  requestId: idSchema,
+  profileId: agentProfileIdSchema,
+  objective: z.string().min(1).max(4_000),
+  modelId: idSchema,
+  status: agentStatusSchema,
+})
+export type AgentToolResult = z.output<typeof agentToolResultSchema>
 /** Host-advertised invocation types; the bare Agent form also supports an unprofiled general child. */
 export const agentProfileCatalogSchema = z.array(agentProfileIdSchema).max(32)
 export const agentRecordSchema = z.strictObject({

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
 import { gitInfoSchema, idSchema } from '@hbar/contracts'
+import { sessionLaunchTargetSchema } from '@hbar/contracts/commands/session-launch-target'
+import type { SessionLaunchTargetReader } from '@hbar/contracts/commands/session-launch-target'
 import { createState, type StateReader } from './state'
 import type { DirectoryState, NavigationState } from './types'
 
@@ -49,6 +51,29 @@ function code(error: unknown): string {
     : 'EXECUTION_FAILED'
 }
 
+/** A joining observer may leave without cancelling the owner or retaining query capacity. */
+function waitForRefresh(pending: Promise<void>, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => signal.removeEventListener('abort', cancel)
+    const cancel = () => {
+      cleanup()
+      reject(new CommandError('CANCELLED', 'Git context observation was cancelled'))
+    }
+    signal.addEventListener('abort', cancel, { once: true })
+    void pending.then(
+      () => {
+        cleanup()
+        resolve()
+      },
+      (error: unknown) => {
+        cleanup()
+        reject(error)
+      },
+    )
+    if (signal.aborted) cancel()
+  })
+}
+
 export function createSessionGitContext(
   local: CommandRegistry,
   git: CommandExecutor | undefined,
@@ -56,6 +81,7 @@ export function createSessionGitContext(
   directory: StateReader<DirectoryState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  launchTargets?: SessionLaunchTargetReader,
 ) {
   const current = navigation.getSnapshot()
   const state = createState<SessionGitContextState>(
@@ -112,7 +138,7 @@ export function createSessionGitContext(
       throw new CommandError('STALE_TARGET', 'Git context no longer belongs to this session')
     if (execution.signal.aborted) throw new CommandError('CANCELLED', 'Git context refresh was cancelled')
     if (pending) {
-      await pending.promise
+      await waitForRefresh(pending.promise, execution.signal)
       return input
     }
     const controller = new AbortController()
@@ -140,11 +166,30 @@ export function createSessionGitContext(
       branch: null,
       error: null,
     })
-    const promise = (async () => {
+    // Publish the owner before invoking a port that can throw synchronously.
+    // Otherwise its finally runs before pending is assigned and pins a failed read.
+    const promise = Promise.resolve().then(async () => {
       try {
-        if (!git) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git context is unavailable')
+        if (!selectedStillCurrent()) throw new CommandError('STALE_TARGET', 'Git context changed before its read')
+        if (!git || !launchTargets)
+          throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Git context is unavailable')
+        const target = sessionLaunchTargetSchema.safeParse(
+          await launchTargets.read(input.sessionId, { signal: controller.signal }),
+        )
+        if (
+          !target.success ||
+          target.data.sessionId !== input.sessionId ||
+          target.data.workspaceId !== input.workspaceId
+        )
+          throw new CommandError('INVALID_OUTPUT', 'Session launch-target response does not belong to this Git context')
+        if (!selectedStillCurrent())
+          throw new CommandError('STALE_TARGET', 'Git context changed while resolving its target')
         const response = gitInfoSchema.safeParse(
-          await git.execute('git.info', { cwd: workspacePath }, { signal: controller.signal }),
+          await git.execute(
+            'sessionGit.info',
+            { workspaceId: input.workspaceId, sessionId: input.sessionId, expectedRevision: target.data.revision },
+            { signal: controller.signal },
+          ),
         )
         if (!response.success) throw new CommandError('INVALID_OUTPUT', 'Git context response is invalid')
         if (selectedStillCurrent())
@@ -158,7 +203,7 @@ export function createSessionGitContext(
         execution.signal.removeEventListener('abort', abort)
         release(controller)
       }
-    })()
+    })
     pending = { controller, promise }
     await promise
     return input

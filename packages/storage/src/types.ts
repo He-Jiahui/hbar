@@ -14,8 +14,12 @@ import type {
   UserInput,
   Workspace,
   WorkspaceListInput,
+  WorkspaceActivityListInput,
+  SessionActivityListInput,
   SessionListInput,
   WorkspacePage,
+  WorkspaceActivityPage,
+  SessionActivityPage,
   SessionPage,
 } from '@hbar/contracts'
 import type {
@@ -25,6 +29,10 @@ import type {
   QueuedRunEditableInput,
   QueuedRunEditTextInput,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  RunSteeringReadInput,
+  RunSteeringReadResult,
   QueuedRunRemoveInput,
   QueuedRunRemoveReceipt,
   RunCommandRecord,
@@ -49,6 +57,26 @@ import type {
   WorkspaceDisplayNamesReceipt,
   WorkspaceDisplayNamesSnapshot,
 } from '@hbar/contracts/commands/workspace-display-names'
+import type {
+  SessionActivityGlobalListInput,
+  SessionActivityGlobalPage,
+  WorkspaceSidebarListInput,
+  WorkspaceSidebarPage,
+  SessionSidebarPage,
+  SessionExecutionGetInput,
+  SessionExecutionSnapshot,
+} from '@hbar/contracts/sidebar-directory'
+import type {
+  SessionLaunchTarget,
+  SessionLaunchSelection,
+  SessionLaunchTargetResolution,
+  SessionLaunchTargetSetInput,
+  SessionLaunchTargetSetReceipt,
+  SessionLaunchTargetPreparationStartInput,
+  SessionLaunchTargetPreparationStartReceipt,
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+} from '@hbar/contracts/commands/session-launch-target'
 
 export interface WorkspaceOrganizationMutationInput {
   actorId: string
@@ -60,6 +88,86 @@ export interface WorkspaceDisplayNamesMutationInput {
   actorId: string
   idempotencyKey: string
   request: WorkspaceDisplayNamesApplyInput
+}
+
+export interface SessionLaunchTargetMutationInput extends SessionLaunchTargetSetInput {
+  actorId: string
+  idempotencyKey: string
+}
+
+export interface SessionLaunchTargetReceiptLookup {
+  actorId: string
+  idempotencyKey: string
+  sessionId: string
+}
+
+export interface SessionLaunchTargetPreparationInput {
+  sessionId: string
+  expectedRevision: number
+  selection: SessionLaunchSelection
+  targetPath: string
+  branch: string | null
+  requestedHead: string | null
+}
+
+export interface SessionLaunchTargetPreparationUpdate {
+  sessionId: string
+  revision: number
+  targetPath: string
+  state: Exclude<SessionLaunchTargetResolution['status'], 'idle'>
+  resolvedHead?: string | null
+  errorCode?: string
+  errorMessage?: string
+}
+
+interface SessionLaunchTargetBindingFields {
+  sessionId: string
+  expectedRevision: number
+  selection: SessionLaunchSelection
+  targetPath: string
+  branch: string | null
+  head: string | null
+}
+
+/** Internal Host-only binding; the absolute path is never part of a public command result. */
+export interface SessionLaunchTargetBindingInput extends SessionLaunchTargetBindingFields {
+  /** Require the exact prepared resolution in the same transaction that accepts a Run. */
+  requirePreparedTarget?: true
+}
+
+export interface SessionLaunchTargetResolutionRecord extends SessionLaunchTargetPreparationInput {
+  state: Exclude<SessionLaunchTargetResolution['status'], 'idle' | 'ready'> | 'ready'
+  resolvedHead: string | null
+  errorCode: string | null
+  errorMessage: string | null
+  updatedAt: number
+}
+
+export interface SessionLaunchTargetBinding extends SessionLaunchTargetBindingFields {
+  boundRunId: string
+  boundAt: number
+}
+
+export interface SessionLaunchTargetRuntimeSnapshot {
+  target: SessionLaunchTarget
+  resolution: SessionLaunchTargetResolutionRecord | null
+  binding: SessionLaunchTargetBinding | null
+}
+
+export interface SessionLaunchTargetPreparationStartMutationInput extends SessionLaunchTargetPreparationStartInput {
+  actorId: string
+  idempotencyKey: string
+}
+
+export type SessionLaunchTargetPreparationOperationRecord = SessionLaunchTargetPreparationSnapshot & {
+  selection: SessionLaunchSelection
+  cancellationRequested: boolean
+}
+
+export interface SessionLaunchTargetPreparationOperationTransitionInput extends SessionLaunchTargetPreparationOperationInput {
+  expectedOperationVersion: number
+  status: SessionLaunchTargetPreparationSnapshot['status']
+  error: { code: string; message: string } | null
 }
 
 export interface StoredSettingsLayer {
@@ -123,6 +231,18 @@ export interface ForkableMessagesResult {
   }[]
 }
 
+export interface GuideQueuedRunMutationInput {
+  actorId: string
+  idempotencyKey: string
+  request: QueuedRunGuideInput
+}
+
+export interface GuideQueuedRunResult {
+  receipt: QueuedRunGuideReceipt
+  event: SessionEvent
+  message: Message
+}
+
 export interface StorageMethods {
   ready(): { version: number }
   searchIndexStatus(): { complete: boolean }
@@ -132,6 +252,12 @@ export interface StorageMethods {
   createWorkspace(path: string, name: string): Workspace
   workspaces(): Workspace[]
   workspacePage(input: WorkspaceListInput): WorkspacePage
+  workspaceSidebarPage(input: WorkspaceSidebarListInput): WorkspaceSidebarPage
+  globalSessionActivityPage(input: SessionActivityGlobalListInput): SessionActivityGlobalPage
+  sessionExecutionSnapshot(input: SessionExecutionGetInput): SessionExecutionSnapshot
+  workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActivityPage
+  sessionActivityPage(input: SessionActivityListInput): SessionActivityPage
+  sidebarSessionActivityPage(input: SessionActivityListInput): SessionSidebarPage
   sessionPage(input: SessionListInput): SessionPage
   findWorkspace(id: string): Workspace | null
   workspaceOrganization(): WorkspaceOrganizationSnapshot
@@ -147,6 +273,30 @@ export interface StorageMethods {
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
+  sessionLaunchTarget(sessionId: string): SessionLaunchTarget
+  sessionLaunchTargetRuntime(sessionId: string): SessionLaunchTargetRuntimeSnapshot
+  sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
+  activeSharedCheckoutPaths(): string[]
+  setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
+  sessionLaunchTargetReceipt(input: SessionLaunchTargetReceiptLookup): SessionLaunchTargetSetReceipt | null
+  startSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationStartMutationInput,
+  ): SessionLaunchTargetPreparationStartReceipt
+  sessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): SessionLaunchTargetPreparationSnapshot
+  sessionLaunchTargetPreparationRecord(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): SessionLaunchTargetPreparationOperationRecord
+  pendingSessionLaunchTargetPreparations(): SessionLaunchTargetPreparationOperationRecord[]
+  requestSessionLaunchTargetPreparationCancellation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): SessionLaunchTargetPreparationSnapshot
+  transitionSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationTransitionInput,
+  ): SessionLaunchTargetPreparationSnapshot
+  beginSessionLaunchTargetPreparation(input: SessionLaunchTargetPreparationInput): SessionLaunchTargetResolutionRecord
+  updateSessionLaunchTargetPreparation(input: SessionLaunchTargetPreparationUpdate): SessionLaunchTargetResolutionRecord
   updateSession(
     id: string,
     update: { title?: string; archived?: boolean; expectedTitle?: string },
@@ -172,6 +322,11 @@ export interface StorageMethods {
     event: SessionEvent
   }
   queuedRunEditTextReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunEditTextReceipt | null
+  openRunSteering(sessionId: string, runId: string): void
+  closeRunSteering(sessionId: string, runId: string): void
+  readRunSteering(input: RunSteeringReadInput): RunSteeringReadResult
+  guideQueuedRun(input: GuideQueuedRunMutationInput): GuideQueuedRunResult
+  queuedRunGuideReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunGuideReceipt | null
   removeQueuedRun(input: { actorId: string; idempotencyKey: string; request: QueuedRunRemoveInput }): {
     receipt: QueuedRunRemoveReceipt
     event: SessionEvent
@@ -190,6 +345,7 @@ export interface StorageMethods {
     input: UserInput,
     modelId: string,
     command?: RunCommandRecord,
+    launchTarget?: SessionLaunchTargetBindingInput,
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null

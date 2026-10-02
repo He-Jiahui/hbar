@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
-import { Check, Circle, MessageSquare } from 'lucide-react'
+import { Check, Circle, Folder, MessageSquare } from 'lucide-react'
 import type { DirectoryState } from '@hbar/app-runtime'
 import {
   LumenActionMenu,
@@ -12,6 +12,7 @@ import {
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
+import { SessionActivityIndicator, type SessionActivityIndicatorContent } from './session-activity-indicator'
 
 export interface SessionRenameLabels {
   readonly form: (title: string) => string
@@ -36,6 +37,11 @@ export interface SessionNavigationRowLabels {
   readonly archiveSession: string
   readonly archive: SessionArchiveLabels
   readonly renameEditor: SessionRenameLabels
+}
+
+export interface SessionNavigationRowMetadata {
+  readonly workspaceName: string
+  readonly execution: SessionActivityIndicatorContent
 }
 
 /** A filtered/removed row must not make its pending intent impossible to resolve. */
@@ -100,6 +106,8 @@ export function SessionNavigationRow({
   batchSelected = false,
   onToggleBatchSelection,
   onExitBatchSelection,
+  metadata,
+  execution,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
@@ -111,6 +119,8 @@ export function SessionNavigationRow({
   readonly batchSelected?: boolean
   readonly onToggleBatchSelection?: () => void
   readonly onExitBatchSelection?: () => void
+  readonly metadata?: SessionNavigationRowMetadata | undefined
+  readonly execution?: SessionActivityIndicatorContent | undefined
 }) {
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
@@ -133,6 +143,60 @@ export function SessionNavigationRow({
   const wasEditing = useRef(false)
   const restoreFocus = useRef(false)
   const copy = labels.renameEditor
+  const sessionTime =
+    own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
+      <LumenText role="status" size="s" tone="subtle" className="hbar-app-react-session-time">
+        {copy.saved}
+      </LumenText>
+    ) : (
+      <LumenText
+        as="time"
+        className="hbar-app-react-session-time"
+        dateTime={
+          Number.isSafeInteger(session.updatedAt) &&
+          session.updatedAt >= 0 &&
+          session.updatedAt <= 8_640_000_000_000_000
+            ? new Date(session.updatedAt).toISOString()
+            : undefined
+        }
+        title={labels.sessionUpdatedAtFull(session.updatedAt)}
+      >
+        {labels.sessionUpdatedAt(session.updatedAt, now)}
+      </LumenText>
+    )
+  const openActions = (): boolean => {
+    if (batchSelecting || editing || archiving) return false
+    const menu = row.current?.querySelector<HTMLDetailsElement>('details.lumen-action-menu')
+    if (!menu) return false
+    menu.open = true
+    queueMicrotask(() => menu.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus())
+    return true
+  }
+  useEffect(() => {
+    const owner = row.current
+    if (!owner) return
+    let removeOutside = () => {}
+    const toggled = (event: Event) => {
+      if (!(event.target instanceof HTMLDetailsElement) || !event.target.matches('details.lumen-action-menu')) return
+      removeOutside()
+      const menu = event.target
+      if (!menu.open) return
+      const document = owner.ownerDocument
+      const dismiss = (pointer: PointerEvent) => {
+        if (pointer.target instanceof Node && !menu.contains(pointer.target)) {
+          menu.open = false
+          removeOutside()
+        }
+      }
+      document.addEventListener('pointerdown', dismiss, true)
+      removeOutside = () => document.removeEventListener('pointerdown', dismiss, true)
+    }
+    owner.addEventListener('toggle', toggled, true)
+    return () => {
+      removeOutside()
+      owner.removeEventListener('toggle', toggled, true)
+    }
+  }, [])
   const invoke = (operation: 'submit' | 'cancel' | 'reconcile') => {
     void runtime.commands
       .execute(`sessionRename.${operation}`, { sessionId: session.id, revision: rename.revision })
@@ -162,7 +226,19 @@ export function SessionNavigationRow({
       data-batch-selected={batchSelected || undefined}
       data-session-id={session.id}
       data-editing={editing || undefined}
+      onContextMenu={(event) => {
+        if (event.target instanceof Element && event.target.closest('details, input, textarea')) return
+        if (openActions()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+      }}
       onKeyDown={(event) => {
+        if ((event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) && openActions()) {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
         if (event.key === 'Escape' && batchSelecting && onExitBatchSelection) {
           event.preventDefault()
           event.stopPropagation()
@@ -260,30 +336,43 @@ export function SessionNavigationRow({
             title={session.title}
             onClick={batchSelecting && onToggleBatchSelection ? onToggleBatchSelection : onOpen}
           >
-            <LumenIcon icon={batchSelecting ? (batchSelected ? Check : Circle) : MessageSquare} tier="sm" />
-            <LumenText as="span" className="hbar-app-react-session-label">
-              <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
-                {session.title}
-              </LumenText>
-              {own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
-                <LumenText as="span" role="status" size="s" tone="subtle" className="hbar-app-react-session-time">
-                  {copy.saved}
-                </LumenText>
+            {(batchSelecting || !metadata) && (
+              <LumenIcon icon={batchSelecting ? (batchSelected ? Check : Circle) : MessageSquare} tier="sm" />
+            )}
+            <LumenText
+              as="span"
+              className="hbar-app-react-session-label"
+              data-has-metadata={metadata ? 'true' : undefined}
+            >
+              {metadata ? (
+                <>
+                  <span className="hbar-app-react-session-main-line">
+                    <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
+                      {session.title}
+                    </LumenText>
+                    {sessionTime}
+                    <SessionActivityIndicator execution={metadata.execution} />
+                  </span>
+                  <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
+                    <LumenIcon icon={Folder} tier="sm" />
+                    <LumenText
+                      as="span"
+                      size="s"
+                      variant="supporting"
+                      className="hbar-app-react-session-workspace-label"
+                    >
+                      {metadata.workspaceName}
+                    </LumenText>
+                  </LumenText>
+                </>
               ) : (
-                <LumenText
-                  as="time"
-                  className="hbar-app-react-session-time"
-                  dateTime={
-                    Number.isSafeInteger(session.updatedAt) &&
-                    session.updatedAt >= 0 &&
-                    session.updatedAt <= 8_640_000_000_000_000
-                      ? new Date(session.updatedAt).toISOString()
-                      : undefined
-                  }
-                  title={labels.sessionUpdatedAtFull(session.updatedAt)}
-                >
-                  {labels.sessionUpdatedAt(session.updatedAt, now)}
-                </LumenText>
+                <>
+                  <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
+                    {session.title}
+                  </LumenText>
+                  <SessionActivityIndicator execution={execution} />
+                  {sessionTime}
+                </>
               )}
             </LumenText>
           </LumenNavigationButton>

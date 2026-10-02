@@ -3,6 +3,7 @@ import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import { directoryCommands } from '@hbar/contracts/commands'
+import type { PromptAttachment } from '@hbar/contracts/commands/draft'
 import { addComposerAttachments } from '../packages/app-react/src/composer-attachment-input'
 
 const descriptor: AttachmentUploadInput = {
@@ -428,3 +429,53 @@ test('an accepted Run is a new generation: late artifact waits for explicit acce
     runtime.dispose()
   }
 })
+
+for (const fileFirst of [true, false]) {
+  test(`an accepted mixed-material Run clears the matching draft (${fileFirst ? 'file then image' : 'image then file'})`, async () => {
+    const image = { id: 'b'.repeat(64), name: 'reference.png', mime: 'image/png', size: 8 }
+    const fileAttachment: PromptAttachment = { kind: 'file', artifact }
+    const imageAttachment: PromptAttachment = { kind: 'image', artifact: image }
+    const runtime = createAppRuntime({
+      instanceId: crypto.randomUUID(),
+      hostId: 'host',
+      directory,
+      run: {
+        async execute(_command, _input, options) {
+          return {
+            status: 'accepted',
+            commandId: 'run.submit',
+            commandVersion: 1,
+            requestId: 'request',
+            idempotencyKey: options?.idempotencyKey,
+            operationId: 'mixed-material-run',
+            sessionId: 'one',
+            acceptedAt: 1,
+          }
+        },
+        async getReceipt() {
+          return null
+        },
+      },
+    })
+    try {
+      await runtime.view.commands.execute('draft.setText', { sessionId: 'one', text: 'Review both materials' })
+      await runtime.view.commands.execute('draft.setAttachments', {
+        sessionId: 'one',
+        attachments: fileFirst ? [fileAttachment, imageAttachment] : [imageAttachment, fileAttachment],
+      })
+      await runtime.view.commands.execute('run.submit', {
+        sessionId: 'one',
+        modelId: 'model',
+        input: { text: 'Review both materials', images: [image], files: [artifact] },
+      })
+      expect(runtime.view.state.drafts.getSnapshot().one).toMatchObject({
+        text: '',
+        attachments: [],
+        status: 'idle',
+        lastOperationId: 'mixed-material-run',
+      })
+    } finally {
+      runtime.dispose()
+    }
+  })
+}

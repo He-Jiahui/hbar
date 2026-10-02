@@ -1,6 +1,7 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import {
   HbarError,
+  providerModelSelectionId,
   providerInputSchema,
   providerSchema,
   type ProviderConfig,
@@ -8,6 +9,8 @@ import {
   type ThinkingLevel,
 } from '@hbar/contracts'
 import { providerEditorCommands } from '@hbar/contracts/commands/provider-editor'
+import { modelCommands, type ModelDescriptor } from '@hbar/contracts/commands/models'
+import { settingsCommands, type SettingsApplyInput, type SettingsReceipt } from '@hbar/contracts/commands/settings'
 import {
   configurationCommands,
   type ProviderEditorDescription,
@@ -26,6 +29,7 @@ import {
   SchemaError,
   setField,
   settleSubmit,
+  encodePath,
   type FormState,
   type Submission,
 } from '@hbar/schema-core'
@@ -36,12 +40,64 @@ import type {
   ProviderEditorDraftIssue,
   ProviderEditorDraftModel,
   ProviderEditorState,
+  ProviderGlobalDefaultState,
   ProviderPresetCatalogState,
+  ProviderSettingsProfile,
   ProviderSettingsState,
   RuntimeOptions,
   SettingsWorkspaceState,
   SurfaceState,
 } from './types'
+
+const GLOBAL_MODEL_PATH: SettingsApplyInput['changes'][number]['path'] = [{ kind: 'field', name: 'provider.model' }]
+const GLOBAL_MODEL_KEY = encodePath(GLOBAL_MODEL_PATH)
+const GLOBAL_SETTINGS_SCOPE = { kind: 'global' } as const
+
+interface PendingGlobalDefault {
+  readonly settingsFormId: string
+  readonly providerId: string
+  readonly modelSelectionId: string
+  readonly key: string
+  readonly input: SettingsApplyInput
+  readonly profiles: readonly ProviderSettingsProfile[]
+  readonly catalog: readonly ModelDescriptor[]
+}
+
+function globalDefaultState(
+  modelSelectionId: string | null,
+  profiles: readonly ProviderSettingsProfile[],
+  catalog: readonly ModelDescriptor[],
+): ProviderGlobalDefaultState {
+  const selectedModel = modelSelectionId ? catalog.find((model) => model.id === modelSelectionId) : undefined
+  let selectedProfileModel:
+    { readonly profile: ProviderSettingsProfile; readonly model: ProviderConfig['models'][number] } | undefined
+  if (modelSelectionId) {
+    for (const profile of profiles) {
+      const model = profile.provider.models.find(
+        (candidate) => providerModelSelectionId(profile.provider, candidate.id) === modelSelectionId,
+      )
+      if (model) {
+        selectedProfileModel = { profile, model }
+        break
+      }
+    }
+  }
+  const catalogMatchesProfile =
+    Boolean(selectedModel && selectedProfileModel) &&
+    selectedModel?.providerId === selectedProfileModel?.profile.provider.id &&
+    selectedModel?.modelId === selectedProfileModel?.model.id
+  const available = modelSelectionId === null || catalogMatchesProfile
+  return {
+    status: available ? 'ready' : 'unavailable',
+    modelSelectionId,
+    providerId: selectedProfileModel?.profile.provider.id ?? selectedModel?.providerId ?? null,
+    providerName: selectedProfileModel?.profile.provider.name ?? selectedModel?.providerName ?? null,
+    modelId: selectedProfileModel?.model.id ?? selectedModel?.modelId ?? null,
+    modelName: selectedProfileModel?.model.name ?? selectedModel?.modelName ?? null,
+    selectable: Boolean(catalogMatchesProfile),
+    error: null,
+  }
+}
 
 interface PendingProviderSave {
   readonly submission: Submission
@@ -390,20 +446,50 @@ export function createProviderSettings(
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
   onModelsChanged?: () => void,
+  onSettingsCommitted?: (input: SettingsApplyInput) => Promise<void>,
 ) {
   const state = createState<ProviderSettingsState>(
-    { status: 'idle', description: null, listSchema: null, list: null, profiles: {}, editor: null, error: null },
+    {
+      status: 'idle',
+      description: null,
+      listSchema: null,
+      list: null,
+      profiles: {},
+      globalDefault: {
+        status: 'idle',
+        modelSelectionId: null,
+        providerId: null,
+        providerName: null,
+        modelId: null,
+        modelName: null,
+        selectable: false,
+        error: null,
+      },
+      globalDefaultAction: { status: 'idle', providerId: null, modelSelectionId: null, error: null },
+      editor: null,
+      error: null,
+    },
     onSubscriberError,
   )
   const pending = new Map<string, PendingProviderSave>()
+  let pendingGlobalDefault: PendingGlobalDefault | null = null
   const secretDrafts = new Map<string, string>()
   let generation = 0
   let presetGeneration = 0
+  let globalDefaultGeneration = 0
 
   const port = () => {
     if (!options.configuration)
       throw new CommandError('CAPABILITY_UNAVAILABLE', 'Provider configuration commands are unavailable')
     return options.configuration
+  }
+  const settingsPort = () => {
+    if (!options.settings) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Settings commands are unavailable')
+    return options.settings
+  }
+  const modelsPort = () => {
+    if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model catalog commands are unavailable')
+    return options.models
   }
   const replace = (next: ProviderSettingsState): void => {
     if (!isDisposed()) state.replace(next)
@@ -422,6 +508,31 @@ export function createProviderSettings(
       void local.execute('settingsForm.refreshContent', { formId }).catch(onSubscriberError)
     }
   }
+  const refreshCleanGlobalSettingsForm = async (formId: string): Promise<void> => {
+    const workspace = settings.getSnapshot()
+    const form = workspace.forms[formId]
+    const surface = surfaces.getSnapshot()
+    const focusedPanel = surface.focusedPanelId ? surface.panels[surface.focusedPanelId] : undefined
+    if (
+      workspace.activeFormId !== formId ||
+      !form ||
+      form.scope.kind !== 'global' ||
+      form.status !== 'ready' ||
+      !form.form ||
+      form.form.status === 'submitting' ||
+      form.form.status === 'unknown' ||
+      form.form.dirty.length > 0 ||
+      Object.keys(form.unsets).length > 0 ||
+      form.pendingKey !== null ||
+      focusedPanel?.panelId === 'settings-editor'
+    )
+      return
+    try {
+      await local.execute('settingsForm.refresh', { formId })
+    } catch (error) {
+      onSubscriberError(error)
+    }
+  }
   const currentEditorPanel = (): PanelSurface | null => {
     const current = surfaces.getSnapshot()
     const panel = current.focusedPanelId ? current.panels[current.focusedPanelId] : undefined
@@ -431,13 +542,90 @@ export function createProviderSettings(
     configurationCommands['provider.describe'].output.parse(await port().execute('provider.describe', {}))
   const queryProfiles = async () =>
     configurationCommands['provider.list'].output.parse(await port().execute('provider.list', {}))
+  const queryGlobalDefaultFacts = async (profiles: readonly ProviderSettingsProfile[]) => {
+    const [rawSnapshot, rawCatalog] = await Promise.all([
+      settingsPort().execute('settings.get', { scope: GLOBAL_SETTINGS_SCOPE }),
+      modelsPort().execute('model.list', {}),
+    ])
+    const snapshot = settingsCommands['settings.get'].output.parse(rawSnapshot)
+    const catalog = modelCommands['model.list'].output.parse(rawCatalog)
+    const report = snapshot.resolution.reports[GLOBAL_MODEL_KEY]
+    if (!report) throw new CommandError('INVALID_OUTPUT', 'Global default model setting is missing')
+    if (report.effectiveValue !== null && typeof report.effectiveValue !== 'string')
+      throw new CommandError('INVALID_OUTPUT', 'Global default model setting is invalid')
+    const modelSelectionId = report.effectiveValue
+    return {
+      snapshot,
+      catalog,
+      projection: globalDefaultState(modelSelectionId, profiles, catalog),
+    }
+  }
+  const currentGlobalProvidersFormId = (): string => {
+    const current = settings.getSnapshot()
+    const formId = current.activeFormId
+    if (!formId)
+      throw new CommandError('SETTINGS_SCOPE_MISMATCH', 'Use global provider settings to change the default model')
+    const form = current.forms[formId]
+    if (!form || form.status !== 'ready' || form.scope.kind !== 'global' || form.selectedGroup !== 'providers')
+      throw new CommandError('SETTINGS_SCOPE_MISMATCH', 'Use global provider settings to change the default model')
+    return formId
+  }
+  const assertGlobalProvidersForm = (formId: string): void => {
+    const current = settings.getSnapshot()
+    const form = current.forms[formId]
+    if (
+      current.activeFormId !== formId ||
+      !form ||
+      form.status !== 'ready' ||
+      form.scope.kind !== 'global' ||
+      form.selectedGroup !== 'providers'
+    )
+      throw new CommandError('CONTENT_SUPERSEDED', 'Global provider settings changed before the default model write')
+  }
+  const updateGlobalDefaultAction = (action: ProviderSettingsState['globalDefaultAction']) => {
+    const current = state.reader.getSnapshot()
+    replace({ ...current, globalDefaultAction: action })
+    return action
+  }
+  const settleGlobalDefault = async (operation: PendingGlobalDefault, receipt: SettingsReceipt) => {
+    const confirmedModel = receipt.resolution.reports[GLOBAL_MODEL_KEY]?.effectiveValue
+    if (confirmedModel !== operation.modelSelectionId)
+      throw new CommandError('INVALID_OUTPUT', 'Settings receipt did not confirm the requested global model')
+    globalDefaultGeneration += 1
+    const current = state.reader.getSnapshot()
+    const nextAction = {
+      status: 'succeeded' as const,
+      providerId: operation.providerId,
+      modelSelectionId: operation.modelSelectionId,
+      error: null,
+    }
+    replace({
+      ...current,
+      globalDefault: globalDefaultState(operation.modelSelectionId, operation.profiles, operation.catalog),
+      globalDefaultAction: nextAction,
+    })
+    if (pendingGlobalDefault === operation) pendingGlobalDefault = null
+    try {
+      await onSettingsCommitted?.(operation.input)
+    } catch (error) {
+      onSubscriberError(error)
+    }
+    await refreshCleanGlobalSettingsForm(operation.settingsFormId)
+    return nextAction
+  }
 
   const loadList = async (force = false): Promise<ProviderSettingsState> => {
     const current = state.reader.getSnapshot()
     if (!force && current.status === 'ready' && current.description && current.listSchema && current.list)
       return current
     const currentGeneration = ++generation
-    replace({ ...current, status: 'loading', error: null })
+    const defaultReadGeneration = ++globalDefaultGeneration
+    replace({
+      ...current,
+      status: 'loading',
+      globalDefault: { ...current.globalDefault, status: 'loading', error: null },
+      error: null,
+    })
     try {
       const [description, rawProfiles] = await Promise.all([current.description ?? queryDescription(), queryProfiles()])
       const profiles = rawProfiles.map((profile) => ({ ...profile, provider: providerSchema.parse(profile.provider) }))
@@ -454,6 +642,24 @@ export function createProviderSettings(
         maxItems: 256,
       })
       const ordered = [...profiles].sort((left, right) => left.provider.id.localeCompare(right.provider.id))
+      let globalDefault: ProviderGlobalDefaultState
+      try {
+        globalDefault = (await queryGlobalDefaultFacts(ordered)).projection
+      } catch (error) {
+        globalDefault = {
+          status: 'error',
+          modelSelectionId: null,
+          providerId: null,
+          providerName: null,
+          modelId: null,
+          modelName: null,
+          selectable: false,
+          error: errorCode(error),
+        }
+      }
+      if (currentGeneration !== generation || isDisposed())
+        throw new CommandError('CONTENT_SUPERSEDED', 'A newer provider request replaced this result')
+      if (defaultReadGeneration !== globalDefaultGeneration) globalDefault = state.reader.getSnapshot().globalDefault
       const latest = state.reader.getSnapshot()
       const next: ProviderSettingsState = {
         ...latest,
@@ -473,6 +679,7 @@ export function createProviderSettings(
           })),
         ),
         profiles: Object.fromEntries(ordered.map((profile) => [profile.provider.id, profile])),
+        globalDefault,
         error: null,
       }
       replace(next)
@@ -483,6 +690,154 @@ export function createProviderSettings(
         replace({ ...latest, status: 'error', error: errorCode(error) })
       }
       throw error
+    }
+  }
+
+  const setGlobalDefault = async (providerId: string) => {
+    const ownerFormId = currentGlobalProvidersFormId()
+    const source = state.reader.getSnapshot()
+    if (source.status !== 'ready' || !source.list)
+      throw new CommandError('FORM_NOT_READY', 'Provider list has not loaded')
+    const sourceProfile = source.profiles[providerId]
+    if (!sourceProfile) throw new CommandError('PROVIDER_NOT_FOUND', 'Provider profile does not exist')
+    if (pendingGlobalDefault || ['submitting', 'unknown'].includes(source.globalDefaultAction.status)) {
+      const code = source.globalDefaultAction.status === 'unknown' ? 'RESULT_UNKNOWN' : 'SUBMISSION_PENDING'
+      throw new CommandError(code, 'Resolve the previous global default action before starting another')
+    }
+    const sourcePrimaryModelId = sourceProfile.provider.model
+    const targetModelSelectionId = providerModelSelectionId(sourceProfile.provider, sourcePrimaryModelId)
+    updateGlobalDefaultAction({
+      status: 'submitting',
+      providerId,
+      modelSelectionId: targetModelSelectionId,
+      error: null,
+    })
+    let dispatched = false
+    try {
+      const sourceProfiles = Object.values(source.profiles)
+      const [rawProfiles, facts] = await Promise.all([queryProfiles(), queryGlobalDefaultFacts(sourceProfiles)])
+      const latestProfiles = rawProfiles.map((profile) => ({
+        ...profile,
+        provider: providerSchema.parse(profile.provider),
+      }))
+      const latestProfile = latestProfiles.find((profile) => profile.provider.id === providerId)
+      if (!latestProfile) throw new CommandError('PROVIDER_NOT_FOUND', 'Provider profile no longer exists')
+      if (latestProfile.provider.model !== sourcePrimaryModelId)
+        throw new CommandError('VERSION_CONFLICT', 'Provider primary model changed; refresh the provider list')
+      assertGlobalProvidersForm(ownerFormId)
+      const latestState = state.reader.getSnapshot()
+      if (latestState.status !== 'ready' || latestState.profiles[providerId]?.provider.model !== sourcePrimaryModelId)
+        throw new CommandError('VERSION_CONFLICT', 'Provider primary model changed; refresh the provider list')
+
+      const latestGlobalDefault = globalDefaultState(facts.projection.modelSelectionId, latestProfiles, facts.catalog)
+      if (latestGlobalDefault.providerId === providerId) {
+        const action = {
+          status: 'succeeded' as const,
+          providerId,
+          modelSelectionId: latestGlobalDefault.modelSelectionId,
+          error: null,
+        }
+        globalDefaultGeneration += 1
+        replace({ ...latestState, globalDefault: latestGlobalDefault, globalDefaultAction: action })
+        return action
+      }
+
+      const configuredPrimary = latestProfile.provider.models.find((model) => model.id === sourcePrimaryModelId)
+      if (!latestProfile.provider.visible || !configuredPrimary?.visible)
+        throw new CommandError('MODEL_NOT_FOUND', 'Provider primary model is not selectable')
+      const target = facts.catalog.find(
+        (model) =>
+          model.id === targetModelSelectionId &&
+          model.providerId === providerId &&
+          model.modelId === sourcePrimaryModelId,
+      )
+      if (!target) throw new CommandError('MODEL_NOT_FOUND', 'Provider primary model is not selectable')
+      const input = settingsCommands['settings.apply'].input.parse({
+        schemaVersion: facts.snapshot.schemaVersion,
+        scope: GLOBAL_SETTINGS_SCOPE,
+        changes: [{ op: 'set', path: GLOBAL_MODEL_PATH, value: target.id }],
+        baselineRevisions: facts.snapshot.revisions,
+      })
+      const operation: PendingGlobalDefault = {
+        settingsFormId: ownerFormId,
+        providerId,
+        modelSelectionId: target.id,
+        key: crypto.randomUUID(),
+        input,
+        profiles: latestProfiles,
+        catalog: facts.catalog,
+      }
+      pendingGlobalDefault = operation
+      dispatched = true
+      const receipt = settingsCommands['settings.apply'].output.parse(
+        await settingsPort().execute('settings.apply', operation.input, { idempotencyKey: operation.key }),
+      )
+      return await settleGlobalDefault(operation, receipt)
+    } catch (error) {
+      const code = errorCode(error)
+      const unknown =
+        dispatched &&
+        [
+          'RESULT_UNKNOWN',
+          'CONNECTION_CLOSED',
+          'DISCONNECTED',
+          'TIMEOUT',
+          'ABORTED',
+          'CANCELLED',
+          'EXECUTION_FAILED',
+          'INVALID_OUTPUT',
+        ].includes(code)
+      if (unknown && pendingGlobalDefault) {
+        updateGlobalDefaultAction({
+          status: 'unknown',
+          providerId: pendingGlobalDefault.providerId,
+          modelSelectionId: pendingGlobalDefault.modelSelectionId,
+          error: 'RESULT_UNKNOWN',
+        })
+        throw new CommandError('RESULT_UNKNOWN', 'Global default model result must be reconciled')
+      }
+      if (dispatched) pendingGlobalDefault = null
+      updateGlobalDefaultAction({
+        status: 'failed',
+        providerId,
+        modelSelectionId: targetModelSelectionId,
+        error: code,
+      })
+      throw commandError(error)
+    }
+  }
+
+  const reconcileGlobalDefault = async () => {
+    currentGlobalProvidersFormId()
+    const operation = pendingGlobalDefault
+    if (!operation || state.reader.getSnapshot().globalDefaultAction.status !== 'unknown')
+      throw new CommandError('INVALID_STATE', 'No unknown global default model action needs reconciliation')
+    updateGlobalDefaultAction({
+      status: 'submitting',
+      providerId: operation.providerId,
+      modelSelectionId: operation.modelSelectionId,
+      error: null,
+    })
+    try {
+      const receipt = settingsCommands['settings.receipt'].output.parse(
+        await settingsPort().execute('settings.receipt', {
+          idempotencyKey: operation.key,
+          commandId: 'settings.apply',
+          input: operation.input,
+        }),
+      )
+      if (!receipt) throw new CommandError('RESULT_UNKNOWN', 'The original global default receipt is not available')
+      return await settleGlobalDefault(operation, receipt)
+    } catch (error) {
+      if (pendingGlobalDefault === operation) {
+        updateGlobalDefaultAction({
+          status: 'unknown',
+          providerId: operation.providerId,
+          modelSelectionId: operation.modelSelectionId,
+          error: errorCode(error),
+        })
+      }
+      throw commandError(error)
     }
   }
 
@@ -763,6 +1118,20 @@ export function createProviderSettings(
       if (panel) await loadEditor(panel, true)
       else await loadList(true)
       return summary(state.reader.getSnapshot())
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.setGlobalDefault'], async ({ providerId }) => {
+    try {
+      return await setGlobalDefault(providerId)
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(providerEditorCommands['providerEditor.reconcileGlobalDefault'], async () => {
+    try {
+      return await reconcileGlobalDefault()
     } catch (error) {
       throw commandError(error)
     }

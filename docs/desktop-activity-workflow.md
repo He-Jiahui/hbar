@@ -1,0 +1,31 @@
+# Desktop Activity Workflow entrance
+
+This slice adds the real Workflow reading/drill-down flow to the existing Activity entrance. It is not a synthetic CC multi-phase runner. The isolated `codex/session-launch-target` worktree owns these changes; the dirty primary checkout and real profiles are untouched.
+
+## Reference evidence
+
+CC source is read-only `D:/Git/cc-haha` at `e28d0a653481ef41b7a329411eeb2f0fd5656731`. `desktop/src/components/activity/sessionActivityModel.ts:1054-1124` builds phase headers followed by their Agents. `SessionActivityPanel.tsx:350-415` treats a phase as a noninteractive heading; `:501-524` opens an available Workflow Agent through the ordinary Subagent handler. A phase's ended count includes failed Agents, while their failure state remains visible. Waiting Agents without an identity cannot open a transcript.
+
+Root rendered the original exported Activity button/panel with two synthetic phases and completed/running/queued Agents. [Original Workflow screen](../artifacts/activity-workflow-reference/zh-workflow.png) and [manifest](../artifacts/activity-workflow-reference/manifest.json) record the real local callback after clicking the original Agent row. This fixture does not run the CC Host/model, mutate CC source or touch profile data. Missing mascot assets prevent claiming glyph/image fidelity. The regular dark reference and hbar's current light theme are not asserted pixel-identical.
+
+The new requested luna/max reference Agent failed with 429 before yielding evidence. An existing luna/max reference Agent completed the incremental source audit, and the hbar luna/max Agent independently reviewed the owner/DTO and found the timeout issue subsequently fixed in `2e6bc5eb`. Their source findings are separate from Root's captures and browser execution.
+
+## Current hbar flow
+
+Activity keeps its same toolbar entrance and pane. It now shows Tasks, Runs, Workflow and ordinary Subagents according to the underlying facts. Workflow uses the existing `runtime.state.workflows.entries[instanceId]` owner rather than creating a second store. Public `workflow.get`/`workflow.updated` and public parent-scoped Agent records supply the data; nothing reconstructs plugin-private events or infers Agent ownership from arbitrary child Sessions.
+
+Hbar's public Workflow only exposes the current focus and delegations, not every historic work-item title. The current focus therefore appears as a real noninteractive heading; its delegates follow beneath it. Delegations belonging to other focus IDs stay in an explicitly named Other delegated work group rather than being assigned invented phase titles. Step status is shown when no delegates exist, and settled/total is shown when delegates do exist. A Plan-only snapshot does not fabricate a Workflow section.
+
+Agent rows use a compact normal-flow label/status/chevron. Verified rows open the actual child Session through the same checked `agentChild.open` path and ephemeral parent Back relation. Queued rows without Agent identity are noninteractive. An assigned Agent whose public record could not be read has an inline retry instead of a fake child target. Read and opening errors remain beside the original group/row. Activity does not expose patch application or acceptance mutations; those remain in Goals.
+
+Repeated delegations for one Agent resolve to the latest delegation record. An Agent represented in Workflow is excluded from ordinary Subagents; unmatched or unreadable ones are not hidden there. The parent's live Agent projection can supply newer status while the delegation is queued/running; settled delegation outcomes retain their own authoritative status. Long labels ellipsize with complete tooltip/accessible names, headers and metadata stay flex flow, shared semantic icons remain `md`/`sm`, and the existing padded Activity body owns scrolling. The contract bounds delegations at 128 and the public Agent listing remains 50-per-page/200-loaded.
+
+## Verification and limits
+
+Runtime core is `92a93cd7`, timeout correction `2e6bc5eb`; see [owner verification](activity-workflow-runtime.md). UI projection tests pass **3 tests / 18 assertions**, covering zero/one/128, schema rejection at 129, foreign parents, duplicate/latest Agent representation and focus replacement without relabeling history. Scoped strict TypeScript, zero-warning ESLint, formatting and content/icon/flow guards pass. Final build is 3,371 modules, JS `index-SkG7-Fwf.js`, CSS `index-DMSiusg2.css` under `artifacts/activity-workflow/web`.
+
+The final focused production-Web/temporary-real-Host run passes **4/4 paths in 26.7 seconds** (`test-results/activity-workflow-final`): new Workflow, prior Tasks, and the two existing Run/Agent locale paths. The Workflow path uses public Plan/Goal/Workflow commands and the existing local-fixture model in a disposable Git workspace. It proves a noninteractive focus heading, delegation arriving in the open pane without refresh, one representation per Agent, keyboard actual-child open/parent Back, draft preservation, live cancellation and Session isolation. Delegation may end in a real local-fixture failure; the test does not approve/apply its patch, hide that failure, or claim successful delegated implementation. The first fixture run omitted explicit user completion policy and was rejected by Host; setting it explicitly corrected the fixture without weakening product validation.
+
+Root inspected the [wide](../artifacts/activity-workflow/hbar-e2e/zh-workflow-wide.png) and [narrow](../artifacts/activity-workflow/hbar-e2e/zh-workflow-narrow.png) screenshots and [asset-bound manifest](../artifacts/activity-workflow/hbar-e2e/manifest.json). The final Web build retains the existing large-chunk warning; teardown may log socket `ECONNRESET`, while page-error assertions pass. Native desktop build/installation, full-repository and known dependency-blocked SSR checks are not certified. No paid provider, real profile, primary merge or push is used.
+
+Full CC phase history, tool-use-correlated Agent transcripts, global parent/background-running summary and `/agent` parent-prompt semantics remain outside this delivered slice. The overall experience goal remains active.

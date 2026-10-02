@@ -1,6 +1,6 @@
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
 import { QUEUED_USER_RUNS_PAGE_SIZE, type QueuedUserRunsState } from '@hbar/app-runtime'
-import { Pencil, Trash2 } from 'lucide-react'
+import { CornerDownRight, Pencil, Trash2 } from 'lucide-react'
 import './queued-user-runs.css'
 
 export interface HbarQueuedUserRunsLabels {
@@ -16,6 +16,7 @@ export interface HbarQueuedUserRunsLabels {
   readonly ellipsis: string
   readonly edit: (position: number) => string
   readonly editInput: (position: number) => string
+  readonly editHint: string
   readonly editLoading: string
   readonly editSaving: string
   readonly saveEdit: string
@@ -23,6 +24,13 @@ export interface HbarQueuedUserRunsLabels {
   readonly editUnknown: string
   readonly editFailed: (code: string) => string
   readonly retryEdit: string
+  readonly guide: (position: number) => string
+  readonly guideLabel: string
+  readonly guideSubmitting: string
+  readonly guideUnknown: string
+  readonly guideFailed: (code: string) => string
+  readonly retryGuide: string
+  readonly dismissGuide: string
   readonly remove: (position: number) => string
   readonly removing: string
   readonly removeUnknown: string
@@ -36,6 +44,7 @@ export function HbarQueuedUserRuns({
   state,
   sessionId,
   connected,
+  activeRunId,
   labels,
   onRefresh,
   onPrevious,
@@ -44,6 +53,9 @@ export function HbarQueuedUserRuns({
   onEditText,
   onSaveEdit,
   onRetryEdit,
+  onGuide,
+  onRetryGuide,
+  onDismissGuide,
   onCancelEdit,
   onRemove,
   onRetryRemoval,
@@ -52,6 +64,7 @@ export function HbarQueuedUserRuns({
   readonly state: QueuedUserRunsState
   readonly sessionId: string
   readonly connected: boolean
+  readonly activeRunId: string | null
   readonly labels: HbarQueuedUserRunsLabels
   readonly onRefresh: () => void
   readonly onPrevious: () => void
@@ -60,6 +73,9 @@ export function HbarQueuedUserRuns({
   readonly onEditText: (operationId: string, text: string) => void
   readonly onSaveEdit: (operationId: string) => void
   readonly onRetryEdit: (operationId: string) => void
+  readonly onGuide: (operationId: string, expectedRevision: number, activeRunId: string) => void
+  readonly onRetryGuide: (operationId: string) => void
+  readonly onDismissGuide: () => void
   readonly onCancelEdit: () => void
   readonly onRemove: (operationId: string, expectedRevision: number) => void
   readonly onRetryRemoval: (operationId: string) => void
@@ -83,12 +99,12 @@ export function HbarQueuedUserRuns({
     return (
       <LumenFrame className="hbar-queued-user-runs-notice" role="alert">
         <LumenText as="span">{labels.error(current.error ?? 'EXECUTION_FAILED')}</LumenText>
-        <LumenButton size="s" variant="text" onClick={onRefresh}>
+        <LumenButton size="s" variant="text" indicator="none" onClick={onRefresh}>
           {labels.retry}
         </LumenButton>
       </LumenFrame>
     )
-  if (current.totalQueued === 0 && !current.removal && !current.editing) return null
+  if (current.totalQueued === 0 && !current.removal && !current.editing && !current.guiding) return null
   const totalPages = Math.ceil(current.totalQueued / QUEUED_USER_RUNS_PAGE_SIZE)
   const removal = current.removal
   const editing = current.editing
@@ -97,6 +113,7 @@ export function HbarQueuedUserRuns({
       <LumenFrame className="hbar-queued-user-runs-list">
         {current.items.map((item, index) => {
           const edit = editing?.operationId === item.operationId ? editing : null
+          const guide = current.guiding?.operationId === item.operationId ? current.guiding : null
           const position = current.pageIndex * QUEUED_USER_RUNS_PAGE_SIZE + index + 1
           return (
             <LumenFrame
@@ -115,12 +132,14 @@ export function HbarQueuedUserRuns({
                       {labels.editLoading}
                     </LumenText>
                   ) : (
-                    <LumenInput
+                    <LumenTextarea
                       className="hbar-queued-user-run-edit-input"
-                      type="text"
                       variant="boxed"
                       aria-label={labels.editInput(position)}
+                      aria-description={labels.editHint}
+                      title={labels.editHint}
                       value={edit.text}
+                      rows={Math.min(6, edit.text.split(/\r\n|\r|\n/).length)}
                       maxLength={200_000}
                       autoFocus
                       disabled={edit.status !== 'ready'}
@@ -130,7 +149,7 @@ export function HbarQueuedUserRuns({
                           event.preventDefault()
                           event.stopPropagation()
                           if (edit.status !== 'submitting') onCancelEdit()
-                        } else if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                        } else if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                           event.preventDefault()
                           event.stopPropagation()
                           if (edit.status === 'ready' && edit.revision !== null && edit.text.trim())
@@ -142,13 +161,20 @@ export function HbarQueuedUserRuns({
                   <LumenFrame className="hbar-queued-user-run-edit-actions">
                     <LumenButton
                       size="s"
-                      variant="text"
+                      variant="outlined"
+                      indicator="none"
                       disabled={edit.status !== 'ready' || edit.revision === null || !edit.text.trim()}
                       onClick={() => onSaveEdit(item.operationId)}
                     >
                       {edit.status === 'submitting' ? labels.editSaving : labels.saveEdit}
                     </LumenButton>
-                    <LumenButton size="s" variant="text" disabled={edit.status === 'submitting'} onClick={onCancelEdit}>
+                    <LumenButton
+                      size="s"
+                      variant="text"
+                      indicator="none"
+                      disabled={edit.status === 'submitting'}
+                      onClick={onCancelEdit}
+                    >
                       {labels.cancelEdit}
                     </LumenButton>
                   </LumenFrame>
@@ -160,7 +186,12 @@ export function HbarQueuedUserRuns({
                           : labels.editFailed(edit.error ?? 'EXECUTION_FAILED')}
                       </LumenText>
                       {edit.status === 'unknown' && (
-                        <LumenButton size="s" variant="text" onClick={() => onRetryEdit(item.operationId)}>
+                        <LumenButton
+                          size="s"
+                          variant="text"
+                          indicator="none"
+                          onClick={() => onRetryEdit(item.operationId)}
+                        >
                           {labels.retryEdit}
                         </LumenButton>
                       )}
@@ -178,6 +209,21 @@ export function HbarQueuedUserRuns({
                       {labels.attachments(item.attachmentCount)}
                     </LumenText>
                   )}
+                  {activeRunId && (!guide || guide.status === 'failed') && (
+                    <LumenButton
+                      size="s"
+                      variant="text"
+                      indicator="none"
+                      className="hbar-queued-user-run-guide"
+                      aria-label={labels.guide(position)}
+                      title={labels.guide(position)}
+                      disabled={Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))}
+                      onClick={() => onGuide(item.operationId, item.revision, activeRunId)}
+                    >
+                      <LumenIcon icon={CornerDownRight} tier="sm" />
+                      {labels.guideLabel}
+                    </LumenButton>
+                  )}
                   <LumenButton
                     size="s"
                     variant="text"
@@ -185,7 +231,7 @@ export function HbarQueuedUserRuns({
                     className="hbar-queued-user-run-edit"
                     aria-label={labels.edit(position)}
                     title={labels.edit(position)}
-                    disabled={Boolean(removal || editing)}
+                    disabled={Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))}
                     onClick={() => onStartEdit(item.operationId)}
                   >
                     <LumenIcon icon={Pencil} tier="sm" />
@@ -197,7 +243,7 @@ export function HbarQueuedUserRuns({
                     className="hbar-queued-user-run-remove"
                     aria-label={labels.remove(position)}
                     title={labels.remove(position)}
-                    disabled={Boolean(removal || editing)}
+                    disabled={Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))}
                     onClick={() => onRemove(item.operationId, item.revision)}
                   >
                     <LumenIcon icon={Trash2} tier="sm" />
@@ -218,11 +264,17 @@ export function HbarQueuedUserRuns({
                 : labels.editFailed(editing.error ?? 'COMMAND_CONFLICT')}
           </LumenText>
           {editing.status === 'unknown' && (
-            <LumenButton size="s" variant="text" onClick={() => onRetryEdit(editing.operationId)}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={() => onRetryEdit(editing.operationId)}>
               {labels.retryEdit}
             </LumenButton>
           )}
-          <LumenButton size="s" variant="text" disabled={editing.status === 'submitting'} onClick={onCancelEdit}>
+          <LumenButton
+            size="s"
+            variant="text"
+            indicator="none"
+            disabled={editing.status === 'submitting'}
+            onClick={onCancelEdit}
+          >
             {labels.cancelEdit}
           </LumenButton>
         </LumenFrame>
@@ -235,29 +287,62 @@ export function HbarQueuedUserRuns({
               : labels.removeFailed(removal.error ?? 'EXECUTION_FAILED')}
           </LumenText>
           {removal.status === 'unknown' && (
-            <LumenButton size="s" variant="text" onClick={() => onRetryRemoval(removal.operationId)}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={() => onRetryRemoval(removal.operationId)}>
               {labels.retryRemoval}
             </LumenButton>
           )}
           {removal.status === 'failed' && (
-            <LumenButton size="s" variant="text" onClick={onRefresh}>
+            <LumenButton size="s" variant="text" indicator="none" onClick={onRefresh}>
               {labels.retry}
             </LumenButton>
           )}
-          <LumenButton size="s" variant="text" onClick={onDismissRemoval}>
+          <LumenButton size="s" variant="text" indicator="none" onClick={onDismissRemoval}>
             {labels.dismissRemoval}
           </LumenButton>
         </LumenFrame>
       )}
+      {current.guiding && (
+        <LumenFrame className="hbar-queued-user-runs-guide-feedback" role="alert">
+          <LumenText as="span">
+            {current.guiding.status === 'submitting'
+              ? labels.guideSubmitting
+              : current.guiding.status === 'unknown'
+                ? labels.guideUnknown
+                : labels.guideFailed(current.guiding.error ?? 'EXECUTION_FAILED')}
+          </LumenText>
+          {current.guiding.status === 'unknown' && (
+            <LumenButton
+              size="s"
+              variant="text"
+              indicator="none"
+              disabled={!connected}
+              onClick={() => onRetryGuide(current.guiding?.operationId ?? '')}
+            >
+              {labels.retryGuide}
+            </LumenButton>
+          )}
+          {current.guiding.status === 'failed' && (
+            <LumenButton size="s" variant="text" indicator="none" onClick={onDismissGuide}>
+              {labels.dismissGuide}
+            </LumenButton>
+          )}
+        </LumenFrame>
+      )}
       {(current.previousCursors.length > 0 || current.nextCursor) && (
         <LumenFrame className="hbar-queued-user-runs-pagination">
-          <LumenButton size="s" variant="text" disabled={current.previousCursors.length === 0} onClick={onPrevious}>
+          <LumenButton
+            size="s"
+            variant="text"
+            indicator="none"
+            disabled={current.previousCursors.length === 0}
+            onClick={onPrevious}
+          >
             {labels.previous}
           </LumenButton>
           <LumenText as="span" aria-live="polite">
             {labels.page(current.pageIndex + 1, totalPages)}
           </LumenText>
-          <LumenButton size="s" variant="text" disabled={!current.nextCursor} onClick={onNext}>
+          <LumenButton size="s" variant="text" indicator="none" disabled={!current.nextCursor} onClick={onNext}>
             {labels.next}
           </LumenButton>
         </LumenFrame>

@@ -386,6 +386,7 @@ describe('Stop feedback is a pure exact cancellation projection, not first globa
     ['completed', 'completed'],
     ['failed', 'run-failed'],
     ['interrupted', 'interrupted'],
+    ['guided', 'guided'],
   ] as const)('canonical and validated snapshot terminal %s stays distinct', (status, kind) => {
     const snapshot = { ...base, timeline: { ...base.timeline, runs: [{ ...running, status }] } }
     expect(sessionStopFeedback(withAction(), target)?.kind).toBe('unknown')

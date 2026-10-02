@@ -307,6 +307,7 @@ function fixture(marked = true, binding: PanelSurface['binding'] = 'pinned') {
     workflowWatches,
     goalCommands,
     workflowCommands,
+    workflowState: workflows.reader,
     goalEntry,
     workflowEntry,
     surfaces,
@@ -649,6 +650,7 @@ test('late Workflow read cannot overwrite a reselected session tool', async () =
     await settle(() => f.reads.length === 1)
     f.show('b')
     expect(f.reads[0]?.signal?.aborted).toBe(true)
+    expect(f.reads[0]?.signal?.reason).toMatchObject({ code: 'RESULT_UNKNOWN' })
     expect(f.workflowEntry()).toMatchObject({ status: 'error', error: 'CANCELLED', actions: {} })
     await f.workflowCommands.execute('workflowWorkspace.refresh', { instanceId: 'b' })
     f.workflowFacts.set('a', workflowSnapshot('a', 3))
@@ -736,7 +738,7 @@ test('eviction releases owned read lifetimes; reusing the same panel id cannot r
     f.surfaces.replace({ ...before, panels: {} })
     expect(f.reads.every((read) => read.signal?.aborted)).toBe(true)
     expect(f.goalEntry().status).not.toBe('loading')
-    expect(f.workflowEntry().status).not.toBe('loading')
+    expect(f.workflowEntry()).toMatchObject({ status: 'error', error: 'CANCELLED' })
     f.goalFacts.set('a', goalSnapshot('a', 6))
     f.workflowFacts.set('a', workflowSnapshot('a', 6))
     f.surfaces.replace(before)
@@ -753,6 +755,42 @@ test('eviction releases owned read lifetimes; reusing the same panel id cannot r
   } finally {
     goalGate.release()
     workflowGate.release()
+    f.dispose()
+  }
+})
+
+test('retiring read-only Activity discards its cache without reviving an ignored-abort read or watcher', async () => {
+  const f = fixture()
+  const gate = deferred()
+  try {
+    const before = f.surfaces.reader.getSnapshot()
+    const source = before.panels.a
+    if (!source) throw new Error('Missing Activity fixture target')
+    const activity = { ...before, panels: { ...before.panels, a: { ...source, panelId: 'activity' } } }
+    f.surfaces.replace(activity)
+    f.control.workflowReadGate = gate
+    const old = rejectedCode(f.workflowCommands.execute('workflowWorkspace.refresh', { instanceId: 'a' }))
+    await settle(() => f.reads.length === 1)
+    f.hide()
+    expect(f.reads[0]?.signal?.aborted).toBe(true)
+    expect(f.workflowState.getSnapshot().entries.a).toBeUndefined()
+    expect(f.workflowWatches[0]?.closed).toBe(true)
+    expect(await old).toBe('RESULT_UNKNOWN')
+    f.surfaces.replace({ ...activity, panels: {} })
+    f.workflowFacts.set('a', workflowSnapshot('a', 4))
+    f.surfaces.replace(activity)
+    f.show()
+    await f.workflowCommands.execute('workflowWorkspace.refresh', { instanceId: 'a' })
+    gate.release()
+    f.workflowWatches[0]?.listener(workflowSnapshot('a', 9))
+    await Promise.resolve()
+    expect(f.workflowEntry().snapshot.workflow?.revision).toBe(4)
+    expect(f.workflowWatches.filter((watch) => !watch.closed)).toHaveLength(1)
+    f.surfaces.replace({ ...activity, panels: {} })
+    expect(f.workflowState.getSnapshot().entries.a).toBeUndefined()
+    expect(f.workflowWatches.every((watch) => watch.closed)).toBe(true)
+  } finally {
+    gate.release()
     f.dispose()
   }
 })

@@ -14,6 +14,8 @@ import {
   queuedRunEditableSchema,
   queuedRunEditTextInputSchema,
   queuedRunEditTextReceiptSchema,
+  queuedRunGuideInputSchema,
+  queuedRunGuideReceiptSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
   queuedUserRunsInputSchema,
@@ -24,8 +26,15 @@ export {
   queuedRunEditableSchema,
   queuedRunEditTextInputSchema,
   queuedRunEditTextReceiptSchema,
+  queuedRunGuideInputSchema,
+  queuedRunGuideReceiptSchema,
+  queuedRunGuidanceSchema,
+  queuedRunGuidedOperationId,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
+  runSteeringMessageSchema,
+  runSteeringReadInputSchema,
+  runSteeringReadResultSchema,
   queuedUserRunsInputSchema,
   queuedUserRunsPageSchema,
 } from './queued-user-runs'
@@ -34,8 +43,14 @@ export type {
   QueuedRunEditable,
   QueuedRunEditTextInput,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  QueuedRunGuidance,
   QueuedRunRemoveInput,
   QueuedRunRemoveReceipt,
+  RunSteeringMessage,
+  RunSteeringReadInput,
+  RunSteeringReadResult,
   QueuedUserRunsInput,
   QueuedUserRunsPage,
 } from './queued-user-runs'
@@ -44,6 +59,7 @@ export const submitRunInputSchema = z.strictObject({
   sessionId: idSchema,
   modelId: idSchema,
   input: inputSchema,
+  expectedLaunchTargetRevision: z.number().int().nonnegative().safe().optional(),
 })
 export const retryRunInputSchema = z.strictObject({
   sessionId: idSchema,
@@ -73,6 +89,7 @@ export const operationSnapshotSchema = z.strictObject({
     'queued',
     'running',
     'waiting_approval',
+    'guided',
     'cancelRequested',
     'completed',
     'cancelled',
@@ -86,7 +103,7 @@ export const operationSnapshotSchema = z.strictObject({
 })
 export const operationCancelResultSchema = z.strictObject({
   operationId: idSchema,
-  status: z.enum(['cancelRequested', 'completed', 'cancelled', 'failed', 'interrupted']),
+  status: z.enum(['cancelRequested', 'guided', 'completed', 'cancelled', 'failed', 'interrupted']),
 })
 export const operationWatchResultSchema = z.strictObject({
   snapshot: operationSnapshotSchema,
@@ -177,6 +194,32 @@ export const runCommands = {
     },
     queuedRunRemoveInputSchema,
     queuedRunRemoveReceiptSchema,
+  ),
+  'queuedRun.guide': defineCommand(
+    {
+      id: 'queuedRun.guide',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'run.approval',
+      scope: 'session',
+      titleKey: 'commands.queuedRun.guide.title',
+      descriptionKey: 'commands.queuedRun.guide.description',
+      surfaces: ['cli', 'tui', 'api', 'palette'],
+      idempotency: 'required',
+      cli: {
+        arguments: [
+          { field: 'operationId', type: 'string', position: 0, flag: 'operation' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'activeRunId', type: 'string', flag: 'active-operation' },
+          { field: 'expectedRevision', type: 'number', flag: 'revision' },
+        ],
+      },
+    },
+    queuedRunGuideInputSchema,
+    queuedRunGuideReceiptSchema,
   ),
   'session.queuedUserRuns': defineCommand(
     {

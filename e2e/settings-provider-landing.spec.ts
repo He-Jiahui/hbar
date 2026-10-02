@@ -1,9 +1,17 @@
 import { expect, test } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
+
+async function removeOwnedFixture(root: string): Promise<void> {
+  const target = resolve(root)
+  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-provider-landing-'))
+    throw new Error('Refusing to remove an unexpected settings fixture path')
+  await rm(target, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`global Settings starts at Providers and remembers its category without retargeting a session: ${locale}`, async ({
@@ -25,6 +33,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.evaluate(() => localStorage.setItem('hbar:web:last-global-settings-group', 'unknown-section'))
       await page.reload()
       const sidebarSettings = page.getByRole('button', { name: copy.shell.settings, exact: true })
+      const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+      const ensureSidebar = async () => {
+        await expect(sidebarSettings.or(showSidebar)).toBeVisible()
+        if (!(await sidebarSettings.isVisible())) await showSidebar.click()
+      }
+      await ensureSidebar()
       await sidebarSettings.click()
       const providerLabel = copy.settings.resolve('i18n:settings.groups.providers')
       const modelLabel = copy.settings.resolve('i18n:settings.groups.model')
@@ -39,6 +53,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         copy.appearance.group,
         modelLabel,
         copy.settings.resolve('i18n:settings.groups.session'),
+        copy.settings.resolve('i18n:settings.groups.skills'),
         copy.settings.resolve('i18n:settings.groups.extensions'),
         copy.settingsUsage.title,
         copy.diagnostics.title,
@@ -54,7 +69,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await mobileGroups
           .locator('option')
           .evaluateAll((options: Element[]) => options.map((option) => option.getAttribute('value'))),
-      ).toEqual(['providers', 'general', 'appearance', 'model', 'session', 'extensions', 'usage', 'diagnostics'])
+      ).toEqual([
+        'providers',
+        'general',
+        'appearance',
+        'model',
+        'session',
+        'skills',
+        'extensions',
+        'usage',
+        'diagnostics',
+      ])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/provider-landing-${locale}-320.png` })
       await mobileGroups.selectOption('appearance')
@@ -62,14 +87,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await page.reload()
       await page.setViewportSize({ width: 1440, height: 900 })
+      await ensureSidebar()
       await sidebarSettings.click()
       await expect(groups.getByRole('button', { name: copy.appearance.group, exact: true })).toHaveAttribute(
         'aria-current',
         'page',
       )
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+      await ensureSidebar()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await expect(groups.getByRole('button', { name: modelLabel, exact: true })).toHaveAttribute(
         'aria-current',
         'page',
@@ -79,7 +106,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 }

@@ -34,6 +34,7 @@ export interface SessionStopLabels {
   readonly completed: string
   readonly runFailed: string
   readonly interrupted: string
+  readonly guided: string
   readonly failure: (code: string) => string
   readonly check: string
   readonly dismiss: string
@@ -41,7 +42,7 @@ export interface SessionStopLabels {
   readonly offline: string
 }
 
-const terminalKinds = new Set(['cancelled', 'completed', 'run-failed', 'interrupted'])
+const terminalKinds = new Set(['cancelled', 'completed', 'run-failed', 'interrupted', 'guided'])
 const SessionStopContext = createContext<{
   readonly cancel: (operationId: string) => void
   readonly notice: ReactNode

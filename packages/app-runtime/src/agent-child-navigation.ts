@@ -7,10 +7,25 @@ import {
   type ExecuteOptions,
 } from '@hbar/commands'
 import { z } from 'zod'
-import { agentCommands } from '@hbar/contracts/commands/agents'
+import {
+  agentCommands,
+  agentToolResultSchema,
+  type AgentRecord,
+  type AgentToolResult,
+} from '@hbar/contracts/commands/agents'
+import type { Message } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import type { StateReader } from './state'
-import type { AgentWorkspaceState, NavigationState, SurfaceState } from './types'
+import type {
+  ActivityWorkspaceState,
+  AgentWorkspaceState,
+  NavigationState,
+  PresentationState,
+  SurfaceState,
+  SessionTimelineState,
+  WorkflowWorkspaceState,
+} from './types'
+import { isSessionToolVisible } from './session-tool-visibility'
 import type { createWorkspaceTabs, SessionTabRef } from './workspace-tabs-runtime'
 
 const id = z.string().min(1).max(160)
@@ -41,6 +56,16 @@ export const agentChildNavigationCommands = {
     }),
     z.strictObject({ childSessionId: id, childTabInstanceKey: tabKey, sourceAttached: z.boolean() }),
   ),
+  'agentChild.openFromTool': defineCommand(
+    metadata('agentChild.openFromTool'),
+    z.strictObject({
+      parentSessionId: id,
+      messageId: id,
+      callId: id,
+      sourceTabInstanceKey: tabKey,
+    }),
+    z.strictObject({ childSessionId: id, childTabInstanceKey: tabKey, sourceAttached: z.boolean() }),
+  ),
   'agentChild.return': defineCommand(
     metadata('agentChild.return'),
     z.strictObject({ childSessionId: id, childTabInstanceKey: tabKey }),
@@ -54,7 +79,12 @@ interface AgentChildNavigationOptions {
   readonly tabs: ReturnType<typeof createWorkspaceTabs>
   readonly surfaces: StateReader<SurfaceState>
   readonly agentWorkspace: StateReader<AgentWorkspaceState>
+  readonly activity: StateReader<ActivityWorkspaceState>
+  readonly workflows: StateReader<WorkflowWorkspaceState>
+  readonly presentation: StateReader<PresentationState>
   readonly navigation: StateReader<NavigationState>
+  /** The currently visible parent timeline, used to bind a tool result to its source message. */
+  readonly timeline: StateReader<SessionTimelineState>
   readonly selectSession: (sessionId: string, workspaceId: string, execution: ExecuteOptions) => Promise<unknown>
   readonly isDisposed: () => boolean
 }
@@ -70,6 +100,50 @@ function verifiedSession(value: unknown, requestedId: string) {
 function sessionTab(options: AgentChildNavigationOptions, sessionId: string): SessionTabRef | null {
   const item = options.tabs.reader.getSnapshot().items.find((candidate) => candidate.id === sessionId)
   return item?.kind === 'session' ? item : null
+}
+
+type ToolAgentTarget = AgentToolResult & { readonly runId: string }
+
+function toolAgentTarget(
+  timeline: SessionTimelineState,
+  parentSessionId: string,
+  messageId: string,
+  callId: string,
+): ToolAgentTarget {
+  if (timeline.sessionId !== parentSessionId || timeline.status !== 'ready')
+    throw new CommandError('SOURCE_CHANGED', 'The parent timeline is no longer visible')
+  const message = timeline.messages.find((candidate) => candidate.id === messageId)
+  if (!message || message.sessionId !== parentSessionId)
+    throw new CommandError('SOURCE_CHANGED', 'The parent tool message is no longer visible')
+  const calls = message.content.filter(
+    (block): block is Extract<Message['content'][number], { type: 'tool_call' }> =>
+      block.type === 'tool_call' && block.name === 'agent' && block.callId === callId,
+  )
+  if (calls.length !== 1) throw new CommandError('INVALID_OUTPUT', 'The parent Agent tool call is unavailable')
+  const results = timeline.messages.flatMap((candidate) =>
+    candidate.runId !== message.runId || candidate.sessionId !== parentSessionId
+      ? []
+      : candidate.content
+          .filter(
+            (block): block is Extract<Message['content'][number], { type: 'tool_result' }> =>
+              block.type === 'tool_result' && block.callId === callId && block.name === 'agent',
+          )
+          .map((block) => ({ message: candidate, block })),
+  )
+  if (
+    results.length !== 1 ||
+    results[0]?.message.runId !== message.runId ||
+    results[0].block.isError ||
+    (results[0].block.outcome !== undefined && results[0].block.outcome.kind !== 'succeeded')
+  )
+    throw new CommandError('INVALID_OUTPUT', 'The parent Agent tool result is unavailable')
+  const details = agentToolResultSchema.safeParse(results[0].block.details)
+  if (!details.success || details.data.parentSessionId !== parentSessionId)
+    throw new CommandError('INVALID_OUTPUT', 'The Agent tool result has no valid child identity')
+  return {
+    ...details.data,
+    runId: message.runId,
+  }
 }
 
 function normalizeNavigationFailure(reason: unknown): CommandError {
@@ -110,9 +184,49 @@ export function createAgentChildNavigation(local: CommandRegistry, options: Agen
     if (record.agentId !== agentId || record.parentSessionId !== parentSessionId || record.sessionId !== childSessionId)
       throw new CommandError('INVALID_OUTPUT', 'Agent identity changed during navigation')
   }
+  const matchingToolRecord = (record: AgentRecord, target: ToolAgentTarget, parentSessionId: string) => {
+    if (
+      record.agentId !== target.agentId ||
+      record.parentSessionId !== parentSessionId ||
+      record.sessionId !== target.sessionId ||
+      record.requestId !== target.requestId ||
+      record.objective !== target.objective ||
+      record.modelId !== target.modelId ||
+      record.profileId !== target.profileId
+    )
+      throw new CommandError('INVALID_OUTPUT', 'Agent identity changed during tool navigation')
+  }
   const agentDetail = (panelInstanceId: string, parentSessionId: string, agentId: string, childSessionId: string) => {
     const panel = options.surfaces.getSnapshot().panels[panelInstanceId]
     const entry = options.agentWorkspace.getSnapshot().entries[panelInstanceId]
+    if (panel?.panelId === 'activity') {
+      const activity = options.activity.getSnapshot().agents[panelInstanceId]
+      const workflow = options.workflows.getSnapshot().entries[panelInstanceId]
+      const delegated = workflow?.agents[agentId]
+      const workflowSource =
+        workflow?.sessionId === parentSessionId &&
+        workflow.snapshot.workflow?.delegations.some((item) => item.agentId === agentId) &&
+        delegated?.agentId === agentId &&
+        delegated.parentSessionId === parentSessionId &&
+        delegated.sessionId === childSessionId
+      const selected = options.navigation.getSnapshot()
+      if (
+        panel.sessionTool &&
+        panel.sessionId === parentSessionId &&
+        selected.sessionId === parentSessionId &&
+        selected.workspaceId === panel.workspaceId &&
+        selected.status === 'idle' &&
+        isSessionToolVisible(panel, options.presentation.getSnapshot()) &&
+        ((activity?.sessionId === parentSessionId &&
+          activity.items.some(
+            (item) =>
+              item.agentId === agentId && item.parentSessionId === parentSessionId && item.sessionId === childSessionId,
+          )) ||
+          workflowSource)
+      )
+        return panel
+      throw new CommandError('SOURCE_CHANGED', 'Agent activity no longer belongs to the captured source')
+    }
     if (
       panel?.panelId !== 'agents' ||
       panel.sessionId !== parentSessionId ||
@@ -129,73 +243,172 @@ export function createAgentChildNavigation(local: CommandRegistry, options: Agen
     return panel
   }
 
+  const openVerifiedChild = async ({
+    parentSessionId,
+    agentId,
+    childSessionId,
+    sourceTabInstanceKey,
+    panelInstanceId,
+    panel,
+    navigation,
+    toolTarget,
+    assertSource,
+    execution,
+  }: {
+    readonly parentSessionId: string
+    readonly agentId: string
+    readonly childSessionId: string
+    readonly sourceTabInstanceKey: string
+    readonly panelInstanceId?: string
+    readonly panel?: ReturnType<typeof agentDetail>
+    readonly navigation: NavigationState
+    readonly toolTarget?: ToolAgentTarget
+    readonly assertSource?: () => void
+    readonly execution: ExecuteOptions
+  }) => {
+    assertSource?.()
+    const source = sessionTab(options, parentSessionId)
+    if (!source || source.instanceKey !== sourceTabInstanceKey)
+      throw new CommandError('SOURCE_CHANGED', 'Parent tab instance changed')
+    const record = await requireAgents().execute('agent.result.get', { parentSessionId, agentId }, execution)
+    if (toolTarget) matchingToolRecord(record, toolTarget, parentSessionId)
+    else matchingRecord(record, parentSessionId, agentId, childSessionId)
+    const [parent, child] = await Promise.all([
+      options.queries.execute('session.get', { sessionId: parentSessionId }, execution),
+      options.queries.execute('session.get', { sessionId: childSessionId }, execution),
+    ])
+    const verifiedParent = verifiedSession(parent, parentSessionId)
+    const verifiedChild = verifiedSession(child, childSessionId)
+    if (
+      verifiedParent.archived ||
+      verifiedParent.workspaceId !== source.workspaceId ||
+      verifiedChild.archived ||
+      verifiedChild.parentId !== parentSessionId
+    )
+      throw new CommandError('SOURCE_CHANGED', 'Agent parent or child Session is unavailable')
+    const workspace = await options.queries.execute(
+      'workspace.get',
+      { workspaceId: verifiedChild.workspaceId },
+      execution,
+    )
+    const parsedWorkspace = workspaceSchema.safeParse(workspace)
+    if (!parsedWorkspace.success || parsedWorkspace.data.id !== verifiedChild.workspaceId)
+      throw new CommandError(
+        workspace === null ? 'WORKSPACE_NOT_FOUND' : 'INVALID_OUTPUT',
+        'Child Workspace is unavailable',
+      )
+    if (
+      options.isDisposed() ||
+      execution.signal?.aborted ||
+      options.navigation.getSnapshot() !== navigation ||
+      (panelInstanceId !== undefined && options.surfaces.getSnapshot().panels[panelInstanceId] !== panel) ||
+      sessionTab(options, parentSessionId)?.instanceKey !== sourceTabInstanceKey
+    )
+      throw new CommandError('SOURCE_CHANGED', 'Agent source changed while verifying the child')
+    assertSource?.()
+    if (panelInstanceId !== undefined) agentDetail(panelInstanceId, parentSessionId, agentId, childSessionId)
+    await options.selectSession(childSessionId, verifiedChild.workspaceId, execution)
+    const childTab = sessionTab(options, childSessionId)
+    if (!childTab) throw new CommandError('RESULT_UNKNOWN', 'Child navigation completed without a tab')
+    if (
+      options.navigation.getSnapshot().sessionId !== childSessionId ||
+      options.tabs.reader.getSnapshot().activeId !== childSessionId
+    )
+      throw new CommandError('NAVIGATION_SUPERSEDED', 'A newer target replaced the child navigation')
+    let sourceAttached = false
+    try {
+      options.tabs.attachAgentSource(childSessionId, childTab.instanceKey, {
+        parentSessionId,
+        parentWorkspaceId: source.workspaceId,
+        agentId,
+        sourceTabInstanceKey,
+      })
+      sourceAttached = true
+    } catch (reason) {
+      if (!(reason instanceof CommandError) || reason.code !== 'SOURCE_CHANGED') throw reason
+    }
+    return { childSessionId, childTabInstanceKey: childTab.instanceKey, sourceAttached }
+  }
+
   local.register(agentChildNavigationCommands['agentChild.open'], (input, execution) =>
     withNormalizedFailure(async () => {
       if (options.isDisposed()) throw new CommandError('DISPOSED', 'Runtime is disposed')
       const { panelInstanceId, parentSessionId, agentId, expectedChildSessionId, sourceTabInstanceKey } = input
       if (parentSessionId === expectedChildSessionId)
         throw new CommandError('INVALID_INPUT', 'An Agent child cannot be its own parent')
-      const source = sessionTab(options, parentSessionId)
-      if (!source || source.instanceKey !== sourceTabInstanceKey)
-        throw new CommandError('SOURCE_CHANGED', 'Parent tab instance changed')
       const panel = agentDetail(panelInstanceId, parentSessionId, agentId, expectedChildSessionId)
       const navigation = options.navigation.getSnapshot()
-      const record = await requireAgents().execute('agent.result.get', { parentSessionId, agentId }, execution)
-      matchingRecord(record, parentSessionId, agentId, expectedChildSessionId)
-      const [parent, child] = await Promise.all([
-        options.queries.execute('session.get', { sessionId: parentSessionId }, execution),
-        options.queries.execute('session.get', { sessionId: expectedChildSessionId }, execution),
-      ])
-      const verifiedParent = verifiedSession(parent, parentSessionId)
-      const verifiedChild = verifiedSession(child, expectedChildSessionId)
+      return openVerifiedChild({
+        parentSessionId,
+        agentId,
+        childSessionId: expectedChildSessionId,
+        sourceTabInstanceKey,
+        panelInstanceId,
+        panel,
+        navigation,
+        execution,
+      })
+    }),
+  )
+
+  local.register(agentChildNavigationCommands['agentChild.openFromTool'], (input, execution) =>
+    withNormalizedFailure(async () => {
+      if (options.isDisposed()) throw new CommandError('DISPOSED', 'Runtime is disposed')
+      const { parentSessionId, messageId, callId, sourceTabInstanceKey } = input
+      const source = sessionTab(options, parentSessionId)
+      const navigation = options.navigation.getSnapshot()
       if (
-        verifiedParent.archived ||
-        verifiedParent.workspaceId !== source.workspaceId ||
-        verifiedChild.archived ||
-        verifiedChild.parentId !== parentSessionId
+        !source ||
+        source.instanceKey !== sourceTabInstanceKey ||
+        navigation.sessionId !== parentSessionId ||
+        navigation.workspaceId !== source.workspaceId ||
+        navigation.status !== 'idle'
       )
-        throw new CommandError('SOURCE_CHANGED', 'Agent parent or child Session is unavailable')
-      const workspace = await options.queries.execute(
-        'workspace.get',
-        { workspaceId: verifiedChild.workspaceId },
+        throw new CommandError('SOURCE_CHANGED', 'Parent session is no longer the active source')
+      const target = toolAgentTarget(options.timeline.getSnapshot(), parentSessionId, messageId, callId)
+      if (target.sessionId === parentSessionId)
+        throw new CommandError('INVALID_OUTPUT', 'An Agent child cannot be its own parent')
+      const record = await requireAgents().execute(
+        'agent.result.get',
+        { parentSessionId, agentId: target.agentId },
         execution,
       )
-      const parsedWorkspace = workspaceSchema.safeParse(workspace)
-      if (!parsedWorkspace.success || parsedWorkspace.data.id !== verifiedChild.workspaceId)
-        throw new CommandError(
-          workspace === null ? 'WORKSPACE_NOT_FOUND' : 'INVALID_OUTPUT',
-          'Child Workspace is unavailable',
-        )
+      matchingToolRecord(record, target, parentSessionId)
+      // Re-read the timeline after the Host query so an old tool result cannot
+      // navigate after a refresh/reconnect replaced the visible parent history.
+      const reread = toolAgentTarget(options.timeline.getSnapshot(), parentSessionId, messageId, callId)
       if (
-        options.isDisposed() ||
-        execution.signal?.aborted ||
-        options.navigation.getSnapshot() !== navigation ||
-        options.surfaces.getSnapshot().panels[panelInstanceId] !== panel ||
-        sessionTab(options, parentSessionId)?.instanceKey !== sourceTabInstanceKey
+        reread.agentId !== target.agentId ||
+        reread.sessionId !== target.sessionId ||
+        reread.runId !== target.runId ||
+        reread.requestId !== target.requestId ||
+        reread.objective !== target.objective ||
+        reread.modelId !== target.modelId ||
+        reread.profileId !== target.profileId
       )
-        throw new CommandError('SOURCE_CHANGED', 'Agent source changed while verifying the child')
-      agentDetail(panelInstanceId, parentSessionId, agentId, expectedChildSessionId)
-      await options.selectSession(expectedChildSessionId, verifiedChild.workspaceId, execution)
-      const childTab = sessionTab(options, expectedChildSessionId)
-      if (!childTab) throw new CommandError('RESULT_UNKNOWN', 'Child navigation completed without a tab')
-      if (
-        options.navigation.getSnapshot().sessionId !== expectedChildSessionId ||
-        options.tabs.reader.getSnapshot().activeId !== expectedChildSessionId
-      )
-        throw new CommandError('NAVIGATION_SUPERSEDED', 'A newer target replaced the child navigation')
-      let sourceAttached = false
-      try {
-        options.tabs.attachAgentSource(expectedChildSessionId, childTab.instanceKey, {
-          parentSessionId,
-          parentWorkspaceId: source.workspaceId,
-          agentId,
-          sourceTabInstanceKey,
-        })
-        sourceAttached = true
-      } catch (reason) {
-        if (!(reason instanceof CommandError) || reason.code !== 'SOURCE_CHANGED') throw reason
-      }
-      return { childSessionId: expectedChildSessionId, childTabInstanceKey: childTab.instanceKey, sourceAttached }
+        throw new CommandError('SOURCE_CHANGED', 'Parent Agent result changed while opening the child')
+      return openVerifiedChild({
+        parentSessionId,
+        agentId: target.agentId,
+        childSessionId: target.sessionId,
+        sourceTabInstanceKey,
+        navigation,
+        toolTarget: target,
+        assertSource: () => {
+          const latest = toolAgentTarget(options.timeline.getSnapshot(), parentSessionId, messageId, callId)
+          if (
+            latest.agentId !== target.agentId ||
+            latest.sessionId !== target.sessionId ||
+            latest.runId !== target.runId ||
+            latest.requestId !== target.requestId ||
+            latest.objective !== target.objective ||
+            latest.modelId !== target.modelId ||
+            latest.profileId !== target.profileId
+          )
+            throw new CommandError('SOURCE_CHANGED', 'Parent Agent result changed while opening the child')
+        },
+        execution,
+      })
     }),
   )
 

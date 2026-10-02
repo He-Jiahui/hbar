@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
   HbarPreSessionSlashEditor,
   localSlashCommand,
+  composerAgentSlashLabels,
   type HbarComposerSlashLabels,
   type LocalSlashCommand,
 } from '@hbar/app-react'
@@ -13,7 +14,7 @@ const labels: HbarComposerSlashLabels = {
   commands: [
     { id: 'model', label: '/model', description: '选择要用于新会话的模型' },
     { id: 'settings', label: '/settings', description: '打开工作区设置并核对长文案是否安全换行' },
-    { id: 'goal', label: '/goal', description: '运行时目标命令不得出现在新会话本地菜单' },
+    { id: 'goal', label: '/goal', description: '准备下一条目标消息' },
   ],
   select: (name) => `补全 ${name}`,
   hint: '↑↓ 选择 · Enter/Tab 补全 · Esc 关闭',
@@ -41,7 +42,7 @@ const labels: HbarComposerSlashLabels = {
   error: (code) => `失败：${code}`,
 }
 
-function editor(value: string, slashOpenRequest = 0) {
+function editor(value: string, slashOpenRequest = 0, copy = labels) {
   return renderToStaticMarkup(
     <HbarPreSessionSlashEditor
       value={value}
@@ -49,7 +50,7 @@ function editor(value: string, slashOpenRequest = 0) {
       placeholder="描述要完成的工作"
       disabled={false}
       sendBehavior="enter"
-      labels={labels}
+      labels={copy}
       slashOpenRequest={slashOpenRequest}
       onChange={() => undefined}
       onSubmit={() => undefined}
@@ -68,6 +69,60 @@ test('pre-session slash editor uses the native labelled textarea and host placeh
   expect(html).not.toContain('role="listbox"')
 })
 
+test('first-send Agent suggestions are Host-owned completion entries, not local dispatch actions', () => {
+  const copy = {
+    ...labels,
+    commands: [
+      ...labels.commands,
+      { id: 'agent' as const, label: '/agent', description: '使用父会话中的 Agent 工具执行任务' },
+      { id: 'agents' as const, label: '/agents', description: '管理已存在的子任务' },
+    ],
+  }
+  const ready = composerAgentSlashLabels(copy, { status: 'ready', profiles: ['explore'], error: null })
+  const html = editor('/ag', 0, ready)
+  expect(html).toContain('补全 /agent explore')
+  expect(html).toContain('只读探索')
+  expect(html).not.toContain('管理已存在的子任务')
+  expect(html.match(/role="option"/g)).toHaveLength(2)
+  expect(
+    localSlashCommand(
+      '/agent explore 核查入口',
+      ready.commands.map((item) => item.id),
+    ),
+  ).toBeNull()
+  const failed = composerAgentSlashLabels(copy, { status: 'error', profiles: [], error: 'DISCONNECTED' })
+  expect(editor('/ag', 0, failed)).not.toContain('/agent explore')
+})
+
+test('an empty advertised Agent catalog keeps only the generic completion and preserves other entries', () => {
+  const copy: HbarComposerSlashLabels = {
+    ...labels,
+    commands: [...labels.commands, { id: 'agent', label: '/agent', description: '填写当前可用类型和任务' }],
+  }
+  for (const status of ['idle', 'loading', 'ready'] as const) {
+    const result = composerAgentSlashLabels(copy, { status, profiles: [], error: null })
+    expect(result.commands).toEqual(copy.commands)
+    const html = editor('/ag', 0, result)
+    expect(html.match(/role="option"/g)).toHaveLength(1)
+    expect(html).not.toContain('/agent explore')
+  }
+})
+
+test('a long translated Agent description remains Host data in the shared suggestion row', () => {
+  const description = '只读检查当前项目的导航、首次发送和工具入口；任务内容保留在父会话，选择此建议不会立即执行。'
+  const copy: HbarComposerSlashLabels = {
+    ...labels,
+    commands: [{ id: 'agent', label: '/agent', description: '父会话中的 Agent 请求' }],
+    agentProfile: () => ({ label: '/agent explore', description }),
+  }
+  const ready = composerAgentSlashLabels(copy, { status: 'ready', profiles: ['explore'], error: null })
+  const html = editor('/ag', 0, ready)
+  expect(html).toContain(description)
+  expect(html).toContain('&lt;任务&gt;')
+  expect(html).toContain('aria-label="补全 /agent explore"')
+  expect(ready.commands.map((item) => item.id)).toEqual(['agent', 'agent explore'])
+})
+
 test('a slash token opens a menu containing only the Host-allowed local commands', () => {
   const html = editor('/')
   expect(html).toContain('aria-autocomplete="list"')
@@ -75,7 +130,7 @@ test('a slash token opens a menu containing only the Host-allowed local commands
   expect(html).toContain('role="listbox"')
   expect(html).toContain(labels.commands[0]!.description)
   expect(html).toContain(labels.commands[1]!.description)
-  expect(html).not.toContain(labels.commands[2]!.description)
+  expect(html).toContain(labels.commands[2]!.description)
   expect(html).toContain(labels.hint)
 })
 

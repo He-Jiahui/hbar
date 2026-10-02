@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const rpc = z
   .object({
@@ -83,7 +84,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Original source draft stays unchanged — 原会话草稿'
       await prompt.fill(draft)
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await selectGroup(page, locale, 'usage', labels.title)
       const region = page.getByRole('region', { name: labels.title, exact: true })
       const refresh = region.getByRole('button', { name: labels.refresh, exact: true })
@@ -195,7 +196,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: `artifacts/settings-usage/${locale}-320-long-fixture.png` })
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expectComposerText(prompt, draft)
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await selectGroup(page, locale, 'usage', labels.title)
       await expect(refresh).toBeEnabled()
       await stopWebSessionHost(host)

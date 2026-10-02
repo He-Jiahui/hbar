@@ -10,6 +10,8 @@ const REFRESH_INTERVAL_MS = 60_000
 export interface HbarSessionProjectContextLabels {
   readonly project: (name: string) => string
   readonly branch: (name: string) => string
+  /** Short visual caption; title and accessible name still carry the complete Git branch. */
+  readonly branchCaption: (name: string) => string
   readonly loading: string
   readonly unavailable: (code: string) => string
   readonly disconnected: string
@@ -53,7 +55,7 @@ export function HbarSessionProjectContext({
         >
           <LumenIcon icon={GitBranch} tier="sm" />
           <LumenText as="span" dir="rtl">
-            <bdi>{branch}</bdi>
+            <bdi>{labels.branchCaption(branch)}</bdi>
           </LumenText>
         </LumenFrame>
       )}

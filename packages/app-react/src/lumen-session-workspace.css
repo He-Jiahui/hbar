@@ -71,6 +71,16 @@
   gap: 0;
 }
 
+.hbar-app-react-session-workspace {
+  --hbar-session-reading-column-max-inline-size: 58.25rem;
+  --hbar-session-reading-column-inline-gutter: 1rem;
+}
+
+.hbar-app-react-session-main .lumen-conversation-content {
+  inline-size: min(100%, var(--hbar-session-reading-column-max-inline-size));
+  padding-inline: var(--hbar-session-reading-column-inline-gutter);
+}
+
 .hbar-app-react-session-workspace .lumen-message-body > :first-child,
 .hbar-app-react-session-workspace .lumen-message-body > :first-child > :first-child,
 .hbar-app-react-session-workspace .lumen-message-body p {
@@ -212,13 +222,13 @@
 .hbar-app-react-session-footer {
   display: flex;
   inline-size: 100%;
-  max-inline-size: 52rem;
+  max-inline-size: var(--hbar-session-reading-column-max-inline-size);
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
   gap: 0.25rem;
   margin-inline: auto;
-  padding: 0.5rem 1rem 1rem;
+  padding: 0.5rem var(--hbar-session-reading-column-inline-gutter) 1rem;
   container-name: session-project-context;
   container-type: inline-size;
 }
@@ -388,6 +398,10 @@
 }
 
 @media (max-width: 35rem) {
+  .hbar-app-react-session-workspace {
+    --hbar-session-reading-column-inline-gutter: 0.75rem;
+  }
+
   .hbar-app-react-session-workspace > .lumen-page-header {
     flex-wrap: wrap;
   }

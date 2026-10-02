@@ -12,6 +12,7 @@ const projectsModuleSchema = z.strictObject({
     minRem: z.literal(12),
     preferredRem: z.number().min(12).max(24),
     maxRem: z.literal(24),
+    collapsedRem: z.literal(4.5).default(4.5),
   }),
   config: z.strictObject({ narrowPresentation: z.literal('drawer') }),
 })

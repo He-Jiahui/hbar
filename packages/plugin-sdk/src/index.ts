@@ -194,8 +194,35 @@ export interface DriverInput {
   execute(name: string, args: Record<string, unknown>, callId: string): Promise<ToolResult>
   beforeRequest(request: ModelRequest, stepId: string): Promise<ModelRequest>
   stepEnded(stepId: string): Promise<{ stop: 'goal_complete' } | void>
+  /** Optional live steering source. Return the next unconsumed canonical,
+   * already committed user messages for this exact Run, in sequence order,
+   * at most 20 per read. The source owns its delivery cursor; do not rescan
+   * compacted history as fresh steering. beforeRequest must include
+   * them in authoritative history. Steering-capable drivers must not commit
+   * user messages: the Host owns both the initial input and queue guidance.
+   * Cancellation/Goal termination remain authoritative; this does not grant tool
+   * permission, change the model, or admit queued operations by itself. */
+  getSteeringMessages?(target: {
+    readonly sessionId: string
+    readonly runId: string
+    readonly signal: AbortSignal
+    /** Final natural-stop probe only. The source must atomically close this
+     * Run's admission gate if no pending message remains, so a later Guide
+     * cannot be accepted after the driver's last poll. Nonempty keeps it open. */
+    readonly closeWhenEmpty?: true
+  }): Promise<readonly Message[]>
+  /** Seal live admission before leaving the loop on an explicit terminal
+   * path (Goal, cancellation, provider/source failure). This does not replay
+   * already accepted messages or start a replacement Run. */
+  closeSteeringAdmission?(): Promise<void>
 }
 export interface HarnessDriver {
+  /** Explicit opt-in; a Host must not admit live steering to a legacy driver
+   * merely because DriverInput has an optional source callback. */
+  readonly supportsCanonicalSteering?: boolean
+  /** Also opts into closeWhenEmpty at the last natural-stop probe. Live queue
+   * admission requires both capabilities; legacy polling alone is not safe. */
+  readonly supportsSteeringAdmissionClosure?: boolean
   run(input: DriverInput): Promise<void>
   summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
 }
@@ -352,6 +379,8 @@ export interface AgentService {
 export interface GitDiffOptions {
   cached?: boolean | undefined
   paths?: string[] | undefined
+  /** Restrict the diff to the execution cwd, use literal pathspecs, and disable external rename/textconv output. */
+  scope?: 'execution-root' | undefined
 }
 export interface GitCommitOptions {
   message: string
@@ -378,6 +407,46 @@ export type GitWorktreeOperation =
   | { operation?: 'list' | undefined }
   | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
   | { operation: 'remove'; path: string; force?: boolean | undefined }
+
+export type GitLaunchBranchHead =
+  | { kind: 'branch'; ref: string; name: string; oid: string }
+  | { kind: 'detached'; oid: string }
+  | { kind: 'unborn'; ref: string; name: string }
+  | { kind: 'symbolic'; ref: string; oid: string | null }
+
+export interface GitLaunchBranchReference {
+  readonly name: string
+  readonly ref: string
+  readonly oid: string
+  readonly current: boolean
+  readonly worktree: 'current' | 'elsewhere' | 'available' | 'unknown'
+}
+
+/** A bounded local-ref view for pre-session launch selection; it never contains filesystem paths. */
+export interface GitLaunchBranchSnapshot {
+  readonly repository:
+    | { kind: 'not-repository' }
+    | {
+        kind: 'repository'
+        /** Whether the registered workspace itself is the Git root or a subdirectory. */
+        workspaceScope: 'repository-root' | 'repository-subdirectory'
+        head: GitLaunchBranchHead
+      }
+  readonly branches: readonly GitLaunchBranchReference[]
+  readonly incomplete: boolean
+}
+
+export interface GitLaunchBranchCreateInput {
+  readonly name: string
+  readonly baseRef: string
+  readonly expectedBaseOid: string
+}
+
+export interface GitLaunchBranchCreateResult {
+  readonly ref: string
+  readonly oid: string
+}
+
 export interface GitService {
   info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
@@ -390,11 +459,18 @@ export interface GitService {
     operation?: GitBranchOperation,
     signal?: AbortSignal,
   ): Promise<GitBranchInfo[] | GitBranchInfo>
+  /** Creates only a local branch ref from a captured local base ref/OID; does not switch HEAD. */
+  createLaunchBranch?(
+    cwd: string | undefined,
+    input: GitLaunchBranchCreateInput,
+    signal?: AbortSignal,
+  ): Promise<GitLaunchBranchCreateResult>
   worktree(
     cwd: string | undefined,
     operation?: GitWorktreeOperation,
     signal?: AbortSignal,
   ): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
+  launchBranchSnapshot(cwd?: string, signal?: AbortSignal): Promise<GitLaunchBranchSnapshot>
   diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {

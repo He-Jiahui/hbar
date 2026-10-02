@@ -8,6 +8,7 @@ import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -149,7 +150,10 @@ async function sidebar(fixture: Fixture, visible: boolean): Promise<void> {
     exact: true,
   })
   if (await button.isVisible()) await button.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(visible))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+    'data-hbar-sidebar-expanded',
+    String(visible),
+  )
 }
 async function select(fixture: Fixture, session: Session): Promise<void> {
   const { page, copy } = fixture
@@ -182,7 +186,9 @@ function tool(fixture: Fixture, id: Tool) {
   return fixture.page.locator('.lumen-app-tool-drawer').locator(selector)
 }
 async function open(fixture: Fixture, id: Tool): Promise<void> {
-  await fixture.page.getByRole('button', { name: fixture.copy.session.tools[id], exact: true }).click()
+  if (id === 'files')
+    await fixture.page.getByRole('button', { name: fixture.copy.session.tools[id], exact: true }).click()
+  else await openSessionTool(fixture.page, fixture.copy.session.tools, id)
   await expect(tool(fixture, id)).toBeVisible()
 }
 async function close(fixture: Fixture, id: Tool): Promise<void> {

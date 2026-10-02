@@ -1,14 +1,20 @@
 import { expect, test } from 'bun:test'
 import { CommandError, CommandRegistry, type CommandExecutor } from '@hbar/commands'
-import type { QueuedRunEditTextReceipt, QueuedRunRemoveReceipt } from '@hbar/contracts/commands/run'
+import type {
+  QueuedRunEditTextReceipt,
+  QueuedRunGuideReceipt,
+  QueuedRunRemoveReceipt,
+} from '@hbar/contracts/commands/run'
 import { createQueuedUserRuns } from '../packages/app-runtime/src/queued-user-runs'
 import { createState } from '../packages/app-runtime/src/state'
-import type { NavigationState, SessionTimelineState } from '@hbar/app-runtime'
+import type { NavigationState, RunCommandPort, SessionTimelineState } from '@hbar/app-runtime'
+import { runSchema } from '@hbar/contracts'
 
 function fixture(
   read: CommandExecutor['execute'],
   getQueuedRemoveReceipt?: (sessionId: string, idempotencyKey: string) => Promise<QueuedRunRemoveReceipt | null>,
   getQueuedEditTextReceipt?: (sessionId: string, idempotencyKey: string) => Promise<QueuedRunEditTextReceipt | null>,
+  guidance?: Pick<RunCommandPort, 'guideQueuedRun' | 'getQueuedRunGuideReceipt'>,
 ) {
   const local = new CommandRegistry({ execution: 'client' })
   const errors: unknown[] = []
@@ -43,6 +49,7 @@ function fixture(
       getReceipt: async () => null,
       ...(getQueuedRemoveReceipt ? { getQueuedRemoveReceipt } : {}),
       ...(getQueuedEditTextReceipt ? { getQueuedEditTextReceipt } : {}),
+      ...guidance,
     },
     nav.reader,
     timeline.reader,
@@ -69,6 +76,170 @@ function fixture(
     },
   }
 }
+
+function guideReceipt(key: string): QueuedRunGuideReceipt {
+  return {
+    commandId: 'queuedRun.guide',
+    commandVersion: 1,
+    sessionId: 'one',
+    operationId: 'selected',
+    activeRunId: 'active',
+    idempotencyKey: key,
+    status: 'accepted',
+    operationStatus: 'guided',
+    messageId: 'message',
+    eventId: 'event',
+    revision: 8,
+    sessionSeq: 8,
+    queueRevision: 2,
+    guidedAt: 10,
+  }
+}
+
+async function setGuidanceRun(f: ReturnType<typeof fixture>, status: 'running' | 'waiting_approval' = 'running') {
+  f.timeline.replace({
+    ...f.timeline.reader.getSnapshot(),
+    sessionId: 'one',
+    status: 'ready',
+    runs: [
+      runSchema.parse({
+        id: 'active',
+        sessionId: 'one',
+        requestId: 'original',
+        input: { text: 'Initial', images: [] },
+        modelId: 'model',
+        status,
+        createdAt: 1,
+        startedAt: 1,
+        endedAt: null,
+        error: null,
+      }),
+    ],
+  })
+  await f.local.execute('queuedUserRuns.refresh', { sessionId: 'one' })
+}
+
+function guidePage(sessionId: string, consumed = false) {
+  return {
+    sessionId,
+    sessionSeq: consumed ? 8 : 3,
+    totalQueued: consumed ? 1 : 2,
+    items: (consumed ? ['remaining'] : ['selected', 'remaining']).map((operationId) => ({
+      operationId,
+      revision: 2,
+      createdAt: 2,
+      textPreview: operationId,
+      truncated: false,
+      attachmentCount: 0,
+    })),
+    nextCursor: null,
+  }
+}
+
+test('guidance captures one queued item and exact Run without changing the remaining queue', async () => {
+  let consumed = false
+  const writes: unknown[] = []
+  const f = fixture(
+    async (_name, value) => guidePage((value as { sessionId: string }).sessionId, consumed),
+    undefined,
+    undefined,
+    {
+      guideQueuedRun: async (request, key) => {
+        writes.push(request)
+        consumed = true
+        return guideReceipt(key)
+      },
+    },
+  )
+  try {
+    await f.select('one')
+    await setGuidanceRun(f)
+    const result = await f.local.execute('queuedUserRuns.guide', {
+      sessionId: 'one',
+      operationId: 'selected',
+      activeRunId: 'active',
+      expectedRevision: 2,
+    })
+    expect(result).toMatchObject({ operationStatus: 'guided', activeRunId: 'active' })
+    expect(writes).toEqual([{ sessionId: 'one', operationId: 'selected', activeRunId: 'active', expectedRevision: 2 }])
+    await f.select('one')
+    expect(f.owner.reader.getSnapshot().items.map((item) => item.operationId)).toEqual(['remaining'])
+    expect(f.owner.reader.getSnapshot().guiding).toBeNull()
+  } finally {
+    f.dispose()
+  }
+})
+
+test('unknown guidance survives navigation and only checks its original receipt, even after the Run stops', async () => {
+  const keys: string[] = []
+  const reads: string[] = []
+  let receiptAvailable = false
+  const f = fixture(
+    async (_name, value) => guidePage((value as { sessionId: string }).sessionId, receiptAvailable),
+    undefined,
+    undefined,
+    {
+      guideQueuedRun: async (_request, key) => {
+        keys.push(key)
+        throw new CommandError('RESULT_UNKNOWN', 'Lost response')
+      },
+      getQueuedRunGuideReceipt: async (sessionId, key) => {
+        reads.push(`${sessionId}:${key}`)
+        return receiptAvailable ? guideReceipt(key) : null
+      },
+    },
+  )
+  try {
+    await f.select('one')
+    await setGuidanceRun(f)
+    await expect(
+      f.local.execute('queuedUserRuns.guide', {
+        sessionId: 'one',
+        operationId: 'selected',
+        activeRunId: 'active',
+        expectedRevision: 2,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await f.select('two')
+    expect(f.owner.reader.getSnapshot().guiding).toBeNull()
+    await f.select('one')
+    expect(f.owner.reader.getSnapshot().guiding?.status).toBe('unknown')
+    f.timeline.replace({ ...f.timeline.reader.getSnapshot(), runs: [] })
+    receiptAvailable = true
+    await f.local.execute('queuedUserRuns.retryGuide', { sessionId: 'one', operationId: 'selected' })
+    expect(keys).toHaveLength(1)
+    expect(reads.every((entry) => entry === `one:${keys[0]}`)).toBe(true)
+    expect(f.owner.reader.getSnapshot().guiding).toBeNull()
+  } finally {
+    f.dispose()
+  }
+})
+
+test('stale revisions, foreign Runs and approval waiting do not dispatch guidance', async () => {
+  let writes = 0
+  const f = fixture(async () => guidePage('one'), undefined, undefined, {
+    guideQueuedRun: async (_input, key) => {
+      writes++
+      return guideReceipt(key)
+    },
+  })
+  const target = { sessionId: 'one', operationId: 'selected', activeRunId: 'active', expectedRevision: 2 }
+  try {
+    await f.select('one')
+    await setGuidanceRun(f)
+    await expect(f.local.execute('queuedUserRuns.guide', { ...target, activeRunId: 'foreign' })).rejects.toMatchObject({
+      code: 'COMMAND_CONFLICT',
+    })
+    await expect(f.local.execute('queuedUserRuns.guide', { ...target, expectedRevision: 1 })).rejects.toMatchObject({
+      code: 'COMMAND_CONFLICT',
+    })
+    await setGuidanceRun(f, 'waiting_approval')
+    await expect(f.local.execute('queuedUserRuns.guide', target)).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' })
+    expect(writes).toBe(0)
+  } finally {
+    f.dispose()
+  }
+})
 
 test('ViewModel pages one bounded Host queue window at a time and recovers a stale cursor', async () => {
   let staleNext = false

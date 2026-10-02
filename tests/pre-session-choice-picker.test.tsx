@@ -7,6 +7,7 @@ const labels = {
   title: '选择项目名称很长时仍能换行',
   trigger: (selected: string | null) => `选择项目：${selected ?? '无'}`,
   search: '搜索项目',
+  clearSearch: '清除项目搜索',
   empty: '没有项目',
   noMatches: '没有匹配项',
   more: (remaining: number | null) => `更多 ${remaining ?? '远端'}`,
@@ -90,4 +91,34 @@ test('open requests preserve the closed initial render for both picker placement
   expect(dialog).not.toContain('data-open="true"')
   expect(composer).toContain('aria-expanded="false"')
   expect(composer).toContain('popover="auto"')
+})
+
+test('model triggers can be text-only while their Host provider groups, details and identities remain in the menu', () => {
+  const modelName = '一个很长的推理模型名称——保持输入区前后连续'
+  const html = renderToStaticMarkup(
+    <HbarPreSessionChoicePicker
+      placement="composer"
+      labels={labels}
+      items={[
+        { id: 'a/model', label: modelName, detail: '支持图像与推理', group: { id: 'a', label: '提供商甲' } },
+        { id: 'b/model', label: modelName, detail: '另一个服务端配置', group: { id: 'b', label: '提供商乙' } },
+      ]}
+      selectedId="b/model"
+      onChoose={() => undefined}
+    />,
+  )
+  const trigger = html.slice(html.indexOf('<button'), html.indexOf('</button>'))
+  expect(trigger).toContain(modelName)
+  expect(trigger).toContain(labels.trigger(modelName))
+  expect(trigger).toContain(`title="${modelName}"`)
+  expect(trigger.match(/<svg/g)).toHaveLength(1)
+  expect(trigger).toContain('lucide-chevron-down')
+  expect(trigger).not.toContain('提供商甲')
+  expect(trigger).not.toContain('提供商乙')
+  expect(html).toContain('aria-label="提供商甲"')
+  expect(html).toContain('aria-label="提供商乙"')
+  expect(html).toContain('支持图像与推理')
+  expect(html).toContain('另一个服务端配置')
+  expect(html).toContain('aria-current="true"')
+  expect(html.indexOf('aria-label="提供商乙"')).toBeLessThan(html.indexOf('aria-current="true"'))
 })

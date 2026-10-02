@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarClient, createInteractionCommandClient, createInteractionRecoveryClient } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -116,9 +116,15 @@ for (const outcome of ['allowed', 'denied', 'cancelled', 'answered'] as const) {
       expect(state.reader.getSnapshot().events).toEqual([])
       await client.connect()
       const snapshot = await client.call('session.snapshot', { sessionId: session.id })
-      expect(snapshot.approvals).toEqual([])
+      expect(snapshot.approvals.filter((item) => item.status === 'pending')).toEqual([])
+      if (approval) {
+        expect(snapshot.approvals).toHaveLength(1)
+        expect(snapshot.approvals[0]).toMatchObject({ id: approval.id, status: outcome })
+      } else expect(snapshot.approvals).toEqual([])
       expect(snapshot.userInputs).toEqual([])
-      // Reproduce the pending-only snapshot hole: no history event or result has reached this runtime.
+      // Keep this observer's missed-history boundary: the refreshed snapshot has
+      // not been applied to its local projection. Explicit recovery must remain
+      // one read of the original target, never a repeated decision write.
       state.replace({ ...state.reader.getSnapshot(), approvals: [], userInputs: [] })
       const commands = createCommandClient(interactionRecoveryCommands, local)
       expect(await commands.execute('interaction.reconcile', { sessionId: session.id, actionId })).toEqual({
@@ -142,7 +148,10 @@ for (const outcome of ['allowed', 'denied', 'cancelled', 'answered'] as const) {
       client.disconnect()
       await server.close()
       await kernel.close()
-      await rm(root, { recursive: true, force: true })
+      const target = resolve(root)
+      expect(dirname(target)).toBe(resolve(tmpdir()))
+      expect(basename(target).startsWith('hbar-decision-recovery-')).toBe(true)
+      await rm(target, { recursive: true, force: true })
     }
   })
 }

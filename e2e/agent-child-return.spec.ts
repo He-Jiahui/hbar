@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const childTitle = 'Isolated review child with a long title'
@@ -42,13 +43,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const copy = getShellCopy(locale)
       const tabs = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
       await page.goto(base())
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
-        exact: true,
-      })
-      if (await expand.isVisible()) await expand.click()
+      // The first project expands after its Host sidebar snapshot. Wait for the
+      // owned row instead of racing an Expand label that becomes Collapse.
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.showDetails(created.objective), exact: true }).click()
       await expect(page.getByRole('button', { name: copy.agents.openSession, exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.agents.openSession, exact: true }).click()
@@ -63,8 +61,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-agent-child-${locale}-${width}.png` })
       }
       await back.click()
+      await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(host.ready.sessionTitle)
+      const mobileTrigger = page.locator('.hbar-mobile-header-menu-trigger')
+      await mobileTrigger.click()
+      const mobileTabs = page
+        .locator('.hbar-mobile-header-menu-content')
+        .getByRole('region', { name: tabs.tabs.tabs, exact: true })
+      const currentParent = mobileTabs.getByRole('button').filter({ hasText: host.ready.sessionTitle }).first()
+      await expect(currentParent).toHaveAttribute('aria-current', 'page')
+      await expect(mobileTabs.getByRole('button').filter({ hasText: childTitle }).first()).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(mobileTrigger).toBeFocused()
+      await page.setViewportSize({ width: 1440, height: 900 })
       const parentTab = page.getByRole('tab', { name: host.ready.sessionTitle, exact: true })
       await expect(parentTab).toHaveAttribute('aria-selected', 'true')
+      await parentTab.focus()
       await expect(parentTab).toBeFocused()
       await expect(childTab).toBeVisible()
       await childTab.click()
@@ -152,7 +163,7 @@ test('a lost Agent read stays in the original detail and an explicit retry opens
     const expand = page.getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName), exact: true })
     if (await expand.isVisible()) await expand.click()
     await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-    await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+    await openSessionTool(page, copy.session.tools, 'agents')
     await page.getByRole('button', { name: copy.agents.showDetails(created.objective), exact: true }).click()
     await page.getByRole('button', { name: copy.agents.openSession, exact: true }).click()
     await expect(page.locator('.hbar-app-react-agent-detail').getByRole('alert')).toContainText(

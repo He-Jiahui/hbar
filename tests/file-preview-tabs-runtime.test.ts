@@ -4,6 +4,7 @@ import { CommandError } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { fileCommands } from '@hbar/contracts/commands/files'
 import { gitCommands } from '@hbar/contracts/commands/git'
+import { fileWorkspaceCommandSnapshots } from './fixtures/file-workspace-command-snapshots'
 import { directoryCommands } from '@hbar/contracts/commands'
 import type { FileWorkspacePreviewState } from '@hbar/app-runtime'
 import { isSessionToolProtected } from '../packages/app-runtime/src/session-tool-retention'
@@ -55,6 +56,20 @@ async function fixture() {
     instanceId: 'preview-tabs',
     hostId: 'fixture',
     surfaces: { canRender: (kind) => kind === 'files' },
+    sessionLaunchTargets: {
+      async read(sessionId, execution) {
+        execution?.signal?.throwIfAborted()
+        return {
+          sessionId,
+          workspaceId: 'w',
+          revision: 0,
+          selection: { mode: 'shared-current' as const },
+          locked: true,
+          resolution: { status: 'ready' as const, branch: null },
+          updatedAt: 0,
+        }
+      },
+    },
     directory: {
       async execute(name, raw) {
         if (name === 'workspace.get') {
@@ -97,6 +112,7 @@ async function fixture() {
           if (control.unknown) throw new CommandError('RESULT_UNKNOWN', 'Fixture lost write response')
           return {
             workspaceId: input.workspaceId,
+            ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
             path: input.path,
             beforeSha256: input.expectedSha256,
             afterSha256: sha(input.text),
@@ -109,6 +125,54 @@ async function fixture() {
     },
     git: {
       async execute(name, raw, execution) {
+        if (name === 'sessionGit.status') {
+          const input = gitCommands['sessionGit.status'].input.parse(raw)
+          return {
+            target: {
+              workspaceId: input.workspaceId,
+              sessionId: input.sessionId,
+              expectedRevision: input.expectedRevision,
+            },
+            branch: 'fixture',
+            head: null,
+            upstream: null,
+            ahead: 0,
+            behind: 0,
+            isRepository: true,
+            dirty: !control.cleanStatus,
+            repositoryDirty: !control.cleanStatus,
+            entries: control.cleanStatus
+              ? []
+              : Array.from({ length: 40 }, (_, i) => ({
+                  kind: 'path' as const,
+                  path: i < 3 ? `${String.fromCharCode(97 + i)}.txt` : `diff-${i}.txt`,
+                  index: 'M',
+                  worktree: 'M',
+                })),
+          }
+        }
+        if (name === 'sessionGit.diff') {
+          const input = gitCommands['sessionGit.diff'].input.parse(raw)
+          const path = input.paths[0]
+          if (!path) throw new Error('Missing diff fixture target')
+          const key = `${path}:${input.cached}`
+          const text = control.diffLength
+            ? 'd'.repeat(control.diffLength)
+            : `${path} ${input.cached ? 'staged' : 'working'}`
+          diffs.push({ path, cached: input.cached, signal: execution?.signal })
+          await diffGates.get(key)
+          if (failedDiffs.has(key)) throw new CommandError('DISCONNECTED', 'Fixture diff failure')
+          return {
+            target: {
+              workspaceId: input.workspaceId,
+              sessionId: input.sessionId,
+              expectedRevision: input.expectedRevision,
+            },
+            cached: input.cached,
+            diff: control.cleanStatus ? '' : text,
+            truncated: false,
+          }
+        }
         if (name === 'git.status') {
           const { cwd } = gitCommands['git.status'].input.parse(raw)
           return {
@@ -147,7 +211,7 @@ async function fixture() {
       },
     },
   })
-  const commands = runtime.view.commands
+  const commands = fileWorkspaceCommandSnapshots(runtime)
   await runtime.ready
   await commands.execute('app.setSession', { sessionId: 'a', workspaceId: 'w' })
   const bind = async (instanceId = 'files', workspaceId = 'w') => {
@@ -180,6 +244,8 @@ async function fixture() {
     instanceId,
     workspaceId: entry(instanceId).workspaceId,
     previewId: value.id,
+    sourceSessionId: entry(instanceId).sourceSessionId,
+    sessionTarget: entry(instanceId).sessionTarget,
   })
   const open = async (path: string, instanceId = 'files') => {
     await commands.execute('fileWorkspace.openEntry', { instanceId, path, directory: false })

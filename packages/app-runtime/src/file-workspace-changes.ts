@@ -1,8 +1,10 @@
 import { CommandError, createCommandClient } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
 import { gitCommands } from '@hbar/contracts/commands/git'
+import type { SessionGitStatus } from '@hbar/contracts/commands/git'
+import type { SessionFileTarget } from '@hbar/contracts/commands/files'
 import type { GitStatus } from '@hbar/contracts'
-import { canonicalFilePath } from './file-workspace-documents'
+import { assertResolvedFileTarget, canonicalFilePath, sameSessionFileTarget } from './file-workspace-documents'
 import { MAX_FILE_PREVIEWS, projectFileEntry, replaceFilePreview } from './file-workspace-previews'
 import type {
   FileWorkspaceChangesState,
@@ -14,6 +16,7 @@ import type {
 export const FILE_CHANGES_PAGE_SIZE = 100
 export const emptyFileChanges = (): FileWorkspaceChangesState => ({
   status: 'idle',
+  isRepository: null,
   cwd: null,
   root: null,
   branch: null,
@@ -67,6 +70,27 @@ export function workspaceChanges(status: GitStatus, cwd: string): FileWorkspaceC
   return [...new Map(items.map((item) => [item.path, item])).values()].sort((a, b) => a.path.localeCompare(b.path))
 }
 
+/** Session Git paths are already normalized to the Host-selected execution root; never rebase them via a shared cwd. */
+export function sessionWorkspaceChanges(status: SessionGitStatus): FileWorkspaceChangesState['items'] {
+  return status.entries
+    .flatMap((item) => {
+      if (item.kind === 'path')
+        return [
+          {
+            path: item.path,
+            index: item.index,
+            worktree: item.worktree,
+            ...(item.directory ? { directory: true } : {}),
+          },
+        ]
+      const path = item.kind === 'copy' ? item.to : (item.to ?? item.from)
+      if (!path) return []
+      const originalPath = item.from && item.from !== path ? item.from : undefined
+      return [{ path, index: item.index, worktree: item.worktree, ...(originalPath ? { originalPath } : {}) }]
+    })
+    .sort((left, right) => left.path.localeCompare(right.path))
+}
+
 export function filteredFileChanges(changes: FileWorkspaceChangesState) {
   const filter = changes.filter.trim().toLocaleLowerCase()
   return changes.items.filter(
@@ -78,6 +102,7 @@ interface ChangePorts {
   readonly read: (instanceId: string) => FileWorkspaceEntryState | undefined
   readonly replace: (entry: FileWorkspaceEntryState) => void
   readonly workspaceId: (instanceId: string) => string | null
+  readonly sourceSessionId: (instanceId: string) => string | null
   readonly openFile: (instanceId: string, path: string) => Promise<unknown>
   readonly openFolder: (instanceId: string, path: string) => Promise<unknown>
   readonly isDisposed: () => boolean
@@ -93,8 +118,14 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
   const diffKey = (instanceId: string, previewId: string) => `${instanceId}\0${previewId}`
   const target = (instanceId: string, workspaceId: string) => {
     const entry = ports.read(instanceId)
-    if (!entry || entry.workspaceId !== workspaceId || ports.workspaceId(instanceId) !== workspaceId)
+    if (
+      !entry ||
+      entry.workspaceId !== workspaceId ||
+      ports.workspaceId(instanceId) !== workspaceId ||
+      entry.sourceSessionId !== ports.sourceSessionId(instanceId)
+    )
       throw new CommandError('VERSION_CONFLICT', 'The file operation belongs to another workspace')
+    assertResolvedFileTarget(entry.sourceSessionId, entry.sessionTarget, entry.error)
     return entry
   }
   const cancelList = (instanceId: string) => {
@@ -136,8 +167,23 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     pending.set(instanceId, controller)
     return controller
   }
-  const matches = (instanceId: string, workspaceId: string, controller: AbortController) =>
-    !ports.isDisposed() && pending.get(instanceId) === controller && ports.workspaceId(instanceId) === workspaceId
+  const matches = (
+    instanceId: string,
+    workspaceId: string,
+    sourceSessionId: string | null,
+    sessionTarget: SessionFileTarget | null,
+    controller: AbortController,
+  ) => {
+    const entry = ports.read(instanceId)
+    return (
+      !ports.isDisposed() &&
+      pending.get(instanceId) === controller &&
+      ports.workspaceId(instanceId) === workspaceId &&
+      ports.sourceSessionId(instanceId) === sourceSessionId &&
+      entry?.sourceSessionId === sourceSessionId &&
+      sameSessionFileTarget(entry.sessionTarget, sessionTarget)
+    )
+  }
   const requireGit = () => {
     if (!git) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Git commands are unavailable')
     return git
@@ -147,6 +193,8 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     target(instanceId, workspaceId)
     const controller = begin(instanceId)
     const entry = target(instanceId, workspaceId)
+    const sourceSessionId = entry.sourceSessionId
+    const sessionTarget = entry.sessionTarget
     ports.replace({
       ...entry,
       activePreviewId: preservePreview ? entry.activePreviewId : null,
@@ -156,21 +204,54 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     try {
       const workspace = await directory.execute('workspace.get', { workspaceId }, { signal: controller.signal })
       if (!workspace || workspace.id !== workspaceId) throw new CommandError('NOT_FOUND', 'Workspace no longer exists')
-      if (!matches(instanceId, workspaceId, controller))
+      if (!matches(instanceId, workspaceId, sourceSessionId, sessionTarget, controller))
         throw new CommandError('CANCELLED', 'File changes request was superseded')
-      const status = await requireGit().execute('git.status', { cwd: workspace.path }, { signal: controller.signal })
-      if (!matches(instanceId, workspaceId, controller))
+      let isRepository: boolean
+      let cwd: string | null
+      let root: string | null
+      let branch: string | null
+      let items: FileWorkspaceChangesState['items']
+      let entryCount: number
+      if (sessionTarget) {
+        const status = await requireGit().execute(
+          'sessionGit.status',
+          { workspaceId, sessionId: sessionTarget.sessionId, expectedRevision: sessionTarget.expectedRevision },
+          { signal: controller.signal },
+        )
+        if (
+          status.target.workspaceId !== workspaceId ||
+          status.target.sessionId !== sessionTarget.sessionId ||
+          status.target.expectedRevision !== sessionTarget.expectedRevision
+        )
+          throw new CommandError('INVALID_OUTPUT', 'Session Git returned another execution target')
+        isRepository = status.isRepository
+        cwd = null
+        root = null
+        branch = status.branch
+        items = sessionWorkspaceChanges(status)
+        entryCount = status.entries.length
+      } else {
+        const status = await requireGit().execute('git.status', { cwd: workspace.path }, { signal: controller.signal })
+        isRepository = Boolean(status.root)
+        cwd = status.cwd
+        root = status.root
+        branch = status.branch
+        items = workspaceChanges(status, status.cwd)
+        entryCount = status.entries.length
+      }
+      if (!matches(instanceId, workspaceId, sourceSessionId, sessionTarget, controller))
         throw new CommandError('CANCELLED', 'File changes request was superseded')
       const latest = target(instanceId, workspaceId)
       const changes: FileWorkspaceChangesState = {
         ...latest.changes,
         status: 'ready',
-        cwd: workspace.path,
-        root: status.root,
-        branch: status.branch,
-        items: workspaceChanges(status, workspace.path),
+        isRepository,
+        cwd,
+        root,
+        branch,
+        items,
         page: 0,
-        limitReached: status.entries.length === 5000,
+        limitReached: entryCount === 5000,
         error: null,
       }
       const page = preservePreview
@@ -182,7 +263,7 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
       ports.replace({ ...latest, changes: { ...changes, page } })
       return target(instanceId, workspaceId)
     } catch (error) {
-      if (matches(instanceId, workspaceId, controller)) {
+      if (matches(instanceId, workspaceId, sourceSessionId, sessionTarget, controller)) {
         const latest = target(instanceId, workspaceId)
         ports.replace({ ...latest, changes: { ...latest.changes, status: 'error', error: code(error) } })
       }
@@ -213,30 +294,66 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
     ports.replace(replaceFilePreview(entry, { ...preview, diff: { ...previous, status: 'loading', error: null } }))
     ports.onPreviewOpened?.(instanceId)
     const current = () => {
-      if (ports.isDisposed() || pendingDiffs.get(key) !== controller || ports.workspaceId(instanceId) !== workspaceId)
+      if (
+        ports.isDisposed() ||
+        pendingDiffs.get(key) !== controller ||
+        ports.workspaceId(instanceId) !== workspaceId ||
+        ports.sourceSessionId(instanceId) !== entry.sourceSessionId
+      )
         return null
       const latest = ports.read(instanceId)
-      if (latest?.workspaceId !== workspaceId || !latest.previews.some((value) => value.id === previewId)) return null
+      if (
+        latest?.workspaceId !== workspaceId ||
+        latest.sourceSessionId !== entry.sourceSessionId ||
+        !sameSessionFileTarget(latest.sessionTarget, entry.sessionTarget) ||
+        !latest.previews.some((value) => value.id === previewId)
+      )
+        return null
       return latest
     }
     try {
-      const result = await requireGit().execute(
-        'git.diff',
-        {
-          cwd: preview.cwd,
-          cached: previous.cached,
-          paths: [preview.path, ...(preview.originalPath ? [preview.originalPath] : [])],
-        },
-        { signal: controller.signal },
-      )
+      const paths = [preview.path, ...(preview.originalPath ? [preview.originalPath] : [])]
+      let diffText: string
+      let truncated: boolean
+      if (entry.sessionTarget) {
+        const result = await requireGit().execute(
+          'sessionGit.diff',
+          {
+            workspaceId,
+            sessionId: entry.sessionTarget.sessionId,
+            expectedRevision: entry.sessionTarget.expectedRevision,
+            cached: previous.cached,
+            paths,
+          },
+          { signal: controller.signal },
+        )
+        if (
+          result.target.workspaceId !== workspaceId ||
+          result.target.sessionId !== entry.sessionTarget.sessionId ||
+          result.target.expectedRevision !== entry.sessionTarget.expectedRevision ||
+          result.cached !== previous.cached
+        )
+          throw new CommandError('INVALID_OUTPUT', 'Git returned another diff target')
+        diffText = result.diff
+        truncated = result.truncated
+      } else {
+        if (!preview.cwd) throw new CommandError('INVALID_OUTPUT', 'Project diff has no workspace target')
+        const result = await requireGit().execute(
+          'git.diff',
+          { cwd: preview.cwd, cached: previous.cached, paths },
+          { signal: controller.signal },
+        )
+        if (result.cached !== previous.cached || hostPath(result.cwd) !== hostPath(preview.cwd))
+          throw new CommandError('INVALID_OUTPUT', 'Git returned another diff target')
+        diffText = result.diff
+        truncated = result.truncated
+      }
       const latest = current()
       if (!latest) throw new CommandError('CANCELLED', 'File diff request was superseded')
-      if (result.cached !== previous.cached || hostPath(result.cwd) !== hostPath(preview.cwd))
-        throw new CommandError('INVALID_OUTPUT', 'Git returned another diff target')
       ports.replace(
         replaceFilePreview(latest, {
           ...preview,
-          diff: { ...previous, status: 'ready', text: result.diff, truncated: result.truncated, error: null },
+          diff: { ...previous, status: 'ready', text: diffText, truncated, error: null },
         }),
       )
       return target(instanceId, workspaceId)
@@ -255,9 +372,13 @@ export function createFileWorkspaceChanges(options: RuntimeOptions, ports: Chang
   }
   const open = async (instanceId: string, workspaceId: string, rawPath: string, selectedCached?: boolean) => {
     const entry = target(instanceId, workspaceId)
-    const path = canonicalFilePath(rawPath)
+    const path = rawPath === '.' ? '.' : canonicalFilePath(rawPath)
     const change = entry.changes.items.find((item) => item.path === path)
-    if (!change || !entry.changes.cwd || entry.changes.status !== 'ready')
+    if (
+      !change ||
+      (!entry.sessionTarget && (!entry.changes.cwd || !entry.changes.root)) ||
+      entry.changes.status !== 'ready'
+    )
       throw new CommandError('VERSION_CONFLICT', 'Refresh the original changed-file list')
     if (change.index === '?' && change.worktree === '?') {
       cancelList(instanceId)

@@ -1,6 +1,7 @@
 import { CommandError, createCommandClient } from '@hbar/commands'
 import { fileCommands } from '@hbar/contracts/commands/files'
-import { canonicalFilePath } from './file-workspace-documents'
+import type { SessionFileTarget } from '@hbar/contracts/commands/files'
+import { assertResolvedFileTarget, canonicalFilePath, sameSessionFileTarget } from './file-workspace-documents'
 import type {
   FileWorkspaceEntryState,
   FileWorkspaceTreeDirectoryState,
@@ -39,6 +40,7 @@ interface TreePorts {
   readonly read: (instanceId: string) => FileWorkspaceEntryState | undefined
   readonly replace: (entry: FileWorkspaceEntryState) => void
   readonly workspaceId: (instanceId: string) => string | null
+  readonly sourceSessionId: (instanceId: string) => string | null
   readonly isDisposed: () => boolean
 }
 
@@ -50,8 +52,14 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
   const key = (instanceId: string, path: string) => `${instanceId}\0${path}`
   const target = (instanceId: string, workspaceId: string) => {
     const entry = ports.read(instanceId)
-    if (!entry || entry.workspaceId !== workspaceId || ports.workspaceId(instanceId) !== workspaceId)
+    if (
+      !entry ||
+      entry.workspaceId !== workspaceId ||
+      ports.workspaceId(instanceId) !== workspaceId ||
+      entry.sourceSessionId !== ports.sourceSessionId(instanceId)
+    )
       throw new CommandError('VERSION_CONFLICT', 'Directory belongs to another file panel target')
+    assertResolvedFileTarget(entry.sourceSessionId, entry.sessionTarget, entry.error)
     return entry
   }
   const directory = (entry: FileWorkspaceEntryState, rawPath: string) => {
@@ -62,10 +70,31 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
       throw new CommandError('VERSION_CONFLICT', 'Folder is not in the loaded tree')
     return path
   }
-  const matches = (instanceId: string, workspaceId: string, path: string, controller: AbortController) =>
-    !ports.isDisposed() &&
+  const scopeMatches = (
+    instanceId: string,
+    workspaceId: string,
+    sourceSessionId: string | null,
+    sessionTarget: SessionFileTarget | null,
+  ) => {
+    const entry = ports.read(instanceId)
+    return (
+      !ports.isDisposed() &&
+      ports.workspaceId(instanceId) === workspaceId &&
+      ports.sourceSessionId(instanceId) === sourceSessionId &&
+      entry?.sourceSessionId === sourceSessionId &&
+      sameSessionFileTarget(entry.sessionTarget, sessionTarget)
+    )
+  }
+  const matches = (
+    instanceId: string,
+    workspaceId: string,
+    sourceSessionId: string | null,
+    sessionTarget: SessionFileTarget | null,
+    path: string,
+    controller: AbortController,
+  ) =>
     pending.get(key(instanceId, path)) === controller &&
-    ports.workspaceId(instanceId) === workspaceId
+    scopeMatches(instanceId, workspaceId, sourceSessionId, sessionTarget)
   const cancelSubtree = (instanceId: string, path?: string) => {
     for (const [requestKey, controller] of pending) {
       if (!requestKey.startsWith(`${instanceId}\0`)) continue
@@ -95,6 +124,8 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
       controller,
       timer: null,
     }
+    const sourceSessionId = entry.sourceSessionId
+    const sessionTarget = entry.sessionTarget
     searches.set(instanceId, active)
     ports.replace({
       ...entry,
@@ -106,10 +137,19 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
         if (!files) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Files are unavailable')
         const result = await files.execute(
           'file.find',
-          { workspaceId, query, path: '.', limit: SEARCH_LIMIT },
+          {
+            workspaceId,
+            ...(sessionTarget ? { sessionTarget } : {}),
+            query,
+            path: '.',
+            limit: SEARCH_LIMIT,
+          },
           { signal: controller.signal },
         )
-        if (searches.get(instanceId) !== active || ports.isDisposed() || ports.workspaceId(instanceId) !== workspaceId)
+        if (
+          searches.get(instanceId) !== active ||
+          !scopeMatches(instanceId, workspaceId, sourceSessionId, sessionTarget)
+        )
           return
         const latest = target(instanceId, workspaceId)
         if (latest.tree.filter !== filter) return
@@ -121,7 +161,10 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
           tree: { ...latest.tree, search: { status: 'ready', paths, truncated: result.truncated, error: null } },
         })
       } catch (error) {
-        if (searches.get(instanceId) !== active || ports.isDisposed() || ports.workspaceId(instanceId) !== workspaceId)
+        if (
+          searches.get(instanceId) !== active ||
+          !scopeMatches(instanceId, workspaceId, sourceSessionId, sessionTarget)
+        )
           return
         const latest = target(instanceId, workspaceId)
         if (latest.tree.filter !== filter) return
@@ -162,6 +205,8 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
       throw new CommandError('BUSY', 'Collapse another folder to continue')
     }
     const controller = new AbortController()
+    const sourceSessionId = entry.sourceSessionId
+    const sessionTarget = entry.sessionTarget
     pending.set(requestKey, controller)
     replaceNode(entry, path, { ...current, status: 'loading', error: null })
     try {
@@ -170,13 +215,14 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
         'file.list',
         {
           workspaceId,
+          ...(sessionTarget ? { sessionTarget } : {}),
           path,
           ...(more && current.nextCursor ? { after: current.nextCursor } : {}),
           limit: remaining,
         },
         { signal: controller.signal },
       )
-      if (!matches(instanceId, workspaceId, path, controller))
+      if (!matches(instanceId, workspaceId, sourceSessionId, sessionTarget, path, controller))
         throw new CommandError('CANCELLED', 'Folder request was superseded')
       entry = target(instanceId, workspaceId)
       if (entry.tree.nodes[path]?.expanded !== true) throw new CommandError('CANCELLED', 'Folder was collapsed')
@@ -196,7 +242,7 @@ export function createFileWorkspaceTree(options: RuntimeOptions, ports: TreePort
       })
       return target(instanceId, workspaceId)
     } catch (error) {
-      if (matches(instanceId, workspaceId, path, controller)) {
+      if (matches(instanceId, workspaceId, sourceSessionId, sessionTarget, path, controller)) {
         entry = target(instanceId, workspaceId)
         const latest = entry.tree.nodes[path]
         if (latest) replaceNode(entry, path, { ...latest, status: 'error', error: code(error) })

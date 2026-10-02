@@ -14,6 +14,19 @@ export type {
   StorageMethods,
   WorkspaceOrganizationMutationInput,
   WorkspaceDisplayNamesMutationInput,
+  SessionLaunchTargetMutationInput,
+  SessionLaunchTargetReceiptLookup,
+  SessionLaunchTargetPreparationInput,
+  SessionLaunchTargetPreparationUpdate,
+  SessionLaunchTargetBindingInput,
+  SessionLaunchTargetBinding,
+  SessionLaunchTargetResolutionRecord,
+  SessionLaunchTargetRuntimeSnapshot,
+  SessionLaunchTargetPreparationStartMutationInput,
+  SessionLaunchTargetPreparationOperationRecord,
+  SessionLaunchTargetPreparationOperationTransitionInput,
+  GuideQueuedRunMutationInput,
+  GuideQueuedRunResult,
 } from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'

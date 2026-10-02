@@ -1,0 +1,23 @@
+.hbar-app-react-project-tree > section[data-workspace-id] {
+  border-block: 0.125rem solid transparent;
+}
+
+.hbar-app-react-project-tree > section[data-project-drop='before'] {
+  border-block-start-color: var(--lumen-primary);
+}
+
+.hbar-app-react-project-tree > section[data-project-drop='after'] {
+  border-block-end-color: var(--lumen-primary);
+}
+
+.hbar-app-react-project-tree > section[data-project-dragging='true'] {
+  opacity: 0.5;
+}
+
+.hbar-app-react-workspace-row[draggable='true'] {
+  cursor: grab;
+}
+
+.hbar-app-react-workspace-row[draggable='true']:active {
+  cursor: grabbing;
+}

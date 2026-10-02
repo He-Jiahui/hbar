@@ -19,6 +19,64 @@ import { WorkspaceQueryRuntime } from './workspace-query'
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 const MAX_TOOL_TEXT_BYTES = 64 * 1024
 const TRUNCATED_MARKER = '\n[tool output truncated]'
+export interface VerifiedManagedWorkspaceAccess {
+  root: string
+  protectedRoot: string
+  verify: (canonicalWorkspace: string) => boolean | Promise<boolean>
+}
+
+function inside(root: string, candidate: string): boolean {
+  const rel = relative(root, candidate)
+  return (
+    rel === '' ||
+    (rel !== '..' && !rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(rel))
+  )
+}
+
+async function effectiveBlockedPaths(
+  workspace: string,
+  blocked: string[],
+  managedWorkspace?: VerifiedManagedWorkspaceAccess,
+): Promise<string[]> {
+  if (!managedWorkspace) return blocked
+  let root: string
+  let managedRoot: string
+  let protectedRoot: string
+  try {
+    root = await realpath(workspace)
+    managedRoot = await realpath(managedWorkspace.root)
+    protectedRoot = await realpath(managedWorkspace.protectedRoot)
+  } catch {
+    return blocked
+  }
+  if (!inside(protectedRoot, managedRoot) || samePath(protectedRoot, managedRoot) || !inside(managedRoot, root))
+    return blocked
+  try {
+    if (!(await managedWorkspace.verify(root))) return blocked
+  } catch {
+    return blocked
+  }
+  const result: string[] = []
+  for (const path of blocked) {
+    let canonicalBlockedPath: string
+    try {
+      canonicalBlockedPath = await realpath(path)
+    } catch {
+      canonicalBlockedPath = resolve(path)
+    }
+    // Only the configured dataRoot protection is exempted, and only for an
+    // exact Host-verified worktree. Other blocked roots remain in force.
+    if (!samePath(canonicalBlockedPath, protectedRoot) || !inside(canonicalBlockedPath, root))
+      result.push(canonicalBlockedPath)
+  }
+  return result
+}
+
+function samePath(left: string, right: string): boolean {
+  const a = resolve(left).replace(/[\\/]+$/, '')
+  const b = resolve(right).replace(/[\\/]+$/, '')
+  return process.platform === 'win32' ? a.toLocaleLowerCase() === b.toLocaleLowerCase() : a === b
+}
 
 function imageMime(bytes: Uint8Array): string | undefined {
   const header = Buffer.from(bytes.buffer, bytes.byteOffset, Math.min(bytes.byteLength, 12))
@@ -82,11 +140,7 @@ export async function workspacePath(
 ): Promise<string> {
   const root = await realpath(workspace)
   const path = resolve(root, requested)
-  const inside = (candidate: string) => {
-    const rel = relative(root, candidate)
-    return rel !== '..' && !rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(rel)
-  }
-  if (!inside(path)) throw new HbarError('PATH_DENIED', 'Path is outside the workspace')
+  if (!inside(root, path)) throw new HbarError('PATH_DENIED', 'Path is outside the workspace')
   let actual: string
   try {
     actual = await realpath(path)
@@ -103,7 +157,7 @@ export async function workspacePath(
       }
     }
   }
-  if (!inside(actual!)) throw new HbarError('PATH_DENIED', 'Symlink resolves outside the workspace')
+  if (!inside(root, actual!)) throw new HbarError('PATH_DENIED', 'Symlink resolves outside the workspace')
   for (const protectedPath of blocked) {
     const relation = relative(protectedPath, actual!)
     if (!relation || (!relation.startsWith('..') && !isAbsolute(relation)))
@@ -115,13 +169,28 @@ export async function workspacePath(
 export class LocalExecution implements ExecutionProvider {
   readonly workspaceQuery: WorkspaceQueryRuntime
 
-  constructor(private blocked: string[] = []) {
-    this.workspaceQuery = new WorkspaceQueryRuntime(blocked, (workspace, path) =>
-      workspacePath(workspace, path, false, blocked),
+  constructor(
+    private blocked: string[] = [],
+    private readonly managedWorkspace?: VerifiedManagedWorkspaceAccess,
+  ) {
+    this.workspaceQuery = new WorkspaceQueryRuntime(
+      blocked,
+      (workspace, path) => this.workspacePath(workspace, path, false),
+      {},
+      (workspace) => this.blockedForWorkspace(workspace),
     )
   }
+
+  private async blockedForWorkspace(workspace: string) {
+    return effectiveBlockedPaths(workspace, this.blocked, this.managedWorkspace)
+  }
+
+  private async workspacePath(workspace: string, requested: string, writing = false) {
+    return workspacePath(workspace, requested, writing, await this.blockedForWorkspace(workspace))
+  }
+
   async list(workspace: string, requested: string) {
-    const path = await workspacePath(workspace, requested, false, this.blocked)
+    const path = await this.workspacePath(workspace, requested)
     return (await readdir(path, { withFileTypes: true }))
       .slice(0, 1000)
       .map((entry) => ({
@@ -135,7 +204,7 @@ export class LocalExecution implements ExecutionProvider {
     return decodeUtf8(await this.readBytes(workspace, requested))
   }
   async readBytes(workspace: string, requested: string) {
-    const path = await workspacePath(workspace, requested, false, this.blocked)
+    const path = await this.workspacePath(workspace, requested)
     const info = await stat(path)
     if (!info.isFile() || info.size > 2 * 1024 * 1024)
       throw new HbarError('FILE_LIMIT', 'Read requires a file no larger than 2 MiB')
@@ -143,7 +212,7 @@ export class LocalExecution implements ExecutionProvider {
   }
   async write(workspace: string, requested: string, text: string) {
     if (Buffer.byteLength(text) > 2 * 1024 * 1024) throw new HbarError('FILE_LIMIT', 'Write exceeds 2 MiB')
-    const path = await workspacePath(workspace, requested, true, this.blocked)
+    const path = await this.workspacePath(workspace, requested, true)
     let before = ''
     try {
       before = await this.read(workspace, requested)
@@ -151,11 +220,11 @@ export class LocalExecution implements ExecutionProvider {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     await mkdir(dirname(path), { recursive: true })
-    await workspacePath(workspace, requested, true, this.blocked)
+    await this.workspacePath(workspace, requested, true)
     const temporary = join(dirname(path), `.${basename(path)}.hbar-${crypto.randomUUID()}`)
     try {
       await writeFile(temporary, text, { flag: 'wx', mode: 0o600 })
-      await workspacePath(workspace, requested, true, this.blocked)
+      await this.workspacePath(workspace, requested, true)
       await rename(temporary, path)
       await this.workspaceQuery.invalidate(workspace, requested)
     } finally {
@@ -169,6 +238,7 @@ export class LocalExecution implements ExecutionProvider {
   }
   async exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult> {
     signal.throwIfAborted()
+    const workingDirectory = await this.workspacePath(workspace, '.')
     const env: Record<string, string> = {}
     const allowed = new Set([
       'path',
@@ -193,7 +263,7 @@ export class LocalExecution implements ExecutionProvider {
         ? ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]
         : ['/bin/sh', '-c', command]
     const child = Bun.spawn(argv, {
-      cwd: workspace,
+      cwd: workingDirectory,
       env,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -253,7 +323,7 @@ export class LocalExecution implements ExecutionProvider {
   }
 }
 
-export function localExecutionPlugin(blocked: string[] = []) {
+export function localExecutionPlugin(blocked: string[] = [], managedWorkspace?: VerifiedManagedWorkspaceAccess) {
   return definePlugin({
     manifest: {
       id: 'execution.local',
@@ -267,7 +337,7 @@ export function localExecutionPlugin(blocked: string[] = []) {
       permissions: ['fs', 'process'],
     },
     apply(ctx) {
-      const execution = new LocalExecution(blocked)
+      const execution = new LocalExecution(blocked, managedWorkspace)
       ctx.effect(() => () => execution.dispose())
       provide(ctx, 'execution', execution)
     },

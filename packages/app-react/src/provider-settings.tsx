@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { LumenFrame, LumenText, LumenButton, LumenDialog, LumenSettingsList } from '@lumen/app-ui'
+import { LumenFrame, LumenText, LumenButton, LumenDialog } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { ProviderListView, type ProviderListViewLabels, type ProviderListViewItem } from './provider-list-view'
 import {
   HbarProviderEditorView,
   type HbarProviderCatalogRead,
@@ -22,23 +23,7 @@ function isCatalogReadIntent(value: HbarProviderEditorIntent): value is HbarProv
   return value.kind === 'load-presets' || value.kind === 'apply-preset' || value.kind === 'load-preset-models'
 }
 
-export interface HbarProviderSettingsLabels {
-  readonly loading: string
-  readonly refresh: string
-  readonly error: (code: string) => string
-  readonly title: string
-  readonly description: string
-  readonly empty: string
-  readonly add: string
-  readonly edit: (name: string) => string
-  readonly actions: (name: string) => string
-  readonly remove: (name: string) => string
-  readonly protocol: (value: string) => string
-  readonly defaultModel: (model: string) => string
-  readonly modelCount: (count: number) => string
-  readonly hidden: string
-  readonly configured: string
-  readonly notConfigured: string
+export interface HbarProviderSettingsLabels extends ProviderListViewLabels {
   readonly deleteConfirmTitle: (name: string) => string
   readonly deleteConfirmDescription: (name: string) => string
   readonly cancel: string
@@ -57,11 +42,19 @@ export function HbarProviderSettings({
   const [actionError, setActionError] = useState<string | null>(null)
   const [removeTarget, setRemoveTarget] = useState<{ readonly id: string; readonly name: string } | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [reconcilingProviderId, setReconcilingProviderId] = useState<string | null>(null)
   useEffect(() => {
     if (providers.status !== 'idle') return
     void runtime.commands.execute('providerEditor.refresh', {}).catch((reason) => setActionError(reasonCode(reason)))
   }, [providers.status, runtime.commands])
+  const defaultActionPending =
+    providers.globalDefaultAction.status === 'submitting' || providers.globalDefaultAction.status === 'unknown'
+  const isProviderEditingBlocked = () => {
+    const current = runtime.state.providers.getSnapshot().globalDefaultAction
+    return current.status === 'submitting' || current.status === 'unknown' || reconcilingProviderId !== null
+  }
   const open = (itemId?: string) => {
+    if (isProviderEditingBlocked()) return
     setActionError(null)
     void runtime.commands
       .execute('app.openSettingsEditor', {
@@ -73,6 +66,7 @@ export function HbarProviderSettings({
       .catch((reason) => setActionError(reasonCode(reason)))
   }
   const refresh = () => {
+    if (isProviderEditingBlocked()) return
     setActionError(null)
     void runtime.commands.execute('providerEditor.refresh', {}).catch((reason) => setActionError(reasonCode(reason)))
   }
@@ -93,29 +87,55 @@ export function HbarProviderSettings({
         </LumenButton>
       </LumenFrame>
     )
-  const items = providers.list.draft.map((item) => {
-    const id = String(item.providerId)
-    const name = String(item.name || item.providerId)
+  const items: ProviderListViewItem[] = providers.list.draft.map((item) => {
+    const providerId = String(item.providerId)
+    const profile = providers.profiles[providerId]
+    const provider = profile?.provider
+    const primaryModelId = provider?.model ?? String(item.model)
+    const primaryModel = provider?.models.find((model) => model.id === primaryModelId)
     return {
-      id,
-      title: name,
-      metadata: [
-        labels.protocol(String(item.protocol)),
-        labels.defaultModel(String(item.model)),
-        labels.modelCount(Number(item.modelCount)),
-        ...(item.visible === false ? [labels.hidden] : []),
-      ],
-      status: {
-        label: item.hasKey ? labels.configured : labels.notConfigured,
-        tone: item.hasKey ? ('success' as const) : ('neutral' as const),
-      },
-      editLabel: labels.edit(name),
-      menuLabel: labels.actions(name),
-      removeLabel: labels.remove(name),
+      providerId,
+      name: provider?.name || String(item.name || item.providerId),
+      protocol: provider?.protocol ?? String(item.protocol),
+      primaryModelName: primaryModel?.name || primaryModelId,
+      modelCount: provider?.models.length ?? Number(item.modelCount),
+      hidden: provider ? !provider.visible : item.visible === false,
+      hasKey: profile?.hasKey ?? Boolean(item.hasKey),
+      defaultTargetVisible: Boolean(provider?.visible && primaryModel?.visible),
     }
   })
+  const setGlobalDefault = (providerId: string) => {
+    const previousAction = runtime.state.providers.getSnapshot().globalDefaultAction
+    if (previousAction.status === 'submitting' || previousAction.status === 'unknown') return
+    setActionError(null)
+    void runtime.commands.execute('providerEditor.setGlobalDefault', { providerId }).catch((reason) => {
+      const latestAction = runtime.state.providers.getSnapshot().globalDefaultAction
+      const runtimeOwnsRowError =
+        latestAction !== previousAction &&
+        latestAction.providerId === providerId &&
+        (latestAction.status === 'failed' || latestAction.status === 'unknown')
+      if (!runtimeOwnsRowError) setActionError(reasonCode(reason))
+    })
+  }
+  const reconcileGlobalDefault = (providerId: string) => {
+    const previousAction = runtime.state.providers.getSnapshot().globalDefaultAction
+    if (previousAction.status !== 'unknown' || previousAction.providerId !== providerId) return
+    setActionError(null)
+    setReconcilingProviderId(providerId)
+    void runtime.commands
+      .execute('providerEditor.reconcileGlobalDefault', {})
+      .catch((reason) => {
+        const latestAction = runtime.state.providers.getSnapshot().globalDefaultAction
+        const runtimeOwnsRowError =
+          latestAction !== previousAction &&
+          latestAction.providerId === providerId &&
+          (latestAction.status === 'failed' || latestAction.status === 'unknown')
+        if (!runtimeOwnsRowError && latestAction.status !== 'unknown') setActionError(reasonCode(reason))
+      })
+      .finally(() => setReconcilingProviderId((current) => (current === providerId ? null : current)))
+  }
   const confirmRemove = () => {
-    if (!removeTarget) return
+    if (!removeTarget || defaultActionPending || reconcilingProviderId !== null) return
     setActionError(null)
     setRemoving(true)
     void runtime.commands
@@ -126,21 +146,22 @@ export function HbarProviderSettings({
   }
   return (
     <LumenFrame className="hbar-app-react-provider-list">
-      <LumenSettingsList
-        label={labels.title}
-        description={labels.description}
-        empty={labels.empty}
-        addLabel={labels.add}
-        refreshLabel={labels.refresh}
+      <ProviderListView
+        labels={labels}
         items={items}
-        disabled={!connected}
+        connected={connected}
         busy={removing}
+        globalDefault={providers.globalDefault}
+        defaultAction={providers.globalDefaultAction}
+        reconcilingProviderId={reconcilingProviderId}
         onAdd={() => open()}
         onRefresh={refresh}
-        onOpen={open}
-        onRemove={(id) => {
-          const item = items.find((candidate) => candidate.id === id)
-          if (item) setRemoveTarget({ id, name: item.title })
+        onSetDefault={setGlobalDefault}
+        onReconcileDefault={reconcileGlobalDefault}
+        onEdit={open}
+        onRemove={(providerId) => {
+          const item = items.find((candidate) => candidate.providerId === providerId)
+          if (item && !isProviderEditingBlocked()) setRemoveTarget({ id: item.providerId, name: item.name })
         }}
       />
       {actionError && (
@@ -158,7 +179,11 @@ export function HbarProviderSettings({
             <LumenButton variant="outlined" disabled={removing} onClick={() => setRemoveTarget(null)}>
               {labels.cancel}
             </LumenButton>
-            <LumenButton tone="danger" disabled={removing} onClick={confirmRemove}>
+            <LumenButton
+              tone="danger"
+              disabled={removing || defaultActionPending || reconcilingProviderId !== null}
+              onClick={confirmRemove}
+            >
               {labels.confirmRemove}
             </LumenButton>
           </>

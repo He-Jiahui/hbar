@@ -42,7 +42,8 @@ test('file workspace renders Host entries and a command-owned editable document'
   const text = '# Host file'
   const labels = getShellCopy('en-US').files
   expect(labels.error('UNSUPPORTED_TYPE')).toBe('This file is not editable UTF-8 text.')
-  expect(labels.error('INVALID_OUTPUT')).toBe('This file is too large to open in the tool.')
+  expect(labels.error('INVALID_OUTPUT')).toContain('invalid Files response')
+  expect(labels.error('INPUT_TOO_LARGE')).toBe('This file is too large to open in the tool.')
   const runtime = createAppRuntime({
     instanceId: 'files-react',
     hostId: 'host',

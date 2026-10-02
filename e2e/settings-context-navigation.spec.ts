@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
   const copy = getShellCopy(locale)
@@ -97,9 +98,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        const model = page.getByRole('button', { name: copy.session.tools.settings, exact: true })
-        await model.focus()
-        await page.keyboard.press('Enter')
+        await openSessionTool(page, copy.session.tools, 'settings')
         await expect(pageBoundary).toBeFocused()
         await expect(pageBoundary).toHaveAccessibleName(copy.settings.pageTitle)
         await expect(scope).toHaveValue('session')

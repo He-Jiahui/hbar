@@ -10,13 +10,18 @@ import {
   type LumenRunActivityLabels,
   type LumenRunActivityProps,
 } from '@lumen/app-ui'
+import type { RunStatus } from '@hbar/contracts'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './session-run-activity.css'
 
 const PAGE_SIZE = 20
 const MAX_RUNS = 80
 
-export interface HbarSessionRunLabels extends LumenRunActivityLabels {
+export type HbarSessionRunStatus = RunStatus
+export type HbarSessionRunItem = Omit<LumenRunActivityItem, 'status'> & { readonly status: HbarSessionRunStatus }
+
+export interface HbarSessionRunLabels extends Omit<LumenRunActivityLabels, 'statusLabel'> {
+  readonly statusLabel: (status: HbarSessionRunStatus) => string
   readonly details: (count: number) => string
   readonly more: (count: number) => string
   readonly activeCount: (count: number) => string
@@ -26,8 +31,9 @@ export interface HbarSessionRunLabels extends LumenRunActivityLabels {
 
 export interface HbarSessionRunActivityProps extends Omit<
   LumenRunActivityProps,
-  'labels' | 'listStrategy' | 'selectedRunId' | 'onSelectRun'
+  'runs' | 'labels' | 'listStrategy' | 'selectedRunId' | 'onSelectRun'
 > {
+  readonly runs: readonly HbarSessionRunItem[]
   readonly labels: HbarSessionRunLabels
   readonly canRetryNewRun?: boolean
   readonly canCancelRun?: (operationId: string) => boolean
@@ -35,7 +41,7 @@ export interface HbarSessionRunActivityProps extends Omit<
 }
 
 /** Prefer the actual executing Run to a newer queued Run for the current Stop target. */
-export function currentSessionRun<T extends Pick<LumenRunActivityItem, 'status'>>(runs: readonly T[]): T | undefined {
+export function currentSessionRun<T extends { readonly status: string }>(runs: readonly T[]): T | undefined {
   return (
     runs.find((run) => run.status === 'running' || run.status === 'waiting_approval') ??
     runs.find((run) => run.status === 'queued') ??
@@ -62,9 +68,9 @@ export function HbarSessionRunActivity({
   const runs = sourceRuns.filter((run) => !ids.has(run.id) && Boolean(ids.add(run.id))).slice(0, MAX_RUNS)
   const current = currentSessionRun(runs)
   const others = runs.filter((run) => run.id !== current?.id)
-  const isActive = (run: LumenRunActivityItem) => ['queued', 'running', 'waiting_approval'].includes(run.status)
+  const isActive = (run: HbarSessionRunItem) => ['queued', 'running', 'waiting_approval'].includes(run.status)
   const activeCount = runs.filter(isActive).length
-  const actions = (run: LumenRunActivityItem) => {
+  const actions = (run: HbarSessionRunItem) => {
     const cancelling = cancellingRunIds.includes(run.id)
     const retrying = retryingRunIds.includes(run.id)
     const rechecking = unknownRetryRunIds.includes(run.id)
@@ -92,7 +98,7 @@ export function HbarSessionRunActivity({
       </LumenButton>
     ) : null
   }
-  const status = (run: LumenRunActivityItem) => (
+  const status = (run: HbarSessionRunItem) => (
     <LumenStatus
       value={
         cancellingRunIds.includes(run.id) ? labels.cancellingLabel : (run.statusLabel ?? labels.statusLabel(run.status))

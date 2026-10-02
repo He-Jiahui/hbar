@@ -8,12 +8,24 @@ import type {
 } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import type { PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { DraftAttachmentTransfer, PromptAttachment, PromptWorkspaceContext } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
-import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import type { AttachmentUploadInput, SessionFileTarget } from '@hbar/contracts/commands/files'
+import type {
+  SessionLaunchSelection,
+  SessionLaunchTargetPreparationManager,
+  SessionLaunchTargetReader,
+} from '@hbar/contracts/commands/session-launch-target'
+import type { PreSessionLaunchPreparationState } from '@hbar/contracts/commands/pre-session-draft'
+import type {
+  SessionLaunchBranchesManager,
+  SessionLaunchBranchesReader,
+} from '@hbar/contracts/commands/session-launch-branches'
 import type {
   ActiveOperationsPage,
   QueuedRunEditTextReceipt,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
   QueuedRunRemoveReceipt,
   RunAccepted,
 } from '@hbar/contracts/commands/run'
@@ -63,7 +75,8 @@ import type {
   ProviderPresetSummary,
   ProviderProfile,
 } from '@hbar/contracts/commands/configuration'
-import type { ThinkingLevel } from '@hbar/contracts'
+import type { ProviderGlobalDefaultAction } from '@hbar/contracts/commands/provider-editor'
+import type { ProviderConfig, ThinkingLevel } from '@hbar/contracts'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 import type { PlanProposalRequestText } from './plan-proposal-actions'
 
@@ -98,6 +111,11 @@ export interface RuntimeOptions {
   readonly instanceId: string
   readonly hostId: string
   readonly directory: CommandExecutor
+  /** Durable sidebar directory/activity invalidations and transport lifetime. */
+  readonly sidebarActivityEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly workspaces?: CommandExecutor
   /** Only supplied after Host identity is confirmed; independent of device-local preferences. */
   readonly workspaceOrganization?: {
@@ -152,6 +170,14 @@ export interface RuntimeOptions {
     onConnection?(listener: (connected: boolean) => void): () => void
   }
   readonly files?: CommandExecutor
+  /** Host-authoritative target revisions; absence does not authorize a shared-session fallback. */
+  readonly sessionLaunchTargets?: SessionLaunchTargetReader
+  /** Durable first-send preparation; separate from the legacy read-only target projection. */
+  readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
+  /** Explicit, read-only branch discovery for the pre-session launch choice. */
+  readonly sessionLaunchBranches?: SessionLaunchBranchesReader
+  /** Optional confirmed branch-ref creation capability for the pre-session launch Location form. */
+  readonly sessionLaunchBranchCreation?: SessionLaunchBranchesManager
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
   /** Transport lifetime for Goal reads; a reconnect is not confirmation of an unknown action. */
@@ -161,6 +187,9 @@ export interface RuntimeOptions {
   /** Explicit read-only canonical Goal history capability, separate from editable current Goal. */
   readonly goalHistory?: CommandExecutor
   readonly workflows?: WorkflowWorkspacePort
+  readonly workflowEvents?: {
+    onConnection(listener: (connected: boolean) => void): () => void
+  }
   readonly extensions?: CommandExecutor
   readonly system?: CommandExecutor
   readonly metrics?: CommandExecutor
@@ -465,6 +494,7 @@ export interface FileWorkspaceDocumentState {
 
 export interface FileWorkspaceChangesState {
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
+  readonly isRepository: boolean | null
   readonly cwd: string | null
   readonly root: string | null
   readonly branch: string | null
@@ -518,12 +548,18 @@ export type FileWorkspacePreviewState =
       readonly path: string
       readonly documentMode: 'preview' | 'edit'
       readonly document: Readonly<FileWorkspaceDocumentState>
+      /** One-shot visual reveal requested by a message/file navigation intent. */
+      readonly reveal?: Readonly<{
+        readonly requestId: string
+        readonly line: number
+        readonly column?: number
+      }>
     }
   | {
       readonly id: string
       readonly kind: 'diff'
       readonly path: string
-      readonly cwd: string
+      readonly cwd: string | null
       readonly originalPath: string | null
       readonly diff: Readonly<FileWorkspaceDiffState>
     }
@@ -531,6 +567,8 @@ export type FileWorkspacePreviewState =
 export interface FileWorkspaceEntryState {
   readonly instanceId: string
   readonly workspaceId: string
+  readonly sourceSessionId: string | null
+  readonly sessionTarget: SessionFileTarget | null
   readonly path: string
   readonly previews: readonly Readonly<FileWorkspacePreviewState>[]
   readonly activePreviewId: string | null
@@ -712,8 +750,25 @@ export interface ProviderSettingsState {
   readonly description: Readonly<ProviderEditorDescription> | null
   readonly listSchema: Readonly<CompiledKeyedList> | null
   readonly list: Readonly<KeyedListState> | null
-  readonly profiles: Readonly<Record<string, Readonly<ProviderProfile>>>
+  readonly profiles: Readonly<Record<string, Readonly<ProviderSettingsProfile>>>
+  readonly globalDefault: Readonly<ProviderGlobalDefaultState>
+  readonly globalDefaultAction: Readonly<ProviderGlobalDefaultAction>
   readonly editor: Readonly<ProviderEditorState> | null
+  readonly error: string | null
+}
+
+export interface ProviderSettingsProfile extends Omit<ProviderProfile, 'provider'> {
+  readonly provider: Readonly<ProviderConfig>
+}
+
+export interface ProviderGlobalDefaultState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
+  readonly modelSelectionId: string | null
+  readonly providerId: string | null
+  readonly providerName: string | null
+  readonly modelId: string | null
+  readonly modelName: string | null
+  readonly selectable: boolean
   readonly error: string | null
 }
 export interface RunCommandPort extends CommandExecutor {
@@ -724,6 +779,8 @@ export interface RunCommandPort extends CommandExecutor {
   ): Promise<RunAccepted | null>
   getQueuedRemoveReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunRemoveReceipt | null>
   getQueuedEditTextReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunEditTextReceipt | null>
+  guideQueuedRun?(request: QueuedRunGuideInput, idempotencyKey: string): Promise<QueuedRunGuideReceipt>
+  getQueuedRunGuideReceipt?(sessionId: string, idempotencyKey: string): Promise<QueuedRunGuideReceipt | null>
 }
 
 export interface ActivityWorkspaceEntryState {
@@ -740,26 +797,27 @@ export interface ActivityWorkspaceEntryState {
 
 export interface ActivityWorkspaceState {
   readonly entries: Readonly<Record<string, Readonly<ActivityWorkspaceEntryState>>>
+  readonly agents: Readonly<Record<string, Readonly<ActivityAgentEntryState>>>
 }
 
-export interface SessionAttachmentTransfer {
-  readonly id: string
-  readonly ownerRevision: number
-  readonly originalOperationId: string | null
-  readonly name: string
-  readonly mime: string
-  readonly size: number
-  readonly status: 'preparing' | 'uploading' | 'failed' | 'unknown' | 'reconciling' | 'ready'
-  readonly kind: 'image' | 'file'
-  readonly upload: AttachmentUploadInput | null
-  readonly confirmed: PromptAttachment | null
+export interface ActivityAgentEntryState {
+  readonly instanceId: string
+  readonly sessionId: string
+  readonly status: 'loading' | 'ready' | 'error' | 'unavailable'
+  readonly items: readonly Readonly<AgentRecord>[]
+  readonly nextCursor: string | null
+  readonly limitReached: boolean
   readonly error: string | null
 }
+
+export type SessionAttachmentTransfer = DraftAttachmentTransfer
 
 export interface SessionDraftState {
   readonly sessionId: string
   readonly text: string
   readonly mentions: readonly Readonly<import('@hbar/contracts/commands/draft').PromptMention>[]
+  /** Optional only for compatibility with older in-memory typed fixtures; Runtime initial state is always []. */
+  readonly workspaceContexts?: readonly Readonly<PromptWorkspaceContext>[]
   readonly attachments: readonly Readonly<PromptAttachment>[]
   readonly attachmentTransfers: readonly SessionAttachmentTransfer[]
   readonly uploading: number
@@ -871,6 +929,27 @@ export interface SessionTimelinePort {
     cursor: number,
     onUpdate: (update: SessionTimelineUpdate) => void,
   ): Promise<() => void | Promise<void>>
+}
+
+/** A local, session-scoped launch choice for an existing Session before its first Run. */
+export interface SessionLaunchDraftEntry {
+  readonly sessionId: string
+  readonly workspaceId: string
+  /** Compare-and-set revision for the local choice, independent of Host target revision. */
+  readonly revision: number
+  /** Host target revision captured at open/last confirmed selection receipt. */
+  readonly hostRevision: number
+  readonly selection: SessionLaunchSelection
+  readonly phase: PreSessionLaunchPreparationState['phase']
+  /** Host revision usable by `run.submit.expectedLaunchTargetRevision` only after ready. */
+  readonly targetRevision: number | null
+  readonly error: string | null
+  readonly preparation: PreSessionLaunchPreparationState
+}
+
+export interface SessionLaunchDraftState {
+  readonly available: boolean
+  readonly entries: Readonly<Record<string, Readonly<SessionLaunchDraftEntry>>>
 }
 
 export interface SessionTimelineState {

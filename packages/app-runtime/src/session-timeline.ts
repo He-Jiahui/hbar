@@ -8,6 +8,7 @@ import {
   userInputRequestSchema,
 } from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
+import { queuedRunGuidanceSchema, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
 import type {
   Approval,
   LiveStream,
@@ -37,7 +38,16 @@ const runSchema = z.object({
   requestId: z.string().min(1),
   input: inputSchema,
   modelId: z.string().min(1),
-  status: z.enum(['queued', 'running', 'waiting_approval', 'completed', 'cancelled', 'failed', 'interrupted']),
+  status: z.enum([
+    'queued',
+    'running',
+    'waiting_approval',
+    'guided',
+    'completed',
+    'cancelled',
+    'failed',
+    'interrupted',
+  ]),
   createdAt: z.number().int().nonnegative(),
   startedAt: z.number().int().nonnegative().nullable(),
   endedAt: z.number().int().nonnegative().nullable(),
@@ -94,9 +104,7 @@ function fromSnapshot(
   const snapshotFirst = snapshot.messages[0]?.seq
   const previousFirst = previous?.messages[0]?.seq
   const preservesOlder = previousFirst !== undefined && snapshotFirst !== undefined && previousFirst <= snapshotFirst
-  const historical = (previous?.approvals ?? []).filter(
-    (approval) => approval.tool === 'exit_plan_mode' && approval.status !== 'pending',
-  )
+  const historical = (previous?.approvals ?? []).filter((approval) => approval.status !== 'pending')
   return {
     sessionId: snapshot.session.id,
     status: 'ready',
@@ -120,6 +128,68 @@ function dataRecord(event: SessionEvent): Record<string, unknown> | null {
   return event.data !== null && typeof event.data === 'object' && !Array.isArray(event.data)
     ? (event.data as Record<string, unknown>)
     : null
+}
+
+/** Keep proof comparisons independent of object-key insertion order. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(',')}]`
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'undefined'
+}
+
+/**
+ * Validate the complete cross-entity proof carried by a guided queue message.
+ * A malformed proof is rejected as a whole so the user message cannot appear
+ * without the queue item being consumed.
+ */
+export function parseQueuedRunGuidance(event: SessionEvent, data: Record<string, unknown>): QueuedRunGuidance | null {
+  if (event.type !== 'message.committed' || !event.runId || data.queueGuidance === undefined) return null
+  const messageId = typeof data.id === 'string' ? data.id : null
+  const role = z.literal('user').safeParse(data.role)
+  const content = z.array(contentBlockSchema).safeParse(data.content)
+  if (!messageId || !role.success || !content.success) return null
+  const parsed = queuedRunGuidanceSchema.safeParse(data.queueGuidance)
+  if (!parsed.success) return null
+  const { activeRunId, expectedRevision, guidedRun, receipt } = parsed.data
+  const expectedContent = [
+    ...(guidedRun.input.text ? [{ type: 'text' as const, text: guidedRun.input.text }] : []),
+    ...guidedRun.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
+    ...(guidedRun.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
+  ]
+  if (
+    activeRunId !== event.runId ||
+    guidedRun.id === event.runId ||
+    guidedRun.status !== 'guided' ||
+    guidedRun.sessionId !== event.sessionId ||
+    (guidedRun.input.source ?? 'user') !== 'user' ||
+    guidedRun.startedAt !== null ||
+    guidedRun.endedAt !== event.time ||
+    guidedRun.error !== null ||
+    guidedRun.failure !== undefined ||
+    receipt.sessionId !== event.sessionId ||
+    receipt.operationId !== guidedRun.id ||
+    receipt.activeRunId !== event.runId ||
+    receipt.messageId !== messageId ||
+    receipt.eventId !== event.eventId ||
+    receipt.revision !== event.seq ||
+    receipt.sessionSeq !== event.seq ||
+    receipt.queueRevision !== expectedRevision ||
+    receipt.guidedAt !== event.time ||
+    stableJson(expectedContent) !== stableJson(content.data)
+  )
+    return null
+  return parsed.data
+}
+
+export function isQueuedRunGuidanceEvent(event: SessionEvent): boolean {
+  const data = dataRecord(event)
+  return data !== null && data.queueGuidance !== undefined && parseQueuedRunGuidance(event, data) !== null
 }
 
 function upsert<T>(items: readonly T[], value: T, id: (item: T) => string, limit: number): readonly T[] {
@@ -154,7 +224,13 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
   if (event.type === 'message.committed' && data && event.runId) {
     const content = z.array(contentBlockSchema).safeParse(data.content)
     const role = z.enum(['user', 'assistant', 'tool', 'system']).safeParse(data.role)
-    if (typeof data.id === 'string' && content.success && role.success) {
+    const hasGuidance = Object.hasOwn(data, 'queueGuidance')
+    const guidance = hasGuidance ? parseQueuedRunGuidance(event, data) : null
+    if (hasGuidance && !guidance) {
+      // A message that claims to consume a queue item must carry a complete,
+      // exact receipt proof. Fail closed instead of rendering a user message
+      // while leaving its queued Run available for a later duplicate.
+    } else if (typeof data.id === 'string' && content.success && role.success) {
       const message: Message = {
         id: data.id,
         sessionId: event.sessionId,
@@ -166,7 +242,13 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
         ...(data.providerData !== undefined ? { providerData: data.providerData } : {}),
       }
       messages = [...upsert(messages, message, (item) => item.id, MAX_MESSAGES)].sort((a, b) => a.seq - b.seq)
-      streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== event.runId))
+      if (guidance) {
+        runs = [...upsert(runs, guidance.guidedRun, (item) => item.id, MAX_RUNS)].sort(
+          (a, b) => b.createdAt - a.createdAt,
+        )
+      } else {
+        streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== event.runId))
+      }
     }
   } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type) && data) {
     const parsed = runSchema.safeParse(data.run)
@@ -350,6 +432,13 @@ export function createSessionTimeline(
           }
           // Replayed facts are already covered by snapshot.cursor. Only contiguous durable facts advance coverage.
           if (canonical.data.seq <= current.cursor) return
+          const eventData = dataRecord(canonical.data)
+          if (eventData?.queueGuidance !== undefined && !parseQueuedRunGuidance(canonical.data, eventData)) {
+            // A malformed guidance event cannot be safely projected locally;
+            // reload so the durable snapshot remains the source of truth.
+            void load(sessionId)
+            return
+          }
         }
         if (update.kind === 'stream') {
           const previous = current.streams[update.stream.id]

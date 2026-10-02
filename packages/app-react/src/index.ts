@@ -1,6 +1,16 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
 export type { SessionStopLabels } from './session-stop'
 export type { WorkspaceOrganizationLabels } from './workspace-organization'
+export {
+  WorkspaceHeaderSortMenu,
+  type WorkspaceHeaderSortMenuLabels,
+  type WorkspaceHeaderSortMenuProps,
+  type WorkspaceHeaderOrganizationLabels,
+  type WorkspaceHeaderOrganization,
+  type WorkspaceOrganizationMode,
+} from './workspace-header-sort-menu'
+export { SidebarTimeView, type SidebarTimeViewProps } from './sidebar-time-view'
+export { buildSidebarTimeGroups, type SidebarTimeGroup, type SidebarTimeGroupId } from './sidebar-time-groups'
 export { WorkspaceDisplayNameDialog, WorkspaceDisplayNameFeedback } from './workspace-display-names'
 export type {
   WorkspaceDisplayNamesLabels,
@@ -9,6 +19,7 @@ export type {
   WorkspaceDisplayNameFeedbackProps,
 } from './workspace-display-names'
 export type { HbarSessionImageLabels, HbarSessionImagesOptions } from './session-images'
+export { HbarSessionImageLayer, HbarPreSessionDraftImageAttachments } from './session-images'
 export {
   HbarSessionImagesModelProvider,
   useSessionImageGallery,
@@ -42,6 +53,7 @@ export { createHbarSchemaComponents } from './lumen-schema-components'
 export {
   HbarWorkspaceShell,
   type HbarWorkspaceShellLabels,
+  type HbarSidebarTimeLabels,
   type HbarWorkspaceShellProps,
 } from './lumen-workspace-shell'
 export {
@@ -57,6 +69,7 @@ export {
   type HbarSessionWorkspaceLabels,
   type HbarSessionWorkspaceProps,
 } from './lumen-session-workspace'
+export { HbarSessionLaunchLocation, type HbarSessionLaunchLocationProps } from './session-launch-location'
 export {
   HbarSessionEmptyHero,
   showSessionEmptyHero,
@@ -70,12 +83,21 @@ export {
 } from './pre-session-landing'
 export { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 export {
+  addComposerAttachments,
+  type AttachmentInputTarget,
+  type ComposerAttachmentInputTarget,
+  type ComposerAttachmentInputOptions,
+  type PreSessionAttachmentInputTarget,
+} from './composer-attachment-input'
+export { HbarComposerAttachmentTransfers, type HbarComposerAttachmentLabels } from './composer-attachments'
+export {
   HbarPreSessionSlashEditor,
   type HbarPreSessionSlashEditorProps,
   type PreSessionLocalSlashCommand,
 } from './pre-session-slash-editor'
 export type { HbarComposerSlashLabels } from './composer-slash-menu'
-export { localSlashCommand, type LocalSlashCommand } from './composer-slash'
+export { composerAgentSlashLabels } from './composer-agent-slash-labels'
+export { localGoalSlash, localSlashCommand, type LocalSlashCommand } from './composer-slash'
 export {
   HbarPreSessionChoicePicker,
   visiblePreSessionChoices,
@@ -86,6 +108,17 @@ export {
 } from './pre-session-choice-picker'
 export { HbarPreSessionApprovalPicker, type HbarPreSessionApprovalPickerProps } from './pre-session-approval-picker'
 export { HbarPreSessionThinkingPicker, type HbarPreSessionThinkingPickerProps } from './pre-session-thinking-picker'
+export {
+  HbarPreSessionLocationPicker,
+  launchSelectionBranchName,
+  type HbarPreSessionLocationLabels,
+  type HbarPreSessionLocationPickerProps,
+} from './pre-session-location-picker'
+export {
+  HbarPreSessionLaunchStatus,
+  firstSendIsLocked,
+  type HbarPreSessionLaunchStatusLabels,
+} from './pre-session-launch-status'
 export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,

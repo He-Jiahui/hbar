@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
-import { idSchema } from '../index'
+import { idSchema, runStatusSchema } from '../index'
 import { USAGE_ACCOUNTING_VERSION, usageSourceSchema } from '../usage'
 
 export const usageScopeSchema = z.discriminatedUnion('kind', [
@@ -121,9 +121,7 @@ export const usageAttemptExportSchema = usageTotalsSchema
     firstThinkingAt: z.number().int().nonnegative().nullable(),
     firstTextAt: z.number().int().nonnegative().nullable(),
     endedAt: z.number().int().nonnegative(),
-    runStatus: z
-      .enum(['queued', 'running', 'waiting_approval', 'completed', 'cancelled', 'failed', 'interrupted'])
-      .nullable(),
+    runStatus: runStatusSchema.nullable(),
     cost: usageMetricSchema,
     pricingVersion: z.string().max(512).nullable(),
     accountingVersion: z.number().int().positive(),

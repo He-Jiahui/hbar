@@ -10,11 +10,27 @@ import {
 } from 'react'
 import { LumenFrame, LumenTextarea } from '@lumen/app-ui'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
-import { localSlashCommand, slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
+import {
+  localSlashCommand,
+  shouldSubmitExactSlashOnSend,
+  slashMatches,
+  slashTokenAt,
+  type LocalSlashCommand,
+} from './composer-slash'
 import './composer-mention-editor.css'
 import './pre-session-slash-editor.css'
 
-export type PreSessionLocalSlashCommand = Extract<LocalSlashCommand, 'model' | 'settings'>
+export type PreSessionLocalSlashCommand = Extract<LocalSlashCommand, 'model' | 'settings' | 'goal'>
+
+function isPreSessionSuggestion(command: LocalSlashCommand): boolean {
+  return (
+    command === 'model' ||
+    command === 'settings' ||
+    command === 'goal' ||
+    command === 'agent' ||
+    command.startsWith('agent ')
+  )
+}
 
 export interface HbarPreSessionSlashEditorProps {
   readonly value: string
@@ -48,13 +64,16 @@ function getSlashTrigger(value: string, cursor: number, available: readonly Loca
   return token && slashMatches(token.term, available).length ? token : null
 }
 
-function isSubmitShortcut(event: ReactKeyboardEvent<HTMLTextAreaElement>, behavior: HbarPreSessionSlashEditorProps['sendBehavior']) {
+function isSubmitShortcut(
+  event: ReactKeyboardEvent<HTMLTextAreaElement>,
+  behavior: HbarPreSessionSlashEditorProps['sendBehavior'],
+) {
   if (event.key !== 'Enter' || event.shiftKey || behavior === null) return false
   if (behavior === 'enter') return !event.ctrlKey && !event.metaKey
   return event.ctrlKey || event.metaKey
 }
 
-/** Controlled no-tab text input with only the local model/settings slash actions. */
+/** Controlled no-tab input: local setup actions and completion-only Agent parent prompts. */
 export function HbarPreSessionSlashEditor({
   value,
   inputLabel,
@@ -78,15 +97,13 @@ export function HbarPreSessionSlashEditor({
   const dismissedSlashRef = useRef<SlashTrigger | null>(null)
 
   const availableCommands = useMemo(
-    () => labels.commands
-      .filter((command) => command.id === 'model' || command.id === 'settings')
-      .map((command) => command.id),
+    () => labels.commands.filter((command) => isPreSessionSuggestion(command.id)).map((command) => command.id),
     [labels.commands],
   )
   const slashLabels = useMemo<HbarComposerSlashLabels>(
     () => ({
       ...labels,
-      commands: labels.commands.filter((command) => command.id === 'model' || command.id === 'settings'),
+      commands: labels.commands.filter((command) => isPreSessionSuggestion(command.id)),
     }),
     [labels],
   )
@@ -108,9 +125,7 @@ export function HbarPreSessionSlashEditor({
     setSlashTrigger(active)
   }, [])
 
-  const matches = slashTrigger && !disabled
-    ? slashMatches(slashTrigger.term, availableCommands)
-    : []
+  const matches = slashTrigger && !disabled ? slashMatches(slashTrigger.term, availableCommands) : []
   const activeIndex = matches.length ? Math.min(selectedIndex, matches.length - 1) : 0
   const slashOpen = matches.length > 0
 
@@ -167,7 +182,7 @@ export function HbarPreSessionSlashEditor({
 
   const chooseSlashCommand = (command: LocalSlashCommand) => {
     const trigger = slashTriggerRef.current
-    if (!trigger || disabled || (command !== 'model' && command !== 'settings')) return
+    if (!trigger || disabled || !isPreSessionSuggestion(command)) return
     if (!slashMatches(trigger.term, availableCommands).includes(command)) return
     const currentToken = slashTokenAt(value, trigger.to)
     if (!currentToken || currentToken.from !== trigger.from || currentToken.to !== trigger.to) return
@@ -185,7 +200,7 @@ export function HbarPreSessionSlashEditor({
   const submit = () => {
     if (disabled) return
     const command = localSlashCommand(value, availableCommands)
-    if (command === 'model' || command === 'settings') {
+    if (command === 'model' || command === 'settings' || command === 'goal') {
       void onLocalCommand(command)
       return
     }
@@ -208,6 +223,22 @@ export function HbarPreSessionSlashEditor({
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
         const command = matches[activeIndex]
+        if (
+          event.key === 'Enter' &&
+          shouldSubmitExactSlashOnSend({
+            text: value,
+            activeTerm: slashTrigger?.term ?? '',
+            selectedCommand: command,
+            availableCommands,
+            submitCommands: ['model', 'settings', 'goal'],
+            sendShortcut: isSubmitShortcut(event, sendBehavior),
+          })
+        ) {
+          event.preventDefault()
+          setActiveSlash(null)
+          submit()
+          return
+        }
         if (command) {
           event.preventDefault()
           chooseSlashCommand(command)
@@ -256,8 +287,12 @@ export function HbarPreSessionSlashEditor({
           setActiveSlash(getSlashTrigger(input.value, input.selectionStart, availableCommands))
         }}
         onKeyDown={handleKeyDown}
-        onCompositionStart={() => { composing.current = true }}
-        onCompositionEnd={() => { composing.current = false }}
+        onCompositionStart={() => {
+          composing.current = true
+        }}
+        onCompositionEnd={() => {
+          composing.current = false
+        }}
         onBlur={() => setActiveSlash(null)}
       />
       {slashOpen && (

@@ -1,5 +1,5 @@
-import { mkdir, realpath } from 'node:fs/promises'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { lstat, mkdir, realpath } from 'node:fs/promises'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
   HbarError,
@@ -28,6 +28,11 @@ import type {
   GitBranchOperation,
   GitCommitOptions,
   GitDiffOptions,
+  GitLaunchBranchCreateInput,
+  GitLaunchBranchCreateResult,
+  GitLaunchBranchHead,
+  GitLaunchBranchReference,
+  GitLaunchBranchSnapshot,
   GitService,
   GitStatsOptions,
   GitWorktreeOperation,
@@ -38,6 +43,7 @@ const MAX_PATH = 4_000
 const MAX_OUTPUT = 512_000
 const MAX_LOG = 100
 const MAX_WORKTREES = 100
+const MAX_LAUNCH_BRANCH_REFS = 5_000
 const MAX_UNTRACKED_FILES = 1_000
 const MAX_STATS_COMMITS = 20_000
 const MAX_STATS_OUTPUT = 16 * 1024 * 1024
@@ -233,8 +239,8 @@ function parseStatus(output: string, cwd: string): GitStatus {
     const item = {
       index: token[0] ?? ' ',
       worktree: token[1] ?? ' ',
-      path: token.slice(3).replaceAll('\\', '/'),
-      ...(originalPath ? { originalPath: originalPath.replaceAll('\\', '/') } : {}),
+      path: token.slice(3),
+      ...(originalPath ? { originalPath } : {}),
     }
     if (item.path) entries.push(item)
   }
@@ -437,6 +443,94 @@ function parseWorktrees(output: string): GitWorktreeInfo[] {
   return result.slice(0, MAX_WORKTREES)
 }
 
+function isGitObjectId(value: string): boolean {
+  return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(value)
+}
+
+function sameWorktreePath(left: string, right: string): boolean {
+  const resolvedLeft = resolve(left)
+  const resolvedRight = resolve(right)
+  return process.platform === 'win32'
+    ? resolvedLeft.toLowerCase() === resolvedRight.toLowerCase()
+    : resolvedLeft === resolvedRight
+}
+
+function stripOneTrailingLineEnding(value: string): string {
+  return value.endsWith('\n') ? value.slice(0, -1) : value
+}
+
+async function hasGitMetadataInParents(path: string): Promise<boolean> {
+  let current = resolve(path)
+  while (true) {
+    try {
+      await lstat(join(current, '.git'))
+      return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    const parent = dirname(current)
+    if (parent === current) return false
+    current = parent
+  }
+}
+
+function parseLaunchBranchRefs(output: string, currentRef: string | null, truncated: boolean) {
+  const branches: GitLaunchBranchReference[] = []
+  let incomplete = false
+  const lines = output.split(/\r?\n/)
+  if (truncated && !output.endsWith('\n')) lines.pop()
+  for (const line of lines) {
+    if (!line) continue
+    const fields = line.split('\0')
+    if (fields.length !== 2) {
+      incomplete = true
+      continue
+    }
+    const [name, oid] = fields
+    if (!name || !oid || !isGitObjectId(oid)) {
+      incomplete = true
+      continue
+    }
+    const ref = `refs/heads/${name}`
+    if (name.length > 1_000) {
+      incomplete = true
+      continue
+    }
+    branches.push({ name, ref, oid, current: ref === currentRef, worktree: 'unknown' })
+  }
+  return { branches, incomplete }
+}
+
+function parseLaunchWorktreeBranches(output: string, currentRoot: string) {
+  const branches = new Map<string, 'current' | 'elsewhere' | 'conflict'>()
+  let currentPath: string | null = null
+  let branchRef: string | null = null
+  let currentWorktreeFound = false
+  const flush = () => {
+    if (currentPath && sameWorktreePath(currentPath, currentRoot)) currentWorktreeFound = true
+    if (branchRef && currentPath) {
+      const location = sameWorktreePath(currentPath, currentRoot) ? 'current' : 'elsewhere'
+      const previous = branches.get(branchRef)
+      branches.set(branchRef, previous && previous !== location ? 'conflict' : location)
+    }
+    currentPath = null
+    branchRef = null
+  }
+  for (const token of output.split('\0')) {
+    if (!token) {
+      flush()
+      continue
+    }
+    const separator = token.indexOf(' ')
+    const key = separator < 0 ? token : token.slice(0, separator)
+    const value = separator < 0 ? '' : token.slice(separator + 1)
+    if (key === 'worktree') currentPath = value
+    else if (key === 'branch') branchRef = value.startsWith('refs/heads/') ? value : null
+  }
+  if (output.endsWith('\0')) flush()
+  return { branches, currentWorktreeFound }
+}
+
 export class GitRuntime implements GitService {
   private readonly rootPromise: Promise<string>
   private readonly worktreeRootPromise: Promise<string>
@@ -637,6 +731,7 @@ export class GitRuntime implements GitService {
     const status = await this.tryRun(path, ['status', '--porcelain=v1', '-z', '--branch'], signal)
     if (!status)
       return gitStatusSchema.parse({ cwd: path, root: null, branch: null, head: null, upstream: null, ahead: 0, behind: 0, dirty: false, entries: [], originUrl: null })
+    if (status.truncated) throw new HbarError('GIT_OUTPUT_LIMIT', 'Git status output exceeded its configured limit')
     const parsed = parseStatus(status.stdout, path)
     const rootResult = await this.tryRun(path, ['rev-parse', '--show-toplevel'], signal)
     const headResult = await this.tryRun(path, ['rev-parse', 'HEAD'], signal)
@@ -652,7 +747,14 @@ export class GitRuntime implements GitService {
 
   async diff(cwd?: string, options: GitDiffOptions = {}, signal?: AbortSignal): Promise<GitDiff> {
     const path = await this.resolveWithinRoot(cwd)
-    const args = ['diff', '--no-ext-diff', ...(options.cached ? ['--cached'] : [])]
+    const scoped = options.scope === 'execution-root'
+    const args = [
+      ...(scoped ? ['--literal-pathspecs'] : []),
+      'diff',
+      '--no-ext-diff',
+      ...(scoped ? ['--relative', '--no-renames', '--no-textconv'] : []),
+      ...(options.cached ? ['--cached'] : []),
+    ]
     const paths = (options.paths ?? []).map(pathSpec)
     if (paths.length) args.push('--', ...paths)
     const result = await this.run(path, args, signal)
@@ -833,6 +935,61 @@ export class GitRuntime implements GitService {
     return listed
   }
 
+  async createLaunchBranch(
+    cwd: string | undefined,
+    input: GitLaunchBranchCreateInput,
+    signal?: AbortSignal,
+  ): Promise<GitLaunchBranchCreateResult> {
+    const path = await this.resolveWithinRoot(cwd)
+    const name = branchName(input.name.trim())
+    const ref = `refs/heads/${name}`
+    const basePrefix = 'refs/heads/'
+    if (!input.baseRef.startsWith(basePrefix) || input.baseRef.length <= basePrefix.length)
+      throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base must be a local branch ref')
+    branchName(input.baseRef.slice(basePrefix.length))
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(input.expectedBaseOid))
+      throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'Launch branch base OID is invalid')
+
+    const validName = await this.tryRun(path, ['check-ref-format', ref], signal)
+    if (!validName) throw new HbarError('GIT_INVALID_BRANCH', 'Invalid Git branch name')
+    const validBase = await this.tryRun(path, ['check-ref-format', input.baseRef], signal)
+    if (!validBase) throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base ref is invalid')
+    const existing = await this.tryRun(path, ['show-ref', '--verify', '--quiet', ref], signal)
+    if (existing) throw new HbarError('GIT_BRANCH_EXISTS', 'Launch branch already exists')
+
+    const base = await this.tryRun(
+      path,
+      ['rev-parse', '--verify', '--quiet', '--end-of-options', `${input.baseRef}^{commit}`],
+      signal,
+    )
+    if (!base) throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base ref does not resolve to a commit')
+    const baseOid = base.stdout.trim()
+    if (baseOid.toLowerCase() !== input.expectedBaseOid.toLowerCase())
+      throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'Launch branch base moved after it was selected')
+
+    try {
+      await this.run(path, ['branch', '--', name, input.expectedBaseOid], signal)
+    } catch (error) {
+      if (error instanceof HbarError && error.code === 'GIT_COMMAND_FAILED') {
+        const createdDuringRequest = await this.tryRun(path, ['show-ref', '--verify', '--quiet', ref], signal)
+        if (createdDuringRequest) throw new HbarError('GIT_BRANCH_EXISTS', 'Launch branch already exists')
+      }
+      throw error
+    }
+
+    const created = await this.tryRun(
+      path,
+      ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`],
+      signal,
+    )
+    const oid = created?.stdout.trim() ?? ''
+    if (!created || oid.toLowerCase() !== baseOid.toLowerCase())
+      throw new HbarError('GIT_BRANCH_RESULT_UNKNOWN', 'Created launch branch could not be verified')
+
+    await this.notifyChanged(path)
+    return { ref, oid }
+  }
+
   async worktree(cwd: string | undefined, operation: GitWorktreeOperation = {}, signal?: AbortSignal): Promise<GitWorktreeInfo[] | GitWorktreeInfo> {
     const path = await this.resolveWithinRoot(cwd)
     if (!operation.operation || operation.operation === 'list') {
@@ -860,6 +1017,99 @@ export class GitRuntime implements GitService {
     await this.run(path, ['worktree', 'remove', ...(operation.operation === 'remove' && operation.force ? ['--force'] : []), target], signal)
     await this.notifyChanged(path)
     return { path: target, head: null, branch: null, bare: false, locked: false, prunable: false }
+  }
+
+  async launchBranchSnapshot(cwd?: string, signal?: AbortSignal): Promise<GitLaunchBranchSnapshot> {
+    const path = await this.resolveWithinRoot(cwd)
+    const rootResult = await this.runner.run(
+      path,
+      ['rev-parse', '--show-toplevel'],
+      signal ?? new AbortController().signal,
+      { timeoutMs: this.config.timeoutMs, maxOutputBytes: this.config.maxOutputBytes },
+    )
+    if (rootResult.timedOut) throw new HbarError('GIT_TIMEOUT', `Git command exceeded ${this.config.timeoutMs}ms`)
+    if (rootResult.code !== 0) {
+      const message = `${rootResult.stderr}\n${rootResult.stdout}`
+      if (!/not a git repository/i.test(message))
+        throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git could not inspect the registered workspace repository')
+      if (await hasGitMetadataInParents(path))
+        throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git repository metadata exists but Git could not read it')
+      return { repository: { kind: 'not-repository' }, branches: [], incomplete: false }
+    }
+    if (rootResult.truncated)
+      throw new HbarError('GIT_OUTPUT_LIMIT', 'Git repository root output exceeded its configured limit')
+
+    const rootOutput = stripOneTrailingLineEnding(rootResult.stdout)
+    if (!rootOutput) throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git returned an empty repository root')
+    const repositoryRoot = await realpath(resolve(rootOutput))
+    const canonicalWorkspace = await realpath(path)
+    if (!inside(repositoryRoot, canonicalWorkspace))
+      throw new HbarError('GIT_REPOSITORY_SCOPE', 'Git repository root is outside the registered workspace scope')
+    const [symbolicResult, headResult, refsResult, worktreesResult] = await Promise.all([
+      this.tryRun(path, ['symbolic-ref', '--quiet', 'HEAD'], signal),
+      this.tryRun(path, ['rev-parse', '--verify', '--quiet', '--end-of-options', 'HEAD^{commit}'], signal),
+      this.run(
+        path,
+        [
+          'for-each-ref',
+          `--count=${MAX_LAUNCH_BRANCH_REFS + 1}`,
+          '--sort=refname',
+          '--format=%(refname:strip=2)%00%(objectname)',
+          'refs/heads',
+        ],
+        signal,
+      ),
+      this.tryRun(path, ['worktree', 'list', '--porcelain', '-z'], signal),
+    ])
+
+    const symbolicRef = symbolicResult?.stdout.trim() || null
+    const headValue = headResult?.stdout.trim() || null
+    const headOid = headValue && isGitObjectId(headValue) ? headValue : null
+    const refsSnapshot = parseLaunchBranchRefs(refsResult.stdout, symbolicRef, refsResult.truncated)
+    const refsOverCap = refsSnapshot.branches.length > MAX_LAUNCH_BRANCH_REFS
+    const branches = refsSnapshot.branches.slice(0, MAX_LAUNCH_BRANCH_REFS)
+
+    let head: GitLaunchBranchHead
+    if (symbolicRef) {
+      if (symbolicRef.startsWith('refs/heads/')) {
+        const name = symbolicRef.slice('refs/heads/'.length)
+        if (!name || name.length > 1_000)
+          throw new HbarError('GIT_HEAD_UNRESOLVED', 'Git returned an invalid symbolic branch ref')
+        if (headOid) head = { kind: 'branch', ref: symbolicRef, name, oid: headOid }
+        else if (!refsSnapshot.branches.some((branch) => branch.ref === symbolicRef)) {
+          const existingRef = await this.tryRun(path, ['show-ref', '--verify', '--quiet', symbolicRef], signal)
+          if (existingRef) head = { kind: 'symbolic', ref: symbolicRef, oid: null }
+          else head = { kind: 'unborn', ref: symbolicRef, name }
+        } else head = { kind: 'symbolic', ref: symbolicRef, oid: null }
+      } else head = { kind: 'symbolic', ref: symbolicRef, oid: headOid }
+    } else if (headOid) head = { kind: 'detached', oid: headOid }
+    else throw new HbarError('GIT_HEAD_UNRESOLVED', 'Git could not resolve the current repository HEAD')
+
+    const worktreeComplete = Boolean(worktreesResult && !worktreesResult.truncated)
+    const worktreeState = worktreesResult
+      ? parseLaunchWorktreeBranches(worktreesResult.stdout, repositoryRoot)
+      : { branches: new Map<string, 'current' | 'elsewhere' | 'conflict'>(), currentWorktreeFound: false }
+    const projectedBranches = branches.map((branch) => {
+      const location = worktreeState.branches.get(branch.ref)
+      let worktree: GitLaunchBranchReference['worktree']
+      if (head.kind === 'branch' && branch.ref === head.ref) worktree = 'current'
+      else if (location === 'elsewhere') worktree = 'elsewhere'
+      else if (location === 'current' || location === 'conflict') worktree = 'unknown'
+      else if (worktreeComplete && worktreeState.currentWorktreeFound) worktree = 'available'
+      else worktree = 'unknown'
+      return { ...branch, worktree }
+    })
+
+    return {
+      repository: {
+        kind: 'repository',
+        workspaceScope:
+          relative(repositoryRoot, canonicalWorkspace) === '' ? 'repository-root' : 'repository-subdirectory',
+        head,
+      },
+      branches: projectedBranches,
+      incomplete: refsSnapshot.incomplete || refsOverCap || refsResult.truncated,
+    }
   }
 
   async diffToRemote(cwd?: string, signal?: AbortSignal) {

@@ -13,6 +13,7 @@ import {
 import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
 import { hostProcessCommand } from './host-process.ts'
+import { queuedRunGuidedOperationId } from '@hbar/contracts/commands/run'
 import type {
   ApprovalMode,
   Bootstrap,
@@ -278,6 +279,7 @@ function jsonLine(value: unknown) {
 
 function eventLine(event: SessionEvent, run: Run) {
   const base = { runId: run.id, sessionId: run.sessionId }
+  if (queuedRunGuidedOperationId(event) === run.id) return { type: 'run.guided', ...base, guidance: event.data }
   if (event.type === 'tool.started') {
     const data = event.data as { callId?: unknown; name?: unknown }
     return { type: 'tool.started', ...base, callId: data.callId, tool: data.name }
@@ -336,8 +338,10 @@ export async function waitForRun(
         }
         return
       }
-      if (notification.method !== 'session.event' || notification.params.runId !== run.id) return
+      if (notification.method !== 'session.event') return
       const event = notification.params
+      const guided = queuedRunGuidedOperationId(event) === run.id
+      if (event.runId !== run.id && !guided) return
       if (seen.has(event.eventId)) return
       seen.add(event.eventId)
       events.push(event)
@@ -375,7 +379,7 @@ export async function waitForRun(
           })
         }
       }
-      if (event.type === 'run.settled') {
+      if (event.type === 'run.settled' || guided) {
         settled = true
         resolveDone()
       }
@@ -405,6 +409,7 @@ export async function waitForRun(
     process.stdout.write('\n')
   }
   const finalRun = snapshot.runs.find((item) => item.id === run.id) ?? run
-  if (finalRun.status !== 'completed') throw new Error(`Run ${finalRun.status}: ${finalRun.error ?? 'no details'}`)
+  if (finalRun.status !== 'completed' && finalRun.status !== 'guided')
+    throw new Error(`Run ${finalRun.status}: ${finalRun.error ?? 'no details'}`)
   return { run: finalRun, snapshot, assistant, events }
 }

@@ -66,6 +66,13 @@
   gap: 0.125rem;
 }
 
+.hbar-app-react-sidebar-brand-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+
 .hbar-app-react-sidebar-action-error {
   margin: 0;
   padding: 0.25rem 0.75rem;
@@ -78,7 +85,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.25rem;
+  gap: 6px;
+  padding: 8px 0;
 }
 
 .hbar-app-react-sidebar-query-actions > :first-child {
@@ -87,15 +95,22 @@
 }
 
 .hbar-app-react-roster-refresh {
-  inline-size: 2rem;
-  block-size: 2rem;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
   flex: 0 0 auto;
 }
 
 .hbar-app-react-session-batch-mode {
-  inline-size: 2rem;
-  block-size: 2rem;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
   flex: 0 0 auto;
+}
+
+.hbar-app-react-sidebar-query-actions > .hbar-app-react-roster-refresh,
+.hbar-app-react-sidebar-query-actions > .hbar-app-react-session-batch-mode {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: var(--lumen-contrast);
 }
 
 .hbar-app-react-roster-feedback {
@@ -178,6 +193,14 @@
   opacity: 0;
 }
 
+.hbar-app-react-session-row > .lumen-action-menu .lumen-action-menu-popup {
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-react-session-row > .lumen-action-menu .lumen-action-menu-popup button > [data-edge] {
+  display: none;
+}
+
 .hbar-app-react-workspace-line > .hbar-app-react-project-menu,
 .hbar-app-react-project-new-session {
   margin-inline-end: 0.25rem;
@@ -209,6 +232,7 @@
   flex-direction: row;
   align-items: center;
   gap: 0.375rem;
+  text-align: start;
 }
 
 .hbar-app-react-session-title {
@@ -371,6 +395,7 @@
 
   .hbar-app-react-project-new-session,
   .hbar-app-react-roster-refresh,
+  .hbar-app-react-session-batch-mode,
   .hbar-app-react-workspace-line > .hbar-app-react-project-menu summary,
   .hbar-app-react-project-organization-menu summary {
     inline-size: 2.75rem;

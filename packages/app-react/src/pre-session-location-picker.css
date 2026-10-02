@@ -1,0 +1,165 @@
+.hbar-pre-session-location-picker,
+.hbar-pre-session-location-picker > button {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.hbar-pre-session-location-picker > button span:not(.lumen-icon),
+.hbar-pre-session-location-picker > button small {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-pre-session-location-picker small,
+.hbar-pre-session-location-body small {
+  color: var(--lumen-muted);
+}
+
+/* The reference shows a trigger-owned desktop overlay and a narrow bottom sheet. */
+.hbar-pre-session-location-popover {
+  position: fixed;
+  inset: auto;
+  bottom: var(--location-bottom);
+  left: var(--location-left);
+  inline-size: min(25rem, calc(100vw - 2rem));
+  max-block-size: var(--location-limit);
+  margin: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.75rem;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
+  overflow: hidden;
+}
+
+.hbar-pre-session-location-popover:popover-open,
+.hbar-pre-session-location-body,
+.hbar-pre-session-location-list,
+.hbar-pre-session-location-modes {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.hbar-pre-session-location-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-pre-session-location-heading > strong {
+  flex: 1;
+}
+.hbar-pre-session-location-body {
+  padding: 0.5rem;
+  overflow: auto;
+}
+.hbar-pre-session-location-list {
+  overflow: auto;
+}
+
+.hbar-pre-session-location-branch-footer,
+.hbar-pre-session-location-new-branch,
+.hbar-pre-session-location-new-branch-actions {
+  display: flex;
+  min-inline-size: 0;
+  gap: 0.5rem;
+}
+
+.hbar-pre-session-location-branch-footer,
+.hbar-pre-session-location-new-branch {
+  flex-direction: column;
+}
+
+.hbar-pre-session-location-branch-footer {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: 0.5rem;
+}
+
+.hbar-pre-session-location-branch-footer > p,
+.hbar-pre-session-location-new-branch > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-pre-session-location-new-branch > label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.hbar-pre-session-location-new-branch > small {
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+}
+
+.hbar-pre-session-location-new-branch-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  padding-block-start: 0.5rem;
+}
+.hbar-pre-session-location-row,
+.hbar-pre-session-location-modes > button {
+  display: flex;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: start;
+}
+
+.hbar-pre-session-location-row > div,
+.hbar-pre-session-location-modes > button > div {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-pre-session-location-modes {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: 0.5rem;
+}
+.hbar-pre-session-location-modes > button {
+  align-items: flex-start;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.625rem;
+  padding: 0.75rem;
+}
+.hbar-pre-session-location-modes > button[aria-checked='true'] {
+  background: color-mix(in srgb, var(--lumen-primary, var(--lumen-ink)) 12%, transparent);
+}
+.hbar-pre-session-location-body p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-pre-session-location-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+@media (max-width: 40rem) {
+  .hbar-pre-session-location-popover {
+    inset: auto 0 0;
+    inline-size: 100%;
+    max-block-size: min(78dvh, 40rem);
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+  .hbar-pre-session-location-popover::backdrop {
+    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
+  }
+}

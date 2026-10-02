@@ -142,6 +142,38 @@ function isOverlaySelector(path, selector) {
     selector.trim() === '.lumen-integration-consent-reference-workspace-menu'
   )
     return true
+  // The Session More tools menu is a trigger-anchored top-layer overlay;
+  // captured in artifacts/session-tools-menu-v13/zh-tools-*.png. Rows remain flex.
+  if (
+    /packages\/app-react\/src\/session-tools-menu\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-session-tools-menu-popover:popover-open'
+  )
+    return true
+  // CC-haha Sidebar's observed Projects and Sessions header menu and sort flyout
+  // are measured from their owning trigger/row; only the two top-layer containers overlay.
+  if (/packages\/app-react\/src\/workspace-header-sort-menu\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.hbar-app-react-workspace-header-menu-popover:popover-open',
+      '.hbar-app-react-workspace-sort-submenu:popover-open',
+    ])
+    if (selector.split(',').every((part) => overlays.has(part.trim()))) return true
+  }
+  // CC WorkspacePanel's observed selected-text action floats beside a DOM Range.
+  // Evidence: artifacts/file-selection-reference/*-source-selection-menu.png;
+  // only this measured menu container floats, not source rows or comment content.
+  if (
+    /packages\/app-react\/src\/file-context-surfaces\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-file-selection-menu'
+  )
+    return true
+  // CC MessageList's original selected-message action floats beside the selection.
+  // Evidence: artifacts/chat-selection-reference/*-menu.png. Only this exact
+  // measured menu container overlays; message bodies, action text and cards flow.
+  if (
+    /packages\/app-react\/src\/conversation-selection\.css$/.test(path.replaceAll('\\', '/')) &&
+    selector.trim() === '.hbar-conversation-selection-menu'
+  )
+    return true
   // Forms 5: the observed data-region options list overlays the plan cards.
   // Only the listbox container floats; the options and surrounding form stay in flow.
   if (
@@ -465,7 +497,15 @@ function isOverlaySelector(path, selector) {
   // trigger-owned desktop popup / narrow bottom-sheet container floats.
   if (
     /packages\/app-react\/src\/pre-session-choice-picker\.css$/.test(path.replaceAll('\\', '/')) &&
-    /^\.hbar-pre-session-choice-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
+    /^\.hbar-pre-session-choice-popover(?::popover-open|::backdrop|\[data-presentation='web'\](?:::backdrop)?)?$/.test(
+      selector.trim(),
+    )
+  )
+    return true
+  // cc-haha Location: only the observed trigger overlay / narrow bottom-sheet shell floats.
+  if (
+    /packages\/app-react\/src\/pre-session-location-picker\.css$/.test(path.replaceAll('\\', '/')) &&
+    /^\.hbar-pre-session-location-popover(?::popover-open|::backdrop)?$/.test(selector.trim())
   )
     return true
   // cc-haha AgentManager uses the shared trigger-anchored model selector.
@@ -721,6 +761,52 @@ if (inputPaths.length === 1 && inputPaths[0] === '--self-test') {
     throw new Error('Workspace overlay allowance must remain path scoped')
   if (validateCss(consentPath, `${consentMenu} > button {\nposition: absolute;\n}`).length !== 1)
     throw new Error('Workspace option content must remain in flow')
+  const sessionToolsMenuPath = 'packages/app-react/src/session-tools-menu.css'
+  const sessionToolsMenu =
+    '.hbar-session-tools-menu-popover:popover-open {\nposition: fixed;\ninset: auto;\ntop: 0;\nleft: 0;\n}'
+  if (
+    validateCss(sessionToolsMenuPath, sessionToolsMenu).length ||
+    validateCss('other.css', sessionToolsMenu).length === 0 ||
+    validateCss(sessionToolsMenuPath, sessionToolsMenu.replace(':popover-open {', '> button {')).length === 0
+  )
+    throw new Error('Session tools menu overlay exception must be exact, path-scoped and exclude rows')
+  const workspaceSortMenuPath = 'packages/app-react/src/workspace-header-sort-menu.css'
+  const workspaceSortMenuPopovers = `.hbar-app-react-workspace-header-menu-popover:popover-open,
+.hbar-app-react-workspace-sort-submenu:popover-open {
+position: fixed;
+inset: auto;
+top: 0;
+left: 0;
+}`
+  if (
+    validateCss(workspaceSortMenuPath, workspaceSortMenuPopovers).length ||
+    validateCss('other.css', workspaceSortMenuPopovers).length === 0 ||
+    validateCss(
+      workspaceSortMenuPath,
+      workspaceSortMenuPopovers.replace('workspace-sort-submenu:popover-open', 'workspace-sort-submenu > button'),
+    ).length === 0
+  )
+    throw new Error('Workspace sort overlays must remain path-scoped containers and exclude their menu items')
+
+  const selectionMenuPath = 'packages/app-react/src/file-context-surfaces.css'
+  const selectionMenu = '.hbar-file-selection-menu {\nposition: fixed;\nleft: 0;\n}'
+  if (
+    validateCss(selectionMenuPath, selectionMenu).length ||
+    validateCss('other.css', selectionMenu).length === 0 ||
+    validateCss(selectionMenuPath, selectionMenu.replace('selection-menu {', 'selection-menu button {')).length === 0
+  )
+    throw new Error('Source selection overlay exception must remain exact, path-scoped and exclude menu content')
+  const conversationSelectionPath = 'packages/app-react/src/conversation-selection.css'
+  const conversationSelectionMenu = '.hbar-conversation-selection-menu {\nposition: fixed;\nleft: 0;\n}'
+  if (
+    validateCss(conversationSelectionPath, conversationSelectionMenu).length ||
+    validateCss('other.css', conversationSelectionMenu).length === 0 ||
+    validateCss(
+      conversationSelectionPath,
+      conversationSelectionMenu.replace('selection-menu {', 'selection-menu button {'),
+    ).length === 0
+  )
+    throw new Error('Conversation selection overlay exception must remain exact, path-scoped and exclude menu content')
   const settingsForm4Menu = `.lumen-settings-form-4-menu {
 position: absolute;
 inset-block-start: calc(100% + 0.25rem);
@@ -1249,13 +1335,31 @@ inset-inline-end: 0;
     throw new Error('Composer popover exception leaked to content')
   if (validateCss('other.css', '.hbar-composer-picker-popover { position: fixed; }').length !== 1)
     throw new Error('Composer popover exception leaked across files')
+  const locationPath = 'packages/app-react/src/pre-session-location-picker.css'
+  if (validateCss(locationPath, '.hbar-pre-session-location-popover { position: fixed; inset: 0; }').length)
+    throw new Error('Location overlay shell must allow positioning')
+  for (const [path, selector] of [
+    ['other.css', '.hbar-pre-session-location-popover'],
+    [locationPath, '.hbar-pre-session-location-popover > button'],
+    [locationPath, '.hbar-pre-session-location-row'],
+  ]) {
+    if (!validateCss(path, `${selector} { position: fixed; top: 0; }`).length)
+      throw new Error('Location overlay exception must not permit positioned content')
+  }
   const preSessionChoicePath = 'packages/app-react/src/pre-session-choice-picker.css'
   if (validateCss(preSessionChoicePath, '.hbar-pre-session-choice-popover { position: fixed; inset: 0; }').length)
     throw new Error('Rejected observed pre-session model popover container')
+  if (
+    validateCss(preSessionChoicePath, ".hbar-pre-session-choice-popover[data-presentation='web'] { inset: auto 0 0; }")
+      .length
+  )
+    throw new Error('Rejected observed first-send mobile Web sheet container')
   for (const [path, selector] of [
     ['other.css', '.hbar-pre-session-choice-popover'],
     [preSessionChoicePath, '.hbar-pre-session-choice-popover > button'],
     [preSessionChoicePath, '.hbar-pre-session-choice-row'],
+    ['other.css', ".hbar-pre-session-choice-popover[data-presentation='web']"],
+    [preSessionChoicePath, ".hbar-pre-session-choice-popover[data-presentation='web'] > button"],
   ]) {
     if (validateCss(path, `${selector} { position: fixed; }`).length !== 1)
       throw new Error('Pre-session model popover exception leaked to content or another file')

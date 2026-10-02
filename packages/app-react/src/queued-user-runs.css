@@ -32,8 +32,14 @@
 }
 
 .hbar-queued-user-run-edit,
+.hbar-queued-user-run-guide,
 .hbar-queued-user-run-remove {
   flex: 0 0 auto;
+}
+
+.hbar-queued-user-run-guide {
+  color: var(--lumen-accent, var(--lumen-ink));
+  white-space: nowrap;
 }
 
 .hbar-queued-user-run-editing {
@@ -51,6 +57,16 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* A native editor viewport grows with the message, within the bounded queue pane. */
+.hbar-queued-user-run-edit-input.lumen-control {
+  inline-size: auto;
+  min-block-size: var(--lumen-control-size, 2.25rem);
+  max-block-size: min(25vh, 8rem);
+  field-sizing: content;
+  resize: none;
+  overflow: auto;
 }
 
 .hbar-queued-user-run-edit-feedback {
@@ -79,6 +95,7 @@
 
 .hbar-queued-user-runs-pagination,
 .hbar-queued-user-runs-notice,
+.hbar-queued-user-runs-guide-feedback,
 .hbar-queued-user-runs-feedback {
   display: flex;
   align-items: center;
@@ -101,5 +118,10 @@
 .hbar-queued-user-runs-feedback {
   flex-wrap: wrap;
   color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+.hbar-queued-user-runs-guide-feedback {
+  flex-wrap: wrap;
   overflow-wrap: anywhere;
 }

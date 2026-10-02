@@ -80,7 +80,10 @@ async function sidebar(page: Page, copy: Copy, visible: boolean): Promise<void> 
     exact: true,
   })
   if (await button.isVisible()) await button.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(visible))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+    'data-hbar-sidebar-expanded',
+    String(visible),
+  )
 }
 
 function tools(copy: Copy) {
@@ -160,10 +163,13 @@ async function walk(page: Page, mode: Presentation): Promise<void> {
 async function openTool(page: Page, name: string): Promise<Locator> {
   const directAction = page.getByRole('button', { name, exact: true }).first()
   if (await directAction.isVisible()) await directAction.focus()
-  else {
+  else if (await page.locator('.hbar-mobile-header-menu-trigger').isVisible()) {
     await page.locator('.hbar-mobile-header-menu-trigger').click()
     const menuAction = page.locator('.hbar-mobile-header-menu-content').getByRole('button', { name, exact: true })
     await menuAction.focus()
+  } else {
+    await page.locator('.hbar-session-tools-menu-trigger').click()
+    await page.getByRole('menuitemcheckbox', { name, exact: true }).focus()
   }
   await page.keyboard.press('Enter')
   const pane = page.locator('.lumen-app-tool-drawer')
@@ -175,7 +181,9 @@ async function openTool(page: Page, name: string): Promise<Locator> {
 async function expectToolEntryFocus(page: Page, name: string): Promise<void> {
   const directAction = page.getByRole('button', { name, exact: true }).first()
   if (await directAction.isVisible()) await expect(directAction).toBeFocused()
-  else await expect(page.locator('.hbar-mobile-header-menu-trigger')).toBeFocused()
+  else if (await page.locator('.hbar-mobile-header-menu-trigger').isVisible())
+    await expect(page.locator('.hbar-mobile-header-menu-trigger')).toBeFocused()
+  else await expect(page.locator('.hbar-session-tools-menu-trigger')).toBeFocused()
 }
 
 async function expectWorkbenchReturnFocus(page: Page, sessionTitle: string): Promise<void> {
@@ -244,7 +252,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 1440, height: 960 })
       await sidebar(page, copy, true)
       await page.setViewportSize({ width: 320, height: 960 })
-      await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'false')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
       expect(await presentation(page)).toBe('page')
       await page.setViewportSize({ width: 900, height: 960 })
       expect(await presentation(page)).toBe('split')
@@ -384,6 +392,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .click()
       await expect(page.getByRole('button', { name: copy.extensions.openSystemCommands, exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+      await page.keyboard.press('Control+Shift+p')
+      const palette = page.getByRole('dialog', { name: copy.commandPalette.title, exact: true })
+      await expect(palette).toBeVisible()
+      await expect(palette.getByRole('searchbox', { name: copy.commandPalette.search, exact: true })).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(palette).toHaveCount(0)
       await expect(files).toBeVisible()
       await expect(editor).toHaveValue(fileDraft)
       await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
@@ -549,7 +563,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(close).toBeVisible()
       await page.setViewportSize({ width: 320, height: 960 })
       await expect(close.getByRole('button', { name: tabs.close.cancel, exact: true }).last()).toBeVisible()
-      await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', 'true')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
       await noOverflow(page)
       await page.screenshot({ path: `${evidence}/active-close-sidebar-${locale}-320.png` })
       await close.getByRole('button', { name: tabs.close.cancel, exact: true }).last().click()

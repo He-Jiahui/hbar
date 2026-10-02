@@ -40,7 +40,14 @@ export function HbarHistoricalPlanMessage({
       renderText={(row) => {
         const segment = segments.get(row.id)
         if (!segment)
-          return <MessageMarkdown text={row.text} findSegmentId={row.id} code={codeContext(message, row.id)} />
+          return (
+            <MessageMarkdown
+              text={row.text}
+              findSegmentId={row.id}
+              code={codeContext(message, row.id)}
+              fileReferences={message.fileReferences}
+            />
+          )
         return (
           <Fragment>
             {segment.before.trim() && (
@@ -48,13 +55,18 @@ export function HbarHistoricalPlanMessage({
                 text={segment.before}
                 findSegmentId={`${row.id}:before`}
                 code={codeContext(message, `${row.id}:before`)}
+                fileReferences={message.fileReferences}
               />
             )}
             {segment.insertPlan && (
               <LumenFrame className="hbar-proposed-plan" as="section" aria-label={readOnlyLabel}>
                 <LumenText as="strong">{readOnlyLabel}</LumenText>
                 <LumenFrame className="hbar-proposed-plan-document" tabIndex={0} data-session-find-segment="proposal">
-                  <MessageMarkdown text={document.markdown} code={codeContext(message, 'proposal')} />
+                  <MessageMarkdown
+                    text={document.markdown}
+                    code={codeContext(message, 'proposal')}
+                    fileReferences={message.fileReferences}
+                  />
                 </LumenFrame>
               </LumenFrame>
             )}
@@ -63,6 +75,7 @@ export function HbarHistoricalPlanMessage({
                 text={segment.after}
                 findSegmentId={`${row.id}:after`}
                 code={codeContext(message, `${row.id}:after`)}
+                fileReferences={message.fileReferences}
               />
             )}
           </Fragment>
@@ -87,7 +100,14 @@ export function HbarProposedPlanMessage({
       renderText={(row) => {
         const segment = segments.get(row.id)
         if (!segment)
-          return <MessageMarkdown text={row.text} findSegmentId={row.id} code={codeContext(message, row.id)} />
+          return (
+            <MessageMarkdown
+              text={row.text}
+              findSegmentId={row.id}
+              code={codeContext(message, row.id)}
+              fileReferences={message.fileReferences}
+            />
+          )
         return (
           <Fragment>
             {segment.before.trim() && (
@@ -95,6 +115,7 @@ export function HbarProposedPlanMessage({
                 text={segment.before}
                 findSegmentId={`${row.id}:before`}
                 code={codeContext(message, `${row.id}:before`)}
+                fileReferences={message.fileReferences}
               />
             )}
             {segment.insertPlan && (
@@ -104,6 +125,7 @@ export function HbarProposedPlanMessage({
                 markdown={document.markdown}
                 findSegmentId="proposal"
                 code={codeContext(message, 'proposal')}
+                fileReferences={message.fileReferences}
               />
             )}
             {segment.after.trim() && (
@@ -111,6 +133,7 @@ export function HbarProposedPlanMessage({
                 text={segment.after}
                 findSegmentId={`${row.id}:after`}
                 code={codeContext(message, `${row.id}:after`)}
+                fileReferences={message.fileReferences}
               />
             )}
           </Fragment>

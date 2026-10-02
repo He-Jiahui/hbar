@@ -7,6 +7,7 @@ import {
   HbarError,
   contentBlockSchema,
   emptyUsage,
+  idSchema,
   inputSchema,
   providerSchema,
   runFailureSchema,
@@ -17,16 +18,35 @@ import { z } from 'zod'
 import {
   workspaceSchema,
   sessionSchema,
+  workspaceActivityListInputSchema,
+  workspaceActivityPageSchema,
+  workspaceActivityCursorSchema,
+  workspaceActivityItemSchema,
+  sessionActivityListInputSchema,
+  sessionActivityPageSchema,
+  sessionActivityCursorSchema,
   workspaceListInputSchema,
   sessionListInputSchema,
+} from '@hbar/contracts/directory'
+import type {
+  WorkspaceActivityListInput,
+  WorkspaceActivityPage,
+  SessionActivityListInput,
+  SessionActivityPage,
 } from '@hbar/contracts/directory'
 import {
   queuedRunEditableInputSchema,
   queuedRunEditableSchema,
   queuedRunEditTextInputSchema,
   queuedRunEditTextReceiptSchema,
+  queuedRunGuideInputSchema,
+  queuedRunGuideReceiptSchema,
+  queuedRunGuidanceSchema,
   queuedRunRemoveInputSchema,
   queuedRunRemoveReceiptSchema,
+  runSteeringMessageSchema,
+  runSteeringReadInputSchema,
+  runSteeringReadResultSchema,
   runCommandRecordSchema,
 } from '@hbar/contracts/commands/run'
 import { USAGE_EVENT_TYPES } from '@hbar/usage'
@@ -48,21 +68,66 @@ import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
+import { RunSteeringRegistry } from './run-steering.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
+import {
+  createSessionLaunchTargetStorage,
+  SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
+  SESSION_LAUNCH_TARGET_SQL,
+} from './session-launch-target.ts'
+import {
+  createSessionLaunchTargetPreparationStorage,
+  SESSION_LAUNCH_TARGET_PREPARATION_OPERATION_SQL,
+} from './session-launch-target-preparations.ts'
+import {
+  createSidebarDirectoryStorage,
+  SIDEBAR_DIRECTORY_SCHEMA_SQL,
+  SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL,
+} from './sidebar-directory.ts'
 
 const options = workerData as { path: string; sessions?: string; diagnostics?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
 const logWriter = new SessionLogWriter(sessionsRoot)
+const runSteering = new RunSteeringRegistry()
 const db = new Database(options.path, { create: true, strict: true })
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
 db.exec('PRAGMA busy_timeout=5000;')
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+const WORKSPACE_ACTIVITY_SQL = `
+  CREATE TABLE IF NOT EXISTS directory_activity_revision(
+    id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>=0)
+  );
+  INSERT OR IGNORE INTO directory_activity_revision(id,revision) VALUES(1,0);
+  CREATE INDEX IF NOT EXISTS sessions_workspace_archived_created_id
+    ON sessions(workspaceId,archived,createdAt DESC,id ASC);
+  CREATE INDEX IF NOT EXISTS sessions_workspace_archived_updated_id
+    ON sessions(workspaceId,archived,updatedAt DESC,id ASC);
+  CREATE TRIGGER IF NOT EXISTS directory_activity_workspace_insert
+    AFTER INSERT ON workspaces
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_workspace_update
+    AFTER UPDATE OF id,path,name,createdAt ON workspaces
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_workspace_delete
+    AFTER DELETE ON workspaces
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_insert
+    AFTER INSERT ON sessions
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_update
+    AFTER UPDATE OF workspaceId,archived,createdAt,updatedAt ON sessions
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+  CREATE TRIGGER IF NOT EXISTS directory_activity_session_delete
+    AFTER DELETE ON sessions
+    BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
+`
+const LATEST_SCHEMA_VERSION = 15
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
-if (schemaVersion > 9) throw new Error(`Unsupported database version ${schemaVersion}`)
+if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
     db.exec(`
@@ -133,7 +198,8 @@ if (schemaVersion < 7)
   db.transaction(() => {
     // Another Worker may already have completed this migration while this one waited for the write lock.
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 7 && current !== 8 && current !== 9) {
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current < 7 || current > LATEST_SCHEMA_VERSION) {
       if (current !== 6) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
       db.exec(WORKSPACE_ORGANIZATION_SQL)
       db.exec('PRAGMA user_version=7;')
@@ -143,31 +209,132 @@ if (schemaVersion < 7)
 if (schemaVersion < 8)
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 8 && current !== 9) {
-      if (current !== 7) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 7) {
       db.exec(WORKSPACE_DISPLAY_NAMES_SQL)
       db.exec('PRAGMA user_version=8;')
+    } else if (current < 8 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
 
 if (schemaVersion < 9)
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
-    if (current !== 9) {
-      if (current !== 8) throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 8) {
       db.exec(SESSION_SEARCH_SQL)
       db.exec('PRAGMA user_version=9;')
+    } else if (current < 9 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 10)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 9) {
+      db.exec(SESSION_LAUNCH_TARGET_SQL)
+      db.exec('PRAGMA user_version=10;')
+    } else if (current < 10 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 11)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 10) {
+      db.exec(SESSION_LAUNCH_TARGET_RESOLUTION_SQL)
+      // Before cwd routing shipped, every accepted Run used the shared checkout. Freeze legacy history there.
+      db.exec(`
+        UPDATE session_launch_targets
+        SET revision=revision+1,selectionJson='{"mode":"shared-current"}',updatedAt=CAST(unixepoch('subsec')*1000 AS INTEGER)
+        WHERE sessionId IN (SELECT DISTINCT sessionId FROM runs)
+          AND json_extract(selectionJson,'$.mode')<>'shared-current';
+        INSERT OR IGNORE INTO session_launch_target_bindings
+          (sessionId,revision,selectionJson,targetPath,branch,head,boundRunId,boundAt)
+        SELECT s.id,COALESCE(t.revision,0),COALESCE(t.selectionJson,'{"mode":"shared-current"}'),w.path,NULL,NULL,
+          (SELECT r.id FROM runs r WHERE r.sessionId=s.id ORDER BY r.createdAt,r.rowid LIMIT 1),
+          (SELECT r.createdAt FROM runs r WHERE r.sessionId=s.id ORDER BY r.createdAt,r.rowid LIMIT 1)
+        FROM sessions s JOIN workspaces w ON w.id=s.workspaceId LEFT JOIN session_launch_targets t ON t.sessionId=s.id
+        WHERE EXISTS(SELECT 1 FROM runs r WHERE r.sessionId=s.id);
+        PRAGMA user_version=11;
+      `)
+    } else if (current < 11 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 12)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 11) {
+      db.exec(SESSION_LAUNCH_TARGET_PREPARATION_OPERATION_SQL)
+      db.exec('PRAGMA user_version=12;')
+    } else if (current < 12 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 13)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 12) {
+      db.exec(WORKSPACE_ACTIVITY_SQL)
+      db.exec('PRAGMA user_version=13;')
+    } else if (current < 13 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 14)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 13) {
+      db.exec(SIDEBAR_DIRECTORY_SCHEMA_SQL)
+      db.exec('PRAGMA user_version=14;')
+    } else if (current < 14 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+
+if (schemaVersion < 15)
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === 14) {
+      db.exec(SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL)
+      db.exec('PRAGMA user_version=15;')
+    } else if (current < 15 || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
     }
   }).immediate()
 
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
+const sidebarDirectory = createSidebarDirectoryStorage(db, {
+  displayNames: workspaceDisplayNames.read,
+  organization: workspaceOrganization.read,
+})
 const sessionSearch = createSessionSearchStorage(
   db,
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
+const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
+const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
+db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
+  WHERE type='message.committed' AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL;`)
+db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runId,type,seq);')
+db.exec(`CREATE INDEX IF NOT EXISTS runs_sidebar_nonterminal ON runs(sessionId,status,id)
+  WHERE status IN ('queued','running','waiting_approval');`)
 db.exec(GOAL_HISTORY_INDEX_SQL)
 
 type Row = Record<string, unknown>
@@ -244,6 +411,209 @@ function queuedRunContentRevision(runId: string): number {
     throw new HbarError('RUN_JOURNAL_MISSING', 'Queued Run has no content revision event')
   return seq
 }
+function queueGuidanceFromEvent(event: SessionEvent) {
+  const data = z
+    .object({
+      id: idSchema,
+      role: z.literal('user'),
+      content: z.array(contentBlockSchema),
+      queueGuidance: queuedRunGuidanceSchema,
+    })
+    .parse(event.data)
+  const guidance = data.queueGuidance
+  const { receipt, guidedRun } = guidance
+  if (
+    event.type !== 'message.committed' ||
+    event.runId !== guidance.activeRunId ||
+    receipt.activeRunId !== event.runId ||
+    receipt.sessionId !== event.sessionId ||
+    receipt.operationId !== guidedRun.id ||
+    receipt.messageId !== data.id ||
+    receipt.eventId !== event.eventId ||
+    receipt.revision !== event.seq ||
+    receipt.sessionSeq !== event.seq ||
+    receipt.guidedAt !== event.time ||
+    receipt.queueRevision !== guidance.expectedRevision ||
+    guidedRun.sessionId !== event.sessionId ||
+    guidedRun.status !== 'guided' ||
+    guidedRun.startedAt !== null ||
+    guidedRun.endedAt !== event.time ||
+    guidedRun.error !== null ||
+    guidedRun.failure !== undefined ||
+    guidedRun.id === event.runId ||
+    (guidedRun.input.source ?? 'user') !== 'user'
+  )
+    throw new HbarError('SESSION_LOG_CORRUPTED', 'Queue guidance identity or terminal state is invalid')
+  const expectedContent: ContentBlock[] = [
+    ...(guidedRun.input.text ? [{ type: 'text' as const, text: guidedRun.input.text }] : []),
+    ...guidedRun.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
+    ...(guidedRun.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
+  ]
+  if (
+    stableJson(expectedContent) !== stableJson(data.content) ||
+    guidance.payloadHash !==
+      entityPayloadHash('queuedRun.guide', {
+        sessionId: event.sessionId,
+        operationId: guidedRun.id,
+        activeRunId: event.runId,
+        expectedRevision: guidance.expectedRevision,
+      })
+  )
+    throw new HbarError('SESSION_LOG_CORRUPTED', 'Queue guidance content or receipt input hash is invalid')
+  return guidance
+}
+const WORKSPACE_ACTIVITY_COLUMNS_SQL = `
+  w.id,w.path,w.name,w.createdAt,
+  (SELECT s.createdAt FROM sessions s
+    WHERE s.workspaceId=w.id AND s.archived=0
+    ORDER BY s.createdAt DESC,s.id ASC LIMIT 1) AS latestSessionCreatedAt,
+  (SELECT s.updatedAt FROM sessions s
+    WHERE s.workspaceId=w.id AND s.archived=0
+    ORDER BY s.updatedAt DESC,s.id ASC LIMIT 1) AS latestSessionUpdatedAt
+`
+
+function parseWorkspaceActivityItem(value: unknown) {
+  const row = z.record(z.string(), z.unknown()).parse(value)
+  return workspaceActivityItemSchema.parse({
+    workspace: {
+      id: row.id,
+      path: row.path,
+      name: row.name,
+      createdAt: row.createdAt,
+    },
+    latestSessionCreatedAt: row.latestSessionCreatedAt,
+    latestSessionUpdatedAt: row.latestSessionUpdatedAt,
+  })
+}
+
+function workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActivityPage {
+  const parsedInput = workspaceActivityListInputSchema.safeParse(input)
+  if (!parsedInput.success) throw new HbarError('INVALID_INPUT', 'Invalid workspace activity query')
+  const { sortBy, cursor, limit, includeWorkspaceIds = [] } = parsedInput.data
+  const selectedTimestamp = sortBy === 'createdAt' ? 'latestSessionCreatedAt' : 'latestSessionUpdatedAt'
+  return db.transaction(() => {
+    const revisionRow = db
+      .query<{ revision: number }, []>('SELECT revision FROM directory_activity_revision WHERE id=1')
+      .get()
+    if (!revisionRow || !Number.isSafeInteger(revisionRow.revision) || revisionRow.revision < 0)
+      throw new HbarError('INVALID_STATE', 'Workspace activity revision is unavailable')
+    const { revision } = revisionRow
+    if (cursor && cursor.revision !== revision)
+      throw new HbarError('STALE_CURSOR', 'Workspace activity changed; restart the listing')
+
+    const pageRows = z.array(z.record(z.string(), z.unknown())).parse(
+      db
+        .query(
+          `WITH activity AS MATERIALIZED (
+               SELECT ${WORKSPACE_ACTIVITY_COLUMNS_SQL}
+               FROM workspaces w
+             )
+             SELECT id,path,name,createdAt,latestSessionCreatedAt,latestSessionUpdatedAt,
+                    ${selectedTimestamp} AS sortTimestamp
+             FROM activity
+             WHERE ? IS NULL
+                OR ((? IS NULL AND sortTimestamp IS NULL AND id > ?)
+                    OR (? IS NOT NULL AND (sortTimestamp IS NULL OR sortTimestamp < ?
+                        OR (sortTimestamp = ? AND id > ?))))
+             ORDER BY (sortTimestamp IS NULL) ASC,sortTimestamp DESC,id ASC
+             LIMIT ?`,
+        )
+        .all(
+          cursor?.workspaceId ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.workspaceId ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.workspaceId ?? null,
+          limit + 1,
+        ),
+    )
+    const pageItems = pageRows.slice(0, limit).map(parseWorkspaceActivityItem)
+    const pageIds = new Set(pageItems.map((item) => item.workspace.id))
+    const requestedIds = includeWorkspaceIds.filter((id) => !pageIds.has(id))
+    const includedItems =
+      requestedIds.length === 0
+        ? []
+        : z
+            .array(z.record(z.string(), z.unknown()))
+            .parse(
+              db
+                .query(
+                  `SELECT ${WORKSPACE_ACTIVITY_COLUMNS_SQL}
+                   FROM workspaces w
+                   WHERE w.id IN (${requestedIds.map(() => '?').join(',')})
+                   ORDER BY w.id`,
+                )
+                .all(...requestedIds),
+            )
+            .map(parseWorkspaceActivityItem)
+    const lastItem = pageItems.at(-1)
+    const nextCursor =
+      pageRows.length > limit && lastItem
+        ? workspaceActivityCursorSchema.parse({
+            sortBy,
+            revision,
+            timestamp: sortBy === 'createdAt' ? lastItem.latestSessionCreatedAt : lastItem.latestSessionUpdatedAt,
+            workspaceId: lastItem.workspace.id,
+          })
+        : null
+    return workspaceActivityPageSchema.parse({ revision, items: pageItems, includedItems, nextCursor })
+  })()
+}
+
+function sessionActivityPage(input: SessionActivityListInput): SessionActivityPage {
+  const parsedInput = sessionActivityListInputSchema.safeParse(input)
+  if (!parsedInput.success) throw new HbarError('INVALID_INPUT', 'Invalid session activity query')
+  const { workspaceId, sortBy, cursor, limit } = parsedInput.data
+  const selectedTimestamp = sortBy === 'createdAt' ? 'createdAt' : 'updatedAt'
+  return db.transaction(() => {
+    const revisionRow = db
+      .query<{ revision: number }, []>('SELECT revision FROM directory_activity_revision WHERE id=1')
+      .get()
+    if (!revisionRow || !Number.isSafeInteger(revisionRow.revision) || revisionRow.revision < 0)
+      throw new HbarError('INVALID_STATE', 'Session activity revision is unavailable')
+    const { revision } = revisionRow
+    if (cursor && cursor.revision !== revision)
+      throw new HbarError('STALE_CURSOR', 'Session activity changed; restart the listing')
+    if (!db.query('SELECT id FROM workspaces WHERE id=?').get(workspaceId))
+      throw new HbarError('NOT_FOUND', 'Workspace not found')
+
+    const rows = z.array(z.record(z.string(), z.unknown())).parse(
+      db
+        .query(
+          `SELECT * FROM sessions
+             WHERE workspaceId=? AND archived=0
+               AND (? IS NULL OR ${selectedTimestamp}<?
+                 OR (${selectedTimestamp}=? AND id>?))
+             ORDER BY ${selectedTimestamp} DESC,id ASC
+             LIMIT ?`,
+        )
+        .all(
+          workspaceId,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.timestamp ?? null,
+          cursor?.sessionId ?? null,
+          limit + 1,
+        ),
+    )
+    const items = rows.slice(0, limit).map((row) => sessionSchema.parse({ ...row, archived: Boolean(row.archived) }))
+    const lastItem = items.at(-1)
+    const nextCursor =
+      rows.length > limit && lastItem
+        ? sessionActivityCursorSchema.parse({
+            workspaceId,
+            sortBy,
+            revision,
+            timestamp: lastItem[selectedTimestamp],
+            sessionId: lastItem.id,
+          })
+        : null
+    return sessionActivityPageSchema.parse({ revision, items, nextCursor })
+  })()
+}
+
 function messageRow(row: Row): Message {
   return {
     ...row,
@@ -424,7 +794,14 @@ function indexEvent(projectId: string, event: SessionEvent, location: ReturnType
 }
 
 // JSONL is committed first. SQLite is a query projection and can be rebuilt from it.
-function appendEvent(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): SessionEvent {
+function appendEvent(
+  sessionId: string,
+  type: string,
+  data: unknown,
+  runId?: string,
+  stepId?: string,
+  metadata?: { eventId?: string; time?: number },
+): SessionEvent {
   const row = required(
     db
       .query(
@@ -435,14 +812,14 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   )
   const s = sessionRow(row)
   const event: SessionEvent = {
-    eventId: crypto.randomUUID(),
+    eventId: metadata?.eventId ?? crypto.randomUUID(),
     sessionId,
     seq: s.seq + 1,
     runId: runId ?? null,
     stepId: stepId ?? null,
     type,
     data,
-    time: Date.now(),
+    time: metadata?.time ?? Date.now(),
     version: 1,
   }
   const location = logWriter.append(row.projectId as string, event)
@@ -462,7 +839,7 @@ function appendEvent(sessionId: string, type: string, data: unknown, runId?: str
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 9 }),
+  ready: () => ({ version: 14 }),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,
@@ -493,6 +870,26 @@ const methods: StorageMethods = {
       )
     const items = rows.slice(0, limit)
     return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
+  },
+  workspaceSidebarPage: (input) => sidebarDirectory.workspaceSidebarPage(input),
+  globalSessionActivityPage: (input) => sidebarDirectory.globalSessionActivityPage(input),
+  sessionExecutionSnapshot: (input) => sidebarDirectory.sessionExecutionSnapshot(input),
+  workspaceActivityPage: (input) => workspaceActivityPage(input),
+  sessionActivityPage: (input) => sessionActivityPage(input),
+  sidebarSessionActivityPage(input) {
+    return db.transaction(() => {
+      const page = sessionActivityPage(input)
+      const summaries = sidebarDirectory.executionSummaries(page.items.map((item) => item.id))
+      return {
+        revision: page.revision,
+        nextCursor: page.nextCursor,
+        items: page.items.map((session) => {
+          const execution = summaries.get(session.id)
+          if (!execution) throw new HbarError('INVALID_STATE', 'Session execution summary is unavailable')
+          return { session, execution }
+        }),
+      }
+    })()
   },
   sessionPage(input) {
     const { workspaceId, after, title, includeArchived, limit } = sessionListInputSchema.parse(input)
@@ -580,6 +977,20 @@ const methods: StorageMethods = {
     ).map(sessionRow)
   },
   session: (id) => sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null),
+  sessionLaunchTarget: sessionLaunchTarget.read,
+  sessionLaunchTargetRuntime: sessionLaunchTarget.runtime,
+  sessionLaunchTargetBindingForPath: sessionLaunchTarget.bindingForPath,
+  activeSharedCheckoutPaths: sessionLaunchTarget.activeSharedCheckoutPaths,
+  setSessionLaunchTarget: sessionLaunchTarget.set,
+  sessionLaunchTargetReceipt: sessionLaunchTarget.receipt,
+  startSessionLaunchTargetPreparation: sessionLaunchTargetPreparations.start,
+  sessionLaunchTargetPreparation: sessionLaunchTargetPreparations.read,
+  sessionLaunchTargetPreparationRecord: sessionLaunchTargetPreparations.record,
+  pendingSessionLaunchTargetPreparations: sessionLaunchTargetPreparations.listPending,
+  requestSessionLaunchTargetPreparationCancellation: sessionLaunchTargetPreparations.requestCancellation,
+  transitionSessionLaunchTargetPreparation: sessionLaunchTargetPreparations.transition,
+  beginSessionLaunchTargetPreparation: sessionLaunchTarget.beginPreparation,
+  updateSessionLaunchTargetPreparation: sessionLaunchTarget.updatePreparation,
   updateSession(id, update) {
     return db.transaction(() => {
       const prior = methods.session(id)
@@ -698,6 +1109,8 @@ const methods: StorageMethods = {
         .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
         .all(sessionId) as Row[]
     ).map(approvalRow)
+    // Pending decisions keep priority; resolved facts belong only to this loaded
+    // message page and retain their original session/Run/call/tool identity.
     if (messages.length && approvals.length < 80) {
       const pageIds = messages.map((message) => message.id)
       const completed = db
@@ -708,7 +1121,7 @@ const methods: StorageMethods = {
           JOIN json_each(messages.content) AS block
             ON json_extract(block.value,'$.callId')=approvals.callId
             AND json_extract(block.value,'$.name')=approvals.tool
-          WHERE approvals.sessionId=? AND approvals.tool='exit_plan_mode' AND approvals.status<>'pending'
+          WHERE approvals.sessionId=? AND approvals.status<>'pending'
             AND ((messages.role='assistant' AND json_extract(block.value,'$.type')='tool_call')
               OR (messages.role='tool' AND json_extract(block.value,'$.type')='tool_result'))
             AND messages.id IN (${pageIds.map(() => '?').join(',')})
@@ -763,6 +1176,258 @@ const methods: StorageMethods = {
         throw new HbarError('INPUT_TOO_LARGE', 'Queued Run text exceeds the editable response limit')
       return result
     })()
+  },
+  openRunSteering(sessionId, runId) {
+    const session = methods.session(sessionId)
+    const run = methods.run(runId)
+    if (run.sessionId !== session.id) throw new HbarError('NOT_FOUND', 'Run not found in session')
+    if (run.status !== 'running') throw new HbarError('COMMAND_CONFLICT', 'Steering requires a running Run')
+    const journaledStatus = db
+      .query<{ status: string | null }, [string]>(
+        "SELECT json_extract(data,'$.run.status') AS status FROM events WHERE runId=? AND type IN ('run.status','run.settled') ORDER BY seq DESC LIMIT 1",
+      )
+      .get(runId)?.status
+    if (journaledStatus !== 'running')
+      throw new HbarError('COMMAND_CONFLICT', 'Steering requires the durable active Run start boundary')
+    if (session.archived || methods.cancelRequested(run.id))
+      throw new HbarError('COMMAND_CONFLICT', 'Steering is unavailable for an archived or stopping Run')
+    const result = runSteering.open(sessionId, runId)
+    if (result === 'closed') throw new HbarError('COMMAND_CONFLICT', 'Steering gate is closed')
+    if (result === 'conflict') throw new HbarError('COMMAND_CONFLICT', 'Another Run owns this steering gate')
+    if (result === 'capacity') throw new HbarError('BUSY', 'Steering gate capacity is full')
+  },
+  closeRunSteering(sessionId, runId) {
+    if (methods.run(runId).sessionId !== sessionId) throw new HbarError('NOT_FOUND', 'Run not found in session')
+    const result = runSteering.close(sessionId, runId)
+    if (result === 'conflict') throw new HbarError('COMMAND_CONFLICT', 'Another Run owns this steering gate')
+  },
+  readRunSteering(value) {
+    return db
+      .transaction(() => {
+        const input = runSteeringReadInputSchema.parse(value)
+        const run = methods.run(input.runId)
+        if (run.sessionId !== input.sessionId) throw new HbarError('NOT_FOUND', 'Run not found in session')
+        if (input.afterSeq > methods.session(input.sessionId).seq)
+          throw new HbarError('COMMAND_CONFLICT', 'Steering cursor is ahead of the canonical Session sequence')
+        if (run.status !== 'running' || methods.cancelRequested(run.id)) runSteering.close(input.sessionId, input.runId)
+        if (!runSteering.isOpen(input.sessionId, input.runId))
+          return runSteeringReadResultSchema.parse({
+            sessionId: input.sessionId,
+            runId: input.runId,
+            messages: [],
+            nextSeq: input.afterSeq,
+            closed: true,
+          })
+        const rows = db
+          .query<Row, [string, string, number, string]>(
+            `SELECT * FROM events
+         WHERE sessionId=? AND type='message.committed' AND runId=? AND seq>?
+           AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL
+           AND json_extract(data,'$.queueGuidance.activeRunId')=?
+         ORDER BY seq LIMIT 21`,
+          )
+          .all(input.sessionId, input.runId, input.afterSeq, input.runId)
+        const items = rows.slice(0, 20).map((row) => {
+          const event = eventRow(row)
+          queueGuidanceFromEvent(event)
+          const data = z
+            .object({ id: idSchema, role: z.literal('user'), content: z.array(contentBlockSchema) })
+            .parse(event.data)
+          return runSteeringMessageSchema.parse({
+            id: data.id,
+            sessionId: input.sessionId,
+            runId: input.runId,
+            role: data.role,
+            content: data.content,
+            seq: event.seq,
+            createdAt: event.time,
+          })
+        })
+        const nextSeq = items.at(-1)?.seq ?? input.afterSeq
+        const closed = input.closeWhenEmpty && items.length === 0
+        if (closed && runSteering.hasPending(input.sessionId, input.runId))
+          throw new HbarError('COMMAND_CONFLICT', 'Steering cursor skipped pending messages')
+        if (closed) runSteering.close(input.sessionId, input.runId)
+        if (items.length)
+          runSteering.acknowledge(
+            input.sessionId,
+            input.runId,
+            items.map((item) => item.id),
+          )
+        return runSteeringReadResultSchema.parse({
+          sessionId: input.sessionId,
+          runId: input.runId,
+          messages: items,
+          nextSeq,
+          closed,
+        })
+      })
+      .immediate()
+  },
+  guideQueuedRun(input) {
+    const request = queuedRunGuideInputSchema.parse(input.request)
+    const actorId = z.string().min(1).max(160).parse(input.actorId)
+    const idempotencyKey = z.string().min(1).max(128).parse(input.idempotencyKey)
+    const commandId = 'queuedRun.guide'
+    const payloadHash = entityPayloadHash(commandId, request)
+    return db
+      .transaction(() => {
+        const prior = db
+          .query<{ commandId: string; payloadHash: string; resultJson: string }, [string, string]>(
+            'SELECT commandId,payloadHash,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?',
+          )
+          .get(actorId, idempotencyKey)
+        if (prior) {
+          if (prior.commandId !== commandId || prior.payloadHash !== payloadHash)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Queue guide key was used with different input')
+          const receipt = queuedRunGuideReceiptSchema.parse(parseJson(prior.resultJson))
+          const event = eventRow(
+            required(
+              db.query('SELECT * FROM events WHERE eventId=?').get(receipt.eventId) as Row | null,
+              'Queue guide event',
+            ),
+          )
+          queueGuidanceFromEvent(event)
+          const message = messageRow(
+            required(
+              db.query('SELECT * FROM messages WHERE id=?').get(receipt.messageId) as Row | null,
+              'Guided message',
+            ),
+          )
+          return { receipt, event, message }
+        }
+        const queued = methods.run(request.operationId)
+        if (queued.sessionId !== request.sessionId) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
+        if (queued.status !== 'queued')
+          throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
+        if ((queued.input.source ?? 'user') !== 'user')
+          throw new HbarError('FORBIDDEN', 'Only user queue items can be guided')
+        const currentRevision = queuedRunContentRevision(queued.id)
+        if (currentRevision !== request.expectedRevision)
+          throw new HbarError('COMMAND_CONFLICT', 'Queued Run content changed')
+        const active = methods.run(request.activeRunId)
+        if (active.sessionId !== request.sessionId) throw new HbarError('NOT_FOUND', 'Active Run not found in session')
+        if (active.status !== 'running') throw new HbarError('COMMAND_CONFLICT', 'Guidance requires a running Run')
+        if (methods.session(request.sessionId).archived)
+          throw new HbarError('ARCHIVED', 'Unarchive the Session before guiding')
+        if (methods.cancelRequested(active.id)) throw new HbarError('COMMAND_CONFLICT', 'The active Run is stopping')
+        if (!runSteering.canAdmit(request.sessionId, request.activeRunId))
+          throw new HbarError('COMMAND_CONFLICT', 'Steering gate is closed or at capacity')
+        if (!queued.input.text.trim() && !queued.input.images.length && !(queued.input.files?.length ?? 0))
+          throw new HbarError('EMPTY_INPUT', 'Guided input must contain text or attachments')
+        if (queued.input.images.length + (queued.input.files?.length ?? 0) > 12)
+          throw new HbarError('FILE_LIMIT', 'Guided input has too many attachments')
+        if (
+          queued.modelId !== active.modelId ||
+          queued.input.thinking !== active.input.thinking ||
+          (queued.input.mode ?? 'default') !== (active.input.mode ?? 'default') ||
+          (queued.input.approval ?? 'ask') !== (active.input.approval ?? 'ask')
+        )
+          throw new HbarError(
+            'COMMAND_CONFLICT',
+            'Guided input model, thinking, mode or approval differs from the active Run',
+          )
+        const messageId = crypto.randomUUID()
+        const eventId = crypto.randomUUID()
+        const guidedAt = Date.now()
+        if (queued.failure !== undefined || queued.startedAt !== null)
+          throw new HbarError('COMMAND_CONFLICT', 'Queued operation has already started or failed')
+        const guidedRun: Run = { ...queued, status: 'guided', endedAt: guidedAt, error: null }
+        const messageSeq = methods.session(request.sessionId).seq + 1
+        const receipt = queuedRunGuideReceiptSchema.parse({
+          commandId,
+          commandVersion: 1,
+          sessionId: request.sessionId,
+          operationId: queued.id,
+          activeRunId: request.activeRunId,
+          idempotencyKey,
+          status: 'accepted',
+          operationStatus: 'guided',
+          messageId,
+          eventId,
+          revision: messageSeq,
+          sessionSeq: messageSeq,
+          queueRevision: currentRevision,
+          guidedAt,
+        })
+        const content: ContentBlock[] = [
+          ...(queued.input.text ? [{ type: 'text' as const, text: queued.input.text }] : []),
+          ...queued.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
+          ...(queued.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
+        ]
+        const event = appendEvent(
+          request.sessionId,
+          'message.committed',
+          {
+            id: messageId,
+            role: 'user',
+            content,
+            queueGuidance: {
+              activeRunId: request.activeRunId,
+              guidedRun,
+              expectedRevision: currentRevision,
+              receipt,
+              actorId,
+              payloadHash,
+            },
+          },
+          request.activeRunId,
+          undefined,
+          { eventId, time: guidedAt },
+        )
+        queueGuidanceFromEvent(event)
+        db.query("UPDATE runs SET status='guided',endedAt=?,error=NULL,failure=NULL WHERE id=?").run(
+          guidedAt,
+          queued.id,
+        )
+        db.query('INSERT INTO messages VALUES(?,?,?,?,?,?,?,?)').run(
+          messageId,
+          request.sessionId,
+          request.activeRunId,
+          'user',
+          JSON.stringify(content),
+          event.seq,
+          guidedAt,
+          null,
+        )
+        sessionSearch.queueMessage(messageId, request.sessionId, 'user', event.seq, content)
+        db.query('INSERT INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+          actorId,
+          idempotencyKey,
+          commandId,
+          payloadHash,
+          JSON.stringify(receipt),
+        )
+        runSteering.admit(request.sessionId, request.activeRunId, messageId)
+        return {
+          receipt,
+          event,
+          message: messageRow({
+            id: messageId,
+            sessionId: request.sessionId,
+            runId: request.activeRunId,
+            role: 'user',
+            content: JSON.stringify(content),
+            seq: event.seq,
+            createdAt: guidedAt,
+            providerData: null,
+          }),
+        }
+      })
+      .immediate()
+  },
+  queuedRunGuideReceipt(actorId, idempotencyKey, sessionId) {
+    const row = db
+      .query<{ commandId: string; resultJson: string }, [string, string]>(
+        'SELECT commandId,resultJson FROM entity_command_receipts WHERE actorId=? AND idempotencyKey=?',
+      )
+      .get(actorId, idempotencyKey)
+    if (!row) return null
+    if (row.commandId !== 'queuedRun.guide')
+      throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to a different command')
+    const receipt = queuedRunGuideReceiptSchema.parse(parseJson(row.resultJson))
+    if (receipt.sessionId !== sessionId) throw new HbarError('IDEMPOTENCY_CONFLICT', 'Key belongs to another session')
+    return receipt
   },
   editQueuedRunText(input) {
     const request = queuedRunEditTextInputSchema.parse(input.request)
@@ -1092,13 +1757,14 @@ const methods: StorageMethods = {
       return { sessionId: parsed.sessionId, items: parsed.messageIds.map((id) => unique.get(id)!) }
     })()
   },
-  enqueue: (sessionId, requestId, input, modelId, command) =>
+  enqueue: (sessionId, requestId, input, modelId, command, launchTarget) =>
     db.transaction(() => {
       const existing = db
         .query('SELECT * FROM runs WHERE sessionId=? AND requestId=?')
         .get(sessionId, requestId) as Row | null
       if (existing) {
         const prior = runRow(existing)
+        if (launchTarget) sessionLaunchTarget.validateReplayBinding(sessionId, launchTarget)
         const queued = db
           .query<{ data: string }, [string]>("SELECT data FROM events WHERE runId=? AND type='run.queued' LIMIT 1")
           .get(prior.id)
@@ -1108,7 +1774,8 @@ const methods: StorageMethods = {
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'This request id was already used with different input')
         return prior
       }
-      if (methods.session(sessionId).archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
+      const owner = methods.session(sessionId)
+      if (owner.archived) throw new HbarError('ARCHIVED', 'Unarchive the session before running')
       const run: Run = {
         id: crypto.randomUUID(),
         sessionId,
@@ -1121,6 +1788,7 @@ const methods: StorageMethods = {
         endedAt: null,
         error: null,
       }
+      sessionLaunchTarget.bindToRun(sessionId, run.id, methods.workspace(owner.workspaceId).path, launchTarget)
       db.query(
         'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
       ).run(run.id, sessionId, requestId, JSON.stringify(input), modelId, 'queued', run.createdAt, null, null, null)
@@ -1155,7 +1823,9 @@ const methods: StorageMethods = {
   requestCancel: (id) =>
     db.transaction(() => {
       const run = methods.run(id)
-      if (['completed', 'cancelled', 'failed', 'interrupted'].includes(run.status)) return { run, event: null }
+      if (['guided', 'completed', 'cancelled', 'failed', 'interrupted'].includes(run.status))
+        return { run, event: null }
+      runSteering.close(run.sessionId, run.id)
       if (run.status === 'queued') {
         const event = methods.setRun(id, 'cancelled', 'Cancelled by user', {
           code: 'USER_CANCELLED',
@@ -1187,7 +1857,9 @@ const methods: StorageMethods = {
         parsedFailure ? JSON.stringify(parsedFailure) : null,
         id,
       )
-      return appendEvent(run.sessionId, settled ? 'run.settled' : 'run.status', { run: methods.run(id) }, id)
+      const event = appendEvent(run.sessionId, settled ? 'run.settled' : 'run.status', { run: methods.run(id) }, id)
+      if (settled) runSteering.retire(run.sessionId, run.id)
+      return event
     })(),
   queuedSessions: () =>
     (db.query("SELECT DISTINCT sessionId FROM runs WHERE status='queued'").all() as { sessionId: string }[]).map(
@@ -1571,6 +2243,33 @@ function restoreProjection(event: SessionEvent) {
       value.id,
     )
   } else if (event.type === 'message.committed') {
+    if (data.queueGuidance !== undefined) {
+      const guidance = queueGuidanceFromEvent(event)
+      const prior = methods.run(guidance.guidedRun.id)
+      const revision = db
+        .query<{ seq: number | null }, [string, number]>(
+          "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND seq<? AND type IN ('run.queued','run.inputEdited')",
+        )
+        .get(prior.id, event.seq)?.seq
+      if (
+        prior.status !== 'queued' ||
+        prior.sessionId !== event.sessionId ||
+        revision !== guidance.expectedRevision ||
+        stableJson({ ...prior, status: 'guided', endedAt: event.time, error: null }) !== stableJson(guidance.guidedRun)
+      )
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Queue guidance has no matching queued revision')
+      const active = methods.run(guidance.activeRunId)
+      if (active.sessionId !== event.sessionId || active.status !== 'running' || methods.cancelRequested(active.id))
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Queue guidance has no matching active Run')
+      db.query("UPDATE runs SET status='guided',endedAt=?,error=NULL,failure=NULL WHERE id=?").run(event.time, prior.id)
+      db.query('INSERT INTO entity_command_receipts VALUES(?,?,?,?,?)').run(
+        guidance.actorId,
+        guidance.receipt.idempotencyKey,
+        'queuedRun.guide',
+        guidance.payloadHash,
+        JSON.stringify(guidance.receipt),
+      )
+    }
     db.query('INSERT OR IGNORE INTO messages VALUES(?,?,?,?,?,?,?,?)').run(
       String(data.id),
       event.sessionId,

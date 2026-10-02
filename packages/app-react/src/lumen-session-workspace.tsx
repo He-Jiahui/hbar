@@ -16,14 +16,13 @@ import {
   LumenConversation,
   LumenIcon,
   LumenPageHeader,
-  LumenPromptComposer,
   type LumenApprovalRequestLabels,
   type LumenMessageProps,
   type LumenPromptLabels,
   type LumenQuestionnaireLabels,
-  type LumenRunActivityStatus,
 } from '@lumen/app-ui'
 import {
+  RuntimeCommandError,
   messageForkActionKey,
   planProposalActionKey,
   projectSessionDecisions,
@@ -32,6 +31,7 @@ import {
   GOAL_HISTORY_MAX_FACTS,
   type PlanProposalState,
   type PromptMention,
+  type SessionLaunchDraftEntry,
   type SessionDecision,
 } from '@hbar/app-runtime'
 import type { HbarProposedPlanLabels } from './proposed-plan'
@@ -46,33 +46,64 @@ import {
   type HbarMessageForkAction,
 } from './session-message'
 import { projectSessionMessages, projectSessionTimelineSequence } from './session-message-model'
+import { conversationMessageExpectedText, type ConversationSelectionSubmission } from './conversation-selection-model'
+import {
+  HbarConversationSelection,
+  useConversationSelectionKeyboardOwner,
+  type HbarConversationSelectionLabels,
+} from './conversation-selection'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
+import { HbarPromptComposer } from './prompt-composer'
+import { useSessionReadingPosition } from './session-reading-position'
+import {
+  HbarComposerBackgroundAgentStop,
+  HbarComposerBackgroundAgentFeedback,
+  type HbarComposerBackgroundAgentLabels,
+  type HbarBackgroundAgentFeedbackKind,
+} from './composer-background-agents'
 import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLabels } from './composer-intent-controls'
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
+import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
 import { HbarComposerMentionEditor, type HbarComposerMentionLabels } from './composer-mention-editor'
 import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-add-menu'
 import { HbarComposerAgentNotice } from './composer-agent-notice'
+import { HbarAgentToolOpen, type HbarAgentToolOpenLabels } from './agent-tool-open'
+import { agentToolOpenIdentity } from './agent-tool-open-model'
 import {
   HbarSessionProjectContext,
   useHbarSessionProjectContext,
   type HbarSessionProjectContextLabels,
 } from './session-project-context'
-import { localAgentSlash, localGoalSlash, localSlashCanSubmit, localSlashCommand } from './composer-slash'
+import {
+  localAgentSlash,
+  localGoalSlash,
+  localSlashCanSubmit,
+  localSlashCommand,
+  type LocalSlashCommand,
+} from './composer-slash'
 import { HbarSessionEmptyHero, showSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
+import type { MessageFileReferenceContext, MessageFileReferenceLabels } from './message-file-reference'
 import type { HbarComposerSlashLabels } from './composer-slash-menu'
+import { composerAgentSlashLabels } from './composer-agent-slash-labels'
 import {
   HbarComposerAttachmentDropTarget,
   HbarComposerAttachmentTransfers,
   type HbarComposerAttachmentLabels,
 } from './composer-attachments'
+import { HbarComposerWorkspaceContexts, type HbarComposerWorkspaceContextLabels } from './composer-workspace-contexts'
 export type { HbarSessionAttachmentSelection } from './composer-attachment-input'
 import './lumen-session-workspace.css'
+import {
+  HbarPreSessionLaunchStatus,
+  firstSendIsLocked,
+  type HbarPreSessionLaunchStatusLabels,
+} from './pre-session-launch-status'
 import { useSessionFind } from './session-find'
 import { useHbarMobileHeaderMenuSection, type HbarMobileHeaderMenuItem } from './mobile-header-menu'
 import { HbarSessionStopNotice, useSessionStopAction } from './session-stop'
@@ -102,6 +133,8 @@ export interface HbarSessionWorkspaceLabels {
   readonly retryTimeline: string
   readonly historyLimit: string
   readonly latest: string
+  readonly readingPositionUnavailable: string
+  readonly fileReferences: MessageFileReferenceLabels
   readonly author: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly avatar: Readonly<Record<'user' | 'assistant' | 'system' | 'tool', string>>
   readonly copy: string
@@ -113,6 +146,8 @@ export interface HbarSessionWorkspaceLabels {
   readonly error: (code: string) => string
   readonly prompt: LumenPromptLabels
   readonly attachments: HbarComposerAttachmentLabels
+  readonly workspaceContexts: HbarComposerWorkspaceContextLabels
+  readonly conversationSelection: HbarConversationSelectionLabels
   readonly mentions: HbarComposerMentionLabels
   readonly slash: HbarComposerSlashLabels
   readonly addMenu: HbarComposerAddMenuLabels
@@ -121,6 +156,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  readonly agentToolOpen: HbarAgentToolOpenLabels
   readonly messageFork: {
     readonly ready: string
     readonly submitting: string
@@ -132,6 +168,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly error: (code: string) => string
   }
   readonly runningActions: { readonly queueLabel: string; readonly queueTitle: string }
+  readonly backgroundAgents: HbarComposerBackgroundAgentLabels
   readonly queuedUserRuns: HbarQueuedUserRunsLabels
   readonly decisions: HbarSessionDecisionLabels
   readonly goalContinuation: HbarGoalContinuationLabels
@@ -140,7 +177,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly proposedPlan: HbarProposedPlanLabels
   readonly proposedPlanReadOnly: string
   readonly proposedPlanAvailability: (value: PlanProposalState['availability']) => string | null
-  readonly tools: {
+  readonly tools: HbarSessionToolsMenuLabels & {
     readonly label: string
     readonly files: string
     readonly activity: string
@@ -173,7 +210,10 @@ export interface HbarSessionWorkspaceProps {
   readonly files?: { execute(name: string, input: unknown): Promise<unknown> } | undefined
   readonly showFilesInHeader?: boolean | undefined
   readonly navigationAccessory?: ReactNode | undefined
+  readonly firstSendLabels?: HbarPreSessionLaunchStatusLabels | undefined
   readonly projectContextLabels?: HbarSessionProjectContextLabels | undefined
+  /** Rendered in place of readonly project context only while the Host-confirmed Session is empty. */
+  readonly renderLaunchControls?: (() => ReactNode) | undefined
   readonly images?: HbarSessionImagesOptions | undefined
   readonly modelMenuPresentation?: 'native' | 'web' | undefined
 }
@@ -221,7 +261,9 @@ function SessionWorkspaceContent({
   files,
   showFilesInHeader = true,
   navigationAccessory,
+  firstSendLabels,
   projectContextLabels,
+  renderLaunchControls,
   images,
   modelMenuPresentation,
 }: HbarSessionWorkspaceProps) {
@@ -229,17 +271,22 @@ function SessionWorkspaceContent({
   const stopRun = useSessionStopAction()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const executionAccess = useHbarRuntimeState(runtime.state.sessionExecutionAccess)
+  const selectedExecution = useHbarRuntimeState(runtime.state.selectedSessionExecution)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
   const queuedUserRuns = useHbarRuntimeState(runtime.state.queuedUserRuns)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const workspaceMoves = useHbarRuntimeState(runtime.state.sessionWorkspaceMove)
   const messageFork = useHbarRuntimeState(runtime.state.messageFork)
   const drafts = useHbarRuntimeState(runtime.state.drafts)
+  const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  const sessionLaunchDrafts = useHbarRuntimeState(runtime.state.sessionLaunchDrafts)
   const interactions = useHbarRuntimeState(runtime.state.interactions)
   const questionnaires = useHbarRuntimeState(runtime.state.questionnaires)
   const runActions = useHbarRuntimeState(runtime.state.runActions)
   const controls = useHbarRuntimeState(runtime.state.controls)
   const composerModel = useHbarRuntimeState(runtime.state.composerModel)
   const agentComposer = useHbarRuntimeState(runtime.state.agentComposer)
+  const backgroundAgents = useHbarRuntimeState(runtime.state.composerBackgroundAgents)
   const composerIntent = useHbarRuntimeState(runtime.state.composerIntent)
   const goalHistory = useHbarRuntimeState(runtime.state.goalHistory)
   const composerPermission = useHbarRuntimeState(runtime.state.composerPermission)
@@ -248,24 +295,31 @@ function SessionWorkspaceContent({
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const sessionId = navigation.sessionId
-  const slashLabels = useMemo<HbarComposerSlashLabels>(() => {
-    const profiles =
-      agentComposer.profileCatalog.status === 'ready'
-        ? agentComposer.profileCatalog.profiles.map((profileId) => {
-            const copy = labels.slash.agentProfile(profileId)
-            return {
-              id: `agent ${profileId}` as const,
-              label: copy.label,
-              argumentHint: labels.slash.agentTaskHint,
-              description: copy.description,
-            }
-          })
-        : []
-    return {
-      ...labels.slash,
-      commands: labels.slash.commands.flatMap((item) => (item.id === 'agent' ? [item, ...profiles] : [item])),
-    }
-  }, [agentComposer.profileCatalog, labels.slash])
+  const workspaceMoveEntry = sessionId
+    ? (workspaceMoves.entries[sessionId] ??
+      Object.values(workspaceMoves.entries).find((entry) => entry.targetSessionId === sessionId))
+    : undefined
+  const workspaceMoveLocked = Boolean(
+    workspaceMoveEntry &&
+    workspaceMoveEntry.status !== 'succeeded' &&
+    (workspaceMoveEntry.status === 'busy' ||
+      workspaceMoveEntry.status === 'unknown' ||
+      workspaceMoveEntry.status === 'paused' ||
+      workspaceMoveEntry.targetSessionId !== null),
+  )
+  const firstSendDraft = Object.values(firstSendDrafts).find(
+    (entry) =>
+      entry.sessionId === sessionId &&
+      entry.capturedWorkspaceId === sessionWorkspaceId &&
+      entry.error !== 'GOAL_PREPARED' &&
+      entry.phase !== 'accepted' &&
+      entry.phase !== 'idle',
+  )
+  const firstSendLocked = firstSendIsLocked(firstSendDraft)
+  const slashLabels = useMemo<HbarComposerSlashLabels>(
+    () => composerAgentSlashLabels(labels.slash, agentComposer.profileCatalog),
+    [agentComposer.profileCatalog, labels.slash],
+  )
   useEffect(() => {
     if (!connected || !sessionId || !navigation.workspaceId) return
     void runtime.commands
@@ -273,11 +327,12 @@ function SessionWorkspaceContent({
       .catch(() => undefined)
   }, [connected, navigation.workspaceId, runtime.commands, sessionId])
   const find = useSessionFind(timeline, labels.find)
+  useConversationSelectionKeyboardOwner(find.workspaceRef)
   const preparationStatus = sessionPreparationStatus(
     executionAccess,
     sessionId && navigation.workspaceId === sessionWorkspaceId ? { sessionId, workspaceId: sessionWorkspaceId } : null,
   )
-  const canPrepare = preparationStatus === 'ready'
+  const canPrepare = preparationStatus === 'ready' && !firstSendLocked && !workspaceMoveLocked
   const draft = sessionId ? drafts[sessionId] : undefined
   const agentAction = sessionId ? agentComposer.actions[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
@@ -300,6 +355,28 @@ function SessionWorkspaceContent({
   const permissionEntry = sessionId ? composerPermission.entries[sessionId] : undefined
   const planModeEntry = sessionId ? composerPlanMode.entries[sessionId] : undefined
   const intentPending = intentEntry?.submission.status === 'submitting' || intentEntry?.submission.status === 'unknown'
+  const activeSessionTab = tabs.items.find((tab) => tab.id === tabs.activeId)
+  const activeConversationOwner =
+    navigation.status === 'idle' &&
+    Boolean(sessionId) &&
+    navigation.sessionId === sessionId &&
+    navigation.workspaceId === sessionWorkspaceId &&
+    presentation.page.kind === 'session' &&
+    (tabs.activeId === null
+      ? activeSessionTab === undefined
+      : activeSessionTab?.kind === 'session' &&
+        activeSessionTab.sessionId === sessionId &&
+        activeSessionTab.workspaceId === sessionWorkspaceId)
+  const conversationSelectionEnabled =
+    connected &&
+    activeConversationOwner &&
+    timeline.sessionId === sessionId &&
+    timeline.status === 'ready' &&
+    !workspaceMoveLocked &&
+    !firstSendLocked &&
+    !intentPending &&
+    draft?.status !== 'submitting' &&
+    draft?.status !== 'unknown'
   const intent = intentEntry?.intent ?? 'default'
   const model = controls.sessionId === sessionId ? controls.model : null
   const configured = model?.status === 'configured' && model.modelId !== null
@@ -332,8 +409,10 @@ function SessionWorkspaceContent({
     terminalRunId,
     enabled: Boolean(projectContextLabels),
   })
-  const projectContextView = () =>
-    projectContextLabels && sessionId ? (
+  const projectContextView = (showLaunchControls: boolean) =>
+    showLaunchControls && renderLaunchControls ? (
+      renderLaunchControls()
+    ) : projectContextLabels && sessionId ? (
       <HbarSessionProjectContext
         workspaceName={workspaceName}
         workspacePath={workspacePath}
@@ -350,7 +429,98 @@ function SessionWorkspaceContent({
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
   const canPrepareTarget = (targetSessionId: string, targetWorkspaceId: string) =>
     runtime.getSessionExecutionAccess({ sessionId: targetSessionId, workspaceId: targetWorkspaceId }).kind === 'ready'
+  const hasOwnedEmptySessionLaunchDraft = (targetSessionId: string, targetWorkspaceId: string) => {
+    const owner = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
+    const navigationState = runtime.state.navigation.getSnapshot()
+    const latestDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+    const sessionTimeline = runtime.state.timeline.getSnapshot()
+    const submission = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]?.submission.status
+    return Boolean(
+      owner?.workspaceId === targetWorkspaceId &&
+      navigationState.status === 'idle' &&
+      navigationState.sessionId === targetSessionId &&
+      navigationState.workspaceId === targetWorkspaceId &&
+      latestDraft?.lastOperationId === null &&
+      sessionTimeline.sessionId === targetSessionId &&
+      sessionTimeline.status === 'ready' &&
+      sessionTimeline.messages.length === 0 &&
+      !sessionTimeline.hasOlder &&
+      sessionTimeline.runs.length === 0 &&
+      sessionTimeline.approvals.length === 0 &&
+      sessionTimeline.userInputs.length === 0 &&
+      Object.keys(sessionTimeline.streams).length === 0 &&
+      !['submitting', 'unknown'].includes(submission ?? ''),
+    )
+  }
+  const prepareSessionLaunchTarget = async (
+    targetSessionId: string,
+    targetWorkspaceId: string,
+    expectedDraftRevision: number,
+  ): Promise<number> => {
+    if (!runtime.state.sessionLaunchDrafts.getSnapshot().available)
+      throw new RuntimeCommandError('CAPABILITY_UNAVAILABLE', 'Session Location preparation is unavailable')
+    const selected = runtime.state.navigation.getSnapshot()
+    const latestDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+    const sessionTimeline = runtime.state.timeline.getSnapshot()
+    const intentSubmission = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]?.submission.status
+    if (
+      selected.status !== 'idle' ||
+      selected.sessionId !== targetSessionId ||
+      selected.workspaceId !== targetWorkspaceId ||
+      latestDraft?.revision !== expectedDraftRevision ||
+      latestDraft.lastOperationId !== null ||
+      sessionTimeline.sessionId !== targetSessionId ||
+      sessionTimeline.status !== 'ready' ||
+      sessionTimeline.messages.length > 0 ||
+      sessionTimeline.hasOlder ||
+      sessionTimeline.runs.length > 0 ||
+      sessionTimeline.approvals.length > 0 ||
+      sessionTimeline.userInputs.length > 0 ||
+      Object.keys(sessionTimeline.streams).length > 0 ||
+      ['submitting', 'unknown'].includes(intentSubmission ?? '')
+    )
+      throw new RuntimeCommandError('SESSION_LAUNCH_TARGET_LOCKED', 'This Session is no longer empty')
+    const existing = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
+    const entry: SessionLaunchDraftEntry =
+      existing ??
+      (await runtime.commands.execute('sessionLaunchDraft.open', {
+        sessionId: targetSessionId,
+        workspaceId: targetWorkspaceId,
+      }))
+    if (entry.workspaceId !== targetWorkspaceId || entry.sessionId !== targetSessionId)
+      throw new RuntimeCommandError('STALE_TARGET', 'Launch choice belongs to another Session or Workspace')
+    const prepared = await runtime.commands.execute('sessionLaunchDraft.prepare', {
+      sessionId: targetSessionId,
+      expectedRevision: entry.revision,
+    })
+    const current = runtime.state.sessionLaunchDrafts.getSnapshot().entries[targetSessionId]
+    const currentNavigation = runtime.state.navigation.getSnapshot()
+    const currentDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+    if (
+      prepared.phase !== 'ready' ||
+      prepared.targetRevision === null ||
+      current?.revision !== entry.revision ||
+      current.phase !== 'ready' ||
+      current.targetRevision !== prepared.targetRevision ||
+      currentNavigation.status !== 'idle' ||
+      currentNavigation.sessionId !== targetSessionId ||
+      currentNavigation.workspaceId !== targetWorkspaceId ||
+      currentDraft?.revision !== expectedDraftRevision
+    )
+      throw new RuntimeCommandError(
+        prepared.error ?? current?.error ?? 'STALE_TARGET',
+        'First-send launch preparation is not ready',
+      )
+    return prepared.targetRevision
+  }
+  const releaseSessionLaunchChoices = (targetSessionId: string) => {
+    void runtime.commands.execute('sessionLaunchDraft.close', { sessionId: targetSessionId }).catch(() => undefined)
+    void runtime.commands
+      .execute('sessionLaunchBranchCreation.cancel', { draftId: targetSessionId })
+      .catch(() => undefined)
+  }
   const composerWrite = useRef<{ sessionId: string; promise: Promise<unknown> } | null>(null)
+  const firstSessionRunInFlight = useRef<string | null>(null)
   const composerGoalTrigger = useRef<HTMLButtonElement>(null)
   const [goalMenuSlot, setGoalMenuSlot] = useState<HTMLDivElement | null>(null)
   const [goalPreparedRequest, setGoalPreparedRequest] = useState(0)
@@ -361,6 +531,10 @@ function SessionWorkspaceContent({
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string; profileId?: string } | null>(null)
+  const [workspaceContextFailure, setWorkspaceContextFailure] = useState<{ sessionId: string; message: string } | null>(
+    null,
+  )
+  const [launchTargetFailure, setLaunchTargetFailure] = useState<{ sessionId: string; code: string } | null>(null)
   const [goalConfirmation, setGoalConfirmation] = useState<{
     sessionId: string
     workspaceId: string
@@ -372,10 +546,13 @@ function SessionWorkspaceContent({
     objective?: string
   } | null>(null)
   const slashIds = slashLabels.commands.map((item) => item.id)
+  const sessionSlashSubmitCandidates: readonly LocalSlashCommand[] = ['model', 'settings', 'agents', 'cost', 'help']
+  const submitSlashCommands = sessionSlashSubmitCandidates.filter((command) => slashIds.includes(command))
   useEffect(() => {
     pendingModelSlash.current = null
     localSlashInFlight.current = false
     setGoalConfirmation(null)
+    setWorkspaceContextFailure(null)
   }, [sessionId])
   const saveComposerContent = (
     targetSessionId: string,
@@ -412,6 +589,7 @@ function SessionWorkspaceContent({
       latest?.revision !== target.revision ||
       !localSlashCommand(latest.text, slashIds) ||
       latest.mentions.length ||
+      latest.workspaceContexts?.length ||
       latest.attachments.length ||
       latest.attachmentTransfers.length
     )
@@ -437,6 +615,7 @@ function SessionWorkspaceContent({
       latest?.revision !== target.revision ||
       latest.text !== target.text ||
       latest.mentions.length ||
+      latest.workspaceContexts?.length ||
       latest.attachments.length ||
       latest.attachmentTransfers.length ||
       activeRun
@@ -474,16 +653,38 @@ function SessionWorkspaceContent({
           setSlashFailure({ sessionId: target.sessionId, code: 'INVALID_OUTPUT' })
           return
         }
+        let expectedLaunchTargetRevision: number | undefined
+        if (
+          (welcome && renderLaunchControls !== undefined) ||
+          hasOwnedEmptySessionLaunchDraft(target.sessionId, target.workspaceId)
+        ) {
+          try {
+            expectedLaunchTargetRevision = await prepareSessionLaunchTarget(
+              target.sessionId,
+              target.workspaceId,
+              target.revision,
+            )
+          } catch (reason) {
+            const code =
+              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                ? reason.code
+                : 'EXECUTION_FAILED'
+            setSlashFailure({ sessionId: target.sessionId, code })
+            return
+          }
+        }
         await execute('composerIntent.startGoalRun', {
           sessionId: target.sessionId,
           objective: command.objective,
           expectedGoalId: goalId,
           modelId: currentModel.modelId,
+          ...(expectedLaunchTargetRevision === undefined ? {} : { expectedLaunchTargetRevision }),
           ...(currentModel.thinkingLevel ? { thinking: currentModel.thinkingLevel } : {}),
           ...(permissionState.available ? { expectedPermissionRevision: permission?.revision ?? 0 } : {}),
           expectedDraftRevision: target.revision,
           draftText: target.text,
         })
+        if (expectedLaunchTargetRevision !== undefined) releaseSessionLaunchChoices(target.sessionId)
       }
       await clearLocalSlash(target)
     } catch (reason) {
@@ -500,6 +701,15 @@ function SessionWorkspaceContent({
     }
   }
   const submitLatest = async (targetSessionId: string, targetWorkspaceId: string) => {
+    if (
+      Object.values(runtime.state.preSessionDrafts.getSnapshot()).some(
+        (entry) =>
+          entry.sessionId === targetSessionId &&
+          entry.capturedWorkspaceId === targetWorkspaceId &&
+          firstSendIsLocked(entry),
+      )
+    )
+      return
     const pending = composerWrite.current
     if (pending?.sessionId === targetSessionId) {
       try {
@@ -511,6 +721,51 @@ function SessionWorkspaceContent({
     if (composerWriteError.current?.sessionId === targetSessionId) return
     const selected = runtime.state.navigation.getSnapshot()
     const latest = runtime.state.drafts.getSnapshot()[targetSessionId]
+    if (latest && /^\/agent(?:\s|$)/.test(latest.text.trim())) {
+      if (!connected || selected.sessionId !== targetSessionId || selected.workspaceId !== targetWorkspaceId) return
+      const command = localAgentSlash(latest.text)
+      if (!command) {
+        setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_REQUIRED' })
+        return
+      }
+      let catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
+      if (catalog.status !== 'ready') {
+        if (localSlashInFlight.current) return
+        localSlashInFlight.current = true
+        try {
+          await runtime.commands.execute('agentComposer.refresh', {
+            sessionId: targetSessionId,
+            workspaceId: targetWorkspaceId,
+          })
+          catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
+        } catch {
+          setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
+          return
+        } finally {
+          localSlashInFlight.current = false
+        }
+        const currentTarget = runtime.state.navigation.getSnapshot()
+        const currentDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+        if (
+          currentTarget.sessionId !== targetSessionId ||
+          currentTarget.workspaceId !== targetWorkspaceId ||
+          currentDraft?.revision !== latest.revision ||
+          composerWrite.current?.sessionId === targetSessionId
+        )
+          return
+      }
+      if (catalog.status !== 'ready') {
+        setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
+        return
+      }
+      if (!catalog.profiles.some((profile) => profile === command.profileId)) {
+        setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_PROFILE_UNAVAILABLE', profileId: command.profileId })
+        return
+      }
+      // Completion/validation never creates a child. The ordinary parent Run below
+      // owns its exact draft, attachments, model, permission and unknown receipt.
+      setSlashFailure(null)
+    }
     const slash = latest && localSlashCommand(latest.text, slashIds)
     if (slash) {
       const currentIntent = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
@@ -578,57 +833,6 @@ function SessionWorkspaceContent({
         await runGoalSlash({ ...target, text: latest.text }, command, previous?.goalId)
         return
       }
-      if (slash === 'agent') {
-        const command = localAgentSlash(latest.text)
-        if (!command) {
-          setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_REQUIRED' })
-          return
-        }
-        localSlashInFlight.current = true
-        setSlashFailure(null)
-        try {
-          let catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
-          if (catalog.status !== 'ready') {
-            await runtime.commands.execute('agentComposer.refresh', {
-              sessionId: targetSessionId,
-              workspaceId: targetWorkspaceId,
-            })
-            catalog = runtime.state.agentComposer.getSnapshot().profileCatalog
-          }
-          if (catalog.status !== 'ready') {
-            setSlashFailure({ sessionId: targetSessionId, code: 'AGENT_CATALOG_UNAVAILABLE' })
-            return
-          }
-          const profileId = catalog.profiles.find((item) => item === command.profileId)
-          if (!profileId) {
-            setSlashFailure({
-              sessionId: targetSessionId,
-              code: 'AGENT_PROFILE_UNAVAILABLE',
-              profileId: command.profileId,
-            })
-            return
-          }
-          await runtime.commands.execute('agentComposer.invoke', {
-            sessionId: targetSessionId,
-            workspaceId: targetWorkspaceId,
-            draftText: latest.text,
-            draftRevision: latest.revision,
-            profileId,
-            objective: command.objective,
-          })
-        } catch (reason) {
-          setSlashFailure({
-            sessionId: targetSessionId,
-            code:
-              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-                ? reason.code
-                : 'EXECUTION_FAILED',
-          })
-        } finally {
-          localSlashInFlight.current = false
-        }
-        return
-      }
       localSlashInFlight.current = true
       setSlashFailure(null)
       try {
@@ -682,6 +886,19 @@ function SessionWorkspaceContent({
     const permission = permissionState.entries[targetSessionId]
     const modelAction = runtime.state.composerModel.getSnapshot()
     const sessionTimeline = runtime.state.timeline.getSnapshot()
+    const launchPreparationRequired =
+      ((welcome && renderLaunchControls !== undefined) ||
+        hasOwnedEmptySessionLaunchDraft(targetSessionId, targetWorkspaceId)) &&
+      sessionTimeline.sessionId === targetSessionId &&
+      sessionTimeline.status === 'ready' &&
+      latest?.lastOperationId === null &&
+      sessionTimeline.messages.length === 0 &&
+      !sessionTimeline.hasOlder &&
+      sessionTimeline.runs.length === 0 &&
+      sessionTimeline.approvals.length === 0 &&
+      sessionTimeline.userInputs.length === 0 &&
+      Object.keys(sessionTimeline.streams).length === 0 &&
+      !['submitting', 'unknown'].includes(intentState?.submission.status ?? '')
     if (
       !connected ||
       !canPrepareTarget(targetSessionId, targetWorkspaceId) ||
@@ -696,7 +913,8 @@ function SessionWorkspaceContent({
       latest.status === 'unknown' ||
       latest.status === 'submitting' ||
       latest.attachmentTransfers.length ||
-      (!latest.text.trim() && !latest.attachments.length) ||
+      (!latest.text.trim() && !latest.attachments.length && !latest.workspaceContexts?.length) ||
+      (intentState?.intent === 'goal' && !latest.text.trim()) ||
       permission?.locked ||
       (modelAction.sessionId === targetSessionId && ['submitting', 'unknown'].includes(modelAction.action.status)) ||
       ['submitting', 'unknown'].includes(intentState?.submission.status ?? '') ||
@@ -704,7 +922,7 @@ function SessionWorkspaceContent({
         (planModeState.entries[targetSessionId]?.status !== 'ready' || !planModeState.entries[targetSessionId]?.mode))
     )
       return
-    invoke('composerIntent.submit', {
+    const submitInput = {
       sessionId: targetSessionId,
       modelId: currentModel.modelId,
       expectedIntentRevision: intentState?.revision ?? 0,
@@ -716,12 +934,66 @@ function SessionWorkspaceContent({
         files: latest.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
         ...(currentModel.thinkingLevel ? { thinking: currentModel.thinkingLevel } : {}),
       },
-    })
+    }
+    if (launchPreparationRequired) {
+      if (firstSessionRunInFlight.current === targetSessionId) return
+      firstSessionRunInFlight.current = targetSessionId
+      setLaunchTargetFailure(null)
+      try {
+        const expectedLaunchTargetRevision = await prepareSessionLaunchTarget(
+          targetSessionId,
+          targetWorkspaceId,
+          latest.revision,
+        )
+        const currentNavigation = runtime.state.navigation.getSnapshot()
+        const currentDraft = runtime.state.drafts.getSnapshot()[targetSessionId]
+        const currentComposerIntent = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
+        const currentComposerModel = runtime.state.controls.getSnapshot()
+        const currentPermission = runtime.state.composerPermission.getSnapshot().entries[targetSessionId]
+        const currentPlanMode = runtime.state.composerPlanMode.getSnapshot().entries[targetSessionId]
+        if (
+          currentNavigation.status !== 'idle' ||
+          currentNavigation.sessionId !== targetSessionId ||
+          currentNavigation.workspaceId !== targetWorkspaceId ||
+          currentDraft?.revision !== latest.revision ||
+          (currentComposerIntent?.revision ?? 0) !== submitInput.expectedIntentRevision ||
+          currentComposerModel.sessionId !== targetSessionId ||
+          currentComposerModel.model?.status !== 'configured' ||
+          currentComposerModel.model.modelId !== submitInput.modelId ||
+          currentComposerModel.model.thinkingLevel !== currentModel.thinkingLevel ||
+          (permissionState.available &&
+            (currentPermission?.locked || currentPermission?.revision !== (permission?.revision ?? 0))) ||
+          (planModeState.available &&
+            (currentPlanMode?.status !== 'ready' ||
+              currentPlanMode.mode !== planModeState.entries[targetSessionId]?.mode))
+        )
+          throw new RuntimeCommandError('VERSION_CONFLICT', 'Composer choices changed during first-send preparation')
+        await runtime.commands.execute('composerIntent.submit', {
+          ...submitInput,
+          expectedLaunchTargetRevision,
+        })
+        releaseSessionLaunchChoices(targetSessionId)
+      } catch (reason) {
+        setLaunchTargetFailure({
+          sessionId: targetSessionId,
+          code:
+            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+              ? reason.code
+              : 'EXECUTION_FAILED',
+        })
+      } finally {
+        if (firstSessionRunInFlight.current === targetSessionId) firstSessionRunInFlight.current = null
+      }
+      return
+    }
+    invoke('composerIntent.submit', submitInput)
   }
   const attachmentTransfers = draft?.attachmentTransfers ?? []
+  const workspaceContexts = draft?.workspaceContexts ?? []
   const attachmentIntakeEnabled =
     Boolean(prepareAttachment) &&
     canPrepare &&
+    !workspaceMoveLocked &&
     connected &&
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
@@ -732,6 +1004,8 @@ function SessionWorkspaceContent({
   const canAddAttachments =
     attachmentIntakeEnabled && (draft?.attachments.length ?? 0) + attachmentTransfers.length < 12
   const canOpenSlash =
+    !firstSendLocked &&
+    !workspaceMoveLocked &&
     Boolean(files && sessionId && navigation.workspaceId && connected) &&
     timeline.status !== 'loading' &&
     timeline.status !== 'error' &&
@@ -743,6 +1017,20 @@ function SessionWorkspaceContent({
       () => {},
     )
   }
+  const removeWorkspaceContext = (contextId: string) => {
+    if (!sessionId || !draft || !connected || firstSendLocked || workspaceMoveLocked || intentPending) return
+    const targetSessionId = sessionId
+    const expectedRevision = draft.revision
+    setWorkspaceContextFailure(null)
+    void execute('draft.removeWorkspaceContext', { sessionId: targetSessionId, expectedRevision, contextId }).catch(
+      () => {
+        if (runtime.state.navigation.getSnapshot().sessionId === targetSessionId)
+          setWorkspaceContextFailure({ sessionId: targetSessionId, message: labels.workspaceContexts.removeError })
+      },
+    )
+  }
+  const workspaceContextError =
+    workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
   const runErrorAction = timeline.runs
     .map((run) => runActions[run.id])
     .find((action) => action?.error && (!stopRun || action.commandId !== 'operation.cancel'))
@@ -876,13 +1164,93 @@ function SessionWorkspaceContent({
       icon: Settings,
       disabled: !sessionId,
       onActivate: () => {
-        if (sessionId) void runtime.commands.execute('app.openSettings', { scope: 'session', targetId: sessionId })
+        if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })
       },
     },
   ]
   useHbarMobileHeaderMenuSection(
     sessionId ? { id: 'session-tools', order: 2, label: labels.tools.label, items: mobileSessionToolItems } : null,
   )
+  const backgroundTarget =
+    sessionId && navigation.workspaceId && sourceTab?.kind === 'session'
+      ? { sessionId, workspaceId: navigation.workspaceId, sourceTabInstanceKey: sourceTab.instanceKey }
+      : null
+  const reading = useSessionReadingPosition({
+    runtime,
+    target: backgroundTarget,
+    ready: activeConversationOwner && timeline.sessionId === sessionId && timeline.status === 'ready',
+    findOpen: find.open,
+    messageIds: timeline.messages.map((message) => message.id),
+    hasOlder: timeline.hasOlder,
+    olderStatus: timeline.olderStatus,
+  })
+  const backgroundCandidate = sessionId ? backgroundAgents.entries[sessionId] : undefined
+  const backgroundEntry =
+    backgroundTarget &&
+    backgroundCandidate?.workspaceId === backgroundTarget.workspaceId &&
+    backgroundCandidate.sourceTabInstanceKey === backgroundTarget.sourceTabInstanceKey
+      ? backgroundCandidate
+      : undefined
+  const backgroundCount =
+    backgroundEntry?.items.filter((item) =>
+      ['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(item.status),
+    ).length ?? 0
+  const backgroundPending = backgroundEntry?.action.status === 'busy'
+  const backgroundUnknown = backgroundEntry?.action.status === 'unknown'
+  const backgroundDisabled =
+    !connected ||
+    !activeConversationOwner ||
+    workspaceMoveLocked ||
+    firstSendLocked ||
+    timeline.sessionId !== sessionId ||
+    timeline.status !== 'ready' ||
+    backgroundEntry?.readStatus !== 'ready'
+  const backgroundFeedback: HbarBackgroundAgentFeedbackKind | null = backgroundPending
+    ? backgroundEntry?.action.phase === 'reconcile'
+      ? 'checking'
+      : 'submitting'
+    : backgroundUnknown
+      ? 'unknown'
+      : backgroundEntry?.action.status === 'failed'
+        ? 'failed'
+        : backgroundEntry?.action.status === 'requested'
+          ? 'requested'
+          : backgroundEntry?.action.status === 'settled'
+            ? 'settled'
+            : backgroundEntry?.readStatus === 'error' || backgroundEntry?.readStatus === 'unknown'
+              ? 'read-error'
+              : null
+  const reconcileBackground = () => {
+    if (backgroundTarget && backgroundEntry?.action.id)
+      invoke('composerBackgroundAgents.reconcile', { ...backgroundTarget, actionId: backgroundEntry.action.id })
+  }
+  const stopBackground = () => {
+    if (backgroundTarget) invoke('composerBackgroundAgents.cancel', backgroundTarget)
+  }
+  const retryBackground = () => {
+    if (backgroundTarget && backgroundEntry?.action.id)
+      invoke('composerBackgroundAgents.cancel', { ...backgroundTarget, actionId: backgroundEntry.action.id })
+  }
+  const toolActionForMessage =
+    (messageId: string): HbarMessageBlocksProps['renderToolAction'] =>
+    (row) => {
+      if (!sessionId || !sourceTab || sourceTab.kind !== 'session') return null
+      const identity = agentToolOpenIdentity(row, sessionId)
+      if (!identity || !row.call) return null
+      return (
+        <HbarAgentToolOpen
+          key={`${sourceTab.instanceKey}:${messageId}:${row.call.callId}`}
+          parentSessionId={sessionId}
+          messageId={messageId}
+          callId={row.call.callId}
+          childSessionId={identity.sessionId}
+          objective={identity.objective}
+          sourceTabInstanceKey={sourceTab.instanceKey}
+          connected={connected}
+          labels={labels.agentToolOpen}
+        />
+      )
+    }
   const eligibilityCurrent =
     messageFork.eligibility.sessionId === sessionId && messageFork.eligibility.cursor === timeline.cursor
   const decisionProjection = useMemo(
@@ -962,17 +1330,94 @@ function SessionWorkspaceContent({
         : {}),
     }
   }
+  const addConversationSelection = async (input: ConversationSelectionSubmission): Promise<boolean> => {
+    const currentNavigation = runtime.state.navigation.getSnapshot()
+    const currentTabs = runtime.state.workspaceTabs.getSnapshot()
+    const currentTab = currentTabs.items.find((tab) => tab.id === currentTabs.activeId)
+    const currentPresentation = runtime.state.presentation.getSnapshot()
+    const currentTimeline = runtime.state.timeline.getSnapshot()
+    const currentDraft = runtime.state.drafts.getSnapshot()[input.sessionId]
+    const currentIntent = runtime.state.composerIntent.getSnapshot().entries[input.sessionId]
+    const currentMoves = runtime.state.sessionWorkspaceMove.getSnapshot()
+    const currentMove =
+      currentMoves.entries[input.sessionId] ??
+      Object.values(currentMoves.entries).find((entry) => entry.targetSessionId === input.sessionId)
+    const currentFirstSend = Object.values(runtime.state.preSessionDrafts.getSnapshot()).find(
+      (entry) =>
+        entry.sessionId === input.sessionId &&
+        entry.capturedWorkspaceId === sessionWorkspaceId &&
+        entry.error !== 'GOAL_PREPARED' &&
+        entry.phase !== 'accepted' &&
+        entry.phase !== 'idle',
+    )
+    const currentOwner =
+      currentNavigation.status === 'idle' &&
+      currentNavigation.sessionId === input.sessionId &&
+      currentNavigation.workspaceId === sessionWorkspaceId &&
+      currentPresentation.page.kind === 'session' &&
+      (currentTabs.activeId === null
+        ? currentTab === undefined
+        : currentTab?.kind === 'session' &&
+          currentTab.sessionId === input.sessionId &&
+          currentTab.workspaceId === sessionWorkspaceId)
+    const moveLocked = Boolean(
+      currentMove &&
+      currentMove.status !== 'succeeded' &&
+      (currentMove.status === 'busy' ||
+        currentMove.status === 'unknown' ||
+        currentMove.status === 'paused' ||
+        currentMove.targetSessionId !== null),
+    )
+    if (!connected) throw new RuntimeCommandError('HOST_DISCONNECTED', 'Conversation selection is unavailable')
+    if (
+      !currentOwner ||
+      !sessionId ||
+      input.sessionId !== sessionId ||
+      currentTimeline.sessionId !== input.sessionId ||
+      currentTimeline.status !== 'ready'
+    )
+      throw new RuntimeCommandError('STALE_TARGET', 'The selected conversation target is no longer active')
+    if (
+      moveLocked ||
+      firstSendIsLocked(currentFirstSend) ||
+      ['submitting', 'unknown'].includes(currentDraft?.status ?? '') ||
+      ['submitting', 'unknown'].includes(currentIntent?.submission.status ?? '')
+    )
+      throw new RuntimeCommandError('BUSY', 'The Session draft is busy')
+
+    await runtime.commands.execute('draft.addConversationSelection', input)
+    return true
+  }
   const messageRows: LumenMessageProps[] = [
-    ...projectedMessages.map(({ message, blocks, results }) => ({
-      id: message.id,
-      role: message.role,
-      author: labels.author[message.role],
-      avatar: labels.avatar[message.role],
-      appearance: 'transcript' as const,
-      copyLabel: labels.copy,
-      children:
+    ...projectedMessages.map(({ message, blocks, results }) => {
+      const fileWorkspaceId = navigation.workspaceId
+      const fileReferences: MessageFileReferenceContext | undefined =
+        files && message.sessionId === sessionId && fileWorkspaceId
+          ? {
+              owner: runtime,
+              targetKey: JSON.stringify([
+                navigation.workspaceId,
+                message.sessionId,
+                sourceTab?.instanceKey ?? null,
+                message.id,
+              ]),
+              labels: labels.fileReferences,
+              streaming: unfinishedRuns.has(message.runId),
+              onOpen: async (reference) => {
+                await runtime.commands.execute('messageFiles.open', {
+                  workspaceId: fileWorkspaceId,
+                  sessionId: message.sessionId,
+                  sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
+                  messageId: message.id,
+                  ...reference,
+                })
+              },
+            }
+          : undefined
+      const body =
         proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
           <HbarProposedPlanMessage
+            fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
@@ -981,6 +1426,7 @@ function SessionWorkspaceContent({
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
+            renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             document={proposal}
             plan={{
@@ -1006,6 +1452,7 @@ function SessionWorkspaceContent({
           />
         ) : message.role === 'assistant' ? (
           <HbarHistoricalPlanMessage
+            fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
@@ -1014,43 +1461,75 @@ function SessionWorkspaceContent({
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
+            renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             readOnlyLabel={labels.proposedPlanReadOnly}
           />
         ) : (
           <HbarMessageBlocks
+            fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
             messageId={message.id}
             blocks={blocks}
+            textFormat={message.role === 'user' ? 'literal' : 'markdown'}
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
+            renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
           />
-        ),
-      actions:
-        (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
-        forkActionFor(message) ||
-        messageFork.actions[forkKey(message)]?.status === 'created' ? (
-          <HbarMessageActionBar
+        )
+      const expectedText = conversationMessageExpectedText(message.content)
+      const selectableRole = message.role === 'user' || message.role === 'assistant' ? message.role : null
+      const children =
+        selectableRole && expectedText.trim() ? (
+          <HbarConversationSelection
             sessionId={message.sessionId}
             messageId={message.id}
-            content={message.content}
-            labels={labels.messageActions}
-            copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
-            fork={forkActionFor(message)}
-            metadata={
-              <LumenText as="span">
-                {messageFork.actions[forkKey(message)]?.status === 'created'
-                  ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
-                  : labels.timestamp(message.createdAt)}
-              </LumenText>
-            }
-          />
-        ) : null,
-    })),
+            sourceRole={selectableRole}
+            expectedText={expectedText}
+            expectedRevision={drafts[message.sessionId]?.revision ?? 0}
+            enabled={conversationSelectionEnabled && message.sessionId === sessionId}
+            labels={labels.conversationSelection}
+            onAdd={addConversationSelection}
+          >
+            {body}
+          </HbarConversationSelection>
+        ) : (
+          body
+        )
+      return {
+        id: message.id,
+        role: message.role,
+        author: labels.author[message.role],
+        avatar: labels.avatar[message.role],
+        appearance: 'transcript' as const,
+        copyLabel: labels.copy,
+        children,
+        actions:
+          (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
+          forkActionFor(message) ||
+          messageFork.actions[forkKey(message)]?.status === 'created' ? (
+            <HbarMessageActionBar
+              sessionId={message.sessionId}
+              messageId={message.id}
+              content={message.content}
+              labels={labels.messageActions}
+              copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
+              fork={forkActionFor(message)}
+              metadata={
+                <LumenText as="span">
+                  {messageFork.actions[forkKey(message)]?.status === 'created'
+                    ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
+                    : labels.timestamp(message.createdAt)}
+                </LumenText>
+              }
+            />
+          ) : null,
+      }
+    }),
     ...Object.values(timeline.streams).map((stream) => ({
       id: stream.id,
       role: 'assistant' as const,
@@ -1116,7 +1595,7 @@ function SessionWorkspaceContent({
             runs={timeline.runs.map((run) => ({
               id: run.id,
               label: labels.timestamp(run.createdAt),
-              status: run.status as LumenRunActivityStatus,
+              status: run.status,
               detail: run.error ?? labels.runDetail(run.modelId),
               duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
             }))}
@@ -1296,6 +1775,20 @@ function SessionWorkspaceContent({
       lastOperationId: draft?.lastOperationId ?? null,
       submissionPending: intentPending || Boolean(permissionEntry?.locked),
     })
+  const launchDraftEntry = sessionId ? sessionLaunchDrafts.entries[sessionId] : undefined
+  const confirmedEmptyTimeline =
+    timeline.sessionId === sessionId &&
+    timeline.status === 'ready' &&
+    timeline.messages.length === 0 &&
+    !timeline.hasOlder &&
+    timeline.runs.length === 0 &&
+    timeline.approvals.length === 0 &&
+    timeline.userInputs.length === 0 &&
+    Object.keys(timeline.streams).length === 0 &&
+    draft?.lastOperationId === null
+  const showLaunchLocation =
+    welcome ||
+    Boolean(launchDraftEntry && launchDraftEntry.workspaceId === sessionWorkspaceId && confirmedEmptyTimeline)
   const emptyTimeline = welcome ? (
     <HbarSessionEmptyHero labels={labels.emptyHero} />
   ) : (
@@ -1353,7 +1846,11 @@ function SessionWorkspaceContent({
   })()
 
   const composer: ReactNode = sessionId ? (
-    <LumenFrame className="hbar-app-react-session-footer" data-git-context-status={projectContext.context.status}>
+    <LumenFrame
+      className="hbar-app-react-session-footer"
+      data-hbar-composer-session={sessionId}
+      data-git-context-status={projectContext.context.status}
+    >
       <HbarSessionStopNotice region="main" />
       <HbarSessionExecutionNotice
         key={`${sessionId}:${sessionWorkspaceId}`}
@@ -1478,7 +1975,7 @@ function SessionWorkspaceContent({
               </LumenFrame>
             </LumenFrame>
           )}
-        <LumenPromptComposer
+        <HbarPromptComposer
           boundary="none"
           value={draft?.text ?? ''}
           editor={
@@ -1497,6 +1994,7 @@ function SessionWorkspaceContent({
                     placeholder={placeholder}
                     labels={labels.mentions}
                     slashLabels={slashLabels}
+                    submitSlashCommands={submitSlashCommands}
                     slashOpenRequest={slashOpenRequest}
                     focusRequest={editorFocusRequest}
                     sendBehavior={sendBehavior}
@@ -1526,31 +2024,75 @@ function SessionWorkspaceContent({
             name: attachment.artifact.name,
           }))}
           attachmentContent={
-            images && draft?.attachments.length ? (
-              <HbarDraftImageAttachments
-                draft={draft}
-                removeLabel={labels.prompt.removeAttachment}
-                removeDisabled={
-                  draft.status === 'submitting' ||
-                  draft.status === 'unknown' ||
-                  intentEntry?.submission.status === 'submitting'
-                }
-                onRemove={(id, kind) =>
-                  invoke('draft.removeAttachment', {
-                    sessionId,
-                    artifactId: id,
-                    kind,
-                    expectedRevision: draft.revision,
-                  })
-                }
-              />
+            draft &&
+            (workspaceContexts.length > 0 || workspaceContextError || (images && draft.attachments.length > 0)) ? (
+              <>
+                <HbarComposerWorkspaceContexts
+                  contexts={workspaceContexts}
+                  attachments={!images ? draft.attachments : []}
+                  labels={labels.workspaceContexts}
+                  removeAttachmentLabel={(attachment) =>
+                    labels.prompt.removeAttachment({
+                      id: attachment.artifact.id,
+                      kind: attachment.kind,
+                      name: attachment.artifact.name,
+                    })
+                  }
+                  removeDisabled={
+                    !connected ||
+                    firstSendLocked ||
+                    workspaceMoveLocked ||
+                    draft.status === 'submitting' ||
+                    draft.status === 'unknown' ||
+                    intentPending
+                  }
+                  error={workspaceContextError}
+                  onRemove={removeWorkspaceContext}
+                  onRemoveAttachment={(attachment) =>
+                    invoke('draft.removeAttachment', {
+                      sessionId,
+                      artifactId: attachment.artifact.id,
+                      kind: attachment.kind,
+                      expectedRevision: draft.revision,
+                    })
+                  }
+                />
+                {images && draft.attachments.length > 0 ? (
+                  <HbarDraftImageAttachments
+                    draft={draft}
+                    removeLabel={labels.prompt.removeAttachment}
+                    removeDisabled={
+                      draft.status === 'submitting' ||
+                      draft.status === 'unknown' ||
+                      intentEntry?.submission.status === 'submitting' ||
+                      workspaceMoveLocked
+                    }
+                    onRemove={(id, kind) =>
+                      invoke('draft.removeAttachment', {
+                        sessionId,
+                        artifactId: id,
+                        kind,
+                        expectedRevision: draft.revision,
+                      })
+                    }
+                  />
+                ) : null}
+              </>
             ) : undefined
           }
-          disabled={!connected || timeline.status === 'loading' || timeline.status === 'error'}
+          disabled={
+            !connected ||
+            firstSendLocked ||
+            workspaceMoveLocked ||
+            timeline.status === 'loading' ||
+            timeline.status === 'error'
+          }
           submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
           uploading={(draft?.uploading ?? 0) > 0}
           canAddAttachments={canAddAttachments}
           canSubmit={
+            !firstSendLocked &&
+            !workspaceMoveLocked &&
             (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
             (localSlashCommand(draft?.text ?? '', slashIds)
               ? localSlashCanSubmit({
@@ -1568,12 +2110,19 @@ function SessionWorkspaceContent({
                 attachmentTransfers.length === 0 &&
                 !permissionEntry?.locked &&
                 draft?.status !== 'unknown' &&
-                Boolean(draft?.text.trim() || draft?.attachments.length))
+                Boolean(
+                  (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
+                  (intent !== 'goal' || draft?.text.trim()),
+                ))
           }
           canStop={Boolean(activeRun)}
           runningActions={{
             ...labels.runningActions,
-            submit: draft?.text.trim() || draft?.attachments.length ? 'queue' : 'hidden',
+            submit:
+              (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
+              (intent !== 'goal' || draft?.text.trim())
+                ? 'queue'
+                : 'hidden',
           }}
           stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
           error={
@@ -1608,7 +2157,13 @@ function SessionWorkspaceContent({
                   hostDefault={composerPermission.hostDefault}
                   defaultAvailable={composerPermission.available}
                   connected={connected}
-                  disabled={draft?.status === 'submitting' || draft?.status === 'unknown' || intentPending}
+                  disabled={
+                    workspaceMoveLocked ||
+                    firstSendLocked ||
+                    draft?.status === 'submitting' ||
+                    draft?.status === 'unknown' ||
+                    intentPending
+                  }
                   runActive={Boolean(activeRun)}
                   canPrepare={canPrepare}
                   labels={labels.permissionPicker}
@@ -1625,20 +2180,6 @@ function SessionWorkspaceContent({
                     ? {
                         plan: {
                           entry: planModeEntry,
-                          disabled: intent === 'goal',
-                          ...(intent === 'goal'
-                            ? {
-                                goalPreparation: {
-                                  revision: intentEntry?.revision ?? 0,
-                                  onCancel: async (target: { sessionId: string; expectedRevision: number }) => {
-                                    await runtime.commands.execute('composerIntent.setIntent', {
-                                      ...target,
-                                      intent: 'default',
-                                    })
-                                  },
-                                },
-                              }
-                            : {}),
                           onSetMode: async (mode: 'default' | 'plan', expectedRevision: number) => {
                             await runtime.commands.execute('composerPlanMode.setMode', {
                               sessionId,
@@ -1666,6 +2207,11 @@ function SessionWorkspaceContent({
                     : {})}
                 />
               )}
+              {projectContextLabels && (
+                <LumenFrame className="hbar-session-project-context-toolbar">
+                  {projectContextView(showLaunchLocation)}
+                </LumenFrame>
+              )}
               <HbarComposerIntentControls
                 key={sessionId}
                 preferMenu
@@ -1674,7 +2220,11 @@ function SessionWorkspaceContent({
                 sessionId={sessionId}
                 connected={connected}
                 disabled={
-                  draft?.status === 'submitting' || draft?.status === 'unknown' || Boolean(permissionEntry?.locked)
+                  workspaceMoveLocked ||
+                  firstSendLocked ||
+                  draft?.status === 'submitting' ||
+                  draft?.status === 'unknown' ||
+                  Boolean(permissionEntry?.locked)
                 }
                 canPrepare={canPrepare}
                 labels={labels.intent}
@@ -1683,11 +2233,48 @@ function SessionWorkspaceContent({
           }
           context={
             <>
+              <HbarComposerBackgroundAgentFeedback
+                kind={backgroundFeedback}
+                error={
+                  backgroundEntry?.action.error ??
+                  backgroundEntry?.action.targets.find((target) => target.error)?.error ??
+                  backgroundEntry?.error ??
+                  null
+                }
+                disabled={!connected || backgroundPending || !activeConversationOwner}
+                labels={labels.backgroundAgents}
+                onReconcile={reconcileBackground}
+                onRetry={retryBackground}
+                onRefresh={() => {
+                  if (backgroundTarget) invoke('composerBackgroundAgents.refresh', backgroundTarget)
+                }}
+              />
+              {firstSendDraft && firstSendLabels && (
+                <HbarPreSessionLaunchStatus
+                  key={firstSendDraft.draftId}
+                  draft={firstSendDraft}
+                  labels={firstSendLabels}
+                  connected={connected}
+                />
+              )}
+              {launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
+                <LumenText as="p" role="alert">
+                  {firstSendLabels.error(launchTargetFailure.code)}
+                </LumenText>
+              )}
               <HbarQueuedUserRuns
                 state={queuedUserRuns}
                 sessionId={sessionId}
                 connected={connected}
                 labels={labels.queuedUserRuns}
+                activeRunId={
+                  timeline.sessionId === sessionId &&
+                  timeline.status === 'ready' &&
+                  activeRun?.sessionId === sessionId &&
+                  activeRun.status === 'running'
+                    ? activeRun.id
+                    : null
+                }
                 onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
                 onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
                 onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
@@ -1697,6 +2284,11 @@ function SessionWorkspaceContent({
                 }
                 onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
                 onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
+                onGuide={(operationId, expectedRevision, activeRunId) =>
+                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })
+                }
+                onRetryGuide={(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })}
+                onDismissGuide={() => void invoke('queuedUserRuns.dismissGuide', { sessionId })}
                 onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
                 onRemove={(operationId, expectedRevision) =>
                   void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
@@ -1741,21 +2333,20 @@ function SessionWorkspaceContent({
                 labels={labels.usage}
                 onOpenMonitor={() => toggleTool('monitoring')}
               />
-              {projectContextLabels && (
-                <LumenFrame className="hbar-session-project-context-toolbar">{projectContextView()}</LumenFrame>
-              )}
               <HbarComposerModelPicker
                 key={sessionId}
                 sessionId={sessionId}
                 connected={connected}
                 runActive={Boolean(activeRun)}
                 disabled={
+                  workspaceMoveLocked ||
+                  firstSendLocked ||
                   draft?.status === 'submitting' ||
                   draft?.status === 'unknown' ||
                   intentPending ||
                   Boolean(activeRun && canPrepare)
                 }
-                canSelect={canPrepare && !activeRun}
+                canSelect={canPrepare && !activeRun && !workspaceMoveLocked}
                 labels={labels.modelPicker}
                 menuPresentation={modelMenuPresentation}
                 openRequest={modelOpenRequest}
@@ -1783,6 +2374,22 @@ function SessionWorkspaceContent({
               />
             </LumenFrame>
           }
+          backgroundAction={
+            !activeRun ? (
+              <HbarComposerBackgroundAgentStop
+                count={backgroundCount}
+                disabled={
+                  backgroundDisabled ||
+                  backgroundUnknown ||
+                  backgroundEntry?.action.status === 'requested' ||
+                  backgroundEntry?.action.status === 'failed'
+                }
+                pending={backgroundPending}
+                labels={labels.backgroundAgents}
+                onStop={stopBackground}
+              />
+            ) : undefined
+          }
           onChange={(text) => {
             setSlashFailure(null)
             invoke('draft.setText', { sessionId, text })
@@ -1808,7 +2415,7 @@ function SessionWorkspaceContent({
         />
       </HbarComposerAttachmentDropTarget>
       {projectContextLabels && (
-        <LumenFrame className="hbar-session-project-context-below">{projectContextView()}</LumenFrame>
+        <LumenFrame className="hbar-session-project-context-below">{projectContextView(showLaunchLocation)}</LumenFrame>
       )}
       {sessionUsagePresentation(controls, labels.usage).notice && (
         <LumenText as="p" className="hbar-session-budget-notice" role="status">
@@ -1826,7 +2433,7 @@ function SessionWorkspaceContent({
         status={
           activeRun
             ? {
-                label: labels.runs.statusLabel(activeRun.status as LumenRunActivityStatus),
+                label: labels.runs.statusLabel(activeRun.status),
                 tone: activeRun.status === 'waiting_approval' ? 'warning' : 'success',
               }
             : undefined
@@ -1834,21 +2441,41 @@ function SessionWorkspaceContent({
         actionsLabel={labels.tools.label}
         actions={
           <>
-            {mobileSessionToolItems.map((item) => {
-              if (item.id === 'find') return find.trigger
-              if (item.id === 'files' && !showFilesInHeader) return null
-              if (!item.icon) return null
-              return (
-                <SessionToolButton
-                  key={item.id}
-                  icon={item.icon}
-                  label={item.label}
-                  {...(item.pressed === undefined ? {} : { selected: item.pressed })}
-                  disabled={item.disabled ?? false}
-                  onClick={item.onActivate}
-                />
-              )
-            })}
+            {find.trigger}
+            {showFilesInHeader && (
+              <SessionToolButton
+                icon={Files}
+                label={labels.tools.files}
+                selected={isToolActive('files')}
+                disabled={!sessionId}
+                onClick={() => toggleTool('files')}
+              />
+            )}
+            <SessionToolButton
+              icon={ListChecks}
+              label={labels.tools.activity}
+              selected={isToolActive('activity')}
+              disabled={!sessionId}
+              onClick={() => toggleTool('activity')}
+            />
+            <HbarSessionToolsMenu
+              key={`${sessionId}:${navigation.workspaceId}:${sourceTab?.instanceKey ?? ''}`}
+              labels={labels.tools}
+              selected={
+                isToolActive('monitoring')
+                  ? 'monitoring'
+                  : isToolActive('agents')
+                    ? 'agents'
+                    : isToolActive('goals')
+                      ? 'goals'
+                      : null
+              }
+              disabled={!sessionId}
+              onToggleTool={toggleTool}
+              onSettings={() => {
+                if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })
+              }}
+            />
           </>
         }
       />
@@ -1868,25 +2495,67 @@ function SessionWorkspaceContent({
             connected={connected}
             labels={labels.intent}
             surface="summary"
+            runActive={
+              connected &&
+              ((timeline.sessionId === sessionId && Boolean(activeRun)) ||
+                (selectedExecution.target?.sessionId === sessionId &&
+                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                  selectedExecution.status === 'ready' &&
+                  selectedExecution.snapshot?.execution.activeCount !== undefined &&
+                  selectedExecution.snapshot.execution.activeCount > 0))
+            }
+            executionReadError={
+              connected &&
+              selectedExecution.target?.sessionId === sessionId &&
+              selectedExecution.target.workspaceId === sessionWorkspaceId &&
+              selectedExecution.status === 'error'
+            }
+            executionChecking={
+              connected &&
+              selectedExecution.target?.sessionId === sessionId &&
+              selectedExecution.target.workspaceId === sessionWorkspaceId &&
+              selectedExecution.status === 'loading'
+            }
             goalTriggerRef={composerGoalTrigger}
             canPrepare={canPrepare}
           />
         </LumenFrame>
       )}
       {navigationAccessory}
-      <LumenFrame className="hbar-app-react-session-main">
+      <LumenFrame
+        className="hbar-app-react-session-main"
+        ref={reading.rootRef}
+        data-reading-scope={reading.scope}
+        data-reading-restoring={reading.restoring}
+        onScrollCapture={reading.onScrollCapture}
+        onWheelCapture={reading.onWheelCapture}
+        onTouchStartCapture={reading.onTouchStartCapture}
+        onPointerDownCapture={reading.onPointerDownCapture}
+        onKeyDownCapture={reading.onKeyDownCapture}
+      >
         <LumenConversation
           title={labels.conversationTitle(sessionTitle)}
           header={find.bar}
           messages={messages}
           empty={emptyTimeline}
-          beforeMessages={historyNotices}
+          beforeMessages={
+            <>
+              {reading.unavailable && (
+                <LumenText as="p" role="status">
+                  {labels.readingPositionUnavailable}
+                </LumenText>
+              )}
+              {historyNotices}
+            </>
+          }
           afterMessages={activity}
           composer={composer}
           scrollKey={sessionId ?? undefined}
-          scrollTarget={find.scrollTarget}
-          onScrollTargetResult={find.onScrollTargetResult}
-          followLatest={!find.open}
+          scrollTarget={find.scrollTarget ?? reading.scrollTarget}
+          onScrollTargetResult={(result) => {
+            if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)
+          }}
+          followLatest={!find.open && !reading.restoring}
           contentRevision={`${timeline.cursor}:goal:${goalHistoryEntry?.status ?? 'idle'}:${goalLifecycleRows.map((row) => row.eventId).join(',')}:${Object.values(
             timeline.streams,
           )

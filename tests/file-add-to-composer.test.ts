@@ -4,6 +4,7 @@ import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { serializeMentions } from '../packages/app-runtime/src/composer-mentions'
+import { projectWorkspaceDiffRows, selectWorkspaceDiffRange } from '../packages/app-runtime/src/file-context-selection'
 
 const workspace: Workspace = { id: 'w', name: 'Workspace', path: 'D:/workspace', createdAt: 1 }
 const session = (id: string, archived = false): Session => ({
@@ -17,6 +18,8 @@ const session = (id: string, archived = false): Session => ({
   seq: 1,
 })
 const sha = (text: string) => createHash('sha256').update(text).digest('hex')
+const sourceText = 'disk content\nsecond line\nthird line'
+const diffText = '@@ -1,3 +1,4 @@\n disk content\n-old line\n+second line\n+extra line\n third line'
 
 async function fixture() {
   const sessions = new Map([
@@ -45,16 +48,34 @@ async function fixture() {
     instanceId: crypto.randomUUID(),
     hostId: 'file-chat-host',
     directory,
+    sessionLaunchTargets: {
+      async read(sessionId) {
+        return {
+          sessionId,
+          workspaceId: 'w',
+          revision: 0,
+          selection: { mode: 'shared-current' },
+          locked: true,
+          resolution: { status: 'ready', branch: null },
+          updatedAt: 1,
+        }
+      },
+    },
     surfaces: { canRender: (id) => id === 'files' },
     files: {
       execute(name, raw) {
-        const input = raw as { workspaceId: string; path: string }
+        const input = raw as {
+          workspaceId: string
+          path: string
+          sessionTarget?: { sessionId: string; expectedRevision: number }
+        }
         if (name === 'file.list')
           return Promise.resolve({ items: [{ name: 'spec doc.md', path: 'src/spec doc.md', directory: false }] })
         if (name === 'file.read') {
-          const text = 'disk content'
+          const text = sourceText
           return Promise.resolve({
             workspaceId: input.workspaceId,
+            ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
             path: input.path,
             text,
             size: text.length,
@@ -66,9 +87,49 @@ async function fixture() {
         throw new Error(`Unexpected Files call: ${name}`)
       },
     },
+    git: {
+      async execute(name, raw) {
+        const target = raw as { workspaceId: string; sessionId: string; expectedRevision: number }
+        if (name === 'sessionGit.status')
+          return {
+            target: {
+              workspaceId: target.workspaceId,
+              sessionId: target.sessionId,
+              expectedRevision: target.expectedRevision,
+            },
+            branch: 'main',
+            head: null,
+            upstream: null,
+            ahead: 0,
+            behind: 0,
+            dirty: true,
+            isRepository: true,
+            repositoryDirty: true,
+            entries: [{ kind: 'path', path: 'src/spec doc.md', index: ' ', worktree: 'M' }],
+          }
+        if (name === 'sessionGit.diff')
+          return {
+            target: {
+              workspaceId: target.workspaceId,
+              sessionId: target.sessionId,
+              expectedRevision: target.expectedRevision,
+            },
+            cached: false,
+            truncated: false,
+            diff: diffText,
+          }
+        throw new Error(name)
+      },
+    },
   })
   await runtime.ready
   const execute = runtime.view.commands.execute
+  const fileTarget = {
+    instanceId: 'files-a',
+    workspaceId: 'w',
+    sourceSessionId: 'a',
+    sessionTarget: { sessionId: 'a', expectedRevision: 0 },
+  }
   await execute('app.setSession', { sessionId: 'a', workspaceId: 'w' })
   await execute('app.setSession', { sessionId: 'b', workspaceId: 'w' })
   await execute('app.openPanel', {
@@ -78,10 +139,13 @@ async function fixture() {
     sessionId: 'a',
     binding: 'pinned',
   })
-  await execute('fileWorkspace.refresh', { instanceId: 'files-a' })
+  await execute('fileWorkspace.refresh', {
+    instanceId: fileTarget.instanceId,
+    sourceSessionId: 'a',
+    sessionTarget: fileTarget.sessionTarget,
+  })
   await execute('fileWorkspace.openEntry', {
-    instanceId: 'files-a',
-    workspaceId: 'w',
+    ...fileTarget,
     path: 'src/spec doc.md',
     directory: false,
   })
@@ -102,11 +166,13 @@ async function fixture() {
     workbenchTabId: workbench.id,
     workbenchTabInstanceKey: workbench.instanceKey,
     expectedRevision: 0,
+    sessionTarget: fileTarget.sessionTarget,
   }
   return {
     runtime,
     execute,
     target,
+    fileTarget,
     sessions,
     reads: () => reads,
     offline: () => {
@@ -160,6 +226,99 @@ test('a Files workbench adds a structured path to its original Session without n
   }
 })
 
+test('source selection adds a deduplicated snapshot to its owning composer without changing text, mentions or materials', async () => {
+  const f = await fixture()
+  try {
+    await f.execute('draft.setContent', {
+      sessionId: 'a',
+      text: 'Review @existing.md',
+      expectedRevision: 0,
+      mentions: [{ start: 7, end: 19, label: 'existing.md', workspaceId: 'w', path: 'existing.md', directory: false }],
+    })
+    const attachments = [
+      { kind: 'file' as const, artifact: { id: 'a'.repeat(64), name: 'notes.txt', mime: 'text/plain', size: 4 } },
+    ]
+    await f.execute('draft.setAttachments', { sessionId: 'a', attachments })
+    const input = {
+      ...f.target,
+      previewId: f.runtime.view.state.files.getSnapshot().entries['files-a']!.activePreviewId!,
+      expectedRevision: 2,
+      context: { kind: 'source-selection' as const, sha256: sha(sourceText), startOffset: 2, endOffset: 19 },
+    }
+    expect(await f.execute('fileWorkspace.addToComposer', input)).toMatchObject({ added: true, revision: 3 })
+    const draft = f.runtime.view.state.drafts.getSnapshot().a!
+    expect(draft.text).toBe('Review @existing.md')
+    expect(draft.mentions).toHaveLength(1)
+    expect(draft.attachments).toEqual(attachments)
+    expect(draft.workspaceContexts).toMatchObject([
+      {
+        kind: 'source-selection',
+        workspaceId: 'w',
+        path: 'src/spec doc.md',
+        lineStart: 1,
+        lineEnd: 2,
+        quote: 'disk content\nsecond line',
+      },
+    ])
+    expect(await f.execute('fileWorkspace.addToComposer', { ...input, expectedRevision: 3 })).toMatchObject({
+      added: false,
+      revision: 3,
+    })
+    await expect(
+      f.execute('fileWorkspace.addToComposer', {
+        ...input,
+        expectedRevision: 3,
+        context: { ...input.context, sha256: 'f'.repeat(64) },
+      }),
+    ).rejects.toMatchObject({ code: 'TARGET_CHANGED' })
+    expect(f.runtime.view.state.drafts.getSnapshot().a).toEqual(draft)
+    expect(f.runtime.view.state.drafts.getSnapshot().b).toBeUndefined()
+    expect(f.runtime.view.state.workspaceTabs.getSnapshot().activeId).toBe(f.target.workbenchTabId)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a same-side diff comment captures numbered code and note from the current snapshot, not raw patch headers', async () => {
+  const f = await fixture()
+  try {
+    await f.execute('fileWorkspace.setBrowserMode', { ...f.fileTarget, mode: 'changed' })
+    await f.execute('fileWorkspace.openChange', { ...f.fileTarget, path: f.target.path })
+    const rows = projectWorkspaceDiffRows(diffText)
+    const range = selectWorkspaceDiffRange(rows, 3, 4)!
+    expect(range).toMatchObject({ diffSide: 'new', lineStart: 2, lineEnd: 3, quote: 'second line\nextra line' })
+    expect(selectWorkspaceDiffRange(rows, 2, 3)).toBeNull()
+    await f.execute('fileWorkspace.addToComposer', {
+      ...f.target,
+      previewId: f.runtime.view.state.files.getSnapshot().entries['files-a']!.activePreviewId!,
+      context: {
+        kind: 'diff-comment',
+        cached: false,
+        expectedText: diffText,
+        rowStart: 3,
+        rowEnd: 4,
+        diffSide: 'new',
+        note: 'Keep the clearer wording',
+      },
+    })
+    expect(f.runtime.view.state.drafts.getSnapshot().a?.workspaceContexts).toMatchObject([
+      {
+        kind: 'diff-comment',
+        workspaceId: 'w',
+        path: f.target.path,
+        diffSide: 'new',
+        lineStart: 2,
+        lineEnd: 3,
+        quote: 'second line\nextra line',
+        note: 'Keep the clearer wording',
+      },
+    ])
+    expect(f.runtime.view.state.drafts.getSnapshot().a?.text).toBe('')
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 test('a changed source draft, offline Host, or archived source fails closed without changing either draft', async () => {
   const f = await fixture()
   try {
@@ -205,8 +364,7 @@ test('a late Host read never writes after the selected file changes', async () =
     const pending = f.execute('fileWorkspace.addToComposer', f.target)
     await Bun.sleep(0)
     await f.execute('fileWorkspace.openEntry', {
-      instanceId: 'files-a',
-      workspaceId: 'w',
+      ...f.fileTarget,
       path: 'src/other.md',
       directory: false,
     })
@@ -227,7 +385,7 @@ test('a late Host read never writes after the selected file changes', async () =
 test('an unsaved file edit blocks a disk-path reference and preserves the edit', async () => {
   const f = await fixture()
   try {
-    await f.execute('fileWorkspace.setText', { instanceId: 'files-a', text: 'uncommitted' })
+    await f.execute('fileWorkspace.setText', { ...f.fileTarget, text: 'uncommitted' })
     try {
       await f.execute('fileWorkspace.addToComposer', f.target)
       throw new Error('expected unsaved file rejection')
@@ -244,10 +402,10 @@ test('an unsaved file edit blocks a disk-path reference and preserves the edit',
 test('an unknown file save cannot be represented as the saved on-disk path', async () => {
   const f = await fixture()
   try {
-    await f.execute('fileWorkspace.setText', { instanceId: 'files-a', text: 'possibly saved' })
+    await f.execute('fileWorkspace.setText', { ...f.fileTarget, text: 'possibly saved' })
     f.loseFileWrite()
     try {
-      await f.execute('fileWorkspace.save', { instanceId: 'files-a' })
+      await f.execute('fileWorkspace.save', f.fileTarget)
       throw new Error('expected unknown file write')
     } catch (error) {
       expect(error).toMatchObject({ code: 'RESULT_UNKNOWN' })

@@ -10,7 +10,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
+import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+test.use({ actionTimeout: 10_000 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab composer defers Session creation until first send: ${locale}`, async ({ browser }) => {
@@ -19,6 +22,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
+    const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -76,14 +80,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(add).toBeFocused()
 
       await prompt.fill('First message from the no-tab landing.')
-      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-      const projects = page.getByRole('dialog', { name: labels.workspace.title })
+      const locationTrigger = landing.locator('.hbar-pre-session-location-picker > button')
+      await locationTrigger.click()
+      const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRootBeforeDirectory.isVisible())
+        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      const projects = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
       await expect(projects).toBeVisible()
       await expect(projects).toBeInViewport()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-projects-${locale}-320.png` })
       await projects.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
-      await expect(projects).toHaveCount(0)
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
       await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
       const modelPicker = page.getByRole('dialog', { name: labels.model.title })
       await expect(modelPicker).toBeVisible()
@@ -188,6 +199,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 320, height: 720 } })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
+    const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -206,9 +218,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const message = `Plan first on the no-tab landing ${locale}`
       await prompt.fill(message)
-      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-      const projects = page.getByRole('dialog', { name: labels.workspace.title })
+      await landing.locator('.hbar-pre-session-location-picker > button').click()
+      const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRootBeforeDirectory.isVisible())
+        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      const projects = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
       await projects.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
       await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
       const models = page.getByRole('dialog', { name: labels.model.title })
       await models.getByRole('button', { name: new RegExp(fixtureModel!.modelName) }).click()
@@ -263,9 +282,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
       await add.click()
       const addMenu = landing.getByRole('group', { name: copy.session.addMenu.menu })
-      await expect(addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })).toBeDisabled()
-      await expect(addMenu.getByText(labels.goalPlanConflict, { exact: true })).toBeVisible()
-      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-blocked-plan-${locale}-320.png` })
+      await expect(addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })).toBeEnabled()
+      await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-from-plan-${locale}-320.png` })
       await page.keyboard.press('Escape')
       expect(
         (await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })).items,
@@ -319,6 +337,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 320, height: 720 } })
     const copy = getShellCopy(locale)
     const labels = preSessionCopy(locale)
+    const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -336,11 +355,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const objective = `Keep improving the desktop experience ${locale}`
       await prompt.fill(objective)
-      await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-      await page
-        .getByRole('dialog', { name: labels.workspace.title })
-        .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
-        .click()
+      await landing.locator('.hbar-pre-session-location-picker > button').click()
+      const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+      if (await locationRootBeforeDirectory.isVisible())
+        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      const locationPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+      await locationPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
+      const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
+      await expect(locationRoot).toBeVisible()
+      await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
+      await expect(locationRoot).toBeHidden()
       await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
       await page
         .getByRole('dialog', { name: labels.model.title })
@@ -365,8 +389,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const execution = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
       await execution.click()
       const picker = page.locator('.hbar-pre-session-approval-popover')
-      await expect(picker.locator('[data-choice="plan"]')).toBeDisabled()
-      await expect(picker.getByText(labels.planGoalConflict, { exact: true })).toBeVisible()
+      await expect(picker.locator('[data-choice="plan"]')).toBeEnabled()
+      await expect(picker.getByText(copy.session.permissionPicker.plan.description, { exact: true })).toBeVisible()
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-${locale}-320.png` })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
@@ -422,6 +446,7 @@ test('no-tab project picker pages beyond 100 without clipping its path action at
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 720 } })
   const copy = getShellCopy('zh-CN')
   const labels = preSessionCopy('zh-CN')
+  const location = preSessionLaunchCopy('zh-CN').location
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
@@ -442,15 +467,18 @@ test('no-tab project picker pages beyond 100 without clipping its path action at
     await expect(landing).toBeVisible()
     const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
     await prompt.fill('添加目录前保留这条草稿')
-    await landing.getByRole('button', { name: labels.workspace.trigger(null) }).click()
-    const picker = page.getByRole('dialog', { name: labels.workspace.title })
-    const rows = picker.locator('.hbar-pre-session-choice-row')
+    await landing.locator('.hbar-pre-session-location-picker > button').click()
+    const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
+    if (await locationRootBeforeDirectory.isVisible())
+      await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+    const picker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
+    const rows = picker.locator('.hbar-pre-session-location-row')
     await expect(rows).toHaveCount(60)
-    await picker.getByRole('button', { name: labels.workspace.more(40) }).click()
+    await picker.getByRole('button', { name: location.more, exact: true }).click()
     await expect(rows).toHaveCount(100)
-    await picker.getByRole('button', { name: labels.workspace.more(null) }).click()
+    await picker.getByRole('button', { name: location.more, exact: true }).click()
     await expect(rows).toHaveCount(101)
-    const list = picker.locator('.hbar-pre-session-choice-list')
+    const list = picker.locator('.hbar-pre-session-location-list')
     expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
     expect(
       await rows.evaluateAll((elements) =>

@@ -2,13 +2,17 @@ import { expect, test } from 'bun:test'
 import { CommandError, CommandRegistry, type ExecuteOptions } from '@hbar/commands'
 import { goalPlanCommands, type GoalPlanChange, type GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
 import { runAcceptedSchema, submitRunInputSchema, type RunAccepted } from '@hbar/contracts/commands/run'
-import type { ThreadGoal } from '@hbar/contracts'
+import type { Message, ThreadGoal } from '@hbar/contracts'
+import type { PromptWorkspaceContextInput, PromptMention } from '@hbar/contracts/commands/draft'
 import { createComposerIntent } from '../packages/app-runtime/src/composer-intent'
 import { createDrafts } from '../packages/app-runtime/src/drafts'
 import { createState } from '../packages/app-runtime/src/state'
 import type { GoalPlanWorkspacePort, NavigationState, RunCommandPort } from '../packages/app-runtime/src/types'
 
-function fixture() {
+function fixture(
+  readConversationMessage?: (sessionId: string, messageId: string) => Readonly<Message> | null,
+  modeOptions: { readonly mode?: 'default' | 'plan'; readonly modeSequence?: readonly ('default' | 'plan')[] } = {},
+) {
   const local = new CommandRegistry()
   const navigation = createState<NavigationState>(
     { workspaceId: 'w', sessionId: null, status: 'idle', error: null },
@@ -23,6 +27,8 @@ function fixture() {
   let controlFailure = false
   let runGate: Promise<void> | null = null
   let readGate: Promise<void> | null = null
+  let mode = modeOptions.mode ?? 'default'
+  let modeReads = 0
   let goalNumber = 0
   let goalRunActive = false
   const value = (sessionId: string): GoalPlanSnapshot =>
@@ -141,6 +147,9 @@ function fixture() {
     undefined,
     () => {},
     () => false,
+    undefined,
+    undefined,
+    readConversationMessage,
   )
   const composer = createComposerIntent(local, {
     goals,
@@ -149,19 +158,39 @@ function fixture() {
     onSubscriberError: () => {},
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,
+    serializeGoalObjective: drafts.serializeGoalObjective,
     consumeGoalSlashDraft: (sessionId, revision, text) => {
       const current = drafts.reader.getSnapshot()[sessionId]
-      if (current?.revision === revision && current.text === text)
+      if (
+        current?.revision === revision &&
+        current.text === text &&
+        !current.workspaceContexts?.length &&
+        !current.mentions.length &&
+        !current.attachments.length &&
+        !current.attachmentTransfers.length
+      )
         void local.execute('draft.setContent', { sessionId, text: '', mentions: [], expectedRevision: revision })
     },
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
+    ...(modeOptions.mode !== undefined || modeOptions.modeSequence
+      ? {
+          captureMode: () => mode,
+          refreshMode: async () => {
+            const sequence = modeOptions.modeSequence
+            mode = sequence?.[Math.min(modeReads, Math.max(0, sequence.length - 1))] ?? mode
+            modeReads += 1
+            return mode
+          },
+        }
+      : {}),
   })
-  const submit = (sessionId: string, text = 'Ship it') =>
+  const submit = (sessionId: string, text = 'Ship it', expectedLaunchTargetRevision?: number) =>
     local.execute('composerIntent.submit', {
       sessionId,
       modelId: 'provider/model',
       input: { text, images: [] },
+      ...(expectedLaunchTargetRevision === undefined ? {} : { expectedLaunchTargetRevision }),
     })
   const intent = (sessionId: string, intent: 'default' | 'goal' | 'plan') =>
     local.execute('composerIntent.setIntent', { sessionId, intent })
@@ -176,6 +205,7 @@ function fixture() {
     submit,
     intent,
     listeners,
+    modeReads: () => modeReads,
     select(sessionId: string | null) {
       navigation.replace({ workspaceId: 'w', sessionId, status: 'idle', error: null })
     },
@@ -212,8 +242,186 @@ test('composer intent is a per-session draft, cancellation never clears a Goal, 
     await f.submit('one')
     await f.submit('two')
     expect(f.calls.map((call) => submitRunInputSchema.parse(call.input).input.mode)).toEqual(['default', 'plan'])
+    for (const call of f.calls.filter((item) => item.name === 'run.submit'))
+      expect(submitRunInputSchema.parse(call.input)).not.toHaveProperty('expectedLaunchTargetRevision')
     expect(f.value('one').goal).not.toBeNull()
     expect(f.composer.reader.getSnapshot().entries.two?.intent).toBe('default')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal submission can run in the confirmed Host Plan mode and rechecks a changed mode before admission', async () => {
+  const planned = fixture(undefined, { mode: 'plan' })
+  try {
+    planned.select('one')
+    await planned.intent('one', 'goal')
+    await planned.submit('one')
+    expect(submitRunInputSchema.parse(planned.calls.find((call) => call.name === 'run.submit')?.input).input.mode).toBe(
+      'plan',
+    )
+    expect(planned.value('one').goal).not.toBeNull()
+  } finally {
+    planned.dispose()
+  }
+
+  const changed = fixture(undefined, { modeSequence: ['plan', 'default'] })
+  try {
+    changed.select('one')
+    await changed.intent('one', 'goal')
+    await expect(changed.submit('one')).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(changed.modeReads()).toBe(2)
+    expect(changed.calls.filter((call) => call.name === 'goal.create')).toHaveLength(0)
+    expect(changed.calls.filter((call) => call.name === 'run.submit')).toHaveLength(0)
+  } finally {
+    changed.dispose()
+  }
+})
+
+test('parent Agent prompt uses ordinary Run receipt recovery and preserves images and files until acceptance', async () => {
+  const f = fixture()
+  const text = '/agent explore Inspect this exact prompt\nthen report the findings'
+  const image = { id: 'a'.repeat(64), name: 'diagram.png', mime: 'image/png', size: 12 }
+  const file = { id: 'b'.repeat(64), name: 'notes.txt', mime: 'text/plain', size: 25 }
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text })
+    const revision = f.drafts.reader.getSnapshot().one?.revision
+    if (revision === undefined) throw new Error('Missing parent prompt draft')
+    await f.local.execute('draft.setAttachments', {
+      sessionId: 'one',
+      attachments: [
+        { kind: 'image', artifact: image },
+        { kind: 'file', artifact: file },
+      ],
+      expectedRevision: revision,
+    })
+    const captured = f.drafts.reader.getSnapshot().one
+    if (!captured) throw new Error('Missing parent prompt attachments')
+    f.failures({ run: 'unknown' })
+    await expect(
+      f.local.execute('composerIntent.submit', {
+        sessionId: 'one',
+        modelId: 'provider/model',
+        expectedDraftRevision: captured.revision,
+        input: { text, images: [image], files: [file] },
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const calls = f.calls.filter((call) => call.name === 'run.submit')
+    expect(calls).toHaveLength(1)
+    expect(submitRunInputSchema.parse(calls[0]?.input).input).toMatchObject({
+      text,
+      images: [image],
+      files: [file],
+      source: 'user',
+      mode: 'default',
+    })
+    expect(f.calls.filter((call) => call.name === 'agent.create' || call.name === 'goal.create')).toHaveLength(0)
+    expect(f.drafts.reader.getSnapshot().one).toMatchObject({
+      text,
+      attachments: captured.attachments,
+      status: 'unknown',
+    })
+    await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(1)
+    expect(f.drafts.reader.getSnapshot().one).toMatchObject({ text: '', attachments: [], status: 'idle' })
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal intent excludes conversation quotes while Run receives both workspace and chat context', async () => {
+  const message: Message = {
+    id: 'assistant-message',
+    sessionId: 'one',
+    runId: 'run',
+    role: 'assistant',
+    content: [{ type: 'text', text: 'A rendered assistant response' }],
+    seq: 1,
+    createdAt: 1,
+  }
+  const f = fixture((sessionId, messageId) =>
+    sessionId === message.sessionId && messageId === message.id ? message : null,
+  )
+  const mention: PromptMention = {
+    start: 8,
+    end: 17,
+    label: 'entry.ts',
+    path: 'src/entry.ts',
+    workspaceId: 'w',
+    directory: false,
+  }
+  const context: PromptWorkspaceContextInput = {
+    kind: 'source-selection',
+    workspaceId: 'w',
+    path: 'src/entry.ts',
+    lineStart: 5,
+    lineEnd: 5,
+    quote: 'const value = 1',
+    sha256: 'c'.repeat(64),
+  }
+  try {
+    f.select('one')
+    await f.intent('one', 'goal')
+    await f.local.execute('draft.setContent', {
+      sessionId: 'one',
+      text: 'Look at @entry.ts',
+      mentions: [mention],
+      expectedRevision: 0,
+    })
+    await f.local.execute('draft.addWorkspaceContext', {
+      sessionId: 'one',
+      context,
+      expectedRevision: 1,
+    })
+    await f.local.execute('draft.addConversationSelection', {
+      sessionId: 'one',
+      messageId: message.id,
+      expectedText: 'A rendered assistant response',
+      quote: 'rendered assistant',
+      expectedRevision: 2,
+    })
+
+    await f.local.execute('composerIntent.submit', {
+      sessionId: 'one',
+      modelId: 'provider/model',
+      input: { text: 'Look at @entry.ts', images: [] },
+      expectedDraftRevision: 3,
+    })
+
+    const goalInput = goalPlanCommands['goal.create'].input.parse(
+      f.calls.find((call) => call.name === 'goal.create')?.input,
+    )
+    const runInput = submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)
+    expect(goalInput.objective).toBe('Look at @"src/entry.ts"')
+    expect(runInput.input.text).toContain('Look at @"src/entry.ts"')
+    expect(runInput.input.text).toContain('Referenced workspace context:')
+    expect(runInput.input.text).toContain('Referenced chat context:')
+    expect(runInput.input.text).toContain('const value = 1')
+    expect(runInput.input.text).toContain('rendered assistant')
+    expect(f.drafts.reader.getSnapshot().one).toMatchObject({ text: '', workspaceContexts: [] })
+  } finally {
+    f.dispose()
+  }
+})
+
+test('optional launch-target revision is validated and reaches Run without changing ordinary requests', async () => {
+  const f = fixture()
+  try {
+    const ordinary = { sessionId: 'one', modelId: 'provider/model', input: { text: 'Ship it', images: [] } }
+    expect(submitRunInputSchema.parse(ordinary)).not.toHaveProperty('expectedLaunchTargetRevision')
+    expect(submitRunInputSchema.safeParse({ ...ordinary, expectedLaunchTargetRevision: -1 }).success).toBe(false)
+    expect(submitRunInputSchema.safeParse({ ...ordinary, expectedLaunchTargetRevision: 0.5 }).success).toBe(false)
+    expect(
+      submitRunInputSchema.safeParse({
+        ...ordinary,
+        expectedLaunchTargetRevision: Number.MAX_SAFE_INTEGER + 1,
+      }).success,
+    ).toBe(false)
+
+    await f.submit('one', 'Ship it', 0)
+    const run = f.calls.find((call) => call.name === 'run.submit')
+    expect(submitRunInputSchema.parse(run?.input).expectedLaunchTargetRevision).toBe(0)
   } finally {
     f.dispose()
   }
@@ -225,19 +433,24 @@ test('confirmed Goal plus failed Run stays partial; retry reuses the Goal and Ru
     await f.intent('one', 'goal')
     await f.local.execute('draft.setText', { sessionId: 'one', text: 'Ship it' })
     f.failures({ run: 'known' })
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    await expect(f.submit('one', 'Ship it', 7)).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
     expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({
       status: 'partial',
       phase: 'run',
       preparedGoalId: 'goal-1',
     })
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('Ship it')
+    await expect(f.submit('one', 'Ship it', 8)).rejects.toMatchObject({ code: 'GOAL_SUBMISSION_CHANGED' })
+    expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(1)
     f.failures({ run: null })
+    // A normal composer retry may omit the internal capture; it must keep the original fence.
     await f.submit('one')
     expect(f.calls.filter((call) => call.name === 'goal.create')).toHaveLength(1)
     const runs = f.calls.filter((call) => call.name === 'run.submit')
     expect(runs).toHaveLength(2)
     expect(runs[0]?.key).toBe(runs[1]?.key)
+    expect(submitRunInputSchema.parse(runs[0]?.input).expectedLaunchTargetRevision).toBe(7)
+    expect(submitRunInputSchema.parse(runs[1]?.input).expectedLaunchTargetRevision).toBe(7)
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
     expect(f.composer.reader.getSnapshot().entries.one?.submission.status).toBe('idle')
   } finally {
@@ -250,7 +463,7 @@ test('uncertain Goal creation is read-reconciled and requires an explicit retry 
   try {
     await f.intent('one', 'goal')
     f.failures({ create: 'after' })
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await expect(f.submit('one', 'Ship it', 11)).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
     await expect(f.submit('one')).rejects.toMatchObject({ code: 'BUSY' })
     await expect(f.intent('one', 'default')).rejects.toMatchObject({ code: 'BUSY' })
     expect(f.calls).toHaveLength(1)
@@ -259,6 +472,10 @@ test('uncertain Goal creation is read-reconciled and requires an explicit retry 
     expect(f.calls).toHaveLength(1)
     await f.submit('one')
     expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      11,
+    )
   } finally {
     f.dispose()
   }
@@ -302,10 +519,14 @@ test('uncertain Run acceptance uses the existing draft receipt reconciliation wi
     await f.intent('one', 'goal')
     await f.local.execute('draft.setText', { sessionId: 'one', text: 'Ship it' })
     f.failures({ run: 'unknown' })
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await expect(f.submit('one', 'Ship it', 13)).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
     expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({ status: 'unknown', phase: 'run' })
     await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
     expect(f.calls).toHaveLength(2)
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      13,
+    )
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
     expect(f.composer.reader.getSnapshot().entries.one?.intent).toBe('default')
   } finally {
@@ -415,8 +636,36 @@ test('confirmed Goal slash starts one Goal Run with its objective and consumes o
       source: 'user',
       mode: 'default',
     })
+    expect(submitRunInputSchema.parse(run?.input)).not.toHaveProperty('expectedLaunchTargetRevision')
     expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Goal slash Run captures the current Host Plan mode instead of forcing default mode', async () => {
+  const f = fixture(undefined, { mode: 'plan' })
+  try {
+    f.select('one')
+    await f.local.execute('draft.setText', { sessionId: 'one', text: '/goal First' })
+    const revision = f.drafts.reader.getSnapshot().one!.revision
+    const created = (await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'First',
+    })) as { goalId: string }
+    await f.local.execute('composerIntent.startGoalRun', {
+      sessionId: 'one',
+      objective: 'First',
+      expectedGoalId: created.goalId,
+      modelId: 'provider/model',
+      expectedDraftRevision: revision,
+      draftText: '/goal First',
+    })
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input).input.mode).toBe(
+      'plan',
+    )
   } finally {
     f.dispose()
   }
@@ -432,6 +681,7 @@ test('failed Goal kickoff retains the saved Goal and slash draft for an explicit
       sessionId: 'one',
       objective: 'First',
       modelId: 'provider/model',
+      expectedLaunchTargetRevision: 17,
       expectedDraftRevision: revision,
       draftText: '/goal First',
     }
@@ -447,6 +697,13 @@ test('failed Goal kickoff retains the saved Goal and slash draft for an explicit
     expect(f.composer.reader.getSnapshot().entries.one?.submission).toMatchObject({ status: 'partial', phase: 'run' })
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('/goal First')
     f.failures({ run: null })
+    await expect(
+      f.local.execute('composerIntent.startGoalRun', {
+        ...input,
+        expectedGoalId: created.goalId,
+        expectedLaunchTargetRevision: 18,
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_SUBMISSION_CHANGED' })
     const repeated = (await f.local.execute('composerIntent.commandGoal', {
       sessionId: 'one',
       action: 'set',
@@ -454,9 +711,18 @@ test('failed Goal kickoff retains the saved Goal and slash draft for an explicit
       expectedGoalId: created.goalId,
     })) as { goalId: string }
     expect(repeated.goalId).toBe(created.goalId)
-    await f.local.execute('composerIntent.startGoalRun', { ...input, expectedGoalId: repeated.goalId })
+    await f.local.execute('composerIntent.startGoalRun', {
+      sessionId: input.sessionId,
+      objective: input.objective,
+      expectedGoalId: repeated.goalId,
+      modelId: input.modelId,
+      expectedDraftRevision: input.expectedDraftRevision,
+      draftText: input.draftText,
+    })
     expect(f.calls.filter((call) => call.name === 'goal.create')).toHaveLength(1)
     expect(f.calls.filter((call) => call.name === 'run.submit')).toHaveLength(2)
+    for (const run of f.calls.filter((call) => call.name === 'run.submit'))
+      expect(submitRunInputSchema.parse(run.input).expectedLaunchTargetRevision).toBe(17)
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
   } finally {
     f.dispose()
@@ -479,6 +745,7 @@ test('uncertain Goal kickoff reconciles the original Run receipt without a dupli
       objective: 'First',
       expectedGoalId: created.goalId,
       modelId: 'provider/model',
+      expectedLaunchTargetRevision: 19,
       expectedDraftRevision: revision,
       draftText: '/goal First',
     }
@@ -489,6 +756,10 @@ test('uncertain Goal kickoff reconciles the original Run receipt without a dupli
     await expect(f.local.execute('composerIntent.startGoalRun', input)).rejects.toMatchObject({ code: 'BUSY' })
     await f.local.execute('composerIntent.reconcile', { sessionId: 'one' })
     expect(f.calls.map((call) => call.name)).toEqual(['goal.create', 'run.submit'])
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      19,
+    )
     expect(f.drafts.reader.getSnapshot().one?.text).toBe('')
   } finally {
     f.dispose()
@@ -712,12 +983,16 @@ test('pending sends are duplicate guarded and old-session completion cannot clea
   try {
     await f.intent('one', 'plan')
     f.gates({ run: gate.promise })
-    const submission = f.submit('one')
-    await expect(f.submit('one')).rejects.toMatchObject({ code: 'BUSY' })
+    const submission = f.submit('one', 'Ship it', 23)
+    await expect(f.submit('one', 'Ship it', 23)).rejects.toMatchObject({ code: 'BUSY' })
     f.select('two')
     await f.intent('two', 'goal')
     gate.resolve()
     await submission
+    expect(submitRunInputSchema.parse(f.calls.find((call) => call.name === 'run.submit')?.input)).toHaveProperty(
+      'expectedLaunchTargetRevision',
+      23,
+    )
     expect(f.composer.reader.getSnapshot().entries.two?.intent).toBe('goal')
     expect(f.calls).toHaveLength(1)
   } finally {

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createSystemCommandClient } from '@hbar/client'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function selectDiagnostics(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
@@ -46,7 +47,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+        await openSessionTool(page, copy.session.tools, 'settings')
         await selectDiagnostics(page, locale)
         const region = page.getByRole('region', { name: copy.diagnostics.title })
         await expect(region.getByRole('heading', { name: copy.diagnostics.title })).toBeVisible()
@@ -77,7 +78,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         }
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       }
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await selectDiagnostics(page, locale)
       await expect(page.getByRole('region', { name: copy.diagnostics.title })).toBeVisible()
       await stopWebSessionHost(host)

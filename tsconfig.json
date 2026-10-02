@@ -17,7 +17,12 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["bun", "vite/client"]
+    "types": ["bun", "vite/client"],
+    "paths": {
+      "@lumen/app-ui": ["./hbar-ui/packages/lumen-app-ui/src/index.ts"],
+      "@lumen/app-ui/catalog": ["./hbar-ui/packages/lumen-app-ui/src/catalog.ts"],
+      "@lumen/app-ui/variants": ["./hbar-ui/packages/lumen-app-ui/src/variants/index.ts"]
+    }
   },
   "include": [
     "apps/**/*.ts",

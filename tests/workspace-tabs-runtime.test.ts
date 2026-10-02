@@ -97,6 +97,41 @@ test('tabs follow the original navigation, move by stable IDs, close captured in
   runtime.dispose()
 })
 
+test('confirmed empty-draft replacement retains the original tab position and rejects a reopened source', async () => {
+  const f = fixture()
+  for (const id of ['before', 'source', 'after', 'replacement']) f.sessions.set(id, session(id))
+  const runtime = f.create()
+  try {
+    await runtime.ready
+    for (const id of ['before', 'source', 'after'])
+      await runtime.view.commands.execute('app.setSession', { workspaceId: 'w', sessionId: id })
+    const source = runtime.workspaceTabs.capture(['source'])[0]
+    if (!source) throw new Error('Missing source fixture tab')
+    await runtime.view.commands.execute('app.setSession', { workspaceId: 'w', sessionId: 'replacement' })
+    const replacement = runtime.workspaceTabs.capture(['replacement'])[0]
+    runtime.workspaceTabs.replaceCapturedSession(source, 'replacement')
+    expect(runtime.view.state.workspaceTabs.getSnapshot().items.map((item) => item.id)).toEqual([
+      'before',
+      'replacement',
+      'after',
+    ])
+    expect(runtime.workspaceTabs.capture(['replacement'])[0]).toEqual(replacement)
+    expect(runtime.view.state.navigation.getSnapshot()).toMatchObject({ sessionId: 'replacement', status: 'idle' })
+    expect(f.sessions.get('source')?.archived).toBe(false)
+
+    await runtime.view.commands.execute('app.setSession', { workspaceId: 'w', sessionId: 'source' })
+    await runtime.view.commands.execute('app.setSession', { workspaceId: 'w', sessionId: 'replacement' })
+    const before = runtime.view.state.workspaceTabs.getSnapshot()
+    expect(() => runtime.workspaceTabs.replaceCapturedSession(source, 'replacement')).toThrow(
+      'The original or replacement Session tab changed',
+    )
+    expect(runtime.view.state.workspaceTabs.getSnapshot()).toBe(before)
+    await runtime.workspaceTabs.whenIdle()
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('a thirty-third creation is denied before any Host write, while an existing tab remains selectable', async () => {
   const f = fixture()
   let hostWrites = 0

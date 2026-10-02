@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { runCommands, runCommandRecordSchema } from '@hbar/contracts/commands/run'
-import type { RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
+import type { QueuedRunGuideReceipt, RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
 import type { Run } from '@hbar/contracts'
 import type { Kernel } from './index'
 
@@ -93,7 +93,15 @@ export function createRunCommands(kernel: Kernel) {
       }
       if (prior) return prior
       try {
-        const run = await kernel.submit(input.sessionId, requestId, input.input, input.modelId, command)
+        const run = await kernel.submit(
+          input.sessionId,
+          requestId,
+          input.input,
+          input.modelId,
+          command,
+          context.signal,
+          input.expectedLaunchTargetRevision,
+        )
         return accepted(run, command)
       } catch (error) {
         // Admission may have committed before the response was lost. Inspect the canonical queued fact.
@@ -117,7 +125,26 @@ export function createRunCommands(kernel: Kernel) {
             'ARCHIVED',
             'NOT_FOUND',
             'INVALID_INPUT',
+            'COMMAND_CONFLICT',
             'IDEMPOTENCY_CONFLICT',
+            'BRANCH_IN_USE',
+            'BRANCH_EXISTS',
+            'BRANCH_NOT_FOUND',
+            'BUSY',
+            'GIT_INVALID_BRANCH',
+            'GIT_REF_NOT_FOUND',
+            'GIT_NOT_REPOSITORY',
+            'GIT_OPERATION_FAILED',
+            'SESSION_LAUNCH_TARGET_LOCKED',
+            'SESSION_LAUNCH_TARGET_PATH_OCCUPIED',
+            'SESSION_LAUNCH_TARGET_INVALID_ROOT',
+            'SESSION_LAUNCH_TARGET_SUBDIRECTORY_UNSUPPORTED',
+            'SESSION_LAUNCH_TARGET_RECONCILE_REQUIRED',
+            'SESSION_LAUNCH_TARGET_RECONCILE_CONFLICT',
+            'SESSION_LAUNCH_TARGET_UNRESOLVED',
+            'SESSION_LAUNCH_TARGET_TIMEOUT',
+            'USER_CANCELLED',
+            'HOST_SHUTTING_DOWN',
           ].includes(error.code)
         )
           throw new CommandError(error.code, error.message)
@@ -149,6 +176,8 @@ export function createRunCommands(kernel: Kernel) {
         throw new CommandError('COMMAND_NOT_FOUND', 'Operation does not belong to the selected session')
       if (['queued', 'running', 'waiting_approval'].includes(prior.status))
         throw new CommandError('BUSY', 'Wait for the original operation to settle before retrying')
+      if (prior.status === 'guided')
+        throw new CommandError('COMMAND_CONFLICT', 'This queued input already belongs to its original active Run')
       return submit({ sessionId, modelId: prior.modelId, input: prior.input }, context, {
         id: 'run.retry',
         input: { sessionId, operationId },
@@ -223,6 +252,37 @@ export function createRunCommands(kernel: Kernel) {
         )
           throw new CommandError(error.code, error.message)
         throw new CommandError('RESULT_UNKNOWN', 'Queue removal requires receipt reconciliation')
+      }
+    },
+    { durable: true },
+  )
+  registry.register(
+    runCommands['queuedRun.guide'],
+    async (input, context) => {
+      const actorId = context.actorId,
+        idempotencyKey = context.idempotencyKey
+      if (!actorId || !idempotencyKey)
+        throw new CommandError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+      try {
+        return await kernel.guideQueuedRun({ request: input, actorId, idempotencyKey })
+      } catch (error) {
+        if (
+          error instanceof HbarError &&
+          [
+            'NOT_FOUND',
+            'FORBIDDEN',
+            'COMMAND_CONFLICT',
+            'IDEMPOTENCY_CONFLICT',
+            'INVALID_INPUT',
+            'INPUT_TOO_LARGE',
+            'EMPTY_INPUT',
+            'FILE_LIMIT',
+            'ARCHIVED',
+            'BUSY',
+          ].includes(error.code)
+        )
+          throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue guidance requires receipt reconciliation')
       }
     },
     { durable: true },
@@ -322,6 +382,18 @@ export function createRunCommands(kernel: Kernel) {
       } catch (error) {
         if (error instanceof HbarError) throw new CommandError(error.code, error.message)
         throw new CommandError('RESULT_UNKNOWN', 'Queue edit receipt is unavailable')
+      }
+    },
+    async getQueuedRunGuideReceipt(
+      sessionId: string,
+      actorId: string,
+      idempotencyKey: string,
+    ): Promise<QueuedRunGuideReceipt | null> {
+      try {
+        return await kernel.storage.call('queuedRunGuideReceipt', actorId, idempotencyKey, sessionId)
+      } catch (error) {
+        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+        throw new CommandError('RESULT_UNKNOWN', 'Queue guidance receipt is unavailable')
       }
     },
     dispose: () => registry.dispose(),

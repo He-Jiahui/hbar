@@ -32,6 +32,25 @@ export { createComputerCommandClient } from './computer'
 export { createConnectionCommands, type ConnectionCommandPort } from './connection'
 export { createConfigurationCommandClient } from './configuration'
 export { createGitCommandClient } from './git'
+export { createSessionLaunchTargetReader, type SessionLaunchTargetReadTransport } from './session-launch-target'
+export { createSessionLaunchTargetPreparationManager } from './session-launch-target-preparation'
+export { createSessionLaunchBranchesManager, createSessionLaunchBranchesReader } from './session-launch-branches'
+export type {
+  SessionLaunchBranchCreateOptions,
+  SessionLaunchBranchCreateRequest,
+  SessionLaunchBranchCreateResult,
+  SessionLaunchBranchesManager,
+  SessionLaunchBranchesReader,
+  SessionLaunchBranchesReadOptions,
+  SessionLaunchBranchesRequest,
+  SessionLaunchBranchesPage,
+} from '@hbar/contracts/commands/session-launch-branches'
+export type {
+  SessionLaunchTargetReader,
+  SessionLaunchTargetReadOptions,
+  SessionLaunchTargetPreparationManager,
+  SessionLaunchTargetWriteOptions,
+} from '@hbar/contracts/commands/session-launch-target'
 export { createExtensionCommandClient } from './extensions'
 export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
 export {

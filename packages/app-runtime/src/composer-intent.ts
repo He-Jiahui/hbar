@@ -71,6 +71,13 @@ export interface ComposerIntentOptions {
   /** Delegate to the existing draft module so its draft revision and receipt rules remain authoritative. */
   readonly executeRun: (name: string, input: unknown, options?: ExecuteOptions) => Promise<unknown>
   readonly serializeDraft?: (sessionId: string, revision: number, workspaceId: string, displayText: string) => string
+  /** Goal objectives contain the user's text and file mentions, never appended workspace quote snapshots. */
+  readonly serializeGoalObjective?: (
+    sessionId: string,
+    revision: number,
+    workspaceId: string,
+    displayText: string,
+  ) => string
   readonly reconcileRun: (sessionId: string) => Promise<RunAccepted | null>
   readonly getSettledReceipt?: (sessionId: string, key: string) => RunAccepted | null
   readonly permissions?: Pick<
@@ -123,6 +130,7 @@ const goalRunInput = sessionInput.extend({
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
   expectedGoalId: idSchema,
   modelId: idSchema,
+  expectedLaunchTargetRevision: z.number().int().nonnegative().safe().optional(),
   thinking: thinkingLevelSchema.optional(),
   expectedPermissionRevision: z.number().int().nonnegative().optional(),
   expectedDraftRevision: z.number().int().nonnegative(),
@@ -159,6 +167,7 @@ type Submission = {
   readonly intent: ComposerIntent | 'goalSlash'
   readonly fingerprint: string
   readonly request: SubmitRunInput
+  readonly goalObjective: string | null
   readonly tokenBudget: number | undefined
   permission: ComposerPermissionSubmission | null
   baselineGoalId: string | null
@@ -501,8 +510,6 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       assertFree(sessionId)
       if (intent === 'plan' && options.captureMode)
         throw new CommandError('INVALID_INPUT', 'Plan is a durable Host session mode, not a one-send intent')
-      if (intent === 'goal' && options.captureMode?.(sessionId) === 'plan')
-        throw new CommandError('BUSY', 'Exit Host Plan mode before preparing a Goal')
       const current = entry(sessionId)
       if (expectedRevision !== undefined && current.revision !== expectedRevision)
         throw new CommandError('VERSION_CONFLICT', 'Composer intent changed')
@@ -529,6 +536,15 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
   local.register(composerIntentCommands['composerIntent.submit'], async (input, execution) => {
     const { sessionId } = input
     assertFree(sessionId)
+    const priorSubmission = submissions.get(sessionId)
+    if (
+      priorSubmission?.status === 'partial' &&
+      priorSubmission.preparedGoalId &&
+      priorSubmission.intent === entry(sessionId).intent &&
+      input.expectedLaunchTargetRevision !== undefined &&
+      input.expectedLaunchTargetRevision !== priorSubmission.request.expectedLaunchTargetRevision
+    )
+      throw new CommandError('GOAL_SUBMISSION_CHANGED', 'The prepared Goal belongs to the captured launch target')
     const navigation = options.navigation.getSnapshot()
     const assertSelectedNavigation = () => {
       if (!input.requireSelectedSession) return
@@ -547,6 +563,17 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         ? input.input.text
         : options.serializeDraft!(sessionId, input.expectedDraftRevision, navigation.workspaceId!, input.input.text)
     const current = entry(sessionId)
+    const submittedGoalObjective =
+      current.intent !== 'goal'
+        ? null
+        : input.expectedDraftRevision === undefined
+          ? input.input.text
+          : (options.serializeGoalObjective ?? options.serializeDraft)!(
+              sessionId,
+              input.expectedDraftRevision,
+              navigation.workspaceId!,
+              input.input.text,
+            )
     if (
       !state.reader.getSnapshot().entries[sessionId] &&
       Object.keys(state.reader.getSnapshot().entries).length >= MAX_ENTRIES
@@ -568,8 +595,6 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       if (target) options.preparation?.assertCanPrepare(target)
       if (options.navigation.getSnapshot().sessionId !== sessionId && options.refreshMode)
         throw new CommandError('STALE_TARGET', 'Composer session changed during mode verification')
-      if (current.intent === 'goal' && capturedMode === 'plan')
-        throw new CommandError('BUSY', 'Exit Host Plan mode before submitting a Goal')
     } finally {
       preparations.delete(sessionId)
     }
@@ -582,10 +607,13 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         mode: capturedMode,
         source: 'user',
       },
+      ...(input.expectedLaunchTargetRevision === undefined
+        ? {}
+        : { expectedLaunchTargetRevision: input.expectedLaunchTargetRevision }),
     }
     if (
       current.intent === 'goal' &&
-      (!request.input.text.trim() || request.input.text.trim().length > MAX_GOAL_OBJECTIVE_LENGTH)
+      (!submittedGoalObjective?.trim() || submittedGoalObjective.trim().length > MAX_GOAL_OBJECTIVE_LENGTH)
     )
       throw new CommandError('GOAL_INVALID', 'A Goal requires a bounded non-empty objective')
     // Capture policy before Goal reads/creation and reserve this composer while the default read is pending.
@@ -607,7 +635,16 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       assertSelectedNavigation()
       if (entry(sessionId).revision !== current.revision)
         throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during permission preparation')
-      if (options.captureMode && options.captureMode(sessionId) !== capturedMode)
+      const confirmedMode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : options.captureMode?.(sessionId)
+      if (target) options.preparation?.assertCanPrepare(target)
+      assertSelectedNavigation()
+      if (disposed || execution.signal.aborted)
+        throw new CommandError('CANCELLED', 'Composer preparation was cancelled')
+      if (entry(sessionId).revision !== current.revision)
+        throw new CommandError('VERSION_CONFLICT', 'Composer intent changed during mode verification')
+      if (confirmedMode !== undefined && confirmedMode !== capturedMode)
         throw new CommandError('VERSION_CONFLICT', 'Host session mode changed during submission preparation')
       if (permission) {
         if (request.input.approval !== undefined && request.input.approval !== permission.approval)
@@ -620,8 +657,16 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     } finally {
       preparations.delete(sessionId)
     }
-    const fingerprint = JSON.stringify([request, input.goalTokenBudget ?? null])
     let pending = submissions.get(sessionId)
+    if (
+      pending?.status === 'partial' &&
+      pending.preparedGoalId &&
+      pending.intent === current.intent &&
+      pending.request.expectedLaunchTargetRevision !== undefined &&
+      request.expectedLaunchTargetRevision === undefined
+    )
+      request = { ...request, expectedLaunchTargetRevision: pending.request.expectedLaunchTargetRevision }
+    const fingerprint = JSON.stringify([request, input.goalTokenBudget ?? null])
     if (pending && (pending.fingerprint !== fingerprint || pending.intent !== current.intent)) {
       if (
         pending.status === 'partial' &&
@@ -649,6 +694,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         intent: current.intent,
         fingerprint,
         request,
+        goalObjective: submittedGoalObjective?.trim() ?? null,
         tokenBudget: input.goalTokenBudget,
         permission,
         baselineGoalId: null,
@@ -680,13 +726,13 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           writeStarted = true
           const created = await requireGoals().execute('goal.create', {
             sessionId,
-            objective: request.input.text.trim(),
+            objective: pending.goalObjective ?? request.input.text.trim(),
             ...(pending.tokenBudget === undefined ? {} : { tokenBudget: pending.tokenBudget }),
           })
           if (
             !created.goal?.goalId ||
             created.goal.threadId !== sessionId ||
-            created.goal.objective !== request.input.text.trim() ||
+            created.goal.objective !== (pending.goalObjective ?? request.input.text.trim()) ||
             created.goal.status !== 'active'
           )
             throw new CommandError('INVALID_OUTPUT', 'Created Goal has no matching identity')
@@ -789,8 +835,8 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     try {
       const target = await options.preparation?.capture(sessionId, execution.signal)
       if (target) options.preparation?.assertCanPrepare(target)
-      const mode = options.refreshMode ? await options.refreshMode(sessionId) : options.captureMode?.(sessionId)
-      if (mode === 'plan') throw new CommandError('BUSY', 'Exit Host Plan mode before changing the Goal')
+      // Plan permits Goal lifecycle changes, but unknown execution mode still fences writes.
+      if (options.refreshMode) await options.refreshMode(sessionId)
       if (target) options.preparation?.assertCanPrepare(target)
       const before = await snapshot(sessionId)
       const selected = options.navigation.getSnapshot()
@@ -886,7 +932,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       previous?.intent === 'goalSlash' &&
       (previous.preparedGoalId !== input.expectedGoalId ||
         previous.slashDraft?.revision !== input.expectedDraftRevision ||
-        previous.slashDraft.text !== input.draftText)
+        previous.slashDraft.text !== input.draftText ||
+        (input.expectedLaunchTargetRevision !== undefined &&
+          previous.request.expectedLaunchTargetRevision !== input.expectedLaunchTargetRevision))
     )
       throw new CommandError('GOAL_SUBMISSION_CHANGED', 'Repair the original Goal command before starting another')
     preparations.add(sessionId)
@@ -896,8 +944,9 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
     try {
       const target = await options.preparation?.capture(sessionId, execution.signal)
       if (target) options.preparation?.assertCanPrepare(target)
-      const mode = options.refreshMode ? await options.refreshMode(sessionId) : options.captureMode?.(sessionId)
-      if (mode === 'plan') throw new CommandError('BUSY', 'Exit Host Plan mode before starting the Goal')
+      const mode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : (options.captureMode?.(sessionId) ?? 'default')
       if (input.expectedPermissionRevision !== undefined && !options.permissions)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'Composer approval choices are unavailable')
       permission =
@@ -923,6 +972,22 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       )
         throw new CommandError('GOAL_CONFLICT', 'The confirmed Goal changed before execution')
       if (target) options.preparation?.assertCanPrepare(target)
+      const expectedLaunchTargetRevision =
+        previous?.status === 'partial' && previous.intent === 'goalSlash'
+          ? previous.request.expectedLaunchTargetRevision
+          : input.expectedLaunchTargetRevision
+      const confirmedMode = options.refreshMode
+        ? await options.refreshMode(sessionId)
+        : (options.captureMode?.(sessionId) ?? mode)
+      if (confirmedMode !== mode) throw new CommandError('VERSION_CONFLICT', 'Host mode changed before Goal execution')
+      if (target) options.preparation?.assertCanPrepare(target)
+      if (
+        disposed ||
+        execution.signal.aborted ||
+        options.navigation.getSnapshot().sessionId !== sessionId ||
+        options.navigation.getSnapshot().workspaceId !== selected.workspaceId
+      )
+        throw new CommandError('STALE_TARGET', 'Goal execution target changed during mode verification')
       const request: SubmitRunInput = {
         sessionId,
         modelId: input.modelId,
@@ -931,16 +996,22 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           images: [],
           files: [],
           source: 'user',
-          mode: 'default',
+          mode,
           ...(input.thinking ? { thinking: input.thinking } : {}),
           ...(permission ? { approval: permission.approval } : {}),
         },
+        ...(expectedLaunchTargetRevision === undefined ? {} : { expectedLaunchTargetRevision }),
       }
       pending = {
         key: crypto.randomUUID(),
         revision: entry(sessionId).revision,
         intent: 'goalSlash',
-        fingerprint: JSON.stringify([input.expectedGoalId, input.objective, input.draftText]),
+        fingerprint: JSON.stringify([
+          input.expectedGoalId,
+          input.objective,
+          input.draftText,
+          expectedLaunchTargetRevision ?? null,
+        ]),
         request,
         tokenBudget: undefined,
         permission,
@@ -949,6 +1020,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         preparedGoalId: input.expectedGoalId,
         phase: 'run',
         status: 'submitting',
+        goalObjective: null,
         slashDraft: { revision: input.expectedDraftRevision, text: input.draftText },
       }
       submissions.set(sessionId, pending)
@@ -1073,7 +1145,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
           value.goal?.goalId &&
           value.goal.goalId !== pending.baselineGoalId &&
           value.goalSeq > pending.baselineGoalSeq &&
-          value.goal.objective === pending.request.input.text.trim() &&
+          value.goal.objective === (pending.goalObjective ?? pending.request.input.text.trim()) &&
           value.goal.status === 'active' &&
           (pending.tokenBudget === undefined || value.goal.tokenBudget === pending.tokenBudget)
         ) {

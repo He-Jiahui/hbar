@@ -5,6 +5,7 @@ import type { InteractionActionState, SessionDecision } from '@hbar/app-runtime'
 import { MessageMarkdown } from './message-markdown'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
 import type { MessageClipboardPort } from './message-copy'
+import { useDecisionResultFocus } from './decision-result-focus'
 import './plan-exit-decision.css'
 
 export interface HbarPlanExitDecisionLabels {
@@ -68,6 +69,7 @@ export function HbarPlanExitDecision({
         ? scoped.resolution.status
         : null
   const complete = status !== null
+  const { region, rememberActionFocus } = useDecisionResultFocus(complete)
   const unknown = !complete && scoped?.status === 'unknown'
   const busy = !complete && (scoped?.status === 'submitting' || scoped?.status === 'succeeded')
   const raw = decision.approval.args.plan
@@ -95,8 +97,13 @@ export function HbarPlanExitDecision({
   return (
     <LumenFrame
       as="section"
+      ref={(node) => {
+        region.current = node
+      }}
+      tabIndex={-1}
       className="hbar-plan-exit"
       aria-label={labels.title}
+      aria-describedby={`${id}-status`}
       data-decision-id={decision.id}
       data-decision-kind="planExit"
       data-complete={complete || undefined}
@@ -105,7 +112,7 @@ export function HbarPlanExitDecision({
       <LumenFrame className="hbar-plan-exit-heading">
         <LumenIcon icon={PencilLine} tier="md" />
         <LumenText as="strong">{labels.title}</LumenText>
-        <LumenText as="span" role="status" className="hbar-plan-exit-status">
+        <LumenText as="span" id={`${id}-status`} role="status" className="hbar-plan-exit-status">
           {statusText}
         </LumenText>
       </LumenFrame>
@@ -162,7 +169,10 @@ export function HbarPlanExitDecision({
             tone="primary"
             indicator="none"
             disabled={blocked || !plan}
-            onClick={() => onDecision({ ...target, decision: 'implement' })}
+            onClick={(event) => {
+              rememberActionFocus(event.currentTarget)
+              onDecision({ ...target, decision: 'implement' })
+            }}
           >
             <LumenIcon icon={Check} tier="sm" />
             {labels.implement}
@@ -172,9 +182,10 @@ export function HbarPlanExitDecision({
             variant="text"
             indicator="none"
             disabled={blocked}
-            onClick={() =>
+            onClick={(event) => {
+              rememberActionFocus(event.currentTarget)
               onDecision({ ...target, decision: 'continue', ...(feedback.trim() ? { feedback: feedback.trim() } : {}) })
-            }
+            }}
           >
             <LumenIcon icon={PencilLine} tier="sm" />
             {labels.continuePlanning}
@@ -185,8 +196,11 @@ export function HbarPlanExitDecision({
               variant="text"
               indicator="none"
               disabled={!connected || scoped?.reconciling}
-              onClick={() => {
-                if (scoped) onReconcile({ sessionId: decision.sessionId, actionId: scoped.id })
+              onClick={(event) => {
+                if (scoped) {
+                  rememberActionFocus(event.currentTarget)
+                  onReconcile({ sessionId: decision.sessionId, actionId: scoped.id })
+                }
               }}
             >
               <LumenIcon icon={RefreshCw} tier="sm" />

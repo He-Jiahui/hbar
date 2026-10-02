@@ -151,6 +151,168 @@ function directory() {
   }
 }
 
+test('Activity reads Workflow through its owner, opens the delegated child and cannot mutate acceptance', async () => {
+  const listeners = new Set<(value: WorkflowSnapshot) => void>()
+  const child = { ...session, id: agent.sessionId, title: 'Delegated child', parentId: session.id }
+  const runtime = createAppRuntime({
+    instanceId: 'activity-workflow',
+    hostId: 'host',
+    directory: {
+      async execute(name, raw) {
+        if (name === 'session.get') return (raw as { sessionId: string }).sessionId === child.id ? child : session
+        return directory().execute(name)
+      },
+    },
+    workflows: {
+      async execute(name) {
+        if (name !== 'workflow.get') throw new Error('Activity must never dispatch a Workflow mutation')
+        return snapshot()
+      },
+      watch(_sessionId, listener) {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      },
+    },
+    agents: {
+      async execute(name) {
+        if (name === 'agent.result.get') return agent
+        throw new Error(`Unexpected ${name}`)
+      },
+    },
+    surfaces: { canRender: (id) => id === 'activity' },
+  })
+  try {
+    await runtime.ready
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id, workspaceId: workspace.id })
+    const source = runtime.workspaceTabs.capture([session.id])[0]
+    if (!source) throw new Error('No parent tab')
+    const panel = await runtime.view.commands.execute('sessionTools.open', {
+      panelId: 'activity',
+      sessionId: session.id,
+      workspaceId: workspace.id,
+      sourceTabInstanceKey: source.instanceKey,
+    })
+    await runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId })
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.agents.agent?.sessionId).toBe(child.id)
+    expect(listeners.size).toBe(1)
+    await expect(
+      runtime.view.commands.execute('workflowWorkspace.acceptCheck', {
+        instanceId: panel.instanceId,
+        itemId: 'implement',
+        checkId: 'review',
+        decision: 'accepted',
+      }),
+    ).rejects.toMatchObject({ code: 'COMMAND_NOT_FOUND' })
+    const opened = await runtime.view.commands.execute('agentChild.open', {
+      panelInstanceId: panel.instanceId,
+      parentSessionId: session.id,
+      agentId: agent.agentId,
+      expectedChildSessionId: child.id,
+      sourceTabInstanceKey: source.instanceKey,
+    })
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(child.id)
+    expect(listeners.size).toBe(0)
+    await runtime.view.commands.execute('agentChild.return', {
+      childSessionId: child.id,
+      childTabInstanceKey: opened.childTabInstanceKey,
+    })
+    expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
+    await runtime.view.commands.execute('app.closePanel', { instanceId: panel.instanceId })
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]).toBeUndefined()
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('Workflow subscribes before its read and a concurrent clear or foreign event cannot restore stale facts', async () => {
+  let emit: ((value: WorkflowSnapshot) => void) | undefined
+  let resolveRead!: (value: WorkflowSnapshot) => void
+  const pending = new Promise<WorkflowSnapshot>((resolve) => {
+    resolveRead = resolve
+  })
+  const runtime = createAppRuntime({
+    instanceId: 'workflow-race',
+    hostId: 'host',
+    directory: directory(),
+    workflows: {
+      async execute(name) {
+        if (name === 'workflow.get') return pending
+        throw new Error(`Unexpected ${name}`)
+      },
+      watch(_id, listener) {
+        emit = listener
+        return () => {
+          emit = undefined
+        }
+      },
+    },
+    agents: {
+      async execute() {
+        return agent
+      },
+    },
+    surfaces: { canRender: (id) => id === 'goals' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
+    const load = runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId })
+    await Bun.sleep(0)
+    expect(emit).toBeDefined()
+    emit?.({ plan: null, workflow: null })
+    resolveRead(snapshot())
+    await load
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot).toEqual({
+      plan: null,
+      workflow: null,
+    })
+    const other = snapshot(5)
+    emit?.(
+      workflowSnapshotSchema.parse({
+        ...other,
+        workflow: other.workflow ? { ...other.workflow, sessionId: 'foreign' } : null,
+      }),
+    )
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.error).toBe('INVALID_OUTPUT')
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot.workflow).toBeNull()
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('a timed-out Workflow read cannot publish its late snapshot even if the transport ignores abort', async () => {
+  let finish!: (value: WorkflowSnapshot) => void
+  const pending = new Promise<WorkflowSnapshot>((resolve) => {
+    finish = resolve
+  })
+  const runtime = createAppRuntime({
+    instanceId: 'workflow-timeout',
+    hostId: 'host',
+    directory: directory(),
+    workflows: {
+      async execute() {
+        return pending
+      },
+    },
+    surfaces: { canRender: (id) => id === 'goals' },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'goals' })
+    await expect(
+      runtime.view.commands.execute('workflowWorkspace.refresh', { instanceId: panel.instanceId }),
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
+    finish(snapshot())
+    await Bun.sleep(0)
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.status).toBe('error')
+    expect(runtime.view.state.workflows.getSnapshot().entries[panel.instanceId]?.snapshot.workflow).toBeNull()
+  } finally {
+    runtime.dispose()
+  }
+}, 15_000)
+
 test('workflow workspace projects Host facts, pages evidence, and reconciles row actions', async () => {
   let current = snapshot()
   let listener: ((value: WorkflowSnapshot) => void) | undefined

@@ -3,7 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
+import type {
+  SessionActivityExecution,
+  SessionSidebarPage,
+  WorkspaceSidebarItem,
+  WorkspaceSidebarPage,
+} from '@hbar/contracts/sidebar-directory'
+import { SessionNavigationRow } from '../packages/app-react/src/session-navigation-row'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
+import { workspaceSortCopy } from '../apps/web/src/workspace-sort-copy'
 import { workspaceDisplayNamesCopy } from '../apps/web/src/workspace-display-names-copy'
 import { getSessionStopCopy } from '../apps/web/src/session-stop-copy'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -20,12 +28,45 @@ const session = {
   seq: 0,
 }
 
+const workspaceSidebarItem: WorkspaceSidebarItem = {
+  workspace,
+  displayName: workspace.name,
+  latestSessionCreatedAt: session.createdAt,
+  latestSessionUpdatedAt: session.updatedAt,
+}
+
+const idleSessionExecution: SessionActivityExecution = {
+  state: 'idle',
+  activeCount: 0,
+  queuedCount: 0,
+}
+
+function workspaceSidebarPage(items: readonly WorkspaceSidebarItem[]): WorkspaceSidebarPage {
+  return {
+    revision: 1,
+    displayNamesRevision: 1,
+    organizationRevision: 1,
+    items: [...items],
+    includedItems: [],
+    nextCursor: null,
+  }
+}
+
+function sessionSidebarPage(sessions: readonly (typeof session)[]): SessionSidebarPage {
+  return {
+    revision: 1,
+    items: sessions.map((item) => ({ session: item, execution: idleSessionExecution })),
+    nextCursor: null,
+  }
+}
+
 const labels: HbarWorkspaceShellLabels = {
   stop: getSessionStopCopy('zh-CN'),
   main: '工作台主区域',
   brand: 'hbar 测试',
   projectsAndSessions: '工程与会话树',
   organization: workspaceOrganizationCopy('zh-CN'),
+  sort: workspaceSortCopy('zh-CN'),
   displayNames: workspaceDisplayNamesCopy('zh-CN'),
   noWorkspaces: '没有工程',
   noSessions: '没有会话',
@@ -141,13 +182,28 @@ const labels: HbarWorkspaceShellLabels = {
   error: (code) => `错误 ${code}`,
 }
 
-function runtimeFixture(instanceId = 'react-test') {
+function runtimeFixture(
+  instanceId = 'react-test',
+  options: {
+    readonly sidebarWorkspaces?: readonly WorkspaceSidebarItem[]
+    readonly sidebarSessions?: readonly (typeof session)[]
+  } = {},
+) {
+  const sidebarWorkspaces = options.sidebarWorkspaces ?? [workspaceSidebarItem]
+  const sidebarSessions = options.sidebarSessions ?? [session]
   return createAppRuntime({
     instanceId,
     hostId: 'host-test',
     surfaces: { canRender: () => true },
     directory: {
       async execute(name, input) {
+        if (name === 'workspace.sidebar.list') return workspaceSidebarPage(sidebarWorkspaces)
+        if (name === 'session.sidebar.list') {
+          const workspaceId = (input as { readonly workspaceId: string }).workspaceId
+          return sessionSidebarPage(
+            sidebarSessions.filter((item) => item.workspaceId === workspaceId && !item.archived),
+          )
+        }
         if (name === 'workspace.list') return { items: [workspace], nextCursor: null }
         if (name === 'workspace.get')
           return (input as { workspaceId: string }).workspaceId === workspace.id ? workspace : null
@@ -159,11 +215,22 @@ function runtimeFixture(instanceId = 'react-test') {
   })
 }
 
+async function prepareSidebar(
+  runtime: ReturnType<typeof runtimeFixture>,
+  options: { readonly workspaceId?: string; readonly sessions?: boolean } = {},
+) {
+  await runtime.ready
+  await runtime.view.commands.execute('workspaceActivity.refresh', {})
+  if (options.sessions !== false)
+    await runtime.view.commands.execute('workspaceActivity.refresh', {
+      workspaceId: options.workspaceId ?? workspace.id,
+    })
+}
+
 test('app-react renders host-owned workspace and session content from read-only runtime state', async () => {
   const runtime = runtimeFixture()
   try {
-    await runtime.view.commands.execute('workspace.list', { limit: 100 })
-    await runtime.view.commands.execute('session.list', { workspaceId: workspace.id, limit: 100 })
+    await prepareSidebar(runtime)
     await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
@@ -213,13 +280,56 @@ test('app-react renders host-owned workspace and session content from read-only 
   }
 })
 
+test('time-view session metadata follows the title and time and keeps host-owned workspace and status copy', () => {
+  const runtime = runtimeFixture('time-view-session-metadata')
+  try {
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <SessionNavigationRow
+          session={session}
+          selected={false}
+          connected
+          labels={labels}
+          now={4}
+          onOpen={() => {}}
+          metadata={{ workspaceName: '宿主工程名', execution: { state: 'waiting_approval', label: '等待授权' } }}
+        />
+      </HbarRuntimeProvider>,
+    )
+    expect(html.indexOf('需要键盘导航的会话')).toBeLessThan(html.indexOf('完整更新时间 3'))
+    expect(html.indexOf('完整更新时间 3')).toBeLessThan(html.indexOf('宿主工程名'))
+    expect(html).toContain('role="img" aria-label="等待授权" title="等待授权" data-state="waiting_approval"')
+    expect(html.indexOf('hbar-app-react-session-main-line')).toBeLessThan(
+      html.indexOf('hbar-app-react-session-activity-indicator'),
+    )
+    expect(html.indexOf('hbar-app-react-session-activity-indicator')).toBeLessThan(
+      html.indexOf('hbar-app-react-session-context-line'),
+    )
+    const mainLine = html.slice(
+      html.indexOf('hbar-app-react-session-main-line'),
+      html.indexOf('hbar-app-react-session-context-line'),
+    )
+    expect(mainLine.indexOf('hbar-app-react-session-title')).toBeLessThan(
+      mainLine.indexOf('hbar-app-react-session-time'),
+    )
+    const contextLine = html.slice(html.indexOf('hbar-app-react-session-context-line'))
+    expect(contextLine).toContain('宿主工程名')
+    expect(html).toContain('data-has-metadata="true"')
+    expect(html).toContain('data-state="waiting_approval"')
+    expect(html).not.toContain('hbar-app-react-session-execution-label')
+    expect(html).toContain('lucide-circle-alert')
+    expect(html).toContain('class="lucide lucide-folder lumen-icon"')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('separate React runtime providers keep each window selection private', async () => {
   const selected = runtimeFixture('selected-window')
   const idle = runtimeFixture('idle-window')
   try {
     for (const runtime of [selected, idle]) {
-      await runtime.view.commands.execute('workspace.list', { limit: 100 })
-      await runtime.view.commands.execute('session.list', { workspaceId: workspace.id, limit: 100 })
+      await prepareSidebar(runtime)
     }
     await selected.view.commands.execute('app.setSession', { sessionId: session.id })
 
@@ -246,9 +356,10 @@ test('separate React runtime providers keep each window selection private', asyn
   }
 })
 
-test('English host copy renders Search, Commands, and workspace Files as separate first-level actions', () => {
+test('English host copy renders Search, Commands, and workspace Files as separate first-level actions', async () => {
   const runtime = runtimeFixture('search-entry-en')
   try {
+    await prepareSidebar(runtime, { sessions: false })
     const english = getShellCopy('en-US', 'Win32').shell
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
@@ -294,8 +405,9 @@ test('project quick-create is a single localized row action and stays disabled f
       </HbarRuntimeProvider>,
     )
   try {
+    await runtime.ready
     expect(render('connected')).not.toContain('hbar-app-react-project-new-session')
-    await runtime.view.commands.execute('workspace.list', { limit: 100 })
+    await runtime.view.commands.execute('workspaceActivity.refresh', {})
     for (const connection of ['connected', 'disconnected'] as const) {
       const buttons: { label: string | null; title: string | null; disabled: boolean }[] = []
       await new HTMLRewriter()
@@ -326,8 +438,10 @@ test('project quick-create is a single localized row action and stays disabled f
 })
 
 test('new session and project acquisition expose localized disabled controls while disconnected', async () => {
-  const runtime = runtimeFixture('disconnected-shell')
+  const runtime = runtimeFixture('disconnected-shell', { sidebarWorkspaces: [] })
   try {
+    await runtime.ready
+    await runtime.view.commands.execute('workspaceActivity.refresh', {})
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
         <HbarWorkspaceShell
@@ -403,6 +517,7 @@ test('settings and status highlight only their page while preserving the selecte
     return current.map((item) => item.label ?? item.text)
   }
   try {
+    await prepareSidebar(runtime)
     await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
     expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
     await runtime.view.commands.execute('app.openSettings', {
@@ -463,14 +578,19 @@ test('app-react production entry excludes transport, Host, storage, catalog, and
   // File previews are production UI. Reject preview apps/entrypoints and fixtures by path boundary,
   // not every legitimate source filename containing the word "preview".
   const previewOnly = (path: string) =>
-    /catalog|fixtures|(?:^|\/)preview(?:\/|\.)|(?:^|\/)apps\/[^/]*preview(?:\/|$)/.test(path)
+    /(?:^|\/)catalog(?:\/|\.[cm]?[jt]sx?$)|(?:^|\/)fixtures(?:\/|$)|(?:^|\/)preview(?:\/|\.)|(?:^|\/)apps\/[^/]*preview(?:\/|$)/.test(
+      path,
+    )
   for (const path of [
     'src/catalog.ts',
+    'src/catalog.tsx',
+    'src/catalog/index.ts',
     'tests/fixtures/reader.tsx',
     'src/preview.tsx',
     'apps/hbar-app-ui-preview/src/main.tsx',
   ])
     expect(previewOnly(path)).toBeTrue()
+  expect(previewOnly('packages/app-react/src/pre-session-model-catalog.ts')).toBeFalse()
   expect(previewOnly('packages/app-react/src/file-preview-tabs.tsx')).toBeFalse()
   expect(inputs.filter(previewOnly)).toEqual([])
   expect(inputs.some((path) => /packages\/app-react\/src\/workspace-shell\.tsx$/.test(path))).toBeFalse()
@@ -480,8 +600,7 @@ test('session rename stays in its row with host-owned long copy, preserved input
   const runtime = runtimeFixture('inline-rename-locale')
   try {
     const commands = runtime.view.commands
-    await commands.execute('workspace.list', {})
-    await commands.execute('session.list', { workspaceId: workspace.id })
+    await prepareSidebar(runtime)
     await commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
     await commands.execute('sessionRename.begin', { workspaceId: workspace.id, sessionId: session.id })
     const revision = runtime.view.state.sessionRename.getSnapshot().revision
@@ -535,6 +654,7 @@ for (const unavailable of ['archived', 'removed'] as const) {
     })
     try {
       const commands = runtime.view.commands
+      await runtime.ready
       await commands.execute('workspace.list', {})
       await commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
       await commands.execute('sessionRename.begin', { workspaceId: workspace.id, sessionId: session.id })
@@ -589,6 +709,7 @@ test('an archived unknown rename exposes only original-target reconciliation, no
   })
   try {
     const commands = runtime.view.commands
+    await runtime.ready
     await commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
     await commands.execute('sessionRename.begin', { workspaceId: workspace.id, sessionId: session.id })
     const target = { sessionId: session.id, revision: runtime.view.state.sessionRename.getSnapshot().revision }
@@ -625,7 +746,7 @@ test('an archived unknown rename exposes only original-target reconciliation, no
 test('archive confirmation remains in the original session row with reversible host-owned copy', async () => {
   const runtime = runtimeFixture('archive-long-labels')
   try {
-    await runtime.view.commands.execute('workspace.list', {})
+    await prepareSidebar(runtime)
     await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
     await runtime.view.commands.execute('sessionArchive.begin', { workspaceId: workspace.id, sessionId: session.id })
     const html = renderToStaticMarkup(
@@ -659,6 +780,8 @@ test('an inclusive archive page with no archived rows offers next page rather th
     hostId: 'host-test',
     directory: {
       execute(name) {
+        if (name === 'workspace.sidebar.list') return Promise.resolve(workspaceSidebarPage([workspaceSidebarItem]))
+        if (name === 'session.sidebar.list') return Promise.resolve(sessionSidebarPage([session]))
         if (name === 'workspace.get') return Promise.resolve(workspace)
         if (name === 'session.list') return Promise.resolve({ items: [session], nextCursor: session.id })
         throw new Error(`Unexpected ${name}`)
@@ -666,6 +789,7 @@ test('an inclusive archive page with no archived rows offers next page rather th
     },
   })
   try {
+    await prepareSidebar(runtime)
     await runtime.view.commands.execute('workspace.get', { workspaceId: workspace.id })
     await runtime.view.commands.execute('archivedSessions.open', { workspaceId: workspace.id })
     const html = renderToStaticMarkup(

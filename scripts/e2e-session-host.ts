@@ -8,6 +8,8 @@ const root = process.env.HBAR_E2E_DATA_ROOT
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
 const sessionCount = Math.max(1, Math.min(101, Number(process.env.HBAR_E2E_SESSION_COUNT ?? '1')))
 const historyCount = Math.max(0, Math.min(1_000, Number(process.env.HBAR_E2E_HISTORY_COUNT ?? '0')))
+const historyText = process.env.HBAR_E2E_HISTORY_TEXT ?? ''
+if (historyText.length > 4_000) throw new Error('History fixture content exceeds its test-only bound')
 const webOrigin = process.env.HBAR_E2E_WEB_ORIGIN
 if (!root || !Number.isInteger(port)) throw new Error('E2E Host root and port are required')
 
@@ -21,7 +23,12 @@ for (const arguments_ of [
 ])
   execFileSync('git', arguments_, { cwd: root, stdio: 'ignore', windowsHide: true })
 
-const kernel = await Kernel.create({ home: `${root}/data`, workspace: root, demo: true, secrets: new MemorySecrets() })
+const kernel = await Kernel.create({
+  home: process.env.HBAR_E2E_HOME || `${root}/data`,
+  workspace: root,
+  demo: true,
+  secrets: new MemorySecrets(),
+})
 if (process.env.HBAR_E2E_GOAL_AUTO_CONTINUE === '0')
   await kernel.changePlugin('goal.codex', true, { autoContinue: false })
 const workspace = (await kernel.storage.call('workspaces'))[0]!
@@ -34,7 +41,7 @@ for (let index = 1; index <= historyCount; index += 1)
     session.id,
     `history-run-${index}`,
     index % 2 === 0 ? 'assistant' : 'user',
-    [{ type: 'text', text: `History message ${index}` }],
+    [{ type: 'text', text: historyText || `History message ${index}` }],
     `history-${index}`,
   )
 const host = await startServer(kernel, { port, ...(webOrigin ? { origins: [webOrigin] } : {}) })

@@ -10,8 +10,19 @@ import {
   type ModelWriteResult,
 } from '@hbar/contracts/commands/models'
 import { runCommands, type RunAccepted } from '@hbar/contracts/commands/run'
+import { attachmentUploadInputSchema, type AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import type { ArtifactRef } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
+import { type AgentProfileId } from '@hbar/contracts/commands/agents'
 import { settingsCommands, type SettingsReceipt, type SettingsSnapshot } from '@hbar/contracts/commands/settings'
+import {
+  sessionLaunchTargetPreparationSnapshotSchema,
+  type SessionLaunchSelection,
+  type SessionLaunchTargetPreparationManager,
+  type SessionLaunchTargetPreparationSnapshot,
+  type SessionLaunchTargetSetInput,
+  type SessionLaunchTargetSetReceipt,
+} from '@hbar/contracts/commands/session-launch-target'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { encodePath } from '@hbar/schema-core'
@@ -74,6 +85,40 @@ function initialModel(sessionId: string): ModelConfiguration {
   }
 }
 
+function defaultModelSnapshot(
+  scope: { kind: 'global' } | { kind: 'workspace'; targetId: string },
+  modelId: string | null,
+  thinkingLevel: string | null,
+): SettingsSnapshot {
+  const report = (name: string, effectiveValue: unknown) => ({
+    path: encodePath([{ kind: 'field', name }]),
+    localPresence: false,
+    effectiveValue,
+    sourceLayer: 'settings:global',
+    sourceRevision: 1,
+    inherited: true,
+    validation: 'valid',
+    applyMode: 'nextRun',
+    applyState: 'applied',
+    provenance: {},
+  })
+  return settingsCommands['settings.get'].output.parse({
+    schemaVersion: 1,
+    scope,
+    revisions: { 'settings:global': 1 },
+    resolution: {
+      layers: [{ id: 'settings:global', kind: 'global', revision: 1 }],
+      reports: {
+        [encodePath([{ kind: 'field', name: 'provider.model' }])]: report('provider.model', modelId),
+        [encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])]: report(
+          'provider.thinkingLevel',
+          thinkingLevel,
+        ),
+      },
+    },
+  })
+}
+
 const approvalPath = [{ kind: 'field' as const, name: 'session.approval' }]
 const approvalField = encodePath(approvalPath)
 
@@ -89,12 +134,168 @@ function gate() {
   return { promise, release: open, entered: started, markEntered: entered }
 }
 
+function launchPreparationManager(
+  options: {
+    readonly initialRevision?: number
+    readonly initialSelection?: SessionLaunchSelection
+    readonly statuses?: readonly SessionLaunchTargetPreparationSnapshot['status'][]
+    readonly cancelStatus?: SessionLaunchTargetPreparationSnapshot['status']
+    readonly readGate?: ReturnType<typeof gate>
+    readonly startError?: CommandError
+  } = {},
+) {
+  let revision = options.initialRevision ?? 23
+  let selection = options.initialSelection ?? ({ mode: 'shared-current' } as const)
+  let operation: SessionLaunchTargetPreparationSnapshot | null = null
+  let operationVersion = 0
+  let readIndex = 0
+  const receipts = new Map<string, SessionLaunchTargetSetReceipt>()
+  const starts = new Map<
+    string,
+    { operationId: string; sessionId: string; workspaceId: string; targetRevision: number }
+  >()
+  const calls: {
+    readonly readTargets: string[]
+    readonly selections: { readonly input: SessionLaunchTargetSetInput; readonly key: string }[]
+    readonly starts: { readonly sessionId: string; readonly expectedRevision: number; readonly key: string }[]
+    readonly reads: string[]
+    readonly cancellations: string[]
+    readonly reconciliations: string[]
+  } = {
+    readTargets: [],
+    selections: [],
+    starts: [],
+    reads: [],
+    cancellations: [],
+    reconciliations: [],
+  }
+  const makeSnapshot = (
+    status: SessionLaunchTargetPreparationSnapshot['status'],
+    base?: SessionLaunchTargetPreparationSnapshot,
+  ): SessionLaunchTargetPreparationSnapshot => {
+    if (!base) throw new Error('Preparation snapshot has no accepted start')
+    operationVersion += 1
+    return sessionLaunchTargetPreparationSnapshotSchema.parse({
+      schemaVersion: 1,
+      operationId: base.operationId,
+      sessionId: base.sessionId,
+      workspaceId: base.workspaceId,
+      targetRevision: base.targetRevision,
+      operationVersion,
+      createdAt: base.createdAt,
+      updatedAt: base.updatedAt + 1,
+      status,
+      ...(status === 'failed' || status === 'reconciling'
+        ? { error: { code: 'GIT_FAILED', message: 'Preparation fixture state' } }
+        : {}),
+    })
+  }
+  const manager: SessionLaunchTargetPreparationManager = {
+    async readTarget(sessionId) {
+      calls.readTargets.push(sessionId)
+      return {
+        sessionId,
+        workspaceId: 'workspace-a',
+        revision,
+        selection,
+        locked: false,
+        resolution: { status: 'idle' },
+        updatedAt: 1,
+      }
+    },
+    async setSelection(input, writeOptions) {
+      calls.selections.push({ input, key: writeOptions.idempotencyKey })
+      const existing = receipts.get(writeOptions.idempotencyKey)
+      if (existing) return existing
+      if (input.expectedRevision !== revision)
+        throw new CommandError('VERSION_CONFLICT', 'Launch target revision changed')
+      const changed = JSON.stringify(selection) !== JSON.stringify(input.selection)
+      if (changed) {
+        selection = input.selection
+        revision += 1
+      }
+      const receipt = {
+        commitId: writeOptions.idempotencyKey,
+        request: input,
+        revision,
+        changed,
+        updatedAt: 2,
+      }
+      receipts.set(writeOptions.idempotencyKey, receipt)
+      return receipt
+    },
+    async readSelectionReceipt(input) {
+      return receipts.get(input.idempotencyKey) ?? null
+    },
+    async startPreparation(input, writeOptions) {
+      calls.starts.push({ ...input, key: writeOptions.idempotencyKey })
+      if (options.startError) throw options.startError
+      const existing = starts.get(writeOptions.idempotencyKey)
+      if (existing) return existing
+      if (input.expectedRevision !== revision)
+        throw new CommandError('VERSION_CONFLICT', 'Launch target revision changed before preparation')
+      const receipt = {
+        operationId: 'launch-operation-1',
+        sessionId: input.sessionId,
+        workspaceId: 'workspace-a',
+        targetRevision: input.expectedRevision,
+      }
+      starts.set(writeOptions.idempotencyKey, receipt)
+      operationVersion = 1
+      operation = sessionLaunchTargetPreparationSnapshotSchema.parse({
+        schemaVersion: 1,
+        ...receipt,
+        operationVersion,
+        status: 'queued',
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      return receipt
+    },
+    async readPreparation(input) {
+      calls.reads.push(input.operationId)
+      options.readGate?.markEntered()
+      if (options.readGate) await options.readGate.promise
+      if (!operation || operation.operationId !== input.operationId)
+        throw new CommandError('NOT_FOUND', 'Preparation operation was not found')
+      const statuses = options.statuses ?? ['ready']
+      const next = statuses[Math.min(readIndex, statuses.length - 1)] ?? operation.status
+      readIndex += 1
+      if (next === operation.status) return operation
+      operation = makeSnapshot(next, operation)
+      return operation
+    },
+    async cancelPreparation(input) {
+      calls.cancellations.push(input.operationId)
+      if (!operation || operation.operationId !== input.operationId)
+        throw new CommandError('NOT_FOUND', 'Preparation operation was not found')
+      const status = options.cancelStatus ?? 'cancelled'
+      operation = makeSnapshot(status, operation)
+      return operation
+    },
+    async reconcilePreparation(input) {
+      calls.reconciliations.push(input.operationId)
+      if (!operation || operation.operationId !== input.operationId)
+        throw new CommandError('NOT_FOUND', 'Preparation operation was not found')
+      operation = makeSnapshot('preparing', operation)
+      return operation
+    },
+  }
+  return { manager, calls }
+}
+
 function fixture(
   options: {
     readonly sessionSettings?: boolean
+    readonly modelDefaults?: { readonly modelId: string | null; readonly thinkingLevel: string | null }
+    readonly defaultReadGate?: ReturnType<typeof gate>
     readonly invalidateApprovalOnWrite?: boolean
     readonly planMode?: boolean
     readonly goals?: boolean
+    readonly agentProfiles?: readonly AgentProfileId[]
+    readonly agentProfileError?: string
+    readonly agentProfileGate?: ReturnType<typeof gate>
+    readonly sessionLaunchTargetPreparation?: SessionLaunchTargetPreparationManager
   } = {},
 ) {
   const workspaces = new Map([workspace('workspace-a'), workspace('workspace-b')].map((value) => [value.id, value]))
@@ -124,10 +325,14 @@ function fixture(
   const permissionWrites: { key: string; sessionId: string; choice: 'ask' | 'deny' | 'allow' | 'inherit' }[] = []
   const planModeWrites: { key: string; sessionId: string; mode: 'default' | 'plan' }[] = []
   const goalCalls: { sessionId: string; objective: string }[] = []
+  const uploadCalls: AttachmentUploadInput[] = []
   const runCalls: {
     sessionId: string
     key: string
     text: string
+    images: ArtifactRef[]
+    files: ArtifactRef[]
+    launchTargetRevision?: number
     thinkingLevel: ModelConfiguration['thinkingLevel']
     approval: 'ask' | 'deny' | 'allow' | undefined
     mode: 'default' | 'plan' | undefined
@@ -150,6 +355,12 @@ function fixture(
   let loseNextThinkingWriteReply = false
   let failModelReads = false
   let unknownNextRun = false
+  let agentProfiles: readonly AgentProfileId[] = options.agentProfiles ?? ['explore']
+  let agentProfileError: CommandError | null = options.agentProfileError
+    ? new CommandError(options.agentProfileError, 'Fixture Agent profile catalog read failed')
+    : null
+  let agentProfileGate = options.agentProfileGate ?? null
+  const agentProfileCalls: string[] = []
   let nextSession = 0
 
   const directory: CommandExecutor = {
@@ -315,6 +526,11 @@ function fixture(
         sessionId: input.sessionId,
         key,
         text: input.input.text,
+        images: input.input.images,
+        files: input.input.files ?? [],
+        ...(input.expectedLaunchTargetRevision === undefined
+          ? {}
+          : { launchTargetRevision: input.expectedLaunchTargetRevision }),
         thinkingLevel: models.get(input.sessionId)?.thinkingLevel ?? null,
         approval: input.input.approval,
         mode: input.input.mode,
@@ -383,7 +599,14 @@ function fixture(
     async execute(name, raw, execution: ExecuteOptions = {}) {
       if (name === 'settings.get') {
         const input = settingsCommands[name].input.parse(raw)
-        if (input.scope.kind !== 'session') throw new Error('Expected session-scoped settings read')
+        if (input.scope.kind !== 'session') {
+          if (!options.modelDefaults) throw new Error('Expected session-scoped settings read')
+          if (options.defaultReadGate) {
+            options.defaultReadGate.markEntered()
+            await options.defaultReadGate.promise
+          }
+          return defaultModelSnapshot(input.scope, options.modelDefaults.modelId, options.modelDefaults.thinkingLevel)
+        }
         if (blockNextPermissionRead) {
           blockNextPermissionRead = false
           const held = permissionReadGateAfterWrite
@@ -578,9 +801,38 @@ function fixture(
     workspaces: workspaceCommands,
     models: modelCommandsPort,
     run,
-    ...(options.sessionSettings ? { settings: sessionSettings, configuration } : {}),
+    attachments: {
+      async execute(name, raw) {
+        if (name !== 'attachment.upload') throw new Error(`Unexpected attachment command: ${name}`)
+        const input = attachmentUploadInputSchema.parse(raw)
+        uploadCalls.push(input)
+        return { id: input.sha256, name: input.name, mime: input.mime, size: input.size }
+      },
+    },
+    ...(options.sessionLaunchTargetPreparation
+      ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
+      : {}),
+    ...(options.sessionSettings || options.modelDefaults ? { settings: sessionSettings, configuration } : {}),
     ...(options.planMode ? { planMode: configuration } : {}),
     ...(options.goals ? { goals: goalPort } : {}),
+    ...(options.agentProfiles || options.agentProfileError || options.agentProfileGate
+      ? {
+          agents: {
+            async execute(name: string, _raw: unknown) {
+              if (name !== 'agent.profiles.list') throw new Error(`Unexpected Agent command: ${name}`)
+              agentProfileCalls.push(name)
+              if (agentProfileError) throw agentProfileError
+              const held = agentProfileGate
+              if (held) {
+                agentProfileGate = null
+                held.markEntered()
+                await held.promise
+              }
+              return [...agentProfiles]
+            },
+          } satisfies CommandExecutor,
+        }
+      : {}),
     ...(options.invalidateApprovalOnWrite
       ? {
           permissionEvents: {
@@ -610,6 +862,7 @@ function fixture(
     runtime,
     createCalls,
     runCalls,
+    uploadCalls,
     modelWrites,
     permissionWrites,
     planModeWrites,
@@ -686,6 +939,19 @@ function fixture(
     unknownRun(value: boolean) {
       unknownNextRun = value
     },
+    setAgentProfiles(value: readonly AgentProfileId[]) {
+      agentProfiles = [...value]
+      agentProfileError = null
+    },
+    failAgentProfileRead(code: string) {
+      agentProfileError = new CommandError(code, 'Fixture Agent profile catalog read failed')
+    },
+    holdNextAgentProfileRead() {
+      const held = gate()
+      agentProfileGate = held
+      return held
+    },
+    agentProfileCalls,
   }
 }
 
@@ -754,6 +1020,486 @@ async function createDraft(
   return { draftId, revision }
 }
 
+async function attachBeforeSession(
+  runtime: ReturnType<typeof fixture>['runtime'],
+  draftId: string,
+  kind: 'image' | 'file',
+) {
+  const upload: AttachmentUploadInput = {
+    sourceId: `source-${kind}`,
+    sha256: (kind === 'image' ? 'a' : 'b').repeat(64),
+    name: kind === 'image' ? 'reference.png' : 'notes.txt',
+    mime: kind === 'image' ? 'image/png' : 'text/plain',
+    size: 4,
+  }
+  const draft = runtime.view.state.preSessionDrafts.getSnapshot()[draftId]!
+  const reserved = await runtime.view.commands.execute('preSessionDraft.reserveAttachments', {
+    draftId,
+    expectedRevision: draft.revision,
+    files: [{ name: upload.name, mime: upload.mime, size: upload.size }],
+  })
+  const reservation = reserved.reservations[0]!
+  const result = await runtime.view.commands.execute('preSessionDraft.uploadAttachment', {
+    draftId,
+    reservationId: reservation.reservationId,
+    ownerRevision: reservation.ownerRevision,
+    kind,
+    upload,
+  })
+  return result.attachment
+}
+
+test('initial Host defaults become visible local choices without creating a Session, and survive typing and Workspace selection', async () => {
+  const held = gate()
+  const f = fixture({ modelDefaults: { modelId: model.id, thinkingLevel: 'high' }, defaultReadGate: held })
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+    const resolving = f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+      draftId,
+      expectedRevision: opened.revision,
+    })
+    await held.entered
+    await f.runtime.view.commands.execute('preSessionDraft.setText', {
+      draftId,
+      text: 'Typing while the default loads',
+      expectedRevision: opened.revision,
+    })
+    held.release()
+    await resolving
+    const current = f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]!
+    expect(current).toMatchObject({ text: 'Typing while the default loads', modelId: model.id, thinkingLevel: 'high' })
+    await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId,
+      workspaceId: 'workspace-b',
+      expectedRevision: current.revision,
+    })
+    const moved = f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]!
+    await f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+      draftId,
+      expectedRevision: moved.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      modelId: model.id,
+      thinkingLevel: 'high',
+      workspaceId: 'workspace-b',
+    })
+    expect(f.createCalls).toHaveLength(0)
+    expect(f.runCalls).toHaveLength(0)
+    expect(f.modelWrites).toHaveLength(0)
+  } finally {
+    held.release()
+    f.runtime.dispose()
+  }
+})
+
+test('an unset Host default remains an explicit model choice instead of selecting the first catalog record', async () => {
+  const f = fixture({ modelDefaults: { modelId: null, thinkingLevel: null } })
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', {
+      draftId,
+      workspaceId: 'workspace-a',
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+      draftId,
+      expectedRevision: opened.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      modelId: null,
+      thinkingLevel: null,
+      revision: opened.revision,
+    })
+    expect(f.createCalls).toHaveLength(0)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a late initial default cannot replace an explicit model or resume a closed landing draft', async () => {
+  for (const close of [false, true]) {
+    const held = gate()
+    const f = fixture({ modelDefaults: { modelId: model.id, thinkingLevel: 'high' }, defaultReadGate: held })
+    const draftId = crypto.randomUUID()
+    try {
+      const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+      const resolving = f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+        draftId,
+        expectedRevision: opened.revision,
+      })
+      const cancelled = resolving.then(
+        () => null,
+        (error: unknown) => error,
+      )
+      await held.entered
+      if (close) await f.runtime.view.commands.execute('preSessionDraft.close', { draftId })
+      else
+        await f.runtime.view.commands.execute('preSessionDraft.setModel', {
+          draftId,
+          modelId: compatibleModel.id,
+          expectedRevision: opened.revision,
+        })
+      expect(await cancelled).toMatchObject({ code: 'CANCELLED' })
+      held.release()
+      await Promise.resolve()
+      if (close) expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toBeUndefined()
+      else
+        expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+          modelId: compatibleModel.id,
+          thinkingLevel: null,
+        })
+      expect(f.createCalls).toHaveLength(0)
+      expect(f.runCalls).toHaveLength(0)
+    } finally {
+      held.release()
+      f.runtime.dispose()
+    }
+  }
+})
+
+test('a stale Host default reports the missing model and does not invent a fallback', async () => {
+  const f = fixture({ modelDefaults: { modelId: 'provider/missing', thinkingLevel: 'high' } })
+  const draftId = crypto.randomUUID()
+  try {
+    const opened = await f.runtime.view.commands.execute('preSessionDraft.open', { draftId, workspaceId: null })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+        draftId,
+        expectedRevision: opened.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'MODEL_NOT_FOUND' })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[draftId]).toMatchObject({
+      modelId: null,
+      thinkingLevel: null,
+    })
+    expect(f.createCalls).toHaveLength(0)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('no-tab file selection creates no Session, survives Workspace choice, and permits an attachment-only first Run', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: null, text: '', modelId: model.id })
+    const attachment = await attachBeforeSession(f.runtime, target.draftId, 'file')
+    expect(f.uploadCalls).toHaveLength(1)
+    expect(f.createCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+    const attached = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    expect(attached.attachments).toEqual([attachment])
+    await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId: target.draftId,
+      workspaceId: 'workspace-a',
+      expectedRevision: attached.revision,
+    })
+    const ready = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    expect(ready.attachments).toEqual([attachment])
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: ready.revision,
+    })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ sessionId: 'session-1', text: '', files: [attachment.artifact], images: [] })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      attachments: [],
+      attachmentTransfers: [],
+    })
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.attachments).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('no-tab Agent validation fails closed and preserves the draft for invalid syntax, profile, and objective', async () => {
+  const cases = [
+    { text: '/agent', code: 'AGENT_REQUIRED' },
+    { text: '/agent missing inspect the workspace', code: 'AGENT_PROFILE_UNAVAILABLE' },
+    { text: `/agent explore ${'x'.repeat(4_001)}`, code: 'AGENT_OBJECTIVE_TOO_LONG' },
+  ] as const
+  for (const current of cases) {
+    const f = fixture({ agentProfiles: ['explore'] })
+    try {
+      const target = await createDraft(f.runtime, {
+        workspaceId: 'workspace-a',
+        text: current.text,
+        modelId: model.id,
+      })
+      await expect(
+        f.runtime.view.commands.execute('preSessionDraft.submit', {
+          draftId: target.draftId,
+          expectedRevision: target.revision,
+        }),
+      ).rejects.toMatchObject({ code: current.code })
+      expect(f.createCalls).toEqual([])
+      expect(f.sessions.size).toBe(0)
+      expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+        phase: 'failed',
+        error: current.code,
+        sessionId: null,
+        text: current.text,
+      })
+    } finally {
+      f.runtime.dispose()
+    }
+  }
+})
+
+test('no-tab Agent catalog failure preserves the draft and retries through the same global query', async () => {
+  const f = fixture({ agentProfiles: ['explore'], agentProfileError: 'DISCONNECTED' })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'AGENT_CATALOG_UNAVAILABLE' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'AGENT_CATALOG_UNAVAILABLE',
+      sessionId: null,
+      text: '/agent explore inspect the workspace',
+    })
+
+    f.setAgentProfiles(['explore'])
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(f.agentProfileCalls).toHaveLength(2)
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('no-tab Agent profile query is global, cached, and does not materialize a Session before ordinary parent Run', async () => {
+  const f = fixture({ agentProfiles: ['explore'] })
+  try {
+    await expect(f.runtime.view.commands.execute('agentComposer.refreshProfiles', {})).resolves.toEqual(['explore'])
+    expect(f.runtime.view.state.navigation.getSnapshot()).toMatchObject({ sessionId: null, workspaceId: null })
+    expect(f.agentProfileCalls).toHaveLength(1)
+
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(f.agentProfileCalls).toHaveLength(1)
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toMatchObject([{ text: '/agent explore inspect the workspace' }])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('valid no-tab Agent text and attachments use one ordinary parent Run', async () => {
+  const f = fixture({ agentProfiles: ['explore'] })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    const attachment = await attachBeforeSession(f.runtime, target.draftId, 'file')
+    const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: before.revision,
+    })
+    expect(f.agentProfileCalls).toHaveLength(1)
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({
+      sessionId: 'session-1',
+      text: '/agent explore inspect the workspace',
+      files: [attachment.artifact],
+      images: [],
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      attachments: [],
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('cancel or navigation change during no-tab Agent catalog read prevents Session creation', async () => {
+  const cancelled = fixture({ agentProfiles: ['explore'] })
+  const cancelledRead = cancelled.holdNextAgentProfileRead()
+  try {
+    const target = await createDraft(cancelled.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    const submit = cancelled.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await cancelledRead.entered
+    const pending = cancelled.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await cancelled.runtime.view.commands.execute('preSessionDraft.cancel', {
+      draftId: target.draftId,
+      expectedRevision: pending.revision,
+    })
+    cancelledRead.release()
+    await expect(submit).rejects.toMatchObject({ code: 'CANCELLED' })
+    expect(cancelled.createCalls).toEqual([])
+    expect(cancelled.sessions.size).toBe(0)
+  } finally {
+    cancelled.runtime.dispose()
+  }
+
+  const stale = fixture({ agentProfiles: ['explore'] })
+  const staleRead = stale.holdNextAgentProfileRead()
+  try {
+    const target = await createDraft(stale.runtime, {
+      workspaceId: 'workspace-a',
+      text: '/agent explore inspect the workspace',
+      modelId: model.id,
+    })
+    const submit = stale.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await staleRead.entered
+    await stale.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    staleRead.release()
+    await expect(submit).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    expect(stale.createCalls).toEqual([])
+    expect(stale.sessions.size).toBe(0)
+    expect(stale.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'STALE_TARGET',
+      sessionId: null,
+      text: '/agent explore inspect the workspace',
+    })
+  } finally {
+    stale.runtime.dispose()
+  }
+})
+
+test('first Goal requires objective text and carries both confirmed image and file into its single first Run', async () => {
+  const f = fixture({ goals: true, planMode: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: '',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    const image = await attachBeforeSession(f.runtime, target.draftId, 'image')
+    const file = await attachBeforeSession(f.runtime, target.draftId, 'file')
+    const attached = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: attached.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(f.createCalls).toEqual([])
+    await f.runtime.view.commands.execute('preSessionDraft.setText', {
+      draftId: target.draftId,
+      expectedRevision: attached.revision,
+      text: 'Implement the attached reference',
+    })
+    const ready = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: ready.revision,
+    })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.goalCalls).toEqual([{ sessionId: 'session-1', objective: 'Implement the attached reference' }])
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ images: [image.artifact], files: [file.artifact] })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('unresolved pre-session attachment preparation blocks first Send without creating a Session', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'Keep my file', modelId: model.id })
+    const reserved = await f.runtime.view.commands.execute('preSessionDraft.reserveAttachments', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+      files: [{ name: 'notes.txt', mime: 'text/plain', size: 4 }],
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: reserved.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'ATTACHMENT_PENDING' })
+    expect(f.createCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.attachmentTransfers).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('navigation loss after first Session creation preserves the captured attachments in both canonical drafts', async () => {
+  const f = fixture()
+  const held = f.holdNextCreate()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep this reference',
+      modelId: model.id,
+    })
+    const image = await attachBeforeSession(f.runtime, target.draftId, 'image')
+    const ready = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    const sending = f.runtime.view.commands
+      .execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: ready.revision,
+      })
+      .catch((error: unknown) => error)
+    await held.entered
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.attachments).toEqual([image])
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.removeAttachment', {
+        draftId: target.draftId,
+        expectedRevision: ready.revision,
+        kind: 'image',
+        artifactId: image.artifact.id,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    held.release()
+    expect(await sending).toMatchObject({ code: 'STALE_TARGET' })
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']).toMatchObject({
+      text: 'Keep this reference',
+      attachments: [image],
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.attachments).toEqual([image])
+  } finally {
+    held.release()
+    f.runtime.dispose()
+  }
+})
+
 test('pre-session drafts are local/idempotent and refuse a first send without a Workspace', async () => {
   const f = fixture()
   const draftId = crypto.randomUUID()
@@ -779,6 +1525,437 @@ test('pre-session drafts are local/idempotent and refuse a first send without a 
       sessionId: null,
       phase: 'idle',
     })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('launch selection is revisioned, opening it creates no Session, and isolated first-send fails closed', async () => {
+  const f = fixture({ sessionSettings: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'preserve this first message',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+    const draft = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    expect(draft).toMatchObject({
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: null,
+      phase: 'idle',
+      text: 'preserve this first message',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+
+    const unchanged = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: { mode: 'shared-current' },
+      expectedRevision: target.revision,
+    })
+    expect(unchanged).toEqual({ draftId: target.draftId, revision: target.revision })
+
+    const isolatedSelection = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/first-send', startPoint: 'main' },
+    } as const
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: isolatedSelection,
+      expectedRevision: target.revision,
+    })
+    expect(selected).toEqual({ draftId: target.draftId, revision: target.revision + 1 })
+    const repeated = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: isolatedSelection,
+      expectedRevision: selected.revision,
+    })
+    expect(repeated).toEqual(selected)
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+        draftId: target.draftId,
+        selection: { mode: 'shared-current' },
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: selected.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
+    expect(f.createCalls).toEqual([])
+    expect(f.sessions.size).toBe(0)
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      workspaceId: 'workspace-a',
+      launchSelection: isolatedSelection,
+      capturedLaunchSelection: null,
+      revision: selected.revision,
+      phase: 'idle',
+      sessionId: null,
+      text: 'preserve this first message',
+      modelId: model.id,
+      approvalChoice: 'ask',
+      intent: 'goal',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('launch selection equality is value-based and the draft owns an immutable parsed copy', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'immutable selection input' })
+    const submittedSelection: {
+      mode: 'isolated-worktree'
+      branch: { kind: 'new'; name: string; startPoint: string }
+    } = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/value-equality', startPoint: 'main' },
+    }
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: submittedSelection,
+      expectedRevision: target.revision,
+    })
+    expect(selected.revision).toBe(target.revision + 1)
+
+    submittedSelection.branch.name = 'feature/caller-mutated-after-submit'
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.launchSelection).toEqual({
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/value-equality', startPoint: 'main' },
+    })
+
+    const semanticallyEqual = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: {
+        branch: { startPoint: 'main', name: 'feature/value-equality', kind: 'new' },
+        mode: 'isolated-worktree',
+      },
+      expectedRevision: selected.revision,
+    })
+    expect(semanticallyEqual).toEqual(selected)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.revision).toBe(selected.revision)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('first Send waits for Host preparation and passes the actual target revision to Run', async () => {
+  const launch = launchPreparationManager({ initialRevision: 37, statuses: ['preparing', 'ready'] })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'prepare before the first Run',
+      modelId: model.id,
+    })
+    const launchSelection = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'new', name: 'feature/runtime-launch', startPoint: 'main' },
+    } as const
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: launchSelection,
+      expectedRevision: target.revision,
+    })
+    const accepted = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: selected.revision,
+    })
+
+    expect(accepted).toMatchObject({ sessionId: 'session-1', accepted: { status: 'accepted' } })
+    expect(launch.calls.readTargets).toEqual(['session-1'])
+    expect(launch.calls.selections).toHaveLength(1)
+    expect(launch.calls.selections[0]).toMatchObject({
+      input: { sessionId: 'session-1', expectedRevision: 37, selection: launchSelection },
+    })
+    expect(launch.calls.starts).toHaveLength(1)
+    expect(launch.calls.starts[0]).toMatchObject({ sessionId: 'session-1', expectedRevision: 38 })
+    expect(launch.calls.starts[0]?.key.length).toBeGreaterThan(0)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ text: 'prepare before the first Run', launchTargetRevision: 38 })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      sessionId: 'session-1',
+      launchPreparation: { phase: 'ready', targetRevision: 38 },
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('an unknown first Run reconciles only its original Run receipt after target preparation', async () => {
+  const launch = launchPreparationManager({ initialRevision: 41 })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  f.unknownRun(true)
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'retain the original prepared request',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const unknown = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    expect(unknown).toMatchObject({
+      phase: 'unknown',
+      unknownStage: 'run',
+      text: 'retain the original prepared request',
+    })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ launchTargetRevision: 41 })
+
+    const reconciled = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(reconciled).toMatchObject({
+      phase: 'accepted',
+      text: '',
+      launchPreparation: { phase: 'ready', targetRevision: 41 },
+    })
+    expect(f.runCalls).toHaveLength(1)
+    expect(launch.calls.starts).toHaveLength(1)
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('Cancel after Run handoff reconciles the original Run receipt, not launch preparation', async () => {
+  const launch = launchPreparationManager({ initialRevision: 43 })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  f.unknownRun(true)
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Run owns cancellation after handoff',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    const current = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    const reconciled = await f.runtime.view.commands.execute('preSessionDraft.cancel', {
+      draftId: target.draftId,
+      expectedRevision: current?.revision ?? target.revision,
+    })
+    expect(reconciled).toMatchObject({ phase: 'accepted', text: '', sessionId: 'session-1' })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ launchTargetRevision: 43 })
+    expect(launch.calls.cancellations).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('cancel during preparation prevents first Run and preserves the created Session draft', async () => {
+  const readGate = gate()
+  const launch = launchPreparationManager({ readGate, statuses: ['preparing'], cancelStatus: 'cancelled' })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this after cancelling preparation',
+      modelId: model.id,
+    })
+    const submission = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await readGate.entered
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe('keep this after cancelling preparation')
+
+    const current = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    const cancelled = await f.runtime.view.commands.execute('preSessionDraft.cancel', {
+      draftId: target.draftId,
+      expectedRevision: current?.revision ?? target.revision,
+    })
+    expect(cancelled).toMatchObject({
+      phase: 'failed',
+      error: 'CANCELLED',
+      text: 'keep this after cancelling preparation',
+      sessionId: 'session-1',
+      launchPreparation: { phase: 'cancelled', cancelRequested: true },
+    })
+    expect(launch.calls.cancellations).toEqual(['launch-operation-1'])
+    expect(f.runCalls).toEqual([])
+    await expect(submission).rejects.toMatchObject({ code: 'CANCELLED' })
+  } finally {
+    readGate.release()
+    f.runtime.dispose()
+  }
+})
+
+test('ready preparation after navigation loss waits for explicit selection and Continue', async () => {
+  const readGate = gate()
+  const launch = launchPreparationManager({ readGate, statuses: ['ready'] })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'continue only after selecting the captured Session',
+      modelId: model.id,
+    })
+    const submission = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await readGate.entered
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+    readGate.release()
+    await expect(submission).rejects.toMatchObject({ code: 'STALE_TARGET' })
+    expect(f.runCalls).toEqual([])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'STALE_TARGET',
+      launchPreparation: { phase: 'paused-navigation', snapshot: { status: 'ready' } },
+    })
+
+    const paused = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(paused).toMatchObject({ phase: 'failed', error: 'STALE_TARGET' })
+    expect(f.runCalls).toEqual([])
+    await f.runtime.view.commands.execute('app.setSession', { sessionId: 'session-1', workspaceId: 'workspace-a' })
+    const continued = await f.runtime.view.commands.execute('preSessionDraft.continue', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    expect(continued).toMatchObject({ phase: 'accepted', text: '' })
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]).toMatchObject({ launchTargetRevision: 23 })
+  } finally {
+    readGate.release()
+    f.runtime.dispose()
+  }
+})
+
+test('Host preparation BUSY keeps the created Session and seeded draft without Run', async () => {
+  const launch = launchPreparationManager({ startError: new CommandError('BUSY', 'Preparation queue is full') })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'keep this in the newly created Session',
+      modelId: model.id,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    expect(f.sessions.size).toBe(1)
+    expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe('keep this in the newly created Session')
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'failed',
+      error: 'BUSY',
+      sessionId: 'session-1',
+      text: 'keep this in the newly created Session',
+    })
+    expect(f.runCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('closing the view while preparation is observed does not remotely cancel it', async () => {
+  const readGate = gate()
+  const launch = launchPreparationManager({ readGate, statuses: ['ready'] })
+  const f = fixture({ sessionLaunchTargetPreparation: launch.manager })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'continue in the background after closing the view',
+      modelId: model.id,
+    })
+    const submission = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await readGate.entered
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.close', { draftId: target.draftId }),
+    ).resolves.toEqual({
+      draftId: target.draftId,
+      closed: false,
+    })
+    expect(launch.calls.cancellations).toEqual([])
+    readGate.release()
+    await expect(submission).resolves.toMatchObject({ sessionId: 'session-1', accepted: { status: 'accepted' } })
+    expect(launch.calls.cancellations).toEqual([])
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toBeUndefined()
+  } finally {
+    readGate.release()
+    f.runtime.dispose()
+  }
+})
+
+test('changing Workspace resets launch selection without losing the original draft settings', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'preserve Plan and approval when changing workspace',
+      modelId: model.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'ask',
+      planMode: 'plan',
+    })
+    const isolatedSelection = {
+      mode: 'isolated-worktree',
+      branch: { kind: 'existing', name: 'feature/already-there' },
+    } as const
+    const selected = await f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+      draftId: target.draftId,
+      selection: isolatedSelection,
+      expectedRevision: target.revision,
+    })
+    const sameWorkspace = await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId: target.draftId,
+      workspaceId: 'workspace-a',
+      expectedRevision: selected.revision,
+    })
+    expect(sameWorkspace.revision).toBe(selected.revision)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]?.launchSelection).toEqual(
+      isolatedSelection,
+    )
+
+    const changed = await f.runtime.view.commands.execute('preSessionDraft.setWorkspace', {
+      draftId: target.draftId,
+      workspaceId: 'workspace-b',
+      expectedRevision: selected.revision,
+    })
+    expect(changed.revision).toBe(selected.revision + 1)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      workspaceId: 'workspace-b',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: null,
+      revision: changed.revision,
+      phase: 'idle',
+      sessionId: null,
+      text: 'preserve Plan and approval when changing workspace',
+      modelId: model.id,
+      thinkingLevel: 'high',
+      approvalChoice: 'ask',
+      planMode: 'plan',
+      intent: 'default',
+    })
+    expect(f.createCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
   } finally {
     f.runtime.dispose()
   }
@@ -1436,6 +2613,24 @@ test('duplicate first-send requests share one pending creation and settle one Ru
       expectedRevision: target.revision,
     })
     await held.entered
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'creating',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
+      capturedWorkspaceId: 'workspace-a',
+      capturedRevision: target.revision,
+      text: 'first message',
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setLaunchSelection', {
+        draftId: target.draftId,
+        selection: {
+          mode: 'isolated-worktree',
+          branch: { kind: 'existing', name: 'feature/redirected' },
+        },
+        expectedRevision: target.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
     await expect(
       f.runtime.view.commands.execute('preSessionDraft.submit', {
         draftId: target.draftId,
@@ -1451,6 +2646,8 @@ test('duplicate first-send requests share one pending creation and settle one Ru
       phase: 'accepted',
       sessionId: result.sessionId,
       text: '',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
       operationId: result.accepted.operationId,
     })
     expect(
@@ -1593,6 +2790,8 @@ test('same-key creation reconciliation discovers the real Session without steali
       phase: 'unknown',
       unknownStage: 'create',
       sessionId: null,
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
     })
 
     await expect(
@@ -1615,6 +2814,8 @@ test('same-key creation reconciliation discovers the real Session without steali
       error: 'STALE_TARGET',
       sessionId: 'session-1',
       capturedWorkspaceId: 'workspace-a',
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
       text: 'recover this first message',
     })
     expect(f.runtime.view.state.drafts.getSnapshot()['session-1']?.text).toBe('recover this first message')
@@ -1858,23 +3059,42 @@ test('Run unknown is reconciled by its original key and the Session composer own
     ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
     const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
     const sessionId = before?.sessionId
-    expect(before).toMatchObject({ phase: 'unknown', unknownStage: 'run', sessionId })
+    expect(before).toMatchObject({
+      phase: 'unknown',
+      unknownStage: 'run',
+      sessionId,
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
+    })
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]).toMatchObject({
       text: 'recover the accepted first Run',
       status: 'unknown',
     })
     expect(f.runCalls).toHaveLength(1)
 
+    await f.runtime.view.commands.execute('app.setWorkspace', { workspaceId: 'workspace-b' })
+
     const recovered = await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
     expect(f.runCalls).toHaveLength(1)
-    expect(recovered).toMatchObject({ phase: 'accepted', sessionId, accepted: { idempotencyKey: f.runCalls[0]?.key } })
+    expect(recovered).toMatchObject({
+      phase: 'accepted',
+      sessionId,
+      launchSelection: { mode: 'shared-current' },
+      capturedLaunchSelection: { mode: 'shared-current' },
+      accepted: { idempotencyKey: f.runCalls[0]?.key },
+    })
     expect(f.runtime.view.state.drafts.getSnapshot()[sessionId!]).toMatchObject({ text: '', status: 'idle' })
+    expect(f.runtime.view.state.navigation.getSnapshot()).toMatchObject({
+      workspaceId: 'workspace-b',
+      sessionId: null,
+      status: 'idle',
+    })
   } finally {
     f.runtime.dispose()
   }
 })
 
-test('Goal intent is capability-gated and mutually exclusive with pre-session Plan mode', async () => {
+test('Goal intent is capability-gated and independent from pre-session Plan mode', async () => {
   const unavailable = fixture()
   const draftId = crypto.randomUUID()
   try {
@@ -1907,35 +3127,120 @@ test('Goal intent is capability-gated and mutually exclusive with pre-session Pl
       mode: 'plan',
       expectedRevision: 0,
     })
-    await expect(
-      f.runtime.view.commands.execute('preSessionDraft.setIntent', {
-        draftId: goalDraftId,
-        intent: 'goal',
-        expectedRevision: 1,
-      }),
-    ).rejects.toMatchObject({ code: 'GOAL_PLAN_CONFLICT' })
-    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
-      draftId: goalDraftId,
-      mode: 'default',
-      expectedRevision: 1,
-    })
     await f.runtime.view.commands.execute('preSessionDraft.setIntent', {
       draftId: goalDraftId,
       intent: 'goal',
+      expectedRevision: 1,
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId: goalDraftId,
+      mode: 'default',
       expectedRevision: 2,
     })
-    await expect(
-      f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
-        draftId: goalDraftId,
-        mode: 'plan',
-        expectedRevision: 3,
-      }),
-    ).rejects.toMatchObject({ code: 'GOAL_PLAN_CONFLICT' })
     expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[goalDraftId]).toMatchObject({
       revision: 3,
       planMode: 'default',
       intent: 'goal',
     })
+    await f.runtime.view.commands.execute('preSessionDraft.setPlanMode', {
+      draftId: goalDraftId,
+      mode: 'plan',
+      expectedRevision: 3,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[goalDraftId]).toMatchObject({
+      revision: 4,
+      planMode: 'plan',
+      intent: 'goal',
+    })
+    expect(f.createCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('first-send entry compatibility preserves the other Goal or Plan choice without creating a Session', async () => {
+  const f = fixture({ planMode: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep this objective',
+      modelId: model.id,
+      intent: 'goal',
+    })
+    const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]!
+    const result = await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+      draftId: target.draftId,
+      mode: 'plan',
+      expectedRevision: before.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      intent: 'goal',
+      planMode: 'plan',
+      text: before.text,
+      workspaceId: before.workspaceId,
+      modelId: before.modelId,
+      approvalChoice: before.approvalChoice,
+      revision: before.revision + 1,
+    })
+    const goal = await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+      draftId: target.draftId,
+      mode: 'goal',
+      text: 'A slash objective',
+      expectedRevision: result.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      intent: 'goal',
+      planMode: 'plan',
+      text: 'A slash objective',
+      revision: result.revision + 1,
+    })
+    expect(
+      await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+        draftId: target.draftId,
+        mode: 'goal',
+        expectedRevision: goal.revision,
+      }),
+    ).toEqual(goal)
+    const cancelledGoal = await f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+      draftId: target.draftId,
+      mode: 'default',
+      expectedRevision: goal.revision,
+    })
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      intent: 'default',
+      planMode: 'plan',
+      revision: cancelledGoal.revision,
+    })
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+        draftId: target.draftId,
+        mode: 'plan',
+        expectedRevision: before.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(f.createCalls).toEqual([])
+    expect(f.goalCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('first-send entry choices reject unavailable modes without changing text or preparation', async () => {
+  const f = fixture()
+  try {
+    const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'Keep this text' })
+    const before = f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]
+    for (const mode of ['goal', 'plan'] as const) {
+      await expect(
+        f.runtime.view.commands.execute('preSessionDraft.setEntryMode', {
+          draftId: target.draftId,
+          mode,
+          text: 'Do not replace',
+          expectedRevision: target.revision,
+        }),
+      ).rejects.toMatchObject({ code: 'CAPABILITY_UNAVAILABLE' })
+      expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toEqual(before)
+    }
     expect(f.createCalls).toEqual([])
   } finally {
     f.runtime.dispose()
@@ -1981,6 +3286,72 @@ test('pre-session Goal creates one Goal and submits one ordinary Run with inheri
       text: '',
     })
   } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('pre-session Goal and Plan choices coexist and the first Goal Run keeps its captured Plan mode', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Create this checklist in analysis mode',
+      modelId: model.id,
+      planMode: 'plan',
+      intent: 'goal',
+    })
+    const result = await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+
+    expect(result).toMatchObject({ sessionId: 'session-1' })
+    expect(f.goalCalls).toEqual([{ sessionId: 'session-1', objective: 'Create this checklist in analysis mode' }])
+    expect(f.planModeWrites).toMatchObject([{ sessionId: 'session-1', mode: 'plan' }])
+    expect(f.hostPlanModes.get('session-1')).toBe('plan')
+    expect(f.runCalls).toMatchObject([
+      {
+        sessionId: 'session-1',
+        text: 'Create this checklist in analysis mode',
+        mode: 'plan',
+      },
+    ])
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      phase: 'accepted',
+      intent: 'goal',
+      planMode: 'plan',
+    })
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('pre-session Goal waits for the captured Plan mode read before creating its Goal or Run', async () => {
+  const f = fixture({ sessionSettings: true, planMode: true, goals: true })
+  const read = f.holdNextPlanModeRead()
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'wait for Plan confirmation before Goal execution',
+      modelId: model.id,
+      planMode: 'plan',
+      intent: 'goal',
+    })
+    f.blockNextPlanModeRead()
+    const submit = f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: target.revision,
+    })
+    await read.entered
+    expect(f.goalCalls).toEqual([])
+    expect(f.runCalls).toEqual([])
+    read.release()
+    await submit
+    expect(f.goalCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]?.mode).toBe('plan')
+  } finally {
+    read.release()
     f.runtime.dispose()
   }
 })

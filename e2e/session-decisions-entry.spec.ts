@@ -2,9 +2,15 @@ import { expect, test } from '@playwright/test'
 import { createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
+import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectComposerText } from './support/composer-text'
+
+const rpcRequest = z
+  .object({ method: z.string(), params: z.object({ commandId: z.string().optional() }).passthrough().optional() })
+  .passthrough()
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`tool decisions stay with their original calls and retain confirmed outcomes: ${locale}`, async ({
@@ -58,6 +64,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
+      let holdDecision = false
+      const heldDecision: { release: (() => void) | null } = { release: null }
+      await page.routeWebSocket('**/rpc', (socket) => {
+        const server = socket.connectToServer()
+        socket.onMessage((message) => {
+          if (typeof message === 'string' && holdDecision) {
+            const parsed = rpcRequest.safeParse(JSON.parse(message))
+            if (parsed.success && (parsed.data.params?.commandId ?? parsed.data.method) === 'approval.resolve') {
+              holdDecision = false
+              heldDecision.release = () => server.send(message)
+              return
+            }
+          }
+          server.send(message)
+        })
+        server.onMessage((message) => socket.send(message))
+      })
       page.setDefaultTimeout(15_000)
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
@@ -82,6 +105,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Enter')
       await expect(card.getByRole('status')).toHaveText(labels.allowed)
       await expect(card.getByRole('button', { name: labels.allow, exact: true })).toHaveCount(0)
+      await expect(card).toBeFocused()
+      await expect(card).toHaveAccessibleDescription(labels.allowed)
+      expect(await card.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid')
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
         .toBe('completed')
@@ -94,7 +120,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         runId: approval.runId,
         data: { id: approval.id, callId: approval.callId, status: 'allowed' },
       })
+      await card.scrollIntoViewIfNeeded()
       await page.screenshot({ path: testInfo.outputPath(`approval-confirmed-${locale}-320.png`) })
+
+      await page.reload()
+      await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.openSession(initial.session.title), exact: true }).click()
+      await expect(card.getByRole('status')).toHaveText(labels.allowed)
+      await expect(page.locator(`[data-decision-id="${approval.id}"]`)).toHaveCount(1)
+      await expect(card.getByRole('button', { name: labels.allow, exact: true })).toHaveCount(0)
+      expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(1)
+      await page.screenshot({ path: testInfo.outputPath(`approval-restored-${locale}-320.png`) })
 
       const questions = [
         {
@@ -159,6 +195,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Space')
       await expect(questionnaire.getByRole('status')).toHaveText(labels.answered)
       await expect(questionnaire.getByRole('button', { name: labels.submit, exact: true })).toHaveCount(0)
+      await expect(questionnaire).toBeFocused()
+      await expect(questionnaire).toHaveAccessibleDescription(labels.answered)
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: questionRun.operationId })).status)
         .toBe('completed')
@@ -170,6 +208,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(result?.type === 'tool_result' ? result.details : null).toEqual({
         answers: { placement: { answers: ['Inline'] }, verification: { answers: [answer] } },
       })
+      await questionnaire.scrollIntoViewIfNeeded()
       await page.screenshot({ path: testInfo.outputPath(`questionnaire-confirmed-${locale}-320.png`) })
       await page.reload()
       const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
@@ -180,11 +219,59 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await restored.getByRole('tab', { name: /Verification/ }).click()
       await expect(restored).toContainText(answer)
       await expect(restored.getByRole('button', { name: labels.submit, exact: true })).toHaveCount(0)
+      // A deliberate move while the original request is held must revoke the card's focus ownership.
+      const third = await runs.execute(
+        'run.submit',
+        {
+          sessionId,
+          modelId: 'local-fixture',
+          input: {
+            text: '/tool edit_file {"path":"browser-e2e.md","oldText":"# Approved edit","newText":"# Must not write"}',
+            images: [],
+            approval: 'ask',
+          },
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      await expect
+        .poll(async () =>
+          (await targetHost.client.call('session.snapshot', { sessionId })).approvals.some(
+            (value) => value.runId === third.operationId && value.status === 'pending',
+          ),
+        )
+        .toBe(true)
+      const thirdPending = await host.client.call('session.snapshot', { sessionId })
+      const thirdApproval = thirdPending.approvals.find((value) => value.status === 'pending')!
+      const thirdCard = page.locator(`[data-decision-id="${thirdApproval.id}"]`)
+      const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const draft = 'Keep my newer focus and this unsent draft — 保留后续输入位置与草稿。'
+      await prompt.fill(draft)
+      holdDecision = true
+      await thirdCard.getByRole('button', { name: labels.deny, exact: true }).click()
+      await expect.poll(() => heldDecision.release !== null).toBe(true)
+      await expect(thirdCard.getByRole('status')).toHaveText(labels.submitting)
+      await prompt.focus()
+      if (!heldDecision.release) throw new Error('The original approval request was not held')
+      const release = heldDecision.release
+      heldDecision.release = null
+      release()
+      await expect(thirdCard.getByRole('status')).toHaveText(labels.denied)
+      await expect(prompt).toBeFocused()
+      await expectComposerText(prompt, draft)
+      await expect
+        .poll(async () => (await runs.execute('operation.get', { operationId: third.operationId })).status)
+        .toBe('completed')
+      expect(await readFile(join(root, 'browser-e2e.md'), 'utf8')).toBe('# Approved edit\n')
+      expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(3)
+      await page.screenshot({ path: testInfo.outputPath(`approval-newer-composer-focus-${locale}-320.png`) })
       expect(errors).toEqual([])
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      const target = resolve(root)
+      expect(dirname(target)).toBe(resolve(tmpdir()))
+      expect(basename(target).startsWith('hbar-session-decisions-')).toBe(true)
+      await rm(target, { recursive: true, force: true })
     }
   })
 }

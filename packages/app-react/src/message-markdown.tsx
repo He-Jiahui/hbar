@@ -12,6 +12,8 @@ import {
   sessionMarkdownRehypeOptions,
 } from './session-find-text'
 import './message-code-block.css'
+import { MessageFileReferenceLink, type MessageFileReferenceContext } from './message-file-reference'
+import { parseMessageFileReference } from './message-file-reference-model'
 
 export interface MessageCodeContext {
   readonly sessionId: string
@@ -22,6 +24,7 @@ export interface MessageCodeContext {
   readonly clipboard?: MessageClipboardPort | null | undefined
 }
 const CodeContext = createContext<(MessageCodeContext & { readonly source: string }) | null>(null)
+const FileContext = createContext<MessageFileReferenceContext | null>(null)
 
 function MessageCodeBlock({
   code,
@@ -113,29 +116,59 @@ function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & Extr
     </LumenText>
   )
 }
-const components = { pre: MarkdownPre }
+function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
+  const files = useContext(FileContext)
+  const path = node?.properties.dataHbarFilePath
+  if (typeof path === 'string') {
+    const line = node?.properties.dataHbarFileLine
+    const column = node?.properties.dataHbarFileColumn
+    const reference = parseMessageFileReference(`${path}${line ? `:${line}${column ? `:${column}` : ''}` : ''}`)
+    if (!reference || !files || (files.streaming && node?.properties.dataHbarFileKind === 'prose'))
+      return props.children
+    return (
+      <MessageFileReferenceLink reference={reference} context={files}>
+        {props.children}
+      </MessageFileReferenceLink>
+    )
+  }
+  // The parser's AST node is not a DOM attribute. Retain the sanitized anchor
+  // metadata (including footnote navigation) without passing that object on.
+  void node
+  const external = props.href !== undefined && /^https?:\/\//i.test(props.href)
+  // Unsupported local/absolute paths must not accidentally navigate the app's
+  // browser route. File capabilities are explicit; footnotes and mail stay links.
+  if (props.href && !external && !props.href.startsWith('#') && !/^mailto:/i.test(props.href)) return props.children
+  return <a {...props} target={external ? '_blank' : undefined} rel={external ? 'noreferrer noopener' : undefined} />
+}
+
+const linkComponents = { a: MarkdownLink }
+const components = { ...linkComponents, pre: MarkdownPre }
 
 /** One sanitized Markdown body shared by messages and Plan documents. */
 export function MessageMarkdown({
   text,
   findSegmentId,
   code,
+  fileReferences,
 }: {
   readonly text: string
   readonly findSegmentId?: string | undefined
   readonly code?: MessageCodeContext | undefined
+  readonly fileReferences?: MessageFileReferenceContext | undefined
 }) {
   const content = (
-    <CodeContext.Provider value={code ? { ...code, source: text } : null}>
-      <ReactMarkdown
-        remarkPlugins={sessionMarkdownRemarkPlugins}
-        rehypePlugins={sessionMarkdownRehypePlugins}
-        remarkRehypeOptions={sessionMarkdownRehypeOptions}
-        {...(code ? { components } : {})}
-      >
-        {text}
-      </ReactMarkdown>
-    </CodeContext.Provider>
+    <FileContext.Provider value={fileReferences ?? null}>
+      <CodeContext.Provider value={code ? { ...code, source: text } : null}>
+        <ReactMarkdown
+          remarkPlugins={sessionMarkdownRemarkPlugins}
+          rehypePlugins={sessionMarkdownRehypePlugins}
+          remarkRehypeOptions={sessionMarkdownRehypeOptions}
+          components={code ? components : linkComponents}
+        >
+          {text}
+        </ReactMarkdown>
+      </CodeContext.Provider>
+    </FileContext.Provider>
   )
   return findSegmentId ? <LumenFrame data-session-find-segment={findSegmentId}>{content}</LumenFrame> : content
 }

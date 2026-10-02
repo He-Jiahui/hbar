@@ -30,6 +30,7 @@ import {
   pathAllowed,
   synchronizeScope,
 } from './patches'
+import { advertiseAgentTool, createAgentTool } from './agent-tool'
 
 const MAX_CHILDREN = 128
 const MAX_SCANNED_CHILD_SESSIONS = 2_000
@@ -417,6 +418,9 @@ export class AgentRuntime implements AgentService {
   }
 
   async finish(event: { sessionId: string; runId: string; status: Run['status'] }) {
+    // Guidance consumes only a queued user operation; it is not an Agent
+    // execution settlement and must not publish a reviewer/patch outcome.
+    if (event.status === 'guided') return
     const seed = await this.created(event.sessionId)
     if (seed?.reviewTask) {
       await this.api.hooks.dispatch('agent.settled', {
@@ -688,6 +692,8 @@ export const agentPlugin = definePlugin({
       api,
     )
     provide<AgentService>(ctx, 'agent', runtime)
+    api.tools.register(createAgentTool(runtime, api.sessions))
+    api.hooks.on('tools.advertise', (event) => advertiseAgentTool(event))
     api.hooks.on('tools.select', (event) => runtime.selectProfileTools(event))
     api.hooks.on('tools.advertise', (event) => runtime.advertiseProfile(event))
     api.hooks.on('tool.before', async (event) => {

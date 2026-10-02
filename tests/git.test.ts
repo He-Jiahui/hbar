@@ -60,6 +60,54 @@ test('Git status, history, and remote metadata are bounded and sanitized', async
   })
 })
 
+test('truncated Git status output fails rather than returning a partial dirty projection', async () => {
+  const { root } = await fixture()
+  const processRunner = new ProcessGitRunner()
+  const runtime = new GitRuntime(root, gitConfigSchema.parse({}), {
+    run(cwd, args, signal, limits) {
+      if (args[0] === 'status')
+        return Promise.resolve({ stdout: '## main\0?? partial', stderr: '', code: 0, truncated: true })
+      return processRunner.run(cwd, args, signal, limits)
+    },
+  })
+  await expect(runtime.status(root)).rejects.toMatchObject({ code: 'GIT_OUTPUT_LIMIT' })
+})
+
+test('execution-root diff strategy uses literal scoped paths without changing generic diff behavior', async () => {
+  const { root, runtime } = await fixture()
+  const scope = join(root, 'scope')
+  const outside = join(root, 'outside')
+  await mkdir(scope)
+  await mkdir(outside)
+  await writeFile(join(scope, '[ab].txt'), 'bracket baseline\n')
+  await writeFile(join(scope, 'a.txt'), 'a baseline\n')
+  await writeFile(join(outside, 'outside.txt'), 'outside baseline\n')
+  await runGit(root, ['add', 'scope', 'outside'])
+  await runGit(root, ['commit', '-q', '-m', 'scoped diff baseline'])
+
+  await writeFile(join(scope, '[ab].txt'), 'bracket literal marker\n')
+  await writeFile(join(scope, 'a.txt'), 'glob a marker\n')
+  await writeFile(join(outside, 'outside.txt'), 'outside secret marker\n')
+
+  const scoped = await runtime.diff(scope, { scope: 'execution-root' })
+  expect(scoped.diff).toContain('bracket literal marker')
+  expect(scoped.diff).toContain('glob a marker')
+  expect(scoped.diff).not.toContain('outside secret marker')
+  expect(scoped.diff).not.toContain('outside/')
+  expect(scoped.diff).toContain('b/[ab].txt')
+
+  const literalBracket = await runtime.diff(scope, { scope: 'execution-root', paths: ['[ab].txt'] })
+  expect(literalBracket.diff).toContain('bracket literal marker')
+  expect(literalBracket.diff).not.toContain('glob a marker')
+
+  expect((await runtime.diff(scope, { scope: 'execution-root', paths: ['*.txt'] })).diff).toBe('')
+  expect((await runtime.diff(scope, { scope: 'execution-root', paths: [':(top)outside/outside.txt'] })).diff).toBe('')
+
+  const generic = await runtime.diff(root)
+  expect(generic.diff).toContain('outside secret marker')
+  expect(generic.diff).toContain('scope/[ab].txt')
+})
+
 test('Git mutations emit an observational change notification after success', async () => {
   const { root } = await fixture()
   const changed: string[] = []

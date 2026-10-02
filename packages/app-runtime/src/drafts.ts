@@ -1,5 +1,14 @@
 import { CommandError, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
-import { draftCommands, type PromptAttachment } from '@hbar/contracts/commands/draft'
+import type { Message } from '@hbar/contracts'
+import {
+  draftCommands,
+  promptWorkspaceContextInputSchema,
+  promptWorkspaceContextSchema,
+  promptWorkspaceContextsSchema,
+  MAX_PROMPT_WORKSPACE_CONTEXTS,
+  type PromptAttachment,
+  type PromptWorkspaceContext,
+} from '@hbar/contracts/commands/draft'
 import {
   retryRunInputSchema,
   runAcceptedSchema,
@@ -10,6 +19,11 @@ import type { SessionExecutionPreparationPort } from './session-execution-prepar
 import { createState } from './state'
 import { registerDraftAttachments } from './draft-attachments'
 import { serializeMentions, validateMentions } from './composer-mentions'
+import {
+  serializeComposerModelText,
+  validateWorkspaceContexts,
+  workspaceContextSemanticKey,
+} from './composer-workspace-contexts'
 import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, SessionDraftState } from './types'
 import type { CommandExecutor } from '@hbar/commands'
 import { createRunCancellation } from './run-cancellation'
@@ -35,11 +49,14 @@ interface PendingSubmission {
   readonly detached: boolean
 }
 
+export type ConversationMessageReader = (sessionId: string, messageId: string) => Readonly<Message> | null
+
 function initial(sessionId: string): SessionDraftState {
   return {
     sessionId,
     text: '',
     mentions: [],
+    workspaceContexts: [],
     attachments: [],
     attachmentTransfers: [],
     uploading: 0,
@@ -65,10 +82,14 @@ function matchesInput(draft: SessionDraftState, input: SubmitRunInput): boolean 
     ...input.input.images.map((artifact) => ({ kind: 'image' as const, artifact })),
     ...(input.input.files ?? []).map((artifact) => ({ kind: 'file' as const, artifact })),
   ]
+  // Intake keeps the user's material order; the Run contract groups images and
+  // files. Match identities without treating that wire grouping as an edit.
+  const expectedKeys = expected.map(attachmentKey).sort()
+  const draftKeys = draft.attachments.map(attachmentKey).sort()
   return (
-    serializeMentions(draft.text, draft.mentions) === input.input.text &&
+    serializeComposerModelText(draft.text, draft.mentions, draft.workspaceContexts ?? []) === input.input.text &&
     draft.attachments.length === expected.length &&
-    draft.attachments.every((item, index) => attachmentKey(item) === attachmentKey(expected[index]!))
+    draftKeys.every((key, index) => key === expectedKeys[index])
   )
 }
 
@@ -80,6 +101,7 @@ export function createDrafts(
   isDisposed: () => boolean,
   attachmentQueries?: CommandExecutor,
   preparation?: SessionExecutionPreparationPort,
+  readConversationMessage?: ConversationMessageReader,
 ) {
   const state = createState<DraftsState>({}, onSubscriberError)
   const actions = createState<RunActionsState>({}, onSubscriberError)
@@ -124,15 +146,29 @@ export function createDrafts(
   }
   const editedStatus = (current: SessionDraftState): Pick<SessionDraftState, 'status' | 'error'> =>
     current.status === 'failed' ? { status: 'idle', error: null } : { status: current.status, error: current.error }
+  const assertDraftModelTextFits = (
+    text: string,
+    mentions: SessionDraftState['mentions'],
+    workspaceContexts: readonly PromptWorkspaceContext[],
+  ) => {
+    serializeComposerModelText(text, mentions, workspaceContexts)
+  }
+  const authoredMessageText = (message: Readonly<Message>): string => {
+    const textBlocks: string[] = []
+    for (const block of message.content) if (block.type === 'text') textBlocks.push(block.text)
+    return textBlocks.join('\n\n')
+  }
 
   local.register(draftCommands['draft.setText'], ({ sessionId, text, expectedRevision }) => {
     const current = entry(sessionId)
     checkRevision(current, expectedRevision)
+    const mentions = text === current.text ? current.mentions : []
+    assertDraftModelTextFits(text, mentions, current.workspaceContexts ?? [])
     const next = {
       ...current,
       ...editedStatus(current),
       text,
-      mentions: text === current.text ? current.mentions : [],
+      mentions,
       revision: current.revision + 1,
     }
     replace(sessionId, next)
@@ -143,6 +179,7 @@ export function createDrafts(
     const current = entry(sessionId)
     checkRevision(current, expectedRevision)
     validateMentions(text, mentions)
+    assertDraftModelTextFits(text, mentions, current.workspaceContexts ?? [])
     const next = {
       ...current,
       ...editedStatus(current),
@@ -153,6 +190,133 @@ export function createDrafts(
     replace(sessionId, next)
     return { sessionId, revision: next.revision }
   })
+
+  local.register(
+    draftCommands['draft.addWorkspaceContext'],
+    ({ sessionId, context: inputContext, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      const context = promptWorkspaceContextSchema.parse({
+        ...promptWorkspaceContextInputSchema.parse(inputContext),
+        id: crypto.randomUUID(),
+      })
+      const contexts = current.workspaceContexts ?? []
+      const semanticKey = workspaceContextSemanticKey(context)
+      const existing = contexts.find((item) => workspaceContextSemanticKey(item) === semanticKey)
+      if (existing)
+        return {
+          sessionId,
+          revision: current.revision,
+          added: false,
+          context: { ...existing },
+        }
+      if (contexts.length >= MAX_PROMPT_WORKSPACE_CONTEXTS)
+        throw new CommandError('BUSY', 'The composer has reached its workspace context limit')
+      const workspaceContexts = [...contexts, context]
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts,
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision, added: true, context }
+    },
+  )
+
+  local.register(
+    draftCommands['draft.addConversationSelection'],
+    ({ sessionId, messageId, expectedText, quote, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (!readConversationMessage)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Conversation selection is unavailable')
+      const message = readConversationMessage(sessionId, messageId)
+      if (!message || message.sessionId !== sessionId || message.id !== messageId)
+        throw new CommandError('STALE_TARGET', 'The selected conversation message is no longer available')
+      if (message.role !== 'user' && message.role !== 'assistant')
+        throw new CommandError(
+          'INVALID_INPUT',
+          'Conversation context is only available for user and assistant messages',
+        )
+      const sourceText = authoredMessageText(message)
+      if (!sourceText || sourceText !== expectedText)
+        throw new CommandError('STALE_TARGET', 'The selected conversation message changed before it was added')
+
+      const context = promptWorkspaceContextSchema.parse({
+        kind: 'chat-selection',
+        sourceSessionId: message.sessionId,
+        messageId: message.id,
+        sourceRole: message.role,
+        quote,
+        id: crypto.randomUUID(),
+      })
+      const contexts = current.workspaceContexts ?? []
+      const semanticKey = workspaceContextSemanticKey(context)
+      const existing = contexts.find((item) => workspaceContextSemanticKey(item) === semanticKey)
+      if (existing)
+        return {
+          sessionId,
+          revision: current.revision,
+          added: false,
+          context: { ...existing },
+        }
+      if (contexts.length >= MAX_PROMPT_WORKSPACE_CONTEXTS)
+        throw new CommandError('BUSY', 'The composer has reached its workspace context limit')
+      const workspaceContexts = [...contexts, context]
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts,
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision, added: true, context }
+    },
+  )
+
+  local.register(draftCommands['draft.removeWorkspaceContext'], ({ sessionId, contextId, expectedRevision }) => {
+    const current = entry(sessionId)
+    checkRevision(current, expectedRevision)
+    const contexts = current.workspaceContexts ?? []
+    const workspaceContexts = contexts.filter((context) => context.id !== contextId)
+    if (workspaceContexts.length === contexts.length) return { sessionId, revision: current.revision, removed: false }
+    assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      workspaceContexts,
+      revision: current.revision + 1,
+    }
+    replace(sessionId, next)
+    return { sessionId, revision: next.revision, removed: true }
+  })
+
+  local.register(
+    draftCommands['draft.setWorkspaceContexts'],
+    ({ sessionId, workspaceContexts: inputContexts, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      const workspaceContexts = promptWorkspaceContextsSchema.parse(inputContexts)
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const previous = current.workspaceContexts ?? []
+      if (JSON.stringify(previous) === JSON.stringify(workspaceContexts))
+        return { sessionId, revision: current.revision }
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts: workspaceContexts.map((context) => ({ ...context })),
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision }
+    },
+  )
 
   local.register(draftCommands['draft.setAttachments'], ({ sessionId, attachments, expectedRevision }) => {
     const current = entry(sessionId)
@@ -201,7 +365,9 @@ export function createDrafts(
     const clear = submission.matchesDraft && current.revision === submission.revision
     replace(sessionId, {
       ...current,
-      ...(clear ? { text: '', mentions: [], attachments: [], revision: current.revision + 1 } : {}),
+      ...(clear
+        ? { text: '', mentions: [], workspaceContexts: [], attachments: [], revision: current.revision + 1 }
+        : {}),
       status: 'idle',
       error: null,
       lastOperationId: accepted.operationId,
@@ -288,6 +454,18 @@ export function createDrafts(
       checkRevision(current, expectedRevision)
       if (current.text !== displayText)
         throw new CommandError('VERSION_CONFLICT', 'The session draft changed before submission')
+      return serializeComposerModelText(current.text, current.mentions, current.workspaceContexts ?? [], workspaceId)
+    },
+    serializeGoalObjective(
+      sessionId: string,
+      expectedRevision: number,
+      workspaceId: string,
+      displayText: string,
+    ): string {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (current.text !== displayText)
+        throw new CommandError('VERSION_CONFLICT', 'The session draft changed before Goal validation')
       return serializeMentions(current.text, current.mentions, workspaceId)
     },
     actions: actions.reader,

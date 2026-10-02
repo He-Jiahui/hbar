@@ -145,6 +145,67 @@ test('run.submit stores an acceptance fact once, exposes operation state, and re
   }
 })
 
+test('known pre-admission Git capacity and timeout errors do not become sticky RESULT_UNKNOWN', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-run-launch-target-admission-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  const commands = createRunCommands(kernel)
+  try {
+    const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+    await kernel.setSessionLaunchTarget({
+      actorId: 'launch-target-test',
+      idempotencyKey: 'isolated-selection',
+      sessionId: session.id,
+      expectedRevision: 0,
+      selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'feature/admission-test' } },
+    })
+    kernel.sessionLaunchTargets.prepare = async () => {
+      throw new HbarError('SESSION_LAUNCH_TARGET_TIMEOUT', 'Injected bounded preparation timeout')
+    }
+    const input = { sessionId: session.id, modelId: 'local-fixture', input: { text: 'not accepted', images: [] } }
+    const errorOf = async (operation: Promise<unknown>) => {
+      try {
+        await operation
+        return null
+      } catch (error) {
+        return error
+      }
+    }
+    const timeout = await errorOf(
+      commands.execute('run.submit', input, {
+        actorId: 'launch-target-test',
+        idempotencyKey: 'timeout-at-admission',
+        requestId: 'timeout-request',
+      }),
+    )
+    expect(timeout).toMatchObject({ code: 'SESSION_LAUNCH_TARGET_TIMEOUT' })
+
+    kernel.sessionLaunchTargets.prepare = async () => {
+      throw new HbarError('BUSY', 'Injected full Git command queue')
+    }
+    const busy = await errorOf(
+      commands.execute('run.submit', input, {
+        actorId: 'launch-target-test',
+        idempotencyKey: 'busy-at-admission',
+        requestId: 'busy-request',
+      }),
+    )
+    expect(busy).toMatchObject({ code: 'BUSY' })
+    expect((await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'run.queued')).toEqual(
+      [],
+    )
+    expect((await kernel.storage.call('sessionLaunchTargetRuntime', session.id)).binding).toBeNull()
+  } finally {
+    commands.dispose()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('lost admission acknowledgement recovers the committed operation rather than enqueueing again', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-run-ack-'))
   const kernel = await Kernel.create({

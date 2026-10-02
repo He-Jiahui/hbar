@@ -1,5 +1,5 @@
 import { extensionDetailCopy } from './extension-detail-copy'
-import { fileWorkspaceCopy } from './file-workspace-copy'
+import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
@@ -26,6 +26,8 @@ import type { WebAppearanceSettingsLabels } from './AppearanceSettings'
 import type { PlanProposalRequestText } from '@hbar/app-runtime'
 import { goalExecutionCopy } from './goal-execution-copy'
 import { composerAttachmentCopy } from './composer-attachment-copy'
+import { sessionWorkspaceContextCopy } from './session-workspace-context-copy'
+import { conversationSelectionCopy } from './conversation-selection-copy'
 import { generalSettingsCopy } from './general-settings-copy'
 import type { WebGeneralSettingsLabels } from './GeneralSettings'
 import { toolPaneLayoutCopy, type ToolPaneLayoutLabels } from './tool-pane-layout-copy'
@@ -38,6 +40,7 @@ import { extensionNavigationCopy } from './extension-navigation-copy'
 import { codeBlockCopyLabels } from './code-block-copy-labels'
 import { sessionFindCopy } from './session-find-copy'
 import { workspaceOrganizationCopy } from './workspace-organization-copy'
+import { workspaceSortCopy } from './workspace-sort-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
 import { getSessionStopCopy, sessionStopButtonLabel } from './session-stop-copy'
 import { sessionTimeCopy } from './session-time-copy'
@@ -281,6 +284,14 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.session.clearBudget.description': '删除指定会话的独立 Token 预算。',
         'commands.workspace.list.title': '列出工作区',
         'commands.workspace.list.description': '分页查询 Host 中的工作区。',
+        'commands.workspace.sidebar.list.title': '列出侧栏项目',
+        'commands.workspace.sidebar.list.description': '按项目名称或会话活动分页查询可见项目。',
+        'commands.session.activity.global.list.title': '列出跨项目会话活动',
+        'commands.session.activity.global.list.description': '分页查询可见会话与运行状态，进行中的会话优先。',
+        'commands.session.sidebar.list.title': '列出项目会话活动',
+        'commands.session.sidebar.list.description': '按时间分页查询项目会话及后台执行状态。',
+        'commands.session.execution.get.title': '读取会话运行状态',
+        'commands.session.execution.get.description': '读取指定会话及其直属后台子会话的当前运行汇总。',
         'commands.workspace.open.title': '打开工作区',
         'commands.workspace.open.description': '按目录路径在 Host 注册工作区并切换当前工作台。',
         'commands.session.list.title': '列出会话',
@@ -322,6 +333,16 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.session.clearBudget.description': 'Remove the session-specific token budget.',
         'commands.workspace.list.title': 'List workspaces',
         'commands.workspace.list.description': 'Query Host workspaces by page.',
+        'commands.workspace.sidebar.list.title': 'List sidebar projects',
+        'commands.workspace.sidebar.list.description': 'Page visible projects by display name or session activity.',
+        'commands.session.activity.global.list.title': 'List cross-project session activity',
+        'commands.session.activity.global.list.description':
+          'Page visible sessions and Run status, active sessions first.',
+        'commands.session.sidebar.list.title': 'List project session activity',
+        'commands.session.sidebar.list.description': 'Page project sessions and background execution status by time.',
+        'commands.session.execution.get.title': 'Read session execution status',
+        'commands.session.execution.get.description':
+          'Read current activity for one session and its direct background children.',
         'commands.workspace.open.title': 'Open workspace',
         'commands.workspace.open.description': 'Register a Host workspace by directory path and select it here.',
         'commands.session.list.title': 'List sessions',
@@ -352,6 +373,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         after: '分页游标',
         limit: '返回数量',
         includeArchived: '包含已归档会话',
+        organization: '侧栏组织方式',
+        sortBy: '排序条件',
+        locale: '界面语言',
+        includeWorkspaceIds: '额外包含的项目 ID',
         title: '标题',
         path: '目录路径',
         input: '输入',
@@ -381,6 +406,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         after: 'Page cursor',
         limit: 'Result limit',
         includeArchived: 'Include archived sessions',
+        organization: 'Sidebar organization',
+        sortBy: 'Sort condition',
+        locale: 'Interface language',
+        includeWorkspaceIds: 'Additional project IDs',
         title: 'Title',
         path: 'Directory path',
         input: 'Input',
@@ -652,10 +681,29 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     empty: choose('尚未配置供应商。', 'No providers configured.'),
     add: choose('添加供应商', 'Add provider'),
     edit: (name) => choose(`编辑 ${name}`, `Edit ${name}`),
+    editAction: choose('编辑', 'Edit'),
     actions: (name) => choose(`${name} 的操作`, `Actions for ${name}`),
     remove: (name) => choose(`删除 ${name}`, `Delete ${name}`),
     protocol: (value) => protocolNames[value] ?? value,
-    defaultModel: (model) => choose(`默认模型：${model}`, `Default: ${model}`),
+    primaryModel: (model) => choose(`主模型：${model}`, `Primary model: ${model}`),
+    setDefault: choose('设为默认', 'Set default'),
+    setDefaultFor: (name, model) =>
+      choose(`将 ${name} 的 ${model} 设为全局默认`, `Set ${model} from ${name} as the global default`),
+    globalDefault: (model) => choose(`全局默认 · ${model}`, `Global default · ${model}`),
+    settingDefault: (name, model) =>
+      choose(`正在将 ${name} 的 ${model} 设为全局默认…`, `Setting ${model} from ${name} as the global default…`),
+    setDefaultError: (code) =>
+      code === 'RESULT_UNKNOWN'
+        ? choose(
+            '切换结果尚未确认。请核对结果，无需再次切换。',
+            'The result is not confirmed. Reconcile the result without switching again.',
+          )
+        : choose(`无法切换全局默认：${code}`, `Cannot switch the global default: ${code}`),
+    reconcileDefault: choose('核对切换结果', 'Reconcile result'),
+    reconcileDefaultFor: (name, model) =>
+      choose(`核对 ${name} 的 ${model} 的默认切换结果`, `Reconcile the default switch to ${model} from ${name}`),
+    reconcilingDefault: (name, model) =>
+      choose(`正在核对 ${name} 的 ${model} 的切换结果…`, `Reconciling the switch to ${model} from ${name}…`),
     modelCount: (count) =>
       choose(`${number.format(count)} 个模型`, `${number.format(count)} ${count === 1 ? 'model' : 'models'}`),
     hidden: choose('已隐藏', 'Hidden'),
@@ -917,6 +965,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         queued: '排队中',
         running: '运行中',
         waiting_approval: '等待审批',
+        guided: '已引导',
         completed: '已完成',
         cancelled: '已取消',
         failed: '失败',
@@ -926,6 +975,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         queued: 'Queued',
         running: 'Running',
         waiting_approval: 'Waiting for approval',
+        guided: 'Guided',
         completed: 'Completed',
         cancelled: 'Cancelled',
         failed: 'Failed',
@@ -965,6 +1015,19 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     historyLimit: choose('已达到此窗口的 1,000 条消息上限。', 'This window reached its 1,000-message history limit.'),
     find: sessionFindCopy(locale),
     latest: choose('查看最新消息', 'View latest messages'),
+    readingPositionUnavailable: choose(
+      '暂时无法恢复上次阅读位置。',
+      'The previous reading position could not be restored.',
+    ),
+    fileReferences: {
+      open: ({ path, line, column }) =>
+        choose(
+          `打开文件 ${path}${line ? `，第 ${line} 行${column ? `，第 ${column} 列` : ''}` : ''}`,
+          `Open file ${path}${line ? `, line ${line}${column ? `, column ${column}` : ''}` : ''}`,
+        ),
+      opening: choose('正在打开文件…', 'Opening file…'),
+      error,
+    },
     author: zh
       ? { user: '你', assistant: '助手', system: '系统', tool: '工具' }
       : { user: 'You', assistant: 'Assistant', system: 'System', tool: 'Tool' },
@@ -972,6 +1035,20 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ? { user: '你', assistant: 'AI', system: '系', tool: '工' }
       : { user: 'You', assistant: 'AI', system: 'Sy', tool: 'Tl' },
     copy: choose('复制消息', 'Copy message'),
+    agentToolOpen: {
+      open: choose('打开子任务', 'Open child run'),
+      openNamed: (objective) => choose(`打开子任务：${objective}`, `Open child run: ${objective}`),
+      opening: choose('正在打开…', 'Opening…'),
+      error: (code) =>
+        code === 'DISCONNECTED' || code === 'CONNECTION_CLOSED' || code === 'HOST_DISCONNECTED'
+          ? choose('连接已中断。重连后可在此重试打开。', 'Disconnected. Reconnect, then retry opening here.')
+          : code === 'TAB_LIMIT'
+            ? choose('页签已满，请先关闭一个。', 'Close a tab before opening this run.')
+            : choose(
+                '未能打开这个子任务。请重试或从活动面板查看。',
+                'Could not open this child run. Retry or view Activity.',
+              ),
+    },
     goalLifecycle: goalLifecycleCopy(zh),
     goalHistory: goalHistoryCopy(zh),
     goalContinuation: {
@@ -981,6 +1058,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
             queued: '已排队',
             running: '运行中',
             waiting_approval: '等待审批',
+            guided: '已引导',
             completed: '已完成',
             cancelled: '已取消',
             failed: '失败',
@@ -990,6 +1068,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
             queued: 'Queued',
             running: 'Running',
             waiting_approval: 'Waiting for approval',
+            guided: 'Guided',
             completed: 'Completed',
             cancelled: 'Cancelled',
             failed: 'Failed',
@@ -1181,6 +1260,27 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       queueLabel: choose('加入队列', 'Add to queue'),
       queueTitle: choose('在当前运行结束后处理此消息', 'Process this message after the current run'),
     },
+    backgroundAgents: {
+      stop: (count) =>
+        choose(`停止 ${count} 个后台 Agent`, `Stop ${count} background ${count === 1 ? 'agent' : 'agents'}`),
+      stopping: choose('正在请求停止后台 Agent…', 'Requesting background Agent cancellation…'),
+      requested: choose(
+        '已请求停止后台 Agent，正在等待实际结束。',
+        'Background Agent cancellation requested; waiting for settlement.',
+      ),
+      unknown: choose(
+        '停止结果尚未确认，请先核对原目标。',
+        'Cancellation is unconfirmed. Check the original Agents before retrying.',
+      ),
+      checking: choose('正在核对原后台 Agent…', 'Checking the original background Agents…'),
+      settled: choose('本次停止目标已结束。', 'The background Agents targeted by this request have settled.'),
+      failed: (code) =>
+        choose(`后台 Agent 停止未完成：${code}`, `Background Agent cancellation did not finish: ${code}`),
+      readFailed: (code) => choose(`无法读取后台 Agent：${code}`, `Could not load background Agents: ${code}`),
+      reconcile: choose('核对停止结果', 'Check cancellation'),
+      retry: choose('重试停止原目标', 'Retry original targets'),
+      refresh: choose('重新读取后台 Agent', 'Reload background Agents'),
+    },
     queuedUserRuns: {
       queued: choose('已排队', 'Queued'),
       loading: choose('正在读取排队消息…', 'Loading queued messages…'),
@@ -1194,6 +1294,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ellipsis: '…',
       edit: (position) => choose(`编辑第 ${position} 条排队消息`, `Edit queued message ${position}`),
       editInput: (position) => choose(`第 ${position} 条排队消息内容`, `Queued message ${position} text`),
+      editHint: choose(
+        'Enter 保存 · Shift+Enter 换行 · Esc 取消',
+        'Enter to save · Shift+Enter for a new line · Esc to cancel',
+      ),
       editLoading: choose('正在读取完整内容…', 'Loading full message…'),
       editSaving: choose('正在保存…', 'Saving…'),
       saveEdit: choose('保存', 'Save'),
@@ -1204,6 +1308,24 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       ),
       editFailed: (code) => choose(`无法编辑排队消息：${code}`, `Could not edit queued message: ${code}`),
       retryEdit: choose('重试确认', 'Retry confirmation'),
+      guide: (position) => choose(`引导第 ${position} 条排队消息`, `Guide queued message ${position}`),
+      guideLabel: choose('引导', 'Guide'),
+      guideSubmitting: choose('正在引导至当前任务…', 'Guiding into the current task…'),
+      guideUnknown: choose(
+        '引导结果尚未确认，请核对原请求。',
+        'Guidance is not confirmed. Check the original request.',
+      ),
+      guideFailed: (code) =>
+        code === 'COMMAND_CONFLICT'
+          ? choose(
+              '当前任务已结束或无法接收此消息；消息仍按队列状态处理。',
+              'The original task cannot accept this message. It remains governed by the queue.',
+            )
+          : code === 'CAPABILITY_UNAVAILABLE'
+            ? choose('当前驱动不支持即时引导。', 'The current driver does not support live guidance.')
+            : choose(`无法引导排队消息：${code}`, `Could not guide queued message: ${code}`),
+      retryGuide: choose('核对结果', 'Check result'),
+      dismissGuide: choose('关闭提示', 'Dismiss'),
       remove: (position) => choose(`删除第 ${position} 条排队消息`, `Remove queued message ${position}`),
       removing: choose('正在移除', 'Removing'),
       removeUnknown: choose(
@@ -1354,6 +1476,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       removeAttachment: (attachment) => choose(`移除附件 ${attachment.name}`, `Remove attachment ${attachment.name}`),
     },
     attachments: composerAttachmentCopy(choose),
+    workspaceContexts: sessionWorkspaceContextCopy(choose),
+    conversationSelection: conversationSelectionCopy(choose),
     mentions: {
       menu: choose('提及工作区文件或目录', 'Mention workspace files or folders'),
       root: choose('工作区根目录', 'Workspace root'),
@@ -1385,7 +1509,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           id: 'agent',
           label: '/agent',
           argumentHint: choose('<类型> <任务>', '<agent> <task>'),
-          description: choose('将任务交给选定的子 Agent', 'Run a task with a selected child Agent'),
+          description: choose(
+            '在当前会话中请求 Agent 工具处理任务',
+            'Ask the parent session Agent tool to handle the task',
+          ),
         },
         { id: 'model', label: '/model', description: choose('选择本次会话的模型', 'Choose a model for this session') },
         {
@@ -1412,7 +1539,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         { id: 'help', label: '/help', description: choose('浏览可用命令', 'Browse available commands') },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
-      hint: choose('↑↓ 选择 · Enter/Tab 补全 · Esc 关闭', '↑↓ Select · Enter/Tab complete · Esc close'),
+      hint: choose(
+        '↑↓ 选择 · Tab 补全 · 发送键确认 · Esc 关闭',
+        '↑↓ Select · Tab complete · Send shortcut confirms · Esc close',
+      ),
       agentProfile: (profileId) => ({
         label: `/agent ${profileId}`,
         description: agentProfileDescriptions[profileId],
@@ -1559,6 +1689,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goal: choose('目标', 'Goal'),
       goalMenu: choose('将下一条设为目标', 'Make next message a Goal'),
       currentGoal: choose('当前目标', 'Current goal'),
+      running: choose('运行中', 'Running'),
+      executionChecking: choose('核对活动中', 'Checking activity'),
+      executionReadFailed: choose('暂时无法确认后台活动。', 'Background activity could not be confirmed.'),
+      retryExecution: choose('重试读取活动', 'Retry activity'),
       goalHint: choose(
         '将下一条消息设为持续目标，发送后才会保存。',
         'Make the next message an ongoing goal; it is saved when sent.',
@@ -1569,12 +1703,12 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       goalPlaceholder: choose('描述要持续推进的目标…', 'Describe the goal to pursue…'),
       planPlaceholder: choose('描述希望先规划的任务…', 'Describe the task to plan first…'),
       statuses: {
-        active: choose('进行中的目标', 'Active goal'),
-        paused: choose('已暂停的目标', 'Paused goal'),
-        blocked: choose('受阻的目标', 'Blocked goal'),
-        complete: choose('已完成的目标', 'Completed goal'),
-        budget_limited: choose('目标预算已用尽', 'Goal budget exhausted'),
-        usage_limited: choose('目标用量已受限', 'Goal usage limited'),
+        active: choose('已启用', 'Active'),
+        paused: choose('已暂停', 'Paused'),
+        blocked: choose('受阻', 'Blocked'),
+        complete: choose('已完成', 'Completed'),
+        budget_limited: choose('预算用尽', 'Budget exhausted'),
+        usage_limited: choose('用量受限', 'Usage limited'),
       },
       pause: choose('暂停目标续作', 'Pause goal continuation'),
       pauseHint: choose(
@@ -1636,8 +1770,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     tools: {
       label: choose('会话工具', 'Session tools'),
+      more: choose('更多工具', 'More tools'),
+      current: (label) => choose(`更多工具：当前打开${label}`, `More tools: ${label} is open`),
       files: choose('文件', 'Files'),
-      activity: choose('活动运行', 'Active runs'),
+      activity: choose('活动', 'Activity'),
       monitoring: choose('用量监控', 'Monitoring'),
       agents: choose('子 Agent', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
@@ -1846,6 +1982,8 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
       return choose(`无法添加：${code}；请核对原会话草稿。`, `Could not add: ${code}. Check the original draft.`)
     },
     error: (code) => {
+      const targetError = fileWorkspaceErrorCopy(zh, code)
+      if (targetError) return targetError
       if (code === 'FILE_CONFLICT')
         return choose('源文件已更新；当前草稿仍保留。', 'The source changed; your draft is still preserved.')
       if (code === 'BUSY')
@@ -1855,7 +1993,7 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
         )
       if (code === 'UNSUPPORTED_TYPE')
         return choose('此文件不是可编辑的 UTF-8 文本。', 'This file is not editable UTF-8 text.')
-      if (code === 'INVALID_OUTPUT' || code === 'INPUT_TOO_LARGE')
+      if (code === 'INPUT_TOO_LARGE')
         return choose('此文件过大，无法在工具中打开。', 'This file is too large to open in the tool.')
       if (code === 'ENOENT' || code === 'NOT_FOUND') return choose('此文件已不存在。', 'This file no longer exists.')
       return choose(`文件操作失败：${code}`, `File operation failed: ${code}`)
@@ -1936,16 +2074,79 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     cancelRequested: choose('正在取消', 'Cancelling'),
   }
   return {
-    title: choose('活动运行', 'Active runs'),
-    description: choose(
-      '仅列出此会话正在排队、执行或等待审批的运行。',
-      'Only runs currently queued, executing, or awaiting approval in this session.',
-    ),
-    close: choose('关闭活动运行', 'Close active runs'),
-    refresh: choose('刷新活动运行', 'Refresh active runs'),
+    title: choose('活动', 'Activity'),
+    runs: choose('运行', 'Runs'),
+    description: '',
+    workflow: {
+      title: choose('工作流', 'Workflow'),
+      loading: choose('正在读取工作流…', 'Loading workflow…'),
+      retry: choose('重试读取工作流', 'Retry workflow'),
+      other: choose('其他委派', 'Other delegated work'),
+      missingAgent: choose('暂时无法读取此 Agent。', 'This Agent could not be read.'),
+      count: (settled, total) =>
+        choose(
+          `${number.format(settled)} / ${number.format(total)} 已结束`,
+          `${number.format(settled)} / ${number.format(total)} settled`,
+        ),
+      delegation: (modelId) => choose(`委派给 ${modelId}`, `Delegated to ${modelId}`),
+      status: (status) => createGoalPlanWorkspaceLabels(locale).workflow.statuses[status],
+      focusStatus: (status) => createGoalPlanWorkspaceLabels(locale).workflow.focusStatuses[status],
+      delegationStatus: (status) => createGoalPlanWorkspaceLabels(locale).workflow.delegationStatuses[status],
+      error: (code) =>
+        code === 'CAPABILITY_UNAVAILABLE'
+          ? choose('此 Host 未提供工作流活动。', 'Workflow activity is unavailable on this Host.')
+          : choose('无法确认工作流，请重试。', 'Could not confirm the workflow. Try again.'),
+      agent: {
+        open: (objective) => choose(`打开子 Agent：${objective}`, `Open subagent: ${objective}`),
+        opening: choose('正在打开子会话…', 'Opening child session…'),
+        error: () => choose('无法打开子 Agent，请重试。', 'Could not open the subagent. Try again.'),
+        status: (status) => createAgentWorkspaceLabels(locale).status(status),
+      },
+    },
+    tasks: {
+      title: choose('任务', 'Tasks'),
+      loading: choose('正在读取任务进度…', 'Loading task progress…'),
+      retry: choose('重试读取任务', 'Retry task progress'),
+      error: () => choose('无法确认任务进度，请重试。', 'Could not confirm task progress. Try again.'),
+      progress: (completed, total) =>
+        choose(
+          `${number.format(completed)} / ${number.format(total)} 已完成`,
+          `${number.format(completed)} / ${number.format(total)} completed`,
+        ),
+      step: (text, status) => {
+        const state = {
+          pending: choose('待处理', 'Pending'),
+          in_progress: choose('进行中', 'In progress'),
+          completed: choose('已完成', 'Completed'),
+        }[status]
+        return `${state}: ${text}`
+      },
+    },
+    agents: {
+      title: choose('子 Agent', 'Subagents'),
+      loading: choose('正在读取子 Agent…', 'Loading subagents…'),
+      unavailable: choose('此 Host 未提供子 Agent 活动。', 'Subagent activity is unavailable on this Host.'),
+      retry: choose('重试读取子 Agent', 'Retry subagent activity'),
+      loadMore: choose('加载更多子 Agent', 'Load more subagents'),
+      limitReached: choose('已达到活动列表显示上限。', 'The activity list display limit has been reached.'),
+      opening: choose('正在打开子会话…', 'Opening child session…'),
+      open: (objective) => choose(`打开子 Agent：${objective}`, `Open subagent: ${objective}`),
+      count: (loaded, active, hasMore) =>
+        choose(
+          `${number.format(loaded)}${hasMore ? '+' : ''} · ${number.format(active)} 个进行中`,
+          `${number.format(loaded)}${hasMore ? '+' : ''} · ${number.format(active)} active`,
+        ),
+      status: (status) => createAgentWorkspaceLabels(locale).status(status),
+      error: (code) =>
+        code === 'SOURCE_CHANGED'
+          ? choose('来源已变化，请重新打开活动面板。', 'The source changed. Reopen Activity.')
+          : choose('无法读取或打开子 Agent，请重试。', 'Could not read or open the subagent. Try again.'),
+    },
+    close: choose('关闭活动', 'Close activity'),
+    refresh: choose('刷新活动', 'Refresh activity'),
     loading: choose('正在读取当前运行…', 'Loading active runs…'),
     empty: choose('此会话目前没有活动运行。', 'This session has no active runs.'),
-    offline: choose('连接已断开；显示的运行状态可能已过时。', 'Disconnected; shown run states may be stale.'),
+    offline: choose('连接已断开；显示的活动状态可能已过时。', 'Disconnected; shown activity states may be stale.'),
     retry: choose('重新读取', 'Try again'),
     loadMore: choose('加载更多运行', 'Load more runs'),
     loadingMore: choose('正在加载更多运行…', 'Loading more runs…'),
@@ -2905,6 +3106,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       brand: 'hbar',
       projectsAndSessions: '工程与会话',
       organization: workspaceOrganizationCopy('zh-CN'),
+      sort: workspaceSortCopy('zh-CN'),
       displayNames: workspaceDisplayNamesCopy('zh-CN'),
       noWorkspaces: '尚无工程',
       noSessions: '尚无会话',
@@ -3050,6 +3252,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       brand: 'hbar',
       projectsAndSessions: 'Projects and sessions',
       organization: workspaceOrganizationCopy('en-US'),
+      sort: workspaceSortCopy('en-US'),
       displayNames: workspaceDisplayNamesCopy('en-US'),
       noWorkspaces: 'No projects yet',
       noSessions: 'No sessions yet',

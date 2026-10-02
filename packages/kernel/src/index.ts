@@ -28,6 +28,7 @@ import type {
   RunFailure,
   SessionEvent,
   SessionSnapshot,
+  Workspace,
   UserInputRequest,
   UserInputResponse,
   UserInput,
@@ -47,9 +48,25 @@ import type {
   UserInputService,
 } from '@hbar/plugin-sdk'
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
-import type { PathLayout, StoragePort } from '@hbar/storage'
+import type {
+  PathLayout,
+  SessionLaunchTargetMutationInput,
+  SessionLaunchTargetPreparationStartMutationInput,
+  StoragePort,
+} from '@hbar/storage'
+import type {
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+  SessionLaunchTargetPreparationStartReceipt,
+} from '@hbar/contracts/commands/session-launch-target'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
-import type { QueuedRunEditTextInput, QueuedRunRemoveInput, RunCommandRecord } from '@hbar/contracts/commands/run'
+import type {
+  QueuedRunEditTextInput,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  QueuedRunRemoveInput,
+  RunCommandRecord,
+} from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
@@ -75,6 +92,12 @@ export { createComputerCommands } from './computer-commands'
 export { createConfigurationCommands, HBAR_PROVIDER_EDITOR_DESCRIPTION } from './configuration-commands'
 export { createGitCommands } from './git-commands'
 export { createWorkspaceSessionCommands } from './workspace-session-commands'
+export { createSessionLaunchTargetCommands } from './session-launch-target-commands'
+export { createSessionLaunchBranchesCommands } from './session-launch-branches-commands'
+export { SessionLaunchTargetService } from './session-launch-target-service'
+import { SessionLaunchTargetService } from './session-launch-target-service'
+export { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
+import { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 export { createSettingsCommands } from './settings-commands'
 export { createUsageCommands } from './usage-commands'
 export { createWorkflowCommands } from './workflow-commands'
@@ -92,10 +115,12 @@ import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
+import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
 import { SettingsService, SESSION_APPROVAL_SETTING_PATH } from './settings-service'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
+const SESSION_ACTIVITY_EVENT_TYPES = new Set(['run.queued', 'run.status', 'run.settled', 'run.cancelRequested'])
 const MAX_FILE_TEXT = 120_000
 const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
 const TEXT_EXTENSIONS = new Set([
@@ -149,6 +174,34 @@ function isTextArtifact(mime: string, name: string): boolean {
     return true
   const dot = name.lastIndexOf('.')
   return dot >= 0 && TEXT_EXTENSIONS.has(name.slice(dot).toLowerCase())
+}
+
+function waitForSessionLaunchTargetLock(previous: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return previous
+  if (signal.aborted)
+    return Promise.reject(
+      signal.reason instanceof HbarError ? signal.reason : new HbarError('USER_CANCELLED', 'Request was cancelled'),
+    )
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(
+        signal.reason instanceof HbarError ? signal.reason : new HbarError('USER_CANCELLED', 'Request was cancelled'),
+      )
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    previous.then(
+      () => {
+        signal.removeEventListener('abort', onAbort)
+        resolve()
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+    if (signal.aborted) onAbort()
+  })
 }
 
 export interface SecretStore {
@@ -205,6 +258,7 @@ interface ActiveRun {
   run: Run
   controller: AbortController
   context: RuntimeScope
+  steeringReady?: boolean
 }
 type ApprovalResolution =
   | { source: 'approval'; status: 'allowed' | 'denied' | 'cancelled'; feedback?: string }
@@ -213,6 +267,8 @@ type ApprovalResolution =
 export class Kernel {
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
+  readonly sessionLaunchTargets: SessionLaunchTargetService
+  readonly sessionLaunchPreparations: SessionLaunchTargetPreparationService
   readonly tools = new Tools()
   readonly hooks = new Hooks()
   readonly schemaCallbacks = createSchemaCallbackRegistry()
@@ -237,6 +293,9 @@ export class Kernel {
   private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
   private readonly permissionSettings: SettingsService
   private admissions = 0
+  private readonly sessionLaunchTargetLocks = new Map<string, Promise<void>>()
+  private readonly sharedCheckoutLocks = new Map<string, Promise<void>>()
+  private sharedCheckoutWaiters = 0
   private closing = false
   private readyForRuns = false
   recovered = 0
@@ -245,9 +304,36 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.sessionLaunchTargets = new SessionLaunchTargetService(
+      this.storage,
+      options.layout,
+      undefined,
+      (_sessionId, targetPath, signal) => this.assertSharedCheckoutIdle(targetPath, signal),
+    )
+    this.sessionLaunchPreparations = new SessionLaunchTargetPreparationService(
+      this.storage,
+      {
+        prepare: (sessionId, revision, signal) => this.prepareSessionLaunchTarget(sessionId, revision, signal),
+        reconcile: (sessionId, revision, signal) => this.reconcileSessionLaunchTarget(sessionId, revision, signal),
+        reconcileCancellation: (sessionId, revision, signal) =>
+          this.withSharedCheckoutLock(
+            sessionId,
+            () => this.sessionLaunchTargets.reconcileCancelledPreparation(sessionId, revision, signal),
+            signal,
+          ),
+        readTarget: (sessionId) => this.getSessionLaunchTarget(sessionId),
+      },
+      () => this.changed('session-launch-target'),
+    )
     this.permissionSettings = new SettingsService(this.storage)
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
+      workspaceSidebarPage: (input) => this.storage.call('workspaceSidebarPage', input),
+      globalSessionActivityPage: (input) => this.storage.call('globalSessionActivityPage', input),
+      sessionExecutionSnapshot: (input) => this.storage.call('sessionExecutionSnapshot', input),
+      workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
+      sessionActivityPage: (input) => this.storage.call('sessionActivityPage', input),
+      sidebarSessionActivityPage: (input) => this.storage.call('sidebarSessionActivityPage', input),
       sessionPage: (input) => this.storage.call('sessionPage', input),
       findWorkspace: (id) => this.storage.call('findWorkspace', id),
       findSession: (id) => this.storage.call('findSession', id),
@@ -392,6 +478,7 @@ export class Kernel {
           }),
         )
       kernel.readyForRuns = true
+      await kernel.sessionLaunchPreparations.resumePending()
       // Only persisted continuation intents can start new work. Old active
       // Goals without an intent remain inert during this startup scan.
       for (const session of await kernel.storage.call('sessions')) kernel.kick(session.id)
@@ -460,7 +547,13 @@ export class Kernel {
       }),
     )
     this.plugins.add(piPlugin)
-    this.plugins.add(localExecutionPlugin([this.options.layout.dataRoot]))
+    this.plugins.add(
+      localExecutionPlugin([this.options.layout.dataRoot], {
+        root: this.options.layout.worktrees,
+        protectedRoot: this.options.layout.dataRoot,
+        verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
+      }),
+    )
     this.plugins.add(
       definePlugin({
         manifest: {
@@ -537,11 +630,12 @@ export class Kernel {
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const event = await this.storage.call('append', sessionId, type, data, runId, stepId)
-    this.publish({ method: 'session.event', params: event })
+    this.publishEvent(event)
     return event
   }
   private publishEvent(event: SessionEvent) {
     this.publish({ method: 'session.event', params: event })
+    if (SESSION_ACTIVITY_EVENT_TYPES.has(event.type)) this.changed('session-activity')
   }
   async createWorkspace(path: string) {
     let resolved: string
@@ -691,12 +785,162 @@ export class Kernel {
       .map(({ request }) => request)
     return snapshot
   }
-  async submit(sessionId: string, requestId: string, input: UserInput, modelId: string, command?: RunCommandRecord) {
+  private async withSessionLaunchTargetLock<Value>(
+    sessionId: string,
+    action: () => Promise<Value>,
+    signal?: AbortSignal,
+  ): Promise<Value> {
+    signal?.throwIfAborted()
+    const previous = this.sessionLaunchTargetLocks.get(sessionId) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const tail = previous.then(() => gate)
+    this.sessionLaunchTargetLocks.set(sessionId, tail)
+    try {
+      await waitForSessionLaunchTargetLock(previous, signal)
+      signal?.throwIfAborted()
+      return await action()
+    } finally {
+      release()
+      void tail.then(
+        () => {
+          if (this.sessionLaunchTargetLocks.get(sessionId) === tail) this.sessionLaunchTargetLocks.delete(sessionId)
+        },
+        () => {
+          if (this.sessionLaunchTargetLocks.get(sessionId) === tail) this.sessionLaunchTargetLocks.delete(sessionId)
+        },
+      )
+    }
+  }
+  private sharedCheckoutKey(path: string): string {
+    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '')
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized
+  }
+
+  /** One checkout lock covers both preparation and bind+enqueue, including sibling sessions. */
+  private async withSharedCheckoutLock<Value>(
+    sessionId: string,
+    action: () => Promise<Value>,
+    signal?: AbortSignal,
+  ): Promise<Value> {
+    signal?.throwIfAborted()
+    const session = await this.storage.call('session', sessionId)
+    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const root = await this.sessionLaunchTargets.checkoutRootForWorkspace(workspace.path, signal)
+    const key = this.sharedCheckoutKey(root)
+    if (this.sharedCheckoutWaiters >= 64) throw new HbarError('BUSY', 'Shared checkout admission capacity is full')
+    this.sharedCheckoutWaiters++
+    const previous = this.sharedCheckoutLocks.get(key) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolveGate) => {
+      release = resolveGate
+    })
+    const tail = previous.then(() => gate)
+    this.sharedCheckoutLocks.set(key, tail)
+    try {
+      await waitForSessionLaunchTargetLock(previous, signal)
+      signal?.throwIfAborted()
+      return await action()
+    } finally {
+      this.sharedCheckoutWaiters--
+      release()
+      void tail.then(
+        () => {
+          if (this.sharedCheckoutLocks.get(key) === tail) this.sharedCheckoutLocks.delete(key)
+        },
+        () => {
+          if (this.sharedCheckoutLocks.get(key) === tail) this.sharedCheckoutLocks.delete(key)
+        },
+      )
+    }
+  }
+
+  private async assertSharedCheckoutIdle(targetPath: string, signal: AbortSignal): Promise<void> {
+    const root = this.sharedCheckoutKey(await this.sessionLaunchTargets.checkoutRootForWorkspace(targetPath, signal))
+    for (const path of await this.storage.call('activeSharedCheckoutPaths')) {
+      signal.throwIfAborted()
+      const activeRoot = await this.sessionLaunchTargets.checkoutRootForWorkspace(path, signal)
+      if (this.sharedCheckoutKey(activeRoot) === root)
+        throw new HbarError('BUSY', 'Wait for shared checkout tasks to finish before switching branches')
+    }
+  }
+
+  async getSessionLaunchTarget(sessionId: string) {
+    return this.sessionLaunchTargets.get(sessionId)
+  }
+  async setSessionLaunchTarget(input: SessionLaunchTargetMutationInput) {
+    return this.withSessionLaunchTargetLock(input.sessionId, () => this.sessionLaunchTargets.set(input))
+  }
+  async prepareSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
+    return this.withSessionLaunchTargetLock(
+      sessionId,
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          () => this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+          signal,
+        ),
+      signal,
+    )
+  }
+  async reconcileSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
+    return this.withSessionLaunchTargetLock(
+      sessionId,
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          () => this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+          signal,
+        ),
+      signal,
+    )
+  }
+  async cancelSessionLaunchTarget(sessionId: string, revision: number) {
+    return this.sessionLaunchTargets.cancel(sessionId, revision)
+  }
+  async startSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationStartMutationInput,
+  ): Promise<SessionLaunchTargetPreparationStartReceipt> {
+    return this.sessionLaunchPreparations.start(input)
+  }
+  readSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.read(input)
+  }
+  cancelSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.cancel(input)
+  }
+  reconcileSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.reconcile(input)
+  }
+  async submit(
+    sessionId: string,
+    requestId: string,
+    input: UserInput,
+    modelId: string,
+    command?: RunCommandRecord,
+    signal?: AbortSignal,
+    expectedLaunchTargetRevision?: number,
+  ) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
     input = { ...input, files }
+    if (expectedLaunchTargetRevision !== undefined) {
+      const target = await this.getSessionLaunchTarget(sessionId)
+      if (target.revision !== expectedLaunchTargetRevision)
+        throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+      if (target.resolution.status !== 'ready')
+        throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
+    }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
     input = {
       ...input,
@@ -721,7 +965,24 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
-      const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId, command)
+      const run = await this.withSessionLaunchTargetLock(
+        sessionId,
+        () =>
+          this.withSharedCheckoutLock(
+            sessionId,
+            async () => {
+              const binding = await this.sessionLaunchTargets.bindForRun(
+                sessionId,
+                signal,
+                expectedLaunchTargetRevision,
+              )
+              signal?.throwIfAborted()
+              return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+            },
+            signal,
+          ),
+        signal,
+      )
       if (run.status === 'queued') {
         if (run.queuedEvent) {
           // Only a newly accepted turn clears unresolved interactive requests.
@@ -792,6 +1053,7 @@ export class Kernel {
         if (submitted.status !== 'queued') return
         continue
       }
+      this.changed('session-activity')
       if (this.cancelled.has(run.id)) {
         this.publishEvent(await this.storage.call('setRun', run.id, 'cancelled'))
         this.cancelled.delete(run.id)
@@ -836,6 +1098,10 @@ export class Kernel {
         })
         const session = await this.storage.call('session', sessionId)
         const workspace = await this.storage.call('workspace', session.workspaceId)
+        const workspaceForRun: Workspace = {
+          ...workspace,
+          path: await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal),
+        }
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
         const apiKey = model.protocol === 'mock' ? null : await this.secrets.get(model.id)
         const content: ContentBlock[] = [
@@ -843,7 +1109,8 @@ export class Kernel {
           ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
           ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
         ]
-        this.publishEvent((await this.storage.call('commit', sessionId, run.id, 'user', content)).event)
+        const initialCommit = await this.storage.call('commit', sessionId, run.id, 'user', content)
+        this.publishEvent(initialCommit.event)
         if (session.title === 'New session')
           await this.updateSession(sessionId, {
             title: (
@@ -854,6 +1121,18 @@ export class Kernel {
             ).slice(0, 80),
           })
         const driver = this.plugins.get<HarnessDriver>('driver')
+        const supportsSteering =
+          driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
+        const steeringDeliveries: SteeringDelivery[] = []
+        const steeringContext: RunSteeringContext | undefined = supportsSteering
+          ? { runId: run.id, initialUserMessageId: initialCommit.message.id, deliveries: steeringDeliveries }
+          : undefined
+        let steeringAfterSeq = initialCommit.message.seq
+        const closeSteering = async () => {
+          const active = this.active.get(sessionId)
+          if (active?.run.id === run.id) active.steeringReady = false
+          if (supportsSteering) await this.storage.call('closeRunSteering', sessionId, run.id)
+        }
         const selectedTools = await scope.hooks.dispatch('tools.select', {
           sessionId,
           runId: run.id,
@@ -863,9 +1142,9 @@ export class Kernel {
         const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
         const input: DriverInput = {
           session,
-          workspace,
+          workspace: workspaceForRun,
           run,
-          request: await this.buildRequest(sessionId, model, scope.hooks, run),
+          request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
           apiKey,
           signal: controller.signal,
           tools: selectedTools.tools,
@@ -908,6 +1187,8 @@ export class Kernel {
             return this.append(sessionId, type, data, run.id, stepId)
           },
           commit: async (role, blocks, messageId, providerData) => {
+            if (supportsSteering && role === 'user')
+              throw new HbarError('RESERVED_EVENT', 'Live user messages are owned by Host queue guidance')
             const content = enrichToolCallPresentations(role, blocks, toolPresentations)
             const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
             if (messageId) this.clearStream(messageId)
@@ -919,7 +1200,13 @@ export class Kernel {
             const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
             const effectiveRun =
               effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
-            const context: ToolContext = { session, workspace, run: effectiveRun, signal: controller.signal, callId }
+            const context: ToolContext = {
+              session,
+              workspace: workspaceForRun,
+              run: effectiveRun,
+              signal: controller.signal,
+              callId,
+            }
             const sequence = createToolSequenceExecutor(
               context,
               selectedTools.tools,
@@ -935,10 +1222,17 @@ export class Kernel {
           },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
-            let request = await this.buildRequest(sessionId, model, scope.hooks, run)
+            let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             if (this.plugins.get<CompactionProvider>('compaction').shouldCompact(request)) {
-              await this.compactInternal(sessionId, model, controller.signal, run.id)
-              request = await this.buildRequest(sessionId, model, scope.hooks, run)
+              await this.compactInternal(
+                sessionId,
+                model,
+                controller.signal,
+                run.id,
+                workspaceForRun,
+                supportsSteering ? initialCommit.message.seq : undefined,
+              )
+              request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             }
             request = await scope.hooks.dispatch('model.request', request)
             const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
@@ -987,8 +1281,47 @@ export class Kernel {
           },
           stepEnded: async (stepId) => {
             const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
+            if (settled.stop) await closeSteering()
             return settled.stop ? { stop: settled.stop } : undefined
           },
+          ...(supportsSteering
+            ? {
+                getSteeringMessages: async (target) => {
+                  if (target.sessionId !== sessionId || target.runId !== run.id)
+                    throw new HbarError('COMMAND_CONFLICT', 'Steering source belongs to the original Run')
+                  target.signal.throwIfAborted()
+                  controller.signal.throwIfAborted()
+                  const page = await this.storage.call('readRunSteering', {
+                    sessionId,
+                    runId: run.id,
+                    afterSeq: steeringAfterSeq,
+                    ...(target.closeWhenEmpty ? { closeWhenEmpty: true } : {}),
+                  })
+                  target.signal.throwIfAborted()
+                  controller.signal.throwIfAborted()
+                  if (page.messages.length) {
+                    const context = await this.storage.call('context', sessionId)
+                    target.signal.throwIfAborted()
+                    controller.signal.throwIfAborted()
+                    const insertionAfterSeq = context.messages.at(-1)?.seq ?? initialCommit.message.seq
+                    for (const message of page.messages) steeringDeliveries.push({ message, insertionAfterSeq })
+                  }
+                  steeringAfterSeq = page.nextSeq
+                  if (page.closed) {
+                    const active = this.active.get(sessionId)
+                    if (active?.run.id === run.id) active.steeringReady = false
+                  }
+                  return page.messages
+                },
+                closeSteeringAdmission: closeSteering,
+              }
+            : {}),
+        }
+        if (supportsSteering) {
+          controller.signal.throwIfAborted()
+          await this.storage.call('openRunSteering', sessionId, run.id)
+          const active = this.active.get(sessionId)
+          if (active?.run.id === run.id) active.steeringReady = true
         }
         await driver.run(input)
       } catch (error) {
@@ -1003,6 +1336,11 @@ export class Kernel {
         failure = cause instanceof Error ? cause.message : String(cause)
       } finally {
         clearTimeout(timer)
+        const active = this.active.get(sessionId)
+        if (active?.run.id === run.id && active.steeringReady) {
+          active.steeringReady = false
+          await this.storage.call('closeRunSteering', sessionId, run.id)
+        }
         for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
         const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
         this.publishEvent(settledEvent)
@@ -1021,13 +1359,15 @@ export class Kernel {
     model: ProviderConfig,
     hooks = this.hooks,
     run?: Run,
+    workspaceOverride?: Workspace,
+    steering?: RunSteeringContext,
   ): Promise<ModelRequest> {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
-    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
     return hooks.dispatch('context.build', {
       system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
-      messages: context.messages,
+      messages: steering ? buildSteeringContext(context.messages, steering) : context.messages,
       model,
       context: {
         sessionId,
@@ -1452,6 +1792,34 @@ export class Kernel {
     this.publishEvent(event)
     return receipt
   }
+  async guideQueuedRun(input: {
+    actorId: string
+    idempotencyKey: string
+    request: QueuedRunGuideInput
+  }): Promise<QueuedRunGuideReceipt> {
+    // Durable replay is valid even after the original driver has settled.
+    // The storage transaction verifies the exact input hash and actor/key.
+    const prior = await this.storage.call(
+      'queuedRunGuideReceipt',
+      input.actorId,
+      input.idempotencyKey,
+      input.request.sessionId,
+    )
+    if (!prior) {
+      const active = this.active.get(input.request.sessionId)
+      if (
+        this.closing ||
+        !active?.steeringReady ||
+        active.run.id !== input.request.activeRunId ||
+        active.controller.signal.aborted
+      )
+        throw new HbarError('COMMAND_CONFLICT', 'The original Run is not accepting live guidance')
+    }
+    const result = await this.storage.call('guideQueuedRun', input)
+    this.publishEvent(result.event)
+    this.changed('session-activity')
+    return result.receipt
+  }
   async compact(sessionId: string, modelId: string, signal?: AbortSignal) {
     this.assertIdle()
     this.maintenance = true
@@ -1465,11 +1833,22 @@ export class Kernel {
       this.maintenance = false
     }
   }
-  private async compactInternal(sessionId: string, model: ProviderConfig, signal: AbortSignal, runId?: string) {
-    const request = await this.buildRequest(sessionId, model)
+  private async compactInternal(
+    sessionId: string,
+    model: ProviderConfig,
+    signal: AbortSignal,
+    runId?: string,
+    workspaceOverride?: Workspace,
+    protectedInitialSeq?: number,
+  ) {
+    const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     let boundary = -1
-    for (let i = 1; i <= request.messages.length - retain; i++) if (request.messages[i]?.role === 'user') boundary = i
+    for (let i = 1; i <= request.messages.length - retain; i++) {
+      const message = request.messages[i]
+      if (message?.role === 'user' && (protectedInitialSeq === undefined || message.seq <= protectedInitialSeq))
+        boundary = i
+    }
     if (boundary < 1) {
       if (!runId) throw new HbarError('NOTHING_TO_COMPACT', 'More completed conversation history is needed')
       return { summary: '' }
@@ -1623,6 +2002,8 @@ export class Kernel {
     this.directoryQueries.dispose()
     for (const active of this.active.values())
       active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
+    await this.sessionLaunchPreparations.close()
+    await this.sessionLaunchTargets.close()
     await this.waitForIdle()
     for (const pending of this.userInputs.values())
       await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`empty Goals pane opens a creation editor and persists the Host Goal: ${locale}`, async ({ browser }) => {
@@ -21,7 +22,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base)
       await expect(page.getByText(copy.shell.connected, { exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.goals, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'goals')
       const pane = page.locator('.hbar-app-react-goal-plan-workspace')
       await expect(pane.getByRole('heading', { name: copy.goals.title, exact: true })).toBeVisible()
       await expect(pane.getByText(copy.goals.goal.composerHint, { exact: true })).toBeVisible()

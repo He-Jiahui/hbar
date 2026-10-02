@@ -1,5 +1,34 @@
 # Desktop navigation: final entry audit, 2026-09-26
 
+> **Current status index (read-only source review at hbar `5c83ef3c`, 2026-10-01).**
+> This file preserves the historical entry matrix below; its baseline rows are not
+> a current regression report. A fresh source and retained-evidence review found no
+> new core navigation break in the main paths. The delivered current anchors are
+> [chat search and its Host contract](desktop-chat-search-host.md),
+> [the framed sidebar Search entry](desktop-sidebar-search-entry.md),
+> [workspace organization (Projects/recent Projects/Time, hide, reorder and alias)](desktop-workspace-organization.md),
+> [the project-row quick-create path](desktop-project-shortcut.md),
+> [controlled session/workbench tabs](desktop-tabs-host-integration.md),
+> [session tool ownership](desktop-session-tool-ownership.md), and
+> [parent/background activity aggregation](desktop-sidebar-parent-activity.md).
+> The current review did **not** rerun E2E, rebuild the app, start a Host/native
+> window, or change product code, so these links are retained evidence rather than
+> a new test result. In particular, the historical rows below that say “Commands
+> only/no chat search”, “no visible tabs”, or “no hide/reorder/alias” must be read
+> against the later feature records above, not reported as current gaps. The
+> remaining bounded semantic difference is intentional: established sessions keep
+> their registered workspace; project/branch launch controls apply to an empty
+> first-send session, as documented in [session project context](desktop-session-project-context.md).
+
+| Historical wording checked in this audit                 | Current source/feature anchor                                                                    | Retained proof scope (not rerun in this review)                                                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| “Commands only/no chat search”                           | `lumen-workspace-shell.tsx:1176-1208`; `session.recent/search` Host contract                     | `e2e/chat-search.spec.ts`; en/zh, 1440/320, recent/body search, hidden/archive rules, keyboard reopen/close                                      |
+| “No hide/reorder/alias or Time organization”             | `lumen-workspace-shell.tsx:1257-1294,1374-1447,1461-1570`; `workspaceActivity` organization      | `e2e/sidebar-organization.spec.ts`; project/recent/time, alias, pin, drag/keyboard move, time paging and focus                                   |
+| “Project quick create remains behind the menu”           | `lumen-workspace-shell.tsx:1573-1581`; `newSession()` at `:892-897`                              | `e2e/workspace-session-entry.spec.ts`; chooser paging, row quick-create, current-project follow, draft retention and invalid/valid path handling |
+| “No visible session tabs”                                | `workspace-tabs.tsx:24-55`; runtime `MAX_WORKSPACE_TABS=32`, capture/restore/workbench ownership | `e2e/workspace-tabs-host.spec.ts`; independent drafts, close scopes, 32-cap, narrow overflow and unknown activity close                          |
+| “Session/tool switching is not source-owned”             | session/workspace keyed draft/tool state and pinned Files binding                                | `e2e/session-tool-ownership.spec.ts`; A/B/C drafts, attachment/dirty Files, pinned cross-project Files, workbench return and archive/close       |
+| “Parent/background activity is absent from project rows” | shared `SessionActivityIndicator` and Host `session.sidebar.list` summary                        | `docs/desktop-sidebar-parent-activity.md` and its retained real-Host E2E/screenshots; direct-child/background boundaries                         |
+
 ## Scope and evidence
 
 This is an entry/ownership audit, **not a declaration that the complete cc-haha

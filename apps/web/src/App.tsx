@@ -11,6 +11,7 @@ import {
   HbarRuntimeProvider,
   HbarSessionMonitoring,
   HbarSessionActivityWorkspace,
+  HbarSessionLaunchLocation,
   HbarSessionWorkspace,
   HbarSettingsWorkspace,
   HbarSettingsUsage,
@@ -53,6 +54,9 @@ import {
   createWorkflowCommandClient,
   createGitCommandClient,
   createRunCommandClient,
+  createSessionLaunchTargetReader,
+  createSessionLaunchTargetPreparationManager,
+  createSessionLaunchBranchesManager,
   createSessionSearchCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
@@ -69,6 +73,7 @@ import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
 import { WebPreSessionLanding } from './PreSessionLanding'
+import { preSessionLaunchCopy } from './pre-session-launch-copy'
 import type { WebLanguageController } from './language'
 import type { WebZoomController } from './app-zoom'
 import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
@@ -95,6 +100,7 @@ import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
+import { sessionWorkspaceMoveCopy } from './session-workspace-move-copy'
 import { chatSearchCopy, chatSearchErrorCopy } from './chat-search-copy'
 import { createWebChatSearchController, type WebChatSearchController } from './chat-search-controller'
 import { createHostChatSearchPort } from './chat-search-port'
@@ -143,12 +149,45 @@ function createRuntime(
   initialGlobalSettings?: GlobalSettingsStartup,
 ) {
   const goals = createGoalPlanCommandClient(client)
+  const sessionLaunchBranches = createSessionLaunchBranchesManager(client)
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId: hostId ?? 'pending:identity',
     initialGlobalSettings,
     directory: createDirectoryQueryAdapter(client),
     workspaces: createWorkspaceSessionCommandClient(client),
+    sidebarActivityEvents: {
+      subscribe(listener: () => void) {
+        const off = client.onEvent((event) => {
+          if (
+            event.method === 'host.changed' &&
+            [
+              'sessions',
+              'workspaces',
+              'workspace-display-names',
+              'workspace-organization',
+              'session-activity',
+              'agents',
+              'resync',
+            ].includes(event.params.kind)
+          )
+            listener()
+        })
+        const onVisible = () => {
+          if (document.visibilityState === 'visible') listener()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+          off()
+          document.removeEventListener('visibilitychange', onVisible)
+        }
+      },
+      onConnection(listener: (connected: boolean) => void) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     ...(hostId === null
       ? {}
       : {
@@ -254,6 +293,10 @@ function createRuntime(
       },
     },
     files: createFileCommandClient(client),
+    sessionLaunchTargets: createSessionLaunchTargetReader(client),
+    sessionLaunchTargetPreparation: createSessionLaunchTargetPreparationManager(client),
+    sessionLaunchBranches,
+    sessionLaunchBranchCreation: sessionLaunchBranches,
     agents: createAgentCommandClient(client),
     goals,
     goalEvents: {
@@ -266,6 +309,13 @@ function createRuntime(
     goalHistory: goals,
     planProposal: copy.planProposal,
     workflows: createWorkflowCommandClient(client),
+    workflowEvents: {
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     extensions: createExtensionCommandClient(client),
     system: createSystemCommandClient(client),
     metrics: createMetricsCommandClient(client),
@@ -514,6 +564,13 @@ function WorkspaceBodyContent({
     error: null,
   })
   const landingDraftId = useRef<string | null>(null)
+  const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  useEffect(() => {
+    for (const draft of Object.values(firstSendDrafts)) {
+      if (draft.phase === 'accepted')
+        void runtime.commands.execute('preSessionDraft.close', { draftId: draft.draftId }).catch(() => undefined)
+    }
+  }, [firstSendDrafts, runtime])
   const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
   useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
   useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
@@ -523,6 +580,8 @@ function WorkspaceBodyContent({
     if (!session || !landingDraftId.current) return
     const draftId = landingDraftId.current
     landingDraftId.current = null
+    const firstSend = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+    if (firstSend?.sessionId === session.id && firstSend.phase !== 'accepted') return
     void runtime.commands.execute('preSessionDraft.close', { draftId }).catch(() => undefined)
   }, [runtime, session])
   if (presentation.page.kind === 'status')
@@ -646,6 +705,21 @@ function WorkspaceBodyContent({
         workspacePath={sessionWorkspace?.path}
         sessionWorkspaceId={session.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
+        firstSendLabels={preSessionLaunchCopy(locale).status}
+        renderLaunchControls={() => (
+          <HbarSessionLaunchLocation
+            sessionId={session.id}
+            workspaceId={session.workspaceId}
+            workspaceName={
+              sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId
+            }
+            workspacePath={sessionWorkspace?.path}
+            connected={connected}
+            labels={preSessionLaunchCopy(locale).location}
+            statusLabels={preSessionLaunchCopy(locale).status}
+            moveLabels={sessionWorkspaceMoveCopy(locale)}
+          />
+        )}
         labels={copy.session}
         describeTool={createSessionToolPresenter(locale)}
         sendBehavior={selectedSendBehavior}
@@ -704,6 +778,9 @@ function WorkspaceBodyContent({
       locale={locale}
       connected={connected}
       sendBehavior={selectedSendBehavior}
+      modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
+      prepareAttachment={prepareAttachment}
+      images={images}
     />
   )
 }
@@ -1274,12 +1351,14 @@ export default function App({
         <HbarWorkspaceShell
           labels={copy.shell}
           mobileNavigationLabel={mobileShellNavigationLabel(locale)}
+          locale={locale}
           titlebar={
             nativeWindow ? (
               <NativeWindowTitlebar context={nativeWindow} labels={copy.windowControls} title={copy.shell.brand} />
             ) : undefined
           }
           sidebarWidthRem={sidebarLayout.size.preferredRem}
+          sidebarRailWidthRem={sidebarLayout.size.collapsedRem}
           sidebarLayout={{
             minWidthRem: sidebarLayout.size.minRem,
             maxWidthRem: sidebarLayout.size.maxRem,

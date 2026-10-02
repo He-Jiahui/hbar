@@ -130,10 +130,6 @@
   background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-frost));
 }
 
-.hbar-file-search-row[aria-current='true'] {
-  background: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-frost));
-}
-
 .hbar-file-search-path {
   display: flex;
   min-inline-size: 0;
@@ -197,6 +193,7 @@
 }
 
 .hbar-file-add-feedback {
+  flex: 0 0 auto;
   margin: 0;
   padding: 0.25rem 0.75rem;
   overflow-wrap: anywhere;
@@ -298,20 +295,15 @@
   white-space: pre;
 }
 
-.hbar-file-diff-content > span {
-  display: block;
-  min-inline-size: max-content;
-}
-
-.hbar-file-diff-content > [data-kind='addition'] {
+.hbar-file-diff-row[data-kind='addition'] {
   color: var(--lumen-success);
 }
 
-.hbar-file-diff-content > [data-kind='deletion'] {
+.hbar-file-diff-row[data-kind='deletion'] {
   color: var(--lumen-danger);
 }
 
-.hbar-file-diff-content > [data-kind='hunk'] {
+.hbar-file-diff-row[data-kind='hunk'] {
   color: var(--lumen-primary);
 }
 

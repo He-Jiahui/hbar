@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 const phase = process.env.HBAR_MODEL_RECOVERY_PHASE ?? 'current'
 if (!/^[A-Za-z0-9_-]+$/.test(phase)) throw new Error('Invalid model recovery evidence phase')
@@ -361,7 +362,7 @@ async function assertOriginal(f: Fixture, text: string, materials: boolean) {
   }
 }
 async function providers(f: Fixture) {
-  await f.page.getByRole('button', { name: f.copy.session.tools.settings, exact: true }).click()
+  await openSessionTool(f.page, f.copy.session.tools, 'settings')
   const groups = f.page.getByRole('navigation', { name: f.copy.settings.groups, exact: true })
   await groups
     .getByRole('button', { name: f.copy.settings.resolve('i18n:settings.groups.providers'), exact: true })

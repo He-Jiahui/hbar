@@ -1,0 +1,22 @@
+.hbar-message-file-reference {
+  overflow-wrap: anywhere;
+}
+.hbar-message-file-link {
+  color: var(--lumen-info);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+.hbar-message-file-link:focus-visible {
+  outline: 0.125rem solid var(--lumen-info);
+  outline-offset: 0.125rem;
+  border-radius: 0.125rem;
+}
+.hbar-message-file-reference > span > small {
+  margin-inline-start: 0.5em;
+  white-space: normal;
+  color: var(--lumen-muted);
+}
+.hbar-message-file-reference > span > small[role='alert'] {
+  color: var(--lumen-danger);
+}

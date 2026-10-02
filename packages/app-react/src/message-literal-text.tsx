@@ -1,0 +1,36 @@
+import { messageLiteralSegments } from './message-literal-text-model'
+import { splitMessageFileReferences } from './message-file-reference-model'
+import { MessageFileReferenceLink, type MessageFileReferenceContext } from './message-file-reference'
+
+/** Operator prompts are literal text, not Markdown documents or code previews. */
+export function MessageLiteralText({
+  text,
+  fileReferences,
+}: {
+  readonly text: string
+  readonly fileReferences?: MessageFileReferenceContext | undefined
+}) {
+  return (
+    <p className="hbar-session-message-literal">
+      {messageLiteralSegments(text).map((segment, index) =>
+        segment.kind === 'url' ? (
+          <a key={index} href={segment.value} target="_blank" rel="noreferrer noopener">
+            {segment.value}
+          </a>
+        ) : fileReferences ? (
+          splitMessageFileReferences(segment.value).map((part, ordinal) =>
+            part.kind === 'file' ? (
+              <MessageFileReferenceLink key={ordinal} reference={part.reference} context={fileReferences}>
+                {part.value}
+              </MessageFileReferenceLink>
+            ) : (
+              part.value
+            ),
+          )
+        ) : (
+          segment.value
+        ),
+      )}
+    </p>
+  )
+}

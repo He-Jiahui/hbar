@@ -20,6 +20,7 @@ import { createUsageFact } from '@hbar/usage'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
+import { createDriverSteeringReader } from './steering'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -319,6 +320,8 @@ function contentOf(message: AssistantMessage): ContentBlock[] {
 }
 
 export class PiDriver implements HarnessDriver {
+  readonly supportsCanonicalSteering = true
+  readonly supportsSteeringAdmissionClosure = true
   async run(input: DriverInput) {
     let stepId = '',
       streamId = '',
@@ -330,6 +333,24 @@ export class PiDriver implements HarnessDriver {
     const completedTools = new Set<string>()
     let goalCompleted = false
     let requestFailure: unknown
+    const readSteering = createDriverSteeringReader(input)
+    const pollSteering = async (closeWhenEmpty?: true) => {
+      if (input.signal.aborted || goalCompleted || requestFailure !== undefined) return []
+      try {
+        // These entries only wake the loop. The provider payload is rebuilt by
+        // beforeRequest, with its actual model, including attachment hydration.
+        return (await readSteering(closeWhenEmpty ? { closeWhenEmpty } : {})).map((message) => ({
+          role: 'user' as const,
+          content: message.content.filter((block) => block.type === 'text'),
+          timestamp: message.createdAt,
+        }))
+      } catch (error) {
+        // Pi requires polling not to reject. Retain the cause and fail before
+        // another provider request instead of silently dropping admitted input.
+        requestFailure = error ?? new Error('Run steering source failed')
+        return []
+      }
+    }
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
@@ -421,6 +442,8 @@ export class PiDriver implements HarnessDriver {
     }
     const streamFn: StreamFn = async () => {
       try {
+        if (requestFailure !== undefined) throw requestFailure
+        input.signal.throwIfAborted()
         const request = await input.beforeRequest(input.request, stepId)
         attemptModel = request.model
         const toolNames = request.toolNames
@@ -452,26 +475,38 @@ export class PiDriver implements HarnessDriver {
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
     }
-    await runAgentLoop(
-      [],
-      {
-        systemPrompt: input.request.system,
-        messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
-        tools,
-      },
-      {
-        model: modelOf(input.request.model),
-        convertToLlm: (messages) => messages as PiMessage[],
-        toolExecution: 'sequential',
-        shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
-      },
-      emit,
-      input.signal,
-      streamFn,
-    )
-    input.signal.throwIfAborted()
-    if (requestFailure !== undefined) throw requestFailure
-    if (failure) throw new Error(failure)
+    try {
+      await runAgentLoop(
+        [],
+        {
+          systemPrompt: input.request.system,
+          messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+          tools,
+        },
+        {
+          model: modelOf(input.request.model),
+          convertToLlm: (messages) => messages as PiMessage[],
+          toolExecution: 'sequential',
+          shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
+          ...(input.getSteeringMessages
+            ? {
+                getSteeringMessages: () => pollSteering(),
+                // Only the outer-loop natural-stop probe seals an empty source.
+                // Ordinary empty polls must not close admission during tool work.
+                getFollowUpMessages: () => pollSteering(true),
+              }
+            : {}),
+        },
+        emit,
+        input.signal,
+        streamFn,
+      )
+      input.signal.throwIfAborted()
+      if (requestFailure !== undefined) throw requestFailure
+      if (failure) throw new Error(failure)
+    } finally {
+      await input.closeSteeringAdmission?.()
+    }
   }
   async summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal) {
     const stream = streamProvider(

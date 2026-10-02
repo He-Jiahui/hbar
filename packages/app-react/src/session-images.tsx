@@ -21,6 +21,7 @@ import {
 } from '@lumen/app-ui'
 import {
   projectSessionDraftImages,
+  projectPreSessionDraftImages,
   projectSessionMessageImages,
   type ImageResourceErrorCode,
   type ImageResourcePort,
@@ -28,6 +29,7 @@ import {
   type ImageViewerItem,
   type SessionDraftState,
   type SessionImageProjection,
+  type PreSessionDraftState,
 } from '@hbar/app-runtime'
 import { useHbarRuntime, type HbarRuntimeView } from './runtime'
 import {
@@ -157,9 +159,11 @@ function ImageGallery({ fallback }: { readonly fallback: RefObject<HTMLDivElemen
 /** The host injects capability and copy; this layer only binds controlled image Views to their model. */
 export function HbarSessionImageLayer({
   options,
+  preSessionDraftId,
   children,
 }: {
   readonly options?: HbarSessionImagesOptions | undefined
+  readonly preSessionDraftId?: string | undefined
   readonly children: ReactNode
 }) {
   const runtime = useHbarRuntime()
@@ -177,7 +181,11 @@ export function HbarSessionImageLayer({
   )
   if (!options) return <>{children}</>
   return (
-    <HbarSessionImagesModelProvider resources={options.resources} hostIdentity={options.hostIdentity}>
+    <HbarSessionImagesModelProvider
+      resources={options.resources}
+      hostIdentity={options.hostIdentity}
+      preSessionDraftId={preSessionDraftId}
+    >
       <ImageContext.Provider value={context}>
         <LumenFrame
           className="hbar-session-images-layer"
@@ -346,17 +354,16 @@ export function HbarMessageImageContent({
   )
 }
 
-export function HbarDraftImageAttachments({
-  draft,
-  removeLabel,
-  removeDisabled,
-  onRemove,
-}: {
-  readonly draft: SessionDraftState
+interface DraftImageAttachmentActions {
   readonly removeLabel: (attachment: { id: string; kind: 'image' | 'file'; name: string }) => string
   readonly removeDisabled: boolean
   readonly onRemove: (id: string, kind: 'image' | 'file') => void
-}) {
+}
+
+export function HbarDraftImageAttachments({
+  draft,
+  ...actions
+}: DraftImageAttachmentActions & { readonly draft: SessionDraftState }) {
   const context = useContext(ImageContext)
   const projection = useMemo(
     () =>
@@ -368,6 +375,33 @@ export function HbarDraftImageAttachments({
         : null,
     [context?.hostIdentity, draft],
   )
+  return <DraftImageAttachmentContent draft={draft} projection={projection} {...actions} />
+}
+
+/** Confirmed local-draft photos use their real owner, with the existing resource and gallery layer. */
+export function HbarPreSessionDraftImageAttachments({
+  draft,
+  ...actions
+}: DraftImageAttachmentActions & { readonly draft: Readonly<PreSessionDraftState> }) {
+  const context = useContext(ImageContext)
+  const projection = useMemo(
+    () => (context?.hostIdentity ? projectPreSessionDraftImages({ hostIdentity: context.hostIdentity, draft }) : null),
+    [context?.hostIdentity, draft],
+  )
+  return <DraftImageAttachmentContent draft={draft} projection={projection} {...actions} />
+}
+
+function DraftImageAttachmentContent({
+  draft,
+  projection,
+  removeLabel,
+  removeDisabled,
+  onRemove,
+}: DraftImageAttachmentActions & {
+  readonly draft: Pick<SessionDraftState, 'attachments'>
+  readonly projection: SessionImageProjection | null
+}) {
+  const context = useContext(ImageContext)
   const identity = JSON.stringify([projection?.sourceId, projection?.request.items])
   const { container, visible } = useImageCollectionVisibility(identity)
   const thumbnails = useSessionImageThumbnails(projection, { visible })

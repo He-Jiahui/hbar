@@ -7,6 +7,12 @@ import { emptyUsage, providerSchema, type Run, type SessionEvent } from '@hbar/c
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { createUsageFact, describeUsageAttempt, UsageService, type UsageReadRow } from '@hbar/usage'
 import { startServer } from '../apps/host/src/server.ts'
+import { usageAttemptExportSchema } from '@hbar/contracts/commands/usage'
+
+test('usage export preserves guided as a distinct Run status rather than completed or cancelled', () => {
+  expect(usageAttemptExportSchema.shape.runStatus.parse('guided')).toBe('guided')
+  expect(usageAttemptExportSchema.shape.runStatus.parse(null)).toBeNull()
+})
 
 test('usage commands query session descendants, run scope, filters, and paged export', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-usage-commands-'))

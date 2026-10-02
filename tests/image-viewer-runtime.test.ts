@@ -184,7 +184,7 @@ test('viewer captures immutable source/occurrences, publishes only safe metadata
     expect(testbed.calls[0]?.purpose).toBe('full')
     expect(testbed.calls[0]?.artifact.name).toBe('同名 image.png')
     const retained = testbed.viewer.reader.getSnapshot().request
-    expect(retained?.source.sessionId).toBe('session-a')
+    expect(retained?.source).toMatchObject({ sessionId: 'session-a' })
     expect(retained?.items).toHaveLength(2)
     expect(Object.isFrozen(retained?.source)).toBe(true)
     expect(Object.isFrozen(retained?.items[0]?.artifact)).toBe(true)
@@ -335,7 +335,7 @@ test('source membership invalidation closes ready content; text-only draft revis
   const testbed = fixture((value) => {
     if (value.source.kind === 'draft')
       checked.push({ captured: value.source.draftRevision, canonical: canonicalRevision })
-    return value.source.sessionId === 'session-a'
+    return value.source.kind !== 'pre-session-draft' && value.source.sessionId === 'session-a'
   })
   try {
     testbed.viewer.open(request())

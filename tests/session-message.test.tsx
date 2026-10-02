@@ -19,6 +19,25 @@ function toolRow(blocks: readonly SessionMessageBlock[]) {
   return row
 }
 
+test('a Host-supplied tool action stays beside a collapsed disclosure and never nests its button', () => {
+  const html = renderToStaticMarkup(
+    <HbarMessageBlocks
+      sessionId="parent"
+      messageId="source-message"
+      blocks={[
+        { type: 'thinking', text: 'Investigating' },
+        { type: 'tool_call', name: 'agent', callId: 'call', args: {} },
+      ]}
+      labels={messageLabels('zh-CN').blocks}
+      renderToolAction={(row) => (row.call?.callId === 'call' ? <button>打开原子任务并保留当前草稿</button> : null)}
+    />,
+  )
+  expect(html).toContain('hbar-session-disclosure-heading')
+  expect(html).toContain('打开原子任务并保留当前草稿')
+  expect(html).toContain('aria-expanded="false"')
+  expect(html).not.toMatch(/<button[^>]*>(?:(?!<\/button>)[\s\S])*<button/)
+})
+
 test('output copy belongs beside its result, not input, thinking, reply text, or a missing output', () => {
   for (const locale of ['en-US', 'zh-CN'] as const) {
     const labels = messageLabels(locale).blocks

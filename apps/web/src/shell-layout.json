@@ -9,7 +9,7 @@
       "region": "left",
       "order": 0,
       "visible": true,
-      "size": { "minRem": 12, "preferredRem": 17, "maxRem": 24 },
+      "size": { "minRem": 12, "preferredRem": 17, "maxRem": 24, "collapsedRem": 4.5 },
       "config": { "narrowPresentation": "drawer" }
     },
     {

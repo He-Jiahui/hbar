@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { Paperclip, Plus, Slash, Target } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { HbarActionIconButton } from './action-icon-button'
 import './composer-add-menu.css'
 
 export interface HbarComposerAddMenuLabels {
@@ -101,7 +102,7 @@ export function HbarComposerAddMenu({
 
   return (
     <LumenFrame ref={root} className="hbar-composer-add-root">
-      <LumenIconButton
+      <HbarActionIconButton
         ref={setTrigger}
         label={labels.open}
         disabled={!canAddFiles && !(showSlash && canOpenSlash) && !hasGoal}
@@ -110,7 +111,7 @@ export function HbarComposerAddMenu({
         onClick={() => setOpen((value) => !value)}
       >
         <LumenIcon icon={Plus} tier="md" />
-      </LumenIconButton>
+      </HbarActionIconButton>
       <LumenFrame id={id} role="group" aria-label={labels.menu} className="hbar-composer-add-popover" hidden={!open}>
         {onFiles && (
           <LumenButton

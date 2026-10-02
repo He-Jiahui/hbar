@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`Agent model chooser becomes a touch sheet without opening the keyboard first: ${locale}`, async ({
@@ -41,7 +42,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await page.evaluate(() => matchMedia('(max-width: 40rem) and (pointer: coarse)').matches)).toBe(true)
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
       const trigger = page.locator('.hbar-agent-model-trigger')
       await trigger.click()
@@ -128,7 +129,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await page.getByRole('button', { name: copy.session.tools.agents, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
       const trigger = page.locator('.hbar-agent-model-trigger')
       await expect(trigger).toBeVisible()

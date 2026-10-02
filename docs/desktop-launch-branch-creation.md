@@ -1,0 +1,15 @@
+# Immediate launch branch creation capability
+
+CC's `RepositoryLaunchControls` creates a local branch when the New Branch form is submitted, then selects it and closes the menu. Choosing an existing branch only updates launch selection; the shared checkout occurs on first send, not on the row click.
+
+The original-component desktop/narrow form captures are under `D:/Git/hbar/artifacts/ui-reference/cc-haha-runtime/repository-launch-audit-20260929/component-reference/captures-styled-flow-20260929/`. They mount the current CC component and real CSS with synthetic API data; they do not prove a Host branch mutation. Root inspected the flowing title, name field, base hint and Cancel/Create action group.
+
+This commit delivers the Host/SDK creation capability needed to wire that form. It does not yet claim the form or shared-branch switching is available in hbar.
+
+- `sessionLaunchBranches.create` accepts a registered `workspaceId`, branch `name`, local `baseRef` and `expectedBaseOid`. Only the Host resolves the workspace path.
+- `GitService.createLaunchBranch` validates the local ref and captured OID, creates the new branch without checkout or force, verifies the result and notifies Git observers. HEAD, the current branch and working files are not switched. Duplicate branch names are rejected, including concurrent create attempts.
+- The path-free result carries the original workspace and base plus the created name/ref/OID. The public `createSessionLaunchBranchesManager` checks that acknowledgement against the captured request.
+- Lost, interrupted or invalid acknowledgements remain `RESULT_UNKNOWN`; the adapter never automatically retries a write. A caller must use the original workspace's read-only discovery and require an exact created ref/OID match before adopting it.
+- The creation options retain the existing `idempotencyKey` field name only as a single-attempt correlation key. The descriptor explicitly uses `idempotency: none`: there is no persisted creation receipt or same-key replay. `durable: true` is the command framework's external-handler/authentication gate, not a journal. Git's atomic non-overwriting branch creation prevents duplicate ref mutations; it does not turn a lost response into a known acknowledgement.
+
+Validation: the real temporary-Git creation path verifies the selected base, unchanged HEAD/current branch, invalid names, duplicate names, missing base and changed base. The branch suite passed with a 15-second per-test allowance (its existing 50-ref discovery fixture can exceed Bun's default 5 seconds). Client tests passed 13/13 with 65 assertions, including exact acknowledgement validation, no arbitrary cwd, pre-dispatch cancellation and no retry after a lost response. Scoped strict TypeScript/ESLint and diff checks passed. Baseline SDK, kernel branch-command and client branch-adapter files already fail whole-file Prettier checks; no unrelated whole-file rewrite was made. No paid provider, user repository mutation or native desktop build was used.

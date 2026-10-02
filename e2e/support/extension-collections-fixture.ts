@@ -11,6 +11,7 @@ import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../../apps/web/src/shell-copy'
 import { expectComposerText } from './composer-text'
+import { openSessionTool } from './session-tools-menu'
 
 const prefix = 'hbar-extension-collections-ui-'
 const readySchema = z.object({
@@ -293,7 +294,7 @@ export async function openExtensions(f: ExtensionCollectionsFixture): Promise<vo
   await openSettingsGroup(f, 'extensions')
 }
 export async function openSettingsGroup(f: ExtensionCollectionsFixture, group: 'extensions' | 'skills'): Promise<void> {
-  await f.page.getByRole('button', { name: f.copy.session.tools.settings, exact: true }).click()
+  await openSessionTool(f.page, f.copy.session.tools, 'settings')
   await selectExtensionCollection(f, group === 'extensions' ? 'plugins' : 'skills')
 }
 export async function selectExtensionCollection(

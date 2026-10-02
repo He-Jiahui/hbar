@@ -5,6 +5,8 @@ import { fileCommands } from '@hbar/contracts/commands/files'
 import { workspaceFindInputSchema } from '@hbar/contracts/workspace-query'
 import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
+import { createSessionWorkspaceContext } from './session-workspace-context'
+import type { SessionWorkspaceInput, SessionWorkspaceResolver } from './session-workspace-context'
 
 const digest = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
@@ -16,7 +18,13 @@ function decodeText(bytes: Uint8Array): string {
   }
 }
 
-export function createFileCommands(storage: StoragePort, execution: ExecutionProvider) {
+export type SessionFileWorkspaceResolver = SessionWorkspaceResolver
+
+export function createFileCommands(
+  storage: StoragePort,
+  execution: ExecutionProvider,
+  sessionWorkspace?: SessionFileWorkspaceResolver,
+) {
   const registry = new CommandRegistry({ execution: 'host' })
   const writes = new Map<string, Promise<void>>()
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
@@ -27,12 +35,14 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
       throw error
     }
   }
-  const workspace = async (workspaceId: string) => storage.call('workspace', workspaceId)
-  const read = async (workspaceId: string, path: string) => {
-    const target = await workspace(workspaceId)
-    const bytes = await execution.readBytes(target.path, path)
+  const sessionContext = createSessionWorkspaceContext(storage, sessionWorkspace)
+  const workspace = sessionContext.resolve
+  const assertSessionTarget = sessionContext.assertCurrent
+  const read = async (input: SessionWorkspaceInput, workspacePath: string, path: string) => {
+    const bytes = await execution.readBytes(workspacePath, path)
     return {
-      workspaceId,
+      workspaceId: input.workspaceId,
+      ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
       path,
       text: decodeText(bytes),
       size: bytes.byteLength,
@@ -58,7 +68,7 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
 
   registry.register(fileCommands['file.find'], (input, context) =>
     translate(async () => {
-      const target = await workspace(input.workspaceId)
+      const target = await workspace(input, context.signal)
       if (!execution.workspaceQuery)
         throw new CommandError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
       context.signal.throwIfAborted()
@@ -69,9 +79,9 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
       )
     }),
   )
-  registry.register(fileCommands['file.list'], (input) =>
+  registry.register(fileCommands['file.list'], (input, context) =>
     translate(async () => {
-      const target = await workspace(input.workspaceId)
+      const target = await workspace(input, context.signal)
       // Cursor comparison and page ordering must use one global strict order.
       const entries = (await execution.list(target.path, input.path)).sort((left, right) =>
         left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
@@ -84,19 +94,27 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
       }
     }),
   )
-  registry.register(fileCommands['file.read'], (input) => translate(() => read(input.workspaceId, input.path)))
+  registry.register(fileCommands['file.read'], (input, context) =>
+    translate(async () => {
+      const target = await workspace(input, context.signal)
+      return read(input, target.path, input.path)
+    }),
+  )
   registry.register(
     fileCommands['file.write'],
     (input, context) =>
       translate(async () => {
         if (!context.actorId) throw new HbarError('INVALID_INPUT', 'Authenticated actor is required')
-        const target = await workspace(input.workspaceId)
-        const key = `${target.id}\u0000${input.path}`
+        const target = await workspace(input, context.signal)
+        // Shared sessions still serialize writes to the same physical checkout.
+        const rootKey = process.platform === 'win32' ? target.path.toLocaleLowerCase() : target.path
+        const key = `${rootKey}\u0000${input.path}`
         return serialized(key, async () => {
           context.signal.throwIfAborted()
+          await assertSessionTarget(input)
           let before: Awaited<ReturnType<typeof read>> | null = null
           try {
-            before = await read(input.workspaceId, input.path)
+            before = await read(input, target.path, input.path)
           } catch (error) {
             if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
           }
@@ -105,6 +123,7 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
           if (before?.sha256 === afterSha256)
             return {
               workspaceId: input.workspaceId,
+              ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
               path: input.path,
               created: false,
               beforeSha256: input.expectedSha256,
@@ -114,9 +133,11 @@ export function createFileCommands(storage: StoragePort, execution: ExecutionPro
           if ((before?.sha256 ?? null) !== input.expectedSha256)
             throw new HbarError('FILE_CONFLICT', 'File changed since the supplied baseline')
           context.signal.throwIfAborted()
+          await assertSessionTarget(input)
           await execution.write(target.path, input.path, input.text)
           return {
             workspaceId: input.workspaceId,
+            ...(input.sessionTarget ? { sessionTarget: input.sessionTarget } : {}),
             path: input.path,
             created: before === null,
             beforeSha256: before?.sha256 ?? null,

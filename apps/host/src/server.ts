@@ -15,6 +15,8 @@ import {
   createConfigurationCommands,
   createGitCommands,
   createWorkspaceSessionCommands,
+  createSessionLaunchTargetCommands,
+  createSessionLaunchBranchesCommands,
   createBudgetCommands,
   createFileCommands,
   createGoalPlanCommands,
@@ -33,12 +35,17 @@ import { computerCommands as computerDefinitions } from '@hbar/contracts/command
 import { configurationCommands as configurationDefinitions } from '@hbar/contracts/commands/configuration'
 import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
 import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
+import { sessionLaunchTargetCommands as sessionLaunchTargetDefinitions } from '@hbar/contracts/commands/session-launch-target'
+import { sessionLaunchBranchesCommands as sessionLaunchBranchesDefinitions } from '@hbar/contracts/commands/session-launch-branches'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
 import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
-import { runCommands as runDefinitions } from '@hbar/contracts/commands/run'
+import {
+  queuedRunGuidedOperationId as guidedOperationId,
+  runCommands as runDefinitions,
+} from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
@@ -134,10 +141,24 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         .sort((left, right) => left.id.localeCompare(right.id))
     },
   })
-  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'))
+  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'), {
+    storage: kernel.storage,
+    resolveSessionPath: (sessionId, workspacePath, signal) =>
+      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  })
   const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
+  const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
+    kernel.changed('session-launch-target'),
+  )
+  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
+    kernel.storage,
+    kernel.plugins.get<GitService>('git'),
+  )
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
-  const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'))
+  const fileCommands = createFileCommands(kernel.storage, kernel.plugins.get<ExecutionProvider>('execution'), {
+    resolveSessionPath: (sessionId, workspacePath, signal) =>
+      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  })
   const goalPlanCommands = createGoalPlanCommands(
     kernel.plugins.get<GoalService>('goal'),
     kernel.plugins.get<PlanService>('plan'),
@@ -165,6 +186,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: directoryDefinitions, service: kernel.directoryQueries },
     { definitions: sessionSearchDefinitions, service: sessionSearchCommands },
     { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
+    { definitions: sessionLaunchTargetDefinitions, service: sessionLaunchTargetCommands },
+    { definitions: sessionLaunchBranchesDefinitions, service: sessionLaunchBranchesCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
@@ -380,6 +403,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           return runCommands.getQueuedEditTextReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
         if (input.commandId === 'queuedRun.remove')
           return runCommands.getQueuedRemoveReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.guide')
+          return runCommands.getQueuedRunGuideReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
         return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
       }
       case 'operation.watch': {
@@ -393,7 +418,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const reset = events.length > 200 || input.cursor > session.seq
         return {
           snapshot,
-          events: reset ? [] : events.filter((event) => event.runId === input.operationId),
+          events: reset
+            ? []
+            : events.filter(
+                (event) => event.runId === input.operationId || guidedOperationId(event) === input.operationId,
+              ),
           cursor: session.seq,
           reset,
         }
@@ -1150,7 +1179,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       if (event.method === 'session.event' || event.method === 'stream.update') {
         const bySession = socket.data.follows.has(event.params.sessionId)
         const byOperation = Boolean(event.params.runId && socket.data.operationFollows.has(event.params.runId))
-        if (!bySession && !byOperation) continue
+        const guidedId = event.method === 'session.event' ? guidedOperationId(event.params) : null
+        const byGuidedOperation = guidedId !== null && socket.data.operationFollows.has(guidedId)
+        if (!bySession && !byOperation && !byGuidedOperation) continue
       }
       send(socket, { jsonrpc: '2.0', ...event })
     }
@@ -1173,6 +1204,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       extensionCommands.dispose()
       gitCommands.dispose()
       workspaceSessionCommands.dispose()
+      sessionLaunchTargetCommands.dispose()
+      sessionLaunchBranchesCommands.dispose()
       await sessionSearchCommands.dispose()
       budgetCommands.dispose()
       fileCommands.dispose()

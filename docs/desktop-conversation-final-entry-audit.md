@@ -105,3 +105,7 @@
 本轮审计脚本曾有三类非产品失败并已准确修正重跑：模型搜索是searchbox不是textbox；响应式sidebar在截图切宽时自动收起导致旧Hide locator失效；CodeMirror placeholder不能用 `toHaveText('')` 作为空草稿，改用既有 `expectComposerText`。另首次45113 Host已清理后被另一agent的Vite占用，下一次启动报EADDRINUSE；没有操作其PID，按主线统一换45112，45117检查占用后未启动。最终捕图均exit0，不能把这些harness失败算产品回归。
 
 最终Host [ownership](../artifacts/desktop-final-entry-audit/conversation/host-ownership.json) / [cleanup](../artifacts/desktop-final-entry-audit/conversation/host-cleanup.json) 记录pid40156、精确临时目录 `C:/Users/HeJiahui/AppData/Local/Temp/hbar-final-conversation-audit-8mMfeI`、SIGTERM退出及目录移除；最终端口/服务复核见 [service-cleanup.json](../artifacts/desktop-final-entry-audit/conversation/service-cleanup.json)。此前失败attempt的自身临时目录由各自finally清理。保护PID9572/48668未查询、未停止。未运行native、未构建exe、未跑全仓check，亦未将只读视觉审查写成那些门禁通过。
+
+### 后续交付更新：运行中队列引导
+
+上述审计时记录的 Guide 缺口现已接通：composer 上方逐行「引导／编辑／删除」，通过公开 `queuedRun.guide` 将选中项送入原运行，不取消、不重开、不清草稿；未知结果只按原键核对。已完成一次真实 Host、默认 Pi、本地测试提供商的中文宽屏到窄屏连续流程。具体范围、策略限制、视觉依据和验证见 [同运行队列引导](queued-run-guidance-storage.md#public-command-and-composer-flow)。此更新不改变 Goal+Plan 与 `/agent` 的待选语义，也不代表全部桌面迁移已完成。

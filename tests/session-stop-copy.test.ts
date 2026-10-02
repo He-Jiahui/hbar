@@ -29,6 +29,7 @@ for (const locale of ['en-US', 'zh-CN'] satisfies readonly ShellLocale[]) {
       labels.completed,
       labels.runFailed,
       labels.interrupted,
+      labels.guided,
     ]
     expect(new Set(messages).size).toBe(messages.length)
     for (const value of Object.values(labels)) {

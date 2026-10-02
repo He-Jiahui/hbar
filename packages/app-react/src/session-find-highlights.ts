@@ -2,6 +2,7 @@ import type { ConversationFindState } from '@hbar/app-runtime'
 import { sessionFindDomRanges, type SessionFindTextProjection } from './session-find-text'
 import type { SessionFindSourceProjection } from './session-find-source'
 import { isSessionCodeChrome, revealSessionCodeBlocks } from './session-code-block-dom'
+import { isSessionNavigationChrome } from './session-navigation-chrome'
 
 interface FindPaintSnapshot {
   readonly state: ConversationFindState
@@ -20,7 +21,7 @@ function sessionFindRangeMapper(
   let group = 0
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      if (node instanceof Element && isSessionCodeChrome(node)) {
+      if (node instanceof Element && (isSessionCodeChrome(node) || isSessionNavigationChrome(node))) {
         // A DOM Range crossing excluded UI would still select that UI text.
         // Retain the barrier even when the chrome currently has no text.
         group++

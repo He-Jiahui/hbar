@@ -6,10 +6,17 @@ import {
   tokenizeCommand,
   type ExecuteOptions,
 } from '@hbar/commands'
+/** Public application error for View-side validation without reaching into command infrastructure. */
+export { CommandError as RuntimeCommandError } from '@hbar/commands'
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'
 import { preSessionDraftCommands } from '@hbar/contracts/commands/pre-session-draft'
+export type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
+export type { SessionLaunchSelection } from '@hbar/contracts/commands/session-launch-target'
+export type { SessionLaunchBranchesPage } from '@hbar/contracts/commands/session-launch-branches'
+export type { PromptWorkspaceContext, PromptWorkspaceContextInput } from '@hbar/contracts/commands/draft'
+export { MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH } from '@hbar/contracts/commands/draft'
 import { runAcceptedSchema, runCommands } from '@hbar/contracts/commands/run'
 import { runActionCommands } from '@hbar/contracts/commands/run-action'
 export { runActionCommands } from '@hbar/contracts/commands/run-action'
@@ -23,6 +30,10 @@ import { providerEditorCommands } from '@hbar/contracts/commands/provider-editor
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { commandPaletteCommands } from '@hbar/contracts/commands/command-palette'
 import { fileWorkspaceCommands } from '@hbar/contracts/commands/file-workspace'
+export type { SessionFileTarget } from '@hbar/contracts/commands/files'
+export type { FileComposerContextSelection } from '@hbar/contracts/commands/file-workspace'
+export { projectWorkspaceDiffRows, selectWorkspaceDiffRange } from './file-context-selection'
+export type { WorkspaceDiffRow, WorkspaceDiffRange } from './file-context-selection'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
@@ -34,10 +45,14 @@ import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeli
 import { createState } from './state'
 import { startupSettingsState } from './startup-settings'
 import { createSessionExecutionAccess } from './session-execution-access'
+import { createSelectedSessionExecution, selectedSessionExecutionCommands } from './selected-session-execution'
+export { selectedSessionExecutionCommands } from './selected-session-execution'
+export type { SelectedSessionExecutionState } from './selected-session-execution'
 import { createSessionExecutionPreparation } from './session-execution-preparation'
 import { createDirectoryModule } from './directory'
+export { parseWorkspacePage } from './directory'
 import { registerNavigationCommands } from './navigation'
-import { createWorkspaceTabs, workspaceTabCommands } from './workspace-tabs-runtime'
+import { createWorkspaceTabs, workspaceTabCommands, MAX_WORKSPACE_TABS } from './workspace-tabs-runtime'
 import { createAgentChildNavigation, agentChildNavigationCommands } from './agent-child-navigation'
 import { createSessionMessageForkNavigation, sessionMessageForkCommands } from './session-message-fork-navigation'
 export { workspaceTabCommands } from './workspace-tabs-runtime'
@@ -60,13 +75,16 @@ import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
+import { createConversationReading } from './conversation-reading'
+export { createConversationReading } from './conversation-reading'
+export type { ConversationReadingPosition, ConversationReadingTarget } from './conversation-reading'
 import { activityWorkspaceCommands, createActivityWorkspace } from './activity-workspace'
 export {
   activityWorkspaceCommands,
   ACTIVITY_WORKSPACE_MAX_ITEMS,
   ACTIVITY_WORKSPACE_PAGE_SIZE,
 } from './activity-workspace'
-export type { ActivityWorkspaceEntryState, ActivityWorkspaceState } from './types'
+export type { ActivityWorkspaceEntryState, ActivityWorkspaceState, ActivityAgentEntryState } from './types'
 import { createQueuedUserRuns, queuedUserRunsCommands } from './queued-user-runs'
 export { queuedUserRunsCommands, QUEUED_USER_RUNS_PAGE_SIZE } from './queued-user-runs'
 export type { QueuedUserRunsState } from './queued-user-runs'
@@ -83,11 +101,23 @@ export type {
 } from './goal-history'
 import { createDrafts } from './drafts'
 import { createPreSessionDrafts } from './pre-session-drafts'
+import { createPreSessionLaunchBranches, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
+import {
+  createPreSessionLaunchBranchCreation,
+  preSessionLaunchBranchCreationCommands,
+  sessionLaunchBranchCreationCommands,
+} from './pre-session-launch-branch-creation'
+import { createSessionLaunchDrafts, sessionLaunchDraftCommands } from './session-launch-drafts'
+import { createSessionWorkspaceMove, sessionWorkspaceMoveCommands } from './session-workspace-move'
+import { agentPageSchema } from '@hbar/contracts/commands/agents'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
+import { createPreSessionModelCatalog } from './pre-session-model-catalog'
+export type { PreSessionModelCatalogState, PreSessionModelCatalogActions } from './pre-session-model-catalog'
+export { preSessionModelSelection, type PreSessionModelSelection } from './pre-session-model-selection'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { composerPermissionCommands, createComposerPermission } from './composer-permission'
 import { composerPlanModeCommands, createComposerPlanMode } from './composer-plan-mode'
@@ -98,10 +128,27 @@ import { createSettingsForms } from './settings-forms'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
+import { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
+export { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
 export { filteredFileChanges, FILE_CHANGES_PAGE_SIZE } from './file-workspace-changes'
 import { createAgentWorkspace } from './agent-workspace'
 import { agentComposerCommands, createAgentComposer } from './agent-composer'
 export { agentComposerCommands } from './agent-composer'
+import { composerBackgroundAgentsCommands, createComposerBackgroundAgents } from './composer-background-agents'
+export { composerBackgroundAgentsCommands } from './composer-background-agents'
+export {
+  COMPOSER_BACKGROUND_AGENTS_MAX_ITEMS,
+  COMPOSER_BACKGROUND_AGENTS_PAGE_SIZE,
+  COMPOSER_BACKGROUND_AGENTS_MAX_CONCURRENT_CANCELS,
+} from './composer-background-agents'
+export type {
+  ComposerBackgroundAgentsState,
+  ComposerBackgroundAgentsEntry,
+  ComposerBackgroundAgentsAction,
+  ComposerBackgroundAgentTarget,
+  ComposerBackgroundAgentsReadStatus,
+  ComposerBackgroundAgentsActionStatus,
+} from './composer-background-agents'
 import { createGoalPlanWorkspace } from './goal-plan-workspace'
 import { createWorkflowWorkspace } from './workflow-workspace'
 import { createExtensionWorkspace } from './extension-workspace'
@@ -111,6 +158,16 @@ import { createSessionGitContext, sessionGitContextCommands } from './session-gi
 import { createSessionRosterRefresh, sessionRosterRefreshCommands } from './session-roster-refresh'
 export { sessionRosterRefreshCommands } from './session-roster-refresh'
 export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
+export { PRE_SESSION_LAUNCH_BRANCHES_PAGE_SIZE, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
+export type { PreSessionLaunchBranchesState } from './pre-session-launch-branches'
+export {
+  preSessionLaunchBranchCreationCommands,
+  sessionLaunchBranchCreationCommands,
+} from './pre-session-launch-branch-creation'
+export type {
+  PreSessionLaunchBranchCreationEntry,
+  PreSessionLaunchBranchCreationState,
+} from './pre-session-launch-branch-creation'
 import { createSettingsUsage, settingsUsageCommands } from './settings-usage'
 export { settingsUsageCommands, SETTINGS_USAGE_MAX_BUCKETS } from './settings-usage'
 export type { SettingsUsageWindow, SettingsUsageReport, SettingsUsageEntry, SettingsUsageState } from './settings-usage'
@@ -118,6 +175,9 @@ export type { SessionGitContextState } from './session-git-context'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
 import { createClientPersistence } from './client-persistence'
 import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
+import { createWorkspaceActivity, workspaceActivityCommands } from './workspace-activity'
+export { workspaceActivityCommands, orderWorkspaceActivityIds } from './workspace-activity'
+export type { WorkspaceActivityState, WorkspaceActivityOptions } from './workspace-activity'
 import { createWorkspaceOrganization, workspaceOrganizationClientCommands } from './workspace-organization'
 export { workspaceOrganizationClientCommands } from './workspace-organization'
 export type { WorkspaceOrganizationState, WorkspaceOrganizationAction } from './workspace-organization'
@@ -157,15 +217,22 @@ export type {
 } from './image-viewer'
 export {
   projectSessionDraftImages,
+  projectPreSessionDraftImages,
   projectSessionMessageImages,
+  containsPreSessionDraftImages,
+  isPreSessionImageRequestCurrent,
   isSessionImageRequestCurrent,
 } from './session-image-sources'
 export type {
   SessionImageProjection,
+  PreSessionImageProjection,
   SessionImageDraftInput,
+  PreSessionDraftImageInput,
   SessionImageMessageInput,
   SessionImageMembership,
+  PreSessionImageMembership,
   SessionImageDraft,
+  PreSessionImageDraft,
   SessionImageMessage,
   SessionImageTimeline,
 } from './session-image-sources'
@@ -203,6 +270,8 @@ export type {
   GlobalSettingsStartup,
   RunCommandPort,
   SessionDraftState,
+  SessionLaunchDraftEntry,
+  SessionLaunchDraftState,
   PreSessionDraftsState,
   SessionAttachmentUpload,
   SessionControlsState,
@@ -277,6 +346,13 @@ export type {
 export { composerPlanModeCommands } from './composer-plan-mode'
 export { composerPlanChoiceCommands } from './composer-plan-choice'
 export type { ComposerPlanModeState, ComposerPlanModeEntry, ComposerPlanMode } from './composer-plan-mode'
+export { sessionLaunchDraftCommands } from './session-launch-drafts'
+export { sessionWorkspaceMoveCommands } from './session-workspace-move'
+export type {
+  SessionWorkspaceMoveState,
+  SessionWorkspaceMoveEntry,
+  SessionWorkspaceMovePhase,
+} from './session-workspace-move'
 export type { SessionRenameState, SessionRenameOptions } from './session-rename'
 export type {
   SessionArchiveState,
@@ -307,6 +383,7 @@ const runtimeCommands = {
   ...goalHistoryCommands,
   ...queuedUserRunsCommands,
   ...composerIntentCommands,
+  ...selectedSessionExecutionCommands,
   ...composerPermissionCommands,
   ...composerPlanModeCommands,
   ...composerPlanChoiceCommands,
@@ -317,12 +394,20 @@ const runtimeCommands = {
   ...workspaceTabCommands,
   ...sessionToolCommands,
   ...agentComposerCommands,
+  ...composerBackgroundAgentsCommands,
   ...workspacePinCommands,
+  ...workspaceActivityCommands,
   ...workspaceOrganizationClientCommands,
   ...workspaceDisplayNamesClientCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
+  ...preSessionLaunchBranchesCommands,
+  ...preSessionLaunchBranchCreationCommands,
+  ...sessionLaunchBranchCreationCommands,
+  ...sessionLaunchDraftCommands,
+  ...sessionWorkspaceMoveCommands,
   ...systemDiagnosticsCommands,
+  ...sessionFileReferenceCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -346,6 +431,12 @@ export function createAppRuntime(options: RuntimeOptions) {
   const local = new CommandRegistry({ execution: 'client' })
   const platform = new CommandRegistry({ execution: 'platform' })
   let disposed = false
+  const preSessionLaunchBranches = createPreSessionLaunchBranches(
+    local,
+    options.sessionLaunchBranches,
+    onSubscriberError,
+    () => disposed,
+  )
   const clientPersistence = createClientPersistence(local, options, onSubscriberError, () => disposed)
   const directory = createDirectoryModule(
     options,
@@ -384,6 +475,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     directory.reader,
     onSubscriberError,
     () => disposed,
+    options.sessionLaunchTargets,
   )
   const workspacePins = createWorkspacePins(local, {
     preferences: clientPersistence.preferences,
@@ -392,6 +484,22 @@ export function createAppRuntime(options: RuntimeOptions) {
     refreshPreferences: clientPersistence.refreshPreferences,
     directory: directory.reader,
     queries: directory.queries,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const workspaceActivity = createWorkspaceActivity(local, {
+    preferences: clientPersistence.preferences,
+    preferencesReady: clientPersistence.ready,
+    preferenceCommands: local,
+    refreshPreferences: clientPersistence.refreshPreferences,
+    queries: directory.queries,
+    pins: workspacePins.reader,
+    hiddenWorkspaceIds: () => workspaceOrganization.reader.getSnapshot().snapshot?.hiddenWorkspaceIds ?? [],
+    directory: directory.reader,
+    projectActivityWorkspaces: directory.projectActivityWorkspaces,
+    projectActivitySessions: directory.projectActivitySessions,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
+    ...(options.sidebarActivityEvents ? { sidebarActivityEvents: options.sidebarActivityEvents } : {}),
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -498,9 +606,83 @@ export function createAppRuntime(options: RuntimeOptions) {
     navigation.reader,
     onSubscriberError,
     () => disposed,
+    {
+      ...(options.agents ? { agents: options.agents } : {}),
+      ...(options.sidebarActivityEvents ? { events: options.sidebarActivityEvents } : {}),
+    },
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
   const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const conversationReading = createConversationReading(onSubscriberError)
+  const offReadingTabs = workspaceTabs.reader.subscribe(() => {
+    conversationReading.retainTargets(
+      workspaceTabs.reader
+        .getSnapshot()
+        .items.flatMap((tab) =>
+          tab.kind === 'session'
+            ? [{ workspaceId: tab.workspaceId, sessionId: tab.sessionId, sourceTabInstanceKey: tab.instanceKey }]
+            : [],
+        ),
+    )
+  })
+  const sessionLaunchDrafts = createSessionLaunchDrafts(local, {
+    queries: directory.queries,
+    ...(options.timeline ? { timeline: options.timeline } : {}),
+    ...(options.sessionLaunchTargetPreparation ? { preparation: options.sessionLaunchTargetPreparation } : {}),
+    navigation: navigation.reader,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const sessionLaunchBranchCreation = createPreSessionLaunchBranchCreation(local, {
+    commandFamily: 'session',
+    ...(options.sessionLaunchBranches ? { reader: options.sessionLaunchBranches } : {}),
+    ...(options.sessionLaunchBranchCreation ? { manager: options.sessionLaunchBranchCreation } : {}),
+    choice: {
+      read(sessionId) {
+        const entry = sessionLaunchDrafts.reader.getSnapshot().entries[sessionId]
+        if (!entry) return undefined
+        const selected = navigation.reader.getSnapshot()
+        const access = sessionExecutionAccess.get({ sessionId, workspaceId: entry.workspaceId })
+        const history = timeline.reader.getSnapshot()
+        return {
+          workspaceId: entry.workspaceId,
+          revision: entry.revision,
+          launchSelection: entry.selection,
+          editError:
+            selected.status !== 'idle' || selected.sessionId !== sessionId || selected.workspaceId !== entry.workspaceId
+              ? 'STALE_TARGET'
+              : access.kind === 'archived'
+                ? 'SESSION_ARCHIVED'
+                : access.kind !== 'ready'
+                  ? 'SESSION_UNVERIFIED'
+                  : [
+                        'selection',
+                        'starting',
+                        'queued',
+                        'preparing',
+                        'cancel-requested',
+                        'reconciling',
+                        'unknown',
+                        'paused-navigation',
+                      ].includes(entry.phase)
+                    ? 'BUSY'
+                    : history.sessionId === sessionId &&
+                        (history.messages.length > 0 || history.runs.length > 0 || history.hasOlder)
+                      ? 'STALE_TARGET'
+                      : null,
+        }
+      },
+      async setSelection(sessionId, selection, expectedRevision) {
+        await local.execute(sessionLaunchDraftCommands['sessionLaunchDraft.setSelection'].metadata.id, {
+          sessionId,
+          selection,
+          expectedRevision,
+        })
+      },
+    },
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const isCurrentRunActive = (sessionId: string) => {
     const current = timeline.reader.getSnapshot()
     return (
@@ -524,6 +706,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const readConversationMessage = (sessionId: string, messageId: string) => {
+    const selected = navigation.reader.getSnapshot()
+    if (selected.status !== 'idle' || selected.sessionId !== sessionId) return null
+    const current = timeline.reader.getSnapshot()
+    if (current.status !== 'ready' || current.sessionId !== sessionId) return null
+    return current.messages.find((message) => message.sessionId === sessionId && message.id === messageId) ?? null
+  }
   const drafts = createDrafts(
     local,
     options.run,
@@ -532,6 +721,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     options.files,
     executionPreparation,
+    readConversationMessage,
   )
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
@@ -571,12 +761,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     navigation: navigation.reader,
     executeRun: drafts.executeRun,
     serializeDraft: drafts.serializeSubmission,
+    serializeGoalObjective: drafts.serializeGoalObjective,
     consumeGoalSlashDraft: (sessionId, revision, text) => {
       const current = drafts.reader.getSnapshot()[sessionId]
       if (
         current?.revision !== revision ||
         current.text !== text ||
         current.mentions.length ||
+        current.workspaceContexts?.length ||
         current.attachments.length ||
         current.attachmentTransfers.length ||
         current.status === 'unknown' ||
@@ -594,6 +786,17 @@ export function createAppRuntime(options: RuntimeOptions) {
     getSettledReceipt: drafts.getSettledReceipt,
     reconcileRun: async (sessionId) =>
       runAcceptedSchema.nullable().parse(await local.execute('draft.reconcileSubmission', { sessionId })),
+    onSubscriberError,
+  })
+  const selectedSessionExecution = createSelectedSessionExecution(local, {
+    // Retain actual adapter occupancy: Directory's registry can settle logical
+    // cancellation before an ignored-abort transport finishes. This owner
+    // validates the public contract and fences its own captured target.
+    queries: options.directory,
+    navigation: navigation.reader,
+    presentation: presentation.reader,
+    goals: composerIntent.reader,
+    ...(options.sidebarActivityEvents ? { events: options.sidebarActivityEvents } : {}),
     onSubscriberError,
   })
   const interactions = createInteractions(
@@ -690,6 +893,11 @@ export function createAppRuntime(options: RuntimeOptions) {
     executionPreparation,
     isCurrentRunActive,
   )
+  const preSessionModelCatalog = createPreSessionModelCatalog(options.models, options.modelEvents, onSubscriberError)
+  const agentProfileCatalogClient = createCommandClient(
+    { 'agentComposer.refreshProfiles': agentComposerCommands['agentComposer.refreshProfiles'] },
+    local,
+  )
   const preSessionDrafts = createPreSessionDrafts(local, {
     navigation: navigation.reader,
     controls: controls.reader,
@@ -703,9 +911,23 @@ export function createAppRuntime(options: RuntimeOptions) {
     queries: directory.queries,
     tabs: workspaceTabs.hooks,
     createSession: directory.createSession,
+    ...(options.attachments ? { attachments: options.attachments } : {}),
+    ...(options.files ? { files: options.files } : {}),
     ...(options.workspaces ? { workspaces: options.workspaces } : {}),
     ...(options.models ? { models: options.models } : {}),
+    ...(options.settings ? { settings: options.settings } : {}),
     ...(options.run ? { run: options.run } : {}),
+    readAgentProfiles: (signal) => agentProfileCatalogClient.execute('agentComposer.refreshProfiles', {}, { signal }),
+    ...(options.sessionLaunchTargetPreparation
+      ? { sessionLaunchTargetPreparation: options.sessionLaunchTargetPreparation }
+      : {}),
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
+  const preSessionLaunchBranchCreation = createPreSessionLaunchBranchCreation(local, {
+    ...(options.sessionLaunchBranches ? { reader: options.sessionLaunchBranches } : {}),
+    ...(options.sessionLaunchBranchCreation ? { manager: options.sessionLaunchBranchCreation } : {}),
+    drafts: preSessionDrafts.reader,
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -719,12 +941,23 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
     composerModel.invalidateModels,
+    controls.settingsCommitted,
   )
   const fileWorkspace = createFileWorkspace(local, options, surfaces.reader, onSubscriberError, () => disposed, {
     tabs: workspaceTabs.reader,
     drafts: drafts.reader,
     sessions: directory.queries,
     onPreviewOpened: sessionTools.previewOpened,
+  })
+  const sessionFileReferenceNavigation = createSessionFileReferenceNavigation(local, {
+    navigation: navigation.reader,
+    tabs: workspaceTabs.reader,
+    timeline: timeline.reader,
+    surfaces: surfaces.reader,
+    presentation: presentation.reader,
+    files: fileWorkspace.reader,
+    isDisposed: () => disposed,
+    onSubscriberError,
   })
   const agentWorkspace = createAgentWorkspace(
     local,
@@ -734,6 +967,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const composerBackgroundAgents = createComposerBackgroundAgents(local, options, {
+    navigation: navigation.reader,
+    tabs: workspaceTabs.reader,
+    directory: directory.reader,
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const agentComposer = createAgentComposer(local, options, {
     recovery: agentWorkspace.recovery,
     acquireCreateLock: agentWorkspace.acquireCreateLock,
@@ -754,17 +994,6 @@ export function createAppRuntime(options: RuntimeOptions) {
     agentWorkspace.setConnected(connected)
     agentComposer.setConnected(connected)
   })
-  createAgentChildNavigation(local, {
-    ...(options.agents ? { agents: options.agents } : {}),
-    queries: directory.queries,
-    tabs: workspaceTabs,
-    surfaces: surfaces.reader,
-    agentWorkspace: agentWorkspace.reader,
-    navigation: navigation.reader,
-    selectSession: (sessionId, workspaceId, execution) =>
-      local.execute('app.setSession', { sessionId, workspaceId }, execution),
-    isDisposed: () => disposed,
-  })
   const goalPlanWorkspace = createGoalPlanWorkspace(
     local,
     options,
@@ -782,6 +1011,21 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     presentation.reader,
   )
+  createAgentChildNavigation(local, {
+    ...(options.agents ? { agents: options.agents } : {}),
+    queries: directory.queries,
+    tabs: workspaceTabs,
+    surfaces: surfaces.reader,
+    agentWorkspace: agentWorkspace.reader,
+    activity: activityWorkspace.reader,
+    workflows: workflowWorkspace.reader,
+    presentation: presentation.reader,
+    navigation: navigation.reader,
+    timeline: timeline.reader,
+    selectSession: (sessionId, workspaceId, execution) =>
+      local.execute('app.setSession', { sessionId, workspaceId }, execution),
+    isDisposed: () => disposed,
+  })
   const extensionWorkspace = createExtensionWorkspace(
     local,
     options,
@@ -805,6 +1049,70 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const sessionWorkspaceMove = createSessionWorkspaceMove(local, {
+    available: Boolean(options.workspaces && options.timeline && options.models && options.agents),
+    directoryQueries: directory.queries,
+    createSession: directory.createSession,
+    archiveSession: directory.archiveSession,
+    navigation: navigation.reader,
+    drafts: drafts.reader,
+    controls: controls.reader,
+    composerIntent: composerIntent.reader,
+    permissions: composerPermission.reader,
+    planModes: composerPlanMode.reader,
+    timeline: timeline.reader,
+    snapshot: (sessionId) => {
+      if (!options.timeline)
+        return Promise.reject(new CommandError('CAPABILITY_UNAVAILABLE', 'Session timeline is unavailable'))
+      return options.timeline.snapshot(sessionId, undefined, 1)
+    },
+    ...(options.files ? { filesQuery: options.files } : {}),
+    hasChildSessions: async (sessionId, signal) => {
+      if (!options.agents) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Agent directory is unavailable')
+      const page = agentPageSchema.parse(
+        await options.agents.execute('agent.list', { parentSessionId: sessionId, limit: 1 }, { signal }),
+      )
+      return page.items.length > 0 || page.nextCursor !== null
+    },
+    tabs: {
+      capture: workspaceTabs.capture,
+      finishReplacement: workspaceTabs.replaceCapturedSession,
+    },
+    releaseSourceChoices: async (sourceSessionId, signal) => {
+      if (sessionLaunchBranchCreation.reader.getSnapshot().entries[sourceSessionId])
+        await local.execute('sessionLaunchBranchCreation.cancel', { draftId: sourceSessionId }, { signal })
+      if (sessionLaunchBranchCreation.reader.getSnapshot().entries[sourceSessionId])
+        throw new CommandError('BUSY', 'The source branch operation still needs its launch-choice owner')
+      if (sessionLaunchDrafts.reader.getSnapshot().entries[sourceSessionId])
+        await local.execute('sessionLaunchDraft.close', { sessionId: sourceSessionId }, { signal })
+    },
+    assertEligible: ({ sourceSessionId, sourceWorkspaceId }) => {
+      if (sessionExecutionAccess.get({ sessionId: sourceSessionId, workspaceId: sourceWorkspaceId }).kind !== 'ready')
+        throw new CommandError('SESSION_UNVERIFIED', 'The source Session cannot be prepared')
+      if (workspaceTabs.reader.getSnapshot().items.length >= MAX_WORKSPACE_TABS)
+        throw new CommandError('TAB_LIMIT', 'Close a tab before moving this Session')
+      const launch = sessionLaunchDrafts.reader.getSnapshot().entries[sourceSessionId]
+      if (launch && !['idle', 'ready', 'failed', 'cancelled'].includes(launch.phase))
+        throw new CommandError('BUSY', 'Resolve the source launch preparation before moving')
+      const branchCreation = sessionLaunchBranchCreation.reader.getSnapshot().entries[sourceSessionId]
+      if (branchCreation && ['capturing', 'creating', 'unknown', 'verified', 'created'].includes(branchCreation.phase))
+        throw new CommandError('BUSY', 'Resolve or adopt the source branch creation before moving')
+      if (
+        Object.values(preSessionDrafts.reader.getSnapshot()).some(
+          (entry) => entry.sessionId === sourceSessionId && entry.phase !== 'accepted',
+        )
+      )
+        throw new CommandError('BUSY', 'Resolve the original first-send operation before moving')
+      const model = composerModel.reader.getSnapshot()
+      if (model.sessionId === sourceSessionId && ['submitting', 'unknown'].includes(model.action.status))
+        throw new CommandError('BUSY', 'Confirm the source model choice before moving')
+      const agent = agentComposer.reader.getSnapshot().actions[sourceSessionId]
+      if (agent && ['submitting', 'unknown'].includes(agent.status))
+        throw new CommandError('BUSY', 'Resolve the original Agent request before moving')
+    },
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const executor = {
     execute(name: string, input: unknown, execution?: ExecuteOptions) {
       if (
@@ -834,6 +1142,11 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(budgetEditorCommands, name) ||
         Object.hasOwn(draftCommands, name) ||
         Object.hasOwn(preSessionDraftCommands, name) ||
+        Object.hasOwn(sessionLaunchDraftCommands, name) ||
+        Object.hasOwn(sessionWorkspaceMoveCommands, name) ||
+        Object.hasOwn(preSessionLaunchBranchesCommands, name) ||
+        Object.hasOwn(preSessionLaunchBranchCreationCommands, name) ||
+        Object.hasOwn(sessionLaunchBranchCreationCommands, name) ||
         Object.hasOwn(runActionCommands, name) ||
         Object.hasOwn(interactionDraftCommands, name) ||
         Object.hasOwn(interactionRecoveryCommands, name) ||
@@ -843,6 +1156,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
         Object.hasOwn(agentComposerCommands, name) ||
+        Object.hasOwn(composerBackgroundAgentsCommands, name) ||
         Object.hasOwn(agentChildNavigationCommands, name) ||
         Object.hasOwn(sessionMessageForkCommands, name) ||
         Object.hasOwn(goalPlanWorkspaceCommands, name) ||
@@ -860,6 +1174,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(goalHistoryCommands, name) ||
         Object.hasOwn(queuedUserRunsCommands, name) ||
         Object.hasOwn(composerIntentCommands, name) ||
+        Object.hasOwn(selectedSessionExecutionCommands, name) ||
         Object.hasOwn(composerPermissionCommands, name) ||
         Object.hasOwn(composerPlanModeCommands, name) ||
         Object.hasOwn(composerPlanChoiceCommands, name) ||
@@ -869,6 +1184,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(workspaceTabCommands, name) ||
         Object.hasOwn(sessionToolCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
+        Object.hasOwn(workspaceActivityCommands, name) ||
         Object.hasOwn(workspaceOrganizationClientCommands, name) ||
         Object.hasOwn(workspaceDisplayNamesClientCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
@@ -904,8 +1220,10 @@ export function createAppRuntime(options: RuntimeOptions) {
     state: Object.freeze({
       navigation: navigation.reader,
       sessionExecutionAccess: sessionExecutionAccess.reader,
+      selectedSessionExecution: selectedSessionExecution.reader,
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
+      workspaceActivity: workspaceActivity.reader,
       workspaceOrganization: workspaceOrganization.reader,
       workspaceDisplayNames: workspaceDisplayNames.reader,
       workspaceDisplayNameSnapshot: workspaceDisplayNames.snapshotReader,
@@ -915,11 +1233,17 @@ export function createAppRuntime(options: RuntimeOptions) {
       surfaces: surfaces.reader,
       presentation: presentation.reader,
       timeline: timeline.reader,
+      sessionLaunchDrafts: sessionLaunchDrafts.reader,
+      sessionWorkspaceMove: sessionWorkspaceMove.reader,
+      sessionLaunchBranchCreation: sessionLaunchBranchCreation.reader,
       goalHistory: goalHistory.reader,
       activity: activityWorkspace.reader,
       queuedUserRuns: queuedUserRuns.reader,
       drafts: drafts.reader,
       preSessionDrafts: preSessionDrafts.reader,
+      preSessionModelCatalog: preSessionModelCatalog.reader,
+      preSessionLaunchBranches: preSessionLaunchBranches.reader,
+      preSessionLaunchBranchCreation: preSessionLaunchBranchCreation.reader,
       runActions: drafts.actions,
       interactions: interactions.reader,
       questionnaires: interactions.questionnaires,
@@ -939,6 +1263,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       commandPalette: commandPalette.reader,
       files: fileWorkspace.reader,
       agents: agentWorkspace.reader,
+      composerBackgroundAgents: composerBackgroundAgents.reader,
       agentComposer: agentComposer.reader,
       goals: goalPlanWorkspace.reader,
       workflows: workflowWorkspace.reader,
@@ -949,6 +1274,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       preferences: clientPersistence.preferences,
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
+    preSessionModelCatalog: preSessionModelCatalog.actions,
+    conversationReading: Object.freeze({ read: conversationReading.read, remember: conversationReading.remember }),
     getSessionExecutionAccess: sessionExecutionAccess.get,
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const [name, ...arguments_] = tokenizeCommand(source)
@@ -963,23 +1290,34 @@ export function createAppRuntime(options: RuntimeOptions) {
     workspaceTabs: Object.freeze({
       capture: workspaceTabs.capture,
       closeCaptured: workspaceTabs.closeCaptured,
+      replaceCapturedSession: workspaceTabs.replaceCapturedSession,
       select: workspaceTabs.select,
       move: workspaceTabs.move,
       whenIdle: workspaceTabs.whenIdle,
     }),
-    ready: Promise.all([clientPersistence.ready, workspaceTabs.ready]).then(() => undefined),
+    ready: Promise.all([clientPersistence.ready, workspaceTabs.ready, workspaceActivity.ready]).then(() => undefined),
     dispose() {
       if (disposed) return
       disposed = true
       messageFork.dispose()
       workspaceTabs.dispose()
+      offReadingTabs()
+      conversationReading.dispose()
       workspacePins.dispose()
+      workspaceActivity.dispose()
       workspaceOrganization.dispose()
       workspaceDisplayNames.dispose()
 
       activityWorkspace.dispose()
       agentComposer.dispose()
+      preSessionLaunchBranchCreation.dispose()
+      sessionLaunchBranchCreation.dispose()
       preSessionDrafts.dispose()
+      sessionWorkspaceMove.dispose()
+      sessionLaunchDrafts.dispose()
+      preSessionLaunchBranches.dispose()
+      selectedSessionExecution.dispose()
+      sessionFileReferenceNavigation.dispose()
       local.dispose()
       platform.dispose()
       directory.dispose()
@@ -994,6 +1332,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       offModelConnection?.()
       controls.dispose()
       composerModel.dispose()
+      preSessionModelCatalog.dispose()
       sessionGitContext.dispose()
       sessionRosterRefresh.dispose()
       settingsUsage.dispose()
@@ -1008,6 +1347,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       commandPalette.dispose()
       fileWorkspace.dispose()
       agentWorkspace.dispose()
+      composerBackgroundAgents.dispose()
       offAgentModelEvents?.()
       offAgentModelConnection?.()
       goalPlanWorkspace.dispose()

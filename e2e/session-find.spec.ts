@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45157}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 45158)
@@ -140,7 +141,7 @@ async function showSidebar({ page, copy }: Fixture, open: boolean): Promise<void
     exact: true,
   })
   if (await trigger.isVisible()) await trigger.click()
-  await expect(page.locator('[data-lumen-shell="app"]')).toHaveAttribute('data-sidebar-open', String(open))
+  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
 }
 
 function findControls({ page, copy }: Fixture) {
@@ -500,7 +501,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectShortcutLeftToOtherSurface(page)
       await expect(editor).toHaveValue(originalFileDraft)
 
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+p')
       const palette = page.getByRole('dialog', { name: copy.commandPalette.title, exact: true })
       await expect(palette).toBeVisible()
       // A modal may legitimately stop propagation before the Window observer.
@@ -512,7 +513,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(palette).toHaveCount(0)
       await expect(editor).toBeFocused()
 
-      await page.getByRole('button', { name: copy.session.tools.settings, exact: true }).click()
+      await openSessionTool(page, copy.session.tools, 'settings')
       await expect(page.getByRole('button', { name: copy.settings.back, exact: true })).toBeVisible()
       await expectShortcutLeftToOtherSurface(page)
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
@@ -581,20 +582,44 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         (message) =>
           message.role === 'user' && message.content.some((block) => block.type === 'text' && block.text === runText),
       )
-      if (!richInput) throw new Error('Real Host did not commit the canonical Markdown fixture input')
+      if (!richInput) throw new Error('Real Host did not commit the canonical literal fixture input')
       await find.input.fill('**markedneedle**')
-      await expect(find.count).toHaveText('0')
+      await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
+      await expectMatch(page, richInput.id, '**markedneedle**')
       await find.input.fill('markedneedle')
       await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
       await expectMatch(page, richInput.id, 'markedneedle')
+      // Rich reading remains assistant-owned; do not turn operator prompts into
+      // tables/code previews to preserve this test's horizontal reveal fixture.
+      const richText = `before **cross** [inline](https://example.invalid) after\n\n${table}\n\n${code}`
+      const richRun = await commands.execute(
+        'run.submit',
+        { sessionId: host.ready.sessionId, modelId: 'local-fixture', input: { text: richText, images: [] } },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      await expect
+        .poll(
+          async () =>
+            (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.find(
+              (run) => run.id === richRun.operationId,
+            )?.status,
+        )
+        .toBe('completed')
+      const richReply = (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).messages.find(
+        (message) =>
+          message.role === 'assistant' &&
+          message.runId === richRun.operationId &&
+          message.content.some((block) => block.type === 'text' && block.text.includes(richText)),
+      )
+      if (!richReply) throw new Error('Canonical rich assistant fixture missing')
       await find.input.fill('before cross inline after')
       await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
-      await expectMatch(page, richInput.id, 'before cross inline after')
+      await expectMatch(page, richReply.id, 'before cross inline after')
       await page.screenshot({ path: `${evidence}/markdown-${locale}-1440.png` })
       await page.setViewportSize({ width: 320, height: 844 })
-      await find.input.fill('markedneedle')
-      await expectMatch(page, richInput.id, 'markedneedle')
-      const richRow = page.locator(`[data-message-id="${richInput.id}"]`)
+      await find.input.fill('before cross')
+      await expectMatch(page, richReply.id, 'before cross')
+      const richRow = page.locator(`[data-message-id="${richReply.id}"]`)
       const tableBlock = richRow.locator('table')
       const codeBlock = richRow.locator('pre')
       await expect(tableBlock).toHaveCount(1)
@@ -604,8 +629,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const outerBeforeTable = await unchangedOuterScroll(page)
       const codeBeforeTable = await codeBlock.evaluate((element) => ({ x: element.scrollLeft, y: element.scrollTop }))
       await find.input.fill('tR9')
-      await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
-      await expectMatch(page, richInput.id, 'tR9')
+      await expect(find.count).toHaveText(copy.session.find.count(1, 3, false))
+      await find.next.click()
+      await find.next.click()
+      await expectMatch(page, richReply.id, 'tR9')
       await expect.poll(() => tableBlock.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
       await expect
         .poll(async () =>
@@ -628,8 +655,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const outerBeforeCode = await unchangedOuterScroll(page)
       const tableBeforeCode = await tableBlock.evaluate((element) => ({ x: element.scrollLeft, y: element.scrollTop }))
       await find.input.fill('code-rightneedle')
-      await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
-      await expectMatch(page, richInput.id, 'code-rightneedle')
+      await expect(find.count).toHaveText(copy.session.find.count(1, 3, false))
+      await find.next.click()
+      await find.next.click()
+      await expectMatch(page, richReply.id, 'code-rightneedle')
       await expect
         .poll(async () =>
           (await horizontalMatchGeometry(page)).every((range) => range.clips.every((clip) => clip.containsMatch)),
@@ -656,13 +685,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: `${evidence}/code-last-token-${locale}-320.png` })
       await find.close.click()
       await expectComposerText(prompt, draft)
-      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(1)
+      expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(2)
       expect(fixture.requests.filter((request) => writeCommands.has(request))).toEqual([])
       expect(fixture.uploads).toHaveLength(0)
       expect(fixture.errors).toEqual([])
       expect(fixture.consoleDiagnostics).toEqual([])
       await record(fixture, `stream-${locale}`, {
-        explicitFixtureRunWrites: 1,
+        explicitFixtureRunWrites: 2,
         model: 'local-fixture',
         locale,
         horizontalTable: tableEvidence,

@@ -1,0 +1,20 @@
+.hbar-pre-session-launch-status,
+.hbar-pre-session-launch-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-pre-session-launch-status {
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.hbar-pre-session-launch-status > p {
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--lumen-muted);
+}

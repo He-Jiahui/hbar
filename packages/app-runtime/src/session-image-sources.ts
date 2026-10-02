@@ -1,5 +1,7 @@
 import { CommandError } from '@hbar/commands'
 import { artifactSchema, idSchema, type ArtifactRef, type Message } from '@hbar/contracts'
+import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
+import { z } from 'zod'
 import {
   IMAGE_VIEWER_MAX_ITEMS,
   type ImageViewerItem,
@@ -11,9 +13,10 @@ import type { SessionDraftState, SessionTimelineState } from './types'
 export type SessionImageDraft = Pick<SessionDraftState, 'sessionId' | 'revision' | 'attachments'>
 export type SessionImageMessage = Pick<Readonly<Message>, 'id' | 'sessionId' | 'seq' | 'content'>
 export type SessionImageTimeline = Pick<SessionTimelineState, 'sessionId' | 'messages'>
+export type PreSessionImageDraft = Pick<PreSessionDraftState, 'draftId' | 'revision' | 'attachments'>
 
 export interface SessionImageProjection {
-  /** Opaque Host/session/collection identity; never pass an endpoint, token or credential as the Host identity. */
+  /** Opaque Host/owner/collection identity; never pass an endpoint, token or credential as the Host identity. */
   readonly sourceId: string
   /**
    * All canonical image occurrences, including an over-capacity collection.
@@ -23,10 +26,18 @@ export interface SessionImageProjection {
   readonly request: ImageViewerRequest
   readonly capacity: { readonly count: number; readonly limit: number; readonly exceeded: boolean }
 }
+export type PreSessionImageProjection = SessionImageProjection
 export interface SessionImageDraftInput {
   /** The confirmed Host's opaque identity. Connection-generation lifetime fencing belongs to the resource owner. */
   readonly hostIdentity: string
   readonly draft: SessionImageDraft
+  /** Zero-based occurrence among image attachments, not the absolute attachment index. */
+  readonly activeOrdinal?: number
+}
+export interface PreSessionDraftImageInput {
+  /** The confirmed Host's opaque identity. Connection-generation lifetime fencing belongs to the resource owner. */
+  readonly hostIdentity: string
+  readonly draft: PreSessionImageDraft
   /** Zero-based occurrence among image attachments, not the absolute attachment index. */
   readonly activeOrdinal?: number
 }
@@ -41,6 +52,11 @@ export interface SessionImageMembership {
   readonly draft: SessionImageDraft | null | undefined
   readonly timeline: SessionImageTimeline | null | undefined
 }
+export interface PreSessionImageMembership {
+  /** The active pre-session owner; callers set null while a real Session is active. */
+  readonly activeDraftId: string | null
+  readonly draft: PreSessionImageDraft | null | undefined
+}
 
 function invalid(): never {
   throw new CommandError('INVALID_INPUT', 'Invalid canonical image source')
@@ -52,9 +68,15 @@ function integer(value: number, minimum: number): boolean {
   return Number.isSafeInteger(value) && value >= minimum
 }
 const atom = (value: string) => `${value.length}:${value}`
+const preSessionDraftIdSchema = z.string().uuid()
 
 function collectionId(hostIdentity: string, source: ImageViewerSource): string {
   if (typeof hostIdentity !== 'string' || !hostIdentity.trim() || hostIdentity.length > 128) invalid()
+  if (source.kind === 'pre-session-draft') {
+    const value = `pre-session-images:1:${atom(hostIdentity)}${atom(source.draftId)}draft`
+    if (value.length > 512) invalid()
+    return value
+  }
   const collection =
     source.kind === 'draft' ? 'draft' : `message${atom(source.messageId)}${atom(String(source.messageSeq))}`
   const value = `session-images:1:${atom(hostIdentity)}${atom(source.sessionId)}${atom(collection)}`
@@ -62,6 +84,7 @@ function collectionId(hostIdentity: string, source: ImageViewerSource): string {
   return value
 }
 function occurrenceKey(source: ImageViewerSource, ordinal: number): string {
+  if (source.kind === 'pre-session-draft') return `pre-session-draft-image:1:${ordinal}`
   return source.kind === 'draft'
     ? `draft-image:1:${ordinal}`
     : `message-image:1:${atom(source.messageId)}${atom(String(source.messageSeq))}${ordinal}`
@@ -100,6 +123,10 @@ function draftArtifacts(draft: SessionImageDraft): readonly Readonly<ArtifactRef
   // Reservations, uploads and unaccepted confirmed transfers are deliberately not membership.
   return draft.attachments.flatMap((attachment) => (attachment.kind === 'image' ? [attachment.artifact] : []))
 }
+function preSessionDraftArtifacts(draft: PreSessionImageDraft): readonly Readonly<ArtifactRef>[] {
+  // Only accepted draft attachments are canonical; reservations and in-flight transfers are not membership.
+  return draft.attachments.flatMap((attachment) => (attachment.kind === 'image' ? [attachment.artifact] : []))
+}
 function messageArtifacts(message: SessionImageMessage): readonly Readonly<ArtifactRef>[] {
   return message.content.flatMap((block) => (block.type === 'image' ? [block.artifact] : []))
 }
@@ -111,6 +138,18 @@ export function projectSessionDraftImages(input: SessionImageDraftInput): Sessio
     input.hostIdentity,
     { kind: 'draft', sessionId: input.draft.sessionId, draftRevision: input.draft.revision },
     draftArtifacts(input.draft),
+    input.activeOrdinal ?? 0,
+  )
+}
+
+/** Project confirmed no-tab draft attachments without manufacturing a Session identity. */
+export function projectPreSessionDraftImages(input: PreSessionDraftImageInput): PreSessionImageProjection | null {
+  const parsedDraftId = preSessionDraftIdSchema.safeParse(input.draft.draftId)
+  if (!parsedDraftId.success || !integer(input.draft.revision, 0)) invalid()
+  return project(
+    input.hostIdentity,
+    { kind: 'pre-session-draft', draftId: parsedDraftId.data, draftRevision: input.draft.revision },
+    preSessionDraftArtifacts(input.draft),
     input.activeOrdinal ?? 0,
   )
 }
@@ -154,6 +193,7 @@ function sameOccurrences(request: ImageViewerRequest, artifacts: readonly Readon
  */
 export function isSessionImageRequestCurrent(request: ImageViewerRequest, current: SessionImageMembership): boolean {
   const source = request.source
+  if (source.kind === 'pre-session-draft') return false
   if (!validId(source.sessionId) || current.activeSessionId !== source.sessionId) return false
   if (source.kind === 'draft') {
     const draft = current.draft
@@ -179,4 +219,41 @@ export function isSessionImageRequestCurrent(request: ImageViewerRequest, curren
   if (matching.length !== 1 || !message || message.sessionId !== source.sessionId || message.seq !== source.messageSeq)
     return false
   return sameOccurrences(request, messageArtifacts(message))
+}
+
+/**
+ * Membership proof for a real pre-session draft owner. Reservations and unaccepted transfers
+ * are not image sources; a newer text-only revision may keep the captured image list current.
+ */
+export function containsPreSessionDraftImages(
+  request: ImageViewerRequest,
+  draft: PreSessionImageDraft | null | undefined,
+): boolean {
+  const source = request.source
+  if (
+    source.kind !== 'pre-session-draft' ||
+    !preSessionDraftIdSchema.safeParse(source.draftId).success ||
+    !draft ||
+    draft.draftId !== source.draftId ||
+    !integer(source.draftRevision, 0) ||
+    !integer(draft.revision, 0) ||
+    source.draftRevision > draft.revision
+  )
+    return false
+  return sameOccurrences(request, preSessionDraftArtifacts(draft))
+}
+
+/** Validate both the selected no-tab owner and its exact current confirmed image occurrences. */
+export function isPreSessionImageRequestCurrent(
+  request: ImageViewerRequest,
+  current: PreSessionImageMembership,
+): boolean {
+  const source = request.source
+  return Boolean(
+    source.kind === 'pre-session-draft' &&
+    preSessionDraftIdSchema.safeParse(source.draftId).success &&
+    current.activeDraftId === source.draftId &&
+    current.draft?.draftId === source.draftId &&
+    containsPreSessionDraftImages(request, current.draft),
+  )
 }

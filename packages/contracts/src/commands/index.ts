@@ -33,6 +33,11 @@ import { statusWorkspaceCommands } from './status-workspace'
 import { clientPersistenceCommands } from './client-persistence'
 import { terminalApplicationCommands } from './terminal-application'
 import { sessionTimelineCommands } from './session-timeline'
+import { sessionLaunchTargetCommands } from './session-launch-target'
+import { sessionLaunchBranchesCommands } from './session-launch-branches'
+import { workspaceActivityCommands } from './workspace-activity'
+import { sessionActivityCommands } from './session-activity'
+import { sidebarDirectoryCommands } from './sidebar-directory'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -59,6 +64,9 @@ function query(id: string): CommandMetadataInput {
   return { ...base, id, titleKey: `commands.${id}.title`, descriptionKey: `commands.${id}.description` }
 }
 export const directoryCommands = {
+  ...sidebarDirectoryCommands,
+  ...workspaceActivityCommands,
+  ...sessionActivityCommands,
   'workspace.list': defineCommand(
     {
       ...query('workspace.list'),
@@ -250,6 +258,37 @@ export { statusWorkspaceCommands } from './status-workspace'
 export { clientPersistenceCommands } from './client-persistence'
 export { terminalApplicationCommands } from './terminal-application'
 export { sessionTimelineCommands } from './session-timeline'
+export { sessionLaunchTargetCommands } from './session-launch-target'
+export { sessionLaunchBranchesCommands } from './session-launch-branches'
+export { workspaceActivityCommands } from './workspace-activity'
+export { sessionActivityCommands } from './session-activity'
+export type {
+  SessionLaunchBranchesInput,
+  SessionLaunchBranchesRequest,
+  SessionLaunchBranchHead,
+  SessionLaunchBranch,
+  SessionLaunchBranchesPage,
+  SessionLaunchBranchesReader,
+  SessionLaunchBranchesReadOptions,
+} from './session-launch-branches'
+export type {
+  SessionLaunchSelection,
+  SessionLaunchTarget,
+  SessionLaunchTargetResolution,
+  SessionLaunchTargetGetInput,
+  SessionLaunchTargetSetInput,
+  SessionLaunchTargetSetReceipt,
+  SessionLaunchTargetReceiptInput,
+  SessionLaunchTargetPrepareInput,
+  SessionLaunchTargetReconcileInput,
+  SessionLaunchTargetCancelInput,
+  SessionLaunchTargetPreparationStartInput,
+  SessionLaunchTargetPreparationStartReceipt,
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+  SessionLaunchTargetWriteOptions,
+  SessionLaunchTargetPreparationManager,
+} from './session-launch-target'
 export { workflowCommands } from './workflows'
 export const applicationCommands = {
   ...directoryCommands,
@@ -277,4 +316,6 @@ export const applicationCommands = {
   ...clientPersistenceCommands,
   ...terminalApplicationCommands,
   ...sessionTimelineCommands,
+  ...sessionLaunchTargetCommands,
+  ...sessionLaunchBranchesCommands,
 }

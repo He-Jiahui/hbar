@@ -8,7 +8,12 @@ test('Web shell layout v3 describes ordered outlets and a real constrained tool 
     ['workspace', 'page', 'center', 1],
     ['session-tool', 'tool', 'right', 2],
   ])
-  expect(shellLayoutModule(shellLayout, 'projects').size).toEqual({ minRem: 12, preferredRem: 17, maxRem: 24 })
+  expect(shellLayoutModule(shellLayout, 'projects').size).toEqual({
+    minRem: 12,
+    preferredRem: 17,
+    maxRem: 24,
+    collapsedRem: 4.5,
+  })
   expect(shellLayoutModule(shellLayout, 'session-tool').size).toEqual({ minRem: 20, preferredRem: 24, maxRem: 36 })
   expect(shellLayoutModule(shellLayout, 'session-tool').config).toEqual({
     constrainedPresentation: 'page',
@@ -19,6 +24,29 @@ test('Web shell layout v3 describes ordered outlets and a real constrained tool 
     placement: 'before-content',
     maxOpen: 32,
   })
+})
+
+test('existing v3 layouts receive the semantic collapsed rail width without changing expanded preferences', () => {
+  const legacy = {
+    ...structuredClone(shellLayout),
+    modules: shellLayout.modules.map((module) =>
+      module.moduleId === 'projects'
+        ? { ...module, visible: false, size: { minRem: 12, preferredRem: 19, maxRem: 24 } }
+        : module,
+    ),
+  }
+  const migrated = normalizeShellLayout(legacy)
+  expect(shellLayoutModule(migrated, 'projects')).toMatchObject({
+    visible: false,
+    size: { preferredRem: 19, collapsedRem: 4.5 },
+  })
+  const invalid = {
+    ...legacy,
+    modules: legacy.modules.map((module) =>
+      module.moduleId === 'projects' ? { ...module, size: { ...module.size, collapsedRem: 40 } } : module,
+    ),
+  }
+  expect(() => normalizeShellLayout(invalid)).toThrow()
 })
 
 test('Web shell layout migrates sidebar v1 without inventing saved tool state', () => {
