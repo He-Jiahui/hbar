@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { promptTemplateCopy } from '../apps/web/src/prompt-template-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
 const WEB_PORT = Number(process.env.HBAR_E2E_PORT ?? 4329)
@@ -72,7 +73,8 @@ test.describe('production app-ui feature surfaces', () => {
                 addVar: '添加变量',
                 target: '目标',
                 pre: '创建预会话草稿',
-              }
+          }
+        const templateCopy = promptTemplateCopy(locale)
             : {
                 feature: 'Prompt templates',
                 create: 'New template',
@@ -89,14 +91,14 @@ test.describe('production app-ui feature surfaces', () => {
         await openFeature(page, labels.feature)
         await page.getByRole('button', { name: /New template|新建模板/ }).click()
         const editor = page.locator('.hbar-prompt-template-editor')
-        await page.getByRole('textbox', { name: 'Body', exact: true }).fill('Release build')
-        await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Release template')
-        await page.getByRole('textbox', { name: /Description|描述/ }).fill('A release template for browser acceptance')
+        await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release build')
+        await page.getByRole('textbox', { name: templateCopy.editor.name, exact: true }).fill('Release template')
+        await page.getByRole('textbox', { name: templateCopy.description, exact: true }).fill('A release template for browser acceptance')
         await page.getByRole('button', { name: labels.addVar, exact: true }).click()
         const variable = page.locator('.hbar-prompt-variable').last()
         await variable.locator('input').nth(0).fill('environment')
         await variable.locator('input').nth(1).fill('Environment')
-        await page.getByRole('textbox', { name: 'Body', exact: true }).fill('Release {{environment}}')
+        await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release {{environment}}')
         await page.getByRole('button', { name: labels.save, exact: true }).click()
         await expect(page.getByRole('status')).toContainText(/saved|已保存/i)
         await page.getByRole('button', { name: 'Release template', exact: true }).click()
@@ -106,7 +108,7 @@ test.describe('production app-ui feature surfaces', () => {
         await page.getByRole('combobox').filter({ hasText: labels.append }).selectOption('append')
         await page.getByRole('button', { name: /Apply to draft|写入草稿/, exact: true }).click()
         await expect(page.getByRole('status')).toContainText(/Draft updated|已写入草稿/i)
-        const prompt = page.getByRole('textbox', { name: 'Prompt' })
+        const prompt = page.getByRole('textbox', { name: getShellCopy(locale).session.prompt.input })
         await expect(prompt).toContainText(/Release production/)
         await prompt.fill('Existing draft before replacement')
         await page.getByRole('combobox', { name: labels.target }).selectOption({ label: host.ready.sessionTitle })
@@ -117,7 +119,7 @@ test.describe('production app-ui feature surfaces', () => {
           .getByRole('button', { name: /Replace the current draft body|确认替换当前草稿正文/ })
           .click()
         await expect(prompt).toContainText('Release production')
-        await page.getByRole('button', { name: labels.pre, exact: true }).click()
+        await page.getByRole('button', { name: templateCopy.createPreDraft, exact: true }).click()
         await expect(page.getByRole('combobox', { name: labels.target })).toHaveValue(/pre-session/)
         await page.getByRole('button', { name: labels.edit, exact: true }).click()
         await expect(editor).toBeVisible()
@@ -139,7 +141,7 @@ test.describe('production app-ui feature surfaces', () => {
   }) => {
     test.setTimeout(120_000)
     await withHost(browser, 'en-US', async (page, host) => {
-      await openSession(page, host, 'en-US')
+        await openSession(page, host, 'en-US')
       await openFeature(page, 'Schedules')
       await page.getByLabel('Name').fill('Nightly verification')
       const schedule = page.locator('.hbar-schedule-page')
@@ -234,15 +236,12 @@ test.describe('production app-ui feature surfaces', () => {
         .click()
       await expect(page.getByRole('button', { name: /Mark unread/ }).first()).toBeVisible()
       await page.getByRole('button', { name: 'Notification preferences', exact: true }).click()
-      const desktop = page.getByRole('switch', { name: /Enable desktop notifications|Desktop/ })
-      if (await desktop.count()) await desktop.click()
+      const desktop = page.getByRole('switch').first()
+      await expect(desktop).toBeVisible()
+      const before = await desktop.getAttribute('aria-checked')
+      await desktop.click()
       await page.reload()
-      await expect(page.getByText(/Notifications|通知中心/).first()).toBeVisible()
-      await page
-        .getByRole('button', { name: /Run completed|Run failed/ })
-        .first()
-        .click()
-        .catch(() => undefined)
+      await expect(page.getByRole('switch').first()).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
       await capture(page, 'notifications-1440.png')
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
@@ -294,11 +293,8 @@ test.describe('production app-ui feature surfaces', () => {
         .first()
         .click()
       await expect(page.getByText(/queued|running/i).first()).toBeVisible()
-      await page
-        .getByRole('button', { name: /Open|View details/ })
-        .first()
-        .click()
-        .catch(() => undefined)
+      await page.getByRole('button', { name: /Open|View details/ }).first().click()
+      await expect(page.getByText(host.ready.sessionTitle, { exact: true }).first()).toBeVisible()
       await capture(page, 'run-board-1440.png')
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
