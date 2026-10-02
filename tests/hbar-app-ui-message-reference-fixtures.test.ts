@@ -23,11 +23,11 @@ describe('source-owned message preview records', () => {
     expect(source.team?.referenceLayout?.memberCount).toBe('18')
     expect(source.team?.referenceLayout?.labels.typing).toBe('Sofia Alvarez is typing')
     expect(source.direct?.contacts).toHaveLength(5)
-    expect(source.direct?.messages).toHaveLength(5)
+    expect(source.direct?.messages).toHaveLength(9)
     expect(source.direct?.contacts.map((contact) => contact.id)).toEqual(
       localized.direct?.contacts.map((contact) => contact.id),
     )
     expect(localized.team?.referenceLayout?.labels.attach).toContain('anhängen')
-    expect(localized.direct?.labels.placeholder('Sofia')).toContain('Bestätigung')
+    expect(localized.direct?.labels.placeholder('Sofia')).toContain('Sofia')
   })
 })

@@ -43,7 +43,7 @@ describe('plan summary controlled goal and run workflow', () => {
     const store = createPlanSummaryPreviewStore(fixture())
     workflow(store).onEdit()
     expect(render(view(store))).toContain('aria-label="Plan goal"')
-    expect(render(view(store))).toContain('data-lumen-variant="boundary"')
+    expect(render(view(store))).toContain('data-lumen-variant="outlined"')
     expect(render(view(store)).match(/disabled=""/g)).toHaveLength(2)
     workflow(store).onDraftChange('  Revised goal  ')
     expect(view(store)?.goal).toBe(fixture().goal)

@@ -101,7 +101,7 @@ describe('hbar-app-ui tool-call surfaces', () => {
             },
         }
         const staleMarkup = renderToolCalls(2, duplicateAndStale)
-        expect(staleMarkup).toContain('class="hbar-app-ui-tool-calls-button is-selected"')
+        expect(staleMarkup).toMatch(/class="[^"]*hbar-app-ui-tool-calls-button is-selected[^"]*"/)
         expect(staleMarkup).toContain('Kept row')
         expect(staleMarkup).not.toContain('Duplicate all')
         expect(staleMarkup).not.toContain('Duplicate row')

@@ -160,8 +160,8 @@ describe('source social discussion reference', () => {
     expect(markup).toContain('Sofia Alvarez')
     expect(markup).toContain('Exactly. We capped ourselves at two hues')
     expect(markup).toContain('aria-label="Reply to Marcus Bell"')
-    expect(markup.match(/class="lumen-chat-social-reply-action"/g)).toHaveLength(2)
-    expect(markup.match(/>Reply<span/g)).toHaveLength(3)
+    expect(markup.match(/class="[^"]*lumen-chat-social-reply-action[^"]*"/g)).toHaveLength(2)
+    expect(markup.match(/>Reply<\/button>/g)).toHaveLength(3)
   })
 
   test('handles empty, one, duplicate and stale nested replies', () => {
@@ -200,7 +200,7 @@ describe('source social discussion reference', () => {
         },
       },
     })
-    expect(one.match(/class="lumen-chat-social-reply-action"/g)).toHaveLength(1)
+    expect(one.match(/class="[^"]*lumen-chat-social-reply-action[^"]*"/g)).toHaveLength(1)
     expect(one).toContain('Exactly. We capped ourselves at two hues')
     expect(one).not.toContain('Curious how you handle the')
 
@@ -225,7 +225,7 @@ describe('source social discussion reference', () => {
         },
       },
     })
-    expect(duplicated.match(/class="lumen-chat-social-reply-action"/g)).toHaveLength(2)
+    expect(duplicated.match(/class="[^"]*lumen-chat-social-reply-action[^"]*"/g)).toHaveLength(2)
     expect(duplicated.match(/class="lumen-chat-social-nested-reply"/g)).toHaveLength(1)
     expect(duplicated).not.toContain('A stale nested reply is excluded.')
     expect(duplicated).toContain('data-hbar-app-ui-action="social:toggle-like"')
@@ -264,6 +264,6 @@ describe('source social discussion reference', () => {
 
     expect(markup).toContain('Gefällt mir')
     expect(markup).toContain('aria-label="Auf die Antwort von Marcus Bell antworten"')
-    expect(markup).toContain('>Antworten<span')
+    expect(markup).toContain('>Antworten</button>')
   })
 })

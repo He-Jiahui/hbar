@@ -133,7 +133,7 @@ describe('Paywall 3 source reference', () => {
     const localized = render(referenceModel('yearly', 'de'))
     const proActionStart = localized.indexOf('data-paywall3-plan-action="pro"')
     const proActionEnd = localized.indexOf('>', proActionStart)
-    expect(localized.slice(proActionStart, proActionEnd)).toContain('data-lumen-variant="solid"')
+    expect(localized.slice(proActionStart, proActionEnd)).toContain('data-lumen-variant="contained"')
     expect(localized.slice(proActionStart, proActionEnd)).toContain('data-tone="primary"')
     expect(localized.slice(localized.indexOf('data-paywall3-plan-id="starter"'), proActionStart)).toContain(
       'disabled=""',

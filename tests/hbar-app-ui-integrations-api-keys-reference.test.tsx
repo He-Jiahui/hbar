@@ -51,7 +51,7 @@ describe('integrations reference API keys', () => {
     expect(markup.match(/<tr data-hbar-app-ui-item-id=/g)).toHaveLength(4)
     expect(markup.match(/aria-label="Reveal key"/g)).toHaveLength(4)
     expect(markup.match(/aria-label="Copy key"/g)).toHaveLength(4)
-    expect(markup.match(/>Rotate<span data-edge/g)).toHaveLength(4)
+    expect(markup.match(/>Rotate<\/button>/g)).toHaveLength(4)
     expect(markup).toContain('Revoke Billing worker')
     expect(markup).toContain('4 keys · revoking takes effect immediately')
     expect(markup).not.toContain('preview-only-key-for-billing-worker')

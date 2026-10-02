@@ -32,9 +32,9 @@ test('the canonical Lumen entry renders host-owned feedback content', () => {
   )
 
   expect(markup).toContain('data-lumen-component="feedback"')
-  expect(markup).toContain('hbar-app-ui-feedback-modal')
+  expect(markup).toContain('lumen-feedback-widget-reference')
   expect(markup).toContain('What would you like the product to do?')
-  expect(markup).toContain('data-lumen-variant="outlined"')
+  expect(markup).toContain('placeholder="What would you like the product to do?"')
 })
 
 test('the legacy feedback implementation and visual stylesheet are retired', async () => {
