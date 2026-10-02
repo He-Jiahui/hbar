@@ -75,6 +75,7 @@ export function createNotificationsRuntime(
   const seenSourceEvents = new Set<string>()
   const freshById = new Map<string, NotificationRecord>()
   let invalidationTimer: ReturnType<typeof setTimeout> | undefined
+  let watermark = 0
   const rememberSourceEvent = (sourceEventId: string) => {
     if (seenSourceEvents.has(sourceEventId)) return false
     seenSourceEvents.add(sourceEventId)
@@ -120,7 +121,9 @@ export function createNotificationsRuntime(
     }
   }
   const mergePage = (page: NotificationPage) => {
-    const fresh = [...freshById.values()].filter((record) => !page.items.some((item) => item.id === record.id))
+    const fresh = [...freshById.values()].filter((record) =>
+      (record.sequence === undefined || record.sequence > watermark) && !page.items.some((item) => item.id === record.id),
+    )
     const items = [...fresh, ...page.items].slice(0, 400)
     const freshUnread = fresh.filter((record) => record.readAt === null).length
     return { items, unreadCount: page.unreadCount + freshUnread }
@@ -176,6 +179,7 @@ export function createNotificationsRuntime(
           freshById.delete(record.id)
         }
         const merged = mergePage(page)
+        watermark = page.watermark ?? watermark
         state.replace({
           ...state.reader.getSnapshot(),
           status: 'ready',
@@ -211,7 +215,7 @@ export function createNotificationsRuntime(
           status: 'ready',
           items,
           nextCursor: items.length >= 400 ? null : page.nextCursor,
-          unreadCount: page.unreadCount + freshUnread,
+          unreadCount: page.unreadCount + (page.watermark === undefined ? 0 : freshUnread),
           error: null,
         })
       } catch (error) {
@@ -227,9 +231,11 @@ export function createNotificationsRuntime(
     acceptFreshNotification(raw) {
       if (disposed) return
       const event = notificationFreshEventSchema.parse(raw)
+      if (event.sequence !== undefined && event.sequence <= watermark) return
       if (seenSourceEvents.has(event.sourceEventId)) return
       if (!rememberSourceEvent(event.sourceEventId)) return
-      freshById.set(event.record.id, event.record)
+      const freshRecord = event.sequence === undefined ? event.record : { ...event.record, sequence: event.sequence }
+      freshById.set(freshRecord.id, freshRecord)
       if (freshById.size > 400) {
         const oldest = freshById.keys().next().value
         if (typeof oldest === 'string') freshById.delete(oldest)
@@ -237,12 +243,12 @@ export function createNotificationsRuntime(
       const current = state.reader.getSnapshot()
       state.replace({
         ...current,
-        items: [event.record, ...current.items].slice(0, 400),
-        unreadCount: current.unreadCount + (event.record.readAt === null ? 1 : 0),
+        items: [freshRecord, ...current.items].slice(0, 400),
+        unreadCount: current.unreadCount + (freshRecord.readAt === null ? 1 : 0),
       })
       for (const listener of freshListeners) {
         try {
-          listener(event.record)
+          listener(freshRecord)
         } catch (error) {
           onError?.(error)
         }

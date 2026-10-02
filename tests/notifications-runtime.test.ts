@@ -66,6 +66,24 @@ describe('notifications runtime projection', () => {
     expect(runtime.reader.getSnapshot().items.every((entry) => entry.readAt !== null)).toBe(true)
     runtime.dispose()
   })
+
+  test('watermark prevents double counting fresh already included in host unread count', async () => {
+    const port: NotificationsPort = {
+      page: async () => ({ items: [item('page')], nextCursor: null, unreadCount: 2, watermark: 10 }),
+      preferences: async () => prefs,
+      markRead: async () => item('page', 2),
+      markAllRead: async () => ({ updated: 0 }),
+      setPreferences: async (value) => value,
+    }
+    const runtime = createNotificationsRuntime(port)
+    await runtime.refresh()
+    runtime.acceptFreshNotification({ sourceEventId: 'event-old', sequence: 9, record: item('old') })
+    runtime.acceptFreshNotification({ sourceEventId: 'event-new', sequence: 11, record: item('new') })
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(3)
+    await runtime.refresh()
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(3)
+    runtime.dispose()
+  })
   test('late refresh cannot overwrite newer generation', async () => {
     let resolveFirst:
       ((value: { items: NotificationRecord[]; nextCursor: string | null; unreadCount: number }) => void) | undefined
