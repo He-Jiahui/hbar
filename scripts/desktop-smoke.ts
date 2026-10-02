@@ -691,7 +691,8 @@ try {
   await expectComposerText(composer, draft)
   // One owned, bounded stdout-only command verifies native reading continuity.
   // SDK starts the fixture Run without consuming the user's existing composer draft.
-  const command = "1..25 | ForEach-Object { Write-Output ('owned native command line ' + $_) }"
+  const command =
+    "1..25 | ForEach-Object { if ($_ -eq 1) { Write-Output (([string][char]27) + '[32mold progress' + ([string][char]13) + 'owned native command line ' + $_ + ([string][char]27) + '[0m') } else { Write-Output ('owned native command line ' + $_) } }"
   const commandRun = await api.call('run.start', {
     sessionId,
     requestId: 'native-command-reading',
@@ -729,6 +730,12 @@ try {
   const commandCard = commandTool.locator('.hbar-session-command')
   await expect(commandCard.locator('.hbar-session-command-input pre')).toHaveText(command)
   await expect(commandCard.locator('[data-command-output-tail]')).toBeHidden()
+  await expect(commandCard.locator('[data-command-output]')).toHaveAttribute('data-command-output-view', 'reading')
+  expect(await commandCard.locator('[data-command-output]').textContent()).not.toContain('old progress')
+  const rawOutputToggle = commandCard.locator('.hbar-session-command-view-toggle')
+  await rawOutputToggle.click()
+  expect(await commandCard.locator('[data-command-output]').textContent()).toBe(commandResult.text)
+  await rawOutputToggle.click()
   await commandCard.getByRole('button', { name: copy.session.messageBlocks.showMoreOutput(13), exact: true }).click()
   await expect(commandCard.locator('[data-command-output-tail]')).toBeVisible()
   await commandCard.getByRole('button', { name: copy.session.messageBlocks.toolResultCopy.copy, exact: true }).click()

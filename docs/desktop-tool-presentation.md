@@ -230,6 +230,12 @@ presentation and Copy checks still run after reload. Cross-reload draft recovery
 is a separate existing UX gap, not implemented or claimed by this unit. The first
 red evidence is retained in the ignored `browser-final` directory.
 
+2026-10-02 reference re-audit: CC e28 likewise keeps unsent composer drafts in
+runtime-local Session state. Its `6ff76171` explicitly rejected localStorage
+draft persistence and tested component remount, not page reload. The earlier
+“UX gap” label above describes a possible product enhancement, not a verified
+CC parity requirement. See [the current draft boundary](desktop-draft-reference-boundary.md).
+
 The corrected functional matrix passed 28/28, but manual image review found
 that some long-output screenshots had followed the message bottom instead of
 showing the requested tool row. Those images are not accepted as visible-row

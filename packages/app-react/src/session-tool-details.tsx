@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { toolInputText, type SessionToolRow } from './session-message-model'
@@ -6,6 +6,7 @@ import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-resu
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { sessionToolOutcome } from './session-tool-outcome-model'
 import { commandOutputWindow } from './session-command-output-model'
+import { projectCommandReading } from './session-command-reading-model'
 import './session-command-details.css'
 
 export interface HbarToolDetailsLabels {
@@ -20,6 +21,9 @@ export interface HbarToolDetailsLabels {
   readonly originalInput: string
   readonly errorOutput: string
   readonly showMoreOutput: (lines: number) => string
+  readonly showRawOutput: string
+  readonly showReadingOutput: string
+  readonly emptyReadingOutput: string
 }
 
 export interface HbarMessageToolPresentation {
@@ -78,6 +82,7 @@ function CommandDetails({
   readonly clipboard?: MessageClipboardPort | null | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [rawView, setRawView] = useState(false)
   const outputId = useId()
   const outcome = sessionToolOutcome(row.result)
   const failed = outcome === 'failed' || outcome === 'legacy-error'
@@ -85,7 +90,9 @@ function CommandDetails({
   // all its diagnostic content readable without another preview disclosure.
   const success = outcome === 'succeeded' || outcome === 'legacy-result'
   const output = row.result?.text ?? ''
-  const window = commandOutputWindow(output)
+  const reading = useMemo(() => projectCommandReading(output), [output])
+  const visible = rawView ? output : reading.text
+  const window = commandOutputWindow(visible)
   const folded = success && window.collapsible && !expanded
   return (
     <LumenFrame className="hbar-session-command" data-outcome={outcome}>
@@ -105,15 +112,31 @@ function CommandDetails({
             <LumenText as="span" className="hbar-session-tool-heading">
               {failed ? labels.errorOutput : labels.output}
             </LumenText>
-            <ToolResultCopyAction
-              sessionId={sessionId}
-              messageId={messageId}
-              callId={row.result.callId}
-              toolName={row.result.name}
-              text={output}
-              labels={labels.toolResultCopy}
-              clipboard={clipboard}
-            />
+            <LumenFrame className="hbar-session-command-output-actions">
+              {reading.changed && (
+                <LumenButton
+                  type="button"
+                  size="s"
+                  variant="text"
+                  indicator="none"
+                  className="hbar-session-command-view-toggle"
+                  aria-pressed={rawView}
+                  aria-controls={outputId}
+                  onClick={() => setRawView((value) => !value)}
+                >
+                  {rawView ? labels.showReadingOutput : labels.showRawOutput}
+                </LumenButton>
+              )}
+              <ToolResultCopyAction
+                sessionId={sessionId}
+                messageId={messageId}
+                callId={row.result.callId}
+                toolName={row.result.name}
+                text={output}
+                labels={labels.toolResultCopy}
+                clipboard={clipboard}
+              />
+            </LumenFrame>
           </LumenFrame>
           <LumenText
             as="pre"
@@ -121,16 +144,19 @@ function CommandDetails({
             id={outputId}
             className="hbar-session-command-output-text"
             data-command-output=""
+            data-command-output-view={rawView || !reading.changed ? 'raw' : 'reading'}
           >
-            {output ? (
+            {visible ? (
               <>
-                {success ? output.slice(0, window.previewEnd) : output}
+                {success ? visible.slice(0, window.previewEnd) : visible}
                 {success && window.collapsible && (
                   <LumenText as="span" data-command-output-tail="" hidden={folded}>
-                    {output.slice(window.previewEnd)}
+                    {visible.slice(window.previewEnd)}
                   </LumenText>
                 )}
               </>
+            ) : reading.changed && !rawView ? (
+              labels.emptyReadingOutput
             ) : (
               labels.emptyOutput
             )}

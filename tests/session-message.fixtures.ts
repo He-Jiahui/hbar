@@ -41,6 +41,9 @@ export function messageLabels(locale: 'zh-CN' | 'en-US'): {
       originalInput: zh ? '原始参数' : 'Original arguments',
       errorOutput: zh ? '错误输出' : 'Error output',
       showMoreOutput: (lines) => (zh ? `展开剩余 ${lines} 行` : `Show ${lines} more lines`),
+      showRawOutput: zh ? '原始输出' : 'Raw output',
+      showReadingOutput: zh ? '阅读视图' : 'Reading view',
+      emptyReadingOutput: zh ? '没有可显示的文本' : 'No displayable text',
       toolResultCopy: {
         copy: zh ? '复制输出' : 'Copy output',
         copying: zh ? '正在复制' : 'Copying',

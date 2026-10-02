@@ -45,10 +45,10 @@ Copy 位于结果标题旁；额外参数可以继续检查。旧 hbar 的
 - 无 metadata、缺少有效 command、orphan result 和其他工具继续原有通用详情，
   不为它们伪造命令语义。原始参数入口内容按既有 disclosure 隐藏，不宣称懒解析。
 
-与 CC 的有意差异：CC 会清洗 ANSI／OSC、处理 CR 覆盖并 Copy 清洗后的文本；
-hbar 当前直接阅读和复制已持久化原文，不做终端字节仿真。将来若加入清洗，只能
-做独立 display projection，不能修改 Copy 源或冒充 PTY。Host／工具可能已按其
-独立预算明确截断，UI 的“完整”指完整已加载结果，不能恢复 Host 未保存的输出。
+最初 `b1658d67` 直接阅读和复制已持久化原文；后续补充下述独立 display projection，
+仍不做终端字节仿真。与 CC 的有意差异是 Copy 始终保留原始结果而非清洗文本。
+Host／工具可能已按其独立预算明确截断，UI 的“完整”指完整已加载结果，不能恢复
+Host 未保存的输出。
 
 ## 实际验证与原生同步
 
@@ -87,3 +87,48 @@ VS 技能环境下离线 Host 资源和 locked／offline Tauri debug 构建通�
 本单元没有运行完整 `check`／全部 E2E，不宣称全部工具输出、高亮、ANSI 终端或
 完整 CC 功能迁移。生产大 chunk 和 Cargo 配置弃用／linker 警告仍保留。
 整体交互入口与 Host／原生能力边界见[当前地图](desktop-interaction-map-current.md)。
+
+## 控制码和进度阅读补充（2026-10-02）
+
+重新核对 CC e28 `ToolCallBlock.tsx` 的 `sanitizeShellOutput`、`ShellOutput` 和
+`shellOutput.test.ts`，以及原组件实渲。CC 不只去除颜色，还整理 CSI／OSC、CRLF
+和回车进度；初版 hbar 原文会显示 `[32m` 等杂讯，SSR 红测已复现。
+
+新增纯模型 `projectCommandReading`，最多处理一百万 UTF-16 单元，以线性扫描
+去除完整 ANSI／C1 控制序列及非文本控制码；独立 CR 选该行的最后一个进度帧，
+不执行 cursor／erase 指令、不创建链接、不注入 HTML。普通文本、tab、CRLF、
+空白和 Unicode 不变，不 trim 正文。不完整／畸形序列或超过容量整块回退原文，
+不静默吞掉后续诊断。结果仍由 React 作为文本呈现，没有新增远程依赖。
+
+默认阅读整理后的文本；只有实际发生改变才在输出标题旁提供“原始输出／阅读视图”
+切换。切换复用同一 `pre`、同一外层 card 和按钮，保留展开状态、原始参数和焦点；
+普通输出无新增按钮。控制码-only 结果明确说“没有可显示的文本”，不冒充原结果
+为空，原始输出和 Copy 仍可用。Copy 永远取原始 `tool_result.text`，整理层不影响
+canonical outcome、审批、Host 记录或 Find（Find 原本只索引作者正文，不索引工具）。
+
+本补充最终定向 Bun **90 tests／867 assertions**，七个具体文件：CSI／OSC／
+DCS／C1、CR 覆盖、普通 CRLF、空／控制码-only、未完整序列、容量边界、双语，
+以及原 Copy／presentation／outcome／native-fixture 回归。记录
+`artifacts/desktop-experience/command-control-unit-final.log`，exit 0；Bun 非致命
+directory-mismatch 诊断保留。严格类型检查、全仓 lint、最终 owned 路径检查与
+格式／flow／icon／content guards 通过，没有放宽规则。
+
+浏览器最终三条核心路径通过：两个真实 React/presenter 用例（新阅读→原文→
+完整原 Copy→展开→长错误／中文窄屏，以及原有七类工具一条正常路径）和一个
+真实 Host 审批→ANSI／回车 25 行输出→原文切换→OS clipboard→返回原草稿。
+`command-control-e2e.log` 中两个通过用例与 `command-control-host-e2e-final.log`
+中的一个通过用例为最终证据；中间的 clipboard 回读红测保留，未计入通过数。
+Windows clipboard 会将 CRLF 和 lone CR 都归一化为换行，OS 比较按此处理；
+受控 Copy port 则逐字断言包含原控制码／CR 的完整 source，未更改生产 Copy。
+
+最终 `index-ntEDYbqQ.js`／`index-D2rR5rhZ.css` 已离线同步 standalone，Host 和
+locked／offline Tauri debug 构建通过。独立 `run-20261002-30` 原生 smoke **exit 0**，
+同一 owned stdout-only command Run 的整理显示、原文切换、12 行展开、Copy 反馈、
+原始参数和草稿返回实际通过；原模型／high、Goal Plan、Files／Skills／Provider
+和生命周期断言未移除。主 agent 亲看最终原生图和中文窄屏阅读图。原生 Copy 仍只
+证明反馈，完整原文由受控 port 和 Web OS 回读分别证明。owned 临时数据和进程按
+原脚本清理，不安装、重启现用桌面、调用付费模型、push 或 deploy。
+
+完整 `check`／全部 E2E、真实交互 PTY、所有终端控制语义与图片路径 gallery 不在
+本单元；不把整理后的日志宣称为终端模拟器。草稿刷新策略另经
+[参考事实核对](desktop-draft-reference-boundary.md)，不是本次新增持久化能力。

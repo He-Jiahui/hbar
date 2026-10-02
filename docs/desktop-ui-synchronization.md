@@ -275,3 +275,13 @@ MSVC 环境离线 Host 与 locked／offline Tauri debug 构建通过。独立
 输出／参数／草稿共存图。原生 Copy 只验反馈，完整 payload 由真实 Host Web OS
 clipboard 回读证明。全仓 lint、默认 typecheck、定向 Bun 82 tests／811 assertions
 和 owned guards 通过；不声称完整 check、全部工具或整个 CC 能力迁移。
+
+后续控制码阅读补充把 ANSI／OSC 和回车进度转为独立可读投影，原始输出切换与
+原文 Copy 保留，普通输出不增加按钮。最终资产 `index-ntEDYbqQ.js`／
+`index-D2rR5rhZ.css` 已同步 standalone；离线 Host 与 locked／offline Tauri debug
+构建通过。临时 `run-20261002-30` 原生 smoke exit 0，整理／原文切换、展开、Copy
+反馈及原稿返回通过，主 agent 亲看图；完整 payload 由受控 port 和 Web OS 回读
+证明。定向 Bun 90 tests／867 assertions、三条最终核心浏览器路径及严格静态
+检查通过，详细边界见[阅读补充](desktop-command-reading.md#控制码和进度阅读补充2026-10-02)。
+两个只读 agent 同时查证[CC 草稿事实](desktop-draft-reference-boundary.md)：它也不
+跨完整刷新恢复未发送正文，不为旧审计假设擅自新增持久化。

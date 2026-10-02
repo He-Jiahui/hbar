@@ -143,7 +143,8 @@ test('command reading keeps original arguments, complete Copy and failure recove
       { cmd: source, timeout: 123, extra: 'OPTION-REMAINS' },
       'custom-exec',
     )
-    const stdout = Array.from({ length: 25 }, (_, i) => `output-${i + 1} 雪`).join('\r\n') + '\r\n'
+    const readable = Array.from({ length: 25 }, (_, i) => `output-${i + 1} 雪`).join('\r\n') + '\r\n'
+    const stdout = '\u001b]0;fixture title\u0007\u001b[2KDownloading\r\u001b[32m' + readable + '\u001b[0m'
     await render(f.page, { locale: 'en-US', messages: [message([original])], streaming: true })
     const tool = row(f.page, 'reading')
     await trigger(tool).focus()
@@ -161,7 +162,18 @@ test('command reading keeps original arguments, complete Copy and failure recove
     await render(f.page, { locale: 'en-US', messages: [message([original, result(original, false, stdout)])] })
     await expect(argumentsButton).toBeFocused()
     await expect(card.locator('[data-command-output-tail]')).toBeHidden()
-    await expect(card.locator('[data-command-output]')).toHaveText(stdout)
+    expect(await card.locator('[data-command-output]').textContent()).toBe(readable)
+    const rawToggle = card.locator('.hbar-session-command-view-toggle')
+    await rawToggle.focus()
+    await rawToggle.press('Enter')
+    await expect(rawToggle).toBeFocused()
+    await expect(rawToggle).toHaveAttribute('aria-pressed', 'true')
+    expect(await card.locator('[data-command-output]').textContent()).toBe(stdout)
+    await copyOutput(f.page, tool, 'en-US', stdout)
+    await rawToggle.focus()
+    await rawToggle.press('Space')
+    await expect(rawToggle).toBeFocused()
+    await expect(rawToggle).toHaveAttribute('aria-pressed', 'false')
     await copyOutput(f.page, tool, 'en-US', stdout)
     const more = card.getByRole('button', {
       name: getShellCopy('en-US').session.messageBlocks.showMoreOutput(13),
@@ -179,7 +191,8 @@ test('command reading keeps original arguments, complete Copy and failure recove
     await less.press('Space')
     await expect(more).toBeFocused()
     await expect(card.locator('[data-command-output-tail]')).toBeHidden()
-    const error = 'ORIGINAL FAILURE\r\n' + 'diagnostic 雪\r\n'.repeat(1200) + 'ERROR-END'
+    const readableError = 'ORIGINAL FAILURE\r\n' + 'diagnostic 雪\r\n'.repeat(1200) + 'ERROR-END'
+    const error = '\u001b[31m' + readableError + '\u001b[0m'
     await render(f.page, {
       locale: 'zh-CN',
       longLabels: true,
@@ -187,12 +200,16 @@ test('command reading keeps original arguments, complete Copy and failure recove
     })
     await f.page.setViewportSize({ width: 320, height: 960 })
     const labels = getShellCopy('zh-CN').session.messageBlocks
-    await expect(card.locator('[data-command-output]')).toHaveText(error)
+    expect(await card.locator('[data-command-output]').textContent()).toBe(readableError)
     await expect(card.locator('[data-command-output-tail]')).toHaveCount(0)
     await expect(card.getByText(labels.errorOutput, { exact: true })).toBeVisible()
     await expect(card.locator('.hbar-session-command-output-toggle')).toHaveCount(0)
     await expect(card.locator('.hbar-session-command-original pre')).toHaveText(JSON.stringify(original.args, null, 2))
     await copyOutput(f.page, tool, 'zh-CN', error)
+    await rawToggle.click()
+    expect(await card.locator('[data-command-output]').textContent()).toBe(error)
+    await expect(card.locator('[data-command-output-tail]')).toHaveCount(0)
+    await rawToggle.click()
     const output = card.locator('[data-command-output]')
     await output.evaluate((element) => {
       element.scrollTop = element.scrollHeight

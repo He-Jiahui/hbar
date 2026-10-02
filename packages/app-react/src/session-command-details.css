@@ -48,6 +48,20 @@
   min-inline-size: 0;
   white-space: normal;
 }
+.hbar-session-command .hbar-session-tool-result-heading {
+  flex-wrap: wrap;
+}
+.hbar-session-command-output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-inline-size: 0;
+  gap: 4px;
+}
+.hbar-session-command-view-toggle {
+  min-inline-size: 0;
+  white-space: normal;
+}
 .hbar-session-command-original {
   min-inline-size: 0;
   padding: 4px 12px;

@@ -8,6 +8,36 @@ import {
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { SessionToolRow } from '../packages/app-react/src/session-message-model'
 
+test('command reading removes terminal progress/control frames without replacing the raw Copy source', () => {
+  const row: SessionToolRow = {
+    kind: 'tool',
+    id: 'control-output',
+    name: 'custom-command',
+    call: { type: 'tool_call', callId: 'control-output', name: 'custom-command', args: { command: 'echo hello' } },
+    result: {
+      type: 'tool_result',
+      callId: 'control-output',
+      name: 'custom-command',
+      text: 'Downloading\r100%\r\n\u001b[32mdone\u001b[0m\r\n',
+      isError: false,
+      outcome: { kind: 'succeeded', executionStarted: true },
+    },
+  }
+  const html = renderToStaticMarkup(
+    <SessionToolDetails
+      row={row}
+      presentation={{ icon: 'terminal', command: 'echo hello' }}
+      labels={getShellCopy('zh-CN').session.messageBlocks}
+      sessionId="s"
+      messageId="m"
+    />,
+  )
+  expect(html).not.toContain('Downloading')
+  expect(html).not.toContain('[32m')
+  expect(html).toContain('100%')
+  expect(html).toContain('done')
+})
+
 test('success output windows twelve original lines and preserves CRLF, lone CR and Unicode boundaries', () => {
   for (const newline of ['\n', '\r\n', '\r']) {
     for (const lines of [0, 1, 12, 13]) {
@@ -31,6 +61,33 @@ test('success output windows twelve original lines and preserves CRLF, lone CR a
 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`control-only and incomplete diagnostics never pretend that the original result was empty: ${locale}`, () => {
+    const labels = getShellCopy(locale).session.messageBlocks
+    const row: SessionToolRow = {
+      kind: 'tool',
+      id: 'controls',
+      name: 'exec',
+      call: { type: 'tool_call', callId: 'controls', name: 'exec', args: { command: 'echo' } },
+    }
+    const render = (text: string) =>
+      renderToStaticMarkup(
+        <SessionToolDetails
+          row={{ ...row, result: { type: 'tool_result', callId: 'controls', name: 'exec', text, isError: false } }}
+          presentation={{ icon: 'terminal', command: 'echo' }}
+          labels={labels}
+          sessionId="s"
+          messageId="m"
+        />,
+      )
+    const controls = render('\u001b[32m\u001b[0m')
+    expect(controls).toContain(labels.emptyReadingOutput)
+    expect(controls).toContain(labels.showRawOutput)
+    expect(controls).toContain(labels.toolResultCopy.copy)
+    const incomplete = render('\u001b]unterminated IMPORTANT')
+    expect(incomplete).toContain('unterminated IMPORTANT')
+    expect(incomplete).not.toContain(labels.emptyReadingOutput)
+    expect(incomplete).not.toContain('hbar-session-command-view-toggle')
+  })
   test(`command, complete original arguments and output are one reading surface: ${locale}`, () => {
     const labels = getShellCopy(locale).session.messageBlocks
     const command = 'echo "雪"\r\nnext'

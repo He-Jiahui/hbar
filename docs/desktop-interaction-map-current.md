@@ -68,6 +68,11 @@ Retry、Location 分支创建和首次 Send、More、A/B 会话工具记忆与 F
 Mermaid 阅读分别由[代码交付](desktop-code-syntax-reading.md)和[图示交付](desktop-mermaid-reading.md)
 记录，不按旧截图继续报缺失。
 
+命令阅读后续已加入控制码／回车进度的独立可读投影，原文切换和原 Copy 保留。
+`run-20261002-30` 临时原生与真实 Host 路径通过，范围见上述交付补充。
+两个只读 agent 另外[核对了 CC 草稿边界](desktop-draft-reference-boundary.md)：
+CC 的正文／附件草稿也只在运行时保存，跨完整刷新持久化不是已证明的 parity 缺口。
+
 2026-10-02 后续[Markdown 阅读交付](desktop-file-markdown-reading.md)：Files 中的
 Markdown 默认按文档层次阅读；Source 保留行列／选段／批注，Edit 与 Preview 共享同一
 原稿。显式本地链接经原 Files 入口打开，超过格式容量显示完整源码，不新增 Browser。

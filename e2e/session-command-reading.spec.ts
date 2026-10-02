@@ -41,8 +41,8 @@ test('real command approval, result reading and full Copy return to the original
     // Actual approved local command: only emits bounded text, no files/network.
     const command =
       process.platform === 'win32'
-        ? "1..25 | ForEach-Object { Write-Output ('command reading line ' + $_) }"
-        : 'i=1; while [ $i -le 25 ]; do printf \'command reading line %s\\n\' "$i"; i=$((i+1)); done'
+        ? "1..25 | ForEach-Object { if ($_ -eq 1) { Write-Output (([string][char]27) + '[32mold progress' + ([string][char]13) + 'command reading line ' + $_ + ([string][char]27) + '[0m') } else { Write-Output ('command reading line ' + $_) } }"
+        : "printf '\\033[32mold progress\\rcommand reading line 1\\033[0m\\n'; i=2; while [ $i -le 25 ]; do printf 'command reading line %s\\n' \"$i\"; i=$((i+1)); done"
     await prompt.fill(`/tool shell ${JSON.stringify({ command })}`)
     await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
     await expect
@@ -88,10 +88,18 @@ test('real command approval, result reading and full Copy return to the original
     const card = tool.locator('.hbar-session-command')
     await expect(card.locator('.hbar-session-command-input pre')).toHaveText(command)
     await expect(card.locator('[data-command-output-tail]')).toBeHidden()
+    await expect(card.locator('[data-command-output]')).toHaveAttribute('data-command-output-view', 'reading')
+    expect(await card.locator('[data-command-output]').textContent()).not.toContain('old progress')
     await card.getByRole('button', { name: copy.session.messageBlocks.toolResultCopy.copy, exact: true }).click()
     await expect
-      .poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n'))
-      .toBe(result.text.replaceAll('\r\n', '\n'))
+      // Windows clipboard transport normalizes both CRLF and lone CR to EOL.
+      // Controlled Copy-port coverage separately asserts the exact raw bytes.
+      .poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n?/gu, '\n'))
+      .toBe(result.text.replace(/\r\n?/gu, '\n'))
+    const rawToggle = card.locator('.hbar-session-command-view-toggle')
+    await rawToggle.click()
+    expect(await card.locator('[data-command-output]').textContent()).toBe(result.text)
+    await rawToggle.click()
     await card.getByRole('button', { name: copy.session.messageBlocks.showMoreOutput(13), exact: true }).click()
     await expect(card.locator('[data-command-output-tail]')).toBeVisible()
     await card.getByRole('button', { name: copy.session.messageBlocks.originalInput, exact: true }).click()
