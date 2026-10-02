@@ -82,8 +82,8 @@ test('enforces two global active runs and one active run per schedule', async ()
 
 test('marks pending occurrence failed when its schedule is unavailable', async () => {
   const service = fakeService()
-  service.get = async () => null
   const occurrence = await service.claim('a', 50)
+  service.get = async () => null
   const runner = createScheduleRunner(service, { prepare: async () => ({ sessionId: 's' }), submit: async () => ({ operationId: 'r' }), observeOperation: async () => 'running' as const })
   const failures = await runner.recover([occurrence!])
   expect(failures[0]?.status).toBe('failed')
