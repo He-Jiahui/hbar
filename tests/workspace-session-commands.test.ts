@@ -39,6 +39,16 @@ test('workspace and session commands share the Host catalog and bounded director
   const { root, kernel, workspace, client, commands } = await fixture()
   const catalog = await client.call('command.catalog', { category: 'workspace.session', limit: 30 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
+    'schedule.create',
+    'schedule.delete',
+    'schedule.get',
+    'schedule.list',
+    'schedule.occurrences',
+    'schedule.preview',
+    'schedule.receipt',
+    'schedule.update',
+    'session.activity.global.list',
+    'session.activity.list',
     'session.archive',
     'session.create',
     'session.export',
@@ -49,9 +59,12 @@ test('workspace and session commands share the Host catalog and bounded director
     'session.get',
     'session.list',
     'session.rename',
+    'session.sidebar.list',
+    'workspace.activity.list',
     'workspace.create',
     'workspace.get',
     'workspace.list',
+    'workspace.sidebar.list',
   ])
   expect((await commands.execute('workspace.list', { limit: 10 })).items).toEqual([workspace])
   expect(await commands.execute('workspace.get', { workspaceId: workspace.id })).toEqual(workspace)
