@@ -3,6 +3,10 @@
 2026-10-02（Asia/Shanghai）。用户明确要求：先完整提交 hbar，保持工作区干净，再同步
 隔离分支的 UI 成果。本次操作不包含远端 push、安装、重启现用桌面或商业 Provider 请求。
 
+最新状态：保存与合并已经完成；用户随后明确允许临时原生验收。2026-10-02 的最终
+原生核心流程已通过，详情见本页末尾“授权后的原生验收”。下文早期的“等待确认”和
+lint 失败保留为历史记录，不代表当前仍缺授权或全仓 lint 仍失败。
+
 ## 保存原有工作
 
 主分支 `codex/hbar-app-ui` 在最新 `25078df7` 上保存已有源码、测试、脚本、文档删除和
@@ -93,3 +97,68 @@ profile 同时隔离到系统临时目录。保留外观、附件、文件、窗
 的 `e2e/goal-plan-coexistence.spec.ts` 契约，没有扩展视口／按钮矩阵。原生附件步骤
 仍只证明 chooser 与附件呈现，不能替代 `e2e/pre-session-attachments.spec.ts` 对
 Run files／images 的 Host 事实验证；原生执行依然待确认。
+
+## 授权后的原生验收
+
+用户明确允许临时原生验收后，使用已离线构建的 debug Tauri 程序和当前生产 Web／Host
+资源，启动独立 profile、独立临时项目和 local-fixture mock 模型。没有安装、重启
+现用软件、修改真实项目数据或调用商业模型。
+
+### 查实并修复的问题
+
+- `45a3e76e` 修复验收进程退出核对：Bun 经 signal 结束时 `exitCode` 可保持 null，
+  必须等待有界的 `.exited`，否则清理错误会掩盖原始失败并留下临时 Host。纯边界
+  单测增至 19 pass／30 assertions。第一次遗留的 owned profile 已 recoverably
+  移到 `run-20261002-01/failed-temporary-profile` 保存；后续运行自动释放临时数据。
+- 真实原生首发暴露插件重载后的服务引用不一致：command `mode.set` 回答 Plan，
+  legacy `mode.get` 却仍是 Default，UI 正确表达 unknown，没有伪造发送成功。
+  Agent 用真实 Kernel + Host + SDK 的 `plugin.set` 重载回归先得到红测；
+  `4a5e765b` 在 Host 组合根注入 typed Mode／Goal／Plan forwarding ports，每次
+  解析当前插件服务，保持用例工厂契约不变。新旧 mode、Goal 与 Plan 双向读写
+  1 test／13 assertions 通过；修复范围没有扩大到一般服务迁移。
+- 脚本入口和几何按当前实现核对，不回退产品：初始 no-tab 首页首次发送创建；
+  侧栏显式 New session 立即创建。重命名绑定原 Session ID，并读取自动标题更新后的
+  名称；Lumen 行菜单的触发是带标签的 native summary。选中导航使用当前公共
+  `aria-current`／selected paint，不再要求旧伪元素。历史滚动区按实际 client viewport
+  居中，侧栏与主区之间明确测量实际 resize separator；没有加宽误差阈值。
+- 主 agent 手看截图发现 Files `PATH_DENIED`，拒绝把仅面板出现算成功。原因是脚本把
+  项目放在受保护的 Host 数据根里，不是产品权限错误。项目改用独立 owned temp
+  sibling，保留保护规则；最终步骤实际列出文件并打开其正文，截图不再显示错误。
+
+### 最终实际结果
+
+最终原生运行在 `artifacts/desktop-native-acceptance/run-20261002-13`，终端 exit 0。
+前面的诊断、失败与尚未包含文件正文断言的成功运行均保留，不累加为更多独立用例。
+覆盖：
+
+1. 原生自动认证、临时 Host 数据根，外观保存、刷新恢复和恢复默认。
+2. 首页选项目、mock 模型、high 思考等级，Goal 准备与 Plan 同时存在；首次 Send
+   只产生一个 Session／Run，model 与 thinking 由 Host 回读确认。
+3. 原请求上的真实计划审批；批准后同一个 Run 完成，Goal ID 不变、仍 active，
+   Host mode 回到 Default，未发送草稿完整保留，JSON 计划没有错误文件链接。
+4. 行内重命名、模型浮层 Escape 返回焦点、原生 file chooser 附件呈现。
+5. 侧栏 New session 在当前项目创建，返回原会话仍保留草稿；真实临时文件列出并
+   读取正文，Files 往返保留工作内容。
+6. 默认窗口及原生 900×600 内窗无水平溢出；侧栏展开按 normal flow 缩小主区，
+   输入区与工具内容自然换行，没有覆盖主内容。
+7. Close 隐藏窗口；桌面退出后 Host 继续存活；独立 SDK 取消 mock Run 并实际结算。
+
+主 agent 查看最终模型／thinking／Goal Plan／会话和 Files 画面，并与 CC 发布主图、
+原 ModelSelector 和原 Plan 决策组件的保留实渲对比。实际原生图位于该运行的
+`artifacts/ui-redesign/tauri` 子目录；CC 原组件隔离渲染仍不是 CC 原生 Host 证明。
+计划批准后即时截图可处于短暂投影更新阶段；后续会话图和 Host 回读确认最终状态。
+
+更新后的脚本通过根 `bun run typecheck`、scoped 类型感知 ESLint、Prettier 与 diff
+检查；全仓 `bun run lint` 已在同步后 `07d7bd4d` 基线及本轮 Host 修复上通过。
+共享 Lumen 两项 queued 缺失由其所有者修复并 pin 到 `e63a81f3`，不是本任务排除
+文件或降低 lint。最终新增变化没有修改生产 UI 样式；Web build 3544 modules 和
+离线 Host 资源构建通过，原生程序未重新安装，已有大 chunk 警告仍在。
+
+结束后按精确 data-root／程序路径确认 owned 临时 Host／桌面进程均已退出；最终
+profile 与项目目录已由有界 cleanup 删除，只有 ignored 截图、日志和第一轮恢复证据
+保留。没有触碰用户的其他 Host、桌面或真实项目。
+
+这是“UI 成果同步 + 当前核心流程的临时原生验收”完成记录，不是完整 CC 功能同等
+实现或全套 `bun run check` 通过声明。PTY、内嵌 Browser、Team 等需要新公开后端
+契约，仍按[当前交互地图](desktop-interaction-map-current.md)单独列范围；本轮
+未新增静态按钮冒充这些能力。

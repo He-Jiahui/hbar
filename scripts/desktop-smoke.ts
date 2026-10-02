@@ -24,11 +24,14 @@ import {
 } from './desktop-smoke-fixture'
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-'))
-const workspaceRoot = join(root, 'native-project')
+// Workspace tools must not browse the protected Host data root, including its descendants.
+const projectFixtureRoot = await mkdtemp(join(tmpdir(), 'hbar-native-'))
+const workspaceRoot = join(projectFixtureRoot, 'native-project')
 let child: ReturnType<typeof Bun.spawn> | undefined
 let connection: ReturnType<typeof parseNativeSmokeConnection> | undefined
 let api: HbarClient | undefined
 let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined
+let inspectedPage: Page | undefined
 async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
   const start = Date.now()
   while (true) {
@@ -139,6 +142,7 @@ try {
     if (!page) throw new Error('WebView not created')
     return page
   })
+  inspectedPage = page
   page.setDefaultTimeout(15_000)
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -169,17 +173,18 @@ try {
   await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
   const appearanceNavigation = page.getByRole('button', { name: /^(外观|Appearance)$/ })
   await appearanceNavigation.click()
-  const navigationMarker = await appearanceNavigation.evaluate((button) => {
-    const marker = getComputedStyle(button, '::before')
+  await expect(appearanceNavigation).toHaveAttribute('aria-current', 'page')
+  await expect(appearanceNavigation).toHaveAttribute('data-lumen-state', 'selected')
+  const navigationPaint = await appearanceNavigation.evaluate((button) => {
+    const paint = getComputedStyle(button)
     return {
-      radius: marker.borderRadius,
-      shadow: marker.boxShadow,
-      width: Math.round(Number.parseFloat(marker.width)),
+      background: paint.backgroundColor,
+      color: paint.color,
     }
   })
-  if (navigationMarker.radius !== '0px' || navigationMarker.shadow === 'none' || navigationMarker.width < 2)
+  if (navigationPaint.background === 'transparent' || navigationPaint.background === 'rgba(0, 0, 0, 0)')
     throw new Error(
-      `Desktop selected navigation marker is not a square glowing line: ${JSON.stringify(navigationMarker)}`,
+      `Desktop selected navigation does not have visible canonical paint: ${JSON.stringify(navigationPaint)}`,
     )
   const controlSize = page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ })
   const textSize = page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ })
@@ -228,7 +233,7 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/appearance-reset-default-window.png' })
   await page.getByRole('button', { name: /^(返回会话|Back to session)$/ }).click()
   const beforeFirstSend = await listSessions()
-  await page.getByRole('button', { name: /^(新建会话|New session)$/ }).click()
+  // The no-tab landing is distinct from explicit sidebar New session creation.
   const landing = page.locator('.hbar-pre-session-landing')
   await expect(landing).toBeVisible()
   await expect.poll(async () => (await listSessions()).length).toBe(beforeFirstSend.length)
@@ -244,11 +249,22 @@ try {
     .click()
   await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
   await landing.locator('[data-placement="composer"] > button').click()
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/first-send-model-picker.png' })
   await page
     .getByRole('dialog', { name: preSession.model.title, exact: true })
     .getByRole('button')
     .filter({ hasText: fixtureModel.modelName })
     .click()
+  if (!fixtureModel.thinkingLevels.includes('high')) throw new Error('The mock model must support high effort')
+  await landing.locator('.hbar-pre-session-thinking-picker > button').click()
+  const effort = page.getByRole('dialog', { name: copy.session.modelPicker.thinking, exact: true })
+  await expect(effort.getByRole('slider')).toBeFocused()
+  await page.keyboard.press('Home')
+  for (let index = 0; index < fixtureModel.thinkingLevels.indexOf('high'); index++)
+    await page.keyboard.press('ArrowRight')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/first-send-thinking-picker.png' })
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Escape')
   const objective = `/tool exit_plan_mode ${JSON.stringify({ plan: '# Native smoke plan\n\n- Keep the goal and plan together.' })}`
   const landingPrompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input, exact: true })
   await landingPrompt.fill(objective)
@@ -288,7 +304,10 @@ try {
   expect(originalRun.input.mode).toBe('plan')
   expect(approval.runId).toBe(originalRun.id)
   expect(await api.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
-  expect((await models.execute('session.getModel', { sessionId })).modelId).toBe(fixtureModel.id)
+  expect(await models.execute('session.getModel', { sessionId })).toMatchObject({
+    modelId: fixtureModel.id,
+    thinkingLevel: 'high',
+  })
   const originalGoal = (await goals.execute('goal.get', { sessionId })).goal
   if (!originalGoal) throw new Error('First-send Goal is missing before plan approval')
   expect(originalGoal).toMatchObject({ objective, status: 'active', tokensUsed: 0 })
@@ -317,8 +336,13 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
     throw new Error('Known-workspace new session unexpectedly opened the command catalog')
-  const currentRow = page.locator('[data-session-id][data-selected="true"]')
-  await currentRow.getByRole('button', { name: copy.shell.sessionActions(currentSession.title), exact: true }).click()
+  // First-send title inference can replace the creation-time title before the Run settles.
+  const settledSession = await sessions.execute('session.get', { sessionId })
+  if (!settledSession) throw new Error('The original native Session is missing before rename')
+  const currentRow = page.locator(`[data-session-id="${sessionId}"][data-selected="true"]`)
+  const sessionActions = currentRow.locator('summary')
+  await expect(sessionActions).toHaveAttribute('aria-label', copy.shell.sessionActions(settledSession.title))
+  await sessionActions.click()
   await page.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
   const titleInput = currentRow.getByRole('textbox', { name: /^(会话标题|Session title)$/ })
   await titleInput.fill('Tauri visual session')
@@ -355,11 +379,20 @@ try {
         const bounds = element.getBoundingClientRect()
         return { left: bounds.left, right: bounds.right, width: bounds.width }
       }
+      const viewport = document.querySelector<HTMLElement>('.lumen-conversation-messages')
+      if (!viewport) throw new Error('Missing desktop message scroll viewport')
+      const viewportBounds = viewport.getBoundingClientRect()
+      const viewportLeft = viewportBounds.left + viewport.clientLeft
       return {
         shell: rect('.hbar-app-ui-app-shell'),
         frame: rect('.hbar-app-ui-app-frame'),
         sessionMain: rect('.hbar-app-react-session-main'),
         conversation: rect('.lumen-conversation'),
+        messageViewport: {
+          left: viewportLeft,
+          right: viewportLeft + viewport.clientWidth,
+          width: viewport.clientWidth,
+        },
         timeline: rect('.lumen-conversation-content'),
         composer: rect('.hbar-app-react-session-footer'),
       }
@@ -373,15 +406,16 @@ try {
     )
       throw new Error(`${stage}: conversation does not fill the session main region: ${JSON.stringify(geometry)}`)
     if (
-      geometry.composer.width > geometry.timeline.width ||
+      // A native non-overlay scrollbar belongs to the message pane, not the composer.
+      !within(geometry.timeline.width, Math.min(geometry.messageViewport.width, geometry.composer.width)) ||
       !within(
         geometry.composer.left - geometry.conversation.left,
         geometry.conversation.right - geometry.composer.right,
       )
     )
       throw new Error(`${stage}: timeline and composer edges differ: ${JSON.stringify(geometry)}`)
-    const leftGutter = geometry.timeline.left - geometry.conversation.left
-    const rightGutter = geometry.conversation.right - geometry.timeline.right
+    const leftGutter = geometry.timeline.left - geometry.messageViewport.left
+    const rightGutter = geometry.messageViewport.right - geometry.timeline.right
     if (!within(leftGutter, rightGutter) || geometry.composer.width < Math.min(geometry.conversation.width, 800))
       throw new Error(
         `${stage}: session content is not balanced across the available width: ${JSON.stringify(geometry)}`,
@@ -392,9 +426,27 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-default-window.png' })
   await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
   await page.getByRole('heading', { level: 2, name: /^(文件管理器|File manager)$/ }).waitFor()
+  const nativeFile = page.getByText('native-visual.md', { exact: true })
+  await expect(nativeFile).toBeVisible()
+  await nativeFile.click()
+  const nativePreview = page.locator('.hbar-file-text-preview')
+  await expect(nativePreview).toHaveAttribute('aria-label', copy.files.textPreview('native-visual.md'))
+  await expect(nativePreview).toContainText('Owned native smoke project')
   if (!(await noHorizontalOverflow())) throw new Error('Desktop tool window has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-default-window.png' })
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
+  const beforeExplicitCreation = await listSessions()
+  await page.getByRole('button', { name: copy.shell.newSession, exact: true }).click()
+  await expect.poll(async () => (await listSessions()).length).toBe(beforeExplicitCreation.length + 1)
+  const explicitSession = (await listSessions()).find(
+    (item) => !beforeExplicitCreation.some((before) => before.id === item.id),
+  )
+  if (!explicitSession) throw new Error('Explicit New session did not create its project-owned Session')
+  await expect(page.locator(`[data-session-id="${explicitSession.id}"][data-selected="true"]`)).toBeVisible()
+  expect(explicitSession.workspaceId).toBe(workspace.id)
+  await page.getByRole('button', { name: copy.shell.openSession('Tauri visual session'), exact: true }).click()
+  await expectComposerText(composer, draft)
+  await expect(page.locator(`[data-session-id="${sessionId}"][data-selected="true"]`)).toBeVisible()
 
   await invokeNative(page, 'plugin:window|set_size', {
     label: 'main',
@@ -417,13 +469,20 @@ try {
     const bounds = element.getBoundingClientRect()
     return { left: bounds.left, right: bounds.right, width: bounds.width, position: getComputedStyle(element).position }
   })
+  const separator = page.locator('.lumen-app-sidebar-separator')
+  await expect(separator).toBeVisible()
+  const separatorGeometry = await separator.evaluate((element) => {
+    const bounds = element.getBoundingClientRect()
+    return { left: bounds.left, right: bounds.right }
+  })
   if (
     sidebarGeometry.position === 'fixed' ||
-    Math.abs(sidebarGeometry.right - expandedGeometry.frame.left) > 1 ||
+    Math.abs(sidebarGeometry.right - separatorGeometry.left) > 1 ||
+    Math.abs(separatorGeometry.right - expandedGeometry.frame.left) > 1 ||
     expandedGeometry.frame.width >= collapsedGeometry.frame.width
   )
     throw new Error(
-      `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, collapsedGeometry, expandedGeometry })}`,
+      `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, separatorGeometry, collapsedGeometry, expandedGeometry })}`,
     )
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-sidebar-min-window.png' })
   await page.getByRole('button', { name: /^(隐藏工程与会话侧栏|Hide projects and sessions sidebar)$/ }).click()
@@ -454,9 +513,53 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, Goal and Plan; approval resumed the original Run without losing the draft; model picker and native attachment chooser worked; session and file tool rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; owned project file listed and read; session and file tool rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
+  if (inspectedPage && !inspectedPage.isClosed()) {
+    await inspectedPage.screenshot({ path: 'artifacts/ui-redesign/tauri/native-failure.png' }).catch(() => {})
+    await writeFile(
+      'artifacts/ui-redesign/tauri/native-failure.txt',
+      redactNativeSmokeDiagnostics(
+        await inspectedPage
+          .locator('body')
+          .innerText()
+          .catch(() => 'No page text'),
+        connection?.token,
+      ),
+    )
+  }
+  if (api) {
+    const diagnosticClient = api
+    const bootstrap = await diagnosticClient.call('system.bootstrap', {}).catch(() => null)
+    for (const workspace of bootstrap?.workspaces ?? []) {
+      const sessions = await createWorkspaceSessionCommandClient(diagnosticClient)
+        .execute('session.list', { workspaceId: workspace.id, limit: 10 })
+        .catch(() => null)
+      for (const session of sessions?.items ?? []) {
+        const snapshot = await diagnosticClient.call('session.snapshot', { sessionId: session.id }).catch(() => null)
+        console.error(
+          JSON.stringify({
+            nativeFixtureSession: session.id,
+            mode: await diagnosticClient.call('mode.get', { sessionId: session.id }).catch(() => null),
+            model: await createModelCommandClient(diagnosticClient)
+              .execute('session.getModel', { sessionId: session.id })
+              .catch(() => null),
+            goal: await createGoalPlanCommandClient(diagnosticClient)
+              .execute('goal.get', { sessionId: session.id })
+              .catch(() => null),
+            runs: snapshot?.runs.map((run) => ({ id: run.id, status: run.status, error: run.error })),
+            approvals: snapshot?.approvals.map((approval) => ({
+              id: approval.id,
+              runId: approval.runId,
+              tool: approval.tool,
+              status: approval.status,
+            })),
+          }),
+        )
+      }
+    }
+  }
   console.error(
     redactNativeSmokeDiagnostics(
       error instanceof Error ? `${error.name}: ${error.message}` : String(error),
@@ -486,4 +589,5 @@ try {
   if (host) await terminateOwnedHost(host)
   await Bun.sleep(200)
   await rm(nativeSmokeFixtureRoot(root), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  await rm(nativeSmokeFixtureRoot(projectFixtureRoot), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

@@ -30,9 +30,11 @@ bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-st
 
 `bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序；自定义输出目录可用 `HBAR_DESKTOP_EXE` 指向实际程序。它会启动真实原生窗口，不是无窗口检查。使用前确认允许本轮临时原生验收，不安装或重启现用桌面。
 
-脚本通过临时 loopback WebView2 调试端口、独立 profile 和独立项目驱动真实 Tauri 窗口，检查原生自动认证及 Host 数据根确为临时目录。核心路径是：New session 进入未创建 Session 的输入页；选择项目和 mock 模型，准备 Goal 并选择 Plan；首次 Send 只创建一个 Session / Run，真实计划审批恢复原 Run 且保留未发送草稿。它还检查行内重命名、模型浮层、Add 菜单的原生 file chooser、文件工具、外观保存／刷新／恢复默认，以及默认窗口和原生 900×600 内窗的内容对齐与 sidebar flow。关闭隐藏、退出桌面后 Host 存活和独立 SDK 取消继续保留。不存在的旧意图按钮不再通过空循环冒充已验证。
+脚本通过临时 loopback WebView2 调试端口、独立 profile 和独立项目驱动真实 Tauri 窗口，检查原生自动认证及 Host 数据根确为临时目录。核心路径从没有活动标签的首页开始：选择项目、mock 模型和 high 思考等级，准备 Goal 并选择 Plan；首次 Send 只创建一个 Session / Run，真实计划审批恢复原 Run 且保留未发送草稿。侧栏显式 New session 是另一条入口：在当前项目立即创建会话，再返回原会话核对草稿；不能将两者混为首次发送才创建。入口依据见 [入口审计](desktop-entry-audit-2026-09-26.md)。
 
-临时目录只能是系统 temp 下本脚本创建的直接子目录；连接文件先校验 URL／PID／实例字段，终止 Host 前核对其命令行的精确 data-root 所有权。失败日志隐藏临时 token 和配对码。调试端口只由该测试进程的环境变量启用，常规桌面启动不启用。纯边界检查可运行 `bun test ./tests/desktop-smoke-fixture.test.ts --tsconfig-override ./tsconfig.json`，不会启动原生窗口。此单测通过不代表 native smoke 通过；最新实际执行状态见 [UI 同步记录](desktop-ui-synchronization.md)。
+脚本还检查行内重命名、模型浮层、Add 菜单的原生 file chooser、文件工具、外观保存／刷新／恢复默认，以及默认窗口和原生 900×600 内窗的内容对齐与 sidebar flow。外观导航核对当前 Lumen 的选中语义和可见背景，不要求已被共享组件替换的旧伪元素。关闭隐藏、退出桌面后 Host 存活和独立 SDK 取消继续保留。不存在的旧意图按钮不再通过空循环冒充已验证；失败时保留脱敏截图、页面文本和临时 Session 的 Host 事实，不能把脚本通过单测等同于原生流程通过。
+
+profile 和项目分别使用系统 temp 下本脚本创建的直接子目录，项目不放在受保护的 Host 数据目录中；文件步骤必须列出并读取真实临时文件正文，不能只检查面板出现。连接文件先校验 URL／PID／实例字段，终止 Host 前核对其命令行的精确 data-root 所有权。失败日志隐藏临时 token 和配对码。调试端口只由该测试进程的环境变量启用，常规桌面启动不启用。纯边界检查可运行 `bun test ./tests/desktop-smoke-fixture.test.ts --tsconfig-override ./tsconfig.json`，不会启动原生窗口。此单测通过不代表 native smoke 通过；最新实际执行状态见 [UI 同步记录](desktop-ui-synchronization.md)。
 
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
