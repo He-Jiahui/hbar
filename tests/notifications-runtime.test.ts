@@ -84,6 +84,46 @@ describe('notifications runtime projection', () => {
     expect(runtime.reader.getSnapshot().unreadCount).toBe(3)
     runtime.dispose()
   })
+
+  test('mark-all refresh preserves a fresh event created after the confirmed watermark', async () => {
+    let calls = 0
+    const port: NotificationsPort = {
+      page: async () => {
+        calls++
+        return calls === 1
+          ? { items: [item('base')], nextCursor: null, unreadCount: 1, watermark: 1 }
+          : { items: [item('base', 10), item('after')], nextCursor: null, unreadCount: 1, watermark: 2 }
+      },
+      preferences: async () => prefs,
+      markRead: async () => item('base', 10),
+      markAllRead: async () => ({ updated: 1 }),
+      setPreferences: async (value) => value,
+    }
+    const runtime = createNotificationsRuntime(port)
+    await runtime.refresh()
+    const all = runtime.markAllRead()
+    runtime.acceptFreshNotification({ sourceEventId: 'event-after', sequence: 2, record: item('after') })
+    await all
+    expect(runtime.reader.getSnapshot().items.find((entry) => entry.id === 'after')?.readAt).toBeNull()
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(1)
+    runtime.dispose()
+  })
+
+  test('legacy pages use the host unread count without adding unsequenced fresh events', async () => {
+    const port: NotificationsPort = {
+      page: async () => ({ items: [item('base')], nextCursor: null, unreadCount: 2 }),
+      preferences: async () => prefs,
+      markRead: async () => item('base', 1),
+      markAllRead: async () => ({ updated: 0 }),
+      setPreferences: async (value) => value,
+    }
+    const runtime = createNotificationsRuntime(port)
+    await runtime.refresh()
+    runtime.acceptFreshNotification({ sourceEventId: 'event-legacy', record: item('legacy') })
+    await runtime.refresh()
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(2)
+    runtime.dispose()
+  })
   test('late refresh cannot overwrite newer generation', async () => {
     let resolveFirst:
       ((value: { items: NotificationRecord[]; nextCursor: string | null; unreadCount: number }) => void) | undefined

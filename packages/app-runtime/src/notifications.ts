@@ -114,15 +114,14 @@ export function createNotificationsRuntime(
       state.replace({ ...current, preferences, mutation: 'succeeded', error: null })
     } else {
       notificationCommands['notification.markAllRead'].output.parse(result)
-      const now = Date.now()
-      const items = current.items.map((entry) => ({ ...entry, readAt: entry.readAt ?? now }))
-      for (const [id, entry] of freshById) freshById.set(id, { ...entry, readAt: entry.readAt ?? now })
-      state.replace({ ...current, items, unreadCount: 0, mutation: 'succeeded', error: null })
+      // The transaction's watermark is learned from the authoritative refresh below;
+      // keeping the projection avoids marking notifications created after the transaction as read.
+      state.replace({ ...current, mutation: 'succeeded', error: null })
     }
   }
   const mergePage = (page: NotificationPage) => {
     const fresh = [...freshById.values()].filter((record) =>
-      (record.sequence === undefined || record.sequence > watermark) && !page.items.some((item) => item.id === record.id),
+      record.sequence !== undefined && record.sequence > watermark && !page.items.some((item) => item.id === record.id),
     )
     const items = [...fresh, ...page.items].slice(0, 400)
     const freshUnread = fresh.filter((record) => record.readAt === null).length
@@ -209,13 +208,16 @@ export function createNotificationsRuntime(
         const seen = new Set(latest.items.map((item) => item.id))
         const items = [...latest.items, ...page.items.filter((item) => !seen.has(item.id))].slice(0, 400)
         const visibleIds = new Set(items.map((item) => item.id))
-        const freshUnread = [...freshById.values()].filter((item) => !visibleIds.has(item.id) && item.readAt === null).length
+        const freshUnread = [...freshById.values()].filter((item) =>
+          item.sequence !== undefined && page.watermark !== undefined && item.sequence > page.watermark &&
+          !visibleIds.has(item.id) && item.readAt === null,
+        ).length
         state.replace({
           ...latest,
           status: 'ready',
           items,
           nextCursor: items.length >= 400 ? null : page.nextCursor,
-          unreadCount: page.unreadCount + (page.watermark === undefined ? 0 : freshUnread),
+          unreadCount: page.unreadCount + freshUnread,
           error: null,
         })
       } catch (error) {
