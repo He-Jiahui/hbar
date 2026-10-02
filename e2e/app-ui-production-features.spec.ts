@@ -112,7 +112,7 @@ test.describe('production app-ui feature surfaces', () => {
         await page.getByRole('combobox', { name: labels.target }).selectOption({ label: host.ready.sessionTitle })
         await page.getByRole('combobox').filter({ hasText: labels.append }).selectOption('replace')
         await page.getByRole('button', { name: /Apply to draft|写入草稿/, exact: true }).click()
-        await expect(page.getByText(/Replace the current draft body|确认替换当前草稿正文/)).toBeVisible()
+        await expect(page.getByRole('alert')).toContainText(/Replace the current draft body|确认替换当前草稿正文/)
         await page
           .getByRole('button', { name: /Replace the current draft body|确认替换当前草稿正文/ })
           .click()
