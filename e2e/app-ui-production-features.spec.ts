@@ -73,8 +73,7 @@ test.describe('production app-ui feature surfaces', () => {
                 addVar: '添加变量',
                 target: '目标',
                 pre: '创建预会话草稿',
-          }
-        const templateCopy = promptTemplateCopy(locale)
+              }
             : {
                 feature: 'Prompt templates',
                 create: 'New template',
@@ -88,12 +87,15 @@ test.describe('production app-ui feature surfaces', () => {
                 target: 'Target',
                 pre: 'Create pre-session draft',
               }
+        const templateCopy = promptTemplateCopy(locale)
         await openFeature(page, labels.feature)
         await page.getByRole('button', { name: /New template|新建模板/ }).click()
         const editor = page.locator('.hbar-prompt-template-editor')
         await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release build')
         await page.getByRole('textbox', { name: templateCopy.editor.name, exact: true }).fill('Release template')
-        await page.getByRole('textbox', { name: templateCopy.description, exact: true }).fill('A release template for browser acceptance')
+        await page
+          .getByRole('textbox', { name: templateCopy.description, exact: true })
+          .fill('A release template for browser acceptance')
         await page.getByRole('button', { name: labels.addVar, exact: true }).click()
         const variable = page.locator('.hbar-prompt-variable').last()
         await variable.locator('input').nth(0).fill('environment')
@@ -115,9 +117,7 @@ test.describe('production app-ui feature surfaces', () => {
         await page.getByRole('combobox').filter({ hasText: labels.append }).selectOption('replace')
         await page.getByRole('button', { name: /Apply to draft|写入草稿/, exact: true }).click()
         await expect(page.getByRole('alert')).toContainText(/Replace the current draft body|确认替换当前草稿正文/)
-        await page
-          .getByRole('button', { name: /Replace the current draft body|确认替换当前草稿正文/ })
-          .click()
+        await page.getByRole('button', { name: /Replace the current draft body|确认替换当前草稿正文/ }).click()
         await expect(prompt).toContainText('Release production')
         await page.getByRole('button', { name: templateCopy.createPreDraft, exact: true }).click()
         await expect(page.getByRole('combobox', { name: labels.target })).toHaveValue(/pre-session/)
@@ -141,7 +141,7 @@ test.describe('production app-ui feature surfaces', () => {
   }) => {
     test.setTimeout(120_000)
     await withHost(browser, 'en-US', async (page, host) => {
-        await openSession(page, host, 'en-US')
+      await openSession(page, host, 'en-US')
       await openFeature(page, 'Schedules')
       await page.getByLabel('Name').fill('Nightly verification')
       const schedule = page.locator('.hbar-schedule-page')
@@ -241,7 +241,10 @@ test.describe('production app-ui feature surfaces', () => {
       const before = await desktop.getAttribute('aria-checked')
       await desktop.click()
       await page.reload()
-      await expect(page.getByRole('switch').first()).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
+      await expect(page.getByRole('switch').first()).toHaveAttribute(
+        'aria-checked',
+        before === 'true' ? 'false' : 'true',
+      )
       await capture(page, 'notifications-1440.png')
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
@@ -293,7 +296,10 @@ test.describe('production app-ui feature surfaces', () => {
         .first()
         .click()
       await expect(page.getByText(/queued|running/i).first()).toBeVisible()
-      await page.getByRole('button', { name: /Open|View details/ }).first().click()
+      await page
+        .getByRole('button', { name: /Open|View details/ })
+        .first()
+        .click()
       await expect(page.getByText(host.ready.sessionTitle, { exact: true }).first()).toBeVisible()
       await capture(page, 'run-board-1440.png')
       await page.setViewportSize({ width: 320, height: 720 })
