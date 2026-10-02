@@ -217,13 +217,15 @@ export function createScheduleRunner(
               occurrence.sessionId ?? undefined,
             )
           else if (terminal.has(status)) {
-            await service.transition(
+            const settled: ScheduleOccurrence = await service.transition(
               occurrence.id,
               status === 'interrupted' ? 'failed' : status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'cancelled',
               occurrence.runId,
               undefined,
               occurrence.sessionId ?? undefined,
             )
+            if (settled.status === 'failed') failures.push(settled)
+            if (settled.status === 'failed') failures.push(settled)
             done = true
           } else
             await service.transition(
@@ -246,3 +248,4 @@ export function createScheduleRunner(
     },
   }
 }
+

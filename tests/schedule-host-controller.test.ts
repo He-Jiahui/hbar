@@ -103,3 +103,31 @@ test('known prepare failure is persisted and reported through ScheduleRunFailure
   expect(transitions).toContain('failed')
   expect(failures).toEqual([{ scheduleId: 's', occurrenceId: 'failed', error: 'known prepare failure' }])
 })
+
+test('recovery terminal failure is reported once even when the same occurrence is returned twice', async () => {
+  const active = [occurrence('failed', 'run-failed')]
+  const failures: string[] = []
+  let recoveryReads = 0
+  const controller = createScheduleHostController({
+    service: {
+      get: async () => schedule,
+      claim: async () => null,
+      transition: async (id, status, runId, error, sessionId) => ({ ...occurrence(id, runId ?? null), status, error: error ?? null, sessionId: sessionId ?? 'session' }),
+      list: async () => ({ items: [schedule], next: null, revision: 0 }), create: async () => schedule,
+      update: async () => schedule, delete: async () => ({ scheduleId: 's', revision: 1 }),
+      occurrences: async () => ({ items: [], next: null }), preview: () => ({ occurrences: [1], timezone: 'UTC' }),
+    },
+    reader: {
+      enabledSchedules: async () => [schedule],
+      activeScheduleOccurrences: async () => { recoveryReads++; return recoveryReads === 1 ? active : active },
+      dueScheduleOccurrences: async () => [],
+    },
+    runCommands: { execute: async () => ({ operationId: 'run-failed', sessionId: 'session', status: 'failed', startedAt: 1, endedAt: 2, error: 'terminal failure' }) },
+    actorId: 'scheduler', prepareSession: async () => ({ sessionId: 'session' }),
+    onFailure: (failure) => { failures.push(failure.occurrenceId) }, now: () => 2, intervalMs: 60_000,
+  })
+  await controller.start()
+  await controller.tick()
+  await controller.close()
+  expect(failures).toEqual(['failed'])
+})

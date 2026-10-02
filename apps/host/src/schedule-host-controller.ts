@@ -83,13 +83,17 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
   let timer: ReturnType<typeof setTimeout> | undefined
   let stopped = false
   let ticking: Promise<void> | undefined
+  const notifiedFailures = new Set<string>()
   const tick = async () => {
     if (stopped || ticking) return ticking
     ticking = (async () => {
       const timestamp = now()
       const recoveredFailures = await runner.recover(await options.reader.activeScheduleOccurrences(64))
       for (const failed of recoveredFailures)
-        await options.onFailure?.({ scheduleId: failed.scheduleId, occurrenceId: failed.id, error: failed.error ?? 'Scheduled run failed' })
+        if (!notifiedFailures.has(failed.id)) {
+          notifiedFailures.add(failed.id)
+          await options.onFailure?.({ scheduleId: failed.scheduleId, occurrenceId: failed.id, error: failed.error ?? 'Scheduled run failed' })
+        }
       const due = await options.reader.dueScheduleOccurrences(timestamp, 32)
       for (const item of due) {
         let occurrence: ScheduleOccurrence | null = null

@@ -58,3 +58,24 @@ test('recovers pending occurrence by preparing and submitting with its stable ke
   expect(prepares).toBe(1)
   expect(submits).toBe(1)
 })
+
+test('enforces two global active runs and one active run per schedule', async () => {
+  const service = fakeService()
+  const release: Array<() => void> = []
+  const execution = {
+    prepare: async () => ({ sessionId: 's' }),
+    submit: async () => { await new Promise<void>((resolve) => release.push(resolve)); return { operationId: 'run' } },
+    observeOperation: async () => 'running' as const,
+  }
+  const runner = createScheduleRunner(service, execution, { maxActive: 2 })
+  const first = runner.runSchedule('a', 40)
+  const second = runner.runSchedule('b', 41)
+  const sameSchedule = runner.runSchedule('a', 42)
+  const thirdSchedule = runner.runSchedule('c', 43)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(await sameSchedule).toBeNull()
+  expect(await thirdSchedule).toBeNull()
+  expect(release).toHaveLength(2)
+  release.forEach((done) => done())
+  await Promise.all([first, second])
+})
