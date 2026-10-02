@@ -566,7 +566,7 @@ export type FileWorkspacePreviewState =
       readonly id: string
       readonly kind: 'document'
       readonly path: string
-      readonly documentMode: 'preview' | 'edit'
+      readonly documentMode: 'preview' | 'source' | 'edit'
       readonly document: Readonly<FileWorkspaceDocumentState>
       /** One-shot visual reveal requested by a message/file navigation intent. */
       readonly reveal?: Readonly<{
@@ -594,7 +594,7 @@ export interface FileWorkspaceEntryState {
   readonly activePreviewId: string | null
   readonly view: 'browser' | 'document' | 'diff'
   readonly browserMode: 'all' | 'changed'
-  readonly documentMode: 'preview' | 'edit'
+  readonly documentMode: 'preview' | 'source' | 'edit'
   readonly changes: Readonly<FileWorkspaceChangesState>
   readonly diff: Readonly<FileWorkspaceDiffState> | null
   readonly tree: Readonly<FileWorkspaceTreeState>

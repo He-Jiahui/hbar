@@ -226,3 +226,18 @@ Providers、选择新 mock 默认、返回 Model 和会话，原显式模型／t
 和未发送草稿仍保留；已有首发、Goal/Plan、Files、Skills、搜索与生命周期步骤未移除。
 主 agent 亲看实际全局 badge 和 scoped dirty Model 画面；不是原生 workspace 或网络
 故障注入证明。临时数据与 owned 进程按原脚本清理，不安装／重启实际用户软件。
+
+## Markdown 文档阅读补充（2026-10-02）
+
+基于只读 CC e28 的 WorkspacePanel／MarkdownRenderer 原组件实渲，补齐默认文档
+阅读层次；hbar 自有 Source／Edit／Save 保留同一 preview、baseline 和草稿，没有
+把 e28 的只读预览说成已有编辑保存。[阅读交付](desktop-file-markdown-reading.md)
+记录真实红测、相对链接策略、容量 fallback 与最终中英文核心路径。
+
+最终 Web `index-Cv-xYv4-.js`／`index-BIS9l6L3.css`（3550 modules）已同步 standalone
+资源；MSVC 环境下 Host 与 locked／offline Tauri debug 构建通过。独立
+`run-20261002-23` 维护的原生 smoke 终端 exit 0：实际读取 owned Markdown、切源码、
+打开本地链接并返回原文档；既有首发、Goal/Plan、模型／high、Files／Skills、Provider
+和生命周期断言未移除。主 agent 亲看最终文档画面，不安装／重启用户软件，不调用
+付费模型。全仓 lint、默认 typecheck 与最终 owned 路径检查通过；定向 Bun 为
+54 tests／348 assertions，Host E2E 3/3，生命周期另 2/2，不声称完整 check 或 E2E。

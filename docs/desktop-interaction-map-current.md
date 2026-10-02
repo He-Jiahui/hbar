@@ -62,6 +62,11 @@ Retry、Location 分支创建和首次 Send、More、A/B 会话工具记忆与 F
 
 ## 用户已确认的语义，不能重报为缺口
 
+2026-10-02 后续[Markdown 阅读交付](desktop-file-markdown-reading.md)：Files 中的
+Markdown 默认按文档层次阅读；Source 保留行列／选段／批注，Edit 与 Preview 共享同一
+原稿。显式本地链接经原 Files 入口打开，超过格式容量显示完整源码，不新增 Browser。
+中英两条真实 Host 路径和临时原生结果见独立交付记录。
+
 2026-10-02 后续[搜索可见选择修复](desktop-chat-search-selection.md)：真实近期列表
 按方向键后原选择事实存在，当前 Lumen paint 却盖过旧 aria-selected 背景；已接入
 公开 selected state，保持原导航合同。最终中英两条主链及新临时原生 run-19 通过，

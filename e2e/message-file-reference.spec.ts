@@ -114,6 +114,10 @@ test('message file references open the source session reader, reveal new locatio
     const files = page.locator('.hbar-app-react-file-workspace')
     const reader = files.getByLabel(copy.files.textPreview(path), { exact: true })
     await expect(reader.locator('[data-revealed="true"] [data-source-code="1"]')).toBeVisible()
+    await expect(files.getByRole('button', { name: copy.files.preview, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     expect(
       await reader.locator('[data-revealed="true"]').evaluate((element) => getComputedStyle(element).backgroundColor),
     ).not.toBe('rgba(0, 0, 0, 0)')

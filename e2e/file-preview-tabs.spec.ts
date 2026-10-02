@@ -142,6 +142,13 @@ function files(fixture: Fixture): Locator {
 function preview(fixture: Fixture, path: string): Locator {
   return files(fixture).getByLabel(fixture.copy.files.textPreview(path), { exact: true })
 }
+async function expectSourceText(fixture: Fixture, path: string, text: string): Promise<void> {
+  await files(fixture).getByRole('button', { name: fixture.copy.files.source, exact: true }).click()
+  // Compare authored line spans only; gutter controls are not document text.
+  await expect(preview(fixture, path).locator('[data-source-code]')).toHaveText(
+    text.split('\n').map((line) => line || '\u200b'),
+  )
+}
 function editor(fixture: Fixture, path: string): Locator {
   return files(fixture).getByRole('textbox', { name: path, exact: true })
 }
@@ -365,10 +372,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await openFile(fixture, bPath)
       expect(await previewIdentity(fixture, aPath)).not.toBe(aIdentity)
       await documentTab(fixture, aPath).click()
-      await expect(preview(fixture, aPath)).toHaveText(aDraft)
+      await expectSourceText(fixture, aPath, aDraft)
       await writeFile(join(root, bPath), '# External B refresh\n')
       await documentTab(fixture, bPath).click()
-      await expect(preview(fixture, bPath)).toHaveText('# External B refresh\n')
+      await expectSourceText(fixture, bPath, '# External B refresh\n')
       await fixture.page.setViewportSize({ width: 320, height: 844 })
       const visibleNavigator = await navigator(fixture)
       await expect(files(fixture).locator('.hbar-file-reader')).toBeHidden()
@@ -419,7 +426,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       expect(new Set(identities).size).toBe(3)
       await documentTab(fixture, changedPath).click()
-      await expect(preview(fixture, changedPath)).toHaveText('# Working tree version\n')
+      await expectSourceText(fixture, changedPath, '# Working tree version\n')
       await files(fixture).getByRole('button', { name: copy.files.expandWorkbench, exact: true }).click()
       await expect(page.locator('.hbar-app-react-file-workbench')).toBeVisible()
       await files(fixture).getByRole('button', { name: copy.files.returnToConversation, exact: true }).click()
@@ -516,10 +523,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(files(fixture).getByRole('region', { name: copy.files.navigator, exact: true })).toBeVisible()
       await expect(files(fixture).getByRole('tab')).toHaveCount(0)
       await openFile(fixture, readingA)
-      await expect(preview(fixture, readingA)).toHaveText(longText('A'))
+      await expectSourceText(fixture, readingA, longText('A'))
       const aScroll = await scrollReader(fixture, readingA, 670)
       await openFile(fixture, readingB)
-      await expect(preview(fixture, readingB)).toHaveText(longText('B'))
+      await expectSourceText(fixture, readingB, longText('B'))
       const bScroll = await scrollReader(fixture, readingB, 310)
       expect(Math.abs(aScroll - bScroll)).toBeGreaterThan(100)
       await documentTab(fixture, readingA).click()
@@ -552,7 +559,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(content).toContainText(lastLine)
       const diffScroll = await scrollContent(fixture, content, 420)
       await documentTab(fixture, readingB).click()
-      await expect(preview(fixture, readingB)).toHaveText(longText('B'))
+      await expectSourceText(fixture, readingB, longText('B'))
       await previewTab(fixture, pagedDiffPath, 'working').click()
       await expect(
         files(fixture).getByRole('button', { name: copy.files.changes.workingTree, exact: true }),
@@ -784,16 +791,16 @@ test('closing a loading preview rejects its late reply; clean refresh failure re
     // A subsequent real read visibly completes after the original reply was
     // delivered. No timer or private state bridge is used to claim application.
     await openFile(fixture, latePath)
-    await expect(preview(fixture, latePath)).toHaveText('# Late original response\n')
+    await expectSourceText(fixture, latePath, '# Late original response\n')
     await expect(files(fixture).getByRole('tab')).toHaveCount(2)
     await expect(documentTab(fixture, aPath)).toHaveCount(0)
     await openFile(fixture, aPath)
     expect(await previewIdentity(fixture, aPath)).not.toBe(oldIdentity)
-    await expect(preview(fixture, aPath)).toHaveText(aDisk)
+    await expectSourceText(fixture, aPath, aDisk)
     await writeFile(join(root, bPath), '# Updated B after read retry\n')
     failNextB = true
     await documentTab(fixture, bPath).click()
-    await expect(preview(fixture, bPath)).toHaveText('# B independent text\n')
+    await expectSourceText(fixture, bPath, '# B independent text\n')
     await expect(files(fixture).getByRole('alert')).toHaveCount(1)
     await expect(files(fixture).getByRole('region', { name: bPath, exact: true }).getByRole('alert')).toContainText(
       copy.files.error('DISCONNECTED'),
@@ -803,7 +810,7 @@ test('closing a loading preview rejects its late reply; clean refresh failure re
       .getByRole('region', { name: bPath, exact: true })
       .getByRole('button', { name: copy.files.refresh, exact: true })
       .click()
-    await expect(preview(fixture, bPath)).toHaveText('# Updated B after read retry\n')
+    await expectSourceText(fixture, bPath, '# Updated B after read retry\n')
     await expect(documentTab(fixture, bPath)).toHaveAttribute('aria-selected', 'true')
     await screenshot(fixture, 'read-retry-original-target', 1440)
     await noExecution(fixture)

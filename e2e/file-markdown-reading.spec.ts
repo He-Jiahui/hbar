@@ -1,0 +1,107 @@
+import { expect, test } from '@playwright/test'
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join, resolve } from 'node:path'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+import { expectComposerText } from './support/composer-text'
+import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+const text =
+  '# Project notes — 项目说明\n\nRead the document, keep its original file identity.\n\n## Review steps\n\n1. **Read** the proposal.\n2. Inspect the source.\n3. Return to the conversation.\n\n| State | Next action |\n| --- | --- |\n| Draft | Review |\n| Confirmed | Continue |\n\n```ts\nexport const ready = true\n```\n\n![Remote image must not load](https://markdown-fixture.invalid/pixel.png)\n\n<script>window.markdownExecuted = true</script>\n\n' +
+  Array.from(
+    { length: 28 },
+    (_, i) =>
+      `## Section ${i + 1}\n\nA longer paragraph with **emphasis**, [an explicit external link](https://markdown-fixture.invalid/read), and a natural reading flow. 阅读内容变长时保留标题与正文层次。\n\n`,
+  ).join('')
+
+async function removeOwnedFixture(root: string): Promise<void> {
+  const target = resolve(root)
+  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-markdown-reading-'))
+    throw new Error('Unexpected Markdown fixture cleanup target')
+  await rm(target, { recursive: true, force: true })
+}
+
+for (const scenario of [
+  { locale: 'en-US', width: 1440 },
+  { locale: 'zh-CN', width: 320 },
+] as const) {
+  test(`Markdown file reading keeps source, editing and return continuous: ${scenario.locale}`, async ({
+    browser,
+  }, info) => {
+    test.setTimeout(90_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-markdown-reading-'))
+    const context = await browser.newContext({ locale: scenario.locale, viewport: { width: 1440, height: 900 } })
+    const copy = getShellCopy(scenario.locale)
+    let host: WebSessionHost | undefined
+    try {
+      await writeFile(join(root, 'README.md'), text)
+      await writeFile(join(root, 'other.txt'), 'A separate ordinary text file.\n')
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+      const page = await context.newPage()
+      const errors: string[] = []
+      const remoteRequests: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await context.route('https://markdown-fixture.invalid/**', (route) => {
+        remoteRequests.push(route.request().url())
+        return route.abort()
+      })
+      await page.goto(base)
+      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const draft = 'Keep this draft while reading Markdown — 文档往返不丢草稿'
+      await prompt.fill(draft)
+      await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
+      await page.getByText('README.md', { exact: true }).click()
+      await page.setViewportSize({ width: scenario.width, height: 900 })
+      const markdown = page.locator('.hbar-file-markdown-preview')
+      await expect(markdown.getByRole('heading', { name: 'Project notes — 项目说明', exact: true })).toBeVisible()
+      await expect(markdown.locator('strong').first()).toHaveText('Read')
+      await expect(markdown.locator('table')).toHaveCount(1)
+      await expect(markdown.locator('img,script,iframe')).toHaveCount(0)
+      expect(await page.evaluate(() => 'markdownExecuted' in window)).toBe(false)
+      expect(remoteRequests).toEqual([])
+      await page.screenshot({ path: info.outputPath(`markdown-read-${scenario.locale}.png`) })
+      await markdown.evaluate((element) => {
+        element.scrollTop = 480
+      })
+      const readingTop = await markdown.evaluate((element) => element.scrollTop)
+      expect(readingTop).toBeGreaterThan(100)
+      await page.getByRole('button', { name: copy.files.source, exact: true }).click()
+      await expect(page.locator('.hbar-file-text-preview')).toContainText('# Project notes — 项目说明')
+      await page.getByRole('button', { name: copy.files.edit, exact: true }).click()
+      const editor = page.getByRole('textbox', { name: 'README.md', exact: true })
+      const changed = text.replace('# Project notes — 项目说明', '# Revised notes — 修订说明')
+      await editor.fill(changed)
+      await page.getByRole('button', { name: copy.files.preview, exact: true }).click()
+      await expect(markdown.getByRole('heading', { name: 'Revised notes — 修订说明', exact: true })).toBeVisible()
+      await expect.poll(() => markdown.evaluate((element) => element.scrollTop)).toBe(readingTop)
+      expect(await readFile(join(root, 'README.md'), 'utf8')).toBe(text)
+      await page.getByRole('button', { name: copy.files.edit, exact: true }).click()
+      await expect(editor).toHaveValue(changed)
+      await page.getByRole('button', { name: copy.files.save, exact: true }).click()
+      await expect.poll(() => readFile(join(root, 'README.md'), 'utf8')).toBe(changed)
+      await page.getByRole('button', { name: copy.files.preview, exact: true }).click()
+      await page.screenshot({ path: info.outputPath(`markdown-saved-${scenario.locale}.png`) })
+      // An explicit local link goes through the original Files action, not browser navigation.
+      await page.getByRole('button', { name: copy.files.edit, exact: true }).click()
+      await editor.fill(changed + '\n[Related file](other.txt)\n')
+      await page.getByRole('button', { name: copy.files.preview, exact: true }).click()
+      await markdown.getByRole('button', { name: copy.files.openLinkedFile('other.txt'), exact: true }).click()
+      await expect(page.locator('.hbar-file-text-preview')).toContainText('A separate ordinary text file.')
+      await page.getByRole('tab', { name: copy.files.previews.tab('README.md', 'document'), exact: true }).click()
+      await expect(markdown.getByRole('heading', { name: 'Revised notes — 修订说明', exact: true })).toBeVisible()
+      expect(await readFile(join(root, 'README.md'), 'utf8')).toBe(changed)
+      await page.getByRole('button', { name: copy.files.close, exact: true }).click()
+      await expectComposerText(prompt, draft)
+      expect(remoteRequests).toEqual([])
+      expect(errors).toEqual([])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    } finally {
+      await context.close()
+      if (host) await stopWebSessionHost(host)
+      await removeOwnedFixture(root)
+    }
+  })
+}

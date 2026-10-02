@@ -81,7 +81,9 @@ test('file workspace renders Host entries and a command-owned editable document'
     expect(html).toContain('File manager')
     expect(html).toContain('Workspace root')
     expect(html).toContain('README.md')
-    expect(html).toContain('# Host file')
+    expect(html).toContain('<h1>Host file</h1>')
+    expect(html).toContain('hbar-file-markdown-preview')
+    expect(html).toContain(labels.source)
     expect(html).toContain('Back to files')
     expect(html).toContain('Text preview: README.md')
     expect(html).not.toContain('<textarea')
@@ -108,6 +110,23 @@ test('file workspace renders Host entries and a command-owned editable document'
     expect(conflict).toContain('The source changed; your draft is still preserved.')
     expect(conflict).toContain('# Local draft')
     expect(conflict).toContain('Reload source')
+    const overCapacity = 'x'.repeat(128 * 1024 + 1)
+    await runtime.view.commands.execute('fileWorkspace.setText', { instanceId: 'files', text: overCapacity })
+    await runtime.view.commands.execute('fileWorkspace.setDocumentMode', {
+      instanceId: 'files',
+      workspaceId: 'workspace-1',
+      path: 'README.md',
+      mode: 'preview',
+    })
+    const largePreview = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarFileWorkspace labels={labels} connected />
+      </HbarRuntimeProvider>,
+    )
+    expect(largePreview).toContain(labels.markdownTooLarge)
+    expect(largePreview).toContain('hbar-file-text-preview')
+    expect(largePreview).toContain(overCapacity)
+    expect(largePreview).not.toContain('hbar-file-markdown-preview')
   } finally {
     runtime.dispose()
   }

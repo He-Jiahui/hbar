@@ -468,6 +468,17 @@ export function createFileWorkspace(
           ...(reveal.column === undefined ? {} : { column: reveal.column }),
         }
       : undefined
+    // A source reveal needs line-addressable content. Preserve an explicit edit
+    // mode so a message reference cannot steal the user's active draft editor;
+    // all other reveal requests use the source reader for the same preview.
+    const documentMode =
+      existing?.kind === 'document'
+        ? requestedReveal && existing.documentMode !== 'edit'
+          ? 'source'
+          : existing.documentMode
+        : requestedReveal
+          ? 'source'
+          : 'preview'
     let removeRevealAbort: (() => void) | undefined
     if (document) {
       const latest = state.reader.getSnapshot().entries[instanceId] ?? entry
@@ -478,7 +489,7 @@ export function createFileWorkspace(
             id: previewId,
             kind: 'document',
             path,
-            documentMode: existing?.kind === 'document' ? existing.documentMode : 'preview',
+            documentMode,
             document,
             ...(requestedReveal
               ? { reveal: requestedReveal }

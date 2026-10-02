@@ -91,7 +91,10 @@ async function terminateOwnedHost(metadata: ReturnType<typeof parseNativeSmokeCo
 
 try {
   await mkdir(workspaceRoot)
-  await writeFile(join(workspaceRoot, 'native-visual.md'), '# Owned native smoke project\n')
+  await writeFile(
+    join(workspaceRoot, 'native-visual.md'),
+    '# Owned native smoke project\n\n## Review steps\n\n1. Read the document.\n2. Inspect its source.\n3. Return to the conversation.\n\n| State | Next action |\n| --- | --- |\n| Draft | Review |\n\n```ts\nexport const ready = true\n```\n\n[Related proof](nested/native-search-proof.txt)\n',
+  )
   await mkdir(join(workspaceRoot, 'nested'))
   await writeFile(join(workspaceRoot, 'nested', 'native-search-proof.txt'), 'Owned nested native search proof.\n')
   const skillRoot = join(root, 'skills', 'global', 'native-review')
@@ -471,11 +474,21 @@ try {
   const nativeFile = page.getByText('native-visual.md', { exact: true })
   await expect(nativeFile).toBeVisible()
   await nativeFile.click()
-  const nativePreview = page.locator('.hbar-file-text-preview')
+  const nativePreview = page.locator('.hbar-file-markdown-preview')
   await expect(nativePreview).toHaveAttribute('aria-label', copy.files.textPreview('native-visual.md'))
   await expect(nativePreview).toContainText('Owned native smoke project')
+  await expect(nativePreview.getByRole('heading', { name: 'Owned native smoke project', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: copy.files.source, exact: true }).click()
+  await expect(page.locator('.hbar-file-text-preview')).toContainText('# Owned native smoke project')
+  await page.getByRole('button', { name: copy.files.preview, exact: true }).click()
   if (!(await noHorizontalOverflow())) throw new Error('Desktop tool window has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-default-window.png' })
+  await nativePreview
+    .getByRole('button', { name: copy.files.openLinkedFile('nested/native-search-proof.txt'), exact: true })
+    .click()
+  await expect(page.locator('.hbar-file-text-preview')).toContainText('Owned nested native search proof.')
+  await page.getByRole('tab', { name: copy.files.previews.tab('native-visual.md', 'document'), exact: true }).click()
+  await expect(nativePreview.getByRole('heading', { name: 'Owned native smoke project', exact: true })).toBeVisible()
   await page.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
   const pathSearch = page.getByRole('textbox', { name: copy.files.tree.filter, exact: true })
   await pathSearch.fill('native-search-proof')
@@ -666,7 +679,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned Markdown file rendered, source mode retained its original text and explicit local-link navigation returned to the same document; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {

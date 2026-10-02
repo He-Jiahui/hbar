@@ -29,7 +29,20 @@ export function fileWorkspaceErrorCopy(zh: boolean, code: string): string | null
 
 export function fileWorkspaceCopy(
   zh: boolean,
-): Pick<HbarFileWorkspaceLabels, 'changes' | 'tree' | 'preview' | 'edit' | 'textPreview' | 'previews' | 'context'> {
+): Pick<
+  HbarFileWorkspaceLabels,
+  | 'changes'
+  | 'tree'
+  | 'preview'
+  | 'edit'
+  | 'source'
+  | 'markdownTooLarge'
+  | 'markdownImage'
+  | 'openLinkedFile'
+  | 'textPreview'
+  | 'previews'
+  | 'context'
+> {
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
   const status = (value: string) => {
     const names: Record<string, string> = {
@@ -124,6 +137,13 @@ export function fileWorkspaceCopy(
     },
     preview: choose('预览', 'Preview'),
     edit: choose('编辑', 'Edit'),
+    source: choose('源码', 'Source'),
+    markdownTooLarge: choose(
+      '文档超过格式预览容量，已显示完整源码。',
+      'This document exceeds the formatted-preview limit; the complete source is shown.',
+    ),
+    markdownImage: (alt) => choose(`图片未加载${alt ? `：${alt}` : ''}`, `Image not loaded${alt ? `: ${alt}` : ''}`),
+    openLinkedFile: (path) => choose(`打开链接文件：${path}`, `Open linked file: ${path}`),
     textPreview: (path) => choose(`文本预览：${path}`, `Text preview: ${path}`),
     changes: {
       mode: choose('文件视图', 'File view'),

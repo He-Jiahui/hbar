@@ -34,7 +34,7 @@ export function useFilePreviewReadingPosition(
   }, [identities])
   useLayoutEffect(() => {
     const element = reader.current?.querySelector<HTMLElement>(
-      '.hbar-file-text-preview, .hbar-app-react-file-editor, .hbar-file-diff-content',
+      '.hbar-file-markdown-preview, .hbar-file-text-preview, .hbar-app-react-file-editor, .hbar-file-diff-content',
     )
     if (!element || !previewId || !contentAvailable) return
     const key = `${previewId}\u0000${mode}`

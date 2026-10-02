@@ -27,6 +27,7 @@ import { captureFileReviewFocus } from './file-review-focus'
 import { canFocusWorkspaceElement } from './workspace-tool-focus'
 import { HbarFilePreviewTabs, type HbarFilePreviewItem, type HbarFilePreviewLabels } from './file-preview-tabs'
 import { HbarFileSourceSurface, type HbarFileContextLabels } from './file-context-surfaces'
+import { HbarFileMarkdownPreview, canRenderFileMarkdown, isMarkdownFile } from './file-markdown-preview'
 import './lumen-file-workspace.css'
 
 export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
@@ -36,6 +37,10 @@ export interface HbarFileWorkspaceLabels extends LumenWorkspaceFileLabels {
   readonly previews: HbarFilePreviewLabels
   readonly preview: string
   readonly edit: string
+  readonly source: string
+  readonly markdownTooLarge: string
+  readonly markdownImage: (alt: string) => string
+  readonly openLinkedFile: (path: string) => string
   readonly textPreview: (path: string) => string
   readonly close: string
   readonly closeWorkbench: string
@@ -373,6 +378,11 @@ export function HbarFileWorkspace({
       </LumenIconButton>
     ) : undefined
   const editing = entry?.documentMode === 'edit'
+  const markdownFile = Boolean(document && isMarkdownFile(document.path))
+  const previewing = entry?.documentMode === 'preview' || (!markdownFile && entry?.documentMode === 'source')
+  const renderedMarkdown = Boolean(
+    document && entry?.documentMode === 'preview' && canRenderFileMarkdown(document.path, document.draft),
+  )
   const busy = document?.status === 'submitting'
   const unknown = document?.status === 'unknown'
   const dirty = Boolean(document && document.draft !== document.baseline)
@@ -622,8 +632,8 @@ export function HbarFileWorkspace({
               >
                 <LumenFrame className="hbar-file-document-modes">
                   <LumenButton
-                    variant={editing ? 'text' : 'outlined'}
-                    aria-pressed={!editing}
+                    variant={previewing ? 'outlined' : 'text'}
+                    aria-pressed={previewing}
                     onClick={() =>
                       invoke('fileWorkspace.setDocumentMode', {
                         instanceId,
@@ -636,6 +646,23 @@ export function HbarFileWorkspace({
                   >
                     {labels.preview}
                   </LumenButton>
+                  {markdownFile && (
+                    <LumenButton
+                      variant={entry?.documentMode === 'source' ? 'outlined' : 'text'}
+                      aria-pressed={entry?.documentMode === 'source'}
+                      onClick={() =>
+                        invoke('fileWorkspace.setDocumentMode', {
+                          instanceId,
+                          workspaceId,
+                          previewId,
+                          path: document.path,
+                          mode: 'source',
+                        })
+                      }
+                    >
+                      {labels.source}
+                    </LumenButton>
+                  )}
                   <LumenButton
                     variant={editing ? 'outlined' : 'text'}
                     aria-pressed={editing}
@@ -679,6 +706,11 @@ export function HbarFileWorkspace({
                     {feedback.message}
                   </LumenText>
                 )}
+                {markdownFile && entry?.documentMode === 'preview' && !renderedMarkdown && (
+                  <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                    {labels.markdownTooLarge}
+                  </LumenText>
+                )}
                 {editing ? (
                   <LumenTextarea
                     className="hbar-app-react-file-editor"
@@ -693,6 +725,17 @@ export function HbarFileWorkspace({
                         previewId,
                         text: event.currentTarget.value,
                       })
+                    }
+                  />
+                ) : renderedMarkdown ? (
+                  <HbarFileMarkdownPreview
+                    path={document.path}
+                    value={document.draft}
+                    label={labels.textPreview(document.path)}
+                    imageLabel={labels.markdownImage}
+                    openFileLabel={labels.openLinkedFile}
+                    onOpenFile={(path) =>
+                      invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
                     }
                   />
                 ) : (

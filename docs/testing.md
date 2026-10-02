@@ -46,6 +46,15 @@ revision；WebSocket 只观察并转发 Host 写入，不伪造响应。原有 g
 Host 全局事实、原显式选择与 dirty draft；不知道结果时的精确 receipt 和离开入口前禁止
 派发由运行时回归覆盖，不冒充 native 故障注入。实际结果见[上下文默认交付](desktop-provider-context-default.md)。
 
+Markdown 文件阅读回归使用 `e2e/file-markdown-reading.spec.ts`，只保留英文桌面与中文
+窄屏两条完整路径：真实 Host 的阅读／源码／编辑／显式保存、本地链接与原稿返回。
+`tests/file-markdown-preview.test.tsx` 覆盖空、单项、长内容与 UTF-8 容量边界，以及不
+加载图片、不执行 HTML 和相对路径策略；runtime 回归保护 UUID／draft／unknown。
+旧 `file-preview-tabs.spec.ts` 显式进入 Source，只比较真实代码行，不把行号控件当正文。
+原生 smoke 另读取 owned Markdown、切源码、打开链接并返回；实际执行结果见
+[Markdown 阅读交付](desktop-file-markdown-reading.md)，不是脚本存在断言就算通过。
+这不新增 Browser 或 Markdown 图片资源服务。
+
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
 ## 性能基准

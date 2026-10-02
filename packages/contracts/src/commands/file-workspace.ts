@@ -205,7 +205,7 @@ export const fileWorkspaceCommands = {
       previewId: previewId.optional(),
       workspaceId: z.string().min(1).max(160),
       path: z.string().min(1).max(4000),
-      mode: z.enum(['preview', 'edit']),
+      mode: z.enum(['preview', 'source', 'edit']),
       ...sourceTarget,
     }),
     summary,

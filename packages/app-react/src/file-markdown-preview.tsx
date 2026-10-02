@@ -1,0 +1,108 @@
+import ReactMarkdown from 'react-markdown'
+import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import type { PluggableList } from 'unified'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
+import './file-markdown-preview.css'
+
+export const FILE_MARKDOWN_PREVIEW_BYTES = 128 * 1024
+// Document-relative links must retain their authored href. Chat reference
+// transforms intentionally replace hrefs with session-owned file metadata.
+const fileMarkdownRemarkPlugins: PluggableList = [remarkGfm]
+const fileMarkdownRehypePlugins: PluggableList = [rehypeSanitize]
+
+export function isMarkdownFile(path: string): boolean {
+  return /\.(?:md|markdown)$/i.test(path)
+}
+
+export function canRenderFileMarkdown(path: string, text: string): boolean {
+  return (
+    isMarkdownFile(path) &&
+    text.length <= FILE_MARKDOWN_PREVIEW_BYTES &&
+    new TextEncoder().encode(text).byteLength <= FILE_MARKDOWN_PREVIEW_BYTES
+  )
+}
+
+export function resolveMarkdownFileLink(documentPath: string, href: string): string | null {
+  if (!href || href.startsWith('#') || /^(?:[a-z][a-z\d+.-]*:|[/\\])/i.test(href)) return null
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(href.split('#')[0] ?? '')
+  } catch {
+    return null
+  }
+  if (
+    !decoded ||
+    [...decoded].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) ||
+    /[:?#\\]/.test(decoded) ||
+    decoded.startsWith('/')
+  )
+    return null
+  const parts = documentPath.split('/').slice(0, -1)
+  for (const part of decoded.split('/')) {
+    if (!part || part === '.') continue
+    if (part === '..') {
+      if (!parts.length) return null
+      parts.pop()
+    } else parts.push(part)
+  }
+  return parts.length ? parts.join('/') : null
+}
+
+/** Host-owned text: no HTML execution or automatic image/local-resource requests. */
+export function HbarFileMarkdownPreview({
+  path,
+  value,
+  label,
+  imageLabel,
+  openFileLabel,
+  onOpenFile,
+}: {
+  readonly path: string
+  readonly value: string
+  readonly label: string
+  readonly imageLabel: (alt: string) => string
+  readonly openFileLabel: (path: string) => string
+  readonly onOpenFile: (path: string) => void
+}) {
+  return (
+    <LumenFrame className="hbar-file-markdown-preview" role="region" aria-label={label} tabIndex={0}>
+      <ReactMarkdown
+        skipHtml
+        remarkPlugins={fileMarkdownRemarkPlugins}
+        rehypePlugins={fileMarkdownRehypePlugins}
+        components={{
+          a: ({ href, children }) => {
+            const file = href ? resolveMarkdownFileLink(path, href) : null
+            if (file)
+              return (
+                <LumenButton
+                  variant="text"
+                  className="hbar-file-markdown-local-link"
+                  aria-label={openFileLabel(file)}
+                  onClick={() => onOpenFile(file)}
+                >
+                  {children}
+                </LumenButton>
+              )
+            // External addresses follow the existing message-link contract: explicit click only.
+            if (href && /^(?:https?:|mailto:)/i.test(href))
+              return (
+                <a href={href} target="_blank" rel="noreferrer noopener">
+                  {children}
+                </a>
+              )
+            return <span>{children}</span>
+          },
+          img: ({ alt }) => (
+            <LumenText as="span" className="hbar-file-markdown-image">
+              {imageLabel(alt ?? '')}
+            </LumenText>
+          ),
+        }}
+      >
+        {value}
+      </ReactMarkdown>
+    </LumenFrame>
+  )
+}
