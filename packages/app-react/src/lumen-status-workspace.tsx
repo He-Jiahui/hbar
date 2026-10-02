@@ -17,6 +17,12 @@ import {
   LumenNavigationButton,
   LumenPageHeader,
   LumenSelect,
+  LumenMonitoring01,
+  LumenUsage01,
+  LumenUsage08,
+  LumenDashboard01,
+  LumenDashboard02,
+  LumenDashboard10,
 } from '@lumen/app-ui'
 import { workspaceDisplayName, type StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -284,7 +290,11 @@ export function HbarStatusWorkspace({
           label: `${labels.observedAt(point.start)} · ${formatMetric(metric, labels)}`,
         }
       })}
-      empty={<LumenText as="p" className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</LumenText>}
+      empty={
+        <LumenText as="p" className="hbar-app-react-status-empty-chart">
+          {labels.unavailable(null)}
+        </LumenText>
+      }
     />
   )
   const usageItem = (id: string, label: string, metric: UsageMetric, format: (value: number) => string) =>
@@ -350,6 +360,121 @@ export function HbarStatusWorkspace({
     if (!gitQuery?.workspaceId) return
     invoke('statusWorkspace.setGitQuery', { instanceId, ...gitQuery, ...patch })
   }
+  const monitoringContent = report
+    ? {
+        health: {
+          labels: {
+            title: labels.process,
+            detail: labels.description,
+            refresh: labels.refresh,
+            chart: labels.trends,
+            incidents: labels.resources,
+            empty: labels.loading,
+          },
+          metrics: metrics([
+            ...(includeSystem ? (['systemCpuPercent'] as const) : []),
+            ...(includeHost ? (['hostCpuPercent'] as const) : []),
+          ]).map((item) => ({ ...item, tone: 'neutral' as const })),
+          series: (report.points ?? []).map((point) => {
+            const key = includeHost && !includeSystem ? 'hostCpuPercent' : 'systemCpuPercent'
+            const metric = point.readings[key]
+            return {
+              id: String(point.start),
+              value: metric.availability === 'available' && metric.value !== null ? metric.value : 0,
+            }
+          }),
+          incidents: [],
+          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
+        },
+      }
+    : undefined
+  const usageContent = usageReport
+    ? {
+        overview: {
+          title: labels.usage.title,
+          description: labels.description,
+          metrics: [
+            {
+              id: 'tokens',
+              label: labels.usage.tokens,
+              value: labels.tokenCount(usageReport.totals.input + usageReport.totals.output),
+            },
+            { id: 'cost', label: labels.usage.cost, value: usageValue(usageReport.cost, labels, labels.currency) },
+            { id: 'runs', label: labels.usage.runs, value: labels.number(usageReport.totals.runs) },
+          ],
+          meters: [],
+        },
+      }
+    : undefined
+  const dashboardContent = report
+    ? {
+        overview: {
+          labels: {
+            title: labels.title,
+            detail: labels.description,
+            period: labels.performanceFilters.timeWindow,
+            chart: (label: string) => label,
+            empty: labels.unavailable(null),
+          },
+          metrics: metrics(['systemCpuPercent', 'hostCpuPercent']),
+          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 8 },
+        },
+        explorer: {
+          labels: {
+            title: labels.title,
+            detail: labels.description,
+            measures: labels.performanceFilters.target,
+            chart: (label: string) => label,
+            empty: labels.unavailable(null),
+          },
+          measures: (['systemCpuPercent', 'hostCpuPercent'] as const).map((key) => ({
+            id: key,
+            label: labels.readings[key],
+            series: (report.points ?? []).map((point) => ({
+              id: String(point.start),
+              value:
+                point.readings[key].availability === 'available' && point.readings[key].value !== null
+                  ? point.readings[key].value
+                  : 0,
+            })),
+          })),
+          initialMeasureId: includeHost && !includeSystem ? 'hostCpuPercent' : 'systemCpuPercent',
+        },
+        /* throughput projection is mounted by the usage section when the usage dashboard is available. */
+        throughput: usageReport
+          ? {
+              labels: {
+                title: labels.usage.title,
+                detail: labels.description,
+                ranges: labels.usage.timeWindow,
+                chart: labels.usage.timeline,
+                chartTitle: labels.usage.timeline,
+                source: labels.usage.models,
+                value: labels.usage.tokens,
+                share: labels.usage.cost,
+                empty: labels.unavailable(null),
+              },
+              ranges: [{ id: usageQuery?.window ?? 'current', label: labels.usage.timeWindow }],
+              initialRangeId: usageQuery?.window ?? 'current',
+              series: usageReport.series.map((point) => ({
+                id: String(point.start),
+                value: point.input + point.output,
+              })),
+              breakdown: usageReport.models.map((model) => ({
+                id: model.modelSelectionId,
+                source: `${model.providerId} / ${model.modelId}`,
+                value: labels.tokenCount(model.input + model.output),
+                share: labels.percent(
+                  usageReport.totals.input + usageReport.totals.output > 0
+                    ? ((model.input + model.output) / (usageReport.totals.input + usageReport.totals.output)) * 100
+                    : 0,
+                ),
+              })),
+              listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
+            }
+          : undefined,
+      }
+    : undefined
   const toggleGitSource = (source: StatusWorkspaceEntryState['gitQuery']['sources'][number], checked: boolean) => {
     if (!gitQuery) return
     const sources = (['auto', 'manual', 'external'] as const).filter((candidate) =>
@@ -399,49 +524,63 @@ export function HbarStatusWorkspace({
           </LumenNavigationButton>
         ))}
       </LumenFrame>
-      {section === 'dashboard' && performanceQuery && (
-        <LumenFrame className="hbar-app-react-status-controls" role="group" aria-label={labels.performanceFilters.label}>
-          <LumenFormField controlId="hbar-status-performance-window" label={labels.performanceFilters.timeWindow}>
-            <LumenSelect
-              id="hbar-status-performance-window"
-              value={performanceQuery.window}
-              disabled={entry?.status === 'loading'}
-              onChange={(event) =>
-                invoke('statusWorkspace.setPerformanceQuery', {
-                  instanceId,
-                  window: event.currentTarget.value,
-                  target: performanceQuery.target,
-                })
-              }
-            >
-              {(['2m', '15m', '1h'] as const).map((window) => (
-                <LumenOption key={window} value={window}>
-                  {labels.performanceFilters.windows[window]}
-                </LumenOption>
-              ))}
-            </LumenSelect>
-          </LumenFormField>
-          <LumenFormField controlId="hbar-status-performance-target" label={labels.performanceFilters.target}>
-            <LumenSelect
-              id="hbar-status-performance-target"
-              value={performanceQuery.target}
-              disabled={entry?.status === 'loading'}
-              onChange={(event) =>
-                invoke('statusWorkspace.setPerformanceQuery', {
-                  instanceId,
-                  window: performanceQuery.window,
-                  target: event.currentTarget.value,
-                })
-              }
-            >
-              {(['all', 'system', 'host'] as const).map((target) => (
-                <LumenOption key={target} value={target}>
-                  {labels.performanceFilters.targets[target]}
-                </LumenOption>
-              ))}
-            </LumenSelect>
-          </LumenFormField>
-        </LumenFrame>
+      {section === 'dashboard' && performanceQuery && dashboardContent && (
+        <>
+          <LumenDashboard01 content={dashboardContent} className="hbar-app-react-status-lumen-dashboard" />
+          <LumenDashboard10 content={dashboardContent} className="hbar-app-react-status-lumen-dashboard" />
+          <LumenFrame
+            className="hbar-app-react-status-controls"
+            role="group"
+            aria-label={labels.performanceFilters.label}
+          >
+            <LumenFormField controlId="hbar-status-performance-window" label={labels.performanceFilters.timeWindow}>
+              <LumenSelect
+                id="hbar-status-performance-window"
+                value={performanceQuery.window}
+                disabled={entry?.status === 'loading'}
+                onChange={(event) =>
+                  invoke('statusWorkspace.setPerformanceQuery', {
+                    instanceId,
+                    window: event.currentTarget.value,
+                    target: performanceQuery.target,
+                  })
+                }
+              >
+                {(['2m', '15m', '1h'] as const).map((window) => (
+                  <LumenOption key={window} value={window}>
+                    {labels.performanceFilters.windows[window]}
+                  </LumenOption>
+                ))}
+              </LumenSelect>
+            </LumenFormField>
+            <LumenFormField controlId="hbar-status-performance-target" label={labels.performanceFilters.target}>
+              <LumenSelect
+                id="hbar-status-performance-target"
+                value={performanceQuery.target}
+                disabled={entry?.status === 'loading'}
+                onChange={(event) =>
+                  invoke('statusWorkspace.setPerformanceQuery', {
+                    instanceId,
+                    window: performanceQuery.window,
+                    target: event.currentTarget.value,
+                  })
+                }
+              >
+                {(['all', 'system', 'host'] as const).map((target) => (
+                  <LumenOption key={target} value={target}>
+                    {labels.performanceFilters.targets[target]}
+                  </LumenOption>
+                ))}
+              </LumenSelect>
+            </LumenFormField>
+          </LumenFrame>
+        </>
+      )}
+      {section === 'dashboard' && monitoringContent && (
+        <LumenMonitoring01 content={monitoringContent} className="hbar-app-react-status-lumen-monitoring" />
+      )}
+      {section === 'usage' && usageContent && (
+        <LumenUsage01 content={usageContent} className="hbar-app-react-status-lumen-usage" />
       )}
       {section === 'usage' && usageQuery && (
         <LumenFrame
@@ -559,12 +698,16 @@ export function HbarStatusWorkspace({
             <LumenText as="p" role="status">
               {labels.usage.exported(usageExport.rowCount, usageExport.fileName)}
               {usageExport.incomplete && (
-                <LumenText as="span" className="hbar-app-react-status-export-warning">{labels.usage.incompleteExport}</LumenText>
+                <LumenText as="span" className="hbar-app-react-status-export-warning">
+                  {labels.usage.incompleteExport}
+                </LumenText>
               )}
             </LumenText>
           )}
           {usageExport?.status === 'failed' && usageExport.error && (
-            <LumenText as="p" role="alert">{labels.error(usageExport.error)}</LumenText>
+            <LumenText as="p" role="alert">
+              {labels.error(usageExport.error)}
+            </LumenText>
           )}
         </LumenFrame>
       )}
@@ -621,7 +764,9 @@ export function HbarStatusWorkspace({
         </LumenFrame>
       )}
       {!entry || entry.status === 'loading' ? (
-        <LumenText as="p" className="hbar-app-react-status-loading">{labels.loading}</LumenText>
+        <LumenText as="p" className="hbar-app-react-status-loading">
+          {labels.loading}
+        </LumenText>
       ) : entry.error ||
         (section === 'dashboard' && !report) ||
         (section === 'usage' && !usageReport) ||
@@ -716,6 +861,32 @@ export function HbarStatusWorkspace({
         </LumenFrame>
       ) : section === 'usage' && usageReport ? (
         <LumenFrame as="main" className="hbar-app-react-global-usage">
+          {dashboardContent?.throughput && (
+            <LumenDashboard02 content={dashboardContent} className="hbar-app-react-status-lumen-dashboard" />
+          )}
+          <LumenUsage08
+            content={{
+              title: labels.usage.title,
+              description: labels.description,
+              value: labels.number(usageReport.totals.input + usageReport.totals.output),
+              detail: usageValue(usageReport.cost, labels, labels.currency),
+              progressLabel: labels.usage.tokens,
+              tone: 'neutral',
+              sparkline: usageReport.series.map((point) => ({
+                id: String(point.start),
+                value: point.input + point.output,
+              })),
+              sparklineLabel: labels.usage.timeline,
+              metrics: [
+                {
+                  id: 'tokens',
+                  label: labels.usage.tokens,
+                  value: labels.number(usageReport.totals.input + usageReport.totals.output),
+                },
+                { id: 'cost', label: labels.usage.cost, value: usageValue(usageReport.cost, labels, labels.currency) },
+              ],
+            }}
+          />
           {usageReport.gap && (
             <LumenText as="p" className="hbar-app-react-status-gap" role="status">
               {labels.usage.gap}
@@ -783,7 +954,11 @@ export function HbarStatusWorkspace({
                 value: point.billableTokens,
                 label: `${labels.observedAt(point.start)} · ${labels.tokenCount(point.billableTokens)}`,
               }))}
-              empty={<LumenText as="p" className="hbar-app-react-status-empty-chart">{labels.unavailable(null)}</LumenText>}
+              empty={
+                <LumenText as="p" className="hbar-app-react-status-empty-chart">
+                  {labels.unavailable(null)}
+                </LumenText>
+              }
             />
           </LumenFrame>
           <LumenFrame as="section">
@@ -875,7 +1050,11 @@ export function HbarStatusWorkspace({
             <>
               <LumenFrame as="section">
                 <LumenText as="h2">{labels.git.activity}</LumenText>
-                {!gitReport.head && <LumenText as="p" className="hbar-app-react-git-empty">{labels.git.emptyHistory}</LumenText>}
+                {!gitReport.head && (
+                  <LumenText as="p" className="hbar-app-react-git-empty">
+                    {labels.git.emptyHistory}
+                  </LumenText>
+                )}
                 <LumenCompactMetrics
                   label={labels.git.activity}
                   metrics={[
@@ -1011,7 +1190,9 @@ export function HbarStatusWorkspace({
                           </LumenFrame>
                           <LumenFrame>
                             <LumenCollectionItem as="dt">{labels.git.commitDate}</LumenCollectionItem>
-                            <LumenCollectionItem as="dd">{labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}</LumenCollectionItem>
+                            <LumenCollectionItem as="dd">
+                              {labels.git.formatCommitDate(commit.committedAt ?? commit.authoredAt)}
+                            </LumenCollectionItem>
                           </LumenFrame>
                           <LumenFrame>
                             <LumenCollectionItem as="dt">{labels.git.commitSource}</LumenCollectionItem>
@@ -1042,7 +1223,11 @@ export function HbarStatusWorkspace({
                     ))}
                   </LumenFrame>
                 )}
-                {entry.gitHistoryTruncated && <LumenText as="p" role="status">{labels.git.historyTruncated}</LumenText>}
+                {entry.gitHistoryTruncated && (
+                  <LumenText as="p" role="status">
+                    {labels.git.historyTruncated}
+                  </LumenText>
+                )}
               </LumenFrame>
               <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.git.details}>
                 <LumenCompactMetrics

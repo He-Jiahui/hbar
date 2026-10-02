@@ -9,6 +9,8 @@ import {
   LumenIconButton,
   LumenInput,
   LumenStatus,
+  LumenIntegrations02,
+  LumenIntegrations01,
   LumenText,
 } from '@lumen/app-ui'
 import { extensionWorkspacePage, type ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
@@ -269,310 +271,329 @@ export function HbarExtensionWorkspace({
         </LumenFrame>
       )}
 
-      <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail || skillDetail)}>
-        {collection !== 'skills' && entry?.error === 'CAPACITY_EXCEEDED' && (
-          <LumenText as="p" role="alert">
-            {labels.detail.actions.error(entry.error)}
-          </LumenText>
-        )}
-        <>
-          <LumenFrame className="hbar-app-react-extension-filter">
-            <LumenFrame as="label" htmlFor={filterId}>
-              {navigation.filter}
+      <LumenIntegrations01
+        slots={{
+          list: (
+            <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail || skillDetail)}>
+              {collection !== 'skills' && entry?.error === 'CAPACITY_EXCEEDED' && (
+                <LumenText as="p" role="alert">
+                  {labels.detail.actions.error(entry.error)}
+                </LumenText>
+              )}
+              <>
+                <LumenFrame className="hbar-app-react-extension-filter">
+                  <LumenFrame as="label" htmlFor={filterId}>
+                    {navigation.filter}
+                  </LumenFrame>
+                  <LumenFrame className="hbar-app-react-extension-filter-control">
+                    <LumenInput
+                      ref={filterInput}
+                      id={filterId}
+                      variant="plain"
+                      value={query}
+                      disabled={!entry}
+                      maxLength={200}
+                      onChange={(event) =>
+                        void runtime.commands
+                          .execute('extensionWorkspace.setQuery', {
+                            instanceId,
+                            query: event.currentTarget.value,
+                            ...(collection ? { collection } : {}),
+                          })
+                          .catch(() => {})
+                      }
+                    />
+                    {query && (
+                      <LumenIconButton label={labels.clearSearch} size="s" onClick={clearQuery}>
+                        <LumenIcon icon={X} tier="sm" />
+                      </LumenIconButton>
+                    )}
+                  </LumenFrame>
+                  {collection === 'skills' && query.trim() && skills?.status === 'ready' && page && (
+                    <LumenText as="small" role="status">
+                      {labels.skillSearchResults(page.skillCount, entry?.skills.length ?? 0)}
+                    </LumenText>
+                  )}
+                </LumenFrame>
+                {collection !== 'skills' && (
+                  <LumenFrame
+                    as="section"
+                    className="hbar-app-react-extension-section"
+                    data-extension-collection="plugins"
+                    aria-label={collection ? undefined : labels.plugins}
+                  >
+                    {!collection && (
+                      <LumenFrame as="header">
+                        <LumenFrame
+                          role="heading"
+                          aria-level={3}
+                          className="hbar-app-react-extension-collection-heading"
+                          ref={pluginsHeading}
+                          tabIndex={-1}
+                        >
+                          <LumenText as="span">{labels.plugins}</LumenText>
+                        </LumenFrame>
+                        {plugins?.hasSnapshot && page && (
+                          <LumenText as="small">{labels.pluginCount(page.pluginCount)}</LumenText>
+                        )}
+                      </LumenFrame>
+                    )}
+                    <ExtensionCollectionFeedback
+                      key={collection ?? 'combined'}
+                      state={plugins}
+                      labels={labels.collections.plugins}
+                      connected={connected}
+                      onRetry={() => refresh('plugins')}
+                      owner={runtime}
+                      instanceId={instanceId}
+                      collection="plugins"
+                      heading={collection ? heading : pluginsHeading}
+                    />
+                    {!plugins?.hasSnapshot || !entry || !page ? null : !page.plugins.length ? (
+                      plugins.status === 'ready' &&
+                      (entry.plugins.length && collection === 'plugins' ? (
+                        <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
+                      ) : (
+                        <LumenText as="p" className="hbar-app-react-extension-empty">
+                          {entry.plugins.length ? labels.noMatches : labels.noPlugins}
+                        </LumenText>
+                      ))
+                    ) : (
+                      <LumenCollection as="ul" className="hbar-app-react-extension-list">
+                        {page.plugins.map((plugin) => {
+                          const action = entry.actions[plugin.id]
+                          return (
+                            <LumenCollectionItem
+                              as="li"
+                              key={plugin.id}
+                              className="hbar-app-react-extension-plugin"
+                              data-plugin-id={plugin.id}
+                            >
+                              <LumenButton
+                                type="button"
+                                variant="text"
+                                className="hbar-app-react-extension-open"
+                                aria-label={labels.inspect(plugin.name)}
+                                aria-current={entry.selectedPluginId === plugin.id ? 'true' : undefined}
+                                disabled={!connected}
+                                onClick={() => {
+                                  focusDirection.current = 'detail'
+                                  void runtime.commands
+                                    .execute('extensionWorkspace.inspect', { instanceId, pluginId: plugin.id })
+                                    .catch(() => {})
+                                }}
+                              >
+                                <LumenIcon icon={Puzzle} tier="md" />
+                                <LumenText as="span" className="hbar-app-react-extension-open-copy">
+                                  <LumenText as="strong">{plugin.name}</LumenText>
+                                  <LumenText as="small">{labels.pluginMetadata(plugin.id, plugin.version)}</LumenText>
+                                  <LumenText as="span">{plugin.description}</LumenText>
+                                </LumenText>
+                                <LumenStatus
+                                  value={labels.status[plugin.status]}
+                                  tone={
+                                    plugin.status === 'active'
+                                      ? 'success'
+                                      : plugin.status === 'failed'
+                                        ? 'danger'
+                                        : 'neutral'
+                                  }
+                                />
+                                <LumenIcon icon={ChevronRight} tier="md" />
+                              </LumenButton>
+                              <LumenText as="small">{plugin.packageName ?? plugin.path ?? plugin.id}</LumenText>
+                              {action?.status === 'unknown' && (
+                                <LumenText as="p" role="status">
+                                  {labels.detail.actions.unknown}
+                                </LumenText>
+                              )}
+                              {action?.error && action.status === 'failed' && (
+                                <LumenText as="p" role="alert">
+                                  {labels.detail.actions.error(action.error)}
+                                </LumenText>
+                              )}
+                              <LumenFrame as="footer">
+                                {plugin.required && <LumenText as="small">{labels.required}</LumenText>}
+                                {action?.status === 'unknown' ? (
+                                  <LumenButton
+                                    variant="outlined"
+                                    disabled={!connected || pluginsBusy}
+                                    onClick={() => void refresh('plugins')}
+                                  >
+                                    {labels.detail.actions.readCurrent}
+                                  </LumenButton>
+                                ) : (
+                                  !plugin.required && (
+                                    <LumenButton
+                                      variant="text"
+                                      disabled={!connected || action?.status === 'submitting' || pluginsBusy}
+                                      onClick={() =>
+                                        void runtime.commands
+                                          .execute('extensionWorkspace.setEnabled', {
+                                            instanceId,
+                                            pluginId: plugin.id,
+                                            enabled: plugin.status !== 'active',
+                                          })
+                                          .catch(() => {})
+                                      }
+                                    >
+                                      {action?.status === 'submitting'
+                                        ? labels.changing
+                                        : plugin.status === 'active'
+                                          ? labels.disable
+                                          : labels.enable}
+                                    </LumenButton>
+                                  )
+                                )}
+                              </LumenFrame>
+                            </LumenCollectionItem>
+                          )
+                        })}
+                      </LumenCollection>
+                    )}
+                    {plugins?.hasSnapshot && page && (
+                      <ExtensionPagination
+                        labels={labels.pagination}
+                        count={page.pluginCount}
+                        page={page.pluginPage}
+                        onPage={(page) =>
+                          void runtime.commands
+                            .execute('extensionWorkspace.setPage', { instanceId, collection: 'plugins', page })
+                            .catch(() => {})
+                        }
+                      />
+                    )}
+                  </LumenFrame>
+                )}
+                {collection !== 'plugins' && (
+                  <LumenFrame
+                    as="section"
+                    className="hbar-app-react-extension-section"
+                    data-extension-collection="skills"
+                    aria-label={collection ? undefined : labels.skills}
+                  >
+                    {!collection && (
+                      <LumenFrame as="header">
+                        <LumenFrame
+                          role="heading"
+                          aria-level={3}
+                          className="hbar-app-react-extension-collection-heading"
+                          ref={skillsHeading}
+                          tabIndex={-1}
+                        >
+                          <LumenText as="span">{labels.skills}</LumenText>
+                        </LumenFrame>
+                        {skills?.hasSnapshot && page && (
+                          <LumenText as="small">{labels.skillCount(page.skillCount)}</LumenText>
+                        )}
+                      </LumenFrame>
+                    )}
+                    <ExtensionCollectionFeedback
+                      key={collection ?? 'combined'}
+                      state={skills}
+                      labels={labels.collections.skills}
+                      connected={connected}
+                      onRetry={() => refresh('skills')}
+                      owner={runtime}
+                      instanceId={instanceId}
+                      collection="skills"
+                      heading={collection ? heading : skillsHeading}
+                    />
+                    {!skills?.hasSnapshot || !entry || !page ? null : !page.skills.length ? (
+                      skills.status === 'ready' &&
+                      (entry.skills.length && collection === 'skills' ? (
+                        <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
+                      ) : (
+                        <LumenText as="p" className="hbar-app-react-extension-empty">
+                          {entry.skills.length ? labels.noMatches : labels.noSkills}
+                        </LumenText>
+                      ))
+                    ) : (
+                      <LumenCollection
+                        as="ul"
+                        className="hbar-app-react-extension-list hbar-app-react-extension-skill-list"
+                      >
+                        {page.skills.map((skill) => (
+                          <LumenCollectionItem as="li" key={skill.id} data-skill-id={skill.id}>
+                            <LumenButton
+                              type="button"
+                              variant="text"
+                              className="hbar-app-react-extension-open"
+                              aria-label={labels.inspect(skill.id)}
+                              aria-current={entry.selectedSkillId === skill.id ? 'true' : undefined}
+                              disabled={!connected}
+                              onClick={() => {
+                                focusDirection.current = 'detail'
+                                void runtime.commands
+                                  .execute('extensionWorkspace.inspectSkill', { instanceId, skillId: skill.id })
+                                  .catch(() => {})
+                              }}
+                            >
+                              <LumenFrame className="hbar-app-react-extension-skill-content">
+                                <LumenText as="strong">{skill.id}</LumenText>
+                                <LumenText as="small" title={skill.path}>
+                                  {skill.path}
+                                </LumenText>
+                                <LumenText as="span">{labels.skillScope}</LumenText>
+                              </LumenFrame>
+                            </LumenButton>
+                            <LumenStatus
+                              className="hbar-app-react-extension-skill-status"
+                              value={labels.discovered}
+                              tone="neutral"
+                            />
+                          </LumenCollectionItem>
+                        ))}
+                      </LumenCollection>
+                    )}
+                    {skills?.hasSnapshot && page && (
+                      <ExtensionPagination
+                        labels={labels.pagination}
+                        count={page.skillCount}
+                        page={page.skillPage}
+                        onPage={(page) =>
+                          void runtime.commands
+                            .execute('extensionWorkspace.setPage', { instanceId, collection: 'skills', page })
+                            .catch(() => {})
+                        }
+                      />
+                    )}
+                  </LumenFrame>
+                )}
+              </>
             </LumenFrame>
-            <LumenFrame className="hbar-app-react-extension-filter-control">
-              <LumenInput
-                ref={filterInput}
-                id={filterId}
-                variant="plain"
-                value={query}
-                disabled={!entry}
-                maxLength={200}
-                onChange={(event) =>
+          ),
+        }}
+      />
+      {detail && (
+        <LumenIntegrations02
+          slots={{
+            detail: (
+              <ExtensionPluginDetail
+                key={detail.pluginId}
+                detail={detail}
+                labels={labels.detail}
+                connected={connected}
+                action={entry?.actions[detail.pluginId]}
+                refreshing={pluginsBusy || detail.status === 'loading'}
+                operationError={entry?.error === 'CAPACITY_EXCEEDED' ? entry.error : null}
+                onSetEnabled={(enabled) =>
                   void runtime.commands
-                    .execute('extensionWorkspace.setQuery', {
-                      instanceId,
-                      query: event.currentTarget.value,
-                      ...(collection ? { collection } : {}),
-                    })
+                    .execute('extensionWorkspace.setEnabled', { instanceId, pluginId: detail.pluginId, enabled })
+                    .catch(() => {})
+                }
+                onBack={() => {
+                  focusDirection.current = 'list'
+                  void runtime.commands.execute('extensionWorkspace.back', { instanceId }).catch(() => {})
+                }}
+                onRetry={() =>
+                  void runtime.commands
+                    .execute('extensionWorkspace.inspect', { instanceId, pluginId: detail.pluginId })
                     .catch(() => {})
                 }
               />
-              {query && (
-                <LumenIconButton label={labels.clearSearch} size="s" onClick={clearQuery}>
-                  <LumenIcon icon={X} tier="sm" />
-                </LumenIconButton>
-              )}
-            </LumenFrame>
-            {collection === 'skills' && query.trim() && skills?.status === 'ready' && page && (
-              <LumenText as="small" role="status">
-                {labels.skillSearchResults(page.skillCount, entry?.skills.length ?? 0)}
-              </LumenText>
-            )}
-          </LumenFrame>
-          {collection !== 'skills' && (
-            <LumenFrame
-              as="section"
-              className="hbar-app-react-extension-section"
-              data-extension-collection="plugins"
-              aria-label={collection ? undefined : labels.plugins}
-            >
-              {!collection && (
-                <LumenFrame as="header">
-                  <LumenFrame
-                    role="heading"
-                    aria-level={3}
-                    className="hbar-app-react-extension-collection-heading"
-                    ref={pluginsHeading}
-                    tabIndex={-1}
-                  >
-                    <LumenText as="span">{labels.plugins}</LumenText>
-                  </LumenFrame>
-                  {plugins?.hasSnapshot && page && (
-                    <LumenText as="small">{labels.pluginCount(page.pluginCount)}</LumenText>
-                  )}
-                </LumenFrame>
-              )}
-              <ExtensionCollectionFeedback
-                key={collection ?? 'combined'}
-                state={plugins}
-                labels={labels.collections.plugins}
-                connected={connected}
-                onRetry={() => refresh('plugins')}
-                owner={runtime}
-                instanceId={instanceId}
-                collection="plugins"
-                heading={collection ? heading : pluginsHeading}
-              />
-              {!plugins?.hasSnapshot || !entry || !page ? null : !page.plugins.length ? (
-                plugins.status === 'ready' &&
-                (entry.plugins.length && collection === 'plugins' ? (
-                  <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
-                ) : (
-                  <LumenText as="p" className="hbar-app-react-extension-empty">
-                    {entry.plugins.length ? labels.noMatches : labels.noPlugins}
-                  </LumenText>
-                ))
-              ) : (
-                <LumenCollection as="ul" className="hbar-app-react-extension-list">
-                  {page.plugins.map((plugin) => {
-                    const action = entry.actions[plugin.id]
-                    return (
-                      <LumenCollectionItem
-                        as="li"
-                        key={plugin.id}
-                        className="hbar-app-react-extension-plugin"
-                        data-plugin-id={plugin.id}
-                      >
-                        <LumenButton
-                          type="button"
-                          variant="text"
-                          className="hbar-app-react-extension-open"
-                          aria-label={labels.inspect(plugin.name)}
-                          aria-current={entry.selectedPluginId === plugin.id ? 'true' : undefined}
-                          disabled={!connected}
-                          onClick={() => {
-                            focusDirection.current = 'detail'
-                            void runtime.commands
-                              .execute('extensionWorkspace.inspect', { instanceId, pluginId: plugin.id })
-                              .catch(() => {})
-                          }}
-                        >
-                          <LumenIcon icon={Puzzle} tier="md" />
-                          <LumenText as="span" className="hbar-app-react-extension-open-copy">
-                            <LumenText as="strong">{plugin.name}</LumenText>
-                            <LumenText as="small">{labels.pluginMetadata(plugin.id, plugin.version)}</LumenText>
-                            <LumenText as="span">{plugin.description}</LumenText>
-                          </LumenText>
-                          <LumenStatus
-                            value={labels.status[plugin.status]}
-                            tone={
-                              plugin.status === 'active' ? 'success' : plugin.status === 'failed' ? 'danger' : 'neutral'
-                            }
-                          />
-                          <LumenIcon icon={ChevronRight} tier="md" />
-                        </LumenButton>
-                        <LumenText as="small">{plugin.packageName ?? plugin.path ?? plugin.id}</LumenText>
-                        {action?.status === 'unknown' && (
-                          <LumenText as="p" role="status">
-                            {labels.detail.actions.unknown}
-                          </LumenText>
-                        )}
-                        {action?.error && action.status === 'failed' && (
-                          <LumenText as="p" role="alert">
-                            {labels.detail.actions.error(action.error)}
-                          </LumenText>
-                        )}
-                        <LumenFrame as="footer">
-                          {plugin.required && <LumenText as="small">{labels.required}</LumenText>}
-                          {action?.status === 'unknown' ? (
-                            <LumenButton
-                              variant="outlined"
-                              disabled={!connected || pluginsBusy}
-                              onClick={() => void refresh('plugins')}
-                            >
-                              {labels.detail.actions.readCurrent}
-                            </LumenButton>
-                          ) : (
-                            !plugin.required && (
-                              <LumenButton
-                                variant="text"
-                                disabled={!connected || action?.status === 'submitting' || pluginsBusy}
-                                onClick={() =>
-                                  void runtime.commands
-                                    .execute('extensionWorkspace.setEnabled', {
-                                      instanceId,
-                                      pluginId: plugin.id,
-                                      enabled: plugin.status !== 'active',
-                                    })
-                                    .catch(() => {})
-                                }
-                              >
-                                {action?.status === 'submitting'
-                                  ? labels.changing
-                                  : plugin.status === 'active'
-                                    ? labels.disable
-                                    : labels.enable}
-                              </LumenButton>
-                            )
-                          )}
-                        </LumenFrame>
-                      </LumenCollectionItem>
-                    )
-                  })}
-                </LumenCollection>
-              )}
-              {plugins?.hasSnapshot && page && (
-                <ExtensionPagination
-                  labels={labels.pagination}
-                  count={page.pluginCount}
-                  page={page.pluginPage}
-                  onPage={(page) =>
-                    void runtime.commands
-                      .execute('extensionWorkspace.setPage', { instanceId, collection: 'plugins', page })
-                      .catch(() => {})
-                  }
-                />
-              )}
-            </LumenFrame>
-          )}
-          {collection !== 'plugins' && (
-            <LumenFrame
-              as="section"
-              className="hbar-app-react-extension-section"
-              data-extension-collection="skills"
-              aria-label={collection ? undefined : labels.skills}
-            >
-              {!collection && (
-                <LumenFrame as="header">
-                  <LumenFrame
-                    role="heading"
-                    aria-level={3}
-                    className="hbar-app-react-extension-collection-heading"
-                    ref={skillsHeading}
-                    tabIndex={-1}
-                  >
-                    <LumenText as="span">{labels.skills}</LumenText>
-                  </LumenFrame>
-                  {skills?.hasSnapshot && page && (
-                    <LumenText as="small">{labels.skillCount(page.skillCount)}</LumenText>
-                  )}
-                </LumenFrame>
-              )}
-              <ExtensionCollectionFeedback
-                key={collection ?? 'combined'}
-                state={skills}
-                labels={labels.collections.skills}
-                connected={connected}
-                onRetry={() => refresh('skills')}
-                owner={runtime}
-                instanceId={instanceId}
-                collection="skills"
-                heading={collection ? heading : skillsHeading}
-              />
-              {!skills?.hasSnapshot || !entry || !page ? null : !page.skills.length ? (
-                skills.status === 'ready' &&
-                (entry.skills.length && collection === 'skills' ? (
-                  <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
-                ) : (
-                  <LumenText as="p" className="hbar-app-react-extension-empty">
-                    {entry.skills.length ? labels.noMatches : labels.noSkills}
-                  </LumenText>
-                ))
-              ) : (
-                <LumenCollection as="ul" className="hbar-app-react-extension-list hbar-app-react-extension-skill-list">
-                  {page.skills.map((skill) => (
-                    <LumenCollectionItem as="li" key={skill.id} data-skill-id={skill.id}>
-                      <LumenButton
-                        type="button"
-                        variant="text"
-                        className="hbar-app-react-extension-open"
-                        aria-label={labels.inspect(skill.id)}
-                        aria-current={entry.selectedSkillId === skill.id ? 'true' : undefined}
-                        disabled={!connected}
-                        onClick={() => {
-                          focusDirection.current = 'detail'
-                          void runtime.commands
-                            .execute('extensionWorkspace.inspectSkill', { instanceId, skillId: skill.id })
-                            .catch(() => {})
-                        }}
-                      >
-                        <LumenFrame className="hbar-app-react-extension-skill-content">
-                          <LumenText as="strong">{skill.id}</LumenText>
-                          <LumenText as="small" title={skill.path}>
-                            {skill.path}
-                          </LumenText>
-                          <LumenText as="span">{labels.skillScope}</LumenText>
-                        </LumenFrame>
-                      </LumenButton>
-                      <LumenStatus
-                        className="hbar-app-react-extension-skill-status"
-                        value={labels.discovered}
-                        tone="neutral"
-                      />
-                    </LumenCollectionItem>
-                  ))}
-                </LumenCollection>
-              )}
-              {skills?.hasSnapshot && page && (
-                <ExtensionPagination
-                  labels={labels.pagination}
-                  count={page.skillCount}
-                  page={page.skillPage}
-                  onPage={(page) =>
-                    void runtime.commands
-                      .execute('extensionWorkspace.setPage', { instanceId, collection: 'skills', page })
-                      .catch(() => {})
-                  }
-                />
-              )}
-            </LumenFrame>
-          )}
-        </>
-      </LumenFrame>
-      {detail && (
-        <ExtensionPluginDetail
-          key={detail.pluginId}
-          detail={detail}
-          labels={labels.detail}
-          connected={connected}
-          action={entry?.actions[detail.pluginId]}
-          refreshing={pluginsBusy || detail.status === 'loading'}
-          operationError={entry?.error === 'CAPACITY_EXCEEDED' ? entry.error : null}
-          onSetEnabled={(enabled) =>
-            void runtime.commands
-              .execute('extensionWorkspace.setEnabled', { instanceId, pluginId: detail.pluginId, enabled })
-              .catch(() => {})
-          }
-          onBack={() => {
-            focusDirection.current = 'list'
-            void runtime.commands.execute('extensionWorkspace.back', { instanceId }).catch(() => {})
+            ),
           }}
-          onRetry={() =>
-            void runtime.commands
-              .execute('extensionWorkspace.inspect', { instanceId, pluginId: detail.pluginId })
-              .catch(() => {})
-          }
         />
       )}
       {skillDetail && !detail && (

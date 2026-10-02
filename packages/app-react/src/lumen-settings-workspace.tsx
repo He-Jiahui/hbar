@@ -29,6 +29,10 @@ import {
   LumenNavigationButton,
   LumenPageHeader,
   LumenSelect,
+  LumenSettingsForm01,
+  LumenSettingsForm03,
+  LumenSettingsForm05,
+  LumenSettingsForm06,
 } from '@lumen/app-ui'
 import { workspaceDisplayName, type SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -244,6 +248,13 @@ export function HbarSettingsWorkspace({
     [entry?.description, entry?.selectedGroup],
   )
   const contentRecovery = useSettingsContentRecovery(entry, activeGroupId, fieldNames, connected)
+  const SettingsRecipe = activeGroupId?.toLowerCase().includes('api')
+    ? LumenSettingsForm05
+    : activeGroupId?.toLowerCase().includes('danger')
+      ? LumenSettingsForm06
+      : activeGroupId?.toLowerCase().includes('preference')
+        ? LumenSettingsForm03
+        : LumenSettingsForm01
 
   const reportError = useCallback((reason: unknown) => setActionError(reasonCode(reason)), [])
   const openSettings = (scope: 'global' | 'workspace' | 'session', targetId: string | null, section: string | null) => {
@@ -457,24 +468,30 @@ export function HbarSettingsWorkspace({
               )}
               <LumenFrame className="hbar-app-react-settings-scroll">
                 {customGroup ?? (
-                  <HbarSchemaForm
-                    schema={entry.schema}
-                    state={entry.form}
-                    components={components}
-                    labels={{
-                      ...labels.form,
-                      resolve: labels.resolve,
-                      help: (field) => {
-                        const key = definitions.get(field.name)?.helpKey
-                        return key ? labels.resolve(key) : undefined
-                      },
+                  <SettingsRecipe
+                    slots={{
+                      content: (
+                        <HbarSchemaForm
+                          schema={entry.schema}
+                          state={entry.form}
+                          components={components}
+                          labels={{
+                            ...labels.form,
+                            resolve: labels.resolve,
+                            help: (field) => {
+                              const key = definitions.get(field.name)?.helpKey
+                              return key ? labels.resolve(key) : undefined
+                            },
+                          }}
+                          content={entry.content}
+                          disabled={busy || unknown}
+                          fieldNames={fieldNames}
+                          renderFieldContext={fieldContext}
+                          renderFieldActions={fieldActions}
+                          onIntent={dispatchIntent}
+                        />
+                      ),
                     }}
-                    content={entry.content}
-                    disabled={busy || unknown}
-                    fieldNames={fieldNames}
-                    renderFieldContext={fieldContext}
-                    renderFieldActions={fieldActions}
-                    onIntent={dispatchIntent}
                   />
                 )}
               </LumenFrame>

@@ -4,7 +4,11 @@ import {
   LumenCollectionItem,
   LumenFrame,
   LumenText,
- LumenBarSeries, LumenCompactMetrics, LumenToolPane } from '@lumen/app-ui'
+  LumenBarSeries,
+  LumenCompactMetrics,
+  LumenMonitoring01,
+  LumenToolPane,
+} from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './session-monitoring.css'
@@ -71,6 +75,28 @@ export function HbarSessionMonitoring({
   const close = () => {
     if (instanceId) void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
+  const monitoringContent = report
+    ? {
+        health: {
+          labels: {
+            title: labels.title,
+            detail: labels.description,
+            refresh: labels.title,
+            chart: labels.series,
+            incidents: labels.execution.title,
+            empty: labels.empty,
+          },
+          metrics: [
+            { id: 'tokens', label: labels.totals.tokens, value: labels.number(report.totals.input + report.totals.output) },
+            { id: 'runs', label: labels.totals.runs, value: labels.number(report.totals.runs) },
+            { id: 'cost', label: labels.totals.cost, value: value(report.cost, labels.currency) },
+          ],
+          series: report.series.map((point) => ({ id: String(point.start), value: point.billableTokens })),
+          incidents: [],
+          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
+        },
+      }
+    : undefined
   return (
     <LumenToolPane
       title={labels.title}
@@ -81,6 +107,7 @@ export function HbarSessionMonitoring({
       onClose={close}
       className="hbar-app-react-session-monitoring"
     >
+      {monitoringContent && <LumenMonitoring01 content={monitoringContent} className="hbar-app-react-monitoring-lumen" />}
       {!report ? (
         <LumenText as="p" className="hbar-app-react-monitoring-empty">{labels.empty}</LumenText>
       ) : (

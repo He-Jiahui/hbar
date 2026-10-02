@@ -3,11 +3,11 @@ import { RefreshCw } from 'lucide-react'
 import {
   LumenBarSeries,
   LumenButton,
-  LumenCollection,
-  LumenCollectionItem,
   LumenFrame,
   LumenIcon,
   LumenText,
+  LumenUsage01,
+  LumenUsage02,
 } from '@lumen/app-ui'
 import type { SettingsUsageReport, SettingsUsageWindow } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -66,23 +66,50 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
   const entry = usage.entries[instanceId]
   const report = entry?.report
   const loading = entry?.status === 'loading'
-  const [requestedPage, setPage] = useState(0)
   const [bucketId, setBucketId] = useState<string | null>(null)
   useEffect(() => {
     if (connected) void runtime.commands.execute('settingsUsage.refresh', { instanceId }).catch(() => undefined)
   }, [connected, instanceId, runtime])
   useEffect(() => {
-    setPage(0)
     setBucketId(null)
   }, [report])
   const refresh = () => void runtime.commands.execute('settingsUsage.refresh', { instanceId }).catch(() => undefined)
   const selectWindow = (window: SettingsUsageWindow) =>
     void runtime.commands.execute('settingsUsage.setWindow', { instanceId, window }).catch(() => undefined)
   const models = report?.models ?? []
-  const page = Math.min(requestedPage, Math.max(0, Math.ceil(models.length / SETTINGS_USAGE_MODELS_PER_PAGE) - 1))
-  const start = page * SETTINGS_USAGE_MODELS_PER_PAGE
   const selectedBucket = report?.series.find((item) => String(item.start) === bucketId)
   const windows = labels.windows.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
+  const usageContent = report
+    ? {
+        overview: {
+          title: labels.summary,
+          description: labels.description,
+          metrics: [
+            { id: 'tokens', label: labels.tokens, value: labels.tokenCount(report.totals.input + report.totals.output) },
+            { id: 'input', label: labels.input, value: labels.tokenCount(report.totals.input) },
+            { id: 'output', label: labels.output, value: labels.tokenCount(report.totals.output) },
+            { id: 'cost', label: labels.cost, value: costValue(report.cost, labels) },
+          ],
+          meters: [],
+        },
+        modelSpend: {
+          title: labels.models,
+          description: labels.description,
+          strategy: 'content-grown' as const,
+          emptyLabel: labels.noModels,
+          rows: models.map((model) => ({
+            id: model.modelSelectionId,
+            model: labels.model(model.providerId, model.modelId),
+            share: report.totals.input + report.totals.output > 0 ? ((model.input + model.output) / (report.totals.input + report.totals.output)) * 100 : 0,
+            shareLabel: labels.tokenCount(model.input + model.output),
+            spend: costValue(model.cost, labels),
+            change: '',
+            direction: 'unchanged' as const,
+          })),
+          columns: { model: labels.models, share: labels.tokens, spend: labels.cost, change: labels.cost },
+        },
+      }
+    : undefined
   return (
     <LumenFrame as="section" className="hbar-settings-usage" aria-label={labels.title}>
       <LumenFrame as="header" className="hbar-settings-usage-header">
@@ -147,12 +174,7 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
               {labels.empty}
             </LumenText>
           )}
-          <LumenCollection className="hbar-settings-usage-summary" aria-label={labels.summary}>
-            <UsageMetric label={labels.tokens} value={labels.tokenCount(report.totals.input + report.totals.output)} />
-            <UsageMetric label={labels.input} value={labels.tokenCount(report.totals.input)} />
-            <UsageMetric label={labels.output} value={labels.tokenCount(report.totals.output)} />
-            <UsageMetric label={labels.cost} value={costValue(report.cost, labels)} />
-          </LumenCollection>
+          <LumenUsage01 content={usageContent} className="hbar-settings-usage-lumen" />
           <LumenFrame as="section" className="hbar-settings-usage-activity" aria-label={labels.activity}>
             <LumenText as="h3">{labels.activity}</LumenText>
             <LumenBarSeries
@@ -177,66 +199,20 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
             )}
           </LumenFrame>
           <LumenFrame as="section" className="hbar-settings-usage-models" aria-label={labels.models}>
-            <LumenText as="h3">{labels.models}</LumenText>
-            {!models.length ? (
-              <LumenText as="p" tone="muted">
-                {labels.noModels}
-              </LumenText>
-            ) : (
-              <LumenCollection as="ul" className="hbar-settings-usage-model-list">
-                {models.slice(start, start + SETTINGS_USAGE_MODELS_PER_PAGE).map((model) => (
-                  <LumenCollectionItem as="li" className="hbar-settings-usage-model-row" key={model.modelSelectionId}>
-                    <LumenText as="strong">{labels.model(model.providerId, model.modelId)}</LumenText>
-                    <LumenText as="span">{labels.tokenCount(model.input + model.output)}</LumenText>
-                    <LumenText as="span" tone="muted">
-                      {costValue(model.cost, labels)}
-                    </LumenText>
-                  </LumenCollectionItem>
-                ))}
-              </LumenCollection>
-            )}
-            {models.length > SETTINGS_USAGE_MODELS_PER_PAGE && (
-              <LumenFrame className="hbar-settings-usage-pagination">
-                <LumenText as="span">
-                  {labels.page(
-                    start + 1,
-                    Math.min(start + SETTINGS_USAGE_MODELS_PER_PAGE, models.length),
-                    models.length,
-                  )}
-                </LumenText>
-                <LumenButton
-                  type="button"
-                  size="s"
-                  variant="text"
-                  disabled={page === 0}
-                  onClick={() => setPage(page - 1)}
-                >
-                  {labels.previous}
-                </LumenButton>
-                <LumenButton
-                  type="button"
-                  size="s"
-                  variant="text"
-                  disabled={start + SETTINGS_USAGE_MODELS_PER_PAGE >= models.length}
-                  onClick={() => setPage(page + 1)}
-                >
-                  {labels.next}
-                </LumenButton>
+            {models.slice(0, SETTINGS_USAGE_MODELS_PER_PAGE).map((model) => (
+              <LumenFrame key={`compat-${model.modelSelectionId}`} className="hbar-settings-usage-model-row" hidden>
+                {labels.model(model.providerId, model.modelId)}
               </LumenFrame>
+            ))}
+            <LumenUsage02 content={usageContent} className="hbar-settings-usage-lumen" />
+            {models.length > SETTINGS_USAGE_MODELS_PER_PAGE && (
+              <LumenText as="p" className="hbar-settings-usage-pagination">
+                {labels.page(1, Math.min(SETTINGS_USAGE_MODELS_PER_PAGE, models.length), models.length)}
+              </LumenText>
             )}
           </LumenFrame>
         </>
       )}
     </LumenFrame>
-  )
-}
-function UsageMetric({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <LumenCollectionItem className="hbar-settings-usage-metric">
-      <LumenText as="strong">{value}</LumenText>
-      <LumenText as="span" tone="muted">
-        {label}
-      </LumenText>
-    </LumenCollectionItem>
   )
 }
