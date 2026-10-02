@@ -1,6 +1,6 @@
 import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
-import type { SessionBudget } from '@hbar/contracts'
+import { sessionBudgetSchema, type SessionBudget } from '@hbar/contracts'
 import { createState, type StateReader } from './state'
 
 export interface UsageBudgetTarget { readonly sessionId: string }
@@ -30,10 +30,6 @@ export interface UsageBudgetOptions {
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'Budget action failed'
 }
-function key(sessionId: string, limit: number, revision: number | null): string {
-  return `usage-budget:${sessionId}:${limit}:${revision ?? 'none'}`
-}
-
 export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRuntime {
   const state = createState<UsageBudgetState>({
     targetSessionId: null,
@@ -46,7 +42,7 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
   let disposed = false
   let generation = 0
   let pending: { readonly sessionId: string; readonly key: string } | null = null
-  let unsubscribeTarget = options.target.subscribe(() => { void refresh() })
+  let unsubscribeTarget = options.target.subscribe(() => { void refresh().catch(options.onError ?? (() => undefined)) })
 
   function currentTarget(): string {
     const sessionId = options.target.getSnapshot()?.sessionId
@@ -58,7 +54,7 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
     const sessionId = currentTarget(); const token = ++generation
     replace({ ...state.reader.getSnapshot(), targetSessionId: sessionId, status: 'loading', error: null })
     try {
-      const budget = await options.commands.execute('session.getBudget', { sessionId })
+      const budget = sessionBudgetSchema.nullable().parse(await options.commands.execute('session.getBudget', { sessionId }))
       if (disposed || token !== generation || currentTarget() !== sessionId) return
       replace({ ...state.reader.getSnapshot(), targetSessionId: sessionId, status: 'ready', budget, draftLimit: budget ? String(budget.limit) : '', error: null })
     } catch (error) {
@@ -72,8 +68,8 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
     const limit = Number(snapshot.draftLimit)
     const parsed = setBudgetInputSchema.safeParse({ sessionId, tokens: limit, expectedRevision: snapshot.budget?.revision ?? null })
     if (!parsed.success) throw new CommandError('INVALID_INPUT', 'Token budget must be a positive whole number')
-    if (snapshot.status === 'submitting') return
-    const requestKey = key(sessionId, limit, snapshot.budget?.revision ?? null); pending = { sessionId, key: requestKey }
+    if (snapshot.status === 'submitting' || snapshot.status === 'unknown') return
+    const requestKey = `usage-budget:${crypto.randomUUID()}`; pending = { sessionId, key: requestKey }
     replace({ ...snapshot, targetSessionId: sessionId, status: 'submitting', error: null })
     try {
       const receipt = budgetReceiptSchema.parse(await options.commands.execute('session.setBudget', parsed.data, { idempotencyKey: requestKey }))
@@ -81,7 +77,8 @@ export function createUsageBudget(options: UsageBudgetOptions): UsageBudgetRunti
       replace({ ...state.reader.getSnapshot(), targetSessionId: sessionId, status: 'ready', budget: receipt.budget, draftLimit: String(receipt.budget.limit), receipt, error: null }); pending = null
     } catch (error) {
       if (disposed) return
-      if ((error instanceof CommandError && error.code === 'RESULT_UNKNOWN') || (typeof error === 'object' && error !== null && 'code' in error && error.code === 'RESULT_UNKNOWN')) {
+      const code = error instanceof CommandError ? error.code : typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined
+      if (code === 'RESULT_UNKNOWN' || code === 'TIMEOUT' || code === 'DISCONNECTED' || code === 'INVALID_OUTPUT') {
         replace({ ...state.reader.getSnapshot(), status: 'unknown', error: message(error) }); return
       }
       pending = null; replace({ ...state.reader.getSnapshot(), status: 'error', error: message(error) }); options.onError?.(error)
