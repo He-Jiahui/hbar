@@ -34,6 +34,7 @@
     "tests/**/*.ts",
     "tests/**/*.tsx",
     "e2e/**/*.ts",
+    "e2e/**/*.tsx",
     "examples/**/*.ts",
     "playwright.config.ts"
   ],
