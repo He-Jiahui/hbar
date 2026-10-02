@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test'
-import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarPromptComposer } from '../packages/app-react/src/prompt-composer'
-import { HbarActionIconButton } from '../packages/app-react/src/action-icon-button'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 type LumenPromptComposerProps = Parameters<typeof HbarPromptComposer>[0]
@@ -27,21 +25,6 @@ function props(locale: 'en-US' | 'zh-CN' = 'zh-CN'): LumenPromptComposerProps {
 
 function action(html: string, label: string): string | undefined {
   return html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g)?.find((button) => button.includes(`aria-label="${label}"`))
-}
-
-interface InspectedProps {
-  children?: ReactNode
-  label?: string
-  ['aria-label']?: string
-  ['data-kind']?: string
-  onClick?: () => void
-}
-
-function elements(node: ReactNode): ReactElement<InspectedProps>[] {
-  return Children.toArray(node).flatMap((child) => {
-    if (!isValidElement<InspectedProps>(child)) return []
-    return [child, ...elements(child.props.children)]
-  })
 }
 
 test('primary actions preserve localized names, gate states and a lamp-free icon-only target', () => {
