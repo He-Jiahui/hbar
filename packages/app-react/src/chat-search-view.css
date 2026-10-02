@@ -114,13 +114,6 @@
   cursor: pointer;
 }
 
-.hbar-chat-search-row[aria-selected='true'],
-.hbar-chat-search-row:hover,
-.hbar-chat-search-row:focus-visible {
-  background: var(--lumen-reading);
-  outline: none;
-}
-
 .hbar-chat-search-row:disabled {
   cursor: progress;
 }

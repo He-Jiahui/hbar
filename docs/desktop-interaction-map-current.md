@@ -62,6 +62,11 @@ Retry、Location 分支创建和首次 Send、More、A/B 会话工具记忆与 F
 
 ## 用户已确认的语义，不能重报为缺口
 
+2026-10-02 后续[搜索可见选择修复](desktop-chat-search-selection.md)：真实近期列表
+按方向键后原选择事实存在，当前 Lumen paint 却盖过旧 aria-selected 背景；已接入
+公开 selected state，保持原导航合同。最终中英两条主链及新临时原生 run-19 通过，
+不是重复补 Search 后端或扩大按钮／尺寸矩阵。
+
 - 空会话换项目保留当前模型／thinking；首次发送将其作为会话显式选择。
 - Goal + Plan 共存；`/agent` 经父 Run 的真正 Agent Tool 路径。
 - waiting-approval Guide 保持 restricted。hbar 的明确权限与 receipt 规则不为视觉

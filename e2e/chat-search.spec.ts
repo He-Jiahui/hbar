@@ -206,6 +206,21 @@ function input(fixture: Fixture): Locator {
   return dialog(fixture).getByRole('combobox', { name: chatSearchCopy(fixture.locale).search, exact: true })
 }
 
+async function expectOpenedSession(fixture: Fixture, title: string): Promise<void> {
+  await expect(
+    fixture.page.getByRole('region', {
+      name: getShellCopy(fixture.locale).session.conversationTitle(title),
+      exact: true,
+    }),
+  ).toBeVisible()
+  // The current narrow shell moves tabs into its navigation menu; the selected
+  // conversation is visible even though the desktop tab strip is not mounted.
+  if (fixture.width === 320)
+    await expect(fixture.page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible()
+  else
+    await expect(fixture.page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+}
+
 async function openBySidebar(fixture: Fixture): Promise<void> {
   const { page, locale } = fixture
   const copy = getShellCopy(locale)
@@ -330,8 +345,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         ).toEqual(recent.items.map((item) => item.sessionId))
         expect(recent.items.map((item) => item.sessionId)).not.toContain(ready.archivedMatch.id)
         await capture(fixture, 'recent')
+        await page.mouse.move(0, 0)
         await input(fixture).press('ArrowDown')
         await expect(dialog(fixture).getByRole('option').nth(1)).toHaveAttribute('aria-selected', 'true')
+        const recentRows = dialog(fixture).getByRole('option')
+        await expect(recentRows.nth(1)).toHaveAttribute('data-lumen-state', 'selected')
+        await expect
+          .poll(() => recentRows.nth(0).evaluate((row) => getComputedStyle(row).backgroundColor))
+          .toBe('rgba(0, 0, 0, 0)')
+        const selectionPaint = await recentRows.evaluateAll((rows) => {
+          const selected = rows.find((row) => row.getAttribute('aria-selected') === 'true')
+          const idle = rows.find((row) => row.getAttribute('aria-selected') === 'false')
+          return {
+            selected: selected ? getComputedStyle(selected).backgroundColor : null,
+            idle: idle ? getComputedStyle(idle).backgroundColor : null,
+          }
+        })
+        await capture(fixture, 'keyboard-selected')
+        expect(selectionPaint.selected).not.toBe(selectionPaint.idle)
+        const keyboardTarget = recent.items[1]
+        if (!keyboardTarget) throw new Error('Owned recent keyboard target is missing')
+        await input(fixture).press('Enter')
+        await expect(dialog(fixture)).toHaveCount(0)
+        await expectOpenedSession(fixture, keyboardTarget.title)
+        await page.keyboard.press('Control+k')
+        await expect(input(fixture)).toBeFocused()
+        await expect(input(fixture)).toHaveValue('')
+        await expect(dialog(fixture).getByRole('option')).toHaveCount(8)
 
         const box = input(fixture)
         await box.fill('needle')
@@ -387,10 +427,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const hiddenRow = dialog(fixture).locator(`[role="option"][data-session-id="${ready.hiddenMatch.id}"]`)
         await hiddenRow.click()
         await expect(dialog(fixture)).toHaveCount(0)
-        await expect(page.getByRole('tab', { name: ready.hiddenMatch.title, exact: true })).toHaveAttribute(
-          'aria-selected',
-          'true',
-        )
+        await expectOpenedSession(fixture, ready.hiddenMatch.title)
         await expect(page.getByText('The hidden project still has a needle in its user history.')).toBeVisible()
         await expect(page.locator(`[data-workspace-id="${ready.hiddenWorkspace.id}"]`)).toHaveCount(1)
 

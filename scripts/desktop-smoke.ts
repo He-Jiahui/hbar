@@ -378,6 +378,31 @@ try {
     buffer: Buffer.from('Selected through the native WebView file chooser.'),
   })
   await page.getByText('native-visual.txt', { exact: true }).waitFor()
+  // A second owned recent record is required to exercise keyboard movement;
+  // the first-send fixture intentionally began with no Sessions.
+  await createWorkspaceSessionCommandClient(api).execute(
+    'session.create',
+    { workspaceId: workspace.id, title: 'Native search selection' },
+    { idempotencyKey: `native-search-${sessionId}` },
+  )
+  await page.keyboard.press('Control+k')
+  const chatSearch = page.locator('dialog.hbar-app-react-chat-search-dialog')
+  const searchInput = chatSearch.getByRole('combobox')
+  await expect(searchInput).toBeFocused()
+  const searchRows = chatSearch.getByRole('option')
+  await expect.poll(() => searchRows.count()).toBeGreaterThan(1)
+  await searchInput.press('ArrowDown')
+  await expect(searchRows.nth(1)).toHaveAttribute('aria-selected', 'true')
+  await expect(searchRows.nth(1)).toHaveAttribute('data-lumen-state', 'selected')
+  const searchPaint = await searchRows.evaluateAll((rows) => ({
+    selected: rows[1] ? getComputedStyle(rows[1]).backgroundColor : null,
+    idle: rows[0] ? getComputedStyle(rows[0]).backgroundColor : null,
+  }))
+  if (searchPaint.selected === searchPaint.idle) throw new Error('Native chat search selection is not visible')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/chat-search-keyboard-selected.png' })
+  await searchInput.press('Escape')
+  await expect(chatSearch).toHaveCount(0)
+  await expectComposerText(composer, draft)
   const noHorizontalOverflow = async () =>
     page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
   const readSessionGeometry = async () =>
@@ -567,7 +592,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {

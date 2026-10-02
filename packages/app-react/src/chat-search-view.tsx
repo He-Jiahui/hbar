@@ -246,6 +246,7 @@ export function HbarChatSearchView({
               type="button"
               variant="text"
               indicator="none"
+              indicatorState={selectedIndex === index ? 'selected' : 'idle'}
               role="option"
               className="hbar-chat-search-row"
               aria-label={labels.openSession(row.title, row.workspaceName)}

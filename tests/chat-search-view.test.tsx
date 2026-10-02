@@ -108,6 +108,19 @@ test('capped Host match counts are never presented as exact', () => {
   expect(html).not.toContain('999 条匹配')
 })
 
+test('the original selected search row owns both accessible selection and canonical Lumen paint', () => {
+  const html = render({ status: 'ready', rows: [row('first'), row('second')], selectedSessionId: 'second' })
+  const options = html.match(/<button[^>]*role="option"[^>]*>/g) ?? []
+  expect(options).toHaveLength(2)
+  expect(options[0]).toContain('aria-selected="false"')
+  expect(options[0]).toContain('data-lumen-state="idle"')
+  expect(options[1]).toContain('aria-selected="true"')
+  expect(options[1]).toContain('data-session-id="second"')
+  expect(options[1]).toContain('data-lumen-state="selected"')
+  const stale = render({ status: 'ready', rows: [row('first')], selectedSessionId: 'gone' })
+  expect(stale).not.toContain('data-lumen-state="selected"')
+})
+
 test('empty, one, 8 recent, 50 results, and one-over-boundary are capacity safe', () => {
   expect(render()).toContain(labels.noRecent)
   expect(render({ status: 'empty', query: 'absent' })).toContain(labels.empty)
