@@ -194,3 +194,19 @@ ESLint、Prettier、边界 19 tests／30 assertions 和 staged diff 检查通过
 MSVC 环境下离线 Host 资源构建通过，Cargo 配置弃用／linker 诊断仍保留。
 没有新增 UI 样式，没有安装、重启用户桌面、调用付费 Provider 或声明完整 CC 能力
 已迁移。
+
+## Skills 阅读入口补充（2026-10-02）
+
+基于 CC 原 SkillList／SkillDetail 原组件实渲，迁移整行进入、详情内返回和
+Overview／Files 同页的关系。此前真实 Host 没有 `skill.inspect`；本子功能补齐
+公开只读契约、真实读取、异步归属与 Lumen 页面，不把发现目录等同于已安装或
+可执行能力。[详情交付记录](desktop-skill-detail.md)保留红测、容量与路径边界、
+最终静态门禁和中英两条完整路径；不是逐按钮／尺寸矩阵。
+
+最终 Web 资源 `index-C7t828-W.js`／`index-rkBjYGMl.css` 离线同步至 standalone
+资源后，维护的 native smoke 在全新的 `run-20261002-16` 完整运行，终端 exit 0。
+最小原生窗口实际读取技能正文和参考文件，返回保留搜索／原行焦点，再返回原
+未发送草稿；既有模型／high、Goal Plan、同 Run 审批、Files 搜索和生命周期
+仍通过。主 agent 亲看概览与文件画面，内容自然进入 Settings 的所属滚动区。
+owned 临时 profile／项目及进程由原脚本精确清理，最终 ignored 图和日志保留。
+这里没有安装、重启用户应用或调用付费模型，也没有扩大 Browser 的可信地址范围。

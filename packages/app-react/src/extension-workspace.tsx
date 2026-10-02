@@ -14,6 +14,7 @@ import {
 import { extensionWorkspacePage, type ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { ExtensionPluginDetail, type ExtensionPluginDetailLabels } from './extension-plugin-detail'
+import { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
 import { ExtensionCollectionFeedback, type ExtensionCollectionLabels } from './extension-collection-feedback'
 import './extension-workspace.css'
@@ -73,6 +74,7 @@ export interface HbarExtensionWorkspaceLabels {
   readonly inspect: (name: string) => string
   readonly pagination: ExtensionPaginationLabels
   readonly detail: ExtensionPluginDetailLabels
+  readonly skillDetail: ExtensionSkillDetailLabels
 }
 
 /** A short, content-grown recovery surface for a confirmed nonempty collection. */
@@ -116,6 +118,7 @@ export function HbarExtensionWorkspace({
   const extensions = useHbarRuntimeState(runtime.state.extensions)
   const entry = extensions.entries[instanceId]
   const detail = collection === 'skills' ? undefined : entry?.detail
+  const skillDetail = collection === 'plugins' ? undefined : entry?.skillDetail
   const navigation = collection ? labels.navigation[collection] : labels
   const page = entry ? extensionWorkspacePage(entry) : null
   const plugins = entry?.collections.plugins
@@ -145,12 +148,18 @@ export function HbarExtensionWorkspace({
   }, [connected, instanceId, collection, runtime.commands])
   useLayoutEffect(() => {
     if (!focusDirection.current) return
-    if (detail && focusDirection.current === 'detail') {
-      root.current?.querySelector<HTMLButtonElement>('.hbar-app-react-plugin-detail-navigation button')?.focus()
+    if ((detail || skillDetail) && focusDirection.current === 'detail') {
+      root.current
+        ?.querySelector<HTMLButtonElement>(
+          '.hbar-app-react-plugin-detail-navigation button, .hbar-app-react-skill-detail-navigation button',
+        )
+        ?.focus()
       focusDirection.current = null
-    } else if (!detail && focusDirection.current === 'list') {
-      const row = Array.from(root.current?.querySelectorAll<HTMLElement>('[data-plugin-id]') ?? []).find(
-        (item) => item.dataset.pluginId === entry?.selectedPluginId,
+    } else if (!detail && !skillDetail && focusDirection.current === 'list') {
+      const selectedId = collection === 'skills' ? entry?.selectedSkillId : entry?.selectedPluginId
+      const selectedAttribute = collection === 'skills' ? 'data-skill-id' : 'data-plugin-id'
+      const row = Array.from(root.current?.querySelectorAll<HTMLElement>(`[${selectedAttribute}]`) ?? []).find(
+        (item) => (collection === 'skills' ? item.dataset.skillId : item.dataset.pluginId) === selectedId,
       )
       const target = row?.querySelector<HTMLButtonElement>('.hbar-app-react-extension-open')
       const fallback = root.current?.querySelector<HTMLInputElement>('input') ?? heading.current
@@ -158,7 +167,7 @@ export function HbarExtensionWorkspace({
       else fallback?.focus()
       focusDirection.current = null
     }
-  }, [detail, entry?.selectedPluginId])
+  }, [detail, entry?.selectedPluginId, entry?.selectedSkillId, skillDetail, collection])
 
   const refresh = (collection?: 'plugins' | 'skills') =>
     runtime.commands
@@ -210,10 +219,10 @@ export function HbarExtensionWorkspace({
       ref={root}
       as="section"
       className="hbar-app-react-extension-workspace"
-      aria-labelledby={detail ? undefined : `${instanceId}-extensions-title`}
-      aria-label={detail ? navigation.title : undefined}
+      aria-labelledby={detail || skillDetail ? undefined : `${instanceId}-extensions-title`}
+      aria-label={detail || skillDetail ? navigation.title : undefined}
     >
-      {!detail && (
+      {!detail && !skillDetail && (
         <LumenFrame as="header" className="hbar-app-react-extension-heading">
           <LumenFrame>
             <LumenFrame
@@ -260,7 +269,7 @@ export function HbarExtensionWorkspace({
         </LumenFrame>
       )}
 
-      <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail)}>
+      <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail || skillDetail)}>
         {collection !== 'skills' && entry?.error === 'CAPACITY_EXCEEDED' && (
           <LumenText as="p" role="alert">
             {labels.detail.actions.error(entry.error)}
@@ -493,14 +502,29 @@ export function HbarExtensionWorkspace({
               ) : (
                 <LumenCollection as="ul" className="hbar-app-react-extension-list hbar-app-react-extension-skill-list">
                   {page.skills.map((skill) => (
-                    <LumenCollectionItem as="li" key={skill.id}>
-                      <LumenFrame className="hbar-app-react-extension-skill-content">
-                        <LumenText as="strong">{skill.id}</LumenText>
-                        <LumenText as="small" title={skill.path}>
-                          {skill.path}
-                        </LumenText>
-                        <LumenText as="span">{labels.skillScope}</LumenText>
-                      </LumenFrame>
+                    <LumenCollectionItem as="li" key={skill.id} data-skill-id={skill.id}>
+                      <LumenButton
+                        type="button"
+                        variant="text"
+                        className="hbar-app-react-extension-open"
+                        aria-label={labels.inspect(skill.id)}
+                        aria-current={entry.selectedSkillId === skill.id ? 'true' : undefined}
+                        disabled={!connected}
+                        onClick={() => {
+                          focusDirection.current = 'detail'
+                          void runtime.commands
+                            .execute('extensionWorkspace.inspectSkill', { instanceId, skillId: skill.id })
+                            .catch(() => {})
+                        }}
+                      >
+                        <LumenFrame className="hbar-app-react-extension-skill-content">
+                          <LumenText as="strong">{skill.id}</LumenText>
+                          <LumenText as="small" title={skill.path}>
+                            {skill.path}
+                          </LumenText>
+                          <LumenText as="span">{labels.skillScope}</LumenText>
+                        </LumenFrame>
+                      </LumenButton>
                       <LumenStatus
                         className="hbar-app-react-extension-skill-status"
                         value={labels.discovered}
@@ -548,6 +572,32 @@ export function HbarExtensionWorkspace({
             void runtime.commands
               .execute('extensionWorkspace.inspect', { instanceId, pluginId: detail.pluginId })
               .catch(() => {})
+          }
+        />
+      )}
+      {skillDetail && !detail && (
+        <ExtensionSkillDetail
+          key={skillDetail.skillId}
+          detail={skillDetail}
+          labels={labels.skillDetail}
+          connected={connected}
+          onBack={() => {
+            focusDirection.current = 'list'
+            void runtime.commands.execute('extensionWorkspace.backSkill', { instanceId }).catch(() => {})
+          }}
+          onRetry={() =>
+            void runtime.commands
+              .execute('extensionWorkspace.inspectSkill', { instanceId, skillId: skillDetail.skillId })
+              .catch(() => {})
+          }
+          onView={(view) =>
+            void runtime.commands.execute('extensionWorkspace.selectSkillView', { instanceId, view }).catch(() => {})
+          }
+          onFilesPage={(page) =>
+            void runtime.commands.execute('extensionWorkspace.setSkillFilesPage', { instanceId, page }).catch(() => {})
+          }
+          onOpenFile={(path) =>
+            void runtime.commands.execute('extensionWorkspace.openSkillFile', { instanceId, path }).catch(() => {})
           }
         />
       )}

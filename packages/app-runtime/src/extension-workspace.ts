@@ -3,6 +3,7 @@ import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-w
 import { extensionCommands } from '@hbar/contracts/commands/extensions'
 import { createState, type StateReader } from './state'
 import { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
+import { createExtensionSkillDetails } from './extension-skill-details'
 import type {
   ExtensionWorkspaceEntryState,
   ExtensionCollectionReadState,
@@ -79,6 +80,7 @@ export function createExtensionWorkspace(
   const detailTargets = new Map<string, SurfaceState['panels'][string]>()
   const detailRequests = new Map<string, AbortController>()
   const inFlightDetails = new Set<AbortController>()
+  let skillDetails: ReturnType<typeof createExtensionSkillDetails> | null = null
   // One Host-plugin action owner; panel actions are projections, not independent write locks.
   // Unknown operations cannot be evicted or unlocked by observing a current value.
   const actions = new Map<string, Readonly<ExtensionWorkspaceActionState>>()
@@ -123,6 +125,7 @@ export function createExtensionWorkspace(
           delete entries[id]
           detailGenerations.delete(id)
           detailTargets.delete(id)
+          skillDetails?.drop(id)
           break
         }
       }
@@ -271,7 +274,10 @@ export function createExtensionWorkspace(
                 ? { ...detail, status: selected ? 'ready' : 'missing', plugin: selected ?? null, error: null }
                 : detail,
           })
-        } else replace({ ...latest, skills: result.items, collections: { ...latest.collections, skills: read } })
+        } else {
+          const next = { ...latest, skills: result.items, collections: { ...latest.collections, skills: read } }
+          replace(skillDetails?.reconcile(next) ?? next)
+        }
         finish()
       } catch (reason) {
         finish(reason)
@@ -301,6 +307,8 @@ export function createExtensionWorkspace(
         skillPage: 0,
         selectedPluginId: null,
         detail: null,
+        selectedSkillId: null,
+        skillDetail: null,
       })
     const results = await Promise.allSettled(
       (collection ? [collection] : (['plugins', 'skills'] as const)).map((name) =>
@@ -401,10 +409,12 @@ export function createExtensionWorkspace(
   const unsubscribeSurfaces = surfaces.subscribe(() => {
     invalidateCollections()
     invalidateDetails()
+    skillDetails?.invalidate()
   })
   const unsubscribePresentation = presentation.subscribe(() => {
     invalidateCollections()
     invalidateDetails()
+    skillDetails?.invalidate()
   })
   const setEnabled = async (instanceId: string, pluginId: string, enabled: boolean) => {
     panel(instanceId)
@@ -451,6 +461,18 @@ export function createExtensionWorkspace(
       throw failure(reason)
     }
   }
+
+  skillDetails = createExtensionSkillDetails({
+    local,
+    options,
+    surfaces,
+    presentation,
+    panel,
+    entryFor,
+    replace,
+    summary,
+    isDisposed,
+  })
 
   local.register(extensionWorkspaceCommands['extensionWorkspace.refresh'], ({ instanceId, collection }, context) =>
     load(instanceId, collection, context.signal),
@@ -506,6 +528,8 @@ export function createExtensionWorkspace(
       for (const controller of inFlightDetails) controller.abort()
       detailRequests.clear()
       inFlightDetails.clear()
+      skillDetails?.dispose()
+      skillDetails = null
       actions.clear()
       state.dispose()
     },

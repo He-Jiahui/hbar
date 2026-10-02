@@ -1,4 +1,5 @@
 import { extensionDetailCopy } from './extension-detail-copy'
+import { extensionSkillCopy } from './extension-skill-copy'
 import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
@@ -300,6 +301,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.provider.preset.list.description': '按名称、协议或 API 地址分页查询内置供应商预设。',
         'commands.provider.preset.models.title': '列出预设模型',
         'commands.provider.preset.models.description': '分页查询供应商预设中的模型、能力与思考等级。',
+        'commands.skill.inspect.title': '读取技能详情',
+        'commands.skill.inspect.description': '读取 Host 已发现技能的只读详情。',
+        'commands.skill.file.read.title': '读取技能文件',
+        'commands.skill.file.read.description': '读取 Host 已发现技能目录中的一个文件。',
       }
     : {
         'commands.app.openPanel.title': 'Open panel',
@@ -352,6 +357,10 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.provider.preset.models.title': 'List preset models',
         'commands.provider.preset.models.description':
           'Query models, capabilities, and thinking levels in a provider preset.',
+        'commands.skill.inspect.title': 'Read skill details',
+        'commands.skill.inspect.description': 'Read details for a skill discovered by the Host.',
+        'commands.skill.file.read.title': 'Read skill file',
+        'commands.skill.file.read.description': 'Read one file from a skill discovered by the Host.',
       }
   const fields: Readonly<Record<string, string>> = zh
     ? {
@@ -2609,6 +2618,7 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   const number = new Intl.NumberFormat(locale)
   return {
     ...extensionDetailCopy(locale),
+    skillDetail: extensionSkillCopy(locale),
     collections: extensionCollectionCopy(locale),
     navigation: extensionNavigationCopy(locale),
     title: choose('扩展与技能', 'Extensions and skills'),

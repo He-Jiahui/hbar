@@ -36,6 +36,8 @@ bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-st
 
 profile 和项目分别使用系统 temp 下本脚本创建的直接子目录，项目不放在受保护的 Host 数据目录中；文件步骤必须列出并读取真实临时文件正文，不能只检查面板出现。插件设置重载后，还要在原 Files 搜索未展开目录中的文件，核对实际键盘焦点、打开正文与返回保留查询，防止仅列表可用掩盖搜索服务失效。连接文件先校验 URL／PID／实例字段，终止 Host 前核对其命令行的精确 data-root 所有权。失败日志隐藏临时 token 和配对码。调试端口只由该测试进程的环境变量启用，常规桌面启动不启用。纯边界检查可运行 `bun test ./tests/desktop-smoke-fixture.test.ts --tsconfig-override ./tsconfig.json`，不会启动原生窗口。此单测通过不代表 native smoke 通过；最新实际执行状态见 [UI 同步记录](desktop-ui-synchronization.md)。
 
+Skills 的核心回归使用 `e2e/extension-skill-detail.spec.ts`：真实隔离 Host 发现 21 个技能，列表第二页进入详情，读取入口正文及分页后的参考文件，切换 Plugins 后回到同一技能详情，再返回原筛选／页码／键盘行焦点和未发送草稿。只跑英文桌面与中文窄屏两条代表性完整路径，不增加按钮乘视口矩阵。原生 smoke 另在 owned profile 放置一份只读技能，核对 900×600 内窗的概览／文件／返回；本轮实际通过与否以执行记录为准，不把脚本中存在断言算作已验收。
+
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
 ## 性能基准

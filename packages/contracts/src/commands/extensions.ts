@@ -58,6 +58,28 @@ const skillSchema = z.strictObject({
   path: z.string().min(1).max(4_000),
   scope: z.literal('global'),
 })
+const skillFileSchema = z.strictObject({
+  path: z.string().min(1).max(4_000),
+  size: z.number().int().nonnegative(),
+})
+const skillDetailSchema = z.strictObject({
+  id: idSchema,
+  path: z.string().min(1).max(4_000),
+  scope: z.literal('global'),
+  entryPath: z.string().min(1).max(4_000).nullable(),
+  displayName: z.string().max(256),
+  description: z.string().max(8_000),
+  body: z.string().max(262_144),
+  files: z.array(skillFileSchema).max(200),
+  filesTruncated: z.boolean(),
+  entryTruncated: z.boolean(),
+})
+const skillFileReadSchema = z.strictObject({
+  id: idSchema,
+  path: z.string().min(1).max(4_000),
+  text: z.string().max(262_144),
+  truncated: z.boolean(),
+})
 
 function metadata(id: string, kind: 'command' | 'query', effect: 'none' | 'external'): CommandMetadataInput {
   return {
@@ -134,7 +156,23 @@ export const extensionCommands = {
     z.strictObject({}),
     z.array(skillSchema).max(10_000),
   ),
+  'skill.inspect': defineCommand(
+    { ...metadata('skill.inspect', 'query', 'none'), cli: { arguments: [idArgument] } },
+    z.strictObject({ id: idSchema }),
+    skillDetailSchema.nullable(),
+  ),
+  'skill.file.read': defineCommand(
+    {
+      ...metadata('skill.file.read', 'query', 'none'),
+      cli: { arguments: [idArgument, { field: 'path', type: 'string', position: 1 }] },
+    },
+    z.strictObject({ id: idSchema, path: z.string().min(1).max(4_000) }),
+    skillFileReadSchema.nullable(),
+  ),
 }
 
 export type SkillDescriptor = z.output<typeof skillSchema>
+export type SkillFileEntry = z.output<typeof skillFileSchema>
+export type SkillDetail = z.output<typeof skillDetailSchema>
+export type SkillFileReadResult = z.output<typeof skillFileReadSchema>
 export type PluginInfo = z.output<typeof pluginInfoSchema>

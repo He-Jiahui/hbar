@@ -2,6 +2,7 @@ import { CommandError, CommandRegistry, createCommandClient } from '@hbar/comman
 import { HbarError } from '@hbar/contracts'
 import type { PluginInfo } from '@hbar/contracts'
 import { extensionCommands, type SkillDescriptor } from '@hbar/contracts/commands/extensions'
+import type { SkillInspectionService } from './skill-inspection.ts'
 
 export interface ExtensionCommandDependencies {
   list(): PluginInfo[]
@@ -15,7 +16,8 @@ export interface ExtensionCommandDependencies {
   }
   lock(): Promise<{ version: 1; plugins: Record<string, unknown> }>
   doctor(): { ok: boolean; errors: string[]; order?: string[] }
-  skills(): Promise<SkillDescriptor[]>
+  skills(signal?: AbortSignal): Promise<SkillDescriptor[]>
+  skillInspection?: SkillInspectionService
 }
 
 export function createExtensionCommands(dependencies: ExtensionCommandDependencies) {
@@ -30,7 +32,10 @@ export function createExtensionCommands(dependencies: ExtensionCommandDependenci
   }
 
   registry.register(extensionCommands['plugin.list'], () => dependencies.list())
-  registry.register(extensionCommands['plugin.inspect'], ({ id }) => dependencies.list().find((item) => item.id === id) ?? null)
+  registry.register(
+    extensionCommands['plugin.inspect'],
+    ({ id }) => dependencies.list().find((item) => item.id === id) ?? null,
+  )
   registry.register(
     extensionCommands['plugin.set'],
     ({ id, enabled, config }) => translate(() => dependencies.set(id, enabled, config)),
@@ -55,7 +60,19 @@ export function createExtensionCommands(dependencies: ExtensionCommandDependenci
   registry.register(extensionCommands['plugin.graph'], () => dependencies.graph())
   registry.register(extensionCommands['plugin.lock'], () => translate(() => dependencies.lock()))
   registry.register(extensionCommands['plugin.doctor'], () => dependencies.doctor())
-  registry.register(extensionCommands['skill.list'], () => translate(() => dependencies.skills()))
+  registry.register(extensionCommands['skill.list'], (_input, context) =>
+    translate(() => dependencies.skills(context.signal)),
+  )
+  registry.register(extensionCommands['skill.inspect'], ({ id }, context) => {
+    const inspection = dependencies.skillInspection
+    if (!inspection) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Skill inspection is unavailable on this Host')
+    return translate(() => inspection.inspect(id, context.signal))
+  })
+  registry.register(extensionCommands['skill.file.read'], ({ id, path }, context) => {
+    const inspection = dependencies.skillInspection
+    if (!inspection) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Skill file reads are unavailable on this Host')
+    return translate(() => inspection.readFile(id, path, context.signal))
+  })
 
   return {
     ...createCommandClient(extensionCommands, registry),

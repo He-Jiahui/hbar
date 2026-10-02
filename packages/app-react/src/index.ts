@@ -168,6 +168,7 @@ export { HbarAgentWorkspace, type HbarAgentWorkspaceLabels } from './lumen-agent
 export { HbarGoalPlanWorkspace, type HbarGoalPlanWorkspaceLabels } from './goal-plan-workspace'
 export { HbarWorkflowOverview, type HbarWorkflowOverviewLabels } from './workflow-overview'
 export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './extension-workspace'
+export { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
 export { HbarSettingsUsage, SETTINGS_USAGE_MODELS_PER_PAGE, type HbarSettingsUsageLabels } from './settings-usage'

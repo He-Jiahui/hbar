@@ -31,6 +31,31 @@ export const extensionWorkspaceCommands = {
     z.strictObject({ instanceId, pluginId: idSchema }),
     summary,
   ),
+  'extensionWorkspace.inspectSkill': defineCommand(
+    metadata('extensionWorkspace.inspectSkill'),
+    z.strictObject({ instanceId, skillId: idSchema }),
+    summary,
+  ),
+  'extensionWorkspace.selectSkillView': defineCommand(
+    metadata('extensionWorkspace.selectSkillView'),
+    z.strictObject({ instanceId, view: z.enum(['overview', 'files']) }),
+    summary,
+  ),
+  'extensionWorkspace.setSkillFilesPage': defineCommand(
+    metadata('extensionWorkspace.setSkillFilesPage'),
+    z.strictObject({ instanceId, page: z.number().int().min(0).max(499) }),
+    summary,
+  ),
+  'extensionWorkspace.openSkillFile': defineCommand(
+    metadata('extensionWorkspace.openSkillFile'),
+    z.strictObject({ instanceId, path: z.string().min(1).max(4_000) }),
+    summary,
+  ),
+  'extensionWorkspace.backSkill': defineCommand(
+    metadata('extensionWorkspace.backSkill'),
+    z.strictObject({ instanceId }),
+    summary,
+  ),
   'extensionWorkspace.back': defineCommand(
     metadata('extensionWorkspace.back'),
     z.strictObject({ instanceId }),

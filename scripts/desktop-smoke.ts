@@ -90,6 +90,13 @@ try {
   await writeFile(join(workspaceRoot, 'native-visual.md'), '# Owned native smoke project\n')
   await mkdir(join(workspaceRoot, 'nested'))
   await writeFile(join(workspaceRoot, 'nested', 'native-search-proof.txt'), 'Owned nested native search proof.\n')
+  const skillRoot = join(root, 'skills', 'global', 'native-review')
+  await mkdir(join(skillRoot, 'references'), { recursive: true })
+  await writeFile(
+    join(skillRoot, 'SKILL.md'),
+    '---\nname: Native skill review\ndescription: Owned read-only native skill fixture\n---\n\n# Native review\n\nRead the actual discovered skill entry.\n',
+  )
+  await writeFile(join(skillRoot, 'references', 'checks.md'), '# Review checks\n\nOwned native skill source proof.\n')
   await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
   const debugProbe = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('fixture') })
   const debugPort = debugProbe.port
@@ -507,6 +514,38 @@ try {
   if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop tool window has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-min-window.png' })
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
+  await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+  await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
+  const settingsGroups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
+  if (await settingsGroups.isVisible()) await settingsGroups.selectOption('skills')
+  else
+    await page
+      .getByRole('navigation', { name: copy.settings.groups, exact: true })
+      .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.skills'), exact: true })
+      .click()
+  const skillsPanel = page.locator('.hbar-app-react-extension-workspace')
+  const skillFilter = skillsPanel.getByRole('textbox', { name: copy.extensions.navigation.skills.filter, exact: true })
+  await skillFilter.fill('native-review')
+  const skillOpener = skillsPanel.getByRole('button', { name: copy.extensions.inspect('native-review'), exact: true })
+  await skillOpener.focus()
+  await skillOpener.press('Enter')
+  const skillDetail = skillsPanel.locator('.hbar-app-react-skill-detail')
+  await expect(skillDetail.locator('.hbar-app-react-skill-overview')).toContainText(
+    'Read the actual discovered skill entry.',
+  )
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/skill-overview-min-window.png' })
+  await skillDetail.getByRole('tab', { name: copy.extensions.skillDetail.files, exact: true }).click()
+  await skillDetail.getByRole('button', { name: 'references/checks.md', exact: true }).click()
+  await expect(skillDetail.locator('.hbar-app-react-skill-file-content')).toContainText(
+    'Owned native skill source proof.',
+  )
+  if (!(await noHorizontalOverflow())) throw new Error('Minimum native Skills detail has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/skill-files-min-window.png' })
+  await skillDetail.getByRole('button', { name: copy.extensions.skillDetail.back, exact: true }).click()
+  await expect(skillFilter).toHaveValue('native-review')
+  await expect(skillOpener).toBeFocused()
+  await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+  await expectComposerText(composer, draft)
   const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
@@ -528,7 +567,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; session and file tool rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; owned project file listed and read; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {

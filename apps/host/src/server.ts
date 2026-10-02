@@ -1,6 +1,6 @@
 import { networkInterfaces } from 'node:os'
 import { resolve, relative, isAbsolute, join } from 'node:path'
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
@@ -72,6 +72,7 @@ import type {
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
 import { createExtensionCommands } from './extension-commands.ts'
+import { createSkillInspectionService } from './skill-inspection.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 import { UsageService } from '@hbar/usage'
 import { PerformanceCollector } from '@hbar/metrics'
@@ -172,6 +173,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
+  const skillInspection = createSkillInspectionService(resolve(kernel.options.layout.skills, 'global'))
   const extensionCommands = createExtensionCommands({
     list: () => kernel.plugins.list(),
     set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
@@ -186,14 +188,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     graph: () => kernel.plugins.graph(),
     lock: () => kernel.plugins.lock(),
     doctor: () => kernel.plugins.doctor(),
-    async skills() {
-      const root = resolve(kernel.options.layout.skills, 'global')
-      const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
-      return entries
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => ({ id: entry.name, path: resolve(root, entry.name), scope: 'global' as const }))
-        .sort((left, right) => left.id.localeCompare(right.id))
-    },
+    skills: (signal) => skillInspection.list(signal),
+    skillInspection,
   })
   const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'), {
     storage: kernel.storage,

@@ -33,7 +33,7 @@ import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/
 import type { ModelConfiguration, ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentProfileId, AgentRecord } from '@hbar/contracts/commands/agents'
-import type { PluginInfo, SkillDescriptor } from '@hbar/contracts/commands/extensions'
+import type { PluginInfo, SkillDescriptor, SkillDetail, SkillFileReadResult } from '@hbar/contracts/commands/extensions'
 import type { MetricsQueryResult } from '@hbar/contracts/commands/metrics'
 import type { GitCommitInfo, GitCommitSource, GitStatsReport, GitStatus } from '@hbar/contracts'
 import type {
@@ -408,6 +408,23 @@ export interface ExtensionWorkspaceDetailState {
   readonly error: string | null
 }
 
+export interface ExtensionSkillFileState {
+  readonly status: 'idle' | 'loading' | 'ready' | 'missing' | 'error'
+  readonly file: Readonly<SkillFileReadResult> | null
+  readonly error: string | null
+}
+
+export interface ExtensionSkillDetailState {
+  readonly skillId: string
+  readonly status: 'loading' | 'ready' | 'missing' | 'error'
+  readonly skill: Readonly<SkillDetail> | null
+  readonly error: string | null
+  readonly view: 'overview' | 'files'
+  readonly filesPage: number
+  readonly selectedPath: string | null
+  readonly file: Readonly<ExtensionSkillFileState>
+}
+
 export interface ExtensionCollectionReadState {
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
   readonly hasSnapshot: boolean
@@ -432,6 +449,9 @@ export interface ExtensionWorkspaceEntryState {
   readonly skillPage: number
   readonly selectedPluginId: string | null
   readonly detail: Readonly<ExtensionWorkspaceDetailState> | null
+  /** Selected skill row/detail is optional for compatibility with existing snapshots and fixtures. */
+  readonly selectedSkillId?: string | null
+  readonly skillDetail?: Readonly<ExtensionSkillDetailState> | null
 }
 
 export interface ExtensionWorkspaceState {

@@ -38,6 +38,7 @@ import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
 import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-workspace'
+export type { SkillDetail, SkillFileEntry, SkillFileReadResult } from '@hbar/contracts/commands/extensions'
 import { statusWorkspaceCommands } from '@hbar/contracts/commands/status-workspace'
 import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persistence'
 import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
@@ -322,6 +323,8 @@ export type {
   ExtensionWorkspaceActionState,
   ExtensionCollectionReadState,
   ExtensionWorkspaceDetailState,
+  ExtensionSkillFileState,
+  ExtensionSkillDetailState,
   ExtensionWorkspaceEntryState,
   ExtensionWorkspaceState,
   StatusWorkspaceEntryState,
