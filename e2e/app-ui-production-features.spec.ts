@@ -108,6 +108,7 @@ test.describe('production app-ui feature surfaces', () => {
         await expect(page.getByRole('status')).toContainText(/Draft updated|已写入草稿/i)
         const prompt = page.getByRole('textbox', { name: 'Prompt' })
         await expect(prompt).toContainText(/Release production/)
+        await prompt.fill('Existing draft before replacement')
         await page.getByRole('combobox', { name: labels.target }).selectOption({ label: host.ready.sessionTitle })
         await page.getByRole('combobox').filter({ hasText: labels.append }).selectOption('replace')
         await page.getByRole('button', { name: /Apply to draft|写入草稿/, exact: true }).click()
