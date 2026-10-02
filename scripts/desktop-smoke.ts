@@ -391,9 +391,13 @@ try {
   await expect(searchInput).toBeFocused()
   const searchRows = chatSearch.getByRole('option')
   await expect.poll(() => searchRows.count()).toBeGreaterThan(1)
+  await page.mouse.move(0, 0)
   await searchInput.press('ArrowDown')
   await expect(searchRows.nth(1)).toHaveAttribute('aria-selected', 'true')
   await expect(searchRows.nth(1)).toHaveAttribute('data-lumen-state', 'selected')
+  await expect
+    .poll(() => searchRows.nth(0).evaluate((row) => getComputedStyle(row).backgroundColor))
+    .toBe('rgba(0, 0, 0, 0)')
   const searchPaint = await searchRows.evaluateAll((rows) => ({
     selected: rows[1] ? getComputedStyle(rows[1]).backgroundColor : null,
     idle: rows[0] ? getComputedStyle(rows[0]).backgroundColor : null,

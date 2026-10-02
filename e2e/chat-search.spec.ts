@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
-import { HbarClient, createSessionSearchCommandClient } from '@hbar/client'
+import { HbarClient, createSessionSearchCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
@@ -44,6 +44,10 @@ const wireSchema = z.object({
   method: z.string(),
   params: z.object({ commandId: z.string().optional() }).passthrough().optional(),
 })
+const navigationWireSchema = z.object({
+  method: z.literal('command.execute'),
+  params: z.object({ commandId: z.literal('session.get'), input: z.object({ sessionId: z.string() }) }),
+})
 
 interface Fixture {
   readonly root: string
@@ -58,6 +62,10 @@ interface Fixture {
   readonly asset: string
   readonly commands: string[]
   readonly errors: string[]
+  readonly navigationGate: {
+    arm(sessionId: string): Promise<void>
+    release(): void
+  }
 }
 
 function bunExecutable(): string {
@@ -151,6 +159,40 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     await observer.connect()
     expect((await context.request.post(`${ready.url}/auth/token`, { data: { token: ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
+    let armedSessionId: string | null = null
+    let heldNavigation: (() => void) | null = null
+    let gateEntered: ReturnType<typeof Promise.withResolvers<void>> | null = null
+    const navigationGate = {
+      arm(sessionId: string) {
+        if (armedSessionId || heldNavigation) throw new Error('Owned navigation gate is already occupied')
+        armedSessionId = sessionId
+        gateEntered = Promise.withResolvers<void>()
+        return gateEntered.promise
+      },
+      release() {
+        armedSessionId = null
+        const deliver = heldNavigation
+        heldNavigation = null
+        gateEntered = null
+        deliver?.()
+      },
+    }
+    await page.routeWebSocket('**/rpc', (socket) => {
+      const server = socket.connectToServer()
+      socket.onMessage((message) => {
+        if (armedSessionId && typeof message === 'string') {
+          const request = navigationWireSchema.safeParse(JSON.parse(message))
+          if (request.success && request.data.params.input.sessionId === armedSessionId) {
+            armedSessionId = null
+            heldNavigation = () => server.send(message)
+            gateEntered?.resolve()
+            return
+          }
+        }
+        server.send(message)
+      })
+      server.onMessage((message) => socket.send(message))
+    })
     const commands: string[] = []
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
@@ -180,7 +222,21 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     if (await show.isVisible()) await show.click()
     await expect(page.locator(`[data-workspace-id="${ready.visibleWorkspace.id}"]`)).toBeVisible()
     await expect(page.locator(`[data-workspace-id="${ready.hiddenWorkspace.id}"]`)).toBeVisible()
-    return { root, directory, child, context, page, observer, ready, locale, width, asset, commands, errors }
+    return {
+      root,
+      directory,
+      child,
+      context,
+      page,
+      observer,
+      ready,
+      locale,
+      width,
+      asset,
+      commands,
+      errors,
+      navigationGate,
+    }
   } catch (error) {
     await context.close()
     observer?.disconnect()
@@ -191,12 +247,52 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
 
 async function stop(fixture: Fixture): Promise<void> {
   try {
+    fixture.navigationGate.release()
     await fixture.context.close()
   } finally {
     fixture.observer.disconnect()
     await cleanup(fixture.child, fixture.root, fixture.directory)
   }
 }
+
+test('a changed search query recovers after the original held session navigation fails', async ({ browser }) => {
+  test.setTimeout(90_000)
+  const fixture = await start(browser, 'en-US', 1440)
+  try {
+    await openBySidebar(fixture)
+    const rows = dialog(fixture).getByRole('option')
+    await expect(rows).toHaveCount(8)
+    const original = fixture.ready.visibleMatch
+    let entered = false
+    const gate = fixture.navigationGate.arm(original.id).then(() => {
+      entered = true
+    })
+    await dialog(fixture).locator(`[data-session-id="${original.id}"]`).click()
+    await expect.poll(() => entered).toBe(true)
+    await gate
+    await input(fixture).fill('needle')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toBeDisabled()
+    // The authenticated Host confirms the originally selected fixture Session
+    // is archived while its exact navigation read is held. No reply is invented.
+    await createWorkspaceSessionCommandClient(fixture.observer).execute(
+      'session.archive',
+      { sessionId: original.id, archived: true },
+      { idempotencyKey: 'owned-search-navigation-archive' },
+    )
+    fixture.navigationGate.release()
+    await expect(rows.first()).toBeEnabled()
+    await expect(input(fixture)).toHaveValue('needle')
+    await capture(fixture, 'navigation-settled-new-query')
+    await dialog(fixture).locator(`[data-session-id="${fixture.ready.hiddenMatch.id}"]`).click()
+    await expect(dialog(fixture)).toHaveCount(0)
+    await expectOpenedSession(fixture, fixture.ready.hiddenMatch.title)
+    expect(fixture.commands).not.toContain('run.submit')
+    expect(fixture.errors).toEqual([])
+  } finally {
+    await stop(fixture)
+  }
+})
 
 function dialog(fixture: Fixture): Locator {
   return fixture.page.locator('dialog.hbar-app-react-chat-search-dialog')

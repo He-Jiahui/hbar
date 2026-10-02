@@ -242,6 +242,76 @@ test('row navigation captures original IDs, keeps local failure, and never retar
   expect(data.owner.store.getState().openError).toBeNull()
 })
 
+test('a query change does not strand navigation busy after the old navigation succeeds or fails', async () => {
+  for (const outcome of ['success', 'failure'] as const) {
+    const data = fixture()
+    data.owner.bind('host-a', true)
+    data.owner.open()
+    data.recent.resolve(page([row(1)]))
+    await settle()
+
+    const target = row(1)
+    const navigation = deferred<void>()
+    const opening = data.owner.openRow(target.sessionId, target.workspaceId, async () => navigation.promise)
+    data.owner.setQuery('needle')
+    data.flush()
+    await settle()
+    data.owner.retry()
+    await settle()
+    expect(data.searches).toHaveLength(2)
+    data.searches[1]?.result.resolve(page([row(2)]))
+    await settle()
+    expect(data.owner.store.getState()).toMatchObject({ query: 'needle', openingSessionId: target.sessionId })
+
+    if (outcome === 'success') navigation.resolve()
+    else navigation.reject({ code: 'SESSION_ARCHIVED' })
+    expect(await opening).toBe(false)
+    expect(data.owner.store.getState()).toMatchObject({ openingSessionId: null, openError: null })
+
+    const reopened = await data.owner.openRow(row(2).sessionId, row(2).workspaceId, async () => undefined)
+    expect(reopened).toBe(true)
+  }
+})
+
+test('a stale navigation cannot clear a new owner after Host rebinding or close and reopen', async () => {
+  const data = fixture()
+  data.owner.bind('host-a', true)
+  data.owner.open()
+  data.recent.resolve(page([row(1), row(2)]))
+  await settle()
+
+  const oldNavigation = deferred<void>()
+  const oldOpening = data.owner.openRow(row(1).sessionId, row(1).workspaceId, async () => oldNavigation.promise)
+  data.owner.bind('host-b', true)
+  await settle()
+  const reboundNavigation = deferred<void>()
+  const reboundOpening = data.owner.openRow(row(1).sessionId, row(1).workspaceId, async () => reboundNavigation.promise)
+  oldNavigation.resolve()
+  expect(await oldOpening).toBe(false)
+  expect(data.owner.store.getState().openingSessionId).toBe(row(1).sessionId)
+  reboundNavigation.resolve()
+  expect(await reboundOpening).toBe(true)
+  expect(data.owner.store.getState().openingSessionId).toBeNull()
+
+  const staleNavigation = deferred<void>()
+  const staleOpening = data.owner.openRow(row(1).sessionId, row(1).workspaceId, async () => staleNavigation.promise)
+  data.owner.close()
+  data.owner.open()
+  await settle()
+  const reopenedNavigation = deferred<void>()
+  const reopenedOpening = data.owner.openRow(
+    row(1).sessionId,
+    row(1).workspaceId,
+    async () => reopenedNavigation.promise,
+  )
+  staleNavigation.resolve()
+  expect(await staleOpening).toBe(false)
+  expect(data.owner.store.getState().openingSessionId).toBe(row(1).sessionId)
+  reopenedNavigation.resolve()
+  expect(await reopenedOpening).toBe(true)
+  expect(data.owner.store.getState().openingSessionId).toBeNull()
+})
+
 test('disconnect clears stale search results and reconnect searches the same visible query', async () => {
   const data = fixture()
   data.owner.bind('host-a', true)

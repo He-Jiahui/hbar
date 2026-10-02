@@ -54,3 +54,43 @@ Search View 只传了 aria-selected，没有将同一选中事实接到公开 in
 最终截图位于 `artifacts/chat-search/current-selection-settled` 和原生 run 的
 `artifacts/ui-redesign/tauri/chat-search-keyboard-selected.png`，均在 ignored
 目录。此修复只关闭搜索当前行的可见反馈断点，不宣称总体 CC desktop Goal 完成。
+
+## 导航等待后的恢复（后续独立子功能）
+
+基线为选择反馈提交 `e0b00dcf`。新的会话 agent 与主 agent 各自用 controller
+的真实 action/deferred 复现：openRow 尚未结算时改变 query／retry 或 Host bind，
+旧结果因 read generation 过时而被忽略，但 openingSessionId 留存。View 据此将
+所有新结果 disabled，直到用户关闭弹窗。相关代码仍来自 `a03912cd`；旧测试只
+检查 stale 导航的返回值与错误，没有检查 busy 释放，不能作为本问题已覆盖的证据。
+
+真实页面进一步确认：最终基线资源上持有原 session.get 请求，用户输入新 needle
+查询；另一个 paired fixture Client 通过公共 SDK 将原 Session 归档，再释放请求。
+Host 返回真实归档事实，导航实际失败结算，但新结果持续 disabled。没有伪造成功
+内容或响应。红记录保留在 `artifacts/chat-search/navigation-failed-owner-red`；最初
+释放成功导航会正常离开弹窗，不能用来证明“失败后新结果仍卡住”，该探索记录
+也保留，不把它误报为第二种产品失败。
+
+修复为读取代次与导航 request 身份分别归属：query／retry 不提前释放仍在执行的
+single-flight 导航，原请求 finally 只清理自身 busy；Host 离开、close、dispose
+明确丢弃 UI owner。同一个 Session 在新 Host／重开弹窗中的新请求不能被旧 finally
+清掉；过时错误仍不写进当前查询。本功能没有新增自动重试、变更导航目标或
+把 UI owner 清理声称为物理取消。
+
+最终生产 Web 为 `index-CfF1VfQk.js`／`index-Fadl9qq8.css`，3548 modules。
+SHA256 核对后的真实 Host 三条路径通过，17.1 秒：新增的 held→真实归档失败→
+新结果恢复→打开另一个会话，加上原英文桌面／中文窄屏的键盘选择与正文搜索。
+主 agent 查看了恢复后的实际结果画面。严格类型、全仓 lint、最终测试／原生脚本
+scoped lint、Prettier 与 diff 检查通过。最终 View／controller／port 组合
+20 tests／123 assertions 通过，其中 controller 10 tests／56 assertions；包括
+query→retry 后旧成功／失败结算、Host 重绑与 close/reopen 后同 ID 新 owner 保留。
+
+MSVC 环境下离线刷新资源后，新 `run-20261002-20` 完整 native smoke exit 0，
+主 agent 查看了仅当前选择有底色的原生画面。这里 native 证明最终资源下的搜索
+选择/Esc 草稿和既有核心链仍成立，迟到导航失败恢复由前述真实 Host 浏览器链与
+controller 回归证明，不宣称在原生窗口也注入了归档竞态。owned cleanup 完成，
+没有应用安装、用户项目或付费模型操作。
+
+同轮另两位 gpt-6-luna/max agent 分别只读复核 Settings 和 Files／workbench。
+Files 主链未发现新的证据充分断点；Settings 提出 session/workspace form 中
+Provider 全局默认操作的作用域候选，尚未现场点击复现，不能写成已确认或已修复。
+下一独立检查应沿这个具体候选继续，不以本次搜索闭环宣告全部体验完成。

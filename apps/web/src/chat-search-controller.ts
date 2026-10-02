@@ -90,6 +90,12 @@ export function createWebChatSearchController(
   let indexingAttempts = 0
   const active = new Set<{ readonly controller: AbortController }>()
   let queued: { readonly query: string; readonly generation: number } | null = null
+  let openingRequest: { readonly sessionId: string } | null = null
+
+  const releaseOpeningRequest = () => {
+    openingRequest = null
+    if (store.getState().openingSessionId !== null) store.setState({ openingSessionId: null })
+  }
 
   const stop = () => {
     generation++
@@ -196,7 +202,10 @@ export function createWebChatSearchController(
       const reconnected = !connected && nextConnected
       hostId = nextHostId
       connected = nextConnected
-      if (changed || !nextConnected) stop()
+      if (changed || !nextConnected) {
+        stop()
+        releaseOpeningRequest()
+      }
       if (store.getState().open && (changed || reconnected || !nextConnected)) beginRead(0)
     },
     open() {
@@ -217,6 +226,7 @@ export function createWebChatSearchController(
     close() {
       if (disposed) return
       stop()
+      releaseOpeningRequest()
       composing = false
       store.setState({
         open: false,
@@ -280,16 +290,18 @@ export function createWebChatSearchController(
       )
         return false
       const target = generation
+      const request = { sessionId }
+      openingRequest = request
       store.setState({ openingSessionId: sessionId, openError: null })
       try {
         await navigate(row)
         if (!current(target, state.query.trim())) return false
-        store.setState({ openingSessionId: null })
         return true
       } catch (error) {
-        if (current(target, state.query.trim()))
-          store.setState({ openingSessionId: null, openError: { sessionId, message: errorCode(error) } })
+        if (current(target, state.query.trim())) store.setState({ openError: { sessionId, message: errorCode(error) } })
         return false
+      } finally {
+        if (openingRequest === request) releaseOpeningRequest()
       }
     },
     retry() {
@@ -298,6 +310,7 @@ export function createWebChatSearchController(
     dispose() {
       if (disposed) return
       stop()
+      releaseOpeningRequest()
       disposed = true
     },
   }
