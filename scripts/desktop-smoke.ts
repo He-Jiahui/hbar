@@ -534,6 +534,24 @@ try {
   await expect(pathSearch).toHaveValue('native-search-proof')
   await expect(nestedResult).toBeVisible()
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
+  const layoutProjection = page.locator('.hbar-desktop-layout-projection')
+  await expect(layoutProjection).toHaveCount(1)
+  const layoutShape = await layoutProjection.evaluate((element) => ({
+    roots: element.querySelectorAll(':scope > .flexlayout__layout').length,
+    tabs: element.querySelectorAll('.flexlayout__tab').length,
+  }))
+  if (layoutShape.roots !== 1 || layoutShape.tabs < 1)
+    throw new Error(`Canonical desktop layout has an unexpected pane shape: ${JSON.stringify(layoutShape)}`)
+  await page.reload()
+  await page.locator('[data-hbar-app-ui-shell="app"]').waitFor()
+  await expect(page.locator('.hbar-desktop-layout-projection')).toHaveCount(1)
+  const restoredLayoutShape = await page.locator('.hbar-desktop-layout-projection').evaluate((element) => ({
+    roots: element.querySelectorAll(':scope > .flexlayout__layout').length,
+    tabs: element.querySelectorAll('.flexlayout__tab').length,
+  }))
+  if (restoredLayoutShape.roots !== 1 || restoredLayoutShape.tabs < 1)
+    throw new Error(`Canonical desktop layout was not restored as one projection: ${JSON.stringify(restoredLayoutShape)}`)
+  await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click().catch(() => {})
   const beforeExplicitCreation = await listSessions()
   await page.getByRole('button', { name: copy.shell.newSession, exact: true }).click()
   await expect.poll(async () => (await listSessions()).length).toBe(beforeExplicitCreation.length + 1)
@@ -763,6 +781,20 @@ try {
   await invokeNative(page, 'plugin:window|close', { label: 'main' })
   const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (hidden !== false) throw new Error('Close did not hide the desktop window')
+  const nativeNotification = {
+    id: `native-smoke-${Date.now()}`,
+    title: 'hbar native smoke',
+    body: 'Accepted notification probe; OS display must be observed separately.',
+  }
+  const firstNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
+  const duplicateNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
+  if (firstNativeAcceptance !== true || duplicateNativeAcceptance !== false)
+    throw new Error(
+      `Native background notification did not provide fresh-only acceptance semantics: ${JSON.stringify({ firstNativeAcceptance, duplicateNativeAcceptance })}`,
+    )
+  await invokeNative(page, 'plugin:window|show', { label: 'main' })
+  const visibleAfterProbe = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
+  if (visibleAfterProbe !== true) throw new Error('Desktop window did not return after native notification probe')
   child.kill()
   await waitForNativeSmokeExit(child.exited)
   const health = await fetch(`${nativeConnection.url}/healthz`, { signal: AbortSignal.timeout(5_000) })
@@ -774,7 +806,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned Markdown file rendered, source mode retained its original text and explicit local-link navigation returned to the same document; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; owned command approval resumed its original Run, command/output/original arguments read in one card, expansion and native Copy feedback worked, and return retained the composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; canonical Shell 09 layout restored as one FlexLayout projection without duplicate panes; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned Markdown file rendered, source mode retained its original text and explicit local-link navigation returned to the same document; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; owned command approval resumed its original Run, command/output/original arguments read in one card, expansion and native Copy feedback worked, and return retained the composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; background native notification accepted once and deduplicated on replay (OS display/read not asserted); Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {
