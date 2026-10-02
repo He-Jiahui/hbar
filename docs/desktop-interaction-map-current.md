@@ -1,13 +1,20 @@
 # Desktop 当前交互地图与整合边界
 
-2026-10-01，当前产品实现基线 `db80aebd`，隔离分支 `codex/session-launch-target`。
+2026-10-01 的初始实现基线为 `db80aebd`，当时在隔离分支 `codex/session-launch-target`。
 参考为只读 `D:/Git/cc-haha`，版本 `e28d0a653481ef41b7a329411eeb2f0fd5656731`。
 这是用户要求的核心流程收束地图，不是逐按钮／尺寸矩阵，也不是完整 CC 功能或原生
 桌面验收完成声明。早期审计的缺失项必须按本地图和实际源码核对，不能直接照搬。
 
-2026-10-02 用户已授权先保存主工作区，再同步 UI。后续状态以
-[UI 同步记录](desktop-ui-synchronization.md)为准；下文的等待确认和只读预检保留为
-当时记录，不再作为新的授权阻碍。
+2026-10-02：用户要求的保存与 UI 同步已完成（`3c67edb7`／`ccbface7`），主工作区
+`codex/hbar-app-ui` 已包含这批交互成果。授权后的临时原生核心验收也已完成
+（`23c61f1e`）；实际画面、Host 事实与门禁以[UI 同步记录](desktop-ui-synchronization.md)
+为准。下文的合并预检保留为历史，不是当前未整合或未获授权的阻碍。
+
+后续 gpt-6-luna/max 入口复核 agent 核对当前源码与交付证据：Model 设置读取失败的就近
+Retry、Location 分支创建和首次 Send、More、A/B 会话工具记忆与 Files 预览往返均已
+有实现，不能按旧审计重复报缺失。Location 的 native/Web 窄屏呈现尚未区分，但原生
+最小内窗为 900×600，当前窄于 40rem 的 native 分支不可达，不列为已复现的高影响
+缺陷。这一步是当前态核对，不把没有发现新 UI 断点等同于整个 Goal 已完成。
 
 ## CC 的表达方式与迁移准则
 
@@ -40,6 +47,7 @@
 | 用户路线                                            | 当前入口与状态连续性                                                                                              | 权威交付／验证索引                                                                                                                                                               |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 选项目 → 模型／思考 → 首次发送                      | 输入区就地选择；空会话换项目保留当前选择和稿件；新会话保存显式选择，项目默认值不改                                | [项目连续性](desktop-project-selection-continuity.md)、`e2e/pre-session-project-continuity.spec.ts` 验证真实 Send 的目标 Session／Run／Files                                     |
+| Location → 分支／工作树 → 首次发送                  | 首页和已创建空会话复用位置选择；分支行仅选取，Create 立即建 ref 但不 checkout；首次 Send 才准备共享／隔离目标     | [空会话位置](session-launch-location-ui.md)、[分支创建](session-launch-branch-creation-ui.md)、`e2e/session-launch-location.spec.ts`、`e2e/pre-session-branch-creation.spec.ts`  |
 | Goal + Plan → 审批 → 继续执行                       | Add 准备 Goal，执行菜单选 Plan，二者共存；原工具旁看计划、决定；批准后仍是原 Run，未发送稿保留                    | [输入入口](desktop-composer-entry-parity.md)、[原 Plan 依据](desktop-plan-exit-reference.md)、`e2e/goal-plan-coexistence.spec.ts`                                                |
 | 输入 → 运行／排队 → 编辑／引导／停止                | 原输入区 Queue／Stop，卡片就近；后台 Agent Stop 与 idle Send 并列；操作绑定原 Run／Session                        | [主动作](desktop-composer-primary-actions.md)、[后台 Agent](desktop-composer-background-agents.md)、`e2e/composer-background-agents.spec.ts` 与 queue/Guide 专项                 |
 | `/agent` → 原父 Run → 子会话 → 返回                 | slash 是父 Run 提示；真实 Agent Tool 创建 child；工具和 Activity 可以进入 child，再返回存活原父标签               | [父路径](desktop-agent-parent-route.md)、[工具入口](desktop-agent-tool-open.md)、`tests/agent-parent-tool.test.ts`、`e2e/agent-child-return.spec.ts`                             |
@@ -47,6 +55,7 @@
 | 旧消息／Find → Settings／Files → 返回               | 分页旧消息有界；回来恢复原消息及行内阅读偏移，不自动追到最新；Find 只索引原正文                                   | [阅读返回](desktop-session-reading-return.md)、[Find](desktop-session-find.md)、`e2e/session-reading-return.spec.ts`、`e2e/session-find.spec.ts`                                 |
 | 消息路径 → Files → 行列／dirty 编辑                 | 相对源码引用就地打开原会话文件；复用原 preview、Workbench、编辑稿；迟到定位不抢焦点；错误在原引用旁               | [文件引用](desktop-message-file-reference.md)、[误识别与格式范围](desktop-message-file-reference-boundaries.md)、`e2e/message-file-reference.spec.ts`                            |
 | Files → Changed/diff → Add／编辑 → 返回             | 文件导航、Working/Staged diff、所选代码／评论／整文件加入原稿；比较写入与未知结果恢复沿用真实 Host                | [预览 tabs](desktop-file-preview-tabs.md)、[评论连续性](desktop-file-review-continuity.md)、file-draft／selection／workbench E2E                                                 |
+| 图片上传 → 草稿预览 → 历史回看                      | 草稿与历史按原 artifact／会话身份读取图片；查看与移除分开，缩略图和图集使用有界资源归属                           | [图片资源与交付](desktop-image-resources.md)、`session-images.tsx`／`session-images-model.tsx`；不是旧图片实施前审计所说的仅文件名显示                                           |
 | Settings → Provider／Extensions → 编辑／详情 → 返回 | Provider 为全局首落点，default 动作不改显式会话选择；保存与核对独立；分类／插件详情往返保留草稿、筛选与焦点       | [Provider](desktop-provider-progressive-edit.md)、[选项恢复](desktop-settings-content-recovery.md)、[插件详情](desktop-extension-plugin-detail.md)、provider／extension Host E2E |
 | Activity／Status → 当前事实 → 返回                  | Activity 展示真实 task/workflow/Agent；Status 为 hbar 自有性能／Usage／Git 工作台，不冒充 CC Team 或全局 Activity | [Activity](desktop-activity-workflow.md)、`lumen-status-workspace.tsx` 与 `e2e/web-shell.spec.ts` connected-flow；本轮无新 Status 原生图                                         |
 
@@ -80,6 +89,9 @@
   没有本轮原生启动、打包、安装或全套门禁。
 
 ## 完整 Goal 仍未关闭的范围与下一步选择
+
+以下“尚未整合”和等待选择描述的是同步前预检。当前保存、合并及原生核心验收已
+完成；仍需独立产品范围和能力契约的项目列在本节末尾，不应继续用旧合并阻碍解释。
 
 已优化的 UI 代码尚未整合到用户正在使用的主工作区，原生桌面当前版本也未验收。
 只读检查主 checkout `D:/Git/hbar` 位于 `codex/hbar-app-ui` 的 `89408ba5`；相对当前
