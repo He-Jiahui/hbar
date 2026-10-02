@@ -1275,6 +1275,11 @@ function SessionWorkspaceContent({
       if (pending) {
         try {
           await pending.promise
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            const latest = runtime.state.drafts.getSnapshot()[targetSessionId]
+            if (latest?.text.trim()) break
+            await new Promise<void>((resolve) => setTimeout(resolve, 25))
+          }
         } catch {
           return
         }
