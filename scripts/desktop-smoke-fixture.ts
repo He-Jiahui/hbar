@@ -53,3 +53,18 @@ export function redactNativeSmokeDiagnostics(text: string, token?: string): stri
   const redacted = token ? text.replaceAll(token, '[redacted token]') : text
   return redacted.replace(/Pairing code: \S+/g, 'Pairing code: [redacted]')
 }
+
+/** Bun exitCode may remain null after signal termination; the exited promise is authoritative. */
+export async function waitForNativeSmokeExit(exited: Promise<number>, timeoutMs = 5_000): Promise<number> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      exited,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Owned native desktop has not exited')), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}

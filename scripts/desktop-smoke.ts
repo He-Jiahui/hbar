@@ -20,6 +20,7 @@ import {
   ownsNativeSmokeHost,
   parseNativeSmokeConnection,
   redactNativeSmokeDiagnostics,
+  waitForNativeSmokeExit,
 } from './desktop-smoke-fixture'
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-'))
@@ -443,7 +444,7 @@ try {
   const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (hidden !== false) throw new Error('Close did not hide the desktop window')
   child.kill()
-  await child.exited
+  await waitForNativeSmokeExit(child.exited)
   const health = await fetch(`${nativeConnection.url}/healthz`, { signal: AbortSignal.timeout(5_000) })
   if (!health.ok) throw new Error('Host stopped with the desktop')
   await api.call('run.cancel', { runId: run.id })
@@ -458,6 +459,12 @@ try {
 } catch (error) {
   console.error(
     redactNativeSmokeDiagnostics(
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      connection?.token,
+    ),
+  )
+  console.error(
+    redactNativeSmokeDiagnostics(
       await readFile(join(root, 'diagnostics', 'desktop-host.log'), 'utf8').catch(() => 'No host log'),
       connection?.token,
     ),
@@ -468,10 +475,7 @@ try {
   await browser?.close().catch(() => {})
   if (child) {
     if (child.exitCode === null) child.kill()
-    await until(async () => {
-      if (child?.exitCode === null) throw new Error('Owned native desktop has not exited')
-    }, 5_000)
-    await child.exited
+    await waitForNativeSmokeExit(child.exited)
   }
   // A failed startup can still have created a Host; recover only validated fixture metadata.
   const host =

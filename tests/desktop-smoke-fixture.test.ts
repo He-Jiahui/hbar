@@ -6,6 +6,7 @@ import {
   ownsNativeSmokeHost,
   parseNativeSmokeConnection,
   redactNativeSmokeDiagnostics,
+  waitForNativeSmokeExit,
 } from '../scripts/desktop-smoke-fixture'
 
 const valid = { url: 'http://127.0.0.1:43210', token: 'fixture-only', pid: 1234, instanceId: 'fixture-instance' }
@@ -53,6 +54,16 @@ describe('native smoke fixture boundaries', () => {
   test('redacts temporary authentication and pairing credentials from diagnostics', () => {
     expect(redactNativeSmokeDiagnostics('fixture-only Pairing code: 123456 (expires)', valid.token)).toBe(
       '[redacted token] Pairing code: [redacted] (expires)',
+    )
+  })
+  test('accepts a resolved exit even when a signal leaves exitCode null', async () => {
+    const child = { exitCode: null, exited: Promise.resolve(143) }
+    expect(await waitForNativeSmokeExit(child.exited)).toBe(143)
+    expect(child.exitCode).toBeNull()
+  })
+  test('bounds an unresponsive owned child wait', async () => {
+    await expect(waitForNativeSmokeExit(new Promise<number>(() => {}), 5)).rejects.toThrow(
+      'Owned native desktop has not exited',
     )
   })
 })
