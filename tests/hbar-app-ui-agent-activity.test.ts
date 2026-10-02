@@ -86,7 +86,7 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(live).toContain('<ol class="lumen-agent-activity-list hbar-app-ui-agent-activity-live-list"')
     expect(live).toContain('<header class="lumen-agent-activity-heading hbar-app-ui-agent-activity-live-heading"')
     expect(live).toContain('Reconcile October invoices')
-    expect(live).toContain('>Stop<span data-edge="bottom"')
+    expect(live).toContain('>Stop</button>')
     expect(live).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     const nested = renderActivity(2)
     expect(nested).toContain('Weekly warehouse export')
