@@ -173,7 +173,7 @@ profile 与项目目录已由有界 cleanup 删除，只有 ignored 截图、日
 `run-20261002-14` 的真实原生红证据：在 `plugin.set` 更新设置后，文件列表与正文
 读取仍可用，搜索未展开目录里的文件却在原面板显示 `QUERY_UNAVAILABLE`。
 Host 的文件用例持有启动时的 ExecutionProvider；插件重载释放了它的 workspaceQuery，
-因此原搜索入口存在却无法完成。`7b36faf1` 将文件命令的装配改为有类型的当前服务
+因此原搜索入口存在却无法完成。`fca41013` 将文件命令的装配改为有类型的当前服务
 转发，并在缺少真实搜索能力时仍返回原 capability 错误；没有降低保护、回落到假
 本地过滤或顺带重构一般插件服务。
 
@@ -188,6 +188,9 @@ Host 的文件用例持有启动时的 ExecutionProvider；插件重载释放了
 本次原生进程与 owned Host 已确认退出，临时 profile／项目由原脚本有界清理。
 独立 Host 回归、严格类型与 lint 结果由修复提交保留；最终脚本 scoped 类型感知
 ESLint、Prettier、边界 19 tests／30 assertions 和 staged diff 检查通过。
+修复提交的专用 Host 回归为 1 test／4 assertions；`server.ts` 的全文件 Prettier
+检查仍有与修改前 HEAD 相同的历史格式差异，未夹带全文件格式化。这里的 Prettier
+通过范围是最终脚本和文档；本次文件搜索补充没有再运行全仓 lint 或完整 check。
 MSVC 环境下离线 Host 资源构建通过，Cargo 配置弃用／linker 诊断仍保留。
 没有新增 UI 样式，没有安装、重启用户桌面、调用付费 Provider 或声明完整 CC 能力
 已迁移。
