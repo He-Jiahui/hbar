@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { toolInputText, type SessionToolRow } from './session-message-model'
 import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-result-copy-action'
+import { HbarLumenDisclosure } from './lumen-disclosure'
+import { sessionToolOutcome } from './session-tool-outcome-model'
+import { commandOutputWindow } from './session-command-output-model'
+import './session-command-details.css'
 
 export interface HbarToolDetailsLabels {
   readonly input: string
@@ -12,6 +16,10 @@ export interface HbarToolDetailsLabels {
   readonly unavailableInput: string
   readonly showFullContent: string
   readonly showLessContent: string
+  readonly command: string
+  readonly originalInput: string
+  readonly errorOutput: string
+  readonly showMoreOutput: (lines: number) => string
 }
 
 export interface HbarMessageToolPresentation {
@@ -23,6 +31,8 @@ export interface HbarMessageToolPresentation {
   /** Host-owned, bounded requested-input context; never a file navigation action. */
   readonly title?: string
   readonly input?: { readonly format: 'command' | 'text'; readonly text: string }
+  /** Exact requested command captured by the host adapter, not an executable action. */
+  readonly command?: string
 }
 
 const DETAIL_PREVIEW_CHARACTERS = 12_000
@@ -52,6 +62,108 @@ function DetailText({
   )
 }
 
+function CommandDetails({
+  row,
+  command,
+  labels,
+  sessionId,
+  messageId,
+  clipboard,
+}: {
+  readonly row: SessionToolRow
+  readonly command: string
+  readonly labels: HbarToolDetailsLabels
+  readonly sessionId: string
+  readonly messageId: string
+  readonly clipboard?: MessageClipboardPort | null | undefined
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const outputId = useId()
+  const outcome = sessionToolOutcome(row.result)
+  const failed = outcome === 'failed' || outcome === 'legacy-error'
+  // An unknown/interrupted/denied result is not a successful stdout log. Keep
+  // all its diagnostic content readable without another preview disclosure.
+  const success = outcome === 'succeeded' || outcome === 'legacy-result'
+  const output = row.result?.text ?? ''
+  const window = commandOutputWindow(output)
+  const folded = success && window.collapsible && !expanded
+  return (
+    <LumenFrame className="hbar-session-command" data-outcome={outcome}>
+      <LumenFrame className="hbar-session-command-input">
+        <LumenText as="span" className="hbar-session-tool-heading">
+          {labels.command}
+        </LumenText>
+        <DetailText text={command} labels={labels} />
+      </LumenFrame>
+      {row.result && (
+        <LumenFrame
+          className="hbar-session-tool-section hbar-session-command-output"
+          data-tool-call-id={row.result.callId}
+          data-tool-name={row.result.name}
+        >
+          <LumenFrame className="hbar-session-tool-result-heading">
+            <LumenText as="span" className="hbar-session-tool-heading">
+              {failed ? labels.errorOutput : labels.output}
+            </LumenText>
+            <ToolResultCopyAction
+              sessionId={sessionId}
+              messageId={messageId}
+              callId={row.result.callId}
+              toolName={row.result.name}
+              text={output}
+              labels={labels.toolResultCopy}
+              clipboard={clipboard}
+            />
+          </LumenFrame>
+          <LumenText
+            as="pre"
+            tabIndex={0}
+            id={outputId}
+            className="hbar-session-command-output-text"
+            data-command-output=""
+          >
+            {output ? (
+              <>
+                {success ? output.slice(0, window.previewEnd) : output}
+                {success && window.collapsible && (
+                  <LumenText as="span" data-command-output-tail="" hidden={folded}>
+                    {output.slice(window.previewEnd)}
+                  </LumenText>
+                )}
+              </>
+            ) : (
+              labels.emptyOutput
+            )}
+          </LumenText>
+          {success && window.collapsible && (
+            <LumenButton
+              type="button"
+              size="s"
+              variant="text"
+              indicator="none"
+              className="hbar-session-command-output-toggle"
+              aria-controls={outputId}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded
+                ? labels.showLessContent
+                : window.hiddenLines
+                  ? labels.showMoreOutput(window.hiddenLines)
+                  : labels.showFullContent}
+            </LumenButton>
+          )}
+        </LumenFrame>
+      )}
+      {row.call && (
+        <HbarLumenDisclosure label={labels.originalInput} className="hbar-session-command-original">
+          <DetailText text={toolInputText(row.call.args, labels.unavailableInput)} labels={labels} />
+        </HbarLumenDisclosure>
+      )}
+    </LumenFrame>
+  )
+}
+
 /** Mounted only after disclosure. Preview capacity never changes the copied original output. */
 export function SessionToolDetails({
   row,
@@ -68,6 +180,17 @@ export function SessionToolDetails({
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
 }) {
+  if (row.call && presentation?.command !== undefined)
+    return (
+      <CommandDetails
+        row={row}
+        command={presentation.command}
+        labels={labels}
+        sessionId={sessionId}
+        messageId={messageId}
+        clipboard={clipboard}
+      />
+    )
   return (
     <>
       {row.call ? (

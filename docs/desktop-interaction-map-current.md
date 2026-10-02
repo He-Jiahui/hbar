@@ -62,6 +62,12 @@ Retry、Location 分支创建和首次 Send、More、A/B 会话工具记忆与 F
 
 ## 用户已确认的语义，不能重报为缺口
 
+2026-10-02 后续[命令结果阅读交付](desktop-command-reading.md)：命令、输出和原始
+参数同卡；成功首 12 行可展开，失败／未知诊断完整已加载可读，Copy 保留原文。
+真实 Host 和临时原生审批／原 Run／原草稿链路通过，不新增重跑或 PTY。代码语法和
+Mermaid 阅读分别由[代码交付](desktop-code-syntax-reading.md)和[图示交付](desktop-mermaid-reading.md)
+记录，不按旧截图继续报缺失。
+
 2026-10-02 后续[Markdown 阅读交付](desktop-file-markdown-reading.md)：Files 中的
 Markdown 默认按文档层次阅读；Source 保留行列／选段／批注，Edit 与 Preview 共享同一
 原稿。显式本地链接经原 Files 入口打开，超过格式容量显示完整源码，不新增 Browser。

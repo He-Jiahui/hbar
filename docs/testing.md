@@ -30,6 +30,15 @@ bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-st
 
 `bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序；自定义输出目录可用 `HBAR_DESKTOP_EXE` 指向实际程序。它会启动真实原生窗口，不是无窗口检查。使用前确认允许本轮临时原生验收，不安装或重启现用桌面。
 
+命令阅读核心回归使用 `e2e/session-command-reading.spec.ts`：真实临时 Host 的本地
+只读 stdout 命令，经原工具审批后核对同一 Run、首 12 行与完整展开、OS clipboard
+原文回读、原始参数和未发送草稿。`session-tool-presentation-browser.spec.ts` 的
+单条 command reading 用例用真实 React／presenter 验证 pending → success → error
+内容变化与键盘焦点，不启动 Host 或执行工具。原生 smoke 另以 SDK 启动 owned
+fixture Run、不消费原 composer 草稿，再从真实 UI 批准并检查阅读／Copy 反馈；
+不把原生反馈等同于 payload 回读，不扩展成逐按钮／尺寸矩阵。实际结果见
+[命令阅读交付](desktop-command-reading.md)。
+
 脚本通过临时 loopback WebView2 调试端口、独立 profile 和独立项目驱动真实 Tauri 窗口，检查原生自动认证及 Host 数据根确为临时目录。核心路径从没有活动标签的首页开始：选择项目、mock 模型和 high 思考等级，准备 Goal 并选择 Plan；首次 Send 只创建一个 Session / Run，真实计划审批恢复原 Run 且保留未发送草稿。侧栏显式 New session 是另一条入口：在当前项目立即创建会话，再返回原会话核对草稿；不能将两者混为首次发送才创建。入口依据见 [入口审计](desktop-entry-audit-2026-09-26.md)。
 
 脚本还检查行内重命名、模型浮层、Add 菜单的原生 file chooser、文件工具、外观保存／刷新／恢复默认，以及默认窗口和原生 900×600 内窗的内容对齐与 sidebar flow。外观导航核对当前 Lumen 的选中语义和可见背景，不要求已被共享组件替换的旧伪元素。关闭隐藏、退出桌面后 Host 存活和独立 SDK 取消继续保留。不存在的旧意图按钮不再通过空循环冒充已验证；失败时保留脱敏截图、页面文本和临时 Session 的 Host 事实，不能把脚本通过单测等同于原生流程通过。

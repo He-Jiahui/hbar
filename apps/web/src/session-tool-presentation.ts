@@ -196,6 +196,7 @@ function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
   let summary: DisplayText = display(undefined)
   let summaryFormat: 'code' | 'text' = 'code'
   let icon: Presentation['icon'] = 'tool'
+  let requestedCommand: string | undefined
   const field = (label: string, value: DisplayText) => {
     if (value.text) fields.push(`${label}: ${value.text}`)
     truncated ||= value.truncated
@@ -223,7 +224,11 @@ function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
       break
     case 'command': {
       icon = 'terminal'
-      const command = field(copy.command, display(ownString(args, captured.commandField)))
+      const rawCommand = ownString(args, captured.commandField)
+      const command = field(copy.command, display(rawCommand))
+      // Separate exact reading data from the bounded/sanitized compact summary.
+      // Do not replace raw JSON or infer shell semantics from a tool's name.
+      if (rawCommand && /\S/u.test(rawCommand.slice(0, TOOL_DISPLAY_SCAN_UNITS))) requestedCommand = rawCommand
       const description = field(copy.description, display(ownString(args, captured.descriptionField)))
       summary = description.text ? description : command
       if (description.text) summaryFormat = 'text'
@@ -251,6 +256,7 @@ function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
     icon,
     label,
     title: limit(title, TOOL_TITLE_CODE_POINTS, copy.truncated, truncated),
+    ...(requestedCommand !== undefined ? { command: requestedCommand } : {}),
     ...(summary.text
       ? { summary: limit(summary.text, TOOL_SUMMARY_CODE_POINTS, '…', summary.truncated), summaryFormat }
       : {}),

@@ -37,6 +37,10 @@ export function messageLabels(locale: 'zh-CN' | 'en-US'): {
       awaitingResult: zh ? '尚无结果' : 'No result yet',
       input: zh ? '输入参数' : 'Input',
       output: zh ? '工具输出' : 'Output',
+      command: zh ? '命令' : 'Command',
+      originalInput: zh ? '原始参数' : 'Original arguments',
+      errorOutput: zh ? '错误输出' : 'Error output',
+      showMoreOutput: (lines) => (zh ? `展开剩余 ${lines} 行` : `Show ${lines} more lines`),
       toolResultCopy: {
         copy: zh ? '复制输出' : 'Copy output',
         copying: zh ? '正在复制' : 'Copying',

@@ -1129,6 +1129,10 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       awaitingResult: choose('尚无结果', 'No result yet'),
       input: choose('输入', 'Input'),
       output: choose('输出', 'Output'),
+      command: choose('命令', 'Command'),
+      originalInput: choose('原始参数', 'Original arguments'),
+      errorOutput: choose('错误输出', 'Error output'),
+      showMoreOutput: (lines) => choose(`展开剩余 ${lines} 行`, `Show ${lines} more ${lines === 1 ? 'line' : 'lines'}`),
       toolResultCopy: {
         copy: choose('复制输出', 'Copy output'),
         copying: choose('正在复制', 'Copying'),

@@ -132,15 +132,36 @@ test('declared description wins as prose while the exact requested command stays
   expect(described.summaryFormat).toBe('text')
   expect(described.title).toContain('Command: printf "hello" next')
   expect(described.title).toContain('Description: List current files')
+  expect(described.command).toBe('printf "hello"\r\nnext')
   for (const purpose of ['', ' \r\n ', 4, {}, null]) {
     const result = en(call(command, { script: 'printf "hello"', purpose, description: 'undeclared hint' }))
     expect(result.summary).toBe('printf "hello"')
     expect(result.summaryFormat).toBe('code')
+    expect(result.command).toBe('printf "hello"')
   }
   expect(
     en(call({ version: 1, kind: 'command', commandField: 'script' }, { script: 'echo yes', purpose: 'ignored' }))
       .summary,
   ).toBe('echo yes')
+})
+
+test('command reading requires a captured field and never guesses, invokes or truncates the source', () => {
+  const source = 'echo 雪\r\n' + 'x'.repeat(20_000)
+  const original = call(command, { script: source, timeout: 123 })
+  expect(en(original).command).toBe(source)
+  expect(original.args.script).toBe(source)
+  for (const script of [undefined, '', ' \r\n\t ', false, 42, {}, []])
+    expect(en(call(command, { script })).command).toBeUndefined()
+  expect(en(call(undefined, { script: source }, 'shell')).command).toBeUndefined()
+  let invoked = 0
+  const args = Object.defineProperty({}, 'script', {
+    get: () => {
+      invoked++
+      return source
+    },
+  })
+  expect(en(call(command, args)).command).toBeUndefined()
+  expect(invoked).toBe(0)
 })
 
 test('text search shows only its declared pattern and requested optional path', () => {

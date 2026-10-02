@@ -689,6 +689,63 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-draft-min-window.png' })
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
   await expectComposerText(composer, draft)
+  // One owned, bounded stdout-only command verifies native reading continuity.
+  // SDK starts the fixture Run without consuming the user's existing composer draft.
+  const command = "1..25 | ForEach-Object { Write-Output ('owned native command line ' + $_) }"
+  const commandRun = await api.call('run.start', {
+    sessionId,
+    requestId: 'native-command-reading',
+    modelId: fixtureModel.id,
+    input: { text: `/tool shell ${JSON.stringify({ command })}`, images: [], approval: 'ask' },
+  })
+  const commandApproval = await until(async () => {
+    const snapshot = await nativeApi.call('session.snapshot', { sessionId })
+    const pending = snapshot.approvals.find(
+      (item) => item.runId === commandRun.id && item.tool === 'shell' && item.status === 'pending',
+    )
+    if (!pending) throw new Error('Owned native command approval is missing')
+    return pending
+  })
+  await page
+    .locator(`[data-decision-id="${commandApproval.id}"]`)
+    .getByRole('button', { name: copy.session.decisions.allow, exact: true })
+    .click()
+  const commandResult = await until(async () => {
+    const snapshot = await nativeApi.call('session.snapshot', { sessionId })
+    if (snapshot.runs.find((item) => item.id === commandRun.id)?.status !== 'completed')
+      throw new Error('Owned native command Run has not settled')
+    const result = snapshot.messages
+      .flatMap((message) => message.content)
+      .find((block) => block.type === 'tool_result' && block.callId === commandApproval.callId)
+    if (result?.type !== 'tool_result') throw new Error('Owned native command result is missing')
+    return result
+  })
+  expect(commandResult.outcome?.kind).toBe('succeeded')
+  expect(commandResult.text).toContain('owned native command line 25')
+  const commandTool = page.locator(`.hbar-session-tool[data-tool-call-id="${commandApproval.callId}"]`)
+  const commandDisclosure = commandTool.locator(':scope > .hbar-session-disclosure-trigger')
+  await commandDisclosure.focus()
+  await commandDisclosure.press('Enter')
+  const commandCard = commandTool.locator('.hbar-session-command')
+  await expect(commandCard.locator('.hbar-session-command-input pre')).toHaveText(command)
+  await expect(commandCard.locator('[data-command-output-tail]')).toBeHidden()
+  await commandCard.getByRole('button', { name: copy.session.messageBlocks.showMoreOutput(13), exact: true }).click()
+  await expect(commandCard.locator('[data-command-output-tail]')).toBeVisible()
+  await commandCard.getByRole('button', { name: copy.session.messageBlocks.toolResultCopy.copy, exact: true }).click()
+  await expect(
+    commandCard.getByRole('button', { name: copy.session.messageBlocks.toolResultCopy.copied, exact: true }),
+  ).toBeVisible()
+  await commandCard.getByRole('button', { name: copy.session.messageBlocks.originalInput, exact: true }).click()
+  await expect(commandCard.locator('.hbar-session-command-original pre')).toHaveText(
+    JSON.stringify({ command }, null, 2),
+  )
+  if (!(await noHorizontalOverflow())) throw new Error('Native command reading has horizontal overflow')
+  await page.screenshot({ path: 'artifacts/ui-redesign/tauri/command-reading-min-window.png' })
+  await commandDisclosure.focus()
+  await commandDisclosure.press('Space')
+  await expect(commandCard).toHaveCount(0)
+  await composer.focus()
+  await expectComposerText(composer, draft)
   const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
@@ -710,7 +767,7 @@ try {
   })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
-    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned Markdown file rendered, source mode retained its original text and explicit local-link navigation returned to the same document; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
+    'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned Markdown file rendered, source mode retained its original text and explicit local-link navigation returned to the same document; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; owned command approval resumed its original Run, command/output/original arguments read in one card, expansion and native Copy feedback worked, and return retained the composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; Host survives desktop exit; independent SDK cancellation settled.',
   )
 } catch (error) {
   if (inspectedPage && !inspectedPage.isClosed()) {

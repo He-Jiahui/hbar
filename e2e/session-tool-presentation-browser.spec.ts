@@ -130,6 +130,85 @@ async function copyOutput(page: Page, tool: Locator, locale: ShellLocale, text: 
   expect(await page.evaluate(() => window.toolPresentationFixture.clipboardWrites())).toHaveLength(before + 1)
   expect(await page.evaluate(() => window.toolPresentationFixture.clipboardWrites().at(-1))).toBe(text)
 }
+
+test('command reading keeps original arguments, complete Copy and failure recovery in one surface', async ({
+  browser,
+}, info) => {
+  const f = await open(browser, 'en-US', 1440)
+  try {
+    const source = 'printf "雪 👩‍💻"\r\nprintf "done"'
+    const original = call(
+      'reading',
+      { version: 1, kind: 'command', commandField: 'cmd' },
+      { cmd: source, timeout: 123, extra: 'OPTION-REMAINS' },
+      'custom-exec',
+    )
+    const stdout = Array.from({ length: 25 }, (_, i) => `output-${i + 1} 雪`).join('\r\n') + '\r\n'
+    await render(f.page, { locale: 'en-US', messages: [message([original])], streaming: true })
+    const tool = row(f.page, 'reading')
+    await trigger(tool).focus()
+    await f.page.keyboard.press('Enter')
+    const card = tool.locator('.hbar-session-command')
+    await expect(card.locator('.hbar-session-command-input pre')).toHaveText(source)
+    await expect(card.locator('[data-command-output]')).toHaveCount(0)
+    const argumentsButton = card.getByRole('button', {
+      name: getShellCopy('en-US').session.messageBlocks.originalInput,
+      exact: true,
+    })
+    await argumentsButton.focus()
+    await argumentsButton.press('Enter')
+    await expect(card.locator('.hbar-session-command-original pre')).toHaveText(JSON.stringify(original.args, null, 2))
+    await render(f.page, { locale: 'en-US', messages: [message([original, result(original, false, stdout)])] })
+    await expect(argumentsButton).toBeFocused()
+    await expect(card.locator('[data-command-output-tail]')).toBeHidden()
+    await expect(card.locator('[data-command-output]')).toHaveText(stdout)
+    await copyOutput(f.page, tool, 'en-US', stdout)
+    const more = card.getByRole('button', {
+      name: getShellCopy('en-US').session.messageBlocks.showMoreOutput(13),
+      exact: true,
+    })
+    await more.focus()
+    await more.press('Enter')
+    await expect(card.locator('[data-command-output-tail]')).toBeVisible()
+    const less = card.getByRole('button', {
+      name: getShellCopy('en-US').session.messageBlocks.showLessContent,
+      exact: true,
+    })
+    await expect(less).toBeFocused()
+    await screenshot(f.page, info, 'command-reading-expanded-en-US-1440')
+    await less.press('Space')
+    await expect(more).toBeFocused()
+    await expect(card.locator('[data-command-output-tail]')).toBeHidden()
+    const error = 'ORIGINAL FAILURE\r\n' + 'diagnostic 雪\r\n'.repeat(1200) + 'ERROR-END'
+    await render(f.page, {
+      locale: 'zh-CN',
+      longLabels: true,
+      messages: [message([original, result(original, true, error)])],
+    })
+    await f.page.setViewportSize({ width: 320, height: 960 })
+    const labels = getShellCopy('zh-CN').session.messageBlocks
+    await expect(card.locator('[data-command-output]')).toHaveText(error)
+    await expect(card.locator('[data-command-output-tail]')).toHaveCount(0)
+    await expect(card.getByText(labels.errorOutput, { exact: true })).toBeVisible()
+    await expect(card.locator('.hbar-session-command-output-toggle')).toHaveCount(0)
+    await expect(card.locator('.hbar-session-command-original pre')).toHaveText(JSON.stringify(original.args, null, 2))
+    await copyOutput(f.page, tool, 'zh-CN', error)
+    const output = card.locator('[data-command-output]')
+    await output.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    expect(await output.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+    await screenshot(f.page, info, 'command-reading-error-zh-CN-320')
+    await trigger(tool).focus()
+    await f.page.keyboard.press('Space')
+    await expect(card).toHaveCount(0)
+    await expect(trigger(tool)).toBeFocused()
+    expect(f.errors).toEqual([])
+    expect(f.requests).toEqual([])
+  } finally {
+    await f.context.close()
+  }
+})
 async function readableSummary(tool: Locator) {
   const summary = tool.locator('.hbar-session-disclosure-preview')
   await expect(summary).toBeVisible()
@@ -269,12 +348,22 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           }
           await expect(trigger(tool)).toBeFocused()
           await expect(trigger(tool)).toHaveAttribute('aria-expanded', 'true')
-          const input = tool.locator('.hbar-session-tool-section').first().locator('pre')
+          const command = item.call.presentation?.kind === 'command'
+          if (command) await tool.getByRole('button', { name: labels.originalInput, exact: true }).click()
+          const input = command
+            ? tool.locator('.hbar-session-command-original pre')
+            : tool.locator('.hbar-session-tool-section').first().locator('pre')
           expect(await input.textContent()).toBe(JSON.stringify(item.call.args, null, 2))
           await copyOutput(page, tool, locale, fullOutput)
           const output = tool.locator('.hbar-session-tool-section').last().locator('pre')
-          expect((await output.textContent())?.length).toBe(12_001)
-          await tool.getByRole('button', { name: labels.showFullContent, exact: true }).click()
+          if (command) {
+            await expect(tool.locator('[data-command-output-tail]')).toBeHidden()
+            await tool.locator('.hbar-session-command-output-toggle').click()
+            await expect(tool.locator('[data-command-output-tail]')).toBeVisible()
+          } else {
+            expect((await output.textContent())?.length).toBe(12_001)
+            await tool.getByRole('button', { name: labels.showFullContent, exact: true }).click()
+          }
           expect(await output.textContent()).toBe(fullOutput)
           await trigger(tool).scrollIntoViewIfNeeded()
           await screenshot(page, info, `details-${item.call.callId}-${locale}-${width}`)

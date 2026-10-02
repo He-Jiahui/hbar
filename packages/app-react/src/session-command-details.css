@@ -1,0 +1,58 @@
+.hbar-session-command {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+}
+.hbar-session-command-input,
+.hbar-session-command-output {
+  padding: 8px 12px;
+}
+.hbar-session-command-input {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 4px;
+}
+.hbar-session-command .hbar-session-command-input pre {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.hbar-session-command-output,
+.hbar-session-command-original {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-session-command .hbar-session-command-output-text {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  max-block-size: 25rem;
+  margin: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.hbar-session-command [data-command-output-tail][hidden] {
+  display: none;
+}
+.hbar-session-command[data-outcome='failed'] .hbar-session-command-output-text {
+  color: var(--lumen-danger);
+}
+.hbar-session-command-output-toggle {
+  align-self: stretch;
+  min-inline-size: 0;
+  white-space: normal;
+}
+.hbar-session-command-original {
+  min-inline-size: 0;
+  padding: 4px 12px;
+}
+.hbar-session-command-original > .hbar-lumen-disclosure-trigger {
+  min-inline-size: 0;
+  white-space: normal;
+}

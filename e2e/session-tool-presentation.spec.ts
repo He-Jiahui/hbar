@@ -328,7 +328,7 @@ async function identity(f: Fixture, call: ToolCall, expected: ToolCase, locale: 
   const row = rowFor(f, call)
   await expect(row).toHaveCount(1)
   await expect(row).toHaveAttribute('data-presentation-icon', expected.icon)
-  const trigger = row.locator('.hbar-session-disclosure-trigger')
+  const trigger = row.locator(':scope > .hbar-session-disclosure-trigger')
   await expect(trigger.locator('.hbar-session-disclosure-label')).toHaveText(expectedTitles[name][locale])
   await expect(trigger.locator('.hbar-session-disclosure-preview')).toHaveText(expected.summary)
   const title = (await trigger.getAttribute('title')) ?? (await row.getAttribute('title'))
@@ -389,7 +389,7 @@ async function revealEvidence(page: Page, target: Locator) {
 }
 async function capture(f: Fixture, name: string, call: ToolCall) {
   const row = rowFor(f, call)
-  const readingIntent = await revealEvidence(f.page, row.locator('.hbar-session-disclosure-trigger'))
+  const readingIntent = await revealEvidence(f.page, row.locator(':scope > .hbar-session-disclosure-trigger'))
   const geometry = await row.evaluate((element) => {
     const rect = element.getBoundingClientRect()
     const glyph = element.querySelector('svg')
@@ -433,13 +433,17 @@ async function verifySettled(
   await f.page.keyboard.press('Enter')
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
   await expect(trigger).toBeFocused()
-  const input = row.locator('.hbar-session-tool-section').first().locator('pre')
+  const command = expected.presentation.kind === 'command'
+  if (command) await row.getByRole('button', { name: f.copy.session.messageBlocks.originalInput, exact: true }).click()
+  const input = command
+    ? row.locator('.hbar-session-command-original pre')
+    : row.locator('.hbar-session-tool-section').first().locator('pre')
   expect(await input.textContent()).toBe(JSON.stringify(call.args, null, 2))
   const output = row.locator(
     `.hbar-session-tool-section[data-tool-call-id="${call.callId}"][data-tool-name="${call.name}"]`,
   )
-  const outputText = output.locator('.hbar-session-detail-text pre')
-  if (result.text.length > 12_000) {
+  const outputText = command ? output.locator('[data-command-output]') : output.locator('.hbar-session-detail-text pre')
+  if (!command && result.text.length > 12_000) {
     expect(await outputText.textContent()).toBe(`${result.text.slice(0, 12_000)}…`)
     await output.getByRole('button', { name: f.copy.session.messageBlocks.showFullContent, exact: true }).click()
   }
@@ -450,7 +454,7 @@ async function verifySettled(
   await expect
     .poll(async () => (await f.page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n'))
     .toBe(result.text.replaceAll('\r\n', '\n'))
-  if (result.text.length > 12_000) {
+  if (!command && result.text.length > 12_000) {
     await output.getByRole('button', { name: f.copy.session.messageBlocks.showLessContent, exact: true }).click()
     expect(await outputText.textContent()).toBe(`${result.text.slice(0, 12_000)}…`)
   }

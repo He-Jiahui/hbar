@@ -263,3 +263,15 @@ Copy／折叠／Find 入口不增加。[交付说明](desktop-code-syntax-readin
 `index-DpWWaq_h.css` 已同步 standalone；`run-20261002-28` 临时原生 smoke exit 0。
 定向 Bun 78 tests／835 assertions，最终核心 E2E 13/13；不冒充所有 grammar、Source
 编辑器／diff 高亮、完整 check 或整个 CC 能力迁移。
+
+命令结果随后补齐同一卡的命令 → 输出 → 原始参数，成功 12 行展开、失败与未知完整
+已加载诊断、原文 Copy 和原输入区往返；依据 CC 原工具组件实渲，不新增重跑或 PTY。
+[阅读交付](desktop-command-reading.md) 记录原数据、ANSI 差异、容量与最终五条核心
+浏览器路径。生产 Web `index-3U9wzhcb.js`／`index-D-2KaXZy.css` 已同步 standalone；
+MSVC 环境离线 Host 与 locked／offline Tauri debug 构建通过。独立
+`run-20261002-29` 原生 smoke exit 0，owned stdout-only 命令审批后读取原 Run 结果，
+展开、Copy 反馈、原始参数及返回未发送草稿通过；既有首发、模型／high、Goal Plan、
+文件／技能／Provider、窗口与 Host 生命周期断言未移除。主 agent 亲看最终原生
+输出／参数／草稿共存图。原生 Copy 只验反馈，完整 payload 由真实 Host Web OS
+clipboard 回读证明。全仓 lint、默认 typecheck、定向 Bun 82 tests／811 assertions
+和 owned guards 通过；不声称完整 check、全部工具或整个 CC 能力迁移。
