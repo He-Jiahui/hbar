@@ -100,6 +100,7 @@ export function createNotificationsRuntime(
       if (item.id !== mutation.input.id) throw new CommandError('INVALID_OUTPUT', 'Notification result target changed')
       const previous = current.items.find((entry) => entry.id === item.id)
       const adjustment = previous ? Number(item.readAt === null) - Number(previous.readAt === null) : 0
+      if (freshById.has(item.id)) freshById.set(item.id, item)
       state.replace({
         ...current,
         items: current.items.map((entry) => (entry.id === item.id ? item : entry)),
@@ -112,8 +113,10 @@ export function createNotificationsRuntime(
       state.replace({ ...current, preferences, mutation: 'succeeded', error: null })
     } else {
       notificationCommands['notification.markAllRead'].output.parse(result)
-      // A page read resolves the exact set changed by the transaction, including events arriving meanwhile.
-      state.replace({ ...current, mutation: 'succeeded', error: null })
+      const now = Date.now()
+      const items = current.items.map((entry) => ({ ...entry, readAt: entry.readAt ?? now }))
+      for (const [id, entry] of freshById) freshById.set(id, { ...entry, readAt: entry.readAt ?? now })
+      state.replace({ ...current, items, unreadCount: 0, mutation: 'succeeded', error: null })
     }
   }
   const mergePage = (page: NotificationPage) => {
@@ -201,12 +204,14 @@ export function createNotificationsRuntime(
         const latest = state.reader.getSnapshot()
         const seen = new Set(latest.items.map((item) => item.id))
         const items = [...latest.items, ...page.items.filter((item) => !seen.has(item.id))].slice(0, 400)
+        const visibleIds = new Set(items.map((item) => item.id))
+        const freshUnread = [...freshById.values()].filter((item) => !visibleIds.has(item.id) && item.readAt === null).length
         state.replace({
           ...latest,
           status: 'ready',
           items,
           nextCursor: items.length >= 400 ? null : page.nextCursor,
-          unreadCount: page.unreadCount,
+          unreadCount: page.unreadCount + freshUnread,
           error: null,
         })
       } catch (error) {
