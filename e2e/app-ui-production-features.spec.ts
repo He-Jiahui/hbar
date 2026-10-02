@@ -21,7 +21,9 @@ async function openSession(page: Page, host: WebSessionHost, locale: 'en-US' | '
   const copy = getShellCopy(locale)
   await page.goto(`http://127.0.0.1:${WEB_PORT}`)
   await expect(page.getByText(copy.shell.connected, { exact: true }).first()).toBeVisible()
-  await page.getByRole('button', { name: `Open session ${host.ready.sessionTitle}` }).click()
+  const sessionEntry = page.getByText(host.ready.sessionTitle, { exact: true }).first()
+  await expect(sessionEntry).toBeVisible()
+  await sessionEntry.click()
 }
 
 async function openFeature(page: Page, label: string): Promise<void> {
