@@ -198,6 +198,9 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       return snapshot.hasMore ? run(true) : Promise.resolve()
     },
     setScope: async (scope, filters = state.reader.getSnapshot().filters) => {
+      if (disposed) throw new CommandError('DISPOSED', 'Usage runtime disposed')
+      const previous = state.reader.getSnapshot()
+      if (sameScope(previous.scope, scope) && JSON.stringify(previous.filters) === JSON.stringify(filters)) return
       generation++
       active?.controller.abort(new CommandError('QUERY_SUPERSEDED', 'Usage scope changed'))
       active = null

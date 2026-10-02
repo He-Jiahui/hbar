@@ -14,6 +14,7 @@ export interface HbarUsageRequestsLabels {
   readonly latency: string
   readonly cost: string
   readonly empty: string
+  readonly open: string
   readonly previous: string
   readonly next: string
   readonly page: (from: number, to: number, total: number) => string
@@ -97,8 +98,9 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest }: HbarUsageR
           },
         },
         expandedId,
-        onToggle: (id) => {
-          setExpandedId((current) => (current === id ? null : id))
+        onToggle: (id) => setExpandedId((current) => (current === id ? null : id)),
+        openLabel: labels.open,
+        onOpen: (id) => {
           const item = snapshot.items.find((candidate) => candidate.id === id)
           if (item) onOpenRequest?.({ sessionId: item.sessionId, runId: item.runId, usageId: item.id })
         },
