@@ -14,6 +14,7 @@ import {
   LumenText,
   LumenButton,
   LumenConversation,
+  LumenAiChat01,
   LumenIcon,
   LumenPageHeader,
   type LumenApprovalRequestLabels,
@@ -2533,36 +2534,43 @@ function SessionWorkspaceContent({
         onPointerDownCapture={reading.onPointerDownCapture}
         onKeyDownCapture={reading.onKeyDownCapture}
       >
-        <LumenConversation
-          title={labels.conversationTitle(sessionTitle)}
-          header={find.bar}
-          messages={messages}
-          empty={emptyTimeline}
-          beforeMessages={
-            <>
-              {reading.unavailable && (
-                <LumenText as="p" role="status">
-                  {labels.readingPositionUnavailable}
-                </LumenText>
-              )}
-              {historyNotices}
-            </>
-          }
-          afterMessages={activity}
-          composer={composer}
-          scrollKey={sessionId ?? undefined}
-          scrollTarget={find.scrollTarget ?? reading.scrollTarget}
-          onScrollTargetResult={(result) => {
-            if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)
+        <LumenAiChat01
+          className="hbar-session-ai-chat"
+          controlled={{
+            body: (
+              <LumenConversation
+                title={labels.conversationTitle(sessionTitle)}
+                header={find.bar}
+                messages={messages}
+                empty={emptyTimeline}
+                beforeMessages={
+                  <>
+                    {reading.unavailable && (
+                      <LumenText as="p" role="status">
+                        {labels.readingPositionUnavailable}
+                      </LumenText>
+                    )}
+                    {historyNotices}
+                  </>
+                }
+                afterMessages={activity}
+                composer={composer}
+                scrollKey={sessionId ?? undefined}
+                scrollTarget={find.scrollTarget ?? reading.scrollTarget}
+                onScrollTargetResult={(result) => {
+                  if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)
+                }}
+                followLatest={!find.open && !reading.restoring}
+                contentRevision={`${timeline.cursor}:goal:${goalHistoryEntry?.status ?? 'idle'}:${goalLifecycleRows.map((row) => row.eventId).join(',')}:${Object.values(
+                  timeline.streams,
+                )
+                  .map((stream) => `${stream.id}:${stream.version}`)
+                  .sort()
+                  .join(',')}`}
+                latestLabel={labels.latest}
+              />
+            ),
           }}
-          followLatest={!find.open && !reading.restoring}
-          contentRevision={`${timeline.cursor}:goal:${goalHistoryEntry?.status ?? 'idle'}:${goalLifecycleRows.map((row) => row.eventId).join(',')}:${Object.values(
-            timeline.streams,
-          )
-            .map((stream) => `${stream.id}:${stream.version}`)
-            .sort()
-            .join(',')}`}
-          latestLabel={labels.latest}
         />
       </LumenFrame>
     </LumenFrame>
