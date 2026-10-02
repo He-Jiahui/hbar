@@ -165,10 +165,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(cards).toHaveCount(3)
       await expect(cards.filter({ hasText: 'Use the new value consistently.' })).toBeVisible()
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: 'review-notes.txt' })).toBeVisible()
+      const disclosure = page.locator(
+        '.hbar-composer-workspace-context-card[data-kind="source-selection"] .hbar-composer-workspace-context-quote',
+      )
+      const quote = disclosure.locator('blockquote')
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: width === 320 ? 844 : 900 })
+        await expect(quote).toBeHidden()
+        await disclosure.locator('summary').focus()
+        await page.keyboard.press('Enter')
+        await expect(quote).toBeVisible()
+        await expect(quote).toContainText('normalizedPath')
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `${captureDirectory}/composer-contexts-${locale}-${width}.png` })
+        await page.keyboard.press('Enter')
+        await expect(quote).toBeHidden()
       }
       // Removing a single source note preserves the selected code, diff note and original materials.
       await cards.filter({ hasText: 'Keep normalization at the boundary.' }).getByRole('button').click()
@@ -179,10 +190,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         ),
       ).toHaveText('L2–L3')
       await page.screenshot({ path: `${captureDirectory}/ready-contexts-${locale}-320.png` })
-      await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
       await expect(page.locator('.hbar-composer-workspace-context-card')).toHaveCount(0)
       await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), '')
-      await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       await expect(cards).toHaveCount(2)
       await prompt.click()
       await prompt.press('Enter')

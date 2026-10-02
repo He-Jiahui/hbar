@@ -31,8 +31,9 @@ test('disclosure arrows replace redundant lamps without changing expansion seman
   }
 })
 
-test('ordinary buttons retain their default action lamp', () => {
+test('ordinary buttons use control-wide glow without a directional lamp', () => {
   const markup = renderToStaticMarkup(<LumenButton>发送</LumenButton>)
   expect(markup).toContain('data-lumen-indicator="lamp"')
-  expect(markup).toContain('data-edge="bottom"')
+  expect(markup).toContain('data-lumen-variant="contained"')
+  expect(markup).not.toContain('data-edge=')
 })
