@@ -48,6 +48,6 @@ export function createNativeNotificationPort(scope: unknown, native: boolean): N
   }
 }
 
-export function shouldNotifyWhileHidden(scope: Document = document): boolean {
+export function shouldNotifyWhileHidden(scope: Pick<Document, 'visibilityState'> = document): boolean {
   return scope.visibilityState === 'hidden'
 }
