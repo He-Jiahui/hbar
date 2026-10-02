@@ -32,6 +32,35 @@
 | Authentication 1–14、Paywall 1–7、Billing 1–8、Chat 1–6、Comments 1–6 | 当前目录保留；账户/支付/团队协作不进入本次默认迁移 | 账户、订阅、团队和评论数据未纳入本次生产范围                       | 不把预览登录、付款、评论动作计为生产能力。                                                |
 | Feedback 1–6、Support 1–5                                             | 当前目录保留，范围外                               | 外部反馈、客服工单不在本次 Host 契约                               | 不计入迁移完成。                                                                          |
 
+### 2026-10-02 production composition reconciliation
+
+The selected IDs remain the same. This reconciliation records current source
+facts without upgrading preview evidence to production completion:
+
+- Usage 5, 7, and 8 now have numbered production consumers. `HbarUsageBudget`
+  composes `LumenUsage05` from `packages/app-react/src/usage-budget.tsx:41`;
+  `HbarUsageRequests` composes `LumenUsage07` from
+  `packages/app-react/src/usage-requests.tsx:129`; and the status workspace
+  composes `LumenUsage08` from `packages/app-react/src/lumen-status-workspace.tsx:867`.
+  Runtime persistence, unknown-result recovery, and browser evidence remain
+  pending.
+- Dashboard 1, 2, and 10 now mount from the status workspace at
+  `packages/app-react/src/lumen-status-workspace.tsx:529,865`. They share one
+  Host-derived status surface and query actions; they are composition slots,
+  not three separate navigations.
+- Agent Plan 5 is mounted in the run-board detail dialog at
+  `apps/web/src/run-board-page.tsx:93` after `a28e3805`; the dialog projects
+  selected run status, workspace, session, cost, and plan facts. Stale selected
+  run fencing and action-result recovery remain to be validated.
+- Notifications watermark reconciliation is recorded by `e0236203` and
+  `9b410772`; the current app integration is in `apps/web/src/App.tsx`,
+  `apps/web/src/notifications-page.tsx`, and
+  `packages/app-react/src/notifications.tsx`. Native desktop permission,
+  toast, and restart recovery remain pending.
+- Numbered recipes that are intentionally represented through shared slots or
+  primitives must retain Host action tests. Catalog exports and static preview
+  mounts do not count as production consumers.
+
 ## 状态定义与当前证据
 
 - **已完成证据**：生产入口实际挂载组件；Host 提供类型化数据；动作到 Client/Host/Storage 有目标 ID；有成功、失败、取消/恢复行为测试或可重复浏览器证据。
