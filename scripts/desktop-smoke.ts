@@ -330,8 +330,28 @@ try {
   await expect(page.locator('.hbar-session-message-literal .hbar-message-file-link')).toHaveCount(0)
   const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
   const draft = 'Keep this unsent native draft while approving the plan.'
+  const composerDiagnostics: unknown[] = []
+  const readComposerDiagnostic = async (phase: string) => {
+    const diagnostic = await page.evaluate((phase) => {
+      const editor = document.querySelector<HTMLElement>('[contenteditable="true"]')
+      const reactKey = editor ? Object.keys(editor).find((key) => key.startsWith('__reactFiber$')) : undefined
+      const fiber = reactKey && editor ? (editor as unknown as Record<string, unknown>)[reactKey] : undefined
+      return {
+        phase,
+        editorText: editor?.innerText ?? null,
+        editorValue: editor?.textContent ?? null,
+        fiberHasProps: Boolean(fiber && typeof fiber === 'object' && 'memoizedProps' in fiber),
+        url: location.href,
+      }
+    }, phase)
+    composerDiagnostics.push(diagnostic)
+    await writeFile('artifacts/ui-redesign/tauri/composer-diagnostic.json', JSON.stringify(composerDiagnostics, null, 2))
+    return diagnostic
+  }
+  await readComposerDiagnostic('before-typing')
   await composer.pressSequentially(draft)
   await expectComposerText(composer, draft)
+  await readComposerDiagnostic('before-approval')
   const decision = page.locator(`[data-decision-id="${approval.id}"]`)
   await decision.getByRole('button', { name: copy.session.decisions.planExit.implement, exact: true }).click()
   await expect
@@ -341,6 +361,7 @@ try {
           ?.status,
     )
     .toBe('completed')
+  await readComposerDiagnostic('after-approval')
   expect((await api.call('session.snapshot', { sessionId })).runs.map((item) => item.id)).toEqual([originalRun.id])
   expect(await api.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
   expect((await goals.execute('goal.get', { sessionId })).goal).toMatchObject({
