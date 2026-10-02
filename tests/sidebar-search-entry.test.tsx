@@ -17,7 +17,7 @@ test('the independent Search trigger renders host copy, shortcut and dialog stat
       expect(html).toContain(`aria-expanded="${open}"`)
       expect(html).toContain('data-lumen-indicator="none"')
       expect(html.match(/<button/g)).toHaveLength(1)
-      expect(html).toContain('<kbd aria-hidden="true">')
+      expect(html).toMatch(/<kbd\b[^>]*aria-hidden="true"[^>]*>/)
     }
   }
 })

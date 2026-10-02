@@ -550,11 +550,13 @@ test('settings and status highlight only their page while preserving the selecte
   }
 })
 
-test('app-react production entry excludes transport, Host, storage, catalog, and preview fixtures', async () => {
+test('app-react production entry keeps public contracts while excluding transport, Host, storage, catalog, and preview fixtures', async () => {
   const manifest = (await Bun.file('packages/app-react/package.json').json()) as {
     dependencies?: Record<string, string>
   }
-  expect(manifest.dependencies).not.toHaveProperty('@hbar/contracts')
+  // Contracts are the public DTO boundary for app-react; transport and Host
+  // implementations remain outside the production entry.
+  expect(manifest.dependencies).toHaveProperty('@hbar/contracts')
   const inputs: string[] = []
   const result = await Bun.build({
     entrypoints: ['packages/app-react/src/index.ts'],
