@@ -45,3 +45,16 @@ test('persists known prepare and submit failures as failed occurrences', async (
     expect(saved?.error).toMatch(phase === 'prepare' ? /invalid session/ : /rejected by policy/)
   }
 })
+
+test('recovers pending occurrence by preparing and submitting with its stable key', async () => {
+  const service = fakeService(); let prepares = 0; let submits = 0
+  const execution = { prepare: async () => { prepares++; return { sessionId: 'recovered-session' } }, submit: async (input: { idempotencyKey: string }) => { submits++; expect(input.idempotencyKey).toBe('a:30'); return { operationId: 'recovered-run' } }, observeOperation: async () => 'running' as const }
+  const originalClaim = service.claim
+  service.claim = async (id: string, dueAt: number) => { const value = await originalClaim(id, dueAt); value!.status = 'pending'; return value }
+  const runner = createScheduleRunner(service, execution)
+  const pending = await service.claim('a', 30)
+  const failures = await runner.recover([pending!])
+  expect(failures).toEqual([])
+  expect(prepares).toBe(1)
+  expect(submits).toBe(1)
+})
