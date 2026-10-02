@@ -11,7 +11,7 @@
     background: var(--hbar-app-ui-bg) !important;
     box-shadow: none !important;
     color: var(--hbar-app-ui-text) !important;
-    font-family: var(--hbar-app-ui-font) !important;
+    font-family: var(--hbar-app-ui-font), sans-serif !important;
 }
 
 .hbar-app-ui-sidebar-variant-1 *, .hbar-app-ui-sidebar-variant-1 *::before, .hbar-app-ui-sidebar-variant-1 *::after {

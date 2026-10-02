@@ -86,7 +86,18 @@ try {
     .waitFor({ timeout: 15_000 })
   await mkdir('artifacts/ui-redesign/tauri', { recursive: true })
   await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
-  await page.getByRole('button', { name: /^(外观|Appearance)$/ }).click()
+  const appearanceNavigation = page.getByRole('button', { name: /^(外观|Appearance)$/ })
+  await appearanceNavigation.click()
+  const navigationMarker = await appearanceNavigation.evaluate((button) => {
+    const marker = getComputedStyle(button, '::before')
+    return {
+      radius: marker.borderRadius,
+      shadow: marker.boxShadow,
+      width: Math.round(Number.parseFloat(marker.width)),
+    }
+  })
+  if (navigationMarker.radius !== '0px' || navigationMarker.shadow === 'none' || navigationMarker.width < 2)
+    throw new Error(`Desktop selected navigation marker is not a square glowing line: ${JSON.stringify(navigationMarker)}`)
   const controlSize = page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ })
   const textSize = page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ })
   const cornerSize = page.getByRole('combobox', { name: /^(圆角尺寸|Corner size)$/ })

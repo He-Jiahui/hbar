@@ -140,11 +140,7 @@ export interface ExecutionProvider {
   dispose?(): void | Promise<void>
 }
 export interface WorkspaceQueryProvider {
-  search(
-    workspace: string,
-    input: ParsedWorkspaceSearchInput,
-    signal: AbortSignal,
-  ): Promise<WorkspaceSearchResult>
+  search(workspace: string, input: ParsedWorkspaceSearchInput, signal: AbortSignal): Promise<WorkspaceSearchResult>
   find(workspace: string, input: ParsedWorkspaceFindInput, signal: AbortSignal): Promise<WorkspaceFindResult>
   readRange(
     workspace: string,
@@ -233,7 +229,13 @@ export interface GoalToolResponse {
 export interface GoalService {
   snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
   get(sessionId: string): Promise<GoalToolResponse>
-  create(sessionId: string, objective: string, tokenBudget?: number, runId?: string, startedAt?: number): Promise<GoalToolResponse>
+  create(
+    sessionId: string,
+    objective: string,
+    tokenBudget?: number,
+    runId?: string,
+    startedAt?: number,
+  ): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
   update(sessionId: string, status: 'complete' | 'blocked', runId?: string, reason?: string): Promise<GoalToolResponse>
   clear(sessionId: string, expectedGoalId?: string): Promise<{ cleared: boolean }>
@@ -396,7 +398,10 @@ export interface GitService {
   diffToRemote(cwd?: string, signal?: AbortSignal): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {
-  status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
+  status(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
   navigate(
     sessionId: string,
     url: string,
@@ -446,7 +451,10 @@ export interface BrowserUseService {
   history(sessionId: string, contextId?: string, signal?: AbortSignal): Promise<string[]>
 }
 export interface ComputerUseService {
-  status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; platform: string; appId: string | null }>
+  status(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<{ available: boolean; platform: string; appId: string | null }>
   screenshot(sessionId: string, appId?: string, signal?: AbortSignal): Promise<ComputerScreen>
   click(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   doubleClick(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>

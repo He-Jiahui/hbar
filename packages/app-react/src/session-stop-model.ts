@@ -59,7 +59,16 @@ export interface SessionStopKeyScope {
 }
 
 export type SessionStopFeedbackKind =
-  'sending' | 'checking' | 'requested' | 'unknown' | 'failed' | 'cancelled' | 'completed' | 'run-failed' | 'interrupted'
+  | 'sending'
+  | 'checking'
+  | 'requested'
+  | 'unknown'
+  | 'failed'
+  | 'cancelled'
+  | 'completed'
+  | 'run-failed'
+  | 'interrupted'
+  | 'guided'
 
 export interface SessionStopFeedback {
   readonly kind: SessionStopFeedbackKind
@@ -239,6 +248,7 @@ function terminalKind(status: ObservedOperationStatus | undefined): SessionStopF
     case 'completed':
     case 'cancelled':
     case 'interrupted':
+    case 'guided':
       return status
     case 'failed':
       return 'run-failed'

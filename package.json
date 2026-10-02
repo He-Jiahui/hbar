@@ -35,6 +35,7 @@
     "app-ui:settings-form:verify": "bun scripts/verify-hbar-app-ui-settings-form.ts",
     "app-ui:authentication:verify": "bun scripts/verify-hbar-app-ui-authentication.ts",
     "app-ui:billing:verify": "bun scripts/verify-hbar-app-ui-billing.ts",
+    "app-ui:integrations:verify": "bun scripts/verify-hbar-app-ui-integrations.ts",
     "app-ui:visual-capture": "bun scripts/capture-hbar-app-ui-visual-baseline.ts",
     "app-ui:reactbits:discover": "bun scripts/reactbits-pro-audit.ts discover",
     "app-ui:reactbits:capture": "bun scripts/reactbits-pro-audit.ts capture",
@@ -58,6 +59,7 @@
     "check": "bun run native:build && bun run lint && bun run typecheck && bun test tests --timeout 20000"
   },
   "dependencies": {
+    "@lumen/app-ui": "workspace:*",
     "@codemirror/commands": "6.11.0",
     "@codemirror/lang-javascript": "6.2.5",
     "@codemirror/lang-json": "6.0.2",

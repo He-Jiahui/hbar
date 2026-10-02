@@ -1900,8 +1900,13 @@
     font: 10px var(--hbar-app-ui-mono);
 }
 
-.hbar-app-ui-plan-actual-row > b.is-positive { color: var(--hbar-app-ui-positive); }
-.hbar-app-ui-plan-actual-row > b.is-warning { color: var(--hbar-app-ui-warning); }
+.hbar-app-ui-plan-actual-row > b.is-positive {
+    color: var(--hbar-app-ui-positive);
+}
+
+.hbar-app-ui-plan-actual-row > b.is-warning {
+    color: var(--hbar-app-ui-warning);
+}
 
 .hbar-app-ui-plan-actual-row > small {
     grid-column: 1 / -1;
@@ -2835,8 +2840,12 @@
 }
 
 @keyframes hbar-app-ui-wave {
-    from { transform: scaleY(.55); }
-    to { transform: scaleY(1.25); }
+    from {
+        transform: scaleY(.55);
+    }
+    to {
+        transform: scaleY(1.25);
+    }
 }
 
 .hbar-app-ui-transcript {
@@ -4334,8 +4343,12 @@
 }
 
 @keyframes hbar-app-ui-skeleton {
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
 }
 
 /* Data-driven approval surface used by host applications with real policy decisions. */
@@ -4830,10 +4843,21 @@
     border-radius: 50%;
 }
 
-.hbar-app-ui-swatch-row .is-blue { background: #7fa6ef; }
-.hbar-app-ui-swatch-row .is-purple { background: #b99aef; }
-.hbar-app-ui-swatch-row .is-green { background: #72c39a; }
-.hbar-app-ui-swatch-row .is-orange { background: #e3b568; }
+.hbar-app-ui-swatch-row .is-blue {
+    background: #7fa6ef;
+}
+
+.hbar-app-ui-swatch-row .is-purple {
+    background: #b99aef;
+}
+
+.hbar-app-ui-swatch-row .is-green {
+    background: #72c39a;
+}
+
+.hbar-app-ui-swatch-row .is-orange {
+    background: #e3b568;
+}
 
 .hbar-app-ui-keyboard-hints {
     color: var(--hbar-app-ui-muted);
