@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -14,6 +14,33 @@ async function chooseGroup(page: Page, locale: ShellLocale, id: string, label: s
       .getByRole('navigation', { name: copy.settings.groups })
       .getByRole('button', { name: label, exact: true })
       .click()
+}
+
+async function selectedChoiceContrast(choice: Locator): Promise<{ alpha: number; ratio: number }> {
+  return choice.evaluate((element) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) throw new Error('Canvas contrast measurement unavailable')
+    const luminance = (color: string) => {
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = color
+      context.fillRect(0, 0, 1, 1)
+      const [red = 0, green = 0, blue = 0, alpha = 0] = context.getImageData(0, 0, 1, 1).data
+      const channel = (value: number) => {
+        const unit = value / 255
+        return unit <= 0.04045 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4
+      }
+      return { value: channel(red) * 0.2126 + channel(green) * 0.7152 + channel(blue) * 0.0722, alpha }
+    }
+    const style = getComputedStyle(element)
+    const background = luminance(style.backgroundColor)
+    const ink = luminance(style.color)
+    return {
+      alpha: background.alpha,
+      ratio: (Math.max(background.value, ink.value) + 0.05) / (Math.min(background.value, ink.value) + 0.05),
+    }
+  })
 }
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
@@ -70,9 +97,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(choice('dark')).toBeFocused()
       await choice('light').click()
       await expect(form.getByText(copy.appearance.unsaved, { exact: true })).toBeVisible()
-      await expect
-        .poll(() => choice('light').evaluate((element) => getComputedStyle(element).backgroundColor))
-        .toBe('rgb(238, 238, 238)')
+      await expect(choice('light')).toHaveAttribute('data-lumen-variant', 'contained')
+      await expect(choice('system')).toHaveAttribute('data-lumen-variant', 'outlined')
+      await expect(choice('dark')).toHaveAttribute('data-lumen-variant', 'outlined')
+      await page.mouse.move(0, 0)
+      await expect.poll(async () => (await selectedChoiceContrast(choice('light'))).alpha).toBe(255)
+      await expect.poll(async () => (await selectedChoiceContrast(choice('light'))).ratio).toBeGreaterThanOrEqual(4.5)
       await page.screenshot({ path: `artifacts/reference-ux-v2/appearance-choice-${locale}-1440.png` })
 
       await chooseGroup(page, locale, 'model', copy.settings.resolve('i18n:settings.groups.model'))

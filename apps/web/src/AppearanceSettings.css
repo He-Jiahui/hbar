@@ -92,17 +92,7 @@
 
 .hbar-web-appearance-theme-choice {
   max-inline-size: 100%;
-  border: 0.0625rem solid var(--lumen-edge);
   overflow-wrap: anywhere;
-}
-
-.hbar-web-appearance-theme-choices .hbar-web-appearance-theme-choice[aria-checked='true'],
-.hbar-web-appearance-theme-choices .hbar-web-appearance-theme-choice[aria-checked='true']:hover,
-.hbar-web-appearance-theme-choices .hbar-web-appearance-theme-choice[aria-checked='true']:active {
-  --lumen-action-color: var(--lumen-contrast);
-  border-color: var(--lumen-ink);
-  background: var(--lumen-ink);
-  box-shadow: none;
 }
 
 .hbar-web-appearance-theme-choices .hbar-web-appearance-theme-choice:focus-visible {
