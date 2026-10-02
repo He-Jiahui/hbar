@@ -597,10 +597,22 @@ try {
     Math.abs(sidebarGeometry.right - separatorGeometry.left) > 1 ||
     Math.abs(separatorGeometry.right - expandedGeometry.frame.left) > 1 ||
     expandedGeometry.frame.width >= collapsedGeometry.frame.width
-  )
+    )
     throw new Error(
       `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, separatorGeometry, collapsedGeometry, expandedGeometry })}`,
     )
+  const widthBeforeKeyboardResize = await separator.getAttribute('aria-valuenow')
+  await separator.focus()
+  await separator.press('ArrowRight')
+  await expect.poll(async () => separator.getAttribute('aria-valuenow')).not.toBe(widthBeforeKeyboardResize)
+  const widthAfterKeyboardResize = await separator.getAttribute('aria-valuenow')
+  await page.reload()
+  await page.locator('[data-hbar-app-ui-shell="app"]').waitFor()
+  await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).click()
+  const restoredSeparator = page.locator('.lumen-app-sidebar-separator')
+  await expect(restoredSeparator).toBeVisible()
+  if (!widthAfterKeyboardResize) throw new Error('Sidebar resize did not expose a persisted width')
+  await expect(restoredSeparator).toHaveAttribute('aria-valuenow', widthAfterKeyboardResize)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-sidebar-min-window.png' })
   await page.getByRole('button', { name: /^(隐藏工程与会话侧栏|Hide projects and sessions sidebar)$/ }).click()
   await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).waitFor()
