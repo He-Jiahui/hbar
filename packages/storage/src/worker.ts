@@ -70,6 +70,10 @@ import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
+import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
+import { createPromptTemplateStorage, PROMPT_TEMPLATES_SQL } from './prompt-templates'
+import { createScheduleStorage, SCHEDULES_SQL } from './schedules'
+import { readRunBoard } from './run-board'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
@@ -125,7 +129,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 15
+const LATEST_SCHEMA_VERSION = 18
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -316,6 +320,27 @@ if (schemaVersion < 15)
     }
   }).immediate()
 
+for (const [version, sql] of [
+  [16, NOTIFICATION_SCHEMA_SQL],
+  [17, PROMPT_TEMPLATES_SQL],
+  [18, SCHEDULES_SQL],
+] as const) {
+  if (schemaVersion >= version) continue
+  db.transaction(() => {
+    const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
+    if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
+    if (current === version - 1) {
+      db.exec(sql)
+      db.exec(`PRAGMA user_version=${version};`)
+    } else if (current < version || current > LATEST_SCHEMA_VERSION) {
+      throw new HbarError('VERSION_MISMATCH', 'Unsupported database migration state')
+    }
+  }).immediate()
+}
+
+const notifications = createNotificationStorage(db)
+const promptTemplates = createPromptTemplateStorage(db)
+const schedules = createScheduleStorage(db)
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
 const sidebarDirectory = createSidebarDirectoryStorage(db, {
@@ -839,7 +864,34 @@ function appendEvent(
   return event
 }
 const methods: StorageMethods = {
-  ready: () => ({ version: 14 }),
+  ready: () => ({ version: LATEST_SCHEMA_VERSION }),
+  notificationPage: (input) => notifications.page(input),
+  insertNotification: (record) => notifications.insert(record),
+  markNotificationRead: (id, readAt, identity) => notifications.markRead(id, readAt, identity),
+  markAllNotificationsRead: (readAt, identity) => notifications.markAllRead(readAt, identity),
+  notificationPreferences: () => notifications.preferences(),
+  setNotificationPreferences: (input, identity) => notifications.setPreferences(input, identity),
+  notificationReceipt: (commandId, input, identity) => notifications.receipt(commandId, input, identity),
+  promptTemplatePage: (input) => promptTemplates.list(input),
+  promptTemplate: (id) => promptTemplates.get(id),
+  savePromptTemplate: (input, identity) => promptTemplates.save(input, identity),
+  deletePromptTemplate: (input, identity) => promptTemplates.delete(input, identity),
+  promptTemplateReceipt: (commandId, input, identity) => promptTemplates.receipt(commandId, input, identity),
+  schedulePage: (workspaceId, after, limit) => schedules.list(workspaceId, after, limit),
+  schedule: (id) => schedules.get(id),
+  createSchedule: (input, identity) => schedules.create(input, identity),
+  updateSchedule: (input, identity) => schedules.update(input, identity),
+  deleteSchedule: (id, expectedRevision, identity) => schedules.delete(id, expectedRevision, identity),
+  scheduleReceipt: (commandId, input, identity) => schedules.receipt(commandId, input, identity),
+  scheduleOccurrences: (id, after, limit) => schedules.occurrences(id, after, limit),
+  claimScheduleOccurrence: (id, dueAt, now) => schedules.claim(id, dueAt, now),
+  transitionScheduleOccurrence: (id, status, runId, error, sessionId) =>
+    schedules.transition(id, status, runId, error, sessionId),
+  enabledSchedules: (after, limit) => schedules.enabledSchedules(after, limit),
+  activeScheduleOccurrences: (limit, after) => schedules.activeScheduleOccurrences(limit, after),
+  scheduleRuntime: (id) => schedules.scheduleRuntime(id),
+  recordScheduleCandidate: (id, dueAt, now) => schedules.recordCandidate(id, dueAt, now),
+  runBoard: (input) => readRunBoard(db, input),
   searchIndexStatus: sessionSearch.indexStatus,
   searchIndexStep: sessionSearch.backfillStep,
   recentSessions: sessionSearch.recent,

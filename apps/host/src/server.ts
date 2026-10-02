@@ -3,7 +3,7 @@ import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
+import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas, runSchema } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import {
@@ -27,6 +27,11 @@ import {
   createSettingsCommands,
   createUsageCommands,
   createWorkflowCommands,
+  createScheduleCommands,
+  createPromptTemplateCommands,
+  createNotificationCommands,
+  createRunBoardCommands,
+  createScheduleDueReader,
 } from '@hbar/kernel'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
@@ -80,6 +85,13 @@ import { createHostPerformanceProvider } from './performance-provider.ts'
 import { createMetricsCommands } from './metrics-commands.ts'
 import { createSessionSearchCommands } from '@hbar/kernel/session-search-commands'
 import { sessionSearchCommands as sessionSearchDefinitions } from '@hbar/contracts/commands/session-search'
+import { scheduleCommands as scheduleDefinitions } from '@hbar/contracts/commands/schedules'
+import { promptTemplateCommands as promptTemplateDefinitions } from '@hbar/contracts/commands/prompt-templates'
+import { notificationCommands as notificationDefinitions } from '@hbar/contracts/commands/notifications'
+import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/commands/run-board'
+import { submitRunInputSchema } from '@hbar/contracts/commands/run'
+import { createScheduleService, createNotificationService } from '@hbar/kernel'
+import { createScheduleHostController } from './schedule-host-controller.ts'
 
 interface SocketData {
   token?: string | undefined
@@ -226,6 +238,95 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   )
   const workflowCommands = createWorkflowCommands(kernel.plugins.get<WorkflowService>('workflow'))
   const sessionSearchCommands = createSessionSearchCommands(kernel.storage)
+  const scheduleService = createScheduleService({
+    list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),
+    get: (scheduleId) => kernel.storage.call('schedule', scheduleId),
+    create: (input, identity) => kernel.storage.call('createSchedule', input, identity),
+    update: (input, identity) => kernel.storage.call('updateSchedule', input, identity),
+    delete: (scheduleId, expectedRevision, identity) =>
+      kernel.storage.call('deleteSchedule', scheduleId, expectedRevision, identity),
+    occurrences: (scheduleId, after, limit) => kernel.storage.call('scheduleOccurrences', scheduleId, after, limit),
+    claim: (scheduleId, dueAt, now) => kernel.storage.call('claimScheduleOccurrence', scheduleId, dueAt, now),
+    transition: (id, status, runId, error, sessionId) =>
+      kernel.storage.call('transitionScheduleOccurrence', id, status, runId, error, sessionId),
+  })
+  const scheduleCommands = createScheduleCommands(scheduleService, {
+    lookup: (commandId, input, identity) => kernel.storage.call('scheduleReceipt', commandId, input, identity),
+  })
+  const promptTemplateCommands = createPromptTemplateCommands({
+    list: (input) => kernel.storage.call('promptTemplatePage', input),
+    get: (id) => kernel.storage.call('promptTemplate', id),
+    save: (input, identity) => kernel.storage.call('savePromptTemplate', input, identity),
+    delete: (input, identity) => kernel.storage.call('deletePromptTemplate', input, identity),
+    receipt: (commandId, input, identity) => kernel.storage.call('promptTemplateReceipt', commandId, input, identity),
+  })
+  const notificationService = createNotificationService({
+    storage: {
+      insertNotification: (record) => kernel.storage.call('insertNotification', record),
+      notificationPage: (input) => kernel.storage.call('notificationPage', input),
+      markNotificationRead: (id, readAt, identity) => kernel.storage.call('markNotificationRead', id, readAt, identity),
+      markAllNotificationsRead: (readAt, identity) => kernel.storage.call('markAllNotificationsRead', readAt, identity),
+      notificationPreferences: () => kernel.storage.call('notificationPreferences'),
+      setNotificationPreferences: (input, identity) =>
+        kernel.storage.call('setNotificationPreferences', input, identity),
+      notificationReceipt: (commandId, input, identity) =>
+        kernel.storage.call('notificationReceipt', commandId, input, identity),
+    },
+    publish: (event) => kernel.changed(event.params.kind),
+    publishFresh: (event) => broadcastFresh(event),
+  })
+  const notificationCommands = createNotificationCommands(notificationService)
+  const runBoardCommands = createRunBoardCommands(kernel.storage)
+  const readDueSchedules = createScheduleDueReader({
+    enabledPage: (after, limit) => kernel.storage.call('enabledSchedules', after, limit),
+    runtime: (id) => kernel.storage.call('scheduleRuntime', id),
+    recordCandidate: (id, dueAt, now) => kernel.storage.call('recordScheduleCandidate', id, dueAt, now),
+  })
+  const scheduleController = createScheduleHostController({
+    service: scheduleService,
+    actorId: 'hbar:scheduler',
+    runCommands: {
+      execute: (id, input, options) =>
+        id === 'run.submit'
+          ? runCommands.execute(id, submitRunInputSchema.parse(input), options)
+          : runCommands.execute(id, z.strictObject({ operationId: z.string().min(1) }).parse(input), options),
+      getReceipt: (_commandId, sessionId, actorId, idempotencyKey) =>
+        runCommands.getReceipt('run.submit', sessionId, actorId, idempotencyKey),
+    },
+    prepareSession: async (input) => {
+      if (input.sessionId || input.target === 'existing-session') {
+        if (!input.sessionId) throw new HbarError('INVALID_INPUT', 'Scheduled target session is required')
+        const session = await kernel.storage.call('session', input.sessionId)
+        if (session.workspaceId !== input.workspaceId || session.archived)
+          throw new HbarError('COMMAND_CONFLICT', 'Scheduled target session is unavailable')
+        return { sessionId: session.id }
+      }
+      const created = await kernel.storage.call('createSessionCommand', {
+        actorId: 'hbar:scheduler',
+        idempotencyKey: `schedule-session:${input.occurrenceId}`,
+        workspaceId: input.workspaceId,
+        title: 'Scheduled run',
+      })
+      kernel.changed('sessions')
+      return { sessionId: created.id }
+    },
+    reader: {
+      enabledSchedules: async (after: string | null, limit: number) =>
+        (await kernel.storage.call('enabledSchedules', after, limit)).items,
+      activeScheduleOccurrences: (limit, after) => kernel.storage.call('activeScheduleOccurrences', limit, after),
+      dueScheduleOccurrences: readDueSchedules,
+    },
+    onFailure: async ({ scheduleId, occurrenceId, error }) => {
+      await notificationService.record({
+        sourceEventId: `schedule:${occurrenceId}:failed`,
+        kind: 'schedule.failed',
+        title: 'Scheduled run failed',
+        detail: error,
+        target: { kind: 'schedule', scheduleId, occurrenceId },
+      })
+    },
+  })
+  await scheduleController.start()
   const commandServices = [
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
@@ -248,6 +349,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: settingsDefinitions, service: settingsCommands },
     { definitions: usageDefinitions, service: usageCommands },
     { definitions: workflowDefinitions, service: workflowCommands },
+    { definitions: scheduleDefinitions, service: scheduleCommands },
+    { definitions: promptTemplateDefinitions, service: promptTemplateCommands },
+    { definitions: notificationDefinitions, service: notificationCommands },
+    { definitions: runBoardDefinitions, service: runBoardCommands },
   ]
   const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
     commandServices.flatMap(({ definitions, service }) =>
@@ -263,6 +368,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
+  let broadcastFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void = () =>
+    undefined
   const surfaceClients = new Map<
     string,
     { socket: ServerWebSocket<SocketData>; generation: number; commands: Set<string> }
@@ -343,6 +450,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     }
     socket.send(JSON.stringify(value))
   }
+  broadcastFresh = (event) => {
+    for (const socket of sockets)
+      if (socket.data.initialized) send(socket, { jsonrpc: '2.0', method: 'notifications.created', params: event })
+  }
   const systemCommands = createSystemCommands({
     hostInfo,
     async diagnose() {
@@ -396,7 +507,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     socket: ServerWebSocket<SocketData>,
     idempotent = false,
   ) {
-    const requestId = `legacy-${createHash('sha256').update(`${method}:${String(rpcId)}`).digest('hex').slice(0, 32)}`
+    const requestId = `legacy-${createHash('sha256')
+      .update(`${method}:${String(rpcId)}`)
+      .digest('hex')
+      .slice(0, 32)}`
     return {
       actorId: socket.data.deviceId!,
       requestId,
@@ -686,11 +800,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return { mode: kernel.permissionMode() }
       case 'permission.set': {
         const p = rpcSchemas[method].parse(raw)
-        return configurationCommands.execute(
-          'permission.set',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        return configurationCommands.execute('permission.set', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -747,11 +857,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'budget.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return budgetCommands.execute(
-          'session.clearBudget',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        return budgetCommands.execute('session.clearBudget', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.status': {
         const p = rpcSchemas[method].parse(raw)
@@ -787,19 +893,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
-        return workspaceSessionCommands.execute(
-          'workspace.create',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        return workspaceSessionCommands.execute('workspace.create', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'session.create': {
         const p = rpcSchemas[method].parse(raw)
-        return workspaceSessionCommands.execute(
-          'session.create',
-          p,
-          legacyCommandOptions(method, rpcId, socket, true),
-        )
+        return workspaceSessionCommands.execute('session.create', p, legacyCommandOptions(method, rpcId, socket, true))
       }
       case 'session.snapshot': {
         const p = rpcSchemas[method].parse(raw)
@@ -826,27 +924,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'session.rename': {
         const p = rpcSchemas[method].parse(raw)
-        return workspaceSessionCommands.execute(
-          'session.rename',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        return workspaceSessionCommands.execute('session.rename', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'session.archive': {
         const p = rpcSchemas[method].parse(raw)
-        return workspaceSessionCommands.execute(
-          'session.archive',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        return workspaceSessionCommands.execute('session.archive', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'session.fork': {
         const p = rpcSchemas[method].parse(raw)
-        return workspaceSessionCommands.execute(
-          'session.fork',
-          p,
-          legacyCommandOptions(method, rpcId, socket, true),
-        )
+        return workspaceSessionCommands.execute('session.fork', p, legacyCommandOptions(method, rpcId, socket, true))
       }
       case 'session.export': {
         const p = rpcSchemas[method].parse(raw)
@@ -900,19 +986,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'provider.save': {
         const p = rpcSchemas[method].parse(raw)
-        return configurationCommands.execute(
-          'provider.save',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        return configurationCommands.execute('provider.save', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'provider.delete': {
         const p = rpcSchemas[method].parse(raw)
-        await configurationCommands.execute(
-          'provider.delete',
-          p,
-          legacyCommandOptions(method, rpcId, socket),
-        )
+        await configurationCommands.execute('provider.delete', p, legacyCommandOptions(method, rpcId, socket))
         return null
       }
       case 'plugin.set': {
@@ -1224,6 +1302,66 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     },
   })
   const unsubscribe = kernel.subscribe((event: WireNotification) => {
+    if (
+      event.method === 'session.event' &&
+      (event.params.type === 'run.settled' || event.params.type === 'approval.requested')
+    ) {
+      const data = event.params.data
+      const runId = event.params.runId
+      const status =
+        typeof data === 'object' && data !== null && 'status' in data
+          ? String((data as { status?: unknown }).status)
+          : undefined
+      const sourceEventId = `${event.params.sessionId}:${event.params.seq}`
+      if (event.params.type === 'run.settled' && (status === 'completed' || status === 'failed')) {
+        void (async () => {
+          const parsed = z.object({ run: runSchema }).safeParse(data)
+          if (!parsed.success || parsed.data.run.status !== status) return
+          const session = await kernel.storage.call('session', event.params.sessionId)
+          await notificationService.record({
+            sourceEventId,
+            kind: status === 'completed' ? 'run.completed' : 'run.failed',
+            title: status === 'completed' ? 'Run completed' : 'Run failed',
+            detail: parsed.data.run.error ?? '',
+            target: {
+              kind: 'session',
+              workspaceId: session.workspaceId,
+              sessionId: event.params.sessionId,
+              ...(runId ? { runId } : {}),
+            },
+          })
+        })().catch((error) => console.error('Notification recording failed:', error))
+      }
+      if (event.params.type === 'approval.requested' && runId) {
+        void (async () => {
+          const parsed = z
+            .object({
+              id: z.string().min(1),
+              sessionId: z.string().min(1),
+              runId: z.string().min(1),
+              status: z.literal('pending'),
+            })
+            .passthrough()
+            .safeParse(data)
+          if (!parsed.success || parsed.data.sessionId !== event.params.sessionId || parsed.data.runId !== runId) return
+          const approvalId = parsed.data.id
+          const session = await kernel.storage.call('session', event.params.sessionId)
+          await notificationService.record({
+            sourceEventId,
+            kind: 'approval.pending',
+            title: 'Approval required',
+            detail: 'A run is waiting for approval.',
+            target: {
+              kind: 'approval',
+              workspaceId: session.workspaceId,
+              sessionId: event.params.sessionId,
+              runId,
+              approvalId,
+            },
+          })
+        })().catch((error) => console.error('Approval notification recording failed:', error))
+      }
+    }
     for (const socket of sockets) {
       if (!socket.data.initialized) continue
       if (event.method === 'session.event' || event.method === 'stream.update') {
@@ -1268,6 +1406,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       runCommands.dispose()
       settingsCommands.dispose()
       usageCommands.dispose()
+      await scheduleController.close()
+      scheduleCommands.dispose()
+      promptTemplateCommands.dispose()
+      notificationCommands.dispose()
+      runBoardCommands.dispose()
       systemCommands.dispose()
       unsubscribe()
       unsubscribeMetrics()
