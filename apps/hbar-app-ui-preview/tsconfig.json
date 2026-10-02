@@ -8,7 +8,9 @@
     "../../tests/component-gallery.test.tsx",
     "../../tests/fixtures/component-gallery-copy.ts",
     "../../tests/fixtures/component-gallery-browser.tsx",
-    "../../e2e/component-gallery.spec.ts"
+    "../../e2e/component-gallery.spec.ts",
+    "../../e2e/preview-workspace.spec.ts",
+    "../../tests/preview-workspace-store.test.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
