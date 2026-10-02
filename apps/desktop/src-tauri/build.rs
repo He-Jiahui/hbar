@@ -4,6 +4,9 @@ fn main() {
             "connection_info",
             "read_ui_zoom",
             "write_ui_zoom",
+            "native_notification_permission",
+            "request_native_notification_permission",
+            "send_native_notification",
         ]),
     ))
     .expect("Unable to generate desktop permissions")
