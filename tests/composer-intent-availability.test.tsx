@@ -300,13 +300,22 @@ function render(value: ComposerGoalAvailabilityInput, locale: 'en-US' | 'zh-CN',
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`blocked Goal is focusable with an associated explanation and closeable native popover: ${locale}`, () => {
     const copy = composerIntentBlockedCopy(locale)
-    const html = render(input(), locale)
+    // The current contract keeps Plan and Goal as independent choices. Use a
+    // loading Plan fact to exercise the blocked explanation without asserting
+    // the removed Plan-exit shortcut.
+    const html = render(
+      {
+        ...input(),
+        plan: { available: true, entries: { a: { sessionId: 'a', revision: 4, mode: null, status: 'loading', error: null } } },
+      },
+      locale,
+    )
     expect(html).toContain('popover="auto"')
     expect(html).toContain('aria-haspopup="dialog"')
     expect(html).toContain('aria-describedby=')
     expect(html).toContain('aria-pressed="false"')
-    expect(html).toContain(copy.reasons.plan)
-    expect(html).toContain(copy.exitPlan)
+    expect(html).toContain(copy.reasons.planLoading)
+    expect(html).not.toContain(copy.exitPlan)
     expect(html).toContain(`aria-label="${copy.close}"`)
     expect(html).not.toContain('disabled=""')
     expect(html).not.toContain(copy.exited)

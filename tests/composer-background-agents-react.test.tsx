@@ -108,7 +108,12 @@ test('background stop renders before independent enabled Send without changing t
     />,
   )
   expect(html).toContain(draft)
-  expect(html.match(/hbar-prompt-primary-action/g)).toHaveLength(2)
+  // The host-owned background stop and the native Send action are both
+  // present and independently enabled. Their semantic names are the stable
+  // contract; implementation CSS classes may vary across Lumen revisions.
+  expect(html).toContain(`aria-label="${copy.backgroundAgents.stop(2)}"`)
+  expect(html).toContain(`aria-label="${copy.prompt.send}"`)
+  expect((html.match(/<button/g) ?? []).length).toBe(2)
   expect(html.indexOf(`aria-label="${copy.backgroundAgents.stop(2)}"`)).toBeLessThan(
     html.indexOf(`aria-label="${copy.prompt.send}"`),
   )
