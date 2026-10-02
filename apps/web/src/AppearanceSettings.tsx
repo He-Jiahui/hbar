@@ -163,7 +163,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
               <LumenButton
                 key={theme}
                 className="hbar-web-appearance-theme-choice"
-                variant="outlined"
+                variant={state.draft.theme === theme ? 'contained' : 'outlined'}
                 indicator="none"
                 role="radio"
                 aria-checked={state.draft.theme === theme}
