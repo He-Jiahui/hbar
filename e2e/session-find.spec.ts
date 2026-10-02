@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { createRunCommandClient } from '@hbar/client'
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -155,6 +155,21 @@ function findControls({ page, copy }: Fixture) {
     next: bar.getByRole('button', { name: copy.session.find.next, exact: true }),
     close: bar.getByRole('button', { name: copy.session.find.close, exact: true }),
   }
+}
+
+async function openFind({ page, copy }: Fixture): Promise<Locator> {
+  const entry = page.getByRole('button', { name: copy.session.find.entry, exact: true })
+  if (await entry.isVisible()) {
+    await entry.click()
+    return entry
+  }
+  const trigger = page.locator('.hbar-mobile-header-menu-trigger')
+  await trigger.click()
+  await page
+    .locator('.hbar-mobile-header-menu-content')
+    .getByRole('button', { name: copy.session.find.entry, exact: true })
+    .click()
+  return trigger
 }
 
 async function activeHighlights(page: Page) {
@@ -316,27 +331,30 @@ async function attachUnsentMaterial({ page }: Fixture): Promise<void> {
  * Find so the next assertion stays in the page. It does not open/close any app UI.
  */
 async function expectShortcutLeftToOtherSurface(page: Page): Promise<void> {
-  const consumed = page.evaluate(
-    () =>
-      new Promise<boolean>((resolve, reject) => {
-        const onKey = (event: KeyboardEvent) => {
-          if (event.key.toLowerCase() !== 'f' || !(event.ctrlKey || event.metaKey)) return
-          clearTimeout(timer)
-          window.removeEventListener('keydown', onKey)
-          const applicationPrevented = event.defaultPrevented
-          event.preventDefault()
-          resolve(applicationPrevented)
-        }
-        const timer = setTimeout(() => {
-          window.removeEventListener('keydown', onKey)
-          reject(new Error('Expected a real Find shortcut within the observation bound'))
-        }, 3000)
-        window.addEventListener('keydown', onKey)
-      }),
-  )
-  await page.keyboard.press('Control+f')
-  expect(await consumed).toBe(false)
-  await expect(page.locator('[data-session-find-bar]')).toHaveCount(0)
+  const observation = 'data-hbar-find-shortcut-observation'
+  // Await listener installation before dispatching the real keyboard event.
+  await page.evaluate((attribute) => {
+    document.documentElement.setAttribute(attribute, 'pending')
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'f' || !(event.ctrlKey || event.metaKey)) return
+      clearTimeout(timer)
+      window.removeEventListener('keydown', onKey)
+      document.documentElement.setAttribute(attribute, event.defaultPrevented ? 'consumed' : 'unclaimed')
+      event.preventDefault()
+    }
+    const timer = setTimeout(() => {
+      window.removeEventListener('keydown', onKey)
+      document.documentElement.setAttribute(attribute, 'missing')
+    }, 3000)
+    window.addEventListener('keydown', onKey)
+  }, observation)
+  try {
+    await page.keyboard.press('Control+f')
+    await expect(page.locator('html')).toHaveAttribute(observation, 'unclaimed')
+    await expect(page.locator('[data-session-find-bar]')).toHaveCount(0)
+  } finally {
+    await page.locator('html').evaluate((element, attribute) => element.removeAttribute(attribute), observation)
+  }
 }
 
 async function record(fixture: Fixture, name: string, extra: object = {}): Promise<void> {
@@ -438,7 +456,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect.poll(() => activeHighlights(page)).toEqual([])
         await expectComposerText(prompt, draft)
         await expect(page.locator('.lumen-attachment-chip').filter({ hasText: attachmentName })).toBeVisible()
-        await find.entry.click()
+        const findTrigger = await openFind(fixture)
         await expect(find.input).toBeFocused()
         await expect(find.input).toHaveValue('')
         await find.input.fill('x'.repeat(257))
@@ -446,8 +464,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(find.bar.getByRole('alert')).toHaveText(copy.session.find.queryLimit)
         await page.keyboard.press('Escape')
         await expect(find.bar).toHaveCount(0)
-        await expect(find.entry).toBeFocused()
-        await find.entry.click()
+        await expect(findTrigger).toBeFocused()
+        await openFind(fixture)
         await find.input.fill('History message 64')
         await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
         await showSidebar(fixture, true)

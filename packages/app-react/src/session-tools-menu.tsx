@@ -133,6 +133,7 @@ export function HbarSessionToolsMenu({
           if (!opening) return
           requestAnimationFrame(() => {
             if (!popup.current?.matches(':popover-open')) return
+            if (popup.current.contains(document.activeElement)) return
             const rows = Array.from(popup.current.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
             const target =
               firstFocus.current === 'last'
