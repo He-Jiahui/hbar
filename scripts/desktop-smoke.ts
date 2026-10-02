@@ -390,7 +390,7 @@ try {
   }
   await readComposerDiagnostic('before-typing')
   await composer.pressSequentially(draft)
-  await expectComposerText(composer, draft)
+  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
   await readComposerDiagnostic('before-approval')
   const decision = page.locator(`[data-decision-id="${approval.id}"]`)
   await decision.getByRole('button', { name: copy.session.decisions.planExit.implement, exact: true }).click()
@@ -409,7 +409,7 @@ try {
     objective,
     status: 'active',
   })
-  await expectComposerText(composer, draft)
+  await expectComposerText(page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }), draft)
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
     throw new Error('Known-workspace new session unexpectedly opened the command catalog')
