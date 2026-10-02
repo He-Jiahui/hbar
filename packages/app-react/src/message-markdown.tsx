@@ -8,6 +8,7 @@ import { CODE_BLOCK_PREVIEW_LINES, messageCodeBlock } from './message-code-block
 import { registerSessionCodeBlock } from './session-code-block-dom'
 import { MarkdownDiagram } from './markdown-diagram'
 import { isDiagramCode } from './markdown-diagram-model'
+import { MarkdownCodeContent } from './markdown-code-content'
 import {
   sessionMarkdownRemarkPlugins,
   sessionMarkdownRehypePlugins,
@@ -78,14 +79,15 @@ function MessageCodeBlock({
         <CodeBlockCopyAction {...context} occurrenceId={code.occurrenceId} text={code.text} />
       </LumenFrame>
       <LumenText as="pre" variant="code" className="hbar-message-code-body" id={bodyId} tabIndex={0}>
-        <LumenText as="code" variant="code">
-          {code.domText.slice(0, code.previewEnd)}
-          {collapsible && (
-            <LumenText as="span" variant="code" data-code-tail="" hidden={!expanded}>
-              {code.domText.slice(code.previewEnd)}
-            </LumenText>
-          )}
-        </LumenText>
+        <MarkdownCodeContent
+          source={code.domText}
+          language={code.language}
+          owner={context.owner}
+          streaming={context.streaming}
+          previewEnd={code.previewEnd}
+          collapsible={collapsible}
+          expanded={expanded}
+        />
       </LumenText>
       {collapsible && (
         <LumenFrame ref={footer} className="hbar-message-code-footer" data-session-find-exclude="code-chrome">

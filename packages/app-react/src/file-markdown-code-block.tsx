@@ -6,6 +6,7 @@ import type { MessageClipboardPort } from './message-copy'
 import { CODE_BLOCK_PREVIEW_LINES, markdownCodeBlock } from './markdown-code-block-model'
 import { MarkdownDiagram } from './markdown-diagram'
 import { isDiagramCode } from './markdown-diagram-model'
+import { MarkdownCodeContent } from './markdown-code-content'
 import './message-code-block.css'
 
 export interface FileMarkdownCodeContext {
@@ -47,14 +48,14 @@ function FileCodeBlock({
         />
       </LumenFrame>
       <LumenText as="pre" variant="code" className="hbar-message-code-body" id={bodyId} tabIndex={0}>
-        <LumenText as="code" variant="code">
-          {code.domText.slice(0, code.previewEnd)}
-          {collapsible && (
-            <LumenText as="span" variant="code" data-code-tail="" hidden={!expanded}>
-              {code.domText.slice(code.previewEnd)}
-            </LumenText>
-          )}
-        </LumenText>
+        <MarkdownCodeContent
+          source={code.domText}
+          language={code.language}
+          owner={context.owner}
+          previewEnd={code.previewEnd}
+          collapsible={collapsible}
+          expanded={expanded}
+        />
       </LumenText>
       {collapsible && (
         <LumenFrame className="hbar-message-code-footer">

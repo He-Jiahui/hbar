@@ -68,6 +68,10 @@ for (const scenario of [
       await expect(markdown.locator('strong').first()).toHaveText('Read')
       await expect(markdown.locator('table')).toHaveCount(1)
       await expect(markdown.locator('img,script,iframe')).toHaveCount(0)
+      const shortCode = markdown.locator('.hbar-file-markdown-code').first()
+      await expect(shortCode.locator('code')).toHaveAttribute('data-code-highlight', 'ready')
+      await expect(shortCode.locator('[data-code-token="keyword"]').first()).toHaveText('export')
+      await expect(shortCode.locator('[data-code-token="number"]')).toHaveText('true')
       const diagram = markdown.locator('.hbar-markdown-diagram')
       await expect(diagram.locator('.hbar-diagram-inline svg')).toBeVisible()
       await diagram.getByRole('button', { name: copy.files.markdownCode.copy, exact: true }).click()
@@ -91,6 +95,7 @@ for (const scenario of [
       expect(await page.evaluate(() => 'markdownExecuted' in window)).toBe(false)
       expect(remoteRequests).toEqual([])
       const longBlock = markdown.locator('.hbar-file-markdown-code').nth(1)
+      await expect(longBlock.locator('code')).toHaveAttribute('data-code-highlight', 'ready')
       await expect(longBlock.locator('[data-code-tail]')).toBeHidden()
       await longBlock.getByRole('button', { name: copy.files.markdownCode.copy, exact: true }).click()
       await expect
@@ -109,13 +114,17 @@ for (const scenario of [
       await expect.poll(() => codeBody.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
       expect(
         await codeBody.evaluate((element) => {
-          const tail = element.querySelector('[data-code-tail]')?.firstChild
-          if (!tail || !tail.textContent) return false
+          const tail = element.querySelector('[data-code-tail]')
+          if (!tail) return false
+          const walker = document.createTreeWalker(tail, NodeFilter.SHOW_TEXT)
+          const needle = 'Markdown file proof 25'
+          let node = walker.nextNode()
+          while (node && !node.textContent?.includes(needle)) node = walker.nextNode()
+          if (!node?.textContent) return false
           const range = document.createRange()
-          const start = tail.textContent.lastIndexOf('const line25')
-          if (start < 0) return false
-          range.setStart(tail, start)
-          range.setEnd(tail, tail.textContent.length - 1)
+          const start = node.textContent.indexOf(needle)
+          range.setStart(node, start)
+          range.setEnd(node, start + needle.length)
           const line = range.getBoundingClientRect()
           const pane = element.getBoundingClientRect()
           return line.top >= pane.top && line.bottom <= pane.bottom

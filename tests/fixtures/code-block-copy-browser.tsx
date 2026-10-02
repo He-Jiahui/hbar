@@ -1,10 +1,13 @@
 // Controlled component fixture: no Host, provider, Run or executable plan.
-import { StrictMode, useMemo, useRef, useState } from 'react'
+import { StrictMode, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { LumenButton, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
 import type { ContentBlock } from '@hbar/contracts'
 import { HbarMessageBlocks } from '../../packages/app-react/src/session-message'
 import { MessageMarkdown } from '../../packages/app-react/src/message-markdown'
+import { createSessionFindHighlights } from '../../packages/app-react/src/session-find-highlights'
+import { projectSessionFindText } from '../../packages/app-react/src/session-find-text'
+import type { ConversationFindState } from '@hbar/app-runtime'
 import { HbarFileMarkdownPreview } from '../../packages/app-react/src/file-markdown-preview'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from '../../packages/app-react/src/proposed-plan-message'
 import { HbarSessionDecision, type HbarSessionDecisionProps } from '../../packages/app-react/src/session-interactions'
@@ -16,6 +19,7 @@ import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../
 import { getShellCopy, resolveShellLocale, type ShellLocale } from '../../apps/web/src/shell-copy'
 import '@lumen/app-ui/styles.css'
 import '../../apps/web/src/document.css'
+import '../../packages/app-react/src/session-find.css'
 
 const scenarios = [
   'a',
@@ -36,6 +40,8 @@ const scenarios = [
   'history',
   'plan-exit',
   'long-stream',
+  'highlight',
+  'highlight-stream',
 ] as const
 type Scenario = (typeof scenarios)[number]
 const repeated = 'const repeated = true\nconsole.log(repeated)'
@@ -44,6 +50,7 @@ const longCode = Array.from({ length: 25 }, (_, index) => `line-${String(index +
 const before = fence('before-code')
 const planBody = fence('plan-code')
 const after = fence('after-code')
+const highlightCode = `/*\n${Array.from({ length: 22 }, (_, i) => `const hidden${i} = "still comment"`).join('\n')}\n*/\nexport const ready = true\nconsole.log("完成 👩‍💻", 42)`
 const planText = `${before}\n\n<proposed_plan>\n${planBody}\n</proposed_plan>\n\n${after}`
 
 function fixtureLabels(locale: ShellLocale) {
@@ -70,12 +77,15 @@ function fixtureLabels(locale: ShellLocale) {
       history: zh ? '只读历史计划' : 'Read-only historical plan',
       'plan-exit': zh ? '实际退出规划审批' : 'Actual PlanExit approval',
       'long-stream': zh ? '长代码后追加正文' : 'Append prose after long code',
+      highlight: zh ? '完整语法阅读' : 'Full syntax reading',
+      'highlight-stream': zh ? '同一代码正在流式生成' : 'Same code still streaming',
     } satisfies Record<Scenario, string>,
     resolve: zh ? '确认最早写入' : 'Resolve earliest write',
     reject: zh ? '拒绝最早写入' : 'Reject earliest write',
     unavailable: zh ? '剪贴板不可用' : 'Clipboard unavailable',
     available: zh ? '恢复受控剪贴板' : 'Restore controlled clipboard',
     writes: (count: number) => (zh ? `写入请求 ${count} 次` : `${count} write requests`),
+    find: zh ? '查找折叠后的原始代码' : 'Find original code after the fold',
   }
 }
 
@@ -178,9 +188,13 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
   const fileLabels = getShellCopy(locale).files
   const filePreview = new URL(location.href).searchParams.has('file-preview')
   const [scenario, setScenario] = useState<Scenario>('a')
+  const outputMounted = scenario !== 'unmounted'
   const [unavailable, setUnavailable] = useState(false)
   const [writes, setWrites] = useState<readonly string[]>([])
   const [pendingCount, setPendingCount] = useState(0)
+  const output = useRef<HTMLDivElement>(null)
+  const find = useRef<ReturnType<typeof createSessionFindHighlights> | null>(null)
+  const findSnapshot = useRef<ReturnType<Parameters<typeof createSessionFindHighlights>[0]['read']>>(null)
   const pending = useRef<{ resolve: () => void; reject: () => void }[]>([])
   const owners = useRef({ a: {}, b: {} })
   const clipboard = useMemo(
@@ -216,15 +230,17 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
       }
     : baseCopy
   const text =
-    scenario === 'b'
-      ? fence('const source = "B"')
-      : scenario === 'replacement'
-        ? fence('const replacement = true')
-        : scenario === 'long' || scenario === 'long-stream'
-          ? `${fence(longCode)}${scenario === 'long-stream' ? '\n\nStreaming appended prose.' : ''}`
-          : scenario === 'empty'
-            ? fence('')
-            : `${fence(repeated)}\n\n${fence(repeated)}${scenario === 'stream' ? '\n\nStreaming appended prose.' : ''}`
+    scenario === 'highlight' || scenario === 'highlight-stream'
+      ? fence(highlightCode)
+      : scenario === 'b'
+        ? fence('const source = "B"')
+        : scenario === 'replacement'
+          ? fence('const replacement = true')
+          : scenario === 'long' || scenario === 'long-stream'
+            ? `${fence(longCode)}${scenario === 'long-stream' ? '\n\nStreaming appended prose.' : ''}`
+            : scenario === 'empty'
+              ? fence('')
+              : `${fence(repeated)}\n\n${fence(repeated)}${scenario === 'stream' ? '\n\nStreaming appended prose.' : ''}`
   const context = {
     sessionId: scenario === 'b' ? 'session-b' : 'session-a',
     messageId: 'message-a',
@@ -232,6 +248,55 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
     owner: scenario === 'owner' ? owners.current.b : owners.current.a,
     labels: copyLabels,
     clipboard: unavailable ? null : clipboard,
+    streaming: scenario === 'highlight-stream',
+  }
+  useLayoutEffect(() => {
+    const root = output.current
+    if (!root || filePreview) return
+    findSnapshot.current = null
+    const controller = createSessionFindHighlights({
+      root,
+      read: () => findSnapshot.current,
+      onFeedback: () => undefined,
+    })
+    find.current = controller
+    return () => {
+      controller.dispose()
+      find.current = null
+    }
+  }, [filePreview, outputMounted])
+  const reveal = () => {
+    const root = output.current
+    const projection = projectSessionFindText(text)
+    const query = 'const hidden21'
+    const start = projection?.text.indexOf(query) ?? -1
+    if (!root || !projection || start < 0) return
+    const state: ConversationFindState = {
+      status: 'ready',
+      scopeId: 'fixture-find',
+      query,
+      matches: [{ rowId: 'message-a', segmentId: 'text:0', start, end: start + query.length }],
+      activeIndex: 0,
+      navigationRevision: 1,
+      truncated: false,
+      history: 'complete',
+      error: null,
+    }
+    findSnapshot.current = {
+      scopeId: 'fixture-find',
+      requestId: 'fixture-find:1',
+      state,
+      projection: {
+        source: {
+          scopeId: 'fixture-find',
+          rows: [{ id: 'message-a', segments: [{ id: 'text:0', text: projection.text }] }],
+          history: 'complete',
+        },
+        rows: new Map([['message-a', new Map([['text:0', projection]])]]),
+      },
+    }
+    const row = root.querySelector<HTMLElement>('[data-message-id="message-a"]')
+    if (row) find.current?.reveal('fixture-find:1', root, row)
   }
   const capacityText = useMemo(() => {
     if (scenario !== 'below' && scenario !== 'limit' && scenario !== 'over') return null
@@ -267,72 +332,77 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
         <LumenButton size="s" data-fixture-action="available" onClick={() => setUnavailable(false)}>
           {labels.available}
         </LumenButton>
+        <LumenButton size="s" data-fixture-action="find" onClick={reveal}>
+          {labels.find}
+        </LumenButton>
       </LumenFrame>
       {scenario !== 'unmounted' && (
-        <LumenFrame data-fixture-output="" className="hbar-session-message-prose">
-          {filePreview ? (
-            <HbarFileMarkdownPreview
-              path={scenario === 'b' ? 'B.md' : 'A.md'}
-              value={text}
-              label={fileLabels.textPreview(scenario === 'b' ? 'B.md' : 'A.md')}
-              imageLabel={fileLabels.markdownImage}
-              openFileLabel={fileLabels.openLinkedFile}
-              onOpenFile={() => {
-                throw new Error('Unexpected file navigation in code fixture')
-              }}
-              code={{
-                previewId: scenario === 'segment' ? 'preview-reopened' : 'preview-original',
-                owner: context.owner,
-                labels: copyLabels,
-                clipboard: context.clipboard,
-              }}
-            />
-          ) : scenario === 'plan-exit' ? (
-            <PlanExitFixture locale={locale} clipboard={context.clipboard} />
-          ) : capacityText !== null ? (
-            <CodeBlockCopyAction {...context} occurrenceId="capacity" text={capacityText} source={scenario} />
-          ) : scenario === 'normal' ? (
-            <HbarMessageBlocks {...message} />
-          ) : scenario === 'no-context' ? (
-            <MessageMarkdown text={text} />
-          ) : scenario === 'history' ? (
-            <HbarHistoricalPlanMessage {...message} readOnlyLabel={shell.proposedPlanReadOnly} />
-          ) : scenario === 'proposal' ? (
-            <HbarProposedPlanMessage
-              {...message}
-              document={{
-                target: {
-                  sessionId: context.sessionId,
-                  messageId: context.messageId,
-                  sourceRunId: 'fixture-run',
-                  sourceSeq: 1,
-                  fingerprint: 'a'.repeat(64),
-                },
-                before,
-                markdown: planBody,
-                after,
-              }}
-              plan={{
-                labels: shell.proposedPlan,
-                state: {
-                  status: 'accepted',
-                  canSubmit: false,
-                  connected: false,
-                  reconciling: false,
-                  error: null,
-                  unavailable: null,
-                },
-                onSubmit: () => {
-                  throw new Error('Unexpected fixture plan write')
-                },
-                onReconcile: () => {
-                  throw new Error('Unexpected fixture plan read')
-                },
-              }}
-            />
-          ) : (
-            <MessageMarkdown text={text} code={context} findSegmentId={context.segmentId} />
-          )}
+        <LumenFrame ref={output} data-fixture-output="" className="hbar-session-message-prose">
+          <LumenFrame data-message-id="message-a">
+            {filePreview ? (
+              <HbarFileMarkdownPreview
+                path={scenario === 'b' ? 'B.md' : 'A.md'}
+                value={text}
+                label={fileLabels.textPreview(scenario === 'b' ? 'B.md' : 'A.md')}
+                imageLabel={fileLabels.markdownImage}
+                openFileLabel={fileLabels.openLinkedFile}
+                onOpenFile={() => {
+                  throw new Error('Unexpected file navigation in code fixture')
+                }}
+                code={{
+                  previewId: scenario === 'segment' ? 'preview-reopened' : 'preview-original',
+                  owner: context.owner,
+                  labels: copyLabels,
+                  clipboard: context.clipboard,
+                }}
+              />
+            ) : scenario === 'plan-exit' ? (
+              <PlanExitFixture locale={locale} clipboard={context.clipboard} />
+            ) : capacityText !== null ? (
+              <CodeBlockCopyAction {...context} occurrenceId="capacity" text={capacityText} source={scenario} />
+            ) : scenario === 'normal' ? (
+              <HbarMessageBlocks {...message} />
+            ) : scenario === 'no-context' ? (
+              <MessageMarkdown text={text} />
+            ) : scenario === 'history' ? (
+              <HbarHistoricalPlanMessage {...message} readOnlyLabel={shell.proposedPlanReadOnly} />
+            ) : scenario === 'proposal' ? (
+              <HbarProposedPlanMessage
+                {...message}
+                document={{
+                  target: {
+                    sessionId: context.sessionId,
+                    messageId: context.messageId,
+                    sourceRunId: 'fixture-run',
+                    sourceSeq: 1,
+                    fingerprint: 'a'.repeat(64),
+                  },
+                  before,
+                  markdown: planBody,
+                  after,
+                }}
+                plan={{
+                  labels: shell.proposedPlan,
+                  state: {
+                    status: 'accepted',
+                    canSubmit: false,
+                    connected: false,
+                    reconciling: false,
+                    error: null,
+                    unavailable: null,
+                  },
+                  onSubmit: () => {
+                    throw new Error('Unexpected fixture plan write')
+                  },
+                  onReconcile: () => {
+                    throw new Error('Unexpected fixture plan read')
+                  },
+                }}
+              />
+            ) : (
+              <MessageMarkdown text={text} code={context} findSegmentId={context.segmentId} />
+            )}
+          </LumenFrame>
         </LumenFrame>
       )}
       <LumenText as="p" data-write-count={writes.length} data-pending-count={pendingCount}>

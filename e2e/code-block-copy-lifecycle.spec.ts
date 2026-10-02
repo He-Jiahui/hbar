@@ -67,6 +67,63 @@ async function open(browser: Browser, locale: ShellLocale, longLabels = false, f
   return { page, context, errors, forbidden }
 }
 
+test('syntax reading keeps one source, whole comment state, Copy and live Find remapping', async ({
+  browser,
+}, info) => {
+  const f = await open(browser, 'en-US')
+  try {
+    const labels = codeBlockCopyLabels('en-US')
+    await action(f.page, 'highlight-stream')
+    const block = f.page.locator('.hbar-message-code')
+    const source = `/*\n${Array.from({ length: 22 }, (_, i) => `const hidden${i} = "still comment"`).join('\n')}\n*/\nexport const ready = true\nconsole.log("完成 👩‍💻", 42)`
+    await expect(block.locator('code')).toHaveAttribute('data-code-highlight', 'plain')
+    await expect(block.locator('code')).toHaveText(`${source}\n`)
+    await expect(block.locator('[data-code-tail]')).toBeHidden()
+    await action(f.page, 'find')
+    const activeText = () =>
+      f.page.evaluate(() =>
+        [...(CSS.highlights.get('hbar-session-find-active') ?? [])].map((range) => range.toString()).join(''),
+      )
+    await expect.poll(activeText).toBe('const hidden21')
+    await expect(block.locator('[data-code-tail]')).toBeVisible()
+    // Settling streaming inserts token spans. A live observer must remap an
+    // already active Find range, not only succeed on a new Find operation.
+    await action(f.page, 'highlight')
+    await expect(block.locator('code')).toHaveAttribute('data-code-highlight', 'ready')
+    await expect(block.locator('code')).toHaveText(`${source}\n`)
+    await f.page.evaluate(async () => {
+      for (let i = 0; i < 3; i++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    })
+    await expect.poll(activeText).toBe('const hidden21')
+    await expect(
+      block.locator('[data-code-tail] [data-code-token="comment"]').filter({ hasText: 'const hidden21' }),
+    ).toHaveCount(1)
+    await expect(block.locator('[data-code-token="keyword"]').filter({ hasText: 'export' })).toHaveCount(1)
+    await copy(f.page)
+    await expect(f.page.locator('[data-write-index="0"]')).toHaveText(source)
+    await action(f.page, 'resolve')
+    await expect(block.getByRole('button', { name: labels.copied, exact: true })).toBeVisible()
+    await f.page.screenshot({ path: info.outputPath('highlight-reading-find-copy-en-US.png') })
+    const keyword = block.locator('[data-code-token="keyword"]').first()
+    const lightColor = await keyword.evaluate((element) => getComputedStyle(element).color)
+    expect(lightColor).toBe('rgb(184, 83, 59)')
+    await f.page.evaluate(() => {
+      const provider = document.querySelector<HTMLElement>('[data-lumen-mode="light"]')
+      if (!provider) throw new Error('Missing owned light provider')
+      provider.dataset.lumenMode = 'dark'
+    })
+    expect(await keyword.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(233, 146, 107)')
+    await action(f.page, 'b')
+    await expect(block.locator('code')).toHaveText('const source = "B"\n')
+    await expect(block.locator('code')).toHaveAttribute('data-code-highlight', 'ready')
+    await expect(block.locator('[data-code-token="comment"]')).toHaveCount(0)
+    expect(f.errors).toEqual([])
+    expect(f.forbidden).toEqual([])
+  } finally {
+    await f.context.close()
+  }
+})
+
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`file code Copy retains the original source and pane-owned actions: ${locale}`, async ({ browser }) => {
     const f = await open(browser, locale, true, true)

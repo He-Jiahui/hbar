@@ -256,3 +256,10 @@ Plan 共用入口，Files 保留同一原文档。CC 原组件实渲与 hbar 的
 `run-20261002-26` 原生 smoke exit 0，主 agent 亲看中文 125% 图示预览。真实
 Host 中英两条 2/2，受控图示／Copy 生命周期 12/12；没有移除已有核心验收，
 也不冒充完整 Mermaid family、网络沙箱或整个 CC 迁移已完成。
+
+代码阅读随后迁移暖色语法层次；消息、Plan 与 Files 共用一份原始代码 DOM，既有
+Copy／折叠／Find 入口不增加。[交付说明](desktop-code-syntax-reading.md) 记录参考、
+本地 Shiki、主题配色、容量与 cold-load 修正。最终资产 `index-BfK6ZbHM.js`／
+`index-DpWWaq_h.css` 已同步 standalone；`run-20261002-28` 临时原生 smoke exit 0。
+定向 Bun 78 tests／835 assertions，最终核心 E2E 13/13；不冒充所有 grammar、Source
+编辑器／diff 高亮、完整 check 或整个 CC 能力迁移。

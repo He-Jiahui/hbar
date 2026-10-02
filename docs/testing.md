@@ -66,6 +66,11 @@ Provider，不能冒充真实文件读取。`e2e/file-markdown-reading.spec.ts` 
 它是注入剪贴板的组件验证，不冒充 OS clipboard 或真实 Host。原生 smoke 另在实际
 文档代码块点击 Copy 并确认反馈，payload 的逐字回读与故障注入范围由独立测试负责。
 
+代码语法阅读见[交付说明](desktop-code-syntax-reading.md)。定向 grammar／容量／Abort
+回归在 `tests/markdown-code-highlight.test.ts`；既有 Copy fixture 另用实际 renderer
+验证流式原文、跨折叠注释、token 插入后的 active Find 自动重映射和完整 Copy。
+真实 Host 与原生 smoke 保留原文件往返，仅补语法角色断言，不增加按钮×尺寸矩阵。
+
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
 ## 性能基准
