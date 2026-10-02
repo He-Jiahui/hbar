@@ -11,12 +11,14 @@ import {
   LumenButton,
   LumenCheckBox,
   LumenDivider,
+  LumenFrame,
   LumenFormField,
   LumenIndicator,
   LumenInput,
   LumenOption,
   LumenProvider,
   LumenRange,
+  LumenText,
   LumenSelect,
   LumenSurface,
   LumenToggle,
@@ -64,18 +66,19 @@ function VisualLanguagePreview() {
       }}
       withCssBaseline={false}
     >
-      <main className="lumen-visual-language">
-        <header className="visual-language-heading">
-          <h1>{copy.title}</h1>
-          <p>{copy.description}</p>
-        </header>
-        <section className="visual-language-toolbar">
-          <a
+      <LumenFrame as="main" className="lumen-visual-language">
+        <LumenFrame as="header" className="visual-language-heading">
+          <LumenText as="h1">{copy.title}</LumenText>
+          <LumenText as="p">{copy.description}</LumenText>
+        </LumenFrame>
+        <LumenFrame as="section" className="visual-language-toolbar">
+          <LumenFrame
+            as="a"
             className="visual-language-catalog-link"
             href={`/components.html?${new URLSearchParams({ locale, theme: mode }).toString()}`}
           >
             {copy.catalog}
-          </a>
+          </LumenFrame>
           <LumenButton
             variant="outlined"
             onClick={() => setMode((previous) => (previous === 'dark' ? 'light' : 'dark'))}
@@ -104,11 +107,11 @@ function VisualLanguagePreview() {
           <LumenButton variant="text" onClick={() => actionRef.current?.focus()}>
             {copy.focus}
           </LumenButton>
-        </section>
-        <section className="visual-language-columns">
+        </LumenFrame>
+        <LumenFrame as="section" className="visual-language-columns">
           {variants.map((variant) => (
             <LumenSurface as="section" key={variant} boundary="horizontal" contentClassName="visual-language-card">
-              <h2>{copy.variants[variant]}</h2>
+              <LumenText as="h2">{copy.variants[variant]}</LumenText>
               <LumenButton
                 ref={variant === 'contained' ? actionRef : undefined}
                 data-testid={`preview-${variant}`}
@@ -116,15 +119,15 @@ function VisualLanguagePreview() {
               >
                 {copy.states.idle}
               </LumenButton>
-              <div className="visual-language-row">
+              <LumenFrame className="visual-language-row">
                 {tones.map((tone) => (
                   <LumenButton key={tone} variant={variant} tone={tone}>
                     {copy.tones[tone]}
                   </LumenButton>
                 ))}
-              </div>
+              </LumenFrame>
               <LumenDivider />
-              <div className="visual-language-stack">
+              <LumenFrame className="visual-language-stack">
                 <LumenButton
                   variant={variant}
                   aria-pressed={selected[variant]}
@@ -141,28 +144,28 @@ function VisualLanguagePreview() {
                 <LumenButton variant={variant} tone="danger" indicatorState="failed">
                   {copy.states.failed}
                 </LumenButton>
-              </div>
-              <div className="visual-language-row">
+              </LumenFrame>
+              <LumenFrame className="visual-language-row">
                 {sizes.map((tier) => (
                   <LumenButton key={tier} variant={variant} size={tier}>
                     {copy.sizes[tier]}
                   </LumenButton>
                 ))}
-              </div>
+              </LumenFrame>
             </LumenSurface>
           ))}
-        </section>
+        </LumenFrame>
         <LumenSurface as="section" boundary="horizontal" contentClassName="visual-language-card">
-          <h2>{copy.controls}</h2>
-          <div className="visual-language-fields">
+          <LumenText as="h2">{copy.controls}</LumenText>
+          <LumenFrame className="visual-language-fields">
             <LumenFormField controlId="preview-input" label={copy.input}>
               <LumenInput id="preview-input" value={value} onChange={(event) => setValue(event.target.value)} />
             </LumenFormField>
             <LumenFormField controlId="preview-error" label={copy.error} error={copy.errorMessage}>
               <LumenInput id="preview-error" defaultValue={copy.value} />
             </LumenFormField>
-          </div>
-          <div className="visual-language-fields">
+          </LumenFrame>
+          <LumenFrame className="visual-language-fields">
             <LumenCheckBox
               label={copy.check}
               checked={checked}
@@ -176,31 +179,31 @@ function VisualLanguagePreview() {
               max={100}
               onChange={(event) => setRange(event.target.valueAsNumber)}
             />
-            <output aria-label={copy.range}>{range}</output>
-          </div>
+            <LumenText as="output" aria-label={copy.range}>{range}</LumenText>
+          </LumenFrame>
         </LumenSurface>
         <LumenSurface as="section" boundary="horizontal" contentClassName="visual-language-card">
-          <h2>{copy.native}</h2>
-          <div className="visual-language-row">
+          <LumenText as="h2">{copy.native}</LumenText>
+          <LumenFrame className="visual-language-row">
             {variants.map((variant) => (
               <Button key={variant} variant={variant}>
                 {copy.variants[variant]}
               </Button>
             ))}
-          </div>
-          <div className="visual-language-fields">
+          </LumenFrame>
+          <LumenFrame className="visual-language-fields">
             {(['outlined', 'filled', 'standard'] as const).map((variant) => (
               <TextField key={variant} label={copy.input} variant={variant} size="small" />
             ))}
-          </div>
-          <div className="visual-language-row">
+          </LumenFrame>
+          <LumenFrame className="visual-language-row">
             <Checkbox slotProps={{ input: { 'aria-label': copy.check } }} />
             <Radio slotProps={{ input: { 'aria-label': copy.check } }} />
             <Switch slotProps={{ input: { 'aria-label': copy.toggle } }} />
             <Slider aria-label={copy.range} defaultValue={42} />
-          </div>
+          </LumenFrame>
         </LumenSurface>
-        <section className="visual-language-columns" aria-label={copy.materials}>
+        <LumenFrame as="section" className="visual-language-columns" aria-label={copy.materials}>
           {(['glass', 'frost', 'solid'] as const).map((material) => (
             <LumenSurface
               as="section"
@@ -209,14 +212,14 @@ function VisualLanguagePreview() {
               contentClassName="visual-language-card"
               state={running ? 'running' : 'idle'}
             >
-              <div className="visual-language-row">
+              <LumenFrame className="visual-language-row">
                 <LumenIndicator state={running ? 'running' : 'idle'} />
-                <h2>{copy[material]}</h2>
-              </div>
+                <LumenText as="h2">{copy[material]}</LumenText>
+              </LumenFrame>
             </LumenSurface>
           ))}
-        </section>
-      </main>
+        </LumenFrame>
+      </LumenFrame>
     </LumenProvider>
   )
 }
