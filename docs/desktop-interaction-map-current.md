@@ -102,8 +102,9 @@ plugin-sdk `index.ts` 也与本功能路径重叠。不能夹带、清除或自�
 | `validate-flow-layout.mjs`                                                             | 主分支的真实 mobile／consent／sticky-table 例外及 self-test；本分支的会话工具／项目排序／消息选区 overlay 精确例外及 self-test。每个许可仍需 path/selector 限定，不能通用放开定位 |
 
 `session-stop-model.ts` 的用户未提交变更新增 `guided` 终态支持，不能简单丢弃；
-另外 kernel/plugin-sdk 的未提交重叠共涉及运行契约。这里只检查归属，不代替用户
-决定是否保存／纳入其工作。合并确认后应先在隔离整合环境保留双方已提交功能并验证，
+实际 diff 中 kernel 主要是格式调整及 `events` 注册位置移动，plugin-sdk 是签名格式
+调整；不能仅凭所属模块把它们说成新增执行语义。这里只检查归属，不代替用户决定
+是否保存／纳入其工作。合并确认后应先在隔离整合环境保留双方已提交功能并验证，
 再处理这些用户工作；不会自动 stash、提交或 reset 主目录。
 
 本预检仅更新交付信息，没有跑新的业务测试或原生验收，也没有解决上述冲突。
