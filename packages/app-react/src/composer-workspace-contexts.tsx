@@ -1,5 +1,5 @@
 import { FileText, MessageSquare, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenDisclosure, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { SessionDraftState } from '@hbar/app-runtime'
 import './composer-workspace-contexts.css'
 
@@ -85,10 +85,9 @@ export function HbarComposerWorkspaceContexts({
                       {note}
                     </LumenText>
                   )}
-                  <details className="hbar-composer-workspace-context-quote">
-                    <summary>{labels.quoteDisclosure}</summary>
+                  <LumenDisclosure className="hbar-composer-workspace-context-quote" summary={labels.quoteDisclosure}>
                     <blockquote className="hbar-composer-workspace-context-quote-text">{context.quote}</blockquote>
-                  </details>
+                  </LumenDisclosure>
                 </LumenFrame>
                 <LumenButton
                   type="button"

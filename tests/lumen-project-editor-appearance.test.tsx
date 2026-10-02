@@ -21,7 +21,7 @@ const dialogProps: LumenDialogProps = {
   footer: '宿主操作',
 }
 
-test('default dialog preserves glass, horizontal lamps and both decorative separators', () => {
+test('default dialog preserves glass, contour metadata and both semantic separators', () => {
   const markup = renderToStaticMarkup(<LumenDialog {...dialogProps} />)
   expect(markup).toContain('data-appearance="glass"')
   expect(markup).toContain('data-material="glass"')
@@ -44,7 +44,7 @@ test('panel appearance changes only chrome, retaining native dialog, title, body
   expect(markup).toContain('aria-label="关闭"')
 })
 
-test('solid surfaces keep explicit boundaries independent from non-refractive material', () => {
+test('solid surfaces preserve their boundary contract without directional lamps', () => {
   const markup = renderToStaticMarkup(
     <LumenSurface material="solid" boundary="vertical">
       内容
@@ -52,21 +52,21 @@ test('solid surfaces keep explicit boundaries independent from non-refractive ma
   )
   expect(markup).toContain('data-material="solid"')
   expect(markup).toContain('data-lens="none"')
-  expect(markup).toContain('data-edge="left"')
-  expect(markup).toContain('data-edge="right"')
+  expect(markup).toContain('data-boundary="vertical"')
+  expect(markup).not.toContain('data-edge=')
   expect(markup).not.toContain('backdrop-filter:')
 })
 
-test('legacy outlined remains boundary; plain and boxed never acquire decorative field lamps', () => {
+test('legacy boundary maps to outlined controls and all fields avoid directional lamps', () => {
   const variants: readonly LumenFieldVariant[] = ['boundary', 'outlined', 'plain', 'boxed']
   for (const variant of variants) {
     const markup = renderToStaticMarkup(<LumenInput variant={variant} defaultValue="Project" />)
     const boundary = variant === 'boundary' || variant === 'outlined'
-    expect(markup).toContain(`data-lumen-variant="${boundary ? 'boundary' : variant}"`)
+    expect(markup).toContain(`data-lumen-variant="${boundary ? 'outlined' : variant}"`)
     expect(markup.includes('data-boundary="horizontal"')).toBe(boundary)
-    expect(markup.includes('data-edge="top"')).toBe(boundary)
+    expect(markup).not.toContain('data-edge=')
   }
-  expect(renderToStaticMarkup(<LumenInput />)).toContain('data-lumen-variant="boundary"')
+  expect(renderToStaticMarkup(<LumenInput />)).toContain('data-lumen-variant="outlined"')
 })
 
 test('boxed field preserves required label, invalid state and localized explanation relationships', () => {

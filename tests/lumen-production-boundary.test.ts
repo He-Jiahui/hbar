@@ -38,7 +38,9 @@ test('the compatibility catalog and preview render controls through Lumen', asyn
   const violations: string[] = []
   for (const file of files) {
     const source = await readFile(file, 'utf8')
-    if (/@mui\/material(?:\/|['"])/.test(source)) {
+    const referenceEntry =
+      relative('.', file).replaceAll('\\', '/') === 'apps/hbar-app-ui-preview/src/VisualLanguagePreview.tsx'
+    if (/@mui\/material(?:\/|['"])/.test(source) && !referenceEntry) {
       violations.push(`${relative('.', file)}:mui-import`)
     }
     if (/<\s*(?:button|input|select|textarea|details|summary)(?:\s|>)/.test(source)) {
@@ -46,6 +48,18 @@ test('the compatibility catalog and preview render controls through Lumen', asyn
     }
   }
   expect(violations).toEqual([])
+})
+
+test('the MUI comparison baseline stays in its explicit reference page', async () => {
+  const roots = ['packages/app-react/src', 'apps/web/src', 'apps/hbar-app-ui-preview/src']
+  const files = (await Promise.all(roots.map((root) => collectSourceFiles(root)))).flat()
+  for (const file of files) {
+    if (file.endsWith('VisualLanguagePreview.tsx')) continue
+    const source = await readFile(file, 'utf8')
+    expect(source).not.toMatch(/(?:from\s*|import\s*\()['"][^'"]*VisualLanguagePreview/)
+  }
+  const page = await readFile('apps/hbar-app-ui-preview/visual-language.html', 'utf8')
+  expect(page).toContain('/src/VisualLanguagePreview.tsx')
 })
 
 test('retired app-react implementation files are absent from the production package', async () => {
