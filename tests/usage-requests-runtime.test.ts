@@ -35,4 +35,25 @@ describe('usage request projection', () => {
     expect(runtime.reader.getSnapshot().items).toEqual([])
     runtime.dispose()
   })
+  test('stops at the 400 item and 100 page bounds', async () => {
+    let page = 0
+    const runtime = createUsageRequests({ usage: { execute: async () => {
+      page += 1
+      return result(Array.from({ length: 50 }, (_, index) => attempt(`u-${(page - 1) * 50 + index}`)), page < 9 ? `cursor-${page}` : undefined)
+    } } })
+    await runtime.refresh()
+    while (runtime.reader.getSnapshot().hasMore) await runtime.loadMore()
+    expect(runtime.reader.getSnapshot().items).toHaveLength(400)
+    expect(page).toBe(8)
+    runtime.dispose()
+  })
+  test('dispose fences a late response without publishing an error', async () => {
+    let resolve: ((value: unknown) => void) | undefined
+    const runtime = createUsageRequests({ usage: { execute: async () => await new Promise((done) => { resolve = done }) } })
+    const pending = runtime.refresh()
+    runtime.dispose()
+    resolve?.(result([attempt('late')]))
+    await pending
+    expect(runtime.reader.getSnapshot().items).toEqual([])
+  })
 })
