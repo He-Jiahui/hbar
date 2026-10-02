@@ -33,7 +33,7 @@ test('Changed list renders only the current 100 rows and preserves its localized
       onOpen={() => {}}
     />,
   )
-  expect(html.match(/class="hbar-file-change"/g)).toHaveLength(100)
+  expect(html.match(/(?:class="|\s)hbar-file-change(?=\s|")/g)).toHaveLength(100)
   expect(html).toContain('很长的目录/文件-4999.ts')
   expect(html).not.toContain('很长的目录/文件-4800.ts')
   expect(html).toContain(labels.page(4901, 5000, 5000))

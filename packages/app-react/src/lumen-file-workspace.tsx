@@ -12,6 +12,11 @@ import {
   LumenSelect,
   LumenOption,
   LumenToolPane,
+  LumenFileManager01,
+  LumenFileManager03,
+  LumenEditor02,
+  LumenEditor03,
+  LumenEditor05,
   type LumenWorkspaceFileLabels,
 } from '@lumen/app-ui'
 import type { FileComposerContextSelection, SessionFileTarget } from '@hbar/app-runtime'
@@ -385,6 +390,7 @@ export function HbarFileWorkspace({
   const renderedMarkdown = Boolean(
     document && entry?.documentMode === 'preview' && canRenderFileMarkdown(document.path, document.draft),
   )
+  const EditorRecipe = editing ? LumenEditor03 : renderedMarkdown ? LumenEditor05 : LumenEditor02
   const busy = document?.status === 'submitting'
   const unknown = document?.status === 'unknown'
   const dirty = Boolean(document && document.draft !== document.baseline)
@@ -616,177 +622,186 @@ export function HbarFileWorkspace({
             hidden={!hasPreview || (!navigator.wide && navigator.shown)}
           >
             {document ? (
-              <LumenFileDocument
-                path={document.path}
-                name={fileName(document.path)}
-                labels={labels}
-                loading={document.status === 'loading'}
-                error={
-                  document.status !== 'unknown' && (document.error || entry?.error)
-                    ? labels.error(document.error ?? entry?.error ?? '')
-                    : undefined
-                }
-                contentAvailable={document.sha256 !== null}
-                retainContentWhileLoading
-                headerActions={singleClose}
-                refreshDisabled={dirty || busy || unknown}
-                onRetry={() => invoke('fileWorkspace.refreshPreview', { instanceId, workspaceId, previewId })}
-              >
-                <LumenFrame className="hbar-file-document-modes">
-                  <LumenButton
-                    variant={previewing ? 'outlined' : 'text'}
-                    aria-pressed={previewing}
-                    onClick={() =>
-                      invoke('fileWorkspace.setDocumentMode', {
-                        instanceId,
-                        workspaceId,
-                        previewId,
-                        path: document.path,
-                        mode: 'preview',
-                      })
-                    }
-                  >
-                    {labels.preview}
-                  </LumenButton>
-                  {markdownFile && (
-                    <LumenButton
-                      variant={entry?.documentMode === 'source' ? 'outlined' : 'text'}
-                      aria-pressed={entry?.documentMode === 'source'}
-                      onClick={() =>
-                        invoke('fileWorkspace.setDocumentMode', {
-                          instanceId,
-                          workspaceId,
-                          previewId,
-                          path: document.path,
-                          mode: 'source',
-                        })
+              <EditorRecipe
+                slots={{
+                  body: (
+                    <LumenFileDocument
+                      path={document.path}
+                      name={fileName(document.path)}
+                      labels={labels}
+                      loading={document.status === 'loading'}
+                      error={
+                        document.status !== 'unknown' && (document.error || entry?.error)
+                          ? labels.error(document.error ?? entry?.error ?? '')
+                          : undefined
                       }
+                      contentAvailable={document.sha256 !== null}
+                      retainContentWhileLoading
+                      headerActions={singleClose}
+                      refreshDisabled={dirty || busy || unknown}
+                      onRetry={() => invoke('fileWorkspace.refreshPreview', { instanceId, workspaceId, previewId })}
                     >
-                      {labels.source}
-                    </LumenButton>
-                  )}
-                  <LumenButton
-                    variant={editing ? 'outlined' : 'text'}
-                    aria-pressed={editing}
-                    onClick={() =>
-                      invoke('fileWorkspace.setDocumentMode', {
-                        instanceId,
-                        workspaceId,
-                        previewId,
-                        path: document.path,
-                        mode: 'edit',
-                      })
-                    }
-                  >
-                    {labels.edit}
-                  </LumenButton>
-                  {sourceTab && (mode !== 'workbench' || workbenchTab) && (
-                    <LumenButton
-                      className="hbar-file-add-to-chat"
-                      variant="text"
-                      disabled={!canAdd || addingTarget !== null}
-                      onClick={() => {
-                        void addCurrentFile()
-                      }}
-                    >
-                      <LumenIcon icon={MessageCircle} tier="sm" />
-                      {labels.addToChat}
-                    </LumenButton>
-                  )}
-                </LumenFrame>
-                {addHint && (
-                  <LumenText as="p" role="status" className="hbar-file-add-feedback">
-                    {addHint}
-                  </LumenText>
-                )}
-                {feedback && (
-                  <LumenText
-                    as="p"
-                    role={feedback.kind === 'error' ? 'alert' : 'status'}
-                    className="hbar-file-add-feedback"
-                  >
-                    {feedback.message}
-                  </LumenText>
-                )}
-                {markdownFile && entry?.documentMode === 'preview' && !renderedMarkdown && (
-                  <LumenText as="p" role="status" className="hbar-file-add-feedback">
-                    {labels.markdownTooLarge}
-                  </LumenText>
-                )}
-                {editing ? (
-                  <LumenTextarea
-                    className="hbar-app-react-file-editor"
-                    variant="plain"
-                    aria-label={document.path}
-                    value={document.draft}
-                    disabled={!connected || unknown || document.status === 'loading'}
-                    onChange={(event) =>
-                      invoke('fileWorkspace.setText', {
-                        instanceId,
-                        workspaceId,
-                        previewId,
-                        text: event.currentTarget.value,
-                      })
-                    }
-                  />
-                ) : renderedMarkdown && previewId ? (
-                  <HbarFileMarkdownPreview
-                    key={previewId}
-                    path={document.path}
-                    value={document.draft}
-                    label={labels.textPreview(document.path)}
-                    imageLabel={labels.markdownImage}
-                    openFileLabel={labels.openLinkedFile}
-                    code={{ previewId, owner: runtime, labels: labels.markdownCode }}
-                    onOpenFile={(path) =>
-                      invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
-                    }
-                  />
-                ) : (
-                  <HbarFileSourceSurface
-                    key={`${previewId}:${document.sha256}`}
-                    path={document.path}
-                    value={document.draft}
-                    sha256={document.sha256}
-                    previewLabel={labels.textPreview(document.path)}
-                    labels={labels.context}
-                    disabled={!canAdd || addingTarget !== null}
-                    revealedLine={revealedLine}
-                    onAdd={addCurrentFile}
-                  />
-                )}
-                {unknown && document.error && (
-                  <LumenText as="p" role="alert">
-                    {labels.error(document.error)}
-                  </LumenText>
-                )}
-                <LumenFrame as="footer">
-                  <LumenText as="span" role="status">
-                    {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
-                  </LumenText>
-                  {dirty && !unknown && (
-                    <LumenButton disabled={!connected || busy || document.status === 'loading'} onClick={requestReload}>
-                      {labels.reload}
-                    </LumenButton>
-                  )}
-                  {unknown ? (
-                    <LumenButton
-                      disabled={!connected}
-                      onClick={() => invoke('fileWorkspace.reconcile', { instanceId, workspaceId, previewId })}
-                    >
-                      {labels.reconcile}
-                    </LumenButton>
-                  ) : editing ? (
-                    <LumenButton
-                      disabled={!connected || !dirty || busy}
-                      tone="primary"
-                      onClick={() => invoke('fileWorkspace.save', { instanceId, workspaceId, previewId })}
-                    >
-                      {busy ? labels.saving : labels.save}
-                    </LumenButton>
-                  ) : null}
-                </LumenFrame>
-              </LumenFileDocument>
+                      <LumenFrame className="hbar-file-document-modes">
+                        <LumenButton
+                          variant={previewing ? 'outlined' : 'text'}
+                          aria-pressed={previewing}
+                          onClick={() =>
+                            invoke('fileWorkspace.setDocumentMode', {
+                              instanceId,
+                              workspaceId,
+                              previewId,
+                              path: document.path,
+                              mode: 'preview',
+                            })
+                          }
+                        >
+                          {labels.preview}
+                        </LumenButton>
+                        {markdownFile && (
+                          <LumenButton
+                            variant={entry?.documentMode === 'source' ? 'outlined' : 'text'}
+                            aria-pressed={entry?.documentMode === 'source'}
+                            onClick={() =>
+                              invoke('fileWorkspace.setDocumentMode', {
+                                instanceId,
+                                workspaceId,
+                                previewId,
+                                path: document.path,
+                                mode: 'source',
+                              })
+                            }
+                          >
+                            {labels.source}
+                          </LumenButton>
+                        )}
+                        <LumenButton
+                          variant={editing ? 'outlined' : 'text'}
+                          aria-pressed={editing}
+                          onClick={() =>
+                            invoke('fileWorkspace.setDocumentMode', {
+                              instanceId,
+                              workspaceId,
+                              previewId,
+                              path: document.path,
+                              mode: 'edit',
+                            })
+                          }
+                        >
+                          {labels.edit}
+                        </LumenButton>
+                        {sourceTab && (mode !== 'workbench' || workbenchTab) && (
+                          <LumenButton
+                            className="hbar-file-add-to-chat"
+                            variant="text"
+                            disabled={!canAdd || addingTarget !== null}
+                            onClick={() => {
+                              void addCurrentFile()
+                            }}
+                          >
+                            <LumenIcon icon={MessageCircle} tier="sm" />
+                            {labels.addToChat}
+                          </LumenButton>
+                        )}
+                      </LumenFrame>
+                      {addHint && (
+                        <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                          {addHint}
+                        </LumenText>
+                      )}
+                      {feedback && (
+                        <LumenText
+                          as="p"
+                          role={feedback.kind === 'error' ? 'alert' : 'status'}
+                          className="hbar-file-add-feedback"
+                        >
+                          {feedback.message}
+                        </LumenText>
+                      )}
+                      {markdownFile && entry?.documentMode === 'preview' && !renderedMarkdown && (
+                        <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                          {labels.markdownTooLarge}
+                        </LumenText>
+                      )}
+                      {editing ? (
+                        <LumenTextarea
+                          className="hbar-app-react-file-editor"
+                          variant="plain"
+                          aria-label={document.path}
+                          value={document.draft}
+                          disabled={!connected || unknown || document.status === 'loading'}
+                          onChange={(event) =>
+                            invoke('fileWorkspace.setText', {
+                              instanceId,
+                              workspaceId,
+                              previewId,
+                              text: event.currentTarget.value,
+                            })
+                          }
+                        />
+                      ) : renderedMarkdown && previewId ? (
+                        <HbarFileMarkdownPreview
+                          key={previewId}
+                          path={document.path}
+                          value={document.draft}
+                          label={labels.textPreview(document.path)}
+                          imageLabel={labels.markdownImage}
+                          openFileLabel={labels.openLinkedFile}
+                          code={{ previewId, owner: runtime, labels: labels.markdownCode }}
+                          onOpenFile={(path) =>
+                            invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
+                          }
+                        />
+                      ) : (
+                        <HbarFileSourceSurface
+                          key={`${previewId}:${document.sha256}`}
+                          path={document.path}
+                          value={document.draft}
+                          sha256={document.sha256}
+                          previewLabel={labels.textPreview(document.path)}
+                          labels={labels.context}
+                          disabled={!canAdd || addingTarget !== null}
+                          revealedLine={revealedLine}
+                          onAdd={addCurrentFile}
+                        />
+                      )}
+                      {unknown && document.error && (
+                        <LumenText as="p" role="alert">
+                          {labels.error(document.error)}
+                        </LumenText>
+                      )}
+                      <LumenFrame as="footer">
+                        <LumenText as="span" role="status">
+                          {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
+                        </LumenText>
+                        {dirty && !unknown && (
+                          <LumenButton
+                            disabled={!connected || busy || document.status === 'loading'}
+                            onClick={requestReload}
+                          >
+                            {labels.reload}
+                          </LumenButton>
+                        )}
+                        {unknown ? (
+                          <LumenButton
+                            disabled={!connected}
+                            onClick={() => invoke('fileWorkspace.reconcile', { instanceId, workspaceId, previewId })}
+                          >
+                            {labels.reconcile}
+                          </LumenButton>
+                        ) : editing ? (
+                          <LumenButton
+                            disabled={!connected || !dirty || busy}
+                            tone="primary"
+                            onClick={() => invoke('fileWorkspace.save', { instanceId, workspaceId, previewId })}
+                          >
+                            {busy ? labels.saving : labels.save}
+                          </LumenButton>
+                        ) : null}
+                      </LumenFrame>
+                    </LumenFileDocument>
+                  ),
+                }}
+              />
             ) : diff && entry ? (
               <HbarFileDiff
                 key={previewId}
@@ -856,46 +871,58 @@ export function HbarFileWorkspace({
               </LumenSelect>
             </LumenFrame>
             {entry?.browserMode === 'changed' ? (
-              <HbarFileChanges
-                changes={entry.changes}
-                labels={labels.changes}
-                connected={connected}
-                selectedPath={selectedPath}
-                onRefresh={() =>
-                  invoke('fileWorkspace.refreshChanges', { instanceId, workspaceId, preservePreview: true })
-                }
-                onFilter={(filter) => invoke('fileWorkspace.filterChanges', { instanceId, workspaceId, filter })}
-                onPage={(page) => invoke('fileWorkspace.pageChanges', { instanceId, workspaceId, page })}
-                onOpen={(path) => {
-                  navigator.selected()
-                  invoke('fileWorkspace.openChange', { instanceId, workspaceId, path })
+              <LumenFileManager03
+                slots={{
+                  content: (
+                    <HbarFileChanges
+                      changes={entry.changes}
+                      labels={labels.changes}
+                      connected={connected}
+                      selectedPath={selectedPath}
+                      onRefresh={() =>
+                        invoke('fileWorkspace.refreshChanges', { instanceId, workspaceId, preservePreview: true })
+                      }
+                      onFilter={(filter) => invoke('fileWorkspace.filterChanges', { instanceId, workspaceId, filter })}
+                      onPage={(page) => invoke('fileWorkspace.pageChanges', { instanceId, workspaceId, page })}
+                      onOpen={(path) => {
+                        navigator.selected()
+                        invoke('fileWorkspace.openChange', { instanceId, workspaceId, path })
+                      }}
+                    />
+                  ),
                 }}
               />
             ) : (
-              <HbarFileTree
-                entry={entry}
-                labels={labels.tree}
-                connected={connected}
-                selectedPath={selectedPath}
-                onFilter={(filter) => invoke('fileWorkspace.filterTree', { instanceId, workspaceId, filter })}
-                onToggle={(path) => invoke('fileWorkspace.toggleTree', { instanceId, workspaceId, path })}
-                onRefreshNode={(path) => invoke('fileWorkspace.refreshTree', { instanceId, workspaceId, path })}
-                onMoreNode={(path) => invoke('fileWorkspace.loadMoreTree', { instanceId, workspaceId, path })}
-                onOpenFile={(path) => {
-                  navigator.selected()
-                  invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
+              <LumenFileManager01
+                slots={{
+                  navigation: (
+                    <HbarFileTree
+                      entry={entry}
+                      labels={labels.tree}
+                      connected={connected}
+                      selectedPath={selectedPath}
+                      onFilter={(filter) => invoke('fileWorkspace.filterTree', { instanceId, workspaceId, filter })}
+                      onToggle={(path) => invoke('fileWorkspace.toggleTree', { instanceId, workspaceId, path })}
+                      onRefreshNode={(path) => invoke('fileWorkspace.refreshTree', { instanceId, workspaceId, path })}
+                      onMoreNode={(path) => invoke('fileWorkspace.loadMoreTree', { instanceId, workspaceId, path })}
+                      onOpenFile={(path) => {
+                        navigator.selected()
+                        invoke('fileWorkspace.openEntry', { instanceId, workspaceId, path, directory: false })
+                      }}
+                      onNavigateFolder={(path) =>
+                        invoke('fileWorkspace.openEntry', {
+                          instanceId,
+                          workspaceId,
+                          path,
+                          directory: true,
+                          preservePreview: true,
+                        })
+                      }
+                      onMoreRoot={() => invoke('fileWorkspace.loadMore', { instanceId })}
+                      onRefreshRoot={() => invoke('fileWorkspace.refresh', { instanceId, preservePreview: true })}
+                    />
+                  ),
                 }}
-                onNavigateFolder={(path) =>
-                  invoke('fileWorkspace.openEntry', {
-                    instanceId,
-                    workspaceId,
-                    path,
-                    directory: true,
-                    preservePreview: true,
-                  })
-                }
-                onMoreRoot={() => invoke('fileWorkspace.loadMore', { instanceId })}
-                onRefreshRoot={() => invoke('fileWorkspace.refresh', { instanceId, preservePreview: true })}
               />
             )}
           </LumenFrame>
