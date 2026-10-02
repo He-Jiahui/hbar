@@ -93,22 +93,22 @@ export function ProviderListView({
   const listBusy = busy || defaultMutationBusy || reconcilingProviderId !== null
 
   return (
-    <section
+    <LumenFrame as="section"
       className="hbar-provider-list-view"
       aria-label={labels.title}
       aria-busy={listBusy || undefined}
       data-testid="provider-settings-list"
     >
-      <header className="hbar-provider-list-view-header">
-        <div className="hbar-provider-list-view-heading">
+      <LumenFrame as="header" className="hbar-provider-list-view-header">
+        <LumenFrame className="hbar-provider-list-view-heading">
           <LumenText as="h2" variant="heading">
             {labels.title}
           </LumenText>
           <LumenText as="p" tone="muted">
             {labels.description}
           </LumenText>
-        </div>
-        <div className="hbar-provider-list-view-header-actions">
+        </LumenFrame>
+        <LumenFrame className="hbar-provider-list-view-header-actions">
           <LumenIconButton label={labels.refresh} disabled={!connected || listBusy} onClick={onRefresh}>
             <LumenIcon icon={RefreshCw} tier="sm" />
           </LumenIconButton>
@@ -116,8 +116,8 @@ export function ProviderListView({
             <LumenIcon icon={Plus} tier="sm" />
             {labels.add}
           </LumenButton>
-        </div>
-      </header>
+        </LumenFrame>
+      </LumenFrame>
 
       {globalDefault.status === 'error' && globalDefault.error ? (
         <LumenText as="p" className="hbar-provider-list-view-error" role="alert">
@@ -130,7 +130,7 @@ export function ProviderListView({
           {labels.empty}
         </LumenText>
       ) : (
-        <ol className="hbar-provider-list-view-items" aria-label={labels.title}>
+        <LumenCollection as="ol" className="hbar-provider-list-view-items" aria-label={labels.title}>
           {items.map((item) => {
             const row = providerListRowPresentation({
               item,
@@ -143,7 +143,7 @@ export function ProviderListView({
             const actionError = row.actionErrorCode ? labels.setDefaultError(row.actionErrorCode) : null
 
             return (
-              <li
+              <LumenCollectionItem
                 key={item.providerId}
                 className="hbar-provider-list-view-item"
                 data-testid="provider-row"
@@ -177,7 +177,7 @@ export function ProviderListView({
                   </LumenButton>
                 )}
 
-                <div className="hbar-provider-list-view-actions">
+                <LumenFrame className="hbar-provider-list-view-actions">
                   {row.actionIsUnknown ? (
                     <LumenButton
                       type="button"
@@ -211,7 +211,7 @@ export function ProviderListView({
                     ]}
                     onAction={() => onRemove(item.providerId)}
                   />
-                </div>
+                </LumenFrame>
 
                 {row.actionIsSubmitting && !row.reconciliationPending ? (
                   <LumenText as="p" className="hbar-provider-list-view-feedback" role="status">
@@ -228,12 +228,12 @@ export function ProviderListView({
                     {actionError}
                   </LumenText>
                 ) : null}
-              </li>
+              </LumenCollectionItem>
             )
           })}
-        </ol>
+        </LumenCollection>
       )}
-    </section>
+    </LumenFrame>
   )
 }
 
@@ -272,8 +272,8 @@ function ProviderSummaryCopy({
   readonly globalDefaultSelectable?: boolean
 }) {
   return (
-    <span className="hbar-provider-list-view-copy">
-      <span className="hbar-provider-list-view-title-row">
+    <LumenText as="span" className="hbar-provider-list-view-copy">
+      <LumenText as="span" className="hbar-provider-list-view-title-row">
         <LumenText as="strong" variant="label" className="hbar-provider-list-view-name">
           {item.name}
         </LumenText>
@@ -285,8 +285,8 @@ function ProviderSummaryCopy({
             data-testid="provider-global-default"
           />
         ) : null}
-      </span>
-      <span className="hbar-provider-list-view-metadata">
+      </LumenText>
+      <LumenText as="span" className="hbar-provider-list-view-metadata">
         <LumenText as="small" tone="subtle" variant="supporting">
           {labels.protocol(item.protocol)}
         </LumenText>
@@ -305,7 +305,7 @@ function ProviderSummaryCopy({
             {labels.hidden}
           </LumenText>
         ) : null}
-      </span>
-    </span>
+      </LumenText>
+    </LumenText>
   )
 }

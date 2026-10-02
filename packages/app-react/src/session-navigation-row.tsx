@@ -346,13 +346,13 @@ export function SessionNavigationRow({
             >
               {metadata ? (
                 <>
-                  <span className="hbar-app-react-session-main-line">
+                  <LumenFrame className="hbar-app-react-session-main-line">
                     <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
                       {session.title}
                     </LumenText>
                     {sessionTime}
                     <SessionActivityIndicator execution={metadata.execution} />
-                  </span>
+                  </LumenFrame>
                   <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
                     <LumenIcon icon={Folder} tier="sm" />
                     <LumenText

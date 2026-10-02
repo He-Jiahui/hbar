@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type ComponentProps } from 'react'
+import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type ComponentProps, type Ref } from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown, { type ExtraProps } from 'react-markdown'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
@@ -159,7 +159,12 @@ function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
   // Unsupported local/absolute paths must not accidentally navigate the app's
   // browser route. File capabilities are explicit; footnotes and mail stay links.
   if (props.href && !external && !props.href.startsWith('#') && !/^mailto:/i.test(props.href)) return props.children
-  return <a {...props} target={external ? '_blank' : undefined} rel={external ? 'noreferrer noopener' : undefined} />
+  const { ref: anchorRef, ...anchorProps } = props
+  const compatibleRef = (node: HTMLAnchorElement | null) => {
+    if (typeof anchorRef === 'function') anchorRef(node)
+    else if (anchorRef) anchorRef.current = node
+  }
+  return <LumenFrame as="a" {...anchorProps} ref={anchorRef ? compatibleRef : undefined} target={external ? '_blank' : undefined} rel={external ? 'noreferrer noopener' : undefined} />
 }
 
 const linkComponents = { a: MarkdownLink }

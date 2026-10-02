@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { LumenButton, LumenIcon } from '@lumen/app-ui'
+import { LumenButton, LumenIcon, LumenText } from '@lumen/app-ui'
 import './sidebar-search-entry.css'
 
 /** A content-grown global-search trigger; no query or navigation state is duplicated here. */
@@ -27,8 +27,8 @@ export function SidebarSearchEntry({
       onClick={onOpen}
     >
       <LumenIcon icon={Search} tier="sm" />
-      <span className="hbar-sidebar-search-label">{label}</span>
-      <kbd aria-hidden="true">{shortcut}</kbd>
+      <LumenText as="span" className="hbar-sidebar-search-label">{label}</LumenText>
+      <LumenText as="kbd" aria-hidden="true">{shortcut}</LumenText>
     </LumenButton>
   )
 }

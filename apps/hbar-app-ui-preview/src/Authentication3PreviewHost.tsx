@@ -130,7 +130,7 @@ export function Authentication3DraftOwner({
   }
 
   return (
-    <div className="hbar-app-ui-authentication3-preview-host" data-hbar-app-ui-auth3-controlled="true">
+    <LumenFrame className="hbar-app-ui-authentication3-preview-host" data-hbar-app-ui-auth3-controlled="true">
       <LumenAuthenticationProvider
         content={{
           ...(parentContent ?? content),
@@ -139,6 +139,6 @@ export function Authentication3DraftOwner({
       >
         {children}
       </LumenAuthenticationProvider>
-    </div>
+    </LumenFrame>
   )
 }

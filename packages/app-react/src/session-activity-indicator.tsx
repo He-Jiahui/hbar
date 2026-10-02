@@ -1,5 +1,5 @@
 import { CircleAlert, Hourglass, LoaderCircle } from 'lucide-react'
-import { LumenIcon } from '@lumen/app-ui'
+import { LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
 import './session-activity-indicator.css'
 
@@ -16,7 +16,7 @@ export function SessionActivityIndicator({
 }) {
   if (!execution || execution.state === 'idle') return null
   return (
-    <span
+    <LumenFrame
       className="hbar-app-react-session-activity-indicator"
       role="img"
       aria-label={execution.label}
@@ -29,6 +29,6 @@ export function SessionActivityIndicator({
         }
         tier="sm"
       />
-    </span>
+    </LumenFrame>
   )
 }

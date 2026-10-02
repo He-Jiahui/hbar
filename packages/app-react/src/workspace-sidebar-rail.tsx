@@ -92,8 +92,8 @@ export function WorkspaceSidebarRail({
   children,
 }: WorkspaceSidebarRailProps) {
   return (
-    <aside className="hbar-app-react-sidebar-rail">
-      <header className="hbar-app-react-sidebar-rail-header">
+    <LumenFrame as="aside" className="hbar-app-react-sidebar-rail">
+      <LumenFrame as="header" className="hbar-app-react-sidebar-rail-header">
         <HbarActionIconButton
           ref={expandRef}
           className="hbar-app-react-sidebar-rail-action"
@@ -103,7 +103,7 @@ export function WorkspaceSidebarRail({
         >
           <LumenIcon icon={PanelLeftOpen} tier="md" />
         </HbarActionIconButton>
-      </header>
+      </LumenFrame>
       <LumenFrame className="hbar-app-react-sidebar-rail-body">
         <LumenFrame as="nav" aria-label={labels.navigation} className="hbar-app-react-sidebar-rail-navigation">
           <RailAction label={labels.newSession} disabled={newDisabled || !connected} loading={newBusy} onClick={onNew}>
@@ -120,8 +120,8 @@ export function WorkspaceSidebarRail({
           <LumenFrame className="hbar-app-react-sidebar-rail-feedback">{children}</LumenFrame>
         ) : null}
       </LumenFrame>
-      <footer className="hbar-app-react-sidebar-rail-footer">
-        <span
+      <LumenFrame as="footer" className="hbar-app-react-sidebar-rail-footer">
+        <LumenFrame
           className="hbar-app-react-sidebar-rail-server"
           role="status"
           aria-label={labels.serverValue}
@@ -129,7 +129,7 @@ export function WorkspaceSidebarRail({
           data-tone={serverTone}
         >
           <LumenIcon icon={Circle} tier="sm" />
-        </span>
+        </LumenFrame>
         {!connected && onReconnect ? (
           <RailAction label={labels.reconnect} onClick={onReconnect}>
             <LumenIcon icon={RefreshCw} tier="md" />
@@ -141,7 +141,7 @@ export function WorkspaceSidebarRail({
         <RailAction label={labels.settings} selected={settingsSelected} onClick={onSettings}>
           <LumenIcon icon={Settings} tier="md" />
         </RailAction>
-      </footer>
-    </aside>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

@@ -6,6 +6,8 @@ import {
   DEFAULT_LUMEN_APPEARANCE,
   LumenButton,
   LumenInput,
+  LumenFrame,
+  LumenText,
   LumenOption,
   LumenProvider,
   LumenSelect,
@@ -37,31 +39,31 @@ function ComponentPreviewCard({
   readonly copy: ComponentGalleryCopy
 }) {
   return (
-    <article className="component-gallery-card" data-gallery-entry={entry.id}>
-      <header className="component-gallery-card-heading">
-        <div>
-          <h2>{copy.entryTitle(entry)}</h2>
-          <code>{entry.entry}</code>
-        </div>
-        <a
+    <LumenFrame as="article" className="component-gallery-card" data-gallery-entry={entry.id}>
+      <LumenFrame as="header" className="component-gallery-card-heading">
+        <LumenFrame>
+          <LumenText as="h2">{copy.entryTitle(entry)}</LumenText>
+          <LumenText as="code">{entry.entry}</LumenText>
+        </LumenFrame>
+        <LumenFrame as="a"
           className="component-gallery-link"
           href={componentPreviewUrl(entry.id, theme, false)}
           target="_blank"
           rel="noopener"
           aria-label={copy.openTitle(entry)}
         >
-          <span>{copy.open}</span>
+          <LumenText as="span">{copy.open}</LumenText>
           <HbarAppUiIcon icon={ExternalLink} tier="sm" />
-        </a>
-      </header>
-      <iframe
+        </LumenFrame>
+      </LumenFrame>
+      <LumenFrame as="iframe"
         key={theme}
         className="component-gallery-preview"
         src={componentPreviewUrl(entry.id, theme, true)}
         title={copy.previewTitle(entry)}
         loading="lazy"
       />
-    </article>
+    </LumenFrame>
   )
 }
 
@@ -116,16 +118,16 @@ export function ComponentGallery({
   const foundationUrl = `/visual-language.html?${new URLSearchParams({ locale, theme }).toString()}`
   return (
     <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: theme }} withCssBaseline={false}>
-      <main className="component-gallery" style={galleryStyle} data-hbar-app-ui-theme={theme}>
-        <header className="component-gallery-heading">
-          <div className="component-gallery-title">
-            <h1>{copy.title}</h1>
-            <p>{copy.catalogCount(entries.length, categoryCount)}</p>
-          </div>
-          <div className="component-gallery-heading-actions">
-            <a className="component-gallery-link" href={foundationUrl}>
+      <LumenFrame as="main" className="component-gallery" style={galleryStyle} data-hbar-app-ui-theme={theme}>
+        <LumenFrame as="header" className="component-gallery-heading">
+          <LumenFrame className="component-gallery-title">
+            <LumenText as="h1">{copy.title}</LumenText>
+            <LumenText as="p">{copy.catalogCount(entries.length, categoryCount)}</LumenText>
+          </LumenFrame>
+          <LumenFrame className="component-gallery-heading-actions">
+            <LumenFrame as="a" className="component-gallery-link" href={foundationUrl}>
               {copy.foundation}
-            </a>
+            </LumenFrame>
             <LumenSelect
               aria-label={copy.language}
               value={locale}
@@ -140,10 +142,10 @@ export function ComponentGallery({
             <LumenButton variant="text" aria-label={copy.theme} onClick={toggleTheme}>
               <HbarAppUiIcon icon={theme === 'dark' ? Sun : Moon} />
             </LumenButton>
-          </div>
-        </header>
-        <div className="component-gallery-toolbar">
-          <label className="component-gallery-search lumen-input-group lumen-effect">
+          </LumenFrame>
+        </LumenFrame>
+        <LumenFrame className="component-gallery-toolbar">
+          <LumenFrame as="label" className="component-gallery-search lumen-input-group lumen-effect">
             <HbarAppUiIcon icon={Search} />
             <LumenInput
               type="search"
@@ -153,11 +155,11 @@ export function ComponentGallery({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-          </label>
-          <span className="component-gallery-result-count" role="status">
+          </LumenFrame>
+          <LumenText as="span" className="component-gallery-result-count" role="status">
             {copy.resultCount(page.first, page.last, page.total)}
-          </span>
-          <nav className="component-gallery-pagination" aria-label={copy.pagination}>
+          </LumenText>
+          <LumenFrame as="nav" className="component-gallery-pagination" aria-label={copy.pagination}>
             <LumenButton
               variant="text"
               disabled={page.page === 1}
@@ -166,7 +168,7 @@ export function ComponentGallery({
             >
               <HbarAppUiIcon icon={ChevronLeft} />
             </LumenButton>
-            <span>{copy.pageCount(page.page, page.pages)}</span>
+            <LumenText as="span">{copy.pageCount(page.page, page.pages)}</LumenText>
             <LumenButton
               variant="text"
               disabled={page.page === page.pages}
@@ -175,15 +177,15 @@ export function ComponentGallery({
             >
               <HbarAppUiIcon icon={ChevronRight} />
             </LumenButton>
-          </nav>
-        </div>
-        <div className="component-gallery-body">
-          <aside className="component-gallery-sidebar">
-            <h2>{copy.categoriesHeading}</h2>
-            <nav className="component-gallery-categories" aria-label={copy.categoriesHeading}>
+          </LumenFrame>
+        </LumenFrame>
+        <LumenFrame className="component-gallery-body">
+          <LumenFrame as="aside" className="component-gallery-sidebar">
+            <LumenText as="h2">{copy.categoriesHeading}</LumenText>
+            <LumenFrame as="nav" className="component-gallery-categories" aria-label={copy.categoriesHeading}>
               <LumenButton variant="text" aria-pressed={category === 'all'} onClick={() => chooseCategory('all')}>
-                <span>{copy.all}</span>
-                <small>{page.matchingCount}</small>
+                <LumenText as="span">{copy.all}</LumenText>
+                <LumenText as="small">{page.matchingCount}</LumenText>
               </LumenButton>
               {page.categories.map((item) => (
                 <LumenButton
@@ -192,31 +194,31 @@ export function ComponentGallery({
                   aria-pressed={category === item.category}
                   onClick={() => chooseCategory(item.category)}
                 >
-                  <span>{copy.categoryLabels[item.category]}</span>
-                  <small>{item.count}</small>
+                  <LumenText as="span">{copy.categoryLabels[item.category]}</LumenText>
+                  <LumenText as="small">{item.count}</LumenText>
                 </LumenButton>
               ))}
-            </nav>
-          </aside>
-          <div className="component-gallery-results" ref={previewsRef}>
+            </LumenFrame>
+          </LumenFrame>
+          <LumenFrame className="component-gallery-results" ref={previewsRef}>
             {page.entries.length ? (
-              <div className="component-gallery-cards">
+              <LumenFrame className="component-gallery-cards">
                 {page.entries.map((entry) => (
                   <ComponentPreviewCard key={entry.id} entry={entry} theme={theme} copy={copy} />
                 ))}
-              </div>
+              </LumenFrame>
             ) : (
-              <section className="component-gallery-empty">
-                <h2>{copy.emptyTitle}</h2>
-                <p>{copy.emptyDescription}</p>
+              <LumenFrame as="section" className="component-gallery-empty">
+                <LumenText as="h2">{copy.emptyTitle}</LumenText>
+                <LumenText as="p">{copy.emptyDescription}</LumenText>
                 <LumenButton variant="outlined" onClick={resetFilters}>
                   {copy.reset}
                 </LumenButton>
-              </section>
+              </LumenFrame>
             )}
-          </div>
-        </div>
-      </main>
+          </LumenFrame>
+        </LumenFrame>
+      </LumenFrame>
     </LumenProvider>
   )
 }

@@ -103,7 +103,7 @@ function Authentication4DraftOwner({
   }
 
   return (
-    <div className="hbar-app-ui-authentication4-preview-host" data-hbar-app-ui-auth4-controlled="true">
+    <LumenFrame className="hbar-app-ui-authentication4-preview-host" data-hbar-app-ui-auth4-controlled="true">
       <LumenAuthenticationProvider
         content={{
           ...(parentContent ?? content),
@@ -116,6 +116,6 @@ function Authentication4DraftOwner({
       >
         {children}
       </LumenAuthenticationProvider>
-    </div>
+    </LumenFrame>
   )
 }

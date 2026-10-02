@@ -1,4 +1,5 @@
 import { messageLiteralSegments } from './message-literal-text-model'
+import { LumenFrame, LumenText } from '@lumen/app-ui'
 import { splitMessageFileReferences } from './message-file-reference-model'
 import { MessageFileReferenceLink, type MessageFileReferenceContext } from './message-file-reference'
 
@@ -11,12 +12,12 @@ export function MessageLiteralText({
   readonly fileReferences?: MessageFileReferenceContext | undefined
 }) {
   return (
-    <p className="hbar-session-message-literal">
+    <LumenText as="p" className="hbar-session-message-literal">
       {messageLiteralSegments(text).map((segment, index) =>
         segment.kind === 'url' ? (
-          <a key={index} href={segment.value} target="_blank" rel="noreferrer noopener">
+          <LumenFrame as="a" key={index} href={segment.value} target="_blank" rel="noreferrer noopener">
             {segment.value}
-          </a>
+          </LumenFrame>
         ) : fileReferences ? (
           splitMessageFileReferences(segment.value).map((part, ordinal) =>
             part.kind === 'file' ? (
@@ -31,6 +32,6 @@ export function MessageLiteralText({
           segment.value
         ),
       )}
-    </p>
+    </LumenText>
   )
 }
