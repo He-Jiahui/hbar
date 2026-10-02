@@ -341,6 +341,11 @@ try {
         editorText: editor?.innerText ?? null,
         editorValue: editor?.textContent ?? null,
         fiberHasProps: Boolean(fiber && typeof fiber === 'object' && 'memoizedProps' in fiber),
+        composerCandidates: Array.from(document.querySelectorAll('[role="textbox"]')).map((node) => ({
+          text: (node as HTMLElement).innerText,
+          aria: node.getAttribute('aria-label'),
+          visible: Boolean((node as HTMLElement).offsetWidth || (node as HTMLElement).offsetHeight),
+        })),
         url: location.href,
       }
     }, phase)
