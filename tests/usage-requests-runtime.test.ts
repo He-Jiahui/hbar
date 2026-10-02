@@ -1,0 +1,38 @@
+import { describe, expect, test } from 'bun:test'
+import { createUsageRequests } from '../packages/app-runtime/src/usage-requests'
+
+const attempt = (id: string, endedAt = 10) => ({
+  usageId: id, attemptId: `attempt-${id}`, sessionId: 'session-1', workspaceId: 'workspace-1', runId: 'run-1', source: 'model' as const,
+  providerId: 'provider-1', modelId: 'model-1', modelSelectionId: 'selection-1', startedAt: 0, firstProviderEventAt: 1, firstThinkingAt: null, firstTextAt: 2,
+  endedAt, runStatus: 'completed' as const, input: 3, output: 4, cacheRead: 0, cacheWrite: 0, billableTokens: 7,
+  cost: { value: null, unit: 'USD' as const, availability: 'unavailable' as const, reason: 'PRICE_COVERAGE_INCOMPLETE', source: 'usage-ledger', estimated: false, sampleCount: 1 }, pricingVersion: null, accountingVersion: 1,
+})
+function result(items: ReturnType<typeof attempt>[], nextCursor?: string) { return { accountingVersion: 1 as const, scope: { kind: 'global' as const }, observedAt: 20, gap: false, items, ...(nextCursor ? { nextCursor } : {}) } }
+
+describe('usage request projection', () => {
+  test('loads bounded rows and preserves unavailable cost', async () => {
+    const runtime = createUsageRequests({ usage: { execute: async () => result([attempt('u1')]) } })
+    await runtime.refresh()
+    expect(runtime.reader.getSnapshot().items[0]?.id).toBe('u1')
+    expect(runtime.reader.getSnapshot().items[0]?.cost.availability).toBe('unavailable')
+    runtime.dispose()
+  })
+  test('paginates and deduplicates ids', async () => {
+    let page = 0
+    const runtime = createUsageRequests({ usage: { execute: async (_name, input) => page++ === 0 ? result([attempt('u1')], 'cursor') : result([attempt('u1'), attempt('u2')]) } })
+    await runtime.refresh(); await runtime.loadMore()
+    expect(runtime.reader.getSnapshot().items.map((item) => item.id)).toEqual(['u1', 'u2'])
+    runtime.dispose()
+  })
+  test('drops a late response after scope changes', async () => {
+    let resolve: ((value: unknown) => void) | undefined
+    let calls = 0
+    const runtime = createUsageRequests({ usage: { execute: async () => calls++ === 0 ? await new Promise((done) => { resolve = done }) : result([]) } })
+    const pending = runtime.refresh()
+    await runtime.setScope({ kind: 'workspace', workspaceId: 'workspace-2' })
+    resolve?.(result([attempt('stale')]))
+    await pending
+    expect(runtime.reader.getSnapshot().items).toEqual([])
+    runtime.dispose()
+  })
+})

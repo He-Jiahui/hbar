@@ -36,3 +36,12 @@ describe('usage budget runtime', () => {
   })
 })
 
+
+test('holds unknown receipt for explicit reconciliation without replaying the command', async () => {
+  const f = fixture(); let writes = 0; let receipt: unknown = null
+  const commands = { execute: async (id: string, input: unknown, options?: unknown) => { if (id === 'session.setBudget') { writes += 1; throw { code: 'RESULT_UNKNOWN', message: 'ack lost' } } return f.commands.execute(id, input, options) } } as unknown as CommandExecutor
+  const runtime = createUsageBudget({ commands, target: f.target.reader, getReceipt: async () => receipt })
+  runtime.setDraftLimit('250'); await runtime.save(); expect(runtime.state.getSnapshot().status).toBe('unknown'); expect(writes).toBe(1)
+  await runtime.reconcile(); expect(writes).toBe(1); expect(runtime.state.getSnapshot().status).toBe('unknown')
+  runtime.dispose()
+})
