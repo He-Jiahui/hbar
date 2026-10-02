@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "../../tests/component-gallery.test.tsx",
+    "../../tests/fixtures/component-gallery-copy.ts",
+    "../../tests/fixtures/component-gallery-browser.tsx",
+    "../../e2e/component-gallery.spec.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

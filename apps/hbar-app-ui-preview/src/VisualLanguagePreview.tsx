@@ -70,6 +70,12 @@ function VisualLanguagePreview() {
           <p>{copy.description}</p>
         </header>
         <section className="visual-language-toolbar">
+          <a
+            className="visual-language-catalog-link"
+            href={`/components.html?${new URLSearchParams({ locale, theme: mode }).toString()}`}
+          >
+            {copy.catalog}
+          </a>
           <LumenButton
             variant="outlined"
             onClick={() => setMode((previous) => (previous === 'dark' ? 'light' : 'dark'))}

@@ -1,5 +1,6 @@
 export interface VisualLanguageCopy {
   readonly title: string
+  readonly catalog: string
   readonly description: string
   readonly theme: string
   readonly glow: string
@@ -36,6 +37,7 @@ export interface VisualLanguageCopy {
 export const visualLanguageCopy: Readonly<Record<'zh-CN' | 'en-US', VisualLanguageCopy>> = {
   'zh-CN': {
     title: '形态清晰，光随交互呼吸',
+    catalog: '查看所有组件',
     description: '悬停、聚焦和选中在 240ms 内连续变化；按下与释放为 120ms。运行以 2.6s 呼吸，文字与布局保持稳定。',
     theme: '切换浅色与暗色',
     glow: '启用装饰发光',
@@ -70,6 +72,7 @@ export const visualLanguageCopy: Readonly<Record<'zh-CN' | 'en-US', VisualLangua
   },
   'en-US': {
     title: 'Clear shapes, light that breathes with interaction',
+    catalog: 'View all components',
     description:
       'Hover, focus and selection change continuously over 240ms; press and release take 120ms. Running light breathes over 2.6s while text and layout stay stable.',
     theme: 'Switch light and dark',

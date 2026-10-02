@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/production.ts",
     "./catalog": "./src/catalog.ts",
+    "./catalog-metadata": "./src/catalog-metadata.ts",
     "./theme.css": "./src/theme.css",
     "./appearance": "./src/appearance.ts",
     "./primitives": "./src/primitives.tsx",
