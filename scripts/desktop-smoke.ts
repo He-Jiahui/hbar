@@ -8,6 +8,7 @@ import {
   createExtensionCommandClient,
   createGoalPlanCommandClient,
   createModelCommandClient,
+  createNotificationCommandClient,
   createSettingsCommandClient,
   createSystemCommandClient,
   createWorkspaceSessionCommandClient,
@@ -988,6 +989,13 @@ try {
   await composer.focus()
   await expectLiveComposerText(page, draft, 'call-8')
   const session = await api.call('session.create', { workspaceId: workspace.id })
+  const notificationApi = createNotificationCommandClient(api)
+  const currentNotificationPreferences = await notificationApi.preferences()
+  await notificationApi.setPreferences({
+    ...currentNotificationPreferences,
+    nativeEnabled: true,
+    'run.completed': { ...currentNotificationPreferences['run.completed'], desktop: true },
+  })
   const run = await api.call('run.start', {
     sessionId: session.id,
     requestId: 'native-background',
@@ -997,23 +1005,29 @@ try {
   await invokeNative(page, 'plugin:window|close', { label: 'main' })
   const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (hidden !== false) throw new Error('Close did not hide the desktop window')
-  const nativeNotification = {
-    id: nativeSmokeNotificationId,
-    title: nativeSmokeNotificationTitle,
-    body: nativeSmokeNotificationBody,
+  const windowState = {
+    documentVisibility: await page.evaluate(() => document.visibilityState),
+    isVisible: hidden,
+    isFocused: await invokeNative(page, 'plugin:window|is_focused', { label: 'main' }),
   }
-  await writeFile(
-    'artifacts/app-ui-migration-audit/native-notification-qa.json',
-    JSON.stringify({ ...nativeNotification, createdAt: new Date().toISOString() }, null, 2),
-  )
-  const firstNativeAcceptance = await invokeNative(page, 'send_native_notification', { request: nativeNotification })
-  const duplicateNativeAcceptance = await invokeNative(page, 'send_native_notification', {
-    request: nativeNotification,
+  await until(async () => {
+    if ((await nativeApi.call('session.snapshot', { sessionId: session.id })).runs[0]?.status !== 'completed')
+      throw new Error('Native background run has not completed')
   })
-  if (firstNativeAcceptance !== true || duplicateNativeAcceptance !== false)
-    throw new Error(
-      `Native background notification did not provide fresh-only acceptance semantics: ${JSON.stringify({ firstNativeAcceptance, duplicateNativeAcceptance })}`,
-    )
+  const notificationPage = await notificationApi.page({ after: null, limit: 100, unreadOnly: false })
+  const autoRecord = notificationPage.items.find(
+    (item) => item.kind === 'run.completed' && item.target.kind === 'session' && item.target.sessionId === session.id,
+  )
+  if (!autoRecord) throw new Error(`No persisted run.completed notification for background session: ${session.id}`)
+  const autoReplay = await invokeNative(page, 'send_native_notification', {
+    request: { id: autoRecord.id, title: autoRecord.title, body: autoRecord.detail },
+  })
+  if (autoReplay !== false)
+    throw new Error(`Automatic native delivery did not deduplicate persisted notification: ${JSON.stringify({ autoReplay, windowState, recordId: autoRecord.id })}`)
+  await writeFile(
+    'artifacts/app-ui-migration-audit/native-notification-auto-qa.json',
+    JSON.stringify({ record: autoRecord, windowState, replayAccepted: autoReplay, observedAt: new Date().toISOString() }, null, 2),
+  )
   await invokeNative(page, 'plugin:window|show', { label: 'main' })
   const visibleAfterProbe = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (visibleAfterProbe !== true) throw new Error('Desktop window did not return after native notification probe')
