@@ -28,9 +28,6 @@ import {
 } from './desktop-smoke-fixture'
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-'))
-const nativeSmokeNotificationId = `hbar-os-qa-${Date.now()}`
-const nativeSmokeNotificationTitle = nativeSmokeNotificationId
-const nativeSmokeNotificationBody = 'hbar isolated native smoke notification acceptance probe.'
 // Workspace tools must not browse the protected Host data root, including its descendants.
 const projectFixtureRoot = await mkdtemp(join(tmpdir(), 'hbar-native-'))
 const workspaceRoot = join(projectFixtureRoot, 'native-project')
