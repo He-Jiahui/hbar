@@ -235,7 +235,7 @@ export function createScheduleRunner(
             continue
           }
           const status = await execution.observeOperation(occurrence.runId)
-          if (status === 'unknown')
+          if (status === 'unknown') {
             await service.transition(
               occurrence.id,
               'unknown',
@@ -243,7 +243,8 @@ export function createScheduleRunner(
               'Operation result is unknown',
               occurrence.sessionId ?? undefined,
             )
-          else if (terminal.has(status)) {
+            done = true
+          } else if (terminal.has(status)) {
             const settled: ScheduleOccurrence = await service.transition(
               occurrence.id,
               status === 'interrupted'

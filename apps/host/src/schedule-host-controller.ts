@@ -9,7 +9,12 @@ import { operationSnapshotSchema, runAcceptedSchema, submitRunInputSchema } from
 
 export interface ScheduleHostReader {
   enabledSchedules(after: string | null, limit: number): Promise<readonly { id: string }[]>
-  activeScheduleOccurrences(limit: number, after?: { dueAt: number; id: string } | null): Promise<readonly ScheduleOccurrence[] | { items: readonly ScheduleOccurrence[]; next: { dueAt: number; id: string } | null }>
+  activeScheduleOccurrences(
+    limit: number,
+    after?: { dueAt: number; id: string } | null,
+  ): Promise<
+    readonly ScheduleOccurrence[] | { items: readonly ScheduleOccurrence[]; next: { dueAt: number; id: string } | null }
+  >
   dueScheduleOccurrences(now: number, limit: number): Promise<readonly { scheduleId: string; dueAt: number }[]>
 }
 
@@ -89,10 +94,19 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
   const notifyFailure = async (failed: ScheduleOccurrence, fallback: string) => {
     if (notifiedFailures.has(failed.id)) return
     notifiedFailures.add(failed.id)
-    await options.onFailure?.({ scheduleId: failed.scheduleId, occurrenceId: failed.id, error: failed.error ?? fallback })
+    if (notifiedFailures.size > 400) {
+      const oldest = notifiedFailures.values().next().value
+      if (oldest !== undefined) notifiedFailures.delete(oldest)
+    }
+    await options.onFailure?.({
+      scheduleId: failed.scheduleId,
+      occurrenceId: failed.id,
+      error: failed.error ?? fallback,
+    })
   }
   const tick = async () => {
     if (stopped || ticking) return ticking
+    if (timer) clearTimeout(timer)
     ticking = (async () => {
       const timestamp = now()
       const activePage = await options.reader.activeScheduleOccurrences(64, recoveryCursor)
@@ -114,7 +128,8 @@ export function createScheduleHostController(options: ScheduleHostControllerOpti
         } catch (error) {
           console.error('Scheduled run failed:', error)
           const failed = error instanceof ScheduleRunFailure ? error.occurrence : occurrence
-          if (failed?.status === 'failed') await notifyFailure(failed, error instanceof Error ? error.message : String(error))
+          if (failed?.status === 'failed')
+            await notifyFailure(failed, error instanceof Error ? error.message : String(error))
         }
       }
     })().finally(() => {
