@@ -157,6 +157,10 @@ export function createDrafts(
   const retryKeys = new Map<string, { readonly key: string; readonly sessionId: string }>()
   const settledReceipts = new Map<string, RunAccepted>()
   const receiptKey = (sessionId: string, key: string) => JSON.stringify([sessionId, key])
+  for (const [sessionId, draft] of Object.entries(initialDrafts ?? {})) {
+    const persisted = draft.pendingSubmission
+    if (persisted && ['submitting', 'unknown'].includes(draft.status)) pending.set(sessionId, { ...persisted })
+  }
 
   const replaceAction = (operationId: string, action: RunActionState) => {
     if (isDisposed()) return
