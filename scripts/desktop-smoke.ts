@@ -1019,6 +1019,10 @@ try {
     (item) => item.kind === 'run.completed' && item.target.kind === 'session' && item.target.sessionId === session.id,
   )
   if (!autoRecord) throw new Error(`No persisted run.completed notification for background session: ${session.id}`)
+  await writeFile(
+    'artifacts/app-ui-migration-audit/native-notification-auto-attempt.json',
+    JSON.stringify({ record: autoRecord, windowState, observedAt: new Date().toISOString() }, null, 2),
+  )
   const autoReplay = await invokeNative(page, 'send_native_notification', {
     request: { id: autoRecord.id, title: autoRecord.title, body: autoRecord.detail },
   })
