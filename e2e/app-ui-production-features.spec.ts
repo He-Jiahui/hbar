@@ -213,6 +213,12 @@ test.describe('production app-ui feature surfaces', () => {
       await bell.click()
       const bellDialog = page.getByRole('dialog', { name: notificationLabels.title })
       await expect(bellDialog).toBeVisible()
+      const bellDialogBox = await bellDialog.boundingBox()
+      expect(bellDialogBox).not.toBeNull()
+      if (bellDialogBox) {
+        expect(bellDialogBox.x).toBeGreaterThanOrEqual(0)
+        expect(bellDialogBox.x + bellDialogBox.width).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth))
+      }
       await bellDialog.getByRole('button', { name: notificationLabels.title, exact: true }).click()
       await expect(page.getByRole('heading', { name: notificationLabels.title }).first()).toBeVisible()
       await expect(page.getByText(/Run completed|Run failed/).first()).toBeVisible()
