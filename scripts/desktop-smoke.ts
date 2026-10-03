@@ -612,8 +612,8 @@ try {
       const viewportBounds = viewport.getBoundingClientRect()
       const viewportLeft = viewportBounds.left + viewport.clientLeft
       return {
-        shell: rect('.hbar-app-ui-app-shell'),
-        frame: rect('.hbar-app-ui-app-frame'),
+        shell: rect('[data-hbar-app-ui-shell="app"]'),
+        frame: rect('[data-hbar-app-ui-shell="workbench"]'),
         sessionMain: rect('.hbar-app-react-session-main'),
         conversation: rect('.lumen-conversation'),
         messageViewport: {
