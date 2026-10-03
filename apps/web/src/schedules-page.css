@@ -1,0 +1,40 @@
+.hbar-schedule-page,
+.hbar-schedule-form,
+.hbar-schedule-time,
+.hbar-schedule-list,
+.hbar-schedule-list article {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 1rem;
+}
+.hbar-schedule-page {
+  padding: 16px;
+  min-block-size: 0;
+  overflow: auto;
+}
+.hbar-schedule-page header,
+.hbar-schedule-page footer,
+.hbar-schedule-weekdays {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.hbar-schedule-page header {
+  justify-content: space-between;
+}
+.hbar-schedule-list article {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block: 12px;
+}
+.hbar-schedule-form textarea {
+  min-block-size: 7rem;
+}
+.hbar-schedule-page ol {
+  padding-inline-start: 24px;
+  margin-block: 0;
+}
+.hbar-schedule-page li {
+  overflow-wrap: anywhere;
+}
