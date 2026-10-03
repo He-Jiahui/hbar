@@ -50,8 +50,8 @@ export function PromptTemplateEditor(props: PromptTemplateEditorProps) {
         />
       </LumenFormField>
       <LumenFrame aria-label={props.labels.variables}>
-        {props.variables.map((variable) => (
-          <LumenFrame key={variable.id}>
+        {props.variables.map((variable, index) => (
+          <LumenFrame key={index}>
             <LumenText as="span">{variable.label}</LumenText>
             <LumenText as="span" tone={variable.present ? 'success' : 'muted'}>
               {variable.present ? props.labels.valid : props.labels.invalid}
