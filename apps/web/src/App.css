@@ -16,6 +16,8 @@ dialog.hbar-app-react-workspace-modal {
    notification overlay inside the viewport instead of aligning its wide panel
    to the sidebar's right edge and clipping it at the surface boundary. */
 .hbar-web-feature-navigation .lumen-notifications-surface {
+  block-size: auto;
+  flex: 0 0 auto;
   overflow: visible;
 }
 
