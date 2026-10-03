@@ -26,16 +26,41 @@ const item = (id: string, readAt: number | null = null): NotificationRecord => (
 })
 
 describe('notifications runtime projection', () => {
+  test('a fresh record outside the loaded page is already included at the refreshed Host watermark', async () => {
+    let watermark = 1
+    const port: NotificationsPort = {
+      page: async () => ({ items: [item('base')], nextCursor: 'more', unreadCount: watermark, watermark }),
+      preferences: async () => prefs,
+      markRead: async () => item('base', 2),
+      markAllRead: async () => ({ updated: 0 }),
+      setPreferences: async (value) => value,
+    }
+    const runtime = createNotificationsRuntime(port)
+    await runtime.refresh()
+    runtime.acceptFreshNotification({ sourceEventId: 'event-outside', sequence: 2, record: item('outside') })
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(2)
+    watermark = 2
+    await runtime.refresh()
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(2)
+    expect(runtime.reader.getSnapshot().items.map((entry) => entry.id)).toEqual(['base'])
+    runtime.dispose()
+  })
   test('unknown write reconciles by receipt without replay and keeps null pending', async () => {
     let writes = 0
     let receiptCalls = 0
     const port: NotificationsPort = {
       page: async () => ({ items: [item('one')], nextCursor: null, unreadCount: 1 }),
       preferences: async () => prefs,
-      markRead: async () => { writes++; throw new Error('disconnected') },
+      markRead: async () => {
+        writes++
+        throw new Error('disconnected')
+      },
       markAllRead: async () => ({ updated: 0 }),
       setPreferences: async (value) => value,
-      receipt: async () => { receiptCalls++; return null },
+      receipt: async () => {
+        receiptCalls++
+        return null
+      },
     }
     const runtime = createNotificationsRuntime(port)
     await runtime.refresh()
@@ -52,8 +77,14 @@ describe('notifications runtime projection', () => {
     const port: NotificationsPort = {
       page: async () => ({ items: [current], nextCursor: null, unreadCount: current.readAt === null ? 1 : 0 }),
       preferences: async () => prefs,
-      markRead: async ({ id, read }) => { current = { ...current, readAt: read ? 2 : null }; return id === 'new' ? item('new', read ? 2 : null) : current },
-      markAllRead: async () => { current = { ...current, readAt: 3 }; return { updated: 1 } },
+      markRead: async ({ id, read }) => {
+        current = { ...current, readAt: read ? 2 : null }
+        return id === 'new' ? item('new', read ? 2 : null) : current
+      },
+      markAllRead: async () => {
+        current = { ...current, readAt: 3 }
+        return { updated: 1 }
+      },
       setPreferences: async (value) => value,
     }
     const runtime = createNotificationsRuntime(port)

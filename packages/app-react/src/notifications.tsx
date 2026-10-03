@@ -1,7 +1,12 @@
-import { LumenNotifications, type LumenNotificationsContent, type LumenNotificationEntry } from '@lumen/app-ui'
+import {
+  LumenNotifications,
+  LumenText,
+  type LumenNotificationsContent,
+  type LumenNotificationEntry,
+} from '@lumen/app-ui'
 import { notificationKindSchema, type NotificationRecord } from '@hbar/contracts/commands/notifications'
 import type { NotificationsRuntime, NotificationsState } from '@hbar/app-runtime'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useHbarRuntimeState } from './runtime'
 
 export interface HbarNotificationsLabels {
@@ -41,29 +46,37 @@ export interface HbarNotificationsLabels {
   readonly capacity: (count: number) => string
   readonly permissionDenied: string
   readonly nativeEnabled: string
+  readonly open: (title: string) => string
   readonly deliveryFailed: string
+  readonly reconcile: string
+  readonly reconciling: string
+  readonly formatTime: (timestamp: number) => string
+  readonly bell: (count: number) => string
+  readonly navigationFailed: string
 }
 
 export interface HbarNotificationsProps {
   readonly runtime: NotificationsRuntime
   readonly labels: HbarNotificationsLabels
-  readonly onNavigate: (target: NotificationRecord['target']) => void
+  readonly onNavigate: (target: NotificationRecord['target']) => void | Promise<void>
   readonly variant?: 1 | 3 | 4 | 5 | 6
+  readonly onOpenCenter?: () => void
 }
 
 function content(
   state: NotificationsState,
   labels: HbarNotificationsLabels,
   runtime: NotificationsRuntime,
+  pendingIds: ReadonlySet<string> = new Set(),
 ): LumenNotificationsContent {
   const visibleItems = state.items.filter((item) => state.preferences?.[item.kind]?.inApp !== false)
   const entries: LumenNotificationEntry[] = visibleItems.map((item) => ({
     id: item.id,
     groupId: item.kind,
     kind: item.kind,
-    title: item.title,
+    title: labels.eventKinds[item.kind],
     detail: item.detail,
-    time: new Date(item.createdAt).toLocaleString(),
+    time: labels.formatTime(item.createdAt),
     unread: item.readAt === null,
     icon:
       item.kind === 'run.completed'
@@ -77,7 +90,7 @@ function content(
     center: {
       labels: {
         title: labels.title,
-        unread: labels.unread,
+        unread: () => labels.unread(state.unreadCount),
         markAll: labels.markAll,
         filters: labels.filters,
         all: labels.all,
@@ -91,6 +104,56 @@ function content(
       groups,
       entries,
       listStrategy: { kind: 'pane-scroll', expectedMaximum: 400 },
+      controlledReadState: {
+        readIds: new Set(visibleItems.filter((item) => item.readAt !== null).map((item) => item.id)),
+        pendingIds,
+      },
+      unreadCount: state.unreadCount,
+      showDismiss: false,
+      showMentions: false,
+      openLabel: labels.open,
+    },
+    bell: {
+      presentation: 'trigger',
+      unreadCount: state.unreadCount,
+      labels: {
+        brandMark: '',
+        brand: '',
+        bell: labels.bell,
+        dialog: labels.title,
+        filter: labels.filters,
+        all: labels.all,
+        unread: labels.unreadFilter,
+        markAll: labels.markAll,
+        openCenter: labels.title,
+        settings: labels.preferenceTitle,
+        hint: '',
+        empty: labels.empty,
+        unreadEmpty: labels.empty,
+        pending: labels.saving,
+        failed: labels.saveFailed,
+        unavailable: labels.saveUnavailable,
+      },
+      navItems: [],
+      selectedNavId: '',
+      avatar: '',
+      messages: visibleItems.map((item) => ({
+        id: item.id,
+        actor: labels.eventKinds[item.kind],
+        summary: labels.eventKinds[item.kind],
+        time: labels.formatTime(item.createdAt),
+        unread: item.readAt === null,
+        icon: item.kind === 'run.completed' ? 'resolved' : item.kind === 'approval.pending' ? 'review' : 'security',
+      })),
+      listStrategy: { kind: 'pane-scroll', expectedMaximum: 400 },
+      markRead: async (ids, signal) => {
+        if (signal.aborted) return 'unchanged'
+        for (const id of ids) {
+          if (signal.aborted) return 'unchanged'
+          await runtime.markRead(id, true)
+        }
+        return 'confirmed'
+      },
     },
     preferences: state.preferences
       ? {
@@ -149,26 +212,56 @@ function content(
   }
 }
 
-export function HbarNotifications({ runtime, labels, onNavigate, variant = 1 }: HbarNotificationsProps) {
+export function HbarNotifications({ runtime, labels, onNavigate, variant = 1, onOpenCenter }: HbarNotificationsProps) {
   const state = useHbarRuntimeState(runtime.reader)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const mounted = useRef(true)
   useEffect(() => {
-    void runtime.refresh({})
+    mounted.current = true
+    void runtime.refresh({}).catch(() => undefined)
+    return () => {
+      mounted.current = false
+    }
   }, [runtime])
-  const view = useMemo(() => content(state, labels, runtime), [labels, runtime, state])
+  const pendingIds = useMemo<ReadonlySet<string>>(
+    () =>
+      new Set(
+        state.mutation === 'submitting' || state.mutation === 'unknown' ? state.items.map((item) => item.id) : [],
+      ),
+    [state.items, state.mutation],
+  )
+  const view = useMemo(() => content(state, labels, runtime, pendingIds), [labels, runtime, state, pendingIds])
   return (
-    <LumenNotifications
-      variant={variant}
-      variantId={`hbar.notifications.${variant}`}
-      content={view}
-      onAction={(event) => {
-        if (event.actionId === 'read' || event.actionId === 'unread')
-          void runtime.markRead(event.value ?? '', event.actionId === 'read')
-        else if (event.actionId === 'read-all') void runtime.markAllRead()
-        else if (event.actionId === 'open' && event.value) {
-          const target = state.items.find((item) => item.id === event.value)?.target
-          if (target) onNavigate(target)
-        }
-      }}
-    />
+    <>
+      {actionError ? (
+        <LumenText role="alert" tone="danger">
+          {actionError}
+        </LumenText>
+      ) : null}
+      <LumenNotifications
+        variant={variant}
+        variantId={`hbar.notifications.${variant}`}
+        content={view}
+        onAction={(event) => {
+          if (event.actionId === 'read' || event.actionId === 'unread') {
+            const id = event.value ?? ''
+            if (!id) return
+            void runtime.markRead(id, event.actionId === 'read').catch(() => undefined)
+          } else if (event.actionId === 'read-all') void runtime.markAllRead().catch(() => undefined)
+          else if (event.actionId === 'open-center') onOpenCenter?.()
+          else if (event.actionId === 'open' && event.value) {
+            const target = state.items.find((item) => item.id === event.value)?.target
+            if (target) {
+              setActionError(null)
+              void Promise.resolve()
+                .then(() => onNavigate(target))
+                .catch(() => {
+                  if (mounted.current) setActionError(labels.navigationFailed)
+                })
+            }
+          }
+        }}
+      />
+    </>
   )
 }

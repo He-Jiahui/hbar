@@ -10,7 +10,7 @@ import { requestNotificationDesktopPermission } from './notification-desktop-del
 export interface NotificationsPageProps {
   readonly runtime: HbarRuntimeView
   readonly locale: ShellLocale
-  readonly onNavigate: (target: NotificationRecord['target']) => void
+  readonly onNavigate: (target: NotificationRecord['target']) => void | Promise<void>
   readonly variant?: 1 | 3 | 4 | 5 | 6
   readonly native?: NativeNotificationPort
 }
@@ -21,11 +21,13 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
   const [tab, setTab] = useState<1 | 3>(variant === 3 ? 3 : 1)
   const [permissionError, setPermissionError] = useState(false)
   const [permissionPending, setPermissionPending] = useState(false)
+  const [reconciling, setReconciling] = useState(false)
   const permissionOwner = useRef({ mounted: true, pending: false })
   useEffect(() => {
-    permissionOwner.current.mounted = true
+    const lifetime = permissionOwner.current
+    lifetime.mounted = true
     return () => {
-      permissionOwner.current.mounted = false
+      lifetime.mounted = false
     }
   }, [])
   const nativePort = useMemo(
@@ -33,7 +35,7 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
     [native],
   )
   const toggleNative = async () => {
-    const preferences = state.preferences
+    const preferences = runtime.state.notifications.reader.getSnapshot().preferences
     if (!nativePort.isAvailable || !preferences || permissionOwner.current.pending) return
     permissionOwner.current.pending = true
     setPermissionPending(true)
@@ -55,7 +57,9 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
         setPermissionError(true)
         return
       }
-      await runtime.state.notifications.runtime.setPreferences({ ...preferences, nativeEnabled: true })
+      const latest = runtime.state.notifications.reader.getSnapshot().preferences
+      if (!latest) return
+      await runtime.state.notifications.runtime.setPreferences({ ...latest, nativeEnabled: true })
       if (permissionOwner.current.mounted) setPermissionError(false)
     } catch {
       // The runtime publishes the persistence failure beside this setting.
@@ -75,6 +79,22 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
           {state.error}
         </LumenText>
       ) : null}
+      {state.mutation === 'unknown' ? (
+        <LumenButton
+          disabled={reconciling}
+          onClick={() => {
+            setReconciling(true)
+            void runtime.state.notifications.runtime
+              .reconcile()
+              .catch(() => undefined)
+              .finally(() => {
+                if (permissionOwner.current.mounted) setReconciling(false)
+              })
+          }}
+        >
+          {reconciling ? labels.reconciling : labels.reconcile}
+        </LumenButton>
+      ) : null}
       <LumenFrame as="nav" aria-label={labels.filters}>
         <LumenButton onClick={() => setTab(1)}>{labels.centerTab}</LumenButton>
         <LumenButton onClick={() => setTab(3)}>{labels.preferencesTab}</LumenButton>
@@ -85,7 +105,9 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
             role="switch"
             aria-checked={state.preferences?.nativeEnabled === true}
             onClick={() => void toggleNative()}
-            disabled={!state.preferences || permissionPending}
+            disabled={
+              !state.preferences || permissionPending || state.mutation === 'submitting' || state.mutation === 'unknown'
+            }
           >
             {labels.nativeEnabled}
           </LumenButton>

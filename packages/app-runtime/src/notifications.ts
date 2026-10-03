@@ -120,10 +120,16 @@ export function createNotificationsRuntime(
     }
   }
   const mergePage = (page: NotificationPage) => {
-    const fresh = [...freshById.values()].filter((record) =>
-      record.sequence !== undefined && record.sequence > watermark && !page.items.some((item) => item.id === record.id),
+    const confirmedWatermark = page.watermark ?? watermark
+    const fresh = [...freshById.values()].filter(
+      (record) =>
+        record.sequence !== undefined &&
+        record.sequence > confirmedWatermark &&
+        !page.items.some((item) => item.id === record.id),
     )
-    const items = [...fresh, ...page.items].slice(0, 400)
+    const byId = new Map<string, NotificationRecord>()
+    for (const record of [...fresh, ...page.items]) if (!byId.has(record.id)) byId.set(record.id, record)
+    const items = [...byId.values()].slice(0, 400)
     const freshUnread = fresh.filter((record) => record.readAt === null).length
     return { items, unreadCount: page.unreadCount + freshUnread }
   }
@@ -148,7 +154,11 @@ export function createNotificationsRuntime(
       accept(mutation, result)
       write = null
       if (mutation.commandId === 'notification.markAllRead' && !disposed) {
-        try { await runtime.refresh() } catch { /* durable write already confirmed */ }
+        try {
+          await runtime.refresh()
+        } catch {
+          /* durable write already confirmed */
+        }
       }
     } catch (error) {
       const unknown = uncertain(error)
@@ -206,11 +216,22 @@ export function createNotificationsRuntime(
         for (const item of page.items) rememberSourceEvent(item.sourceEventId)
         const latest = state.reader.getSnapshot()
         const seen = new Set(latest.items.map((item) => item.id))
-        const items = [...latest.items, ...page.items.filter((item) => !seen.has(item.id))].slice(0, 400)
+        const items = [
+          ...latest.items,
+          ...page.items.filter((item) => {
+            if (seen.has(item.id)) return false
+            seen.add(item.id)
+            return true
+          }),
+        ].slice(0, 400)
         const visibleIds = new Set(items.map((item) => item.id))
-        const freshUnread = [...freshById.values()].filter((item) =>
-          item.sequence !== undefined && page.watermark !== undefined && item.sequence > page.watermark &&
-          !visibleIds.has(item.id) && item.readAt === null,
+        const freshUnread = [...freshById.values()].filter(
+          (item) =>
+            item.sequence !== undefined &&
+            page.watermark !== undefined &&
+            item.sequence > page.watermark &&
+            !visibleIds.has(item.id) &&
+            item.readAt === null,
         ).length
         state.replace({
           ...latest,
