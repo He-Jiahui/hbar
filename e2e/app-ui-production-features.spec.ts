@@ -215,16 +215,18 @@ test.describe('production app-ui feature surfaces', () => {
       await expect(page.getByRole('heading', { name: notificationLabels.title }).first()).toBeVisible()
       await expect(page.getByText(/Run completed|Run failed/).first()).toBeVisible()
       await page
-        .getByRole('button', { name: /Mark as read/ })
+        .getByRole('button', { name: /Mark .* read/ })
         .first()
         .click()
-      await expect(page.getByRole('button', { name: /Mark unread/ }).first()).toBeVisible()
-      await page.getByRole('button', { name: 'Notification preferences', exact: true }).click()
+      await expect(page.getByRole('button', { name: /Mark .* unread/ }).first()).toBeVisible()
+      await page.getByRole('button', { name: notificationLabels.preferencesTab, exact: true }).click()
       const desktop = page.getByRole('switch').first()
       await expect(desktop).toBeVisible()
       const before = await desktop.getAttribute('aria-checked')
       await desktop.click()
+      await page.getByRole('button', { name: notificationLabels.save, exact: true }).click()
       await page.reload()
+      await page.getByRole('button', { name: notificationLabels.preferencesTab, exact: true }).click()
       await expect(page.getByRole('switch').first()).toHaveAttribute(
         'aria-checked',
         before === 'true' ? 'false' : 'true',
