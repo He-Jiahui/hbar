@@ -74,8 +74,11 @@ test('empty Goals pane offers the existing localized Goal editor entry', async (
         </HbarRuntimeProvider>,
       )
       expect(html).toContain(labels.goal.composerHint)
-      expect(html).toContain(`>${labels.goal.create}<span`)
-      expect(html).not.toContain(`>${labels.goal.edit}<span`)
+      const buttonText = [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((match) =>
+        (match[1] ?? '').replace(/<[^>]+>/g, ''),
+      )
+      expect(buttonText).toContain(labels.goal.create)
+      expect(buttonText).not.toContain(labels.goal.edit)
     }
   } finally {
     runtime.dispose()
