@@ -206,7 +206,7 @@ test.describe('production app-ui feature surfaces', () => {
         )
         .toBeGreaterThanOrEqual(1)
       await openSession(page, host, 'en-US')
-      const bell = page.getByRole('button', { name: notificationLabels.bell(3) })
+      const bell = page.getByRole('button', { name: /^Notifications, \d+ unread$/ })
       await expect(bell).toBeVisible()
       await bell.click()
       const bellDialog = page.getByRole('dialog', { name: notificationLabels.title })
