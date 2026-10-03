@@ -5,7 +5,7 @@
 本回执把目录检查、预览、生产业务和原生系统证据分别记录；旧参考审计不因生产接入而重新签核。
 
 真实供应商追验见[2026-10-03 桌面与真实模型回执](real-environment-verification-2026-10-03.md)。
-真实发送、工具审批、停止和单次排期已通过，但当前原生运行看板出现 `COMMAND_NOT_FOUND`，
+真实发送、工具审批、停止和单次排期已通过；本轮新增的菜单与下拉栏顶层修复已在浏览器回归中验证，但当前原生运行看板出现 `COMMAND_NOT_FOUND`，
 侧栏通知浮层落到窗口外；这两项原生入口未通过。下列先前自动化通过记录不覆盖这次实测失败，
 迁移的组件接入完成不代表当前所有生产入口均已通过真实使用验收。
 
@@ -36,6 +36,8 @@
 | 规范 guards          | 内容、图标、flow guard 对本轮实质修改组件/样式通过；普通内容 flex，桌面 vendor 停靠的容器边界单独拥有。                                                                         | 各子功能提交正文与测试输出                                                                                                                           |
 | Rust                 | 通知权限、参数边界、UTF-8 上限、标题空正文、dedup 及只读回执相关 7 测试通过；隔离 release 编译通过。                                                                            | [native-tests-final.log](../artifacts/app-ui-migration-audit/native-tests-final.log)                                                                 |
 
+本轮 `bun run --cwd hbar-ui/packages/lumen-app-ui typescript` 通过；直接运行该包 `build` 时，包管理器拒绝本机 pnpm 11.19.0，因为包声明要求 pnpm 12.3.4。此前用 `pnpm@12.3.4` 生成的 canonical 构建回执仍保留为历史交付证据。
+
 完整 Bun 单进程的前一次运行曾在 Paywall 浏览器启动 hook 报 Windows `ENOTSOCK`：4796 通过、1 失败。
 该文件单独重跑为 1 通过/20 断言；随后上述 731 文件分批全部通过，没有跳过 Paywall 或修改其断言。
 后续修复的 focused 结果单列，不把多次计数拼成一次全量检查。临时 Host 全部使用本地 fixture 模型与临时 profile。
@@ -45,12 +47,18 @@
 p95 82.40ms、max 88.00ms，全部最终 cancelled。Host RSS 287 MiB。
 这是当前机器同时运行构建检查时的本地 fixture 样本，不包含商业模型网络时间，不保证所有部署环境的延迟。
 
+## 菜单与下拉栏顶层回归
+
+会话右键菜单与 Provider preset 下拉使用 `popover="auto"` 和 `position: fixed`，按触发器选择上下方向并限制在视口内；会话菜单 `en-US`、`zh-CN` 2/2 通过，Provider 场景在浮层断言后于既有模型选项可见性断言失败。对应提交为 `ff7077313e`（hbar-ui）和 `5e15a9e0`（主仓库）。
+
 ## 原生桌面与 Windows 通知
 
 `scripts/desktop-smoke.ts` 在隔离 release 程序和临时 Host/项目执行。
 release 实际读取 `resource_dir/runtime/host.js`、`runtime/web` 与 `native`，并非把 Web bundle 固化在 exe 中；
 因此每次先构建 canonical/Web/Host，再同步到测试拥有的 release 资源目录，核对源与运行资源 SHA256。
 用户已安装的 `hbar-desktop.exe` 未覆盖。
+
+本轮提交后另外构建并启动了 `apps/desktop/src-tauri/artifacts/app-ui-migration-audit/desktop-target-ui-fix-20261003/release/hbar-desktop.exe`，复用了持久化 Host 和用户已添加的供应商配置；启动进程为 PID 25284。原生 CUA 通道在读取窗口时返回 `Transport closed`，所以本轮只记录进程启动和浏览器层顶层断言，没有将新构建的菜单/下拉视觉状态标记为原生通过，也没有发起新的模型请求。
 
 最终 [smoke-final-delivery.log](../artifacts/ui-redesign/tauri/smoke-final-delivery.log) 通过，
 [退出码](../artifacts/ui-redesign/tauri/smoke-final-delivery.exit) 为 0，覆盖真实自动认证、
