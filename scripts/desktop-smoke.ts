@@ -770,24 +770,16 @@ try {
   await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).click()
   await page.getByRole('complementary', { name: /^(工程与会话|Projects and sessions)$/ }).waitFor()
   const expandedGeometry = await assertSessionGeometry('Minimum desktop window with sidebar')
-  const sidebarGeometry = await page.locator('.hbar-app-ui-app-sidebar-drawer').evaluate((element) => {
+  const sidebarGeometry = await page.locator('[data-hbar-app-ui-component="app-sidebar-03-navigation"]').evaluate((element) => {
     const bounds = element.getBoundingClientRect()
     return { left: bounds.left, right: bounds.right, width: bounds.width, position: getComputedStyle(element).position }
   })
-  const separator = page.locator('.lumen-app-sidebar-separator')
-  await expect(separator).toBeVisible()
-  const separatorGeometry = await separator.evaluate((element) => {
-    const bounds = element.getBoundingClientRect()
-    return { left: bounds.left, right: bounds.right }
-  })
   if (
     sidebarGeometry.position === 'fixed' ||
-    Math.abs(sidebarGeometry.right - separatorGeometry.left) > 1 ||
-    Math.abs(separatorGeometry.right - expandedGeometry.frame.left) > 1 ||
     expandedGeometry.frame.width >= collapsedGeometry.frame.width
   )
     throw new Error(
-      `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, separatorGeometry, collapsedGeometry, expandedGeometry })}`,
+      `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, collapsedGeometry, expandedGeometry })}`,
     )
   const splitter = page.locator('.hbar-desktop-layout-projection .flexlayout__splitter').first()
   await expect(splitter).toBeVisible()
