@@ -347,10 +347,6 @@ function SessionWorkspaceContent({
   )
   const canPrepare = preparationStatus === 'ready' && !firstSendLocked && !workspaceMoveLocked
   const draft = sessionId ? drafts[sessionId] : undefined
-  // Navigation can remount the editor in the same render that the external
-  // store publishes its already-confirmed draft. Read the authoritative
-  // session entry for the controlled editor so a stale hook snapshot cannot
-  // initialize CodeMirror with an empty document.
   const composerDraft = sessionId ? (runtime.state.drafts.getSnapshot()[sessionId] ?? draft) : draft
   const agentAction = sessionId ? agentComposer.actions[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
