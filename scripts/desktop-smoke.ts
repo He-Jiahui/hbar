@@ -221,7 +221,6 @@ try {
     .getByText(/^(已连接|Connected)$/)
     .waitFor({ timeout: 15_000 })
   if (process.env.HBAR_NATIVE_NOTIFICATION_PROBE === '1') {
-    const probeId = `hbar-os-qa-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
     const probeTitle = `hbar-os-qa-title-only-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
     const probe = {
       id: probeTitle,
@@ -994,7 +993,7 @@ try {
     nativeEnabled: true,
     'run.completed': { ...currentNotificationPreferences['run.completed'], desktop: true },
   })
-  const run = await api.call('run.start', {
+  await api.call('run.start', {
     sessionId: session.id,
     requestId: 'native-background',
     modelId: 'local-fixture',
