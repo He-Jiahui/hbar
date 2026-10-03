@@ -1029,6 +1029,18 @@ try {
     'artifacts/app-ui-migration-audit/native-notification-auto-qa.json',
     JSON.stringify({ record: autoRecord, windowState, replayAccepted: autoReplay, observedAt: new Date().toISOString() }, null, 2),
   )
+  const titleOnlyId = `hbar-os-qa-title-only-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
+  const titleOnly = { id: titleOnlyId, title: titleOnlyId, body: '' }
+  const titleOnlyPermission = await invokeNative(page, 'native_notification_permission', {})
+  const titleOnlyRequestedPermission = await invokeNative(page, 'request_native_notification_permission', {})
+  const titleOnlyFirst = await invokeNative(page, 'send_native_notification', { request: titleOnly })
+  const titleOnlyDuplicate = await invokeNative(page, 'send_native_notification', { request: titleOnly })
+  await writeFile(
+    'artifacts/app-ui-migration-audit/native-title-only-notification-qa.json',
+    JSON.stringify({ ...titleOnly, permission: titleOnlyPermission, requestedPermission: titleOnlyRequestedPermission, firstAcceptance: titleOnlyFirst, duplicateAcceptance: titleOnlyDuplicate, createdAt: new Date().toISOString(), binary: resolve(process.env.HBAR_DESKTOP_EXE ?? '') }, null, 2),
+  )
+  if (titleOnlyFirst !== true || titleOnlyDuplicate !== false)
+    throw new Error(`Title-only notification acceptance mismatch: ${JSON.stringify({ titleOnlyFirst, titleOnlyDuplicate })}`)
   await invokeNative(page, 'plugin:window|show', { label: 'main' })
   const visibleAfterProbe = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (visibleAfterProbe !== true) throw new Error('Desktop window did not return after native notification probe')
