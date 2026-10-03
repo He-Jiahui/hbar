@@ -1,84 +1,70 @@
-# hbar-app-ui 迁移台账（300 变体）
+# hbar App UI 迁移台账（38 类 / 300 变体）
 
-更新时间：2026-10-02。本文是迁移计划的可追溯台账，不是完成声明。稳定 ID、来源入口、当前状态、容量策略和缺口以 [300 项基础清单](app-ui-variant-inventory.md) 为逐项事实源；预览挂载证据以 [render-report.json](../artifacts/app-ui-migration-audit/render-report.json) 为事实源。不得把 data marker、静态 SSR、preview fixture 或 API 导出当作生产业务完成。
+更新时间：2026-10-03 UTC。按已批准的会话工作台方案实施。全部稳定 ID 保持不变；
+[变体清单](app-ui-variant-inventory.md) 保存目录和参考预览历史，
+[生产映射](app-ui-production-mapping.md) 记录真实组件组合，
+[本轮验证回执](app-ui-migration-verification.md) 记录实际检查、提交和限制。
 
-## 总量与选型
+## 总量与取用边界
 
-| 选型         |    数量 | 记录方式                                                                            |
-| ------------ | ------: | ----------------------------------------------------------------------------------- |
-| 现有功能组合 |     102 | 接入现有会话、文件、运行、设置和工作区；需要真实 Host 状态/动作验收。               |
-| 新增功能     |      19 | 模板、首次使用引导、运行/计划看板、通知和排期；生产契约、持久化和恢复闭环仍需验收。 |
-| 替代设计保留 |      85 | 保留目录和稳定 ID，作为可选参考；不进入当前生产默认布局。                           |
-| 本次范围外   |      94 | 账户、支付、团队协作、反馈与支持等；保留目录，不计入迁移完成。                      |
-| **合计**     | **300** | 38 类；清单逐行应保持 300 个唯一 ID。                                               |
+| 取用分类     |    数量 | 当前处理                                                                 |
+| ------------ | ------: | ------------------------------------------------------------------------ |
+| 现有功能组合 |     102 | 会话、输入、工具、文件、计划、用量、设置与工作区；共享插槽保留原状态机。 |
+| 新增功能组合 |      19 | 模板、首次引导、运行与计划看板、通知、排期已接入公开契约与真实 Host。    |
+| 替代设计保留 |      85 | 保留目录和稳定 ID，不进入默认布局。                                      |
+| 本次范围外   |      94 | 账户、支付、团队、反馈、客服等继续保留预览。                             |
+| **合计**     | **300** | **38 类；300 个唯一 ID，无缺失、重复或替代 ID。**                        |
 
-`render-report.json` 当前证明 300/300 预览挂载、0 page/console error、0 页面横溢（1280×800 深色预览）。这只证明预览可挂载，不证明 Host 数据、真实动作、持久化或桌面安装验收。
+[初始审查报告](../artifacts/app-ui-migration-audit/render-report.json) 的 300/300 挂载、
+0 页面/控制台错误、0 页面横溢来自 1280×800 深色预览；另抽查 18 个 320px 代表变体。
+这是预览审查证据。121 个选型项是页面组合配方；共享槽位和原业务视图不为每个编号复制状态、导航和输入区。
 
-## 按类别的取用台账
+## 类别与生产落点
 
-| 类别与稳定 ID                                                         | 取用落点                                           | Host 提供的数据                                                    | 动作与当前证据                                                                            |
-| --------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| App Shell 1–9、App Sidebar 1–7、Navbar 1–14、Mobile 1–5               | 会话工作台外壳、工作区导航、标题工具区、移动导航   | workspace/session、导航项、标签、布局描述和窄屏状态                | 切换、打开面板、抽屉展开/收起；预览和 focused registry 已验证，桌面安装与刷新恢复待验收。 |
-| AI Chat 1–9、Prompt Input 1–7                                         | 会话消息、输入、附件/mention/model 工具            | message/run/tool/source、draft、model、token 快照、Host labels     | 发送、停止、重试、选择上下文、附件；真实 provider、下载、剪贴板等缺口见清单。             |
-| Agent Activity 1–7、Tool Calls 1–6、Agent Approval 1–6                | 运行时间线、工具参数/结果、审批队列                | run/tool/approval 实体、状态、revision、权限事实                   | 展开、批准/拒绝、取消、重试；预览动作不能写成真实执行，需 Host 确认、幂等和恢复证据。     |
-| Agent Plan 1–6、Kanban 1–6                                            | 计划步骤、运行/计划看板                            | plan/run/card、expectedRevision、分页摘要                          | 编辑、排序、重试、取消、打开详情；真实 revision 冲突、分页和恢复待验收。                  |
-| File Manager 1–4、Editor 1–5、List 1–12                               | 文件树、编辑器、列表/详情                          | file/document/tree、selection、draft、read position                | 打开、保存、比较、引用、搜索；真实文件写入、失败恢复和权限闭环待验收。                    |
-| Command Menu 1–6、Forms 1–12、App Dialog 1–7                          | 命令搜索、参数表单、确认/编辑弹层                  | command/schema/form draft、validation、target ID                   | 搜索、导航、提交、取消、确认；需验证长文案、键盘、失效目标和真实提交。                    |
-| AI Usage 1–8、Dashboard 1–14、Analytics 1–16、Monitoring 1–10         | 用量、性能、请求和运行监控                         | usage/request/metric、时间范围、预算、分页游标                     | 筛选、排序、展开、刷新；静态图表或 fixture 不代表真实计费/监控数据。                      |
-| Card 1–11、Data Table 1–8、Filtering 1–9                              | 扩展、文件、指标、请求列表                         | typed rows、columns、filters、capacity、selection                  | 选择、展开、分页、编辑草稿；保存和下载等动作必须有 Host 确认。                            |
-| Settings Form 1–6、Integrations 1–6                                   | 全局/工作区/会话设置、插件扩展                     | settings/provider/integration、scope、validation                   | 编辑、启停、授权、恢复；需验证真实 provider、权限和持久化。                               |
-| Empty State 1–5、Onboarding 1–7、Wizard 1–7                           | 空态、首次配置、向导步骤                           | connection/workspace/model 状态、step data、draft                  | 重试、配置、下一步/返回/完成；Wizard 断言已对齐当前 reference class，生产引导仍待验收。   |
-| Notifications 1–6、Scheduling 1–7                                     | 通知中心、铃铛、排期日历/编辑                      | NotificationRecord、ScheduleDefinition/Occurrence、偏好、IANA 时区 | 已读、跳转、暂停、创建、编辑、删除、预览触发；需验证持久化、去重、Cron DST、幂等和恢复。  |
-| Authentication 1–14、Paywall 1–7、Billing 1–8、Chat 1–6、Comments 1–6 | 当前目录保留；账户/支付/团队协作不进入本次默认迁移 | 账户、订阅、团队和评论数据未纳入本次生产范围                       | 不把预览登录、付款、评论动作计为生产能力。                                                |
-| Feedback 1–6、Support 1–5                                             | 当前目录保留，范围外                               | 外部反馈、客服工单不在本次 Host 契约                               | 不计入迁移完成。                                                                          |
+| 类别 / 总变体数                                          | 默认组合及真实数据                                                                                                  | 动作、容量和验证入口                                                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| App Shell / Sidebar / Navbar / Mobile，35                | Shell 9 会话工作台与 Shell 4 上下文区；Sidebar 3/5/6；Navbar 1/6/11；Mobile 5。Host workspace/session、布局和导航。 | 单一描述投影到 FlexLayout，刷新恢复分栏，隐藏侧栏保留展开入口，窄屏单面板。shell-layout、app-react 测试与 native smoke。 |
+| AI Chat / Prompt Input，16                               | Chat 1 包裹原会话；文件、模型、预算、审批、Agent 通过原受控内容组合；输入 1/4/7，模板编辑 4。                       | 发送、停止、附件、mention、模式、目标、计划、模型与 thinking；原会话绑定及有界持久草稿。会话/输入回归与 native smoke。   |
+| Activity / Tool Calls / Approval，19                     | 原 Run、工具结果、审批与 Agent；时间线 3、审批 1、工具 1/6 与共享受控内容。                                         | 展开、批准/拒绝、恢复、取消、重试；保留原未知写入 receipt。native 审批、命令阅读与 SDK 取消。                            |
+| Agent Plan / Kanban，12                                  | Plan 1/2 编辑、Plan 5 详情；Kanban 1/4/6 真实 Run 状态列。                                                          | 状态只读，取消/重试/详情；100 条分页、400 条显示上限，revision 游标失效可刷新。runtime、生产页、真实 Host E2E。          |
+| File Manager / Editor / List，21                         | 文件 1/3、Editor 2/3/5 与列表；Host 正文、版本、路径、读取位置。                                                    | 打开、搜索、引用、源码/阅读、compare-and-write；原失败与未知保存状态机。native 文件/Markdown/技能与文件 runtime 回归。   |
+| Command Menu / Forms / Dialog，25                        | Command 1/2/3/4/6、schema 表单与弹层；Host 元数据及原目标。                                                         | 键盘搜索、分级导航、参数、确认/取消和真实提交。保留原业务验证。                                                          |
+| Usage / Dashboard / Analytics / Monitoring，48           | Usage 1/2/5/7/8；Dashboard 1/2/10；真实 token、费用可用性、预算、请求、性能。                                       | 预算原会话 CAS 与 receipt；请求 provider/source/时间窗口分页与导出，400 条上限；Usage 8 仅显示。runtime/React 回归。     |
+| Card / Data Table / Filtering，28                        | 扩展、文件、指标、请求和排期的类型化数据与筛选。                                                                    | 选择、展开、分页、编辑；动作归所属业务，各自保留有界容量和原目标。                                                       |
+| Settings / Integrations，12                              | 设置 1/3/5/6、扩展 1/2；全局/工作区/会话三层设置及真实 Provider/插件。                                              | CAS 保存、原 scope 草稿、receipt、启停与恢复。native Provider 往返与原设置测试。                                         |
+| Empty State / Onboarding / Wizard，19                    | 真实空态；Onboarding 3/6、Wizard 7 按连接、workspace path、模型 canExecute 推导 readiness。                         | 配置、工作区与会话创建、重试；不把是否保存密钥等同于模型可执行。readiness 回归和生产入口。                               |
+| Notifications / Scheduling，13                           | 中心 1、偏好 3、铃铛 6 等受控内容；排期 1/3/4；Host 持久事实。                                                      | read/unread、全局已读、偏好、原目标跳转、桌面权限；排期 CRUD/CAS/预览/暂停/恢复/执行。见下文。                           |
+| Authentication / Paywall / Billing / Chat / Comments，41 | 目录保留；账户、商业结算及团队服务未列入本次 Host 范围。                                                            | 预览登录、支付和社交动作不计为生产能力。                                                                                 |
+| Feedback / Support，11                                   | 目录保留；外部反馈、客服工单未列入本次 Host 范围。                                                                  | 不计入生产迁移完成。                                                                                                     |
 
-### 2026-10-02 production composition reconciliation
+基础测试文件位于 tests/；具体可点击入口见验证回执。普通内容采用 flex 流布局和共享语义图标尺寸；
+Host 提供中英文类型化文案及数据，组件不嵌入预览示例列表。
 
-The selected IDs remain the same. This reconciliation records current source
-facts without upgrading preview evidence to production completion:
+## 新增功能闭环
 
-- Usage 5, 7, and 8 now have numbered production consumers. `HbarUsageBudget`
-  composes `LumenUsage05` from `packages/app-react/src/usage-budget.tsx:41`;
-  `HbarUsageRequests` composes `LumenUsage07` from
-  `packages/app-react/src/usage-requests.tsx:129`; and the status workspace
-  composes `LumenUsage08` from `packages/app-react/src/lumen-status-workspace.tsx:867`.
-  Runtime persistence, unknown-result recovery, and browser evidence remain
-  pending.
-- Dashboard 1, 2, and 10 now mount from the status workspace at
-  `packages/app-react/src/lumen-status-workspace.tsx:529,865`. They share one
-  Host-derived status surface and query actions; they are composition slots,
-  not three separate navigations.
-- Agent Plan 5 is mounted in the run-board detail dialog at
-  `apps/web/src/run-board-page.tsx:93` after `a28e3805`; the dialog projects
-  selected run status, workspace, session, cost, and plan facts. Stale selected
-  run fencing and action-result recovery remain to be validated.
-- Notifications watermark reconciliation is recorded by `e0236203` and
-  `9b410772`; the current app integration is in `apps/web/src/App.tsx`,
-  `apps/web/src/notifications-page.tsx`, and
-  `packages/app-react/src/notifications.tsx`. Native desktop permission,
-  toast, and restart recovery remain pending.
-- Numbered recipes that are intentionally represented through shared slots or
-  primitives must retain Host action tests. Catalog exports and static preview
-  mounts do not count as production consumers.
+- **模板**：工作区持久化、分页 CRUD、revision 冲突、变量校验和恢复；套用到操作开始时捕获的原会话或首次会话草稿，追加/替换后由用户显式发送。
+- **首次引导**：真实连接、工作区路径和模型可执行性；配置跳转、创建、重试及完成基于 Host 事实。
+- **运行/计划看板**：原 Run/Plan、usage 和 revision；100 条分页、400 条显示上限；原目标取消/重试及反馈，保留计划事实，不把拖卡当成执行。
+- **通知**：Storage Worker 原子记录源事件、投影和序号并去重；分页/水位、全局未读、Host 确认已读、偏好和 receipt。打开通知跳转原会话或排期，删除目标保持原中心并显示错误；接收和投递不修改已读。
+- **桌面通知**：默认关闭，显式启用后请求权限，只订阅新事件；查询原生 visible/focused 状态识别后台和托盘隐藏，4 个在途、64 条队列、2 秒查询期限。Rust 支持空正文、源 ID 去重；Unicode 展示文本按 UTF-8 字节有界。
+- **排期**：单次/每日/每周/五字段分钟级 Cron，显式 IANA 时区，预览后续五次（单次仅一次）；默认新会话，可指定原会话，进入现有 Run/权限/审批链。全局最多两个、单排期一个活动执行；重叠合并最近待执行，重启最多补跑最近一次。未知结果只查询原 key 的 receipt，失效目标记录失败及通知。
 
-## 状态定义与当前证据
+## 验证状态与限制
 
-- **已完成证据**：生产入口实际挂载组件；Host 提供类型化数据；动作到 Client/Host/Storage 有目标 ID；有成功、失败、取消/恢复行为测试或可重复浏览器证据。
-- **在做**：组件契约、预览或局部工作区接线存在，但仍缺真实后端确认、持久化、恢复、安装包或完整交互矩阵。
-- **未验证**：只有目录、SSR/static markup、data marker、fixture、API export 或 screenshot；不能升级为生产完成。
-- 当前基础门禁提交：`6f34d35a`、`13f5d78d`、`f71f9867`、`044487c7` 及后续 `20db3e98`、`2985ee1b` 记录；这些是历史线索，不替代当前工作树和 focused tests。Windows Bun focused test 使用 `bun test ./tests/...`。
+完整 Bun 文件集分 13 批运行：731 个文件，4803 通过、0 失败、51830 断言。
+之后的 Shell 与通知目标修复运行对应类型、lint、单元/浏览器/native 检查，数量按各次单列。
+工具页通过公开子入口加载，正式包不带 catalog/preview fixtures，chunk 失败可原位重试。
 
-## 必须保留的验收缺口
+真实 release 流程验证草稿、首次发送、审批、文件/设置往返、分栏刷新、窄窗口、侧栏隐藏/展开、
+后台通知、重放去重、退出后 Host 记录回读和 SDK 取消。
+Windows WinRT history 对唯一 title-only token 精确匹配；另一个独立 probe 未找到同名 history，分别保留报告。
+系统 API 接受投递不写成每次 popup 可见或用户已读。
 
-- 桌面安装后 Windows toast 权限、托盘隐藏/前台/完全退出后的通知回读。
-- 懒加载边界：生产包不得带入 catalog/fixtures；首屏加载、失败重试和 chunk 错误恢复。
-- 排期：IANA 时区与夏令时、单排期活动执行上限、重叠合并、重启补跑、未知结果和幂等键。
-- 模板：变量校验、失败恢复、套用模板写入**原始目标会话**，不能只写当前 active session。
-- 运行/计划看板：分页/容量、旧响应隔离、真实取消/重试、revision 冲突和断线恢复。
-- 通知：源事件去重、已读同步、偏好、权限拒绝、跳转目标和跨重启一致性。
-- 内容与布局：中英文长文案、窄屏键盘/焦点恢复、空/单项/边界/超界容量、失效/重复 ID、无页面横溢。
-- 迁移证据：每个子功能独立 focused test、typecheck/lint/build，验证后独立 commit；不以静态 marker 或 preview mount 替代。
+历史 strict 视觉审计的 needs-fix / needs-review 保留。没有重跑全部 300 个变体的所有主题、尺寸和逐按钮来源对照；
+没有调用商业模型、验证商业收费或交付账户/团队服务。主 JS 约 1.84 MB（gzip 508.5 kB），仍有大 chunk 提示。
 
 ## 维护规则
 
-修改组件或生产接线时，先更新对应类别的 Host 数据、动作和证据链接，再更新状态。保持稳定 ID 与 [基础清单](app-ui-variant-inventory.md) 一致；禁止覆盖历史 visual audit 或运行生成脚本来刷新状态。新增证据应链接实际测试、源码或提交，并注明范围与未覆盖部分。
+生产行为改变时更新数据所有者、动作与实际证据；保留稳定 ID 和预览历史。
+目录导出、static markup、data marker 或 preview mount 不能升级为生产完成。
+子功能通过适用检查后立即本地提交；不推送、发布、改写历史或修改用户安装目录。
