@@ -5,6 +5,7 @@ import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenOpt
 import { LumenFormField, LumenInput, LumenSelect, LumenTextarea } from '@lumen/app-ui/forms'
 import { LumenScheduling01, LumenScheduling03, LumenScheduling04 } from '@lumen/app-ui/scheduling'
 import type { ScheduleDefinition } from '@hbar/contracts/commands/schedules'
+import type { Session } from '@hbar/contracts/directory'
 import type { ShellLocale } from './shell-copy'
 import { scheduleCopy } from './schedule-copy'
 import { editScheduleForm, newScheduleForm, scheduleFormInput, type ScheduleFormDraft } from './schedule-form'
@@ -16,6 +17,7 @@ export function SchedulesPage(props: {
   readonly runtime: Runtime
   readonly workspaceId: string
   readonly locale: ShellLocale
+  readonly initialScheduleId?: string
 }) {
   return props.runtime.state.schedules ? (
     <AvailableSchedulesPage {...props} api={props.runtime.state.schedules} />
@@ -29,11 +31,13 @@ function AvailableSchedulesPage({
   workspaceId,
   locale,
   api,
+  initialScheduleId,
 }: {
   readonly runtime: Runtime
   readonly workspaceId: string
   readonly locale: ShellLocale
   readonly api: NonNullable<Runtime['state']['schedules']>
+  readonly initialScheduleId?: string
 }) {
   const copy = scheduleCopy(locale)
   const snapshot = useHbarRuntimeState(api.reader)
@@ -45,6 +49,7 @@ function AvailableSchedulesPage({
   const [previewPending, setPreviewPending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [workspaceSessions, setWorkspaceSessions] = useState<readonly Session[]>([])
   const owner = useRef({ workspaceId, mounted: true, previewRevision: 0 })
   owner.current.workspaceId = workspaceId
   useEffect(() => {
@@ -55,7 +60,17 @@ function AvailableSchedulesPage({
       lifetime.previewRevision++
     }
   }, [])
-  useEffect(() => runtime.preSessionModelCatalog.retain(), [runtime])
+  // Keep a catalog lease for this visible workspace panel. Releasing/reacquiring on workspace
+  // changes forces a fresh host-backed model.list read instead of retaining a stale idle projection.
+  useEffect(() => runtime.preSessionModelCatalog.retain(), [runtime, workspaceId])
+  useEffect(() => {
+    let current = true
+    void runtime.commands.execute('session.list', { workspaceId, limit: 100 }).then((result) => {
+      if (!current || !result || typeof result !== 'object' || !('items' in result) || !Array.isArray(result.items)) return
+      setWorkspaceSessions(result.items as Session[])
+    }).catch(() => { if (current) setWorkspaceSessions([]) })
+    return () => { current = false }
+  }, [runtime, workspaceId])
   useEffect(() => {
     setDraft(newScheduleForm(Intl.DateTimeFormat().resolvedOptions().timeZone))
     setPreview([])
@@ -65,11 +80,21 @@ function AvailableSchedulesPage({
     owner.current.previewRevision++
     void api.refresh(workspaceId)
   }, [api, workspaceId])
+  useEffect(() => {
+    if (!initialScheduleId) return
+    let current = true
+    void api.get(initialScheduleId).then((schedule) => {
+      if (!current || !schedule || schedule.workspaceId !== workspaceId) return
+      setDraft(editScheduleForm(schedule))
+      void api.refreshOccurrences(schedule.id)
+    }).catch((error: unknown) => {
+      if (current) setFeedback(error instanceof Error ? error.message : copy.validation)
+    })
+    return () => { current = false }
+  }, [api, workspaceId, initialScheduleId, copy.validation])
   const busy = snapshot.mutation === 'submitting' || snapshot.mutation === 'unknown'
-  const sessions = Object.values(directory.sessions).filter(
-    (session) => session.workspaceId === workspaceId && !session.archived,
-  )
-  const models = catalog.models.filter((model) => model.hasKey)
+  const sessions = workspaceSessions.filter((session) => session.workspaceId === workspaceId && !session.archived)
+  const models = catalog.models.filter((model) => model.canExecute ?? model.hasKey)
   const patch = (change: Partial<ScheduleFormDraft>) => {
     owner.current.previewRevision++
     setDraft((current) => ({ ...current, ...change }))
