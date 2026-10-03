@@ -1864,6 +1864,26 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       <LumenNavbar11 slots={{ trailing: <HbarMobileHeaderMenu label={props.mobileNavigationLabel} /> }} />
     </LumenFrame>
   )
+  const desktopHeader = props.renderLayout
+    ? shellSlots?.header ??
+      (!presentation.sidebarOpen ? (
+        <LumenFrame className="hbar-app-react-desktop-reveal-header">
+          <LumenNavbar01
+            slots={{
+              leading: (
+                <HbarActionIconButton
+                  ref={sidebarShowFocusRef}
+                  label={props.labels.showSidebar}
+                  onClick={() => setSidebarVisible(true)}
+                >
+                  <WorkspaceShellIcon name="menu" />
+                </HbarActionIconButton>
+              ),
+            }}
+          />
+        </LumenFrame>
+      ) : undefined)
+    : headerRegion
   const toolRegion = shellSlots?.context ? (
     <LumenAppShell04 toolLabel={props.toolLabel} slots={{ context: shellSlots.context }} />
   ) : props.tool ? (
@@ -2029,7 +2049,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       sidebarOpen={railCollapsed || presentation.sidebarOpen}
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
-      header={props.renderLayout ? undefined : headerRegion}
+      header={desktopHeader}
       tool={toolRegion}
       toolLabel={props.toolLabel}
       overlay={overlayRegion}

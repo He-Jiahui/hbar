@@ -47,6 +47,10 @@
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
 }
+.hbar-app-react-desktop-reveal-header {
+  display: flex;
+  flex: 0 0 auto;
+}
 /* Desktop Shell09 owns one coherent header row; numbered navbar regions must
    flow inside it instead of rendering three standalone preview cards. */
 .lumen-desktop-shell-header .hbar-app-react-shell-header > * {
