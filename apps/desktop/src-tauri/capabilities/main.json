@@ -13,6 +13,7 @@
     "allow-native-notification-permission",
     "allow-request-native-notification-permission",
     "allow-send-native-notification",
+    "allow-native-notification-delivery-status",
     "core:webview:allow-set-webview-zoom",
     "core:window:allow-close",
     "core:window:allow-show",

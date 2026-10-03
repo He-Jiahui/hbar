@@ -287,6 +287,25 @@ fn send_native_notification(
     Ok(true)
 }
 
+/// Read-only acknowledgement that this workbench accepted a notification id.
+/// This does not send a notification or mark it read; it only exposes the
+/// bounded in-memory delivery ledger to the owning WebView for verification.
+#[tauri::command]
+fn native_notification_delivery_status(
+    window: tauri::WebviewWindow,
+    connection: tauri::State<'_, Connection>,
+    state: tauri::State<'_, NativeNotificationState>,
+    id: String,
+) -> Result<bool, String> {
+    require_main_workbench(&window, &connection)?;
+    valid_notification_text(&id, "id", 256)?;
+    let delivered = state
+        .delivered
+        .lock()
+        .map_err(|_| "Notification delivery state is unavailable".to_string())?;
+    Ok(delivered.contains(&id))
+}
+
 fn existing(data_root: &Path) -> Option<Connection> {
     let connection: Connection =
         serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
@@ -468,7 +487,8 @@ fn main() {
             write_ui_zoom,
             native_notification_permission,
             request_native_notification_permission,
-            send_native_notification
+            send_native_notification,
+            native_notification_delivery_status
         ])
         .setup(|app| {
             let (connection, data_root) = launch(app.handle())?;
@@ -584,6 +604,16 @@ mod tests {
         assert_eq!(delivered.order.len(), MAX_DELIVERED_NOTIFICATION_IDS);
         assert!(!delivered.contains("event-0"));
         assert!(delivered.contains("newest"));
+    }
+
+    #[test]
+    fn native_notification_delivery_status_tracks_membership_without_inserting() {
+        let mut delivered = DeliveredNotificationIds::default();
+        assert!(!delivered.contains("run-1"));
+        delivered.insert("run-1".to_string());
+        assert!(delivered.contains("run-1"));
+        delivered.insert("run-1".to_string());
+        assert_eq!(delivered.order, vec!["run-1"]);
     }
 
     fn fixture_path(name: &str) -> (PathBuf, PathBuf) {

@@ -7,6 +7,7 @@ fn main() {
             "native_notification_permission",
             "request_native_notification_permission",
             "send_native_notification",
+            "native_notification_delivery_status",
         ]),
     ))
     .expect("Unable to generate desktop permissions")
