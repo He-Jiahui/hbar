@@ -73,9 +73,11 @@ export function createNotificationsRuntime(
   let writing = false
   const freshListeners = new Set<(record: NotificationRecord) => void>()
   const seenSourceEvents = new Set<string>()
+  const deliveredSourceEvents = new Set<string>()
   const freshById = new Map<string, NotificationRecord>()
   let invalidationTimer: ReturnType<typeof setTimeout> | undefined
   let watermark = 0
+  let initialWatermark: number | null = null
   const rememberSourceEvent = (sourceEventId: string) => {
     if (seenSourceEvents.has(sourceEventId)) return false
     seenSourceEvents.add(sourceEventId)
@@ -189,6 +191,7 @@ export function createNotificationsRuntime(
         }
         const merged = mergePage(page)
         watermark = page.watermark ?? watermark
+        initialWatermark ??= watermark
         state.replace({
           ...state.reader.getSnapshot(),
           status: 'ready',
@@ -254,21 +257,32 @@ export function createNotificationsRuntime(
     acceptFreshNotification(raw) {
       if (disposed) return
       const event = notificationFreshEventSchema.parse(raw)
-      if (event.sequence !== undefined && event.sequence <= watermark) return
-      if (seenSourceEvents.has(event.sourceEventId)) return
-      if (!rememberSourceEvent(event.sourceEventId)) return
+      const knownInSnapshot = seenSourceEvents.has(event.sourceEventId)
       const freshRecord = event.sequence === undefined ? event.record : { ...event.record, sequence: event.sequence }
-      freshById.set(freshRecord.id, freshRecord)
-      if (freshById.size > 400) {
-        const oldest = freshById.keys().next().value
-        if (typeof oldest === 'string') freshById.delete(oldest)
+      if ((event.sequence === undefined || event.sequence > watermark) && rememberSourceEvent(event.sourceEventId)) {
+        freshById.set(freshRecord.id, freshRecord)
+        if (freshById.size > 400) {
+          const oldest = freshById.keys().next().value
+          if (typeof oldest === 'string') freshById.delete(oldest)
+        }
+        const current = state.reader.getSnapshot()
+        state.replace({
+          ...current,
+          items: [freshRecord, ...current.items].slice(0, 400),
+          unreadCount: current.unreadCount + (freshRecord.readAt === null ? 1 : 0),
+        })
       }
-      const current = state.reader.getSnapshot()
-      state.replace({
-        ...current,
-        items: [freshRecord, ...current.items].slice(0, 400),
-        unreadCount: current.unreadCount + (freshRecord.readAt === null ? 1 : 0),
-      })
+      // A refresh can observe the transaction before its live notification arrives.
+      // The first snapshot is the historical boundary; later page watermarks only
+      // control list/count merging, not delivery of a newly observed live event.
+      const historical =
+        event.sequence === undefined ? knownInSnapshot : event.sequence <= (initialWatermark ?? watermark)
+      if (historical || deliveredSourceEvents.has(event.sourceEventId)) return
+      deliveredSourceEvents.add(event.sourceEventId)
+      if (deliveredSourceEvents.size > 400) {
+        const oldest = deliveredSourceEvents.values().next().value
+        if (typeof oldest === 'string') deliveredSourceEvents.delete(oldest)
+      }
       for (const listener of freshListeners) {
         try {
           listener(freshRecord)
@@ -320,6 +334,7 @@ export function createNotificationsRuntime(
       stopInvalidation?.()
       freshListeners.clear()
       seenSourceEvents.clear()
+      deliveredSourceEvents.clear()
       freshById.clear()
       if (invalidationTimer) clearTimeout(invalidationTimer)
       state.dispose()

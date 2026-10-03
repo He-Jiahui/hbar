@@ -26,6 +26,36 @@ const item = (id: string, readAt: number | null = null): NotificationRecord => (
 })
 
 describe('notifications runtime projection', () => {
+  test('a new live event still reaches desktop listeners when an invalidation snapshot arrives first', async () => {
+    let version = 1
+    const port: NotificationsPort = {
+      page: async () => ({
+        items: version === 1 ? [item('base')] : [item('new'), item('base')],
+        nextCursor: null,
+        unreadCount: version,
+        watermark: version,
+      }),
+      preferences: async () => prefs,
+      markRead: async () => item('base', 2),
+      markAllRead: async () => ({ updated: 0 }),
+      setPreferences: async (value) => value,
+    }
+    const runtime = createNotificationsRuntime(port)
+    await runtime.refresh()
+    const delivered: string[] = []
+    runtime.subscribeFreshNotification((record) => delivered.push(record.id))
+    version = 2
+    await runtime.refresh()
+    runtime.acceptFreshNotification({ sourceEventId: 'event-new', sequence: 2, record: item('new') })
+    runtime.acceptFreshNotification({ sourceEventId: 'event-new', sequence: 2, record: item('new') })
+    expect(delivered).toEqual(['new'])
+    expect(runtime.reader.getSnapshot().unreadCount).toBe(2)
+    expect(runtime.reader.getSnapshot().items.map((record) => record.id)).toEqual(['new', 'base'])
+    runtime.acceptFreshNotification({ sourceEventId: 'event-old', sequence: 1, record: item('old') })
+    expect(delivered).toEqual(['new'])
+    runtime.dispose()
+  })
+
   test('a fresh record outside the loaded page is already included at the refreshed Host watermark', async () => {
     let watermark = 1
     const port: NotificationsPort = {
