@@ -347,6 +347,11 @@ function SessionWorkspaceContent({
   )
   const canPrepare = preparationStatus === 'ready' && !firstSendLocked && !workspaceMoveLocked
   const draft = sessionId ? drafts[sessionId] : undefined
+  // Navigation can remount the editor in the same render that the external
+  // store publishes its already-confirmed draft. Read the authoritative
+  // session entry for the controlled editor so a stale hook snapshot cannot
+  // initialize CodeMirror with an empty document.
+  const composerDraft = sessionId ? (runtime.state.drafts.getSnapshot()[sessionId] ?? draft) : draft
   const agentAction = sessionId ? agentComposer.actions[sessionId] : undefined
   const intentEntry = sessionId ? composerIntent.entries[sessionId] : undefined
   const goalHistoryEntry = sessionId ? goalHistory.sessions[sessionId] : undefined
@@ -2016,7 +2021,7 @@ function SessionWorkspaceContent({
           )}
         <HbarPromptComposer
           boundary="none"
-          value={draft?.text ?? ''}
+          value={composerDraft?.text ?? ''}
           editor={
             files && sessionId && navigation.workspaceId
               ? ({ inputLabel, placeholder, disabled }) => (
@@ -2024,9 +2029,9 @@ function SessionWorkspaceContent({
                     key={`${sessionId}:${navigation.workspaceId}`}
                     sessionId={sessionId}
                     workspaceId={navigation.workspaceId!}
-                    revision={draft?.revision ?? 0}
-                    text={draft?.text ?? ''}
-                    mentions={draft?.mentions ?? []}
+                    revision={composerDraft?.revision ?? 0}
+                    text={composerDraft?.text ?? ''}
+                    mentions={composerDraft?.mentions ?? []}
                     disabled={disabled}
                     connected={connected}
                     inputLabel={inputLabel}
