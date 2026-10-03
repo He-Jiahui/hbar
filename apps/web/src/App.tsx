@@ -1,5 +1,6 @@
 import {
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -17,6 +18,7 @@ import {
   HbarWorkspaceShell,
   HbarNotifications,
   HbarDesktopLayoutProjection,
+  type HbarFlexLayoutGeometry,
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
@@ -1510,14 +1512,30 @@ export default function App({
     layout,
   )
   const layoutVisibilitySync = useRef<string | null>(null)
-  const [desktopWidthRem, setDesktopWidthRem] = useState(
-    () => document.documentElement.clientWidth / Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+  const [desktopViewportGeometry, setDesktopViewportGeometry] = useState<HbarFlexLayoutGeometry>(() => ({
+    widthPx: document.documentElement.clientWidth,
+    remPx: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+    splitterSizePx: 8,
+  }))
+  const [desktopLayoutGeometry, setDesktopLayoutGeometry] = useState<HbarFlexLayoutGeometry>()
+  const desktopGeometryObserver = useCallback(
+    (geometry: HbarFlexLayoutGeometry) =>
+      setDesktopLayoutGeometry((current) =>
+        current?.widthPx === geometry.widthPx &&
+        current.remPx === geometry.remPx &&
+        current.splitterSizePx === geometry.splitterSizePx
+          ? current
+          : geometry,
+      ),
+    [],
   )
   useEffect(() => {
     const update = () =>
-      setDesktopWidthRem(
-        document.documentElement.clientWidth / Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
-      )
+      setDesktopViewportGeometry({
+        widthPx: document.documentElement.clientWidth,
+        remPx: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+        splitterSizePx: 8,
+      })
     const observer = new ResizeObserver(update)
     observer.observe(document.documentElement)
     window.addEventListener('resize', update)
@@ -1529,11 +1547,11 @@ export default function App({
   const desktopLayoutModel = useMemo(
     () =>
       shellLayoutToFlexModel(resolvedLayout, {
-        widthRem: desktopWidthRem,
+        geometry: desktopLayoutGeometry ?? desktopViewportGeometry,
         sidebarVisible: presentation.sidebarOpen,
         toolVisible: Boolean(toolPanel),
       }),
-    [resolvedLayout, desktopWidthRem, presentation.sidebarOpen, toolPanel],
+    [resolvedLayout, desktopViewportGeometry, desktopLayoutGeometry, presentation.sidebarOpen, toolPanel],
   )
   const openFeaturePanel = (
     panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
@@ -1551,16 +1569,19 @@ export default function App({
     nativeWindow &&
     desktopViewport &&
     (!toolPanel ||
-      desktopWidthRem >=
+      desktopViewportGeometry.widthPx / (desktopLayoutGeometry?.remPx ?? desktopViewportGeometry.remPx) >=
         workspaceLayout.size.minRem +
           toolLayout.size.minRem +
-          (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0))
+          (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0) +
+          (1 + Number(presentation.sidebarOpen)) *
+            ((desktopLayoutGeometry?.splitterSizePx ?? 8) / (desktopLayoutGeometry?.remPx ?? 16)))
       ? (panes: Readonly<Record<'projects' | 'workspace' | 'session-tool', ReactNode>>, _shell: ReactNode) => (
           <HbarDesktopLayoutProjection
             model={desktopLayoutModel}
             panes={panes}
-            onModelChange={(model) => {
-              const next = flexModelToShellLayout(resolvedLayout, model, desktopWidthRem)
+            onGeometryChange={desktopGeometryObserver}
+            onModelChange={(model, geometry) => {
+              const next = flexModelToShellLayout(resolvedLayout, model, geometry)
               if (JSON.stringify(next) !== JSON.stringify(resolvedLayout))
                 void runtime.view.commands
                   .execute('layout.commit', { description: next, expectedRevision: layout.revision })

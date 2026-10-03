@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import type { HbarFlexLayoutGeometry } from '@hbar/app-react'
 import {
   flexModelToShellLayout,
   normalizeShellLayout,
@@ -8,37 +9,165 @@ import {
   withToolPaneWidth,
 } from '../apps/web/src/shell-layout'
 
-test('projects the descriptor to FlexLayout and reads pane weights back', () => {
-  const model = shellLayoutToFlexModel(shellLayout)
+const desktopGeometry: HbarFlexLayoutGeometry = { widthPx: 1598, remPx: 16, splitterSizePx: 8 }
+
+test('converts a desktop resize to exact rem widths after subtracting the splitter space', () => {
+  const model = shellLayoutToFlexModel(shellLayout, { geometry: desktopGeometry })
   const children = model.layout.children ?? []
   expect(children.map((child) => child.id)).toEqual(['projects', 'workspace', 'session-tool'])
-  const changed = flexModelToShellLayout(shellLayout, {
-    ...model,
-    layout: {
-      ...model.layout,
-      children: children.map((child) => (child.id === 'session-tool' ? { ...child, weight: 31 } : child)),
+  const changed = flexModelToShellLayout(
+    shellLayout,
+    {
+      ...model,
+      layout: {
+        ...model.layout,
+        children: children.map((child) =>
+          child.id === 'session-tool'
+            ? { ...child, weight: 31 }
+            : child.id === 'workspace'
+              ? { ...child, weight: (child.weight ?? 0) - 7 }
+              : child,
+        ),
+      },
     },
-  })
-  expect(shellLayoutModule(changed, 'session-tool').size.preferredRem).toBe(31)
+    desktopGeometry,
+  )
+  expect(shellLayoutModule(changed, 'session-tool').size.preferredRem).toBeCloseTo(31, 10)
   expect(shellLayoutModule(changed, 'workspace').size.minRem).toBe(20)
 })
 
-test('ignores missing, reordered, and malformed pane weights while retaining descriptor truth', () => {
-  const model = shellLayoutToFlexModel(shellLayout)
+test('malformed or incomplete rows cannot overwrite saved pane widths', () => {
+  const model = shellLayoutToFlexModel(shellLayout, { geometry: desktopGeometry })
   const children = model.layout.children ?? []
-  const recovered = flexModelToShellLayout(shellLayout, {
+  const recovered = flexModelToShellLayout(
+    shellLayout,
+    {
+      ...model,
+      layout: {
+        ...model.layout,
+        children: [
+          ...(children[2] ? [{ ...children[2], weight: Number.NaN }] : []),
+          ...(children[0] ? [{ ...children[0], weight: 19 }] : []),
+        ],
+      },
+    },
+    desktopGeometry,
+  )
+  expect(shellLayoutModule(recovered, 'projects').size.preferredRem).toBe(17)
+  expect(shellLayoutModule(recovered, 'session-tool').size.preferredRem).toBe(24)
+  expect(shellLayoutModule(recovered, 'workspace').size.minRem).toBe(20)
+})
+
+test('desktop projection applies the descriptor bounds in CSS pixels to all three panes', () => {
+  for (const remPx of [16, 20]) {
+    const model = shellLayoutToFlexModel(shellLayout, { geometry: { ...desktopGeometry, remPx } })
+    expect(model.layout.children?.find((child) => child.id === 'projects')).toMatchObject({
+      weight: 17,
+      minWidth: 12 * remPx,
+      maxWidth: 24 * remPx,
+    })
+    expect(model.layout.children?.find((child) => child.id === 'workspace')).toMatchObject({ minWidth: 20 * remPx })
+    expect(model.layout.children?.find((child) => child.id === 'session-tool')).toMatchObject({
+      weight: 24,
+      minWidth: 20 * remPx,
+      maxWidth: 36 * remPx,
+    })
+  }
+})
+
+test('desktop widths round-trip at both bounds, different rem sizes and pane visibility without drift', () => {
+  for (const remPx of [16, 20]) {
+    for (const sidebarVisible of [false, true]) {
+      for (const toolVisible of [false, true]) {
+        for (const sidebar of [12, 17, 24]) {
+          for (const tool of [20, 24, 36]) {
+            const layout = normalizeShellLayout({
+              ...shellLayout,
+              modules: shellLayout.modules.map((module) =>
+                module.moduleId === 'projects'
+                  ? { ...module, size: { ...module.size, preferredRem: sidebar } }
+                  : module.moduleId === 'session-tool'
+                    ? { ...module, size: { ...module.size, preferredRem: tool } }
+                    : module,
+              ),
+            })
+            const geometry = { widthPx: 2000, remPx, splitterSizePx: 8 }
+            const model = shellLayoutToFlexModel(layout, { geometry, sidebarVisible, toolVisible })
+            // Vendor resize weights are normalized percentages, never rem values.
+            const children = model.layout.children ?? []
+            const sum = children.reduce((total, child) => total + (child.weight ?? 0), 0)
+            const resized = {
+              ...model,
+              layout: {
+                ...model.layout,
+                children: [...children]
+                  .reverse()
+                  .map((child) => ({ ...child, weight: ((child.weight ?? 0) * 100) / sum })),
+              },
+            }
+            const next = flexModelToShellLayout(layout, resized, geometry)
+            expect(shellLayoutModule(next, 'projects').size.preferredRem).toBeCloseTo(sidebar, 10)
+            expect(shellLayoutModule(next, 'session-tool').size.preferredRem).toBeCloseTo(tool, 10)
+          }
+        }
+      }
+    }
+  }
+})
+
+test('desktop projection reserves workspace capacity when preferred panes do not fit', () => {
+  const layout = withToolPaneWidth(shellLayout, 36)
+  const geometry = { widthPx: 900, remPx: 16, splitterSizePx: 8 }
+  const model = shellLayoutToFlexModel(layout, { geometry })
+  const weights = (model.layout.children ?? []).map((child) => child.weight ?? 0)
+  expect(weights.reduce((total, weight) => total + weight, 0) * geometry.remPx + 16).toBeCloseTo(900)
+  expect(weights[1]).toBeGreaterThanOrEqual(20)
+  expect(weights[2]).toBeGreaterThanOrEqual(20)
+  expect(shellLayoutModule(layout, 'session-tool').size.preferredRem).toBe(36)
+})
+
+test('invalid desktop measurements and weights retain the saved descriptor', () => {
+  const model = shellLayoutToFlexModel(shellLayout, { geometry: desktopGeometry })
+  for (const geometry of [
+    { ...desktopGeometry, widthPx: Number.NaN },
+    { ...desktopGeometry, remPx: 0 },
+    { ...desktopGeometry, splitterSizePx: -1 },
+  ])
+    expect(flexModelToShellLayout(shellLayout, model, geometry)).toEqual(shellLayout)
+  for (const weight of [Number.NaN, Number.POSITIVE_INFINITY, 0, -3]) {
+    const malformed = {
+      ...model,
+      layout: {
+        ...model.layout,
+        children: (model.layout.children ?? []).map((child) =>
+          child.id === 'workspace' ? { ...child, weight } : child,
+        ),
+      },
+    }
+    expect(flexModelToShellLayout(shellLayout, malformed, desktopGeometry)).toEqual(shellLayout)
+  }
+})
+
+test('resizing one pane preserves the other saved preference when its visible width was constrained', () => {
+  const layout = withToolPaneWidth(shellLayout, 36)
+  const geometry = { widthPx: 900, remPx: 16, splitterSizePx: 8 }
+  const model = shellLayoutToFlexModel(layout, { geometry })
+  const resized = {
     ...model,
     layout: {
       ...model.layout,
-      children: [
-        ...(children[2] ? [{ ...children[2], weight: Number.NaN }] : []),
-        ...(children[0] ? [{ ...children[0], weight: 19 }] : []),
-      ],
+      children: (model.layout.children ?? []).map((child) =>
+        child.id === 'projects'
+          ? { ...child, weight: (child.weight ?? 0) - 1 }
+          : child.id === 'workspace'
+            ? { ...child, weight: (child.weight ?? 0) + 1 }
+            : child,
+      ),
     },
-  })
-  expect(shellLayoutModule(recovered, 'projects').size.preferredRem).toBe(19)
-  expect(shellLayoutModule(recovered, 'session-tool').size.preferredRem).toBe(24)
-  expect(shellLayoutModule(recovered, 'workspace').size.minRem).toBe(20)
+  }
+  const next = flexModelToShellLayout(layout, resized, geometry)
+  expect(shellLayoutModule(next, 'projects').size.preferredRem).toBeCloseTo(14.25, 10)
+  expect(shellLayoutModule(next, 'session-tool').size.preferredRem).toBe(36)
 })
 
 test('Web shell layout v3 describes ordered outlets and a real constrained tool page', () => {

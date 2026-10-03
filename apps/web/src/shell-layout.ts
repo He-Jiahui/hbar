@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ClientJsonObject } from '@hbar/app-runtime'
+import type { HbarFlexLayoutGeometry } from '@hbar/app-react'
 import type { IJsonModel } from 'flexlayout-react'
 import description from './shell-layout.json'
 
@@ -165,17 +166,20 @@ export const shellLayout = shellLayoutV3Schema.parse(description)
 /** Project the canonical descriptor into FlexLayout's model without creating a second source of truth. */
 export function shellLayoutToFlexModel(
   layout: ShellLayoutDescription,
-  projection: { widthRem?: number; sidebarVisible?: boolean; toolVisible?: boolean } = {},
+  projection: { geometry?: HbarFlexLayoutGeometry; sidebarVisible?: boolean; toolVisible?: boolean } = {},
 ): IJsonModel {
   const projects = shellLayoutModule(layout, 'projects')
   const workspace = shellLayoutModule(layout, 'workspace')
   const tool = shellLayoutModule(layout, 'session-tool')
   const sidebarVisible = projection.sidebarVisible ?? projects.visible
   const toolVisible = projection.toolVisible ?? tool.visible
-  const widthRem = Math.max(
-    workspace.size.minRem,
-    projection.widthRem ?? 100 + projects.size.preferredRem + tool.size.preferredRem,
-  )
+  const { widthPx, remPx, splitterSizePx } = projection.geometry ?? {
+    widthPx: (100 + projects.size.preferredRem + tool.size.preferredRem) * 16,
+    remPx: 16,
+    splitterSizePx: 8,
+  }
+  const splitterCount = Number(sidebarVisible) + Number(toolVisible)
+  const widthRem = Math.max(workspace.size.minRem, (widthPx - splitterCount * splitterSizePx) / remPx)
   const sidebarWeight = sidebarVisible
     ? Math.min(
         projects.size.preferredRem,
@@ -208,6 +212,8 @@ export function shellLayoutToFlexModel(
                 type: 'tabset' as const,
                 id: projects.moduleId,
                 weight: sidebarWeight,
+                minWidth: projects.size.minRem * remPx,
+                maxWidth: projects.size.maxRem * remPx,
                 children: [
                   { type: 'tab' as const, id: 'projects-pane', name: projects.moduleId, component: projects.outlet },
                 ],
@@ -218,6 +224,7 @@ export function shellLayoutToFlexModel(
           type: 'tabset',
           id: workspace.moduleId,
           weight: mainWeight,
+          minWidth: workspace.size.minRem * remPx,
           children: [{ type: 'tab', id: 'workspace-pane', name: workspace.moduleId, component: workspace.outlet }],
         },
         ...(toolVisible
@@ -226,6 +233,8 @@ export function shellLayoutToFlexModel(
                 type: 'tabset' as const,
                 id: tool.moduleId,
                 weight: toolWeight,
+                minWidth: tool.size.minRem * remPx,
+                maxWidth: tool.size.maxRem * remPx,
                 children: [
                   { type: 'tab' as const, id: 'session-tool-pane', name: tool.moduleId, component: tool.outlet },
                 ],
@@ -237,19 +246,61 @@ export function shellLayoutToFlexModel(
   }
 }
 
-/** Read only the pane weights back; visibility and behavior remain descriptor-owned. */
+/** Convert resize weights using the same content width that FlexLayout actually distributes. */
 export function flexModelToShellLayout(
   layout: ShellLayoutDescription,
   model: IJsonModel,
-  widthRem?: number,
+  geometry: HbarFlexLayoutGeometry,
 ): ShellLayoutDescription {
   const children = model.layout?.type === 'row' ? model.layout.children : undefined
-  const totalWeight =
-    children?.reduce((total, node) => total + (typeof node.weight === 'number' ? node.weight : 0), 0) ?? 0
+  if (
+    !children?.length ||
+    !children.some((node) => node.id === 'workspace') ||
+    new Set(children.map((node) => node.id)).size !== children.length ||
+    children.some(
+      (node) =>
+        node.type !== 'tabset' ||
+        !layout.modules.some((module) => module.moduleId === node.id) ||
+        typeof node.weight !== 'number' ||
+        !Number.isFinite(node.weight) ||
+        node.weight <= 0,
+    ) ||
+    ![geometry.widthPx, geometry.remPx, geometry.splitterSizePx].every(Number.isFinite) ||
+    geometry.widthPx <= 0 ||
+    geometry.remPx <= 0 ||
+    geometry.splitterSizePx < 0
+  )
+    return layout
+  const totalWeight = children.reduce((total, node) => total + (node.weight ?? 0), 0)
+  const widthRem = (geometry.widthPx - (children.length - 1) * geometry.splitterSizePx) / geometry.remPx
+  if (!Number.isFinite(totalWeight) || !Number.isFinite(widthRem) || widthRem <= 0) return layout
+  const before =
+    shellLayoutToFlexModel(layout, {
+      geometry,
+      sidebarVisible: children.some((node) => node.id === 'projects'),
+      toolVisible: children.some((node) => node.id === 'session-tool'),
+    }).layout.children ?? []
+  const beforeTotal = before.reduce((total, node) => total + (node.weight ?? 0), 0)
   const weight = (id: ShellLayoutModuleId, fallback: number) => {
     const node = children?.find((child) => child.type === 'tabset' && child.id === id)
-    const projected = typeof node?.weight === 'number' && Number.isFinite(node.weight) ? node.weight : fallback
-    return widthRem && node && totalWeight > 0 ? (projected / totalWeight) * widthRem : projected
+    if (
+      typeof node?.weight !== 'number' ||
+      !Number.isFinite(node.weight) ||
+      node.weight <= 0 ||
+      !Number.isFinite(widthRem) ||
+      widthRem <= 0 ||
+      totalWeight <= 0
+    )
+      return fallback
+    const resizedWidth = (node.weight / totalWeight) * widthRem
+    const beforeWeight = before.find((child) => child.id === id)?.weight
+    // Preserve the other pane's preference, including a temporarily constrained width.
+    if (
+      beforeWeight !== undefined &&
+      Math.abs(resizedWidth - (beforeWeight / beforeTotal) * widthRem) * geometry.remPx < 0.5
+    )
+      return fallback
+    return resizedWidth
   }
   return shellLayoutV3Schema.parse({
     ...layout,

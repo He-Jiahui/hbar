@@ -61,6 +61,7 @@ export {
   HbarFlexLayoutAdapter,
   type HbarDesktopLayoutProjectionProps,
   type HbarFlexLayoutAdapterProps,
+  type HbarFlexLayoutGeometry,
 } from './lumen-flex-layout-adapter'
 export {
   useHbarMobileHeaderMenuSection,
@@ -182,7 +183,11 @@ export { HbarUsageFeatures, type HbarUsageFeaturesLabels, type HbarUsageFeatures
 export { HbarUsageRequests, type HbarUsageRequestsLabels, type HbarUsageRequestsProps } from './usage-requests'
 export { HbarUsageBudget, type HbarUsageBudgetLabels, type HbarUsageBudgetProps } from './usage-budget'
 export { HbarNotifications, type HbarNotificationsLabels, type HbarNotificationsProps } from './notifications'
-export { PromptTemplateEditor, type PromptTemplateEditorLabels, type PromptTemplateEditorProps } from './prompt-template-editor'
+export {
+  PromptTemplateEditor,
+  type PromptTemplateEditorLabels,
+  type PromptTemplateEditorProps,
+} from './prompt-template-editor'
 export { HbarRunBoard, type HbarRunBoardLabels, type HbarRunBoardProps } from './run-board'
 export type { HbarRuntimeView } from './runtime'
 export {
