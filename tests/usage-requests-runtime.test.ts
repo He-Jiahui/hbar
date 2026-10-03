@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createUsageRequests } from '../packages/app-runtime/src/usage-requests'
-import { usageExportInputSchema } from '@hbar/contracts/commands/usage'
+import { usageExportInputSchema, usageScopeSchema } from '@hbar/contracts/commands/usage'
 
 const attempt = (id: string, endedAt = 10) => ({
   usageId: id,
@@ -154,20 +154,22 @@ describe('usage request projection', () => {
         },
       },
     })
-    const scope = { kind: 'session' as const, sessionId: 'session-1' }
+    const scope = usageScopeSchema.parse({ kind: 'session', sessionId: 'session-1' })
     await runtime.setScope(scope, { source: 'model', providerId: 'provider-1' }, { from: 5, to: 15 })
     await runtime.loadMore()
     expect(inputs[0]).toEqual({
-      scope: { ...scope, includeDescendants: false },
+      scope,
       filters: { source: 'model', providerId: 'provider-1' },
       from: 5,
       to: 15,
       limit: 50,
     })
-    expect(inputs[1]).toEqual({ ...inputs[0], after: 'next-page' })
+    const firstInput = inputs[0]
+    if (!firstInput) throw new Error('The first usage request was not recorded')
+    expect(inputs[1]).toEqual({ ...firstInput, after: 'next-page' })
     await runtime.setScope(scope, { source: 'model' }, { from: 15, to: 25 })
     expect(inputs[2]).toEqual({
-      scope: { ...scope, includeDescendants: false },
+      scope,
       filters: { source: 'model' },
       from: 15,
       to: 25,
