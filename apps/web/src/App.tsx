@@ -20,7 +20,13 @@ import {
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
-import { createAppRuntime, workspaceDisplayName, type DraftsState } from '@hbar/app-runtime'
+import {
+  createAppRuntime,
+  restoreSessionDrafts,
+  serializeSessionDrafts,
+  workspaceDisplayName,
+  type DraftsState,
+} from '@hbar/app-runtime'
 import type { GlobalSettingsStartup } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
@@ -1398,6 +1404,24 @@ export default function App({
             initialGlobalSettings,
             initialDrafts,
           ),
+        draftPersistence: {
+          read(hostId) {
+            try {
+              const raw = window.localStorage.getItem(`hbar:web:drafts:${hostId}`)
+              return raw === null ? undefined : restoreSessionDrafts(JSON.parse(raw))
+            } catch {
+              return undefined
+            }
+          },
+          write(hostId, drafts) {
+            try {
+              const serialized = serializeSessionDrafts(drafts)
+              if (serialized !== null) window.localStorage.setItem(`hbar:web:drafts:${hostId}`, serialized)
+            } catch {
+              // Storage failures leave the in-memory draft usable.
+            }
+          },
+        },
         appearancePort: createAppearancePortForRuntime,
         disposeConnection: () => {
           attachmentController.dispose()

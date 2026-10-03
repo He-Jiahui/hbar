@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { CommandError } from '@hbar/commands'
 import type { ClientPreferencesState, DraftsState, GlobalSettingsStartup, createAppRuntime } from '@hbar/app-runtime'
+import { restoreSessionDrafts, serializeSessionDrafts } from '@hbar/app-runtime'
 import type { ConnectionStatus } from '@hbar/client'
 import {
   createWebAppearanceEditor,
@@ -27,6 +28,10 @@ export interface WebStartupRuntimeOptions {
   ) => Runtime
   readonly appearancePort: (runtime: Runtime) => AppearanceEditorPort
   readonly disposeConnection: () => void
+  readonly draftPersistence?: {
+    readonly read: (hostId: string) => DraftsState | undefined
+    readonly write: (hostId: string, drafts: DraftsState) => void
+  }
 }
 
 function captureSettings(runtime: Runtime, isKnownGroup: (id: string) => boolean): GlobalSettingsStartup | undefined {
@@ -62,6 +67,12 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
   // each snapshot under its authenticated Host identity so drafts never cross
   // data roots when the connection changes Hosts.
   const draftsByHost = new Map<string, DraftsState>()
+  const persistDrafts = (hostId: string, drafts: DraftsState): void => {
+    if (!options.draftPersistence) return
+    const serialized = serializeSessionDrafts(drafts)
+    if (serialized === null) return
+    options.draftPersistence.write(hostId, restoreSessionDrafts(JSON.parse(serialized)) ?? {})
+  }
   const watch = (state: WebStartupRuntimeState) => {
     const sync = () => state.appearanceEditor.sync(state.runtime.view.state.preferences.getSnapshot(), state.binding)
     unsubscribe = state.runtime.view.state.preferences.subscribe(sync)
@@ -106,7 +117,7 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
       const runtime = options.createRuntime(
         hostId,
         firstIdentity ? captureSettings(current.runtime, options.isKnownSettingsGroup) : undefined,
-        draftsByHost.get(hostId),
+        draftsByHost.get(hostId) ?? options.draftPersistence?.read(hostId),
       )
       const binding: AppearanceEditorBinding = {
         endpointId: options.endpointId,
@@ -125,6 +136,16 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
       unsubscribe?.()
       const next = { runtime, binding, appearanceEditor, connection: current.connection }
       watch(next)
+      if (options.draftPersistence) {
+        const offDrafts = runtime.view.state.drafts.subscribe(() =>
+          persistDrafts(hostId, runtime.view.state.drafts.getSnapshot()),
+        )
+        const previousWatch = unsubscribe
+        unsubscribe = () => {
+          offDrafts()
+          previousWatch?.()
+        }
+      }
       target.setState(next, true)
       current.runtime.dispose()
       return true

@@ -414,16 +414,16 @@ export function createDrafts(
       settledReceipts.set(key, { ...accepted })
     }
     const current = entry(sessionId)
+    const { pendingSubmission: _pendingSubmission, ...withoutPendingSubmission } = current
     const clear = submission.matchesDraft && current.revision === submission.revision
     replace(sessionId, {
-      ...current,
+      ...withoutPendingSubmission,
       ...(clear
         ? { text: '', mentions: [], workspaceContexts: [], attachments: [], revision: current.revision + 1 }
         : {}),
       status: 'idle',
       error: null,
       lastOperationId: accepted.operationId,
-      pendingSubmission: undefined,
     })
     pending.delete(sessionId)
   }
@@ -494,8 +494,9 @@ export function createDrafts(
       const unknown = dispatched && UNCERTAIN_SUBMIT_CODES.has(errorCode(error) ?? 'EXECUTION_FAILED')
       if (pending.get(submit.sessionId) === submission) {
         const latest = entry(submit.sessionId)
+        const { pendingSubmission: _pendingSubmission, ...withoutPendingSubmission } = latest
         replace(submit.sessionId, {
-          ...latest,
+          ...withoutPendingSubmission,
           status: unknown ? 'unknown' : 'failed',
           error: errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED'),
           ...(unknown ? {} : { pendingSubmission: undefined }),
