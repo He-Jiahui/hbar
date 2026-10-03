@@ -770,7 +770,16 @@ try {
   await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).click()
   await page.getByRole('complementary', { name: /^(工程与会话|Projects and sessions)$/ }).waitFor()
   const expandedGeometry = await assertSessionGeometry('Minimum desktop window with sidebar')
-  const sidebarGeometry = await page.locator('[data-hbar-app-ui-component="app-sidebar-03-navigation"]').evaluate((element) => {
+  const sidebarLocator = page.locator('[data-hbar-app-ui-component="hbar-app-ui-app-sidebar-3"]')
+  if (await sidebarLocator.count() === 0) {
+    await writeFile('artifacts/ui-redesign/tauri/sidebar-dom-snapshot.json', JSON.stringify(await page.evaluate(() => ({
+      markers: Array.from(document.querySelectorAll<HTMLElement>('[data-hbar-app-ui-shell],[data-hbar-app-ui-component],[data-hbar-layout-adapter]')).map((node) => ({ tag: node.tagName, className: node.className, shell: node.getAttribute('data-hbar-app-ui-shell'), component: node.getAttribute('data-hbar-app-ui-component'), adapter: node.getAttribute('data-hbar-layout-adapter'), text: node.innerText.slice(0, 120), rect: (() => { const r = node.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height } })() })),
+      buttons: Array.from(document.querySelectorAll<HTMLButtonElement>('button')).map((button) => ({ aria: button.getAttribute('aria-label'), title: button.title, text: button.innerText, visible: Boolean(button.offsetWidth || button.offsetHeight) })),
+      roles: Array.from(document.querySelectorAll<HTMLElement>('[role]')).map((node) => ({ role: node.getAttribute('role'), name: node.getAttribute('aria-label'), text: node.innerText.slice(0, 80), visible: Boolean(node.offsetWidth || node.offsetHeight) })),
+    })), null, 2))
+    throw new Error('Canonical sidebar navigation marker is absent after sidebar expansion')
+  }
+  const sidebarGeometry = await sidebarLocator.evaluate((element) => {
     const bounds = element.getBoundingClientRect()
     return { left: bounds.left, right: bounds.right, width: bounds.width, position: getComputedStyle(element).position }
   })
