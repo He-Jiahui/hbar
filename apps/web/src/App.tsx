@@ -1057,12 +1057,12 @@ function WorkspaceTool({
         <NotificationsLazyPage
           runtime={runtime}
           locale={locale}
-          onNavigate={(target) => {
-            void navigateNotification(target, {
+          onNavigate={(target) =>
+            navigateNotification(target, {
               commands: runtime.commands,
               getSchedule: (scheduleId) => runtime.state.schedules?.get(scheduleId) ?? Promise.resolve(null),
-            }).catch(() => undefined)
-          }}
+            })
+          }
         />
       </Suspense>
     )
@@ -1136,12 +1136,12 @@ function FeatureNavigation({
         labels={notificationLabels}
         variant={6}
         onOpenCenter={() => onOpen('notifications')}
-        onNavigate={(target) => {
-          void navigateNotification(target, {
+        onNavigate={(target) =>
+          navigateNotification(target, {
             commands: runtime.commands,
             getSchedule: (id) => runtime.state.schedules?.get(id) ?? Promise.resolve(null),
-          }).catch(() => undefined)
-        }}
+          })
+        }
       />
     </LumenFrame>
   )
@@ -1526,7 +1526,7 @@ export default function App({
     () =>
       shellLayoutToFlexModel(resolvedLayout, {
         widthRem: desktopWidthRem,
-        sidebarVisible: presentation.sidebarOpen,
+        sidebarVisible: sidebarLayout.visible || presentation.sidebarOpen,
         toolVisible: Boolean(toolPanel),
       }),
     [resolvedLayout, desktopWidthRem, presentation.sidebarOpen, toolPanel],
