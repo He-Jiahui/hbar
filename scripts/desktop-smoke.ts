@@ -255,6 +255,17 @@ try {
     process.exit(0)
   }
   const locale = await page.evaluate(() => (document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en-US'))
+  const servedAssetIdentity = await page.evaluate(async () => {
+    const scripts = Array.from(document.scripts).map((script) => script.src).filter(Boolean)
+    const mainScript = scripts.find((src) => /\/assets\/index-[^/]+\.js$/.test(src))
+    if (!mainScript) throw new Error(`Native WebView main asset is missing: ${JSON.stringify(scripts)}`)
+    const response = await fetch(mainScript)
+    if (!response.ok) throw new Error(`Native WebView main asset request failed: ${response.status}`)
+    const source = await response.text()
+    if (!source.includes('hbar:web:drafts:')) throw new Error('Native WebView served stale bundle without durable draft marker')
+    return { mainScript, sourceLength: source.length, hasDurableDraftMarker: true }
+  })
+  await writeFile('artifacts/app-ui-migration-audit/native-web-asset-identity.json', JSON.stringify(servedAssetIdentity, null, 2))
   const copy = getShellCopy(locale)
   const preSession = preSessionCopy(locale)
   const location = preSessionLaunchCopy(locale).location
@@ -482,6 +493,7 @@ try {
           }),
         ),
         runtimeCandidates,
+        runtimeTrace: (window as unknown as { __hbarRuntimeTrace?: unknown }).__hbarRuntimeTrace ?? [],
         composerCandidates: Array.from(document.querySelectorAll('[role="textbox"]')).map((node) => ({
           text: (node as HTMLElement).innerText,
           aria: node.getAttribute('aria-label'),
