@@ -1,6 +1,7 @@
 import { createCommandClient, CommandError, type CommandExecutor } from '@hbar/commands'
 import {
   usageCommands,
+  usageScopeSchema,
   usageExportResultSchema,
   type UsageAttemptExport,
   type UsageExportInput,
@@ -101,14 +102,14 @@ function errorCode(reason: unknown): string {
 }
 
 function sameScope(left: UsageScope, right: UsageScope): boolean {
-  return JSON.stringify(left) === JSON.stringify(right)
+  return JSON.stringify(usageScopeSchema.parse(left)) === JSON.stringify(usageScopeSchema.parse(right))
 }
 
 /** Bounded, cancellable request-log projection backed by the public usage.export command. */
 export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRequestsRuntime {
   const state = createState<UsageRequestsState>(
     {
-      scope: options.initialScope ?? defaultScope,
+      scope: usageScopeSchema.parse(options.initialScope ?? defaultScope),
       filters: options.filters ?? {},
       range: {},
       items: [],
@@ -242,7 +243,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       pending = null
       state.replace({
         ...state.reader.getSnapshot(),
-        scope,
+        scope: usageScopeSchema.parse(scope),
         filters,
         range,
         items: [],
