@@ -513,13 +513,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
     const view = viewRef.current
     if (!view) return
     // Local optimistic edits may be ahead of the next React snapshot. Never roll them back with stale props.
-    // Equal revisions can be a stale React render while a local editor write is
-    // still being projected. Only a newer confirmed revision may replace the
-    // editor document; otherwise an old empty value can erase a newer draft.
-    if (
-      props.revision > revisionRef.current ||
-      (props.revision === revisionRef.current && props.text === view.state.doc.toString())
-    ) {
+    if (props.revision >= revisionRef.current) {
       revisionRef.current = props.revision
       if (
         view.state.doc.toString() !== props.text ||
