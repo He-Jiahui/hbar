@@ -71,6 +71,7 @@ import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
+import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
 import { createPromptTemplateStorage, PROMPT_TEMPLATES_SQL } from './prompt-templates'
 import { createScheduleStorage, SCHEDULES_SQL } from './schedules'
 import { readRunBoard } from './run-board'
@@ -861,11 +862,14 @@ function appendEvent(
     1,
   )
   db.query('UPDATE sessions SET seq=?,updatedAt=? WHERE id=?').run(event.seq, event.time, sessionId)
+  const notification = notificationFromSessionEvent(event, s.workspaceId)
+  if (notification) notifications.insert(notification)
   return event
 }
 const methods: StorageMethods = {
   ready: () => ({ version: LATEST_SCHEMA_VERSION }),
   notificationPage: (input) => notifications.page(input),
+  notificationBySourceEvent: (sourceEventId) => notifications.bySourceEvent(sourceEventId),
   insertNotification: (record) => notifications.insert(record),
   markNotificationRead: (id, readAt, identity) => notifications.markRead(id, readAt, identity),
   markAllNotificationsRead: (readAt, identity) => notifications.markAllRead(readAt, identity),
@@ -886,7 +890,12 @@ const methods: StorageMethods = {
   scheduleOccurrences: (id, after, limit) => schedules.occurrences(id, after, limit),
   claimScheduleOccurrence: (id, dueAt, now) => schedules.claim(id, dueAt, now),
   transitionScheduleOccurrence: (id, status, runId, error, sessionId) =>
-    schedules.transition(id, status, runId, error, sessionId),
+    db.transaction(() => {
+      const occurrence = schedules.transition(id, status, runId, error, sessionId)
+      const notification = notificationFromScheduleOccurrence(occurrence)
+      if (notification) notifications.insert(notification)
+      return occurrence
+    })(),
   enabledSchedules: (after, limit) => schedules.enabledSchedules(after, limit),
   activeScheduleOccurrences: (limit, after) => schedules.activeScheduleOccurrences(limit, after),
   scheduleRuntime: (id) => schedules.scheduleRuntime(id),
@@ -2268,7 +2277,9 @@ function restoreProjection(event: SessionEvent) {
         0,
       )
   }
-  const session = db.query('SELECT id FROM sessions WHERE id=?').get(event.sessionId)
+  const session = db
+    .query<{ workspaceId: string }, [string]>('SELECT workspaceId FROM sessions WHERE id=?')
+    .get(event.sessionId)
   if (!session) throw new Error(`SESSION_LOG_CORRUPTED event ${event.eventId} has no session.created record`)
   db.query('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)').run(
     event.eventId,
@@ -2514,6 +2525,8 @@ function restoreProjection(event: SessionEvent) {
       'started',
     )
   }
+  const notification = notificationFromSessionEvent(event, session.workspaceId)
+  if (notification) notifications.insert(notification)
 }
 
 function reconcileSessionLogs() {

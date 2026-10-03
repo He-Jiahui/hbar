@@ -39,6 +39,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
 
 export interface NotificationStorage {
   page(input: NotificationPageInput): NotificationPage
+  bySourceEvent(sourceEventId: string): NotificationRecord | null
   insert(record: NotificationRecord): { record: NotificationRecord; inserted: boolean }
   markRead(id: string, readAt: number | null, identity?: FeatureWriteIdentity): NotificationRecord
   markAllRead(readAt: number, identity?: FeatureWriteIdentity): number
@@ -102,6 +103,10 @@ export function createNotificationStorage(db: Database): NotificationStorage {
     return notificationPreferencesSchema.parse(result)
   }
   return {
+    bySourceEvent(sourceEventId) {
+      const row = db.query('SELECT rowid AS sequence,* FROM notifications WHERE sourceEventId=?').get(sourceEventId)
+      return row ? rowRecord(row) : null
+    },
     page(raw) {
       const input = notificationPageInputSchema.parse(raw)
       const cursor = decodeCursor(input.after)
@@ -121,7 +126,9 @@ export function createNotificationStorage(db: Database): NotificationStorage {
       const unreadCount = z
         .object({ count: z.number() })
         .parse(db.query('SELECT COUNT(*) AS count FROM notifications WHERE readAt IS NULL').get()).count
-      const watermark = z.object({ watermark: z.number() }).parse(db.query('SELECT COALESCE(MAX(rowid),0) AS watermark FROM notifications').get()).watermark
+      const watermark = z
+        .object({ watermark: z.number() })
+        .parse(db.query('SELECT COALESCE(MAX(rowid),0) AS watermark FROM notifications').get()).watermark
       return {
         items,
         nextCursor: rows.length > input.limit ? (items.at(-1) ? encodeCursor(items.at(-1)!) : null) : null,
@@ -130,7 +137,9 @@ export function createNotificationStorage(db: Database): NotificationStorage {
       }
     },
     insert(record) {
-      const existing = db.query('SELECT rowid AS sequence,* FROM notifications WHERE sourceEventId=?').get(record.sourceEventId)
+      const existing = db
+        .query('SELECT rowid AS sequence,* FROM notifications WHERE sourceEventId=?')
+        .get(record.sourceEventId)
       if (existing) return { record: rowRecord(existing), inserted: false }
       db.query(
         'INSERT INTO notifications(id,sourceEventId,kind,title,detail,createdAt,readAt,targetJson) VALUES(?,?,?,?,?,?,?,?)',
@@ -156,7 +165,7 @@ export function createNotificationStorage(db: Database): NotificationStorage {
         notificationRecordSchema,
         () => {
           db.query('UPDATE notifications SET readAt=? WHERE id=?').run(readAt, id)
-          const row = db.query('SELECT * FROM notifications WHERE id=?').get(id)
+          const row = db.query('SELECT rowid AS sequence,* FROM notifications WHERE id=?').get(id)
           if (!row) throw new HbarError('NOT_FOUND', 'Notification not found')
           return rowRecord(row)
         },

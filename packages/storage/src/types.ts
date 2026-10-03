@@ -249,6 +249,7 @@ export interface GuideQueuedRunResult {
 
 export interface StorageMethods {
   notificationPage: NotificationStorage['page']
+  notificationBySourceEvent: NotificationStorage['bySourceEvent']
   insertNotification: NotificationStorage['insert']
   markNotificationRead: NotificationStorage['markRead']
   markAllNotificationsRead: NotificationStorage['markAllRead']

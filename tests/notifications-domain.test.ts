@@ -39,7 +39,11 @@ describe('notifications storage', () => {
       expect(() => reopened.markRead('n1', null, identity)).toThrow()
       reopenedDb.close()
     } finally {
-      try { rmSync(directory, { recursive: true, force: true }) } catch { /* Bun may release SQLite sidecars after the test turn. */ }
+      try {
+        rmSync(directory, { recursive: true, force: true })
+      } catch {
+        /* Bun may release SQLite sidecars after the test turn. */
+      }
     }
   })
   test('paginates equal timestamps without duplicates', () => {
@@ -124,6 +128,7 @@ describe('notification service', () => {
         return { record: value, inserted: true }
       },
       notificationPage: async () => ({ items: [], nextCursor: null, unreadCount: 0 }),
+      notificationBySourceEvent: async () => null,
       markNotificationRead: async (id: string) => ({ ...record(id, id, 1), readAt: Date.now() }),
       markAllNotificationsRead: async () => 1,
       notificationPreferences: async () => preferences,

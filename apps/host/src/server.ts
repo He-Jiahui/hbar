@@ -3,7 +3,7 @@ import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas, runSchema } from '@hbar/contracts'
+import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import {
@@ -264,6 +264,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     storage: {
       insertNotification: (record) => kernel.storage.call('insertNotification', record),
       notificationPage: (input) => kernel.storage.call('notificationPage', input),
+      notificationBySourceEvent: (sourceEventId) => kernel.storage.call('notificationBySourceEvent', sourceEventId),
       markNotificationRead: (id, readAt, identity) => kernel.storage.call('markNotificationRead', id, readAt, identity),
       markAllNotificationsRead: (readAt, identity) => kernel.storage.call('markAllNotificationsRead', readAt, identity),
       notificationPreferences: () => kernel.storage.call('notificationPreferences'),
@@ -316,17 +317,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       activeScheduleOccurrences: (limit, after) => kernel.storage.call('activeScheduleOccurrences', limit, after),
       dueScheduleOccurrences: readDueSchedules,
     },
-    onFailure: async ({ scheduleId, occurrenceId, error }) => {
-      await notificationService.record({
-        sourceEventId: `schedule:${occurrenceId}:failed`,
-        kind: 'schedule.failed',
-        title: 'Scheduled run failed',
-        detail: error,
-        target: { kind: 'schedule', scheduleId, occurrenceId },
-      })
-    },
+    onFailure: ({ occurrenceId }) => notificationService.publishSource(`schedule:${occurrenceId}:failed`),
   })
-  await scheduleController.start()
   const commandServices = [
     { definitions: agentDefinitions, service: agentCommands },
     { definitions: browserDefinitions, service: browserCommands },
@@ -370,6 +362,34 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const sockets = new Set<ServerWebSocket<SocketData>>()
   let broadcastFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void = () =>
     undefined
+  const notificationTasks = new Set<Promise<void>>()
+  const notificationQueue: Array<() => Promise<void>> = []
+  let notificationActive = 0
+  const enqueueNotification = (task: () => Promise<void>) => {
+    if (notificationQueue.length + notificationActive >= 256) {
+      kernel.changed('notifications')
+      return
+    }
+    notificationQueue.push(task)
+    const pump = () => {
+      while (notificationActive < 4 && notificationQueue.length) {
+        const next = notificationQueue.shift()!
+        notificationActive++
+        const promise = next()
+          .catch((error) => {
+            console.error('Notification publication failed:', error)
+            kernel.changed('notifications')
+          })
+          .finally(() => {
+            notificationActive--
+            notificationTasks.delete(promise)
+            pump()
+          })
+        notificationTasks.add(promise)
+      }
+    }
+    pump()
+  }
   const surfaceClients = new Map<
     string,
     { socket: ServerWebSocket<SocketData>; generation: number; commands: Set<string> }
@@ -1306,61 +1326,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       event.method === 'session.event' &&
       (event.params.type === 'run.settled' || event.params.type === 'approval.requested')
     ) {
-      const data = event.params.data
-      const runId = event.params.runId
-      const status =
-        typeof data === 'object' && data !== null && 'status' in data
-          ? String((data as { status?: unknown }).status)
-          : undefined
-      const sourceEventId = `${event.params.sessionId}:${event.params.seq}`
-      if (event.params.type === 'run.settled' && (status === 'completed' || status === 'failed')) {
-        void (async () => {
-          const parsed = z.object({ run: runSchema }).safeParse(data)
-          if (!parsed.success || parsed.data.run.status !== status) return
-          const session = await kernel.storage.call('session', event.params.sessionId)
-          await notificationService.record({
-            sourceEventId,
-            kind: status === 'completed' ? 'run.completed' : 'run.failed',
-            title: status === 'completed' ? 'Run completed' : 'Run failed',
-            detail: parsed.data.run.error ?? '',
-            target: {
-              kind: 'session',
-              workspaceId: session.workspaceId,
-              sessionId: event.params.sessionId,
-              ...(runId ? { runId } : {}),
-            },
-          })
-        })().catch((error) => console.error('Notification recording failed:', error))
-      }
-      if (event.params.type === 'approval.requested' && runId) {
-        void (async () => {
-          const parsed = z
-            .object({
-              id: z.string().min(1),
-              sessionId: z.string().min(1),
-              runId: z.string().min(1),
-              status: z.literal('pending'),
-            })
-            .passthrough()
-            .safeParse(data)
-          if (!parsed.success || parsed.data.sessionId !== event.params.sessionId || parsed.data.runId !== runId) return
-          const approvalId = parsed.data.id
-          const session = await kernel.storage.call('session', event.params.sessionId)
-          await notificationService.record({
-            sourceEventId,
-            kind: 'approval.pending',
-            title: 'Approval required',
-            detail: 'A run is waiting for approval.',
-            target: {
-              kind: 'approval',
-              workspaceId: session.workspaceId,
-              sessionId: event.params.sessionId,
-              runId,
-              approvalId,
-            },
-          })
-        })().catch((error) => console.error('Approval notification recording failed:', error))
-      }
+      enqueueNotification(() => notificationService.publishSource(event.params.eventId))
     }
     for (const socket of sockets) {
       if (!socket.data.initialized) continue
@@ -1379,6 +1345,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       if (socket.data.initialized && socket.data.metricsFollowing)
         send(socket, { jsonrpc: '2.0', method: 'metrics.sample', params: sample })
   })
+  await scheduleController.start()
   return {
     server,
     auth,
@@ -1407,12 +1374,13 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       settingsCommands.dispose()
       usageCommands.dispose()
       await scheduleController.close()
+      unsubscribe()
+      while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       scheduleCommands.dispose()
       promptTemplateCommands.dispose()
       notificationCommands.dispose()
       runBoardCommands.dispose()
       systemCommands.dispose()
-      unsubscribe()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })

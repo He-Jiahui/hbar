@@ -19,6 +19,7 @@ export interface NotificationServiceOptions {
   readonly storage: {
     insertNotification(record: NotificationRecord): Promise<{ record: NotificationRecord; inserted: boolean }>
     notificationPage(input: NotificationPageInput): Promise<NotificationPage>
+    notificationBySourceEvent(sourceEventId: string): Promise<NotificationRecord | null>
     markNotificationRead(
       id: string,
       readAt: number | null,
@@ -41,6 +42,7 @@ export interface NotificationServiceOptions {
 }
 export interface NotificationService {
   record(input: NotificationCreateInput): Promise<{ record: NotificationRecord; inserted: boolean }>
+  publishSource(sourceEventId: string): Promise<void>
   page(input: NotificationPageInput): Promise<NotificationPage>
   markRead(id: string, read: boolean, identity: NotificationWriteIdentity): Promise<NotificationRecord>
   markAllRead(identity: NotificationWriteIdentity): Promise<{ updated: number }>
@@ -55,6 +57,16 @@ export interface NotificationService {
 
 export function createNotificationService(options: NotificationServiceOptions): NotificationService {
   return {
+    async publishSource(sourceEventId) {
+      const record = await options.storage.notificationBySourceEvent(sourceEventId)
+      if (!record) return
+      options.publishFresh?.({
+        sourceEventId: record.sourceEventId,
+        record,
+        ...(record.sequence === undefined ? {} : { sequence: record.sequence }),
+      })
+      options.publish?.({ method: 'host.changed', params: { kind: 'notifications' } })
+    },
     async record(raw) {
       const input = notificationCreateInputSchema.parse(raw)
       const record: NotificationRecord = {
@@ -69,7 +81,11 @@ export function createNotificationService(options: NotificationServiceOptions): 
       }
       const result = await options.storage.insertNotification(record)
       if (result.inserted) {
-        options.publishFresh?.({ sourceEventId: result.record.sourceEventId, record: result.record, ...(result.record.sequence === undefined ? {} : { sequence: result.record.sequence }) })
+        options.publishFresh?.({
+          sourceEventId: result.record.sourceEventId,
+          record: result.record,
+          ...(result.record.sequence === undefined ? {} : { sequence: result.record.sequence }),
+        })
         options.publish?.({ method: 'host.changed', params: { kind: 'notifications' } })
       }
       return result
