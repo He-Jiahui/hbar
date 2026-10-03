@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ClientJsonObject } from '@hbar/app-runtime'
+import type { IJsonModel } from 'flexlayout-react'
 import description from './shell-layout.json'
 
 const projectsModuleSchema = z.strictObject({
@@ -160,3 +161,111 @@ export function shellLayoutModule<ModuleId extends ShellLayoutModuleId>(
 }
 
 export const shellLayout = shellLayoutV3Schema.parse(description)
+
+/** Project the canonical descriptor into FlexLayout's model without creating a second source of truth. */
+export function shellLayoutToFlexModel(
+  layout: ShellLayoutDescription,
+  projection: { widthRem?: number; sidebarVisible?: boolean; toolVisible?: boolean } = {},
+): IJsonModel {
+  const projects = shellLayoutModule(layout, 'projects')
+  const workspace = shellLayoutModule(layout, 'workspace')
+  const tool = shellLayoutModule(layout, 'session-tool')
+  const sidebarVisible = projection.sidebarVisible ?? projects.visible
+  const toolVisible = projection.toolVisible ?? tool.visible
+  const widthRem = Math.max(
+    workspace.size.minRem,
+    projection.widthRem ?? 100 + projects.size.preferredRem + tool.size.preferredRem,
+  )
+  const sidebarWeight = sidebarVisible
+    ? Math.min(
+        projects.size.preferredRem,
+        Math.max(projects.size.minRem, widthRem - workspace.size.minRem - (toolVisible ? tool.size.minRem : 0)),
+      )
+    : 0
+  const toolWeight = toolVisible
+    ? Math.min(tool.size.preferredRem, Math.max(tool.size.minRem, widthRem - workspace.size.minRem - sidebarWeight))
+    : 0
+  const mainWeight = Math.max(1, widthRem - sidebarWeight - toolWeight)
+  return {
+    global: {
+      tabEnableClose: false,
+      tabEnableDrag: false,
+      tabEnableRename: false,
+      tabSetEnableDrop: false,
+      tabSetEnableDrag: false,
+      tabSetEnableDivide: false,
+      tabSetEnableTabStrip: false,
+      tabSetEnableMaximize: false,
+    },
+    borders: [],
+    layout: {
+      type: 'row',
+      weight: 100,
+      children: [
+        ...(sidebarVisible
+          ? [
+              {
+                type: 'tabset' as const,
+                id: projects.moduleId,
+                weight: sidebarWeight,
+                children: [
+                  { type: 'tab' as const, id: 'projects-pane', name: projects.moduleId, component: projects.outlet },
+                ],
+              },
+            ]
+          : []),
+        {
+          type: 'tabset',
+          id: workspace.moduleId,
+          weight: mainWeight,
+          children: [{ type: 'tab', id: 'workspace-pane', name: workspace.moduleId, component: workspace.outlet }],
+        },
+        ...(toolVisible
+          ? [
+              {
+                type: 'tabset' as const,
+                id: tool.moduleId,
+                weight: toolWeight,
+                children: [
+                  { type: 'tab' as const, id: 'session-tool-pane', name: tool.moduleId, component: tool.outlet },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
+  }
+}
+
+/** Read only the pane weights back; visibility and behavior remain descriptor-owned. */
+export function flexModelToShellLayout(
+  layout: ShellLayoutDescription,
+  model: IJsonModel,
+  widthRem?: number,
+): ShellLayoutDescription {
+  const children = model.layout?.type === 'row' ? model.layout.children : undefined
+  const totalWeight =
+    children?.reduce((total, node) => total + (typeof node.weight === 'number' ? node.weight : 0), 0) ?? 0
+  const weight = (id: ShellLayoutModuleId, fallback: number) => {
+    const node = children?.find((child) => child.type === 'tabset' && child.id === id)
+    const projected = typeof node?.weight === 'number' && Number.isFinite(node.weight) ? node.weight : fallback
+    return widthRem && node && totalWeight > 0 ? (projected / totalWeight) * widthRem : projected
+  }
+  return shellLayoutV3Schema.parse({
+    ...layout,
+    modules: layout.modules.map((module) =>
+      module.moduleId === 'projects' || module.moduleId === 'session-tool'
+        ? {
+            ...module,
+            size: {
+              ...module.size,
+              preferredRem: Math.min(
+                module.size.maxRem,
+                Math.max(module.size.minRem, weight(module.moduleId, module.size.preferredRem)),
+              ),
+            },
+          }
+        : module,
+    ),
+  })
+}

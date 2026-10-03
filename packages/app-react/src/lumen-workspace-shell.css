@@ -7,6 +7,20 @@
   overflow: hidden;
 }
 
+.hbar-app-react-shell-content {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-shell-content > .hbar-app-react-session-workspace,
+.hbar-app-react-shell-content > [data-hbar-app-ui-component='prompt-input-04-composer'] {
+  min-block-size: 0;
+}
+
 .hbar-app-react-tool-focus-error {
   flex: 0 0 auto;
   margin: 0;

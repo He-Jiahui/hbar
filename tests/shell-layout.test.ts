@@ -1,5 +1,45 @@
 import { expect, test } from 'bun:test'
-import { normalizeShellLayout, shellLayout, shellLayoutModule, withToolPaneWidth } from '../apps/web/src/shell-layout'
+import {
+  flexModelToShellLayout,
+  normalizeShellLayout,
+  shellLayout,
+  shellLayoutModule,
+  shellLayoutToFlexModel,
+  withToolPaneWidth,
+} from '../apps/web/src/shell-layout'
+
+test('projects the descriptor to FlexLayout and reads pane weights back', () => {
+  const model = shellLayoutToFlexModel(shellLayout)
+  const children = model.layout.children ?? []
+  expect(children.map((child) => child.id)).toEqual(['projects', 'workspace', 'session-tool'])
+  const changed = flexModelToShellLayout(shellLayout, {
+    ...model,
+    layout: {
+      ...model.layout,
+      children: children.map((child) => (child.id === 'session-tool' ? { ...child, weight: 31 } : child)),
+    },
+  })
+  expect(shellLayoutModule(changed, 'session-tool').size.preferredRem).toBe(31)
+  expect(shellLayoutModule(changed, 'workspace').size.minRem).toBe(20)
+})
+
+test('ignores missing, reordered, and malformed pane weights while retaining descriptor truth', () => {
+  const model = shellLayoutToFlexModel(shellLayout)
+  const children = model.layout.children ?? []
+  const recovered = flexModelToShellLayout(shellLayout, {
+    ...model,
+    layout: {
+      ...model.layout,
+      children: [
+        ...(children[2] ? [{ ...children[2], weight: Number.NaN }] : []),
+        ...(children[0] ? [{ ...children[0], weight: 19 }] : []),
+      ],
+    },
+  })
+  expect(shellLayoutModule(recovered, 'projects').size.preferredRem).toBe(19)
+  expect(shellLayoutModule(recovered, 'session-tool').size.preferredRem).toBe(24)
+  expect(shellLayoutModule(recovered, 'workspace').size.minRem).toBe(20)
+})
 
 test('Web shell layout v3 describes ordered outlets and a real constrained tool page', () => {
   expect(shellLayout.schemaVersion).toBe(3)

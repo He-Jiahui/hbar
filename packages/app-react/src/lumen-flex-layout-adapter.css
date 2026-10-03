@@ -1,0 +1,22 @@
+.hbar-desktop-layout-projection {
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.hbar-desktop-layout-projection > .flexlayout__layout {
+  min-block-size: 0;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+.hbar-desktop-workspace-pane,
+.hbar-desktop-tool-pane {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}

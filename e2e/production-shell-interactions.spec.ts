@@ -21,7 +21,7 @@ test('executes shell directory writes against the real Host', async ({ browser }
   let host: WebSessionHost | undefined
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     const authentication = await context.request.post(
       `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
       { data: { token: host.ready.token } },
