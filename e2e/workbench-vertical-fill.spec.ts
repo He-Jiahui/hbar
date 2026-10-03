@@ -28,11 +28,13 @@ async function expectSidebarFill(page: Page): Promise<void> {
         bottom: footer.getBoundingClientRect().bottom,
         paneBottom: pane?.getBoundingClientRect().bottom ?? innerHeight,
         listBottom: list.getBoundingClientRect().bottom,
+        listHeight: list.getBoundingClientRect().height,
         footerTop: footer.getBoundingClientRect().top,
       }
     })
     expect(Math.abs(geometry.paneBottom - geometry.bottom), JSON.stringify(geometry)).toBeLessThanOrEqual(4)
     expect(geometry.listBottom, JSON.stringify(geometry)).toBeLessThanOrEqual(geometry.footerTop + 1)
+    expect(geometry.listHeight, JSON.stringify(geometry)).toBeGreaterThan(24)
   }).toPass({ timeout: 10_000 })
 }
 
@@ -108,6 +110,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         for (const viewport of [
           { width: 1440, height: 960 },
           { width: 900, height: 600 },
+          { width: 900, height: 560 },
           { width: 390, height: 844 },
         ]) {
           await page.setViewportSize(viewport)
@@ -115,12 +118,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           if (await reveal.isVisible()) await reveal.click()
           await expectSidebarFill(page)
           if (viewport.width === 900)
-            await page.screenshot({ path: `artifacts/vertical-fill/${locale}-${fixture.name}-sidebar-900.png` })
+            await page.screenshot({
+              path: `artifacts/vertical-fill/${locale}-${fixture.name}-sidebar-900-${viewport.height}.png`,
+            })
           if (viewport.width < 1024)
             await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).first().click()
           await expectConversationFill(page)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-          await page.screenshot({ path: `artifacts/vertical-fill/${locale}-${fixture.name}-${viewport.width}.png` })
+          await page.screenshot({
+            path: `artifacts/vertical-fill/${locale}-${fixture.name}-${viewport.width}-${viewport.height}.png`,
+          })
         }
 
         if (fixture.name === 'overflow') {
