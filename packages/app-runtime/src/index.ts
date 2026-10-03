@@ -526,7 +526,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   const runBoard = createRunBoard(
     local,
-    options.run,
+    options.runBoard ?? options.run,
     navigation.reader,
     surfaces.reader,
     onSubscriberError,

@@ -65,6 +65,49 @@ test('logical panels are command-owned, idempotent and preserve follow versus pi
   runtime.dispose()
 })
 
+test('run board refresh uses its dedicated host projection port', async () => {
+  const runCalls: string[] = []
+  const boardCalls: string[] = []
+  const runtime = createAppRuntime({
+    instanceId: 'run-board-port',
+    hostId: 'host',
+    directory,
+    run: {
+      execute(name) {
+        runCalls.push(name)
+        return Promise.reject(new Error(`Unexpected run command: ${name}`))
+      },
+      getReceipt: async () => null,
+    },
+    runBoard: {
+      execute(name, input) {
+        boardCalls.push(`${name}:${JSON.stringify(input)}`)
+        return Promise.resolve({
+          workspaceId: workspace.id,
+          sessionId: 's1',
+          workspaceName: workspace.name,
+          sessionTitle: 'one',
+          revision: 1,
+          observedAt: 1,
+          items: [],
+          nextCursor: null,
+        })
+      },
+    },
+    surfaces: { canRender: () => true },
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 's1' })
+    const panel = await runtime.view.commands.execute('app.openPanel', { panelId: 'run-board' })
+    await runtime.view.commands.execute('runBoard.refresh', { instanceId: panel.instanceId })
+    expect(boardCalls).toHaveLength(1)
+    expect(boardCalls[0]).toContain('run.board.list')
+    expect(runCalls).not.toContain('run.board.list')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('presentation commands separate the main page, session tool, modal, return context, and sidebar', async () => {
   const runtime = createAppRuntime({
     instanceId: 'presentation',

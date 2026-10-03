@@ -59,6 +59,7 @@ import {
   createWorkflowCommandClient,
   createGitCommandClient,
   createRunCommandClient,
+  createRunBoardCommandClient,
   createSessionLaunchTargetReader,
   createSessionLaunchTargetPreparationManager,
   createSessionLaunchBranchesManager,
@@ -320,6 +321,7 @@ function createRuntime(
         }),
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
+    runBoard: createRunBoardCommandClient(client),
     notifications: createNotificationCommandClient(client),
     promptTemplates: createPromptTemplateCommandClient(client),
     schedules: createScheduleCommandClient(client),
@@ -1573,7 +1575,9 @@ export default function App({
     const syncKey = `sidebar:${layout.source}`
     if (layoutVisibilitySync.current === syncKey) return
     layoutVisibilitySync.current = syncKey
-    void runtime.view.commands.execute('app.setSidebarVisible', { visible: sidebarLayout.visible }).catch(() => undefined)
+    void runtime.view.commands
+      .execute('app.setSidebarVisible', { visible: sidebarLayout.visible })
+      .catch(() => undefined)
   }, [layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
 
   useEffect(() => {

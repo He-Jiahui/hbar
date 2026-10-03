@@ -137,6 +137,8 @@ export interface RuntimeOptions {
   }
   readonly timeline?: SessionTimelinePort
   readonly run?: RunCommandPort
+  /** Dedicated Host run-board projection queries; kept separate from run mutations. */
+  readonly runBoard?: CommandExecutor
   readonly planProposal?: { readonly requestText: PlanProposalRequestText }
   readonly attachments?: CommandExecutor
   readonly interactions?: CommandExecutor
