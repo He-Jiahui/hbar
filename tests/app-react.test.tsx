@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
+import type { ReactNode } from 'react'
 import { HbarRuntimeProvider, HbarWorkspaceShell, type HbarWorkspaceShellLabels } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
@@ -226,6 +227,40 @@ async function prepareSidebar(
       workspaceId: options.workspaceId ?? workspace.id,
     })
 }
+
+test('desktop projection keeps a reachable sidebar reveal without empty default header regions', async () => {
+  const runtime = runtimeFixture()
+  try {
+    await prepareSidebar(runtime)
+    const render = (customHeader?: ReactNode) =>
+      renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarWorkspaceShell
+            labels={labels}
+            mobileNavigationLabel="Session tools and tabs"
+            sidebarWidthRem={17}
+            connection="connected"
+            onReconnect={() => {}}
+            renderLayout={(panes) => panes.workspace}
+            {...(customHeader ? { slots: { header: customHeader } } : {})}
+          >
+            <h1>宿主会话内容</h1>
+          </HbarWorkspaceShell>
+        </HbarRuntimeProvider>,
+      )
+    await runtime.view.commands.execute('app.setSidebarVisible', { visible: true })
+    expect(render()).not.toContain('lumen-desktop-shell-header')
+    await runtime.view.commands.execute('app.setSidebarVisible', { visible: false })
+    expect(render()).toContain(`aria-label="${labels.showSidebar}"`)
+    expect(render()).toContain('宿主会话内容')
+    expect(render()).not.toContain('app-shell-09-header')
+    const custom = render(<strong>宿主专用标题</strong>)
+    expect(custom).toContain('宿主专用标题')
+    expect(custom).not.toContain(`aria-label="${labels.showSidebar}"`)
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('app-react renders host-owned workspace and session content from read-only runtime state', async () => {
   const runtime = runtimeFixture()

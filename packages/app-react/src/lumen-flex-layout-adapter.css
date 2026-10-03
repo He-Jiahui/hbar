@@ -1,4 +1,26 @@
 .hbar-desktop-layout-projection {
+  --flexlayout-color-text: var(--lumen-ink);
+  --flexlayout-color-background: var(--lumen-contrast);
+  --flexlayout-color-base: var(--lumen-contrast);
+  --flexlayout-color-1: var(--lumen-contrast);
+  --flexlayout-color-2: var(--lumen-reading);
+  --flexlayout-color-3: var(--lumen-reading);
+  --flexlayout-color-4: var(--lumen-edge);
+  --flexlayout-color-5: var(--lumen-reading);
+  --flexlayout-color-6: var(--lumen-reading);
+  --flexlayout-color-tabset-background: var(--lumen-contrast);
+  --flexlayout-color-tabset-background-selected: var(--lumen-contrast);
+  --flexlayout-color-tab-selected-background: var(--lumen-reading);
+  --flexlayout-color-tab-unselected: var(--lumen-muted);
+  --flexlayout-color-icon: var(--lumen-muted);
+  --flexlayout-color-overflow: var(--lumen-muted);
+  --flexlayout-color-focus: var(--lumen-accent);
+  --flexlayout-color-splitter: var(--lumen-edge);
+  --flexlayout-color-splitter-hover: var(--lumen-muted);
+  --flexlayout-color-splitter-drag: var(--lumen-accent);
+  --flexlayout-color-border-tab-unselected: var(--lumen-muted);
+  --flexlayout-color-popup-border: var(--lumen-edge);
+
   position: relative;
   display: flex;
   min-block-size: 0;

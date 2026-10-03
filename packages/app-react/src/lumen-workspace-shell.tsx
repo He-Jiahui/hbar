@@ -1865,7 +1865,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     </LumenFrame>
   )
   const desktopHeader = props.renderLayout
-    ? shellSlots?.header ??
+    ? (shellSlots?.header ??
       (!presentation.sidebarOpen ? (
         <LumenFrame className="hbar-app-react-desktop-reveal-header">
           <LumenNavbar01
@@ -1882,7 +1882,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             }}
           />
         </LumenFrame>
-      ) : undefined)
+      ) : undefined))
     : headerRegion
   const toolRegion = shellSlots?.context ? (
     <LumenAppShell04 toolLabel={props.toolLabel} slots={{ context: shellSlots.context }} />
@@ -2026,9 +2026,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       ) : null}
     </LumenFrame>
   )
-  const shell = props.slots ? (
-    <LumenAppShell09 slots={shellSlots} className="hbar-app-react-numbered-shell" state={props.connection} />
-  ) : (
+  const shell = (
     <LumenAppShell09
       label={props.labels.main}
       titlebar={props.titlebar}
