@@ -1049,16 +1049,23 @@ try {
   await waitForNativeSmokeExit(child.exited)
   const health = await fetch(`${nativeConnection.url}/healthz`, { signal: AbortSignal.timeout(5_000) })
   if (!health.ok) throw new Error('Host stopped with the desktop')
-  const finalRunStatus = (await nativeApi.call('session.snapshot', { sessionId: session.id })).runs[0]?.status
-  if (finalRunStatus === 'running' || finalRunStatus === 'pending') {
-    await api.call('run.cancel', { runId: run.id })
-    await until(async () => {
-      const status = (await nativeApi.call('session.snapshot', { sessionId: session.id })).runs[0]?.status
-      if (status !== 'cancelled') throw new Error('Run has not settled')
-    })
-  } else if (finalRunStatus !== 'completed' && finalRunStatus !== 'cancelled') {
-    throw new Error(`Background run settled unexpectedly: ${finalRunStatus ?? 'missing'}`)
-  }
+  const persistedAfterExit = (await notificationApi.page({ after: null, limit: 100, unreadOnly: false })).items.find(
+    (item) => item.id === autoRecord.id,
+  )
+  if (!persistedAfterExit || persistedAfterExit.readAt !== null)
+    throw new Error(`Automatic notification was unexpectedly marked read after desktop exit: ${JSON.stringify(persistedAfterExit)}`)
+  const cancellationSession = await api.call('session.create', { workspaceId: workspace.id })
+  const cancellationRun = await api.call('run.start', {
+    sessionId: cancellationSession.id,
+    requestId: 'native-independent-cancellation',
+    modelId: 'local-fixture',
+    input: { text: '/slow' },
+  })
+  await api.call('run.cancel', { runId: cancellationRun.id })
+  await until(async () => {
+    const status = (await nativeApi.call('session.snapshot', { sessionId: cancellationSession.id })).runs[0]?.status
+    if (status !== 'cancelled') throw new Error(`Independent SDK cancellation has not settled: ${status ?? 'missing'}`)
+  })
   if (errors.length) throw new Error(errors.join('\n'))
   console.log(
     'PASS: Native credentials connected to the owned temporary profile; appearance persisted and reset; canonical Shell 09 layout restored as one FlexLayout projection without duplicate panes; first send created exactly one Session with the selected mock model, high effort, Goal and Plan; approval resumed the original Run without losing the draft; explicit New session created in the current project and return retained the original draft; model picker and native attachment chooser worked; chat search keyboard selection was visibly distinct and Escape retained the draft; owned Markdown file rendered, source mode retained its original text and explicit local-link navigation returned to the same document; file search after plugin reload found an unopened nested path, keyboard focus/open worked and return retained the query; Skills overview and reference source read from the discovered owned directory, Back retained search and original-row focus and return retained the draft; Session settings to Providers changed only the global default and return retained the layered settings draft, original explicit model/thinking and composer draft; owned command approval resumed its original Run, command/output/original arguments read in one card, expansion and native Copy feedback worked, and return retained the composer draft; session and tools rendered without overlap at default and minimum window sizes; closing hides the window; background native notification accepted once and deduplicated on replay (OS display/read not asserted); Host survives desktop exit; independent SDK cancellation settled.',
