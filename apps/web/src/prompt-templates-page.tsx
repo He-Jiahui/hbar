@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createWorkspaceSessionTargets } from './workspace-session-targets'
 import { CommandError } from '@hbar/commands'
-import { LumenButton, LumenDialog, LumenFormField, LumenFrame, LumenInput, LumenOption, LumenSelect, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenDialog,
+  LumenFormField,
+  LumenFrame,
+  LumenInput,
+  LumenOption,
+  LumenSelect,
+  LumenText,
+} from '@lumen/app-ui'
 import { PromptTemplateEditor, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import { preSessionDraftStateSchema } from '@hbar/contracts/commands/pre-session-draft'
 import {
@@ -51,6 +61,18 @@ function AvailablePromptTemplatesPage({
   const drafts = useHbarRuntimeState(runtime.state.drafts)
   const preDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
   const directory = useHbarRuntimeState(runtime.state.directory)
+  const sessionTargets = useMemo(
+    () =>
+      createWorkspaceSessionTargets({
+        list: (input, signal) => runtime.commands.execute('session.list', input, { signal }),
+      }),
+    [runtime],
+  )
+  const targetCatalog = useHbarRuntimeState(sessionTargets.reader)
+  useEffect(() => {
+    void sessionTargets.refresh(workspaceId).catch(() => undefined)
+  }, [sessionTargets, workspaceId])
+  useEffect(() => sessionTargets.retain(), [sessionTargets])
   const copy = useMemo(() => promptTemplateCopy(locale), [locale])
   const [target, setTarget] = useState<Target | null>(sessionId ? { kind: 'session', id: sessionId } : null)
   const [mode, setMode] = useState<'append' | 'replace'>('append')
@@ -74,9 +96,13 @@ function AvailablePromptTemplatesPage({
   const selected = matchingWorkspace ? state.selected : null
   const items = matchingWorkspace ? (state.page?.items ?? []) : []
   const busy = applying || state.mutation === 'submitting' || state.mutation === 'unknown'
-  const sessions = Object.values(directory.sessions).filter(
-    (session) => session.workspaceId === workspaceId && !session.archived,
-  )
+  const sessions =
+    targetCatalog.workspaceId === workspaceId
+      ? targetCatalog.sessionIds.flatMap((id) => {
+          const session = directory.sessions[id]
+          return session && session.workspaceId === workspaceId && !session.archived ? [session] : []
+        })
+      : []
   const preEntries = Object.values(preDrafts).filter(
     (entry) => entry.workspaceId === workspaceId && entry.sessionId === null,
   )
@@ -212,6 +238,13 @@ function AvailablePromptTemplatesPage({
         </LumenButton>
       </LumenFrame>
       {state.status === 'loading' ? <LumenText role="status">{copy.loading}</LumenText> : null}
+      {targetCatalog.status === 'error' ? (
+        <LumenFrame role="alert">
+          <LumenText>{copy.sessionsFailed}</LumenText>
+          <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(report)}>{copy.retry}</LumenButton>
+        </LumenFrame>
+      ) : null}
+      {targetCatalog.capacityReached ? <LumenText>{copy.sessionCapacity}</LumenText> : null}
       {state.status === 'error' && state.mutation !== 'failed' ? (
         <LumenFrame className="hbar-prompt-feedback" role="alert">
           <LumenText>{state.error ?? copy.loadError}</LumenText>

@@ -1,15 +1,15 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useHbarRuntimeState } from '@hbar/app-react'
 import type { createAppRuntime } from '@hbar/app-runtime'
 import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenOption, LumenText } from '@lumen/app-ui'
 import { LumenFormField, LumenInput, LumenSelect, LumenTextarea } from '@lumen/app-ui/forms'
 import { LumenScheduling01, LumenScheduling03, LumenScheduling04 } from '@lumen/app-ui/scheduling'
 import type { ScheduleDefinition } from '@hbar/contracts/commands/schedules'
-import type { Session } from '@hbar/contracts/directory'
 import type { ShellLocale } from './shell-copy'
 import { scheduleCopy } from './schedule-copy'
 import { editScheduleForm, newScheduleForm, scheduleFormInput, type ScheduleFormDraft } from './schedule-form'
 import './schedules-page.css'
+import { createWorkspaceSessionTargets } from './workspace-session-targets'
 
 type Runtime = ReturnType<typeof createAppRuntime>['view']
 
@@ -49,27 +49,15 @@ function AvailableSchedulesPage({
   const [previewPending, setPreviewPending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [workspaceSessions, setWorkspaceSessions] = useState<readonly Session[]>([])
-  const [sessionLoad, setSessionLoad] = useState<'idle' | 'loading' | 'error'>('idle')
-  const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
-  const loadSessions = () => {
-    let current = true
-    setSessionLoad('loading'); setSessionLoadError(null)
-    void (async () => {
-      try {
-        const rows: Session[] = []; let cursor: unknown = undefined
-        for (let page = 0; page < 4; page++) {
-          const input = { workspaceId, limit: 100, ...(cursor ? { after: cursor } : {}) }
-          const result = await runtime.commands.execute('session.list', input)
-          if (!result || typeof result !== 'object' || !('items' in result) || !Array.isArray(result.items)) break
-          rows.push(...(result.items as Session[])); cursor = 'nextCursor' in result ? result.nextCursor : null
-          if (!cursor || rows.length >= 400) break
-        }
-        if (current) { setWorkspaceSessions(rows.slice(0, 400)); setSessionLoad('idle') }
-      } catch (reason) { if (current) { setWorkspaceSessions([]); setSessionLoad('error'); setSessionLoadError(reason instanceof Error ? reason.message : String(reason)) } }
-    })()
-    return () => { current = false }
-  }
+  const sessionTargets = useMemo(
+    () =>
+      createWorkspaceSessionTargets({
+        list: (input, signal) => runtime.commands.execute('session.list', input, { signal }),
+      }),
+    [runtime],
+  )
+  const targetCatalog = useHbarRuntimeState(sessionTargets.reader)
+  const sessionLoad = targetCatalog.status
   const owner = useRef({ workspaceId, mounted: true, previewRevision: 0 })
   owner.current.workspaceId = workspaceId
   useEffect(() => {
@@ -83,7 +71,10 @@ function AvailableSchedulesPage({
   // Keep a catalog lease for this visible workspace panel. Releasing/reacquiring on workspace
   // changes forces a fresh host-backed model.list read instead of retaining a stale idle projection.
   useEffect(() => runtime.preSessionModelCatalog.retain(), [runtime, workspaceId])
-  useEffect(() => { const cancel = loadSessions(); return cancel }, [runtime, workspaceId])
+  useEffect(() => {
+    void sessionTargets.refresh(workspaceId).catch(() => undefined)
+  }, [sessionTargets, workspaceId])
+  useEffect(() => sessionTargets.retain(), [sessionTargets])
   useEffect(() => {
     setDraft(newScheduleForm(Intl.DateTimeFormat().resolvedOptions().timeZone))
     setPreview([])
@@ -96,17 +87,28 @@ function AvailableSchedulesPage({
   useEffect(() => {
     if (!initialScheduleId) return
     let current = true
-    void api.get(initialScheduleId).then((schedule) => {
-      if (!current || !schedule || schedule.workspaceId !== workspaceId) return
-      setDraft(editScheduleForm(schedule))
-      void api.refreshOccurrences(schedule.id)
-    }).catch((error: unknown) => {
-      if (current) setFeedback(error instanceof Error ? error.message : copy.validation)
-    })
-    return () => { current = false }
+    void api
+      .get(initialScheduleId)
+      .then((schedule) => {
+        if (!current || !schedule || schedule.workspaceId !== workspaceId) return
+        setDraft(editScheduleForm(schedule))
+        void api.refreshOccurrences(schedule.id)
+      })
+      .catch((error: unknown) => {
+        if (current) setFeedback(error instanceof Error ? error.message : copy.validation)
+      })
+    return () => {
+      current = false
+    }
   }, [api, workspaceId, initialScheduleId, copy.validation])
   const busy = snapshot.mutation === 'submitting' || snapshot.mutation === 'unknown'
-  const sessions = workspaceSessions.filter((session) => session.workspaceId === workspaceId && !session.archived)
+  const sessions =
+    targetCatalog.workspaceId === workspaceId
+      ? targetCatalog.sessionIds.flatMap((id) => {
+          const session = directory.sessions[id]
+          return session && session.workspaceId === workspaceId && !session.archived ? [session] : []
+        })
+      : []
   const models = catalog.models.filter((model) => model.canExecute ?? model.hasKey)
   const patch = (change: Partial<ScheduleFormDraft>) => {
     owner.current.previewRevision++
@@ -202,7 +204,15 @@ function AvailableSchedulesPage({
           {copy.refresh}
         </LumenButton>
       </LumenFrame>
-      {sessionLoad === 'error' ? <LumenFrame role="alert"><LumenText as="p">{sessionLoadError}</LumenText><LumenButton onClick={loadSessions}>{copy.refresh}</LumenButton></LumenFrame> : null}
+      {sessionLoad === 'error' ? (
+        <LumenFrame role="alert">
+          <LumenText as="p">{copy.sessionsFailed}</LumenText>
+          <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(() => undefined)}>
+            {copy.refresh}
+          </LumenButton>
+        </LumenFrame>
+      ) : null}
+      {targetCatalog.capacityReached ? <LumenText>{copy.sessionCapacity}</LumenText> : null}
       {snapshot.error ? (
         <LumenText as="p" role="alert" tone="danger">
           {snapshot.error}
