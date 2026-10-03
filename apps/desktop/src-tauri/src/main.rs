@@ -88,6 +88,13 @@ fn valid_notification_text(value: &str, field: &str, max_bytes: usize) -> Result
     Ok(())
 }
 
+fn valid_notification_body(value: &str) -> Result<(), String> {
+    if value.len() > 4096 {
+        return Err("Notification body exceeds 4096 bytes".into());
+    }
+    Ok(())
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct UiZoomPreference {
@@ -259,7 +266,7 @@ fn send_native_notification(
     require_main_workbench(&window, &connection)?;
     valid_notification_text(&request.id, "id", 256)?;
     valid_notification_text(&request.title, "title", 256)?;
-    valid_notification_text(&request.body, "body", 4096)?;
+    valid_notification_body(&request.body)?;
     let mut delivered = state
         .delivered
         .lock()
@@ -267,10 +274,13 @@ fn send_native_notification(
     if delivered.contains(&request.id) {
         return Ok(false);
     }
-    app.notification()
-        .builder()
-        .title(request.title)
-        .body(request.body)
+    let notification = app.notification().builder().title(request.title);
+    let notification = if request.body.trim().is_empty() {
+        notification
+    } else {
+        notification.body(request.body)
+    };
+    notification
         .show()
         .map_err(|error| format!("Unable to show native notification: {error}"))?;
     delivered.insert(request.id);
@@ -548,6 +558,17 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_notification_accepts_title_only_host_records_and_bounds_utf8_body_bytes() {
+        assert!(valid_notification_body("").is_ok());
+        assert!(valid_notification_body("   ").is_ok());
+        assert!(valid_notification_body(&"a".repeat(4096)).is_ok());
+        assert!(valid_notification_body(&"界".repeat(1365)).is_ok());
+        assert!(valid_notification_body(&"a".repeat(4097)).is_err());
+        assert!(valid_notification_body(&"界".repeat(1366)).is_err());
+        assert!(valid_notification_text("", "title", 256).is_err());
+    }
 
     #[test]
     fn native_notification_deduplication_is_bounded_and_fifo() {
