@@ -38,5 +38,5 @@
     "examples/**/*.ts",
     "playwright.config.ts"
   ],
-  "exclude": ["node_modules", "dist", "apps/desktop/src-tauri/target"]
+  "exclude": ["node_modules", "dist", "**/artifacts/**", "apps/desktop/src-tauri/target"]
 }

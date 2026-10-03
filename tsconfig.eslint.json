@@ -16,5 +16,11 @@
     "hbar-ui/packages/lumen-app-ui/**/*.ts",
     "hbar-ui/packages/lumen-app-ui/**/*.tsx"
   ],
-  "exclude": ["**/node_modules", "**/dist", "apps/desktop/src-tauri/target", "apps/desktop/src-tauri/gen"]
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/artifacts/**",
+    "apps/desktop/src-tauri/target",
+    "apps/desktop/src-tauri/gen"
+  ]
 }
