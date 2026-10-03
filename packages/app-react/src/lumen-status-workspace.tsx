@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, type ReactNode } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import {
   LumenCollection,
@@ -219,9 +219,11 @@ function usageValue(metric: UsageMetric, labels: HbarStatusWorkspaceLabels, form
 export function HbarStatusWorkspace({
   labels,
   instanceId: requestedInstanceId,
+  usageDetails,
 }: {
   readonly labels: HbarStatusWorkspaceLabels
   readonly instanceId?: string
+  readonly usageDetails?: ReactNode
 }) {
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -872,7 +874,7 @@ export function HbarStatusWorkspace({
                 value: labels.number(usageReport.totals.input + usageReport.totals.output),
                 detail: usageValue(usageReport.cost, labels, labels.currency),
                 progressLabel: labels.usage.tokens,
-                tone: 'neutral',
+                tone: 'accent',
                 sparkline: usageReport.series.map((point) => ({
                   id: String(point.start),
                   value: point.input + point.output,
@@ -983,6 +985,7 @@ export function HbarStatusWorkspace({
               </LumenCollection>
             )}
           </LumenFrame>
+          {usageDetails}
           <HbarLumenDisclosure className="hbar-app-react-status-details" label={labels.usage.execution}>
             {usageReport.execution ? (
               <LumenCompactMetrics

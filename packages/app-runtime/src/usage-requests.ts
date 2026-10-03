@@ -14,6 +14,8 @@ export const USAGE_REQUEST_MAX_ITEMS = 400
 export const USAGE_REQUEST_MAX_PAGES = 100
 export const USAGE_REQUEST_TIMEOUT_MS = 15_000
 
+export type UsageRequestsRange = Pick<UsageExportInput, 'from' | 'to'>
+
 export interface UsageRequestItem {
   readonly id: string
   readonly attemptId: string
@@ -41,6 +43,7 @@ export interface UsageRequestItem {
 export interface UsageRequestsState {
   readonly scope: UsageScope
   readonly filters: UsageFilters
+  readonly range?: UsageRequestsRange
   readonly items: readonly UsageRequestItem[]
   readonly cursor: string | null
   readonly hasMore: boolean
@@ -59,7 +62,7 @@ export interface UsageRequestsRuntime {
   readonly reader: StateReader<UsageRequestsState>
   readonly refresh: () => Promise<void>
   readonly loadMore: () => Promise<void>
-  readonly setScope: (scope: UsageScope, filters?: UsageFilters) => Promise<void>
+  readonly setScope: (scope: UsageScope, filters?: UsageFilters, range?: UsageRequestsRange) => Promise<void>
   readonly dispose: () => void
 }
 
@@ -93,8 +96,7 @@ function itemFromAttempt(attempt: UsageAttemptExport): UsageRequestItem {
 
 function errorCode(reason: unknown): string {
   if (reason instanceof CommandError) return reason.code
-  if (reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string')
-    return reason.code
+  if (reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string') return reason.code
   return 'EXECUTION_FAILED'
 }
 
@@ -108,6 +110,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
     {
       scope: options.initialScope ?? defaultScope,
       filters: options.filters ?? {},
+      range: {},
       items: [],
       cursor: null,
       hasMore: false,
@@ -130,14 +133,23 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
     const input: UsageExportInput = {
       scope: snapshot.scope,
       filters: snapshot.filters,
+      ...snapshot.range,
       limit: USAGE_REQUEST_PAGE_SIZE,
       ...(append && snapshot.cursor ? { after: snapshot.cursor } : {}),
     }
-    const timeout = setTimeout(() => controller.abort(new CommandError('TIMEOUT', 'Usage export timed out')), USAGE_REQUEST_TIMEOUT_MS)
+    const timeout = setTimeout(
+      () => controller.abort(new CommandError('TIMEOUT', 'Usage export timed out')),
+      USAGE_REQUEST_TIMEOUT_MS,
+    )
     let removeAbort: () => void = () => undefined
     try {
       const interrupted = new Promise<never>((_resolve, reject) => {
-        const onAbort = () => reject(controller.signal.reason instanceof Error ? controller.signal.reason : new CommandError('QUERY_SUPERSEDED', 'Usage export interrupted'))
+        const onAbort = () =>
+          reject(
+            controller.signal.reason instanceof Error
+              ? controller.signal.reason
+              : new CommandError('QUERY_SUPERSEDED', 'Usage export interrupted'),
+          )
         controller.signal.addEventListener('abort', onAbort, { once: true })
         removeAbort = () => controller.signal.removeEventListener('abort', onAbort)
       })
@@ -147,7 +159,8 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       ])
       const parsed = usageExportResultSchema.safeParse(result)
       if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Usage export response is invalid')
-      if (!sameScope(parsed.data.scope, snapshot.scope)) throw new CommandError('INVALID_OUTPUT', 'Usage export scope changed')
+      if (!sameScope(parsed.data.scope, snapshot.scope))
+        throw new CommandError('INVALID_OUTPUT', 'Usage export scope changed')
       const unique = new Map<string, UsageRequestItem>()
       if (append) for (const item of snapshot.items) unique.set(item.id, item)
       for (const item of parsed.data.items) unique.set(item.usageId, itemFromAttempt(item))
@@ -158,7 +171,10 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
         ...state.reader.getSnapshot(),
         items,
         cursor: parsed.data.nextCursor ?? null,
-        hasMore: Boolean(parsed.data.nextCursor) && items.length < USAGE_REQUEST_MAX_ITEMS && pageCount < USAGE_REQUEST_MAX_PAGES,
+        hasMore:
+          Boolean(parsed.data.nextCursor) &&
+          items.length < USAGE_REQUEST_MAX_ITEMS &&
+          pageCount < USAGE_REQUEST_MAX_PAGES,
         status: 'ready',
         error: null,
       })
@@ -177,7 +193,14 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
     active = { generation: token, controller }
     if (!append) {
       pageCount = 0
-      state.replace({ ...state.reader.getSnapshot(), items: [], cursor: null, hasMore: false, status: 'loading', error: null })
+      state.replace({
+        ...state.reader.getSnapshot(),
+        items: [],
+        cursor: null,
+        hasMore: false,
+        status: 'loading',
+        error: null,
+      })
     } else state.replace({ ...state.reader.getSnapshot(), status: 'loading', error: null })
     const operation = request(append, token, controller)
       .catch((reason: unknown) => {
@@ -198,15 +221,36 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       const snapshot = state.reader.getSnapshot()
       return snapshot.hasMore ? run(true) : Promise.resolve()
     },
-    setScope: async (scope, filters = state.reader.getSnapshot().filters) => {
+    setScope: async (
+      scope,
+      filters = state.reader.getSnapshot().filters,
+      range = state.reader.getSnapshot().range ?? {},
+    ) => {
       if (disposed) throw new CommandError('DISPOSED', 'Usage runtime disposed')
       const previous = state.reader.getSnapshot()
-      if (sameScope(previous.scope, scope) && JSON.stringify(previous.filters) === JSON.stringify(filters)) return
+      if (
+        sameScope(previous.scope, scope) &&
+        JSON.stringify(previous.filters) === JSON.stringify(filters) &&
+        JSON.stringify(previous.range ?? {}) === JSON.stringify(range)
+      ) {
+        if (previous.status === 'idle') await run(false)
+        return
+      }
       generation++
       active?.controller.abort(new CommandError('QUERY_SUPERSEDED', 'Usage scope changed'))
       active = null
       pending = null
-      state.replace({ ...state.reader.getSnapshot(), scope, filters, items: [], cursor: null, hasMore: false, status: 'idle', error: null })
+      state.replace({
+        ...state.reader.getSnapshot(),
+        scope,
+        filters,
+        range,
+        items: [],
+        cursor: null,
+        hasMore: false,
+        status: 'idle',
+        error: null,
+      })
       await run(false)
     },
     dispose: () => {
