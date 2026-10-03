@@ -53,6 +53,10 @@ p95 82.40ms、max 88.00ms，全部最终 cancelled。Host RSS 287 MiB。
 
 ## 原生桌面与 Windows 通知
 
+纵向空间后续修复与当前原生窗口几何见[工作台纵向伸展与底部区验收](workbench-vertical-fill-verification.md)。
+侧栏底部区和会话输入区已在五种浏览器尺寸及三种原生尺寸通过贴底和中间区域伸展检查；
+该定向结果不替代下文历史通知投递、真实供应商及完整 smoke 的覆盖范围。
+
 `scripts/desktop-smoke.ts` 在隔离 release 程序和临时 Host/项目执行。
 release 实际读取 `resource_dir/runtime/host.js`、`runtime/web` 与 `native`，并非把 Web bundle 固化在 exe 中；
 因此每次先构建 canonical/Web/Host，再同步到测试拥有的 release 资源目录，核对源与运行资源 SHA256。

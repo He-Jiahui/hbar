@@ -8,6 +8,10 @@
 本轮补充的是生产桌面与真实供应商结果，300 个组件/变体的目录及预览检查仍见
 [迁移台账](app-ui-migration-ledger.md)与[先前验证回执](app-ui-migration-verification.md)。
 
+纵向布局后续修复见[工作台纵向伸展与底部区验收](workbench-vertical-fill-verification.md)：
+`2d8bf77a` 的真实 Tauri/WebView2 定向检查已通过，持久化桌面重新启动为 PID 22408，仍连接同一 Host。
+这次只验证布局与未发送草稿，没有新增真实供应商 Run；下表的模型用量和历史失败证据继续保留为前一轮结果。
+
 ## 被测环境与配置恢复
 
 | 项目       | 实际环境                                                                                                                                                                   |
