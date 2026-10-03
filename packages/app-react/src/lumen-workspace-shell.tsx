@@ -2029,7 +2029,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       sidebarOpen={railCollapsed || presentation.sidebarOpen}
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
-      header={headerRegion}
+      header={props.renderLayout ? undefined : headerRegion}
       tool={toolRegion}
       toolLabel={props.toolLabel}
       overlay={overlayRegion}
