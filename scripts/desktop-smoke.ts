@@ -49,20 +49,44 @@ async function until<T>(read: () => Promise<T>, limit = 30_000): Promise<T> {
     }
   }
 }
-async function expectLiveComposerText(page: Page, expected: string): Promise<void> {
-  await expect
-    .poll(() =>
-      page.locator('.cm-content[contenteditable="true"]').evaluateAll(
-        (nodes) =>
-          nodes
-            .filter((node) => {
-              const element = node as HTMLElement
-              return Boolean(element.offsetWidth || element.offsetHeight)
-            })
-            .at(-1)?.textContent ?? '',
+async function expectLiveComposerText(page: Page, expected: string, phase: string): Promise<void> {
+  try {
+    await expect
+      .poll(() =>
+        page.locator('.cm-content[contenteditable="true"]').evaluateAll(
+          (nodes) =>
+            nodes
+              .filter((node) => {
+                const element = node as HTMLElement
+                return Boolean(element.offsetWidth || element.offsetHeight)
+              })
+              .at(-1)?.textContent ?? '',
+        ),
+      )
+      .toBe(expected)
+  } catch (error) {
+    const snapshot = await page.evaluate(() => ({
+      url: window.location.href,
+      editors: Array.from(document.querySelectorAll<HTMLElement>('.cm-content[contenteditable="true"]')).map(
+        (node) => ({
+          text: node.textContent,
+          innerText: node.innerText,
+          visible: Boolean(node.offsetWidth || node.offsetHeight),
+          html: node.innerHTML,
+        }),
       ),
+      textboxes: Array.from(document.querySelectorAll<HTMLElement>('[role="textbox"]')).map((node) => ({
+        text: node.innerText,
+        aria: node.getAttribute('aria-label'),
+        visible: Boolean(node.offsetWidth || node.offsetHeight),
+      })),
+    }))
+    await writeFile(
+      'artifacts/ui-redesign/tauri/composer-live-failure.json',
+      JSON.stringify({ phase, expected, capturedAt: new Date().toISOString(), snapshot, stack: new Error().stack }, null, 2),
     )
-    .toBe(expected)
+    throw error
+  }
 }
 async function invokeNative(page: Page, command: string, args: unknown): Promise<unknown> {
   return page.evaluate(
@@ -475,7 +499,7 @@ try {
   }
   await readComposerDiagnostic('before-typing')
   await composer.pressSequentially(draft)
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-1')
   await readComposerDiagnostic('before-approval')
   const decision = page.locator(`[data-decision-id="${approval.id}"]`)
   await decision.getByRole('button', { name: copy.session.decisions.planExit.implement, exact: true }).click()
@@ -495,7 +519,7 @@ try {
     status: 'active',
   })
   await readComposerDiagnostic('before-final-assert')
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-2')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/goal-plan-approved-default-window.png' })
   if (await page.getByRole('dialog', { name: /^(命令目录|Command catalog)$/ }).isVisible())
     throw new Error('Known-workspace new session unexpectedly opened the command catalog')
@@ -517,7 +541,7 @@ try {
   await expect(page.locator('.hbar-composer-picker-popover[data-kind="model"]').getByRole('option')).not.toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(modelTrigger).toBeFocused()
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-3')
   await page.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
   const fileChooser = page.waitForEvent('filechooser')
   await page
@@ -560,7 +584,7 @@ try {
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/chat-search-keyboard-selected.png' })
   await searchInput.press('Escape')
   await expect(chatSearch).toHaveCount(0)
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-4')
   const noHorizontalOverflow = async () =>
     page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
   const readSessionGeometry = async () =>
@@ -714,7 +738,7 @@ try {
   await expect(page.locator(`[data-session-id="${explicitSession.id}"][data-selected="true"]`)).toBeVisible()
   expect(explicitSession.workspaceId).toBe(workspace.id)
   await page.getByRole('button', { name: copy.shell.openSession('Tauri visual session'), exact: true }).click()
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-5')
   await expect(page.locator(`[data-session-id="${sessionId}"][data-selected="true"]`)).toBeVisible()
 
   await invokeNative(page, 'plugin:window|set_size', {
@@ -819,7 +843,7 @@ try {
   await expect(skillFilter).toHaveValue('native-review')
   await expect(skillOpener).toBeFocused()
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-6')
   // Providers is Host-owned even when entered through a layered Session form.
   // Keep both the original explicit Session selection and the unsaved settings draft.
   const settings = createSettingsCommandClient(api)
@@ -885,7 +909,7 @@ try {
   await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-draft-min-window.png' })
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-7')
   // One owned, bounded stdout-only command verifies native reading continuity.
   // SDK starts the fixture Run without consuming the user's existing composer draft.
   const command =
@@ -949,7 +973,7 @@ try {
   await commandDisclosure.press('Space')
   await expect(commandCard).toHaveCount(0)
   await composer.focus()
-  await expectLiveComposerText(page, draft)
+  await expectLiveComposerText(page, draft, 'call-8')
   const session = await api.call('session.create', { workspaceId: workspace.id })
   const run = await api.call('run.start', {
     sessionId: session.id,
@@ -1069,3 +1093,4 @@ try {
   await rm(nativeSmokeFixtureRoot(root), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   await rm(nativeSmokeFixtureRoot(projectFixtureRoot), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }
+
