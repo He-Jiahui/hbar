@@ -2,13 +2,28 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'bun:test'
 import { LumenKanban01 } from '@lumen/app-ui'
-import { createRunBoardKanbanContent } from '../apps/web/src/run-board-page'
+import { createRunBoardKanbanContent, resolveRunBoardAction } from '../apps/web/src/run-board-page'
 import { runBoardCopy } from '../apps/web/src/run-board-copy'
 import type { RunBoardItem } from '@hbar/contracts/commands/run-board'
 
 const item = (id: string, status: RunBoardItem['run']['status'] = 'running'): RunBoardItem => ({
-  run: { id, sessionId: `session-${id}`, workspaceName: 'Workspace', sessionTitle: 'Session', requestId: `request-${id}`, modelId: 'model', status, createdAt: 1, startedAt: 1, endedAt: null, error: null },
-  workspaceName: 'Workspace', sessionTitle: 'Session', plan: null, usage: null,
+  run: {
+    id,
+    sessionId: `session-${id}`,
+    workspaceName: 'Workspace',
+    sessionTitle: 'Session',
+    requestId: `request-${id}`,
+    modelId: 'model',
+    status,
+    createdAt: 1,
+    startedAt: 1,
+    endedAt: null,
+    error: null,
+  },
+  workspaceName: 'Workspace',
+  sessionTitle: 'Session',
+  plan: null,
+  usage: null,
 })
 
 describe('production run board page contract', () => {
@@ -36,5 +51,23 @@ describe('production run board page contract', () => {
     const content = createRunBoardKanbanContent([missing], runBoardCopy('en-US'))
     expect(content.cards[0]?.label).toBe('Session name unavailable')
     expect(content.cards[0]?.assignee).toBe('Workspace name unavailable')
+  })
+
+  test('stable action resolver binds open, cancel and retry and ignores stale or unknown cards', () => {
+    const run = item('run-action')
+    expect(resolveRunBoardAction({ actionId: 'open', value: 'run-action' }, run, 'workspace-1')).toEqual({
+      command: 'app.setSession',
+      input: { sessionId: 'session-run-action', workspaceId: 'workspace-1' },
+    })
+    expect(resolveRunBoardAction({ actionId: 'cancel', value: 'run-action' }, run, 'workspace-1')).toEqual({
+      command: 'operation.cancel',
+      input: { operationId: 'run-action' },
+    })
+    expect(resolveRunBoardAction({ actionId: 'retry', value: 'run-action' }, run, 'workspace-1')).toEqual({
+      command: 'run.retry',
+      input: { operationId: 'run-action', sessionId: 'session-run-action' },
+    })
+    expect(resolveRunBoardAction({ actionId: 'open', value: 'stale' }, run, 'workspace-1')).toBeNull()
+    expect(resolveRunBoardAction({ actionId: 'unknown', value: 'run-action' }, run, 'workspace-1')).toBeNull()
   })
 })

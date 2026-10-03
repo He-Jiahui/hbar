@@ -1,7 +1,11 @@
 import { LumenKanban, LumenKanbanProvider as HbarAppUiKanbanProvider, type LumenKanbanContent } from '@lumen/app-ui'
 import type { HbarAppUiVariantProps } from '../types'
 
-export type HbarAppUiKanbanProps = HbarAppUiVariantProps & { readonly kanbanContent?: LumenKanbanContent | undefined }
+export type HbarAppUiKanbanProps = HbarAppUiVariantProps & {
+  readonly kanbanContent?: LumenKanbanContent | undefined
+  /** Keep the selected Kanban variant layout while disabling state-changing moves. */
+  readonly readOnly?: boolean | undefined
+}
 export { HbarAppUiKanbanProvider }
 export {
   selectLumenKanbanItem as selectHbarAppUiKanbanItem,
@@ -19,7 +23,7 @@ export type {
   LumenKanbanMetric as HbarAppUiKanbanMetric,
   LumenKanbanProviderProps as HbarAppUiKanbanProviderProps,
 } from '@lumen/app-ui'
-export function Kanban({ spec, onAction, kanbanContent, className }: HbarAppUiKanbanProps) {
+export function Kanban({ spec, onAction, kanbanContent, className, readOnly }: HbarAppUiKanbanProps) {
   return (
     <LumenKanban
       variant={spec.variant}
@@ -30,6 +34,7 @@ export function Kanban({ spec, onAction, kanbanContent, className }: HbarAppUiKa
       surface={spec.profile.surface}
       state={spec.profile.initialState}
       visualMode={spec.profile.visualMode}
+      readOnly={readOnly}
       onAction={
         onAction
           ? ({ actionId, value }) =>

@@ -1,4 +1,5 @@
 import type { ShellLocale } from './shell-copy'
+import type { RunStatus, PlanStepStatus } from '@hbar/contracts'
 
 export interface RunBoardPageLabels {
   readonly title: string
@@ -15,8 +16,8 @@ export interface RunBoardPageLabels {
   readonly staleRun: string
   readonly missingRun: string
   readonly operationFailed: string
-  readonly columnLabel: (status: string) => string
-  readonly statusLabel: (status: string) => string
+  readonly columnLabel: (status: RunStatus) => string
+  readonly statusLabel: (status: RunStatus | PlanStepStatus) => string
   readonly cardLabel: (title: string, status: string) => string
   readonly usageLabel: (value: string) => string
   readonly planLabel: (value: string) => string
@@ -70,7 +71,86 @@ export interface RunBoardPageLabels {
 
 export function runBoardCopy(locale: ShellLocale): RunBoardPageLabels {
   const zh = locale === 'zh-CN'
+  const statusNames: Readonly<Record<RunStatus | PlanStepStatus, string>> = {
+    queued: zh ? '排队中' : 'queued',
+    running: zh ? '运行中' : 'running',
+    waiting_approval: zh ? '等待批准' : 'waiting approval',
+    guided: zh ? '等待引导' : 'guided',
+    completed: zh ? '已完成' : 'completed',
+    cancelled: zh ? '已取消' : 'cancelled',
+    failed: zh ? '失败' : 'failed',
+    interrupted: zh ? '已中断' : 'interrupted',
+    pending: zh ? '未开始' : 'pending',
+    in_progress: zh ? '进行中' : 'in progress',
+  }
+
   return {
-    title: zh ? '运行看板' : 'Run board', description: zh ? '查看当前工作区的运行状态' : 'Inspect runs in the current workspace', refresh: zh ? '刷新' : 'Refresh', loading: zh ? '正在加载运行' : 'Loading runs', empty: zh ? '暂无运行' : 'No runs', emptyColumn: zh ? '此列暂无运行' : 'No runs in this column', loadMore: zh ? '加载更多' : 'Load more', pageLoadError: zh ? '运行看板加载失败' : 'Run board failed to load', unknownFeedback: zh ? '操作结果未知，请刷新确认' : 'The operation result is unknown; refresh to confirm', missingWorkspace: zh ? '工作区名称不可用' : 'Workspace name unavailable', missingSession: zh ? '会话名称不可用' : 'Session name unavailable', staleRun: zh ? '运行已过期，请刷新' : 'Run is stale; refresh to continue', missingRun: zh ? '运行已不存在' : 'Run is no longer available', operationFailed: zh ? '操作失败' : 'Operation failed', columnLabel: (status) => zh ? ({ queued: '排队中', running: '运行中', waiting_approval: '等待批准', guided: '等待引导', completed: '已完成', cancelled: '已取消', failed: '失败', interrupted: '已中断' } as Record<string, string>)[status] ?? status : status.replace('_', ' '), statusLabel: (status) => zh ? ({ queued: '排队中', running: '运行中', waiting_approval: '等待批准', guided: '等待引导', completed: '已完成', cancelled: '已取消', failed: '失败', interrupted: '已中断' } as Record<string, string>)[status] ?? status : status.replace('_', ' '), cardLabel: (title, status) => `${title} · ${status}`, usageLabel: (value) => zh ? `用量 ${value}` : `Usage ${value}`, planLabel: (value) => zh ? `计划 ${value}` : `Plan ${value}`, count: (count) => zh ? `${count} 个运行` : `${count} runs`, openRun: (title) => zh ? `打开 ${title}` : `Open ${title}`, cancelRun: (title) => zh ? `取消 ${title}` : `Cancel ${title}`, retryRun: (title) => zh ? `重试 ${title}` : `Retry ${title}`, planSteps: (count, revision) => zh ? `计划步骤 ${count} · 修订 ${revision}` : `${count} plan steps · revision ${revision}`, capacityReached: (count) => zh ? `已显示 ${count} 个运行，达到容量上限` : `${count} runs shown; capacity limit reached`, closeDetails: zh ? '关闭详情' : 'Close details', detailStatus: (status) => zh ? `状态：${status}` : `Status: ${status}`, detailWorkspace: (name) => zh ? `工作区：${name}` : `Workspace: ${name}`, detailSession: (name) => zh ? `会话：${name}` : `Session: ${name}`, usageCost: (value) => zh ? `费用：${value}` : `Cost: ${value}`, usageUnavailable: zh ? '费用不可用' : 'Cost unavailable', noPlan: zh ? '此运行没有计划' : 'No plan for this run', boardDetail: (count) => zh ? `${count} 个运行` : `${count} runs`, add: (column) => `${column}`, newCard: '', move: '', theme: '', standard: '', participants: zh ? '参与者' : 'Participants', board: zh ? '运行看板' : 'Run board', swimlaneTitle: '', swimlaneDetail: '', workstream: '', regroupTitle: '', regroupDetail: '', groupBy: '', detailTitle: '', detailDetail: '', addCard: '', properties: '', assignee: '', priority: '', activity: '', save: '', sprintTitle: '', sprintDetail: '', blocked: '', capacity: (label) => label, moved: '', compactTitle: '', compactDetail: '', column: '', steps: '', nextStep: '', more: '',
+    title: zh ? '运行看板' : 'Run board',
+    description: zh ? '查看当前工作区的运行状态' : 'Inspect runs in the current workspace',
+    refresh: zh ? '刷新' : 'Refresh',
+    loading: zh ? '正在加载运行' : 'Loading runs',
+    empty: zh ? '暂无运行' : 'No runs',
+    emptyColumn: zh ? '此列暂无运行' : 'No runs in this column',
+    loadMore: zh ? '加载更多' : 'Load more',
+    pageLoadError: zh ? '运行看板加载失败' : 'Run board failed to load',
+    unknownFeedback: zh ? '操作结果未知，请刷新确认' : 'The operation result is unknown; refresh to confirm',
+    missingWorkspace: zh ? '工作区名称不可用' : 'Workspace name unavailable',
+    missingSession: zh ? '会话名称不可用' : 'Session name unavailable',
+    staleRun: zh ? '运行已过期，请刷新' : 'Run is stale; refresh to continue',
+    missingRun: zh ? '运行已不存在' : 'Run is no longer available',
+    operationFailed: zh ? '操作失败' : 'Operation failed',
+    columnLabel: (status: RunStatus) => statusNames[status],
+    statusLabel: (status: RunStatus | PlanStepStatus) => statusNames[status],
+    cardLabel: (title, status) => `${title} · ${status}`,
+    usageLabel: (value) => (zh ? `用量 ${value}` : `Usage ${value}`),
+    planLabel: (value) => (zh ? `计划 ${value}` : `Plan ${value}`),
+    count: (count) => (zh ? `${count} 个运行` : `${count} runs`),
+    openRun: (title) => (zh ? `打开 ${title}` : `Open ${title}`),
+    cancelRun: (title) => (zh ? `取消 ${title}` : `Cancel ${title}`),
+    retryRun: (title) => (zh ? `重试 ${title}` : `Retry ${title}`),
+    planSteps: (count, revision) =>
+      zh ? `计划步骤 ${count} · 修订 ${revision}` : `${count} plan steps · revision ${revision}`,
+    capacityReached: (count) =>
+      zh ? `已显示 ${count} 个运行，达到容量上限` : `${count} runs shown; capacity limit reached`,
+    closeDetails: zh ? '关闭详情' : 'Close details',
+    detailStatus: (status) => (zh ? `状态：${status}` : `Status: ${status}`),
+    detailWorkspace: (name) => (zh ? `工作区：${name}` : `Workspace: ${name}`),
+    detailSession: (name) => (zh ? `会话：${name}` : `Session: ${name}`),
+    usageCost: (value) => (zh ? `费用：${value}` : `Cost: ${value}`),
+    usageUnavailable: zh ? '费用不可用' : 'Cost unavailable',
+    noPlan: zh ? '此运行没有计划' : 'No plan for this run',
+    boardDetail: (count) => (zh ? `${count} 个运行` : `${count} runs`),
+    add: (column) => `${column}`,
+    newCard: '',
+    move: '',
+    theme: '',
+    standard: '',
+    participants: zh ? '参与者' : 'Participants',
+    board: zh ? '运行看板' : 'Run board',
+    swimlaneTitle: '',
+    swimlaneDetail: '',
+    workstream: '',
+    regroupTitle: '',
+    regroupDetail: '',
+    groupBy: '',
+    detailTitle: '',
+    detailDetail: '',
+    addCard: '',
+    properties: '',
+    assignee: '',
+    priority: '',
+    activity: '',
+    save: '',
+    sprintTitle: '',
+    sprintDetail: '',
+    blocked: '',
+    capacity: (label) => label,
+    moved: '',
+    compactTitle: '',
+    compactDetail: '',
+    column: '',
+    steps: '',
+    nextStep: '',
+    more: '',
   }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { LumenKanban01, LumenKanban04, LumenKanban06 } from '@lumen/app-ui'
 import {
   getHbarAppUiVariant,
   HbarAppUiKanbanProvider,
@@ -13,11 +14,13 @@ import {
   createHbarAppUiKanbanOverflowFixtures,
   HBAR_APP_UI_KANBAN_FIXTURES,
 } from './fixtures/hbar-app-ui-kanban-fixtures'
-function render(variant: number, content: HbarAppUiKanbanContent = HBAR_APP_UI_KANBAN_FIXTURES) {
+function render(variant: number, content: HbarAppUiKanbanContent = HBAR_APP_UI_KANBAN_FIXTURES, readOnly = false) {
   return renderToStaticMarkup(
     createElement(HbarAppUiKanbanProvider, {
       content,
-      children: createElement(getHbarAppUiVariant('kanban', variant).component, {}),
+      children: readOnly
+        ? createElement(variant === 4 ? LumenKanban04 : variant === 6 ? LumenKanban06 : LumenKanban01, { readOnly })
+        : createElement(getHbarAppUiVariant('kanban', variant).component, {}),
     }),
   )
 }
@@ -65,6 +68,13 @@ describe('hbar-app-ui kanban surfaces', () => {
     expect(render(1, content)).toContain('No board columns')
     expect(render(2, { ...content, referenceSwimlanes: undefined })).toContain('No board columns')
     expect(render(1)).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
+  })
+  test('read-only production board keeps cards but removes state-changing controls', () => {
+    const markup = render(1, { ...HBAR_APP_UI_KANBAN_FIXTURES, referenceBoard: undefined }, true)
+    expect(markup).toContain('data-lumen-component="kanban"')
+    expect(markup).toContain('lumen-kanban-card')
+    expect(markup).not.toContain('aria-label="Add card')
+    expect(markup).toContain('draggable="false"')
   })
   test('reference board keeps ten host-owned cards, regions, native composer labels and accessible priorities', () => {
     const reference = HBAR_APP_UI_KANBAN_FIXTURES.referenceBoard!
