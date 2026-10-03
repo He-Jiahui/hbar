@@ -98,5 +98,5 @@ test('Host B restore remains empty and corrupt or oversized snapshots are discar
   const saved = serializeSessionDrafts({ [draft.sessionId]: draft })
   expect(restoreSessionDrafts(JSON.parse(saved!))).toMatchObject({ [draft.sessionId]: draft })
   expect(restoreSessionDrafts({ version: 99, value: { [draft.sessionId]: draft } })).toBeUndefined()
-  expect(restoreSessionDrafts({ [draft.sessionId]: { ...draft, text: 'x'.repeat(200_001) } })).toEqual({})
+  expect(restoreSessionDrafts({ [draft.sessionId]: { ...draft, text: 'x'.repeat(200_001) } })).toBeUndefined()
 })
