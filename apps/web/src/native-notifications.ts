@@ -23,8 +23,31 @@ function permission(value: unknown): NativeNotificationPermission {
 }
 
 function invokeBridge(scope: unknown): NativeInvokeBridge | null {
-  const bridge = (scope as { readonly __TAURI_INTERNALS__?: NativeInvokeBridge } | null)?.__TAURI_INTERNALS__
-  return bridge && typeof bridge.invoke === 'function' ? bridge : null
+  if (typeof scope !== 'object' || scope === null) return null
+  const bridge: unknown = Reflect.get(scope, '__TAURI_INTERNALS__')
+  if (typeof bridge !== 'object' || bridge === null) return null
+  const invoke: unknown = Reflect.get(bridge, 'invoke')
+  if (typeof invoke !== 'function') return null
+  return {
+    invoke: async (command, args) => {
+      const value: unknown = Reflect.apply(invoke, bridge, args === undefined ? [command] : [command, args])
+      return await value
+    },
+  }
+}
+
+function nativeText(value: string, maximumBytes: number): string {
+  const encoder = new TextEncoder()
+  if (encoder.encode(value).byteLength <= maximumBytes) return value
+  let bytes = 0
+  let text = ''
+  for (const character of value) {
+    const size = encoder.encode(character).byteLength
+    if (bytes + size > maximumBytes) break
+    bytes += size
+    text += character
+  }
+  return text
 }
 
 export function createNativeNotificationPort(scope: unknown, native: boolean): NativeNotificationPort {
@@ -42,7 +65,13 @@ export function createNativeNotificationPort(scope: unknown, native: boolean): N
     permission: async () => permission(await bridge.invoke('native_notification_permission')),
     requestPermission: async () => permission(await bridge.invoke('request_native_notification_permission')),
     notify: async (notification) => {
-      const result = await bridge.invoke('send_native_notification', { request: notification })
+      const result = await bridge.invoke('send_native_notification', {
+        request: {
+          id: notification.id,
+          title: nativeText(notification.title, 256),
+          body: nativeText(notification.body, 4096),
+        },
+      })
       return result === true
     },
   }
