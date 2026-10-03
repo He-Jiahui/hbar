@@ -226,6 +226,11 @@ test.describe('production app-ui feature surfaces', () => {
       await desktop.click()
       await page.getByRole('button', { name: notificationLabels.save, exact: true }).click()
       await page.reload()
+      const reloadedBell = page.getByRole('button', { name: /^Notifications, \d+ unread$/ })
+      await expect(reloadedBell).toBeVisible()
+      await reloadedBell.click()
+      const reloadedDialog = page.getByRole('dialog', { name: notificationLabels.title })
+      await reloadedDialog.getByRole('button', { name: notificationLabels.title, exact: true }).click()
       await page.getByRole('button', { name: notificationLabels.preferencesTab, exact: true }).click()
       await expect(page.getByRole('switch').first()).toHaveAttribute(
         'aria-checked',
