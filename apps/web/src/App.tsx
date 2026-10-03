@@ -1,27 +1,26 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  HbarAgentWorkspace,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type ComponentProps,
+} from 'react'
+import {
   HbarCommandPalette,
   HbarChatSearchView,
-  HbarExtensionWorkspace,
-  HbarFileWorkspace,
-  HbarGoalPlanWorkspace,
-  HbarProviderDialog,
-  HbarProviderSettings,
   HbarRuntimeProvider,
-  HbarSessionMonitoring,
-  HbarSessionActivityWorkspace,
   HbarSessionLaunchLocation,
   HbarSessionWorkspace,
-  HbarSettingsWorkspace,
-  HbarSettingsUsage,
-  HbarStatusWorkspace,
-  HbarSystemDiagnostics,
   HbarWorkspaceShell,
+  HbarNotifications,
+  HbarDesktopLayoutProjection,
   useHbarRuntime,
   useHbarRuntimeState,
 } from '@hbar/app-react'
-import { createAppRuntime, workspaceDisplayName } from '@hbar/app-runtime'
+import { createAppRuntime, workspaceDisplayName, type DraftsState } from '@hbar/app-runtime'
 import type { GlobalSettingsStartup } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
@@ -68,6 +67,9 @@ import {
   createSystemCommandClient,
   createUsageCommandClient,
   createWorkspaceSessionCommandClient,
+  createNotificationCommandClient,
+  createPromptTemplateCommandClient,
+  createScheduleCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
@@ -105,7 +107,13 @@ import { chatSearchCopy, chatSearchErrorCopy } from './chat-search-copy'
 import { createWebChatSearchController, type WebChatSearchController } from './chat-search-controller'
 import { createHostChatSearchPort } from './chat-search-port'
 import { createSessionToolPresenter } from './session-tool-presentation'
-import { normalizeShellLayout, shellLayout, shellLayoutModule } from './shell-layout'
+import {
+  flexModelToShellLayout,
+  normalizeShellLayout,
+  shellLayout,
+  shellLayoutModule,
+  shellLayoutToFlexModel,
+} from './shell-layout'
 import { useSidebarLayout, useToolPaneLayout } from './tool-pane-layout'
 import { ToolPaneLayoutFeedback } from './ToolPaneLayoutFeedback'
 import { createBrowserClientPersistence } from './client-persistence'
@@ -115,6 +123,64 @@ import type { HbarNativeConnection } from './native-connection'
 import type { HbarNativeWindowContext } from './native-window'
 import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme, writeThemeBootstrap } from './theme'
 import './App.css'
+import { NotificationDesktopBridge } from './NotificationDesktopBridge'
+import { lazySurface, LazySurfaceBoundary, lazySurfaceCopy } from './lazy-surface'
+import { notificationCopy } from './notification-copy'
+import { navigateNotification } from './notification-navigation'
+const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
+  import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
+)
+const PromptTemplatesPage = lazySurface<ComponentProps<typeof import('./prompt-templates-page').PromptTemplatesPage>>(
+  () => import('./prompt-templates-page').then((module) => ({ default: module.PromptTemplatesPage })),
+)
+const RunBoardPage = lazySurface<ComponentProps<typeof import('./run-board-page').RunBoardPage>>(() =>
+  import('./run-board-page').then((module) => ({ default: module.RunBoardPage })),
+)
+const NotificationsLazyPage = lazySurface<ComponentProps<typeof import('./notifications-page').NotificationsPage>>(() =>
+  import('./notifications-page').then((module) => ({ default: module.NotificationsPage })),
+)
+const OnboardingLazyPage = lazySurface<ComponentProps<typeof import('./onboarding-page').OnboardingPage>>(() =>
+  import('./onboarding-page').then((module) => ({ default: module.OnboardingPage })),
+)
+const FileWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/file-workspace').HbarFileWorkspace>>(
+  () => import('@hbar/app-react/file-workspace').then((m) => ({ default: m.HbarFileWorkspace })),
+)
+const GoalPlanWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/goal-plan').HbarGoalPlanWorkspace>>(
+  () => import('@hbar/app-react/goal-plan').then((m) => ({ default: m.HbarGoalPlanWorkspace })),
+)
+const SettingsWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/settings').HbarSettingsWorkspace>>(
+  () => import('@hbar/app-react/settings').then((m) => ({ default: m.HbarSettingsWorkspace })),
+)
+const ProviderSettings = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderSettings>>(
+  () => import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderSettings })),
+)
+const ProviderDialog = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderDialog>>(() =>
+  import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderDialog })),
+)
+const StatusWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/status').HbarStatusWorkspace>>(() =>
+  import('@hbar/app-react/status').then((m) => ({ default: m.HbarStatusWorkspace })),
+)
+const UsageFeatures = lazySurface<ComponentProps<typeof import('./StatusUsageFeatures').StatusUsageFeatures>>(() =>
+  import('./StatusUsageFeatures').then((m) => ({ default: m.StatusUsageFeatures })),
+)
+const AgentWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/agents').HbarAgentWorkspace>>(() =>
+  import('@hbar/app-react/agents').then((m) => ({ default: m.HbarAgentWorkspace })),
+)
+const ExtensionWorkspace = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/extensions').HbarExtensionWorkspace>
+>(() => import('@hbar/app-react/extensions').then((m) => ({ default: m.HbarExtensionWorkspace })))
+const SessionMonitoring = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/monitoring').HbarSessionMonitoring>
+>(() => import('@hbar/app-react/monitoring').then((m) => ({ default: m.HbarSessionMonitoring })))
+const SessionActivityWorkspace = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/activity').HbarSessionActivityWorkspace>
+>(() => import('@hbar/app-react/activity').then((m) => ({ default: m.HbarSessionActivityWorkspace })))
+const SettingsUsage = lazySurface<ComponentProps<typeof import('@hbar/app-react/settings-usage').HbarSettingsUsage>>(
+  () => import('@hbar/app-react/settings-usage').then((m) => ({ default: m.HbarSettingsUsage })),
+)
+const SystemDiagnostics = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/diagnostics').HbarSystemDiagnostics>
+>(() => import('@hbar/app-react/diagnostics').then((m) => ({ default: m.HbarSystemDiagnostics })))
 
 const lastGlobalSettingsGroupKey = 'hbar:web:last-global-settings-group'
 const knownSettingsGroup = (value: string | null): value is string =>
@@ -147,6 +213,7 @@ function createRuntime(
   attachments: ReturnType<typeof createBrowserAttachmentController>['commands'],
   resourcePicker: ReturnType<typeof createBrowserResourcePicker>,
   initialGlobalSettings?: GlobalSettingsStartup,
+  initialDrafts?: DraftsState,
 ) {
   const goals = createGoalPlanCommandClient(client)
   const sessionLaunchBranches = createSessionLaunchBranchesManager(client)
@@ -154,6 +221,7 @@ function createRuntime(
     instanceId: crypto.randomUUID(),
     hostId: hostId ?? 'pending:identity',
     initialGlobalSettings,
+    ...(initialDrafts ? { initialDrafts } : {}),
     directory: createDirectoryQueryAdapter(client),
     workspaces: createWorkspaceSessionCommandClient(client),
     sidebarActivityEvents: {
@@ -246,6 +314,25 @@ function createRuntime(
         }),
     timeline: createSessionTimelineClient(client),
     run: createRunCommandClient(client),
+    notifications: createNotificationCommandClient(client),
+    promptTemplates: createPromptTemplateCommandClient(client),
+    schedules: createScheduleCommandClient(client),
+    runBoardEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (
+            event.method === 'host.changed' &&
+            ['runs', 'notifications', 'schedules', 'resync'].includes(event.params.kind)
+          )
+            listener()
+        })
+      },
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     attachments,
     resourcePicker,
     interactions: createInteractionCommandClient(client),
@@ -453,7 +540,9 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
       viewKey={JSON.stringify([activeTab?.id, activeTab?.instanceKey])}
       toolInstanceId={presentation.toolInstanceId}
     >
-      <WorkspaceBodyContent {...props} />
+      <LazySurfaceBoundary labels={lazySurfaceCopy(props.locale)}>
+        <WorkspaceBodyContent {...props} />
+      </LazySurfaceBoundary>
     </SettingsPageFocusBoundary>
   )
 }
@@ -584,11 +673,18 @@ function WorkspaceBodyContent({
     if (firstSend?.sessionId === session.id && firstSend.phase !== 'accepted') return
     void runtime.commands.execute('preSessionDraft.close', { draftId }).catch(() => undefined)
   }, [runtime, session])
-  if (presentation.page.kind === 'status')
-    return <HbarStatusWorkspace labels={copy.status} instanceId={presentation.page.instanceId} />
+  if (presentation.page.kind === 'status') {
+    return (
+      <StatusWorkspace
+        labels={copy.status}
+        instanceId={presentation.page.instanceId}
+        usageDetails={<UsageFeatures locale={locale} instanceId={presentation.page.instanceId} />}
+      />
+    )
+  }
   if (presentation.page.kind === 'settings')
     return (
-      <HbarSettingsWorkspace
+      <SettingsWorkspace
         labels={copy.settings}
         connected={connected}
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
@@ -625,11 +721,10 @@ function WorkspaceBodyContent({
                 systemPrefersDark={systemPrefersDark}
               />
             )
-          if (groupId === 'providers')
-            return <HbarProviderSettings labels={copy.providers.list} connected={connected} />
+          if (groupId === 'providers') return <ProviderSettings labels={copy.providers.list} connected={connected} />
           if ((groupId === 'extensions' || groupId === 'skills') && presentation.page.kind === 'settings')
             return (
-              <HbarExtensionWorkspace
+              <ExtensionWorkspace
                 collection={groupId === 'skills' ? 'skills' : 'plugins'}
                 labels={copy.extensions}
                 connected={connected}
@@ -640,7 +735,7 @@ function WorkspaceBodyContent({
             )
           if (groupId === 'usage' && presentation.page.kind === 'settings')
             return (
-              <HbarSettingsUsage
+              <SettingsUsage
                 labels={copy.settingsUsage}
                 connected={connected}
                 instanceId={presentation.page.instanceId}
@@ -648,7 +743,7 @@ function WorkspaceBodyContent({
             )
           if (groupId === 'diagnostics' && presentation.page.kind === 'settings')
             return (
-              <HbarSystemDiagnostics
+              <SystemDiagnostics
                 labels={copy.diagnostics}
                 connected={connected}
                 instanceId={presentation.page.instanceId}
@@ -678,7 +773,7 @@ function WorkspaceBodyContent({
       void appRuntime.workspaceTabs.closeCaptured(captured, new AbortController().signal).catch(reportWorkbenchError)
     }
     return (
-      <HbarFileWorkspace
+      <FileWorkspace
         key={activeTab.panelInstanceId}
         labels={copy.files}
         connected={connected}
@@ -819,7 +914,7 @@ function WorkspaceTool({
           : undefined
   if (panel.panelId === 'files')
     return (
-      <HbarFileWorkspace
+      <FileWorkspace
         labels={copy.files}
         connected={connected}
         instanceId={instanceId}
@@ -896,10 +991,10 @@ function WorkspaceTool({
       />
     )
   if (panel.panelId === 'monitoring')
-    return <HbarSessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
+    return <SessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
   if (panel.panelId === 'activity')
     return (
-      <HbarSessionActivityWorkspace
+      <SessionActivityWorkspace
         labels={copy.activity}
         connected={connected}
         instanceId={instanceId}
@@ -908,23 +1003,142 @@ function WorkspaceTool({
     )
   if (panel.panelId === 'agents')
     return (
-      <HbarAgentWorkspace
-        labels={copy.agents}
-        connected={connected}
-        instanceId={instanceId}
-        targetLabel={targetLabel}
-      />
+      <AgentWorkspace labels={copy.agents} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
     )
   if (panel.panelId === 'goals')
     return (
-      <HbarGoalPlanWorkspace
-        labels={copy.goals}
-        connected={connected}
-        instanceId={instanceId}
-        targetLabel={targetLabel}
+      <GoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
+    )
+  if (panel.panelId === 'run-board')
+    return (
+      <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+        <RunBoardPage runtime={runtime} locale={locale} instanceId={instanceId} />
+      </Suspense>
+    )
+  if (panel.panelId === 'schedules')
+    return (
+      <SchedulesTool
+        locale={locale}
+        {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})}
+        {...(typeof panel.params.scheduleId === 'string' ? { initialScheduleId: panel.params.scheduleId } : {})}
       />
     )
+  if (panel.panelId === 'prompt-templates')
+    return <PromptTemplatesTool locale={locale} {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})} />
+  if (panel.panelId === 'onboarding')
+    return (
+      <Suspense fallback={<LumenText role="status">{copy.shell.loading}</LumenText>}>
+        <OnboardingLazyPage
+          locale={locale}
+          connected={connected}
+          onOpenWorkspace={() => void runtime.commands.execute('app.back', {}).catch(() => undefined)}
+          onConfigure={(kind) =>
+            void runtime.commands
+              .execute(
+                kind === 'model' ? 'app.openSettings' : 'app.openPanel',
+                kind === 'model'
+                  ? { scope: 'global', section: 'providers' }
+                  : { panelId: 'onboarding', binding: 'followActive' },
+              )
+              .catch(() => undefined)
+          }
+        />
+      </Suspense>
+    )
+  if (panel.panelId === 'notifications' && runtime.state.notifications)
+    return (
+      <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+        <NotificationsLazyPage
+          runtime={runtime}
+          locale={locale}
+          onNavigate={(target) => {
+            void navigateNotification(target, {
+              commands: runtime.commands,
+              getSchedule: (scheduleId) => runtime.state.schedules?.get(scheduleId) ?? Promise.resolve(null),
+            }).catch(() => undefined)
+          }}
+        />
+      </Suspense>
+    )
   return null
+}
+
+function SchedulesTool({
+  locale,
+  workspaceId,
+  initialScheduleId,
+}: {
+  readonly locale: ShellLocale
+  readonly workspaceId?: string
+  readonly initialScheduleId?: string
+}) {
+  const runtime = useHbarRuntime()
+  if (!workspaceId) return null
+  return (
+    <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+      <SchedulesPage
+        runtime={runtime}
+        workspaceId={workspaceId}
+        locale={locale}
+        {...(initialScheduleId ? { initialScheduleId } : {})}
+      />
+    </Suspense>
+  )
+}
+
+function PromptTemplatesTool({ locale, workspaceId }: { readonly locale: ShellLocale; readonly workspaceId?: string }) {
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  if (!workspaceId) return null
+  return (
+    <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+      <PromptTemplatesPage
+        runtime={runtime}
+        workspaceId={workspaceId}
+        locale={locale}
+        {...(navigation.workspaceId === workspaceId && navigation.sessionId ? { sessionId: navigation.sessionId } : {})}
+      />
+    </Suspense>
+  )
+}
+
+function FeatureNavigation({
+  locale,
+  onOpen,
+}: {
+  readonly locale: ShellLocale
+  readonly onOpen: (panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding') => void
+}) {
+  const zh = locale === 'zh-CN'
+  const runtime = useHbarRuntime()
+  const notificationLabels = useMemo(() => notificationCopy(locale), [locale])
+  const items = [
+    { id: 'run-board' as const, label: zh ? '运行看板' : 'Run board' },
+    { id: 'schedules' as const, label: zh ? '排期' : 'Schedules' },
+    { id: 'prompt-templates' as const, label: zh ? '提示词模板' : 'Prompt templates' },
+    { id: 'onboarding' as const, label: zh ? '首次配置' : 'Setup' },
+  ]
+  return (
+    <LumenFrame className="hbar-web-feature-navigation">
+      {items.map((item) => (
+        <LumenButton key={item.id} variant="text" onClick={() => onOpen(item.id)}>
+          {item.label}
+        </LumenButton>
+      ))}
+      <HbarNotifications
+        runtime={runtime.state.notifications.runtime}
+        labels={notificationLabels}
+        variant={6}
+        onOpenCenter={() => onOpen('notifications')}
+        onNavigate={(target) => {
+          void navigateNotification(target, {
+            commands: runtime.commands,
+            getSchedule: (id) => runtime.state.schedules?.get(id) ?? Promise.resolve(null),
+          }).catch(() => undefined)
+        }}
+      />
+    </LumenFrame>
+  )
 }
 
 function WorkspaceModal({
@@ -1037,7 +1251,7 @@ function WorkspaceModal({
     )
   if (modalInstanceId && modal?.panelId === 'settings-editor') {
     return (
-      <HbarProviderDialog
+      <ProviderDialog
         key={modalInstanceId}
         labels={copy.providers.dialog}
         connected={connected}
@@ -1146,6 +1360,14 @@ export default function App({
   const [systemPrefersReducedMotion, setSystemPrefersReducedMotion] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
+  const [desktopViewport, setDesktopViewport] = useState(() => window.matchMedia('(min-width: 768px)').matches)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)')
+    const update = (event: MediaQueryListEvent | MediaQueryList) => setDesktopViewport(event.matches)
+    update(media)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
   const startup = useMemo(
     () =>
       createWebStartupRuntime({
@@ -1166,7 +1388,7 @@ export default function App({
             },
           }
         },
-        createRuntime: (hostId, initialGlobalSettings) =>
+        createRuntime: (hostId, initialGlobalSettings, initialDrafts) =>
           createRuntime(
             client,
             hostId,
@@ -1174,6 +1396,7 @@ export default function App({
             attachmentController.commands,
             resourcePicker,
             initialGlobalSettings,
+            initialDrafts,
           ),
         appearancePort: createAppearancePortForRuntime,
         disposeConnection: () => {
@@ -1258,6 +1481,65 @@ export default function App({
     preferencesAvailable,
     layout,
   )
+  const [desktopWidthRem, setDesktopWidthRem] = useState(
+    () => document.documentElement.clientWidth / Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+  )
+  useEffect(() => {
+    const update = () =>
+      setDesktopWidthRem(
+        document.documentElement.clientWidth / Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+      )
+    const observer = new ResizeObserver(update)
+    observer.observe(document.documentElement)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+  const desktopLayoutModel = useMemo(
+    () =>
+      shellLayoutToFlexModel(resolvedLayout, {
+        widthRem: desktopWidthRem,
+        sidebarVisible: presentation.sidebarOpen,
+        toolVisible: Boolean(toolPanel),
+      }),
+    [resolvedLayout, desktopWidthRem, presentation.sidebarOpen, toolPanel],
+  )
+  const openFeaturePanel = (
+    panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
+  ) => {
+    const current = runtime.view.state.navigation.getSnapshot()
+    void runtime.view.commands
+      .execute('app.openPanel', {
+        panelId,
+        ...(current.workspaceId ? { workspaceId: current.workspaceId } : {}),
+        binding: 'followActive',
+      })
+      .catch(() => undefined)
+  }
+  const renderDesktopLayout =
+    nativeWindow &&
+    desktopViewport &&
+    (!toolPanel ||
+      desktopWidthRem >=
+        workspaceLayout.size.minRem +
+          toolLayout.size.minRem +
+          (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0))
+      ? (panes: Readonly<Record<'projects' | 'workspace' | 'session-tool', ReactNode>>, _shell: ReactNode) => (
+          <HbarDesktopLayoutProjection
+            model={desktopLayoutModel}
+            panes={panes}
+            onModelChange={(model) => {
+              const next = flexModelToShellLayout(resolvedLayout, model, desktopWidthRem)
+              if (JSON.stringify(next) !== JSON.stringify(resolvedLayout))
+                void runtime.view.commands
+                  .execute('layout.commit', { description: next, expectedRevision: layout.revision })
+                  .catch(() => undefined)
+            }}
+          />
+        )
+      : undefined
 
   useEffect(() => {
     if (layout.status === 'ready' && !sidebarLayout.visible)
@@ -1348,6 +1630,7 @@ export default function App({
     <LumenProvider appearance={lumenAppearance}>
       <HbarRuntimeProvider view={runtime.view}>
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
+        <NotificationDesktopBridge locale={locale} connected={connection === 'connected'} />
         <HbarWorkspaceShell
           labels={copy.shell}
           mobileNavigationLabel={mobileShellNavigationLabel(locale)}
@@ -1381,6 +1664,8 @@ export default function App({
               labels={copy.sidebarLayout}
             />
           }
+          featureNavigation={<FeatureNavigation locale={locale} onOpen={openFeaturePanel} />}
+          {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
           toolWidthRem={toolLayout.size.preferredRem}
           toolLayout={{
             mainMinWidthRem: workspaceLayout.size.minRem,
@@ -1426,15 +1711,21 @@ export default function App({
             ) ? (
               <LumenFrame className="hbar-web-tool-outlet">
                 <ToolPaneLayoutFeedback controller={toolLayoutController} labels={copy.toolLayout} />
-                <WorkspaceTool
-                  locale={locale}
-                  connected={connection === 'connected'}
-                  canExpand={workspaceLayout.config.tabs.visible}
-                />
+                <LazySurfaceBoundary labels={lazySurfaceCopy(locale)}>
+                  <WorkspaceTool
+                    locale={locale}
+                    connected={connection === 'connected'}
+                    canExpand={workspaceLayout.config.tabs.visible}
+                  />
+                </LazySurfaceBoundary>
               </LumenFrame>
             ) : undefined
           }
-          overlay={<WorkspaceModal locale={locale} connected={connection === 'connected'} chatSearch={chatSearch} />}
+          overlay={
+            <LazySurfaceBoundary labels={lazySurfaceCopy(locale)}>
+              <WorkspaceModal locale={locale} connected={connection === 'connected'} chatSearch={chatSearch} />
+            </LazySurfaceBoundary>
+          }
         >
           {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
             <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>

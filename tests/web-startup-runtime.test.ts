@@ -38,7 +38,7 @@ function fixture(bootstrapValues: ClientPreferencesState['values'] = {}) {
     endpointId: 'fixture-origin',
     isKnownSettingsGroup: (id) => ['providers', 'appearance', 'general'].includes(id),
     bootstrap: () => ({ status: 'ready', revision: 0, persisted: false, restoreError: null, values: bootstrapValues }),
-    createRuntime(hostId, initialSettings) {
+    createRuntime(hostId, initialSettings, initialDrafts) {
       const actual = createAppRuntime({
         instanceId: `startup-runtime-${observations.length}`,
         hostId: hostId ?? 'pending:identity',
@@ -49,6 +49,7 @@ function fixture(bootstrapValues: ClientPreferencesState['values'] = {}) {
           isKnownGlobalGroup: (id) => ['providers', 'appearance', 'general'].includes(id),
         },
         ...(initialSettings ? { initialGlobalSettings: initialSettings } : {}),
+        ...(initialDrafts ? { initialDrafts } : {}),
         ...(hostId === null
           ? {}
           : {
@@ -289,6 +290,28 @@ test('same confirmed Host reconnect keeps runtime, subscriptions, revision and u
     expect(reconnected.appearanceEditor.store.getState().draft.theme).toBe('dark')
     expect(f.observations).toHaveLength(2)
     expect(f.observations[1]).toMatchObject({ subscriptions: 1, releases: 0, disposals: 0 })
+  } finally {
+    f.owner.dispose()
+  }
+})
+
+test('Host identity bounce restores only the previous Host draft snapshot', async () => {
+  const f = fixture()
+  try {
+    f.owner.confirmHost('host-a')
+    const first = f.owner.store.getState().runtime
+    await first.ready
+    await first.view.commands.execute('draft.setText', { sessionId: 'session-a', text: 'draft on host a' })
+    expect(f.owner.confirmHost('host-b')).toBe(true)
+    const second = f.owner.store.getState().runtime
+    await second.ready
+    expect(second.view.state.drafts.getSnapshot()['session-a']).toBeUndefined()
+    await second.view.commands.execute('draft.setText', { sessionId: 'session-b', text: 'draft on host b' })
+    expect(f.owner.confirmHost('host-a')).toBe(true)
+    const restored = f.owner.store.getState().runtime
+    await restored.ready
+    expect(restored.view.state.drafts.getSnapshot()['session-a']?.text).toBe('draft on host a')
+    expect(restored.view.state.drafts.getSnapshot()['session-b']).toBeUndefined()
   } finally {
     f.owner.dispose()
   }

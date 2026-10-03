@@ -44,6 +44,12 @@ import { clientPersistenceCommands } from '@hbar/contracts/commands/client-persi
 import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-application'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import { createState } from './state'
+import { createUsageRequests } from './usage-requests'
+import { createUsageBudget } from './usage-budget'
+export { createUsageRequests } from './usage-requests'
+export type { UsageRequestsRuntime, UsageRequestsState, UsageRequestItem } from './usage-requests'
+export { createUsageBudget } from './usage-budget'
+export type { UsageBudgetRuntime, UsageBudgetState, UsageBudgetTarget } from './usage-budget'
 import { startupSettingsState } from './startup-settings'
 import { createSessionExecutionAccess } from './session-execution-access'
 import { createSelectedSessionExecution, selectedSessionExecutionCommands } from './selected-session-execution'
@@ -117,7 +123,19 @@ import { interactionRecoveryCommands } from './interaction-recovery'
 import { createSessionControls } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
 import { createPreSessionModelCatalog } from './pre-session-model-catalog'
+import { createNotificationsRuntime } from './notifications'
+import { createPromptTemplates } from './prompt-templates'
+import { createScheduleRuntime } from './schedules'
+import { createRunBoard, runBoardCommands } from './run-board'
 export type { PreSessionModelCatalogState, PreSessionModelCatalogActions } from './pre-session-model-catalog'
+export { createNotificationsRuntime } from './notifications'
+export type { NotificationsPort, NotificationsRuntime, NotificationsState } from './notifications'
+export { createPromptTemplates } from './prompt-templates'
+export type { PromptTemplatesState, PromptTemplateApplyTarget } from './prompt-templates'
+export { createScheduleRuntime } from './schedules'
+export type { ScheduleRuntimeState } from './schedules'
+export { createRunBoard } from './run-board'
+export type { RunBoardState, RunBoardColumns } from './run-board'
 export { preSessionModelSelection, type PreSessionModelSelection } from './pre-session-model-selection'
 import { composerIntentCommands, createComposerIntent } from './composer-intent'
 import { composerPermissionCommands, createComposerPermission } from './composer-permission'
@@ -411,6 +429,7 @@ const runtimeCommands = {
   ...sessionWorkspaceMoveCommands,
   ...systemDiagnosticsCommands,
   ...sessionFileReferenceCommands,
+  ...runBoardCommands,
 }
 
 export function createAppRuntime(options: RuntimeOptions) {
@@ -430,6 +449,48 @@ export function createAppRuntime(options: RuntimeOptions) {
   )
   const surfaces = createState<SurfaceState>(startup.surfaces, onSubscriberError)
   const presentation = createState<PresentationState>(startup.presentation, onSubscriberError)
+  const usageRequests = createUsageRequests(options.usage ? { usage: options.usage } : {})
+  let budgetTargetSnapshot: { readonly sessionId: string } | null = null
+  const budgetTarget = {
+    getSnapshot: () => {
+      const current = presentation.reader.getSnapshot()
+      const instanceId = current.page.kind === 'status' ? current.page.instanceId : null
+      const panel = instanceId ? surfaces.reader.getSnapshot().panels[instanceId] : null
+      const sessionId =
+        panel?.binding === 'pinned'
+          ? panel.sessionId
+          : panel?.binding === 'followActive' && panel.workspaceId && panel.sessionId
+            ? navigation.reader.getSnapshot().sessionId
+            : null
+      if (budgetTargetSnapshot?.sessionId !== sessionId) budgetTargetSnapshot = sessionId ? { sessionId } : null
+      return budgetTargetSnapshot
+    },
+    subscribe: (listener: () => void) => {
+      let lastSessionId = budgetTarget.getSnapshot()?.sessionId ?? null
+      const update = () => {
+        const sessionId = budgetTarget.getSnapshot()?.sessionId ?? null
+        if (sessionId === lastSessionId) return
+        lastSessionId = sessionId
+        listener()
+      }
+      const offNavigation = navigation.reader.subscribe(update)
+      const offSurfaces = surfaces.reader.subscribe(update)
+      const offPresentation = presentation.reader.subscribe(update)
+      return () => {
+        offNavigation()
+        offSurfaces()
+        offPresentation()
+      }
+    },
+  }
+  const usageBudget = options.budget
+    ? createUsageBudget({
+        commands: options.budget,
+        target: budgetTarget,
+        getReceipt: options.budget.getReceipt,
+        onError: onSubscriberError,
+      })
+    : null
 
   const local = new CommandRegistry({ execution: 'client' })
   const platform = new CommandRegistry({ execution: 'platform' })
@@ -440,6 +501,11 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const notifications = createNotificationsRuntime(options.notifications, onSubscriberError)
+  const promptTemplates = options.promptTemplates
+    ? createPromptTemplates(options.promptTemplates, onSubscriberError)
+    : null
+  const schedules = options.schedules ? createScheduleRuntime(options.schedules) : null
   const clientPersistence = createClientPersistence(local, options, onSubscriberError, () => disposed)
   const directory = createDirectoryModule(
     options,
@@ -456,6 +522,19 @@ export function createAppRuntime(options: RuntimeOptions) {
     directory: directory.reader,
     subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
     onSubscriberError,
+  })
+  const runBoard = createRunBoard(
+    local,
+    options.run,
+    navigation.reader,
+    surfaces.reader,
+    onSubscriberError,
+    () => disposed,
+  )
+  const offRunBoardEvents = options.runBoardEvents?.subscribe(() => {
+    const instanceId = presentation.reader.getSnapshot().toolInstanceId
+    if (!instanceId || surfaces.reader.getSnapshot().panels[instanceId]?.panelId !== 'run-board') return
+    void runBoard.refresh({ instanceId }).catch(() => undefined)
   })
   const executionPreparation = createSessionExecutionPreparation({
     access: sessionExecutionAccess,
@@ -725,6 +804,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     options.files,
     executionPreparation,
     readConversationMessage,
+    options.initialDrafts,
   )
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
@@ -1166,6 +1246,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(workflowWorkspaceCommands, name) ||
         Object.hasOwn(extensionWorkspaceCommands, name) ||
         Object.hasOwn(statusWorkspaceCommands, name) ||
+        Object.hasOwn(runBoardCommands, name) ||
         Object.hasOwn(systemDiagnosticsCommands, name) ||
         Object.hasOwn(clientPersistenceCommands, name) ||
         Object.hasOwn(sessionTimelineCommands, name) ||
@@ -1255,6 +1336,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionGitContext: sessionGitContext.reader,
       sessionRosterRefresh: sessionRosterRefresh.reader,
       settingsUsage: settingsUsage.reader,
+      usageRequests: { reader: usageRequests.reader, runtime: usageRequests },
+      usageBudget: usageBudget ? { state: usageBudget.state, runtime: usageBudget } : null,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
       composerPlanMode: composerPlanMode.reader,
@@ -1275,6 +1358,10 @@ export function createAppRuntime(options: RuntimeOptions) {
       diagnostics: systemDiagnostics.reader,
       layout: clientPersistence.layout,
       preferences: clientPersistence.preferences,
+      notifications: { reader: notifications.reader, runtime: notifications },
+      promptTemplates,
+      schedules,
+      runBoard: runBoard.reader,
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     preSessionModelCatalog: preSessionModelCatalog.actions,
@@ -1339,6 +1426,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionGitContext.dispose()
       sessionRosterRefresh.dispose()
       settingsUsage.dispose()
+      usageRequests.dispose()
+      usageBudget?.dispose()
       composerIntent.dispose()
       composerPermission.dispose()
       composerPlanMode.dispose()
@@ -1358,6 +1447,11 @@ export function createAppRuntime(options: RuntimeOptions) {
       extensionWorkspace.dispose()
       statusWorkspace.dispose()
       systemDiagnostics.dispose()
+      offRunBoardEvents?.()
+      runBoard.dispose()
+      notifications.dispose()
+      promptTemplates?.dispose()
+      schedules?.dispose()
       clientPersistence.dispose()
       disposeSurfaces()
       sessionTools.dispose()

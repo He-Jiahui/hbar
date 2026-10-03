@@ -102,8 +102,9 @@ export function createDrafts(
   attachmentQueries?: CommandExecutor,
   preparation?: SessionExecutionPreparationPort,
   readConversationMessage?: ConversationMessageReader,
+  initialDrafts?: DraftsState,
 ) {
-  const state = createState<DraftsState>({}, onSubscriberError)
+  const state = createState<DraftsState>(initialDrafts ?? {}, onSubscriberError)
   const actions = createState<RunActionsState>({}, onSubscriberError)
   const pending = new Map<string, PendingSubmission>()
   const retryKeys = new Map<string, { readonly key: string; readonly sessionId: string }>()

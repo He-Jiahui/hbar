@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { CommandError } from '@hbar/commands'
-import type { ClientPreferencesState, GlobalSettingsStartup, createAppRuntime } from '@hbar/app-runtime'
+import type { ClientPreferencesState, DraftsState, GlobalSettingsStartup, createAppRuntime } from '@hbar/app-runtime'
 import type { ConnectionStatus } from '@hbar/client'
 import {
   createWebAppearanceEditor,
@@ -20,7 +20,11 @@ export interface WebStartupRuntimeOptions {
   readonly endpointId: string
   readonly bootstrap: () => ClientPreferencesState
   readonly isKnownSettingsGroup: (id: string) => boolean
-  readonly createRuntime: (hostId: string | null, initialGlobalSettings?: GlobalSettingsStartup) => Runtime
+  readonly createRuntime: (
+    hostId: string | null,
+    initialGlobalSettings?: GlobalSettingsStartup,
+    initialDrafts?: DraftsState,
+  ) => Runtime
   readonly appearancePort: (runtime: Runtime) => AppearanceEditorPort
   readonly disposeConnection: () => void
 }
@@ -54,6 +58,10 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
   let disposed = false
   let leases = 0
   let releaseEpoch = 0
+  // A transient transport/runtime replacement must not erase unsent drafts. Keep
+  // each snapshot under its authenticated Host identity so drafts never cross
+  // data roots when the connection changes Hosts.
+  const draftsByHost = new Map<string, DraftsState>()
   const watch = (state: WebStartupRuntimeState) => {
     const sync = () => state.appearanceEditor.sync(state.runtime.view.state.preferences.getSnapshot(), state.binding)
     unsubscribe = state.runtime.view.state.preferences.subscribe(sync)
@@ -93,9 +101,12 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
       const current = target.getState()
       if (current.binding.hostId === hostId) return true
       const firstIdentity = current.binding.hostId === null
+      if (!firstIdentity && current.binding.hostId)
+        draftsByHost.set(current.binding.hostId, current.runtime.view.state.drafts.getSnapshot())
       const runtime = options.createRuntime(
         hostId,
         firstIdentity ? captureSettings(current.runtime, options.isKnownSettingsGroup) : undefined,
+        draftsByHost.get(hostId),
       )
       const binding: AppearanceEditorBinding = {
         endpointId: options.endpointId,

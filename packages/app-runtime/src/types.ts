@@ -79,6 +79,8 @@ import type { ProviderGlobalDefaultAction } from '@hbar/contracts/commands/provi
 import type { ProviderConfig, ThinkingLevel } from '@hbar/contracts'
 import type { CompiledKeyedList, KeyedListState } from '@hbar/schema-core'
 import type { PlanProposalRequestText } from './plan-proposal-actions'
+import type { NotificationsPort } from './notifications'
+import type { ScheduleCommandPort } from './schedules'
 
 export interface BudgetCommandPort {
   execute(id: 'session.getBudget', input: { sessionId: string }): Promise<SessionBudget | null>
@@ -154,6 +156,8 @@ export interface RuntimeOptions {
     onConnection?(listener: (connected: boolean) => void): () => void
   }
   readonly initialGlobalSettings?: GlobalSettingsStartup | undefined
+  /** Session drafts captured by the endpoint owner when a runtime is recreated for the same Host. */
+  readonly initialDrafts?: DraftsState | undefined
   /** Host-owned global Settings entry preference; scoped settings keep their own explicit targets. */
   readonly settingsLanding?: {
     readonly globalGroupId: string
@@ -204,6 +208,17 @@ export interface RuntimeOptions {
   readonly layoutDescription?: ClientLayoutDescriptionPort
   readonly exporter?: ClientExportPort
   readonly defaultLayout?: Readonly<Record<string, ClientJsonValue>>
+  /** Durable in-app notification center. The Host remains the source of truth. */
+  readonly notifications?: NotificationsPort
+  /** Workspace prompt-template commands (list/get/save/delete/apply-render). */
+  readonly promptTemplates?: CommandExecutor
+  /** Scheduled session commands and occurrence reads. */
+  readonly schedules?: ScheduleCommandPort
+  /** Durable Host run-board projection invalidation. */
+  readonly runBoardEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly onSubscriberError?: (error: unknown) => void
 }
 
