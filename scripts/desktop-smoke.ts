@@ -222,17 +222,18 @@ try {
     .waitFor({ timeout: 15_000 })
   if (process.env.HBAR_NATIVE_NOTIFICATION_PROBE === '1') {
     const probeId = `hbar-os-qa-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
+    const probeTitle = `hbar-os-qa-title-only-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
     const probe = {
-      id: probeId,
-      title: probeId,
-      body: `${probeId} isolated native notification acceptance probe.`,
+      id: probeTitle,
+      title: probeTitle,
+      body: '',
     }
     const permission = await invokeNative(page, 'native_notification_permission', {})
     const requestedPermission = await invokeNative(page, 'request_native_notification_permission', {})
     const firstAcceptance = await invokeNative(page, 'send_native_notification', { request: probe })
     const duplicateAcceptance = await invokeNative(page, 'send_native_notification', { request: probe })
     await writeFile(
-      'artifacts/app-ui-migration-audit/native-notification-qa.json',
+      'artifacts/app-ui-migration-audit/native-title-only-notification-qa.json',
       JSON.stringify(
         {
           ...probe,
