@@ -50,6 +50,26 @@ function AvailableSchedulesPage({
   const [feedback, setFeedback] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [workspaceSessions, setWorkspaceSessions] = useState<readonly Session[]>([])
+  const [sessionLoad, setSessionLoad] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
+  const loadSessions = () => {
+    let current = true
+    setSessionLoad('loading'); setSessionLoadError(null)
+    void (async () => {
+      try {
+        const rows: Session[] = []; let cursor: unknown = undefined
+        for (let page = 0; page < 4; page++) {
+          const input = { workspaceId, limit: 100, ...(cursor ? { after: cursor } : {}) }
+          const result = await runtime.commands.execute('session.list', input)
+          if (!result || typeof result !== 'object' || !('items' in result) || !Array.isArray(result.items)) break
+          rows.push(...(result.items as Session[])); cursor = 'nextCursor' in result ? result.nextCursor : null
+          if (!cursor || rows.length >= 400) break
+        }
+        if (current) { setWorkspaceSessions(rows.slice(0, 400)); setSessionLoad('idle') }
+      } catch (reason) { if (current) { setWorkspaceSessions([]); setSessionLoad('error'); setSessionLoadError(reason instanceof Error ? reason.message : String(reason)) } }
+    })()
+    return () => { current = false }
+  }
   const owner = useRef({ workspaceId, mounted: true, previewRevision: 0 })
   owner.current.workspaceId = workspaceId
   useEffect(() => {
@@ -63,14 +83,7 @@ function AvailableSchedulesPage({
   // Keep a catalog lease for this visible workspace panel. Releasing/reacquiring on workspace
   // changes forces a fresh host-backed model.list read instead of retaining a stale idle projection.
   useEffect(() => runtime.preSessionModelCatalog.retain(), [runtime, workspaceId])
-  useEffect(() => {
-    let current = true
-    void runtime.commands.execute('session.list', { workspaceId, limit: 100 }).then((result) => {
-      if (!current || !result || typeof result !== 'object' || !('items' in result) || !Array.isArray(result.items)) return
-      setWorkspaceSessions(result.items as Session[])
-    }).catch(() => { if (current) setWorkspaceSessions([]) })
-    return () => { current = false }
-  }, [runtime, workspaceId])
+  useEffect(() => { const cancel = loadSessions(); return cancel }, [runtime, workspaceId])
   useEffect(() => {
     setDraft(newScheduleForm(Intl.DateTimeFormat().resolvedOptions().timeZone))
     setPreview([])
@@ -189,6 +202,7 @@ function AvailableSchedulesPage({
           {copy.refresh}
         </LumenButton>
       </LumenFrame>
+      {sessionLoad === 'error' ? <LumenFrame role="alert"><LumenText as="p">{sessionLoadError}</LumenText><LumenButton onClick={loadSessions}>{copy.refresh}</LumenButton></LumenFrame> : null}
       {snapshot.error ? (
         <LumenText as="p" role="alert" tone="danger">
           {snapshot.error}
