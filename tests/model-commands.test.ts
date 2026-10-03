@@ -64,6 +64,7 @@ test('model commands use layered settings with capability validation and atomic 
     'session.setThinkingLevel',
   ])
   const models = await commands.execute('model.list', {})
+  expect(models.find((model) => model.id === 'multi/fast')).toMatchObject({ hasKey: false, canExecute: true })
   expect(models.find((model) => model.id === 'multi/fast')).toMatchObject({
     providerName: 'Multi',
     description: 'Quick revisions and short questions',

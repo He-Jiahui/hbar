@@ -16,6 +16,8 @@ export const modelDescriptorSchema = z.strictObject({
   thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7),
   defaultThinkingLevel: thinkingLevelSchema,
   hasKey: z.boolean(),
+  /** Provider readiness for executing a new run. Mock/demo providers are executable without credentials. */
+  canExecute: z.boolean().optional(),
 })
 export const modelConfigurationSchema = z.strictObject({
   sessionId: idSchema,

@@ -704,6 +704,7 @@ export class Kernel {
               modelName: model.name,
               modelVisible: model.visible,
               hasKey,
+              canExecute: provider.protocol === 'mock' ? this.options.demo === true : hasKey,
             }))
         }),
       )
@@ -748,6 +749,7 @@ export class Kernel {
         modelName: selected.name,
         modelVisible: selected.visible,
         hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
+        canExecute: provider.protocol === 'mock' ? this.options.demo === true : Boolean(await this.secrets.get(provider.id)),
       }
     } finally {
       this.maintenance = false

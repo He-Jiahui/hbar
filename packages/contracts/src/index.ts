@@ -808,6 +808,7 @@ export function normalizeThinkingLevel(
 
 export interface ModelInfo extends ProviderConfig {
   hasKey: boolean
+  canExecute?: boolean
   providerId: string
   providerName: string
   providerVisible: boolean

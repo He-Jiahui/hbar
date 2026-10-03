@@ -28,6 +28,7 @@ export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[n
     thinkingLevels: model.thinkingLevels,
     defaultThinkingLevel: model.defaultThinkingLevel,
     hasKey: model.hasKey,
+    ...(model.canExecute === undefined ? {} : { canExecute: model.canExecute }),
   }
 }
 
