@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { promptTemplateCopy } from '../apps/web/src/prompt-template-copy'
 import { scheduleCopy } from '../apps/web/src/schedule-copy'
+import { notificationCopy } from '../apps/web/src/notification-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
 const WEB_PORT = Number(process.env.HBAR_E2E_PORT ?? 4329)
@@ -158,6 +159,7 @@ test.describe('production app-ui feature surfaces', () => {
   }) => {
     test.setTimeout(120_000)
     await withHost(browser, 'en-US', async (page, host) => {
+      const notificationLabels = notificationCopy('en-US')
       const runs = createRunCommandClient(host.client)
       await runs.execute(
         'run.submit',
@@ -204,7 +206,13 @@ test.describe('production app-ui feature surfaces', () => {
         )
         .toBeGreaterThanOrEqual(1)
       await openSession(page, host, 'en-US')
-      await openFeature(page, 'Notifications')
+      const bell = page.getByRole('button', { name: notificationLabels.bell(3) })
+      await expect(bell).toBeVisible()
+      await bell.click()
+      const bellDialog = page.getByRole('dialog', { name: notificationLabels.title })
+      await expect(bellDialog).toBeVisible()
+      await bellDialog.getByRole('button', { name: notificationLabels.title, exact: true }).click()
+      await expect(page.getByRole('heading', { name: notificationLabels.title }).first()).toBeVisible()
       await expect(page.getByText(/Run completed|Run failed/).first()).toBeVisible()
       await page
         .getByRole('button', { name: /Mark as read/ })
