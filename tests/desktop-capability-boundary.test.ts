@@ -26,16 +26,17 @@ test('native main privileges belong to its WebView, not every child of its windo
   expect(capability.permissions).toContain('allow-connection-info')
   expect(capability.permissions).toContain('allow-read-ui-zoom')
   expect(capability.permissions).toContain('allow-write-ui-zoom')
+  expect(capability.permissions).toContain('allow-native-notification-delivery-status')
   expect(capability.permissions).toContain('core:webview:allow-set-webview-zoom')
 
   const nativeSource = await readFile(join(desktopRoot, 'src/main.rs'), 'utf8')
   expect(nativeSource).toMatch(/WebviewWindowBuilder::new\(app,\s*"main",\s*WebviewUrl::External\(url\)\)/)
   expect(nativeSource).toMatch(
-    /generate_handler!\[\s*connection_info,\s*read_ui_zoom,\s*write_ui_zoom,\s*native_notification_permission,\s*request_native_notification_permission,\s*send_native_notification\s*\]/,
+    /generate_handler!\[\s*connection_info,\s*read_ui_zoom,\s*write_ui_zoom,\s*native_notification_permission,\s*request_native_notification_permission,\s*send_native_notification,\s*native_notification_delivery_status\s*\]/,
   )
   const buildSource = await readFile(join(desktopRoot, 'build.rs'), 'utf8')
   expect(buildSource).toMatch(
-    /AppManifest::new\(\)\.commands\(&\[\s*"connection_info",\s*"read_ui_zoom",\s*"write_ui_zoom",\s*"native_notification_permission",\s*"request_native_notification_permission",\s*"send_native_notification",?\s*\]\)/,
+    /AppManifest::new\(\)\.commands\(&\[\s*"connection_info",\s*"read_ui_zoom",\s*"write_ui_zoom",\s*"native_notification_permission",\s*"request_native_notification_permission",\s*"send_native_notification",\s*"native_notification_delivery_status",?\s*\]\)/,
   )
 })
 
