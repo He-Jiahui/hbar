@@ -1460,6 +1460,17 @@ test('connected session workspace sends, approves, cancels, and updates usage', 
     const preset = page.getByRole('combobox', { name: 'Provider preset' })
     await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/add-desktop-1440.png', fullPage: true })
     await preset.fill('OpenAI')
+    const presetPopup = page.locator('.lumen-combobox-popup:popover-open')
+    await expect(presetPopup).toBeVisible()
+    await expect(presetPopup).toHaveCSS('position', 'fixed')
+    const presetBounds = await presetPopup.boundingBox()
+    const presetViewport = page.viewportSize()
+    expect(presetBounds).not.toBeNull()
+    expect(presetViewport).not.toBeNull()
+    expect(presetBounds!.x).toBeGreaterThanOrEqual(0)
+    expect(presetBounds!.y).toBeGreaterThanOrEqual(0)
+    expect(presetBounds!.x + presetBounds!.width).toBeLessThanOrEqual(presetViewport!.width)
+    expect(presetBounds!.y + presetBounds!.height).toBeLessThanOrEqual(presetViewport!.height)
     await expect(page.getByRole('option').filter({ has: page.getByText('OpenAI', { exact: true }) })).toBeVisible()
     await page.screenshot({
       path: 'artifacts/ui-redesign/provider-editor/after/add-preset-open-1440.png',
@@ -1609,10 +1620,13 @@ test('provider presets persist custom models, thinking levels, and independent v
     const expectNoHorizontalOverflow = async () =>
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
-    await expect(page.locator('footer')).toContainText('Connected')
+    await expect(page.getByRole('complementary', { name: 'Projects and sessions' }).locator('footer')).toContainText(
+      'Connected',
+    )
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
-    await page.getByRole('combobox', { name: 'Settings scope' }).selectOption('global')
+    const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
+    if (await settingsScope.count()) await settingsScope.selectOption('global')
     await page.getByRole('button', { name: 'Providers', exact: true }).click()
     await page.getByRole('button', { name: 'Add provider', exact: true }).click()
 
@@ -1709,7 +1723,7 @@ test('provider presets persist custom models, thinking levels, and independent v
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: 'Back to settings' }).click()
     await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
-    await expect(page.getByText('Default: browser-custom', { exact: true })).toBeVisible()
+    await expect(page.getByText('Primary model: browser-custom', { exact: true })).toBeVisible()
     await expect(page.getByText('3 models', { exact: true })).toBeVisible()
     await expect(page.getByText('Hidden', { exact: true })).toBeVisible()
 

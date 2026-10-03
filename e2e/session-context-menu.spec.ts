@@ -59,8 +59,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await otherTarget.click({ button: 'right' })
       const menu = otherRow.getByRole('menu', { name: copy.shell.sessionActions(other.title), exact: true })
       await expect(menu).toBeVisible()
+      await expect(menu).toHaveAttribute('popover', 'auto')
+      await expect(menu).toHaveCSS('position', 'fixed')
+      const menuBounds = await menu.boundingBox()
+      const viewport = page.viewportSize()
+      expect(menuBounds).not.toBeNull()
+      expect(viewport).not.toBeNull()
+      expect(menuBounds!.x).toBeGreaterThanOrEqual(0)
+      expect(menuBounds!.y).toBeGreaterThanOrEqual(0)
+      expect(menuBounds!.x + menuBounds!.width).toBeLessThanOrEqual(viewport!.width)
+      expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(viewport!.height)
       await expect(menu.getByRole('menuitem', { name: copy.shell.renameSession, exact: true })).toBeFocused()
-      await expect(page.getByRole('heading', { level: 1, includeHidden: true })).toHaveText(host.ready.sessionTitle)
+      await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(host.ready.sessionTitle)
       await expectComposerText(prompt, 'Keep the current conversation draft')
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/session-context-menu/${locale}-open.png` })
@@ -76,7 +86,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await input.press('Enter')
       await expect(input).toHaveCount(0)
       await expect(otherRow).toContainText('Renamed through row actions')
-      await expect(page.getByRole('heading', { level: 1, includeHidden: true })).toHaveText(host.ready.sessionTitle)
+      await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(host.ready.sessionTitle)
       await expectComposerText(prompt, 'Keep the current conversation draft')
       const renamedMenu = otherRow.getByRole('menu', {
         name: copy.shell.sessionActions('Renamed through row actions'),
@@ -85,7 +95,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await otherTarget.click({ button: 'right' })
       await expect(renamedMenu).toBeVisible()
       await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).first().click()
-      await expect(otherRow.locator('details')).not.toHaveAttribute('open', '')
       await expect(renamedMenu).toBeHidden()
       expect((await sessions.execute('session.get', { sessionId: other.id }))?.title).toBe(
         'Renamed through row actions',
