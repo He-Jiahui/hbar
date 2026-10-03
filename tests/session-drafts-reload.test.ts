@@ -97,6 +97,6 @@ test('reloaded Host A restores draft content and reconciles the original receipt
 test('Host B restore remains empty and corrupt or oversized snapshots are discarded', () => {
   const saved = serializeSessionDrafts({ [draft.sessionId]: draft })
   expect(restoreSessionDrafts(JSON.parse(saved!))).toMatchObject({ [draft.sessionId]: draft })
-  expect(restoreSessionDrafts({ version: 99, value: { [draft.sessionId]: draft } })).toEqual({})
+  expect(restoreSessionDrafts({ version: 99, value: { [draft.sessionId]: draft } })).toBeUndefined()
   expect(restoreSessionDrafts({ [draft.sessionId]: { ...draft, text: 'x'.repeat(200_001) } })).toEqual({})
 })
