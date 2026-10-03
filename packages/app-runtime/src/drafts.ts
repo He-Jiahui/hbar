@@ -29,6 +29,53 @@ import type { CommandExecutor } from '@hbar/commands'
 import { createRunCancellation } from './run-cancellation'
 
 const MAX_DRAFTS = 100
+const MAX_PERSISTED_DRAFT_BYTES = 1_000_000
+
+/** Validates the bounded, JSON-safe portion of session drafts restored after a reload. */
+export function restoreSessionDrafts(value: unknown): DraftsState | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const entries = Object.entries(value as Record<string, unknown>).slice(0, MAX_DRAFTS)
+  const restored: Record<string, SessionDraftState> = {}
+  for (const [sessionId, item] of entries) {
+    if (typeof item !== 'object' || item === null) continue
+    const candidate = item as Record<string, unknown>
+    if (
+      candidate.sessionId !== sessionId ||
+      typeof candidate.text !== 'string' ||
+      typeof candidate.revision !== 'number'
+    )
+      continue
+    if (!Number.isSafeInteger(candidate.revision) || candidate.revision < 0 || candidate.text.length > 200_000) continue
+    const mentions = Array.isArray(candidate.mentions) ? candidate.mentions : []
+    const contexts = Array.isArray(candidate.workspaceContexts) ? candidate.workspaceContexts : []
+    const attachments = Array.isArray(candidate.attachments) ? candidate.attachments : []
+    const status = candidate.status
+    if (!['idle', 'failed', 'unknown', 'submitting'].includes(String(status))) continue
+    restored[sessionId] = {
+      sessionId,
+      text: candidate.text,
+      mentions: mentions as SessionDraftState['mentions'],
+      workspaceContexts: contexts as SessionDraftState['workspaceContexts'],
+      attachments: attachments as SessionDraftState['attachments'],
+      attachmentTransfers: [],
+      uploading: 0,
+      uploadError: typeof candidate.uploadError === 'string' ? candidate.uploadError : null,
+      revision: candidate.revision,
+      status: status as SessionDraftState['status'],
+      error: typeof candidate.error === 'string' ? candidate.error : null,
+      lastOperationId: typeof candidate.lastOperationId === 'string' ? candidate.lastOperationId : null,
+      ...(candidate.pendingSubmission && typeof candidate.pendingSubmission === 'object'
+        ? { pendingSubmission: candidate.pendingSubmission as SessionDraftState['pendingSubmission'] }
+        : {}),
+    }
+  }
+  return restored
+}
+
+export function serializeSessionDrafts(drafts: DraftsState): string | null {
+  const value = JSON.stringify(drafts)
+  return value.length <= MAX_PERSISTED_DRAFT_BYTES ? value : null
+}
 // Public Run ports are not required to be the SDK adapter. Once dispatched, these
 // errors cannot prove rejection; preserve the same key until its receipt is read.
 const UNCERTAIN_SUBMIT_CODES = new Set([
@@ -372,6 +419,7 @@ export function createDrafts(
       status: 'idle',
       error: null,
       lastOperationId: accepted.operationId,
+      pendingSubmission: undefined,
     })
     pending.delete(sessionId)
   }
@@ -408,7 +456,17 @@ export function createDrafts(
       matchesDraft: !detached && matchesInput(current, submit),
       detached,
     }
-    replace(submit.sessionId, { ...current, status: 'submitting', error: null })
+    replace(submit.sessionId, {
+      ...current,
+      status: 'submitting',
+      error: null,
+      pendingSubmission: {
+        key: submission.key,
+        revision: submission.revision,
+        matchesDraft: submission.matchesDraft,
+        detached,
+      },
+    })
     pending.set(submit.sessionId, submission)
     let dispatched = false
     try {
@@ -436,6 +494,7 @@ export function createDrafts(
           ...latest,
           status: unknown ? 'unknown' : 'failed',
           error: errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED'),
+          ...(unknown ? {} : { pendingSubmission: undefined }),
         })
         if (!unknown) pending.delete(submit.sessionId)
       }

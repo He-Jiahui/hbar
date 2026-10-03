@@ -861,6 +861,13 @@ export interface SessionDraftState {
   readonly status: 'idle' | 'submitting' | 'unknown' | 'failed'
   readonly error: string | null
   readonly lastOperationId: string | null
+  /** Original submission owner retained across a reload until its receipt is reconciled. */
+  readonly pendingSubmission?: {
+    readonly key: string
+    readonly revision: number
+    readonly matchesDraft: boolean
+    readonly detached: boolean
+  }
 }
 export type SessionAttachmentUpload = AttachmentUploadInput
 export type DraftsState = Readonly<Record<string, SessionDraftState>>
