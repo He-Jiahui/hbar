@@ -993,6 +993,20 @@ try {
     nativeEnabled: true,
     'run.completed': { ...currentNotificationPreferences['run.completed'], desktop: true },
   })
+  await page.evaluate(() => {
+    const tauri = Reflect.get(window, '__TAURI_INTERNALS__')
+    if (!tauri || typeof tauri !== 'object') throw new Error('Tauri internals unavailable for notification observer')
+    const bridge = tauri as { invoke: (...args: unknown[]) => Promise<unknown> } & Record<string, unknown>
+    const original = bridge.invoke.bind(bridge)
+    const calls: unknown[] = []
+    bridge.invoke = async (...args: unknown[]) => {
+      const result = await original(...args)
+      if (args[0] === 'send_native_notification')
+        calls.push({ request: (args[1] as { request?: unknown } | undefined)?.request ?? null, result, observedAt: new Date().toISOString() })
+      return result
+    }
+    ;(window as unknown as { __hbarNativeAutoCalls?: unknown[] }).__hbarNativeAutoCalls = calls
+  })
   await api.call('run.start', {
     sessionId: session.id,
     requestId: 'native-background',
@@ -1016,18 +1030,26 @@ try {
     (item) => item.kind === 'run.completed' && item.target.kind === 'session' && item.target.sessionId === session.id,
   )
   if (!autoRecord) throw new Error(`No persisted run.completed notification for background session: ${session.id}`)
+  const automaticCall = await until(async () => {
+    const call = await page.evaluate((id) => {
+      const calls = (window as unknown as { __hbarNativeAutoCalls?: Array<{ request?: { id?: string }; result?: unknown; observedAt?: string }> }).__hbarNativeAutoCalls ?? []
+      return calls.find((candidate) => candidate.request?.id === id) ?? null
+    }, autoRecord.id)
+    if (!call) throw new Error(`Automatic native notification call not observed for ${autoRecord.id}`)
+    return call
+  }, 10_000)
   await writeFile(
     'artifacts/app-ui-migration-audit/native-notification-auto-attempt.json',
-    JSON.stringify({ record: autoRecord, windowState, observedAt: new Date().toISOString() }, null, 2),
+    JSON.stringify({ record: autoRecord, windowState, automaticCall, observedAt: new Date().toISOString() }, null, 2),
   )
   const autoReplay = await invokeNative(page, 'send_native_notification', {
     request: { id: autoRecord.id, title: autoRecord.title, body: autoRecord.detail },
   })
-  if (autoReplay !== false)
-    throw new Error(`Automatic native delivery did not deduplicate persisted notification: ${JSON.stringify({ autoReplay, windowState, recordId: autoRecord.id })}`)
+  if (automaticCall.result !== true || autoReplay !== false)
+    throw new Error(`Automatic native delivery did not complete fresh-first semantics: ${JSON.stringify({ automaticCall, autoReplay, windowState, recordId: autoRecord.id })}`)
   await writeFile(
     'artifacts/app-ui-migration-audit/native-notification-auto-qa.json',
-    JSON.stringify({ record: autoRecord, windowState, replayAccepted: autoReplay, observedAt: new Date().toISOString() }, null, 2),
+    JSON.stringify({ record: autoRecord, windowState, automaticCall, replayAccepted: autoReplay, observedAt: new Date().toISOString() }, null, 2),
   )
   const titleOnlyId = `hbar-os-qa-title-only-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
   const titleOnly = { id: titleOnlyId, title: titleOnlyId, body: '' }
