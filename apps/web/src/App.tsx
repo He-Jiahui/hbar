@@ -1506,6 +1506,7 @@ export default function App({
     preferencesAvailable,
     layout,
   )
+  const layoutVisibilitySync = useRef<string | null>(null)
   const [desktopWidthRem, setDesktopWidthRem] = useState(
     () => document.documentElement.clientWidth / Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
   )
@@ -1526,7 +1527,7 @@ export default function App({
     () =>
       shellLayoutToFlexModel(resolvedLayout, {
         widthRem: desktopWidthRem,
-        sidebarVisible: sidebarLayout.visible || presentation.sidebarOpen,
+        sidebarVisible: presentation.sidebarOpen,
         toolVisible: Boolean(toolPanel),
       }),
     [resolvedLayout, desktopWidthRem, presentation.sidebarOpen, toolPanel],
@@ -1567,9 +1568,12 @@ export default function App({
       : undefined
 
   useEffect(() => {
-    if (layout.status === 'ready' && !sidebarLayout.visible)
-      void runtime.view.commands.execute('app.setSidebarVisible', { visible: false }).catch(() => undefined)
-  }, [layout.revision, layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
+    if (layout.status !== 'ready') return
+    const syncKey = `sidebar:${layout.source}`
+    if (layoutVisibilitySync.current === syncKey) return
+    layoutVisibilitySync.current = syncKey
+    void runtime.view.commands.execute('app.setSidebarVisible', { visible: sidebarLayout.visible }).catch(() => undefined)
+  }, [layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
