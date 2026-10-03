@@ -30,6 +30,11 @@ bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-st
 
 `bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序；自定义输出目录可用 `HBAR_DESKTOP_EXE` 指向实际程序。它会启动真实原生窗口，不是无窗口检查。使用前确认允许本轮临时原生验收，不安装或重启现用桌面。
 
+工作台分隔条的定向原生回归使用 `bun scripts/desktop-layout-resize-smoke.ts`，也可通过 `HBAR_DESKTOP_EXE` 指向构建程序。
+它使用独立临时 profile 和真实 WebView，比较拖动预览、松手、保存和刷新后的 CSS 像素宽度，覆盖两侧边界、原生缩放、根字号、
+键盘调整、Esc 取消、窗口变窄后恢复和未发送草稿；不创建模型 Run。最新结果及现用 Host 的前端资源核对见
+[工作台尺寸验收](workbench-resize-verification.md)。
+
 命令阅读核心回归使用 `e2e/session-command-reading.spec.ts`：真实临时 Host 的本地
 只读 stdout 命令，经原工具审批后核对同一 Run、首 12 行与完整展开、OS clipboard
 原文回读、原始参数和未发送草稿。`session-tool-presentation-browser.spec.ts` 的
