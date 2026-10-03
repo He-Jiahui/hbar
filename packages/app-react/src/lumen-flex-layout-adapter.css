@@ -1,4 +1,5 @@
 .hbar-desktop-layout-projection {
+  position: relative;
   display: flex;
   min-block-size: 0;
   min-inline-size: 0;
