@@ -43,6 +43,12 @@ const panelTarget = {
   sessionId: idSchema.optional(),
   binding: panelBindingSchema.default('followActive'),
 }
+export const panelNavigationParamsSchema = z.strictObject({
+  scheduleId: idSchema.optional(),
+  occurrenceId: idSchema.optional(),
+  runId: idSchema.optional(),
+  approvalId: idSchema.optional(),
+})
 
 export const surfaceCommands = {
   'app.openPanel': defineCommand(
@@ -58,7 +64,11 @@ export const surfaceCommands = {
         ],
       },
     },
-    z.strictObject({ panelId: z.string().min(1).max(128), ...panelTarget }),
+    z.strictObject({
+      panelId: z.string().min(1).max(128),
+      ...panelTarget,
+      params: panelNavigationParamsSchema.optional(),
+    }),
     panelSummarySchema,
   ),
   'app.closePanel': defineCommand(

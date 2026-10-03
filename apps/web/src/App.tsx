@@ -1060,6 +1060,7 @@ function WorkspaceTool({
           onNavigate={(target) =>
             navigateNotification(target, {
               commands: runtime.commands,
+              sourceInstanceId: instanceId,
               getSchedule: (scheduleId) => runtime.state.schedules?.get(scheduleId) ?? Promise.resolve(null),
             })
           }

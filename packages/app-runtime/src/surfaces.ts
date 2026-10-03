@@ -11,7 +11,18 @@ import type {
   WindowSurface,
 } from './types'
 
-const toolPanelIds = new Set(['files', 'activity', 'monitoring', 'agents', 'goals'])
+const toolPanelIds = new Set([
+  'files',
+  'activity',
+  'monitoring',
+  'agents',
+  'goals',
+  'run-board',
+  'schedules',
+  'prompt-templates',
+  'notifications',
+  'onboarding',
+])
 const modalPanelIds = new Set(['commands', 'chat-search', 'settings-editor'])
 
 function summary(panel: PanelSurface, focused: boolean) {
@@ -174,7 +185,7 @@ export function registerSurfaceCommands(
   local.register(surfaceCommands['app.openPanel'], (input) =>
     input.panelId === 'extensions'
       ? openPanel('settings', input, { scope: 'global', section: 'extensions' })
-      : openPanel(input.panelId, input),
+      : openPanel(input.panelId, input, input.params ?? {}),
   )
   local.register(surfaceCommands['app.closePanel'], ({ instanceId }) => closePanel(instanceId))
   local.register(surfaceCommands['app.back'], () => {
