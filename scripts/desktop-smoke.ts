@@ -613,7 +613,7 @@ try {
       const viewportLeft = viewportBounds.left + viewport.clientLeft
       return {
         shell: rect('[data-hbar-app-ui-shell="app"]'),
-        frame: rect('[data-hbar-app-ui-shell="workbench"]'),
+        frame: rect('[data-hbar-app-ui-shell="app"]'),
         sessionMain: rect('.hbar-app-react-session-main'),
         conversation: rect('.lumen-conversation'),
         messageViewport: {
