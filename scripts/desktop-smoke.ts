@@ -81,7 +81,11 @@ async function expectLiveComposerText(page: Page, expected: string, phase: strin
     }))
     await writeFile(
       'artifacts/ui-redesign/tauri/composer-live-failure.json',
-      JSON.stringify({ phase, expected, capturedAt: new Date().toISOString(), snapshot, stack: new Error().stack }, null, 2),
+      JSON.stringify(
+        { phase, expected, capturedAt: new Date().toISOString(), snapshot, stack: new Error().stack },
+        null,
+        2,
+      ),
     )
     throw error
   }
@@ -254,16 +258,22 @@ try {
   }
   const locale = await page.evaluate(() => (document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en-US'))
   const servedAssetIdentity = await page.evaluate(async () => {
-    const scripts = Array.from(document.scripts).map((script) => script.src).filter(Boolean)
+    const scripts = Array.from(document.scripts)
+      .map((script) => script.src)
+      .filter(Boolean)
     const mainScript = scripts.find((src) => /\/assets\/index-[^/]+\.js$/.test(src))
     if (!mainScript) throw new Error(`Native WebView main asset is missing: ${JSON.stringify(scripts)}`)
     const response = await fetch(mainScript)
     if (!response.ok) throw new Error(`Native WebView main asset request failed: ${response.status}`)
     const source = await response.text()
-    if (!source.includes('hbar:web:drafts:')) throw new Error('Native WebView served stale bundle without durable draft marker')
+    if (!source.includes('hbar:web:drafts:'))
+      throw new Error('Native WebView served stale bundle without durable draft marker')
     return { mainScript, sourceLength: source.length, hasDurableDraftMarker: true }
   })
-  await writeFile('artifacts/app-ui-migration-audit/native-web-asset-identity.json', JSON.stringify(servedAssetIdentity, null, 2))
+  await writeFile(
+    'artifacts/app-ui-migration-audit/native-web-asset-identity.json',
+    JSON.stringify(servedAssetIdentity, null, 2),
+  )
   const copy = getShellCopy(locale)
   const preSession = preSessionCopy(locale)
   const location = preSessionLaunchCopy(locale).location
@@ -470,7 +480,7 @@ try {
             lines: Array.from(editor.querySelectorAll('.cm-line')).map((line) => ({
               text: line.textContent,
               html: line.innerHTML,
-            placeholder: Boolean(line.querySelector('.cm-placeholder')),
+              placeholder: Boolean(line.querySelector('.cm-placeholder')),
             })),
             propText: editor.dataset.hbarEditorPropText ?? null,
             propRevision: editor.dataset.hbarEditorPropRevision ?? null,
@@ -769,22 +779,51 @@ try {
   await page.getByRole('complementary', { name: /^(工程与会话|Projects and sessions)$/ }).waitFor()
   const expandedGeometry = await assertSessionGeometry('Minimum desktop window with sidebar')
   const sidebarLocator = page.locator('[data-hbar-app-ui-component="hbar-app-ui-app-sidebar-3"]')
-  if (await sidebarLocator.count() === 0) {
-    await writeFile('artifacts/ui-redesign/tauri/sidebar-dom-snapshot.json', JSON.stringify(await page.evaluate(() => ({
-      markers: Array.from(document.querySelectorAll<HTMLElement>('[data-hbar-app-ui-shell],[data-hbar-app-ui-component],[data-hbar-layout-adapter]')).map((node) => ({ tag: node.tagName, className: node.className, shell: node.getAttribute('data-hbar-app-ui-shell'), component: node.getAttribute('data-hbar-app-ui-component'), adapter: node.getAttribute('data-hbar-layout-adapter'), text: node.innerText.slice(0, 120), rect: (() => { const r = node.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height } })() })),
-      buttons: Array.from(document.querySelectorAll<HTMLButtonElement>('button')).map((button) => ({ aria: button.getAttribute('aria-label'), title: button.title, text: button.innerText, visible: Boolean(button.offsetWidth || button.offsetHeight) })),
-      roles: Array.from(document.querySelectorAll<HTMLElement>('[role]')).map((node) => ({ role: node.getAttribute('role'), name: node.getAttribute('aria-label'), text: node.innerText.slice(0, 80), visible: Boolean(node.offsetWidth || node.offsetHeight) })),
-    })), null, 2))
+  if ((await sidebarLocator.count()) === 0) {
+    await writeFile(
+      'artifacts/ui-redesign/tauri/sidebar-dom-snapshot.json',
+      JSON.stringify(
+        await page.evaluate(() => ({
+          markers: Array.from(
+            document.querySelectorAll<HTMLElement>(
+              '[data-hbar-app-ui-shell],[data-hbar-app-ui-component],[data-hbar-layout-adapter]',
+            ),
+          ).map((node) => ({
+            tag: node.tagName,
+            className: node.className,
+            shell: node.getAttribute('data-hbar-app-ui-shell'),
+            component: node.getAttribute('data-hbar-app-ui-component'),
+            adapter: node.getAttribute('data-hbar-layout-adapter'),
+            text: node.innerText.slice(0, 120),
+            rect: (() => {
+              const r = node.getBoundingClientRect()
+              return { left: r.left, top: r.top, width: r.width, height: r.height }
+            })(),
+          })),
+          buttons: Array.from(document.querySelectorAll<HTMLButtonElement>('button')).map((button) => ({
+            aria: button.getAttribute('aria-label'),
+            title: button.title,
+            text: button.innerText,
+            visible: Boolean(button.offsetWidth || button.offsetHeight),
+          })),
+          roles: Array.from(document.querySelectorAll<HTMLElement>('[role]')).map((node) => ({
+            role: node.getAttribute('role'),
+            name: node.getAttribute('aria-label'),
+            text: node.innerText.slice(0, 80),
+            visible: Boolean(node.offsetWidth || node.offsetHeight),
+          })),
+        })),
+        null,
+        2,
+      ),
+    )
     throw new Error('Canonical sidebar navigation marker is absent after sidebar expansion')
   }
   const sidebarGeometry = await sidebarLocator.evaluate((element) => {
     const bounds = element.getBoundingClientRect()
     return { left: bounds.left, right: bounds.right, width: bounds.width, position: getComputedStyle(element).position }
   })
-  if (
-    sidebarGeometry.position === 'fixed' ||
-    expandedGeometry.frame.width >= collapsedGeometry.frame.width
-  )
+  if (sidebarGeometry.position === 'fixed' || expandedGeometry.frame.width >= collapsedGeometry.frame.width)
     throw new Error(
       `Minimum desktop sidebar did not shrink the workspace in normal flow: ${JSON.stringify({ sidebarGeometry, collapsedGeometry, expandedGeometry })}`,
     )
@@ -993,20 +1032,6 @@ try {
     nativeEnabled: true,
     'run.completed': { ...currentNotificationPreferences['run.completed'], desktop: true },
   })
-  await page.evaluate(() => {
-    const tauri = Reflect.get(window, '__TAURI_INTERNALS__')
-    if (!tauri || typeof tauri !== 'object') throw new Error('Tauri internals unavailable for notification observer')
-    const bridge = tauri as { invoke: (...args: unknown[]) => Promise<unknown> } & Record<string, unknown>
-    const original = bridge.invoke.bind(bridge)
-    const calls: unknown[] = []
-    bridge.invoke = async (...args: unknown[]) => {
-      const result = await original(...args)
-      if (args[0] === 'send_native_notification')
-        calls.push({ request: (args[1] as { request?: unknown } | undefined)?.request ?? null, result, observedAt: new Date().toISOString() })
-      return result
-    }
-    ;(window as unknown as { __hbarNativeAutoCalls?: unknown[] }).__hbarNativeAutoCalls = calls
-  })
   await api.call('run.start', {
     sessionId: session.id,
     requestId: 'native-background',
@@ -1030,26 +1055,40 @@ try {
     (item) => item.kind === 'run.completed' && item.target.kind === 'session' && item.target.sessionId === session.id,
   )
   if (!autoRecord) throw new Error(`No persisted run.completed notification for background session: ${session.id}`)
-  const automaticCall = await until(async () => {
-    const call = await page.evaluate((id) => {
-      const calls = (window as unknown as { __hbarNativeAutoCalls?: Array<{ request?: { id?: string }; result?: unknown; observedAt?: string }> }).__hbarNativeAutoCalls ?? []
-      return calls.find((candidate) => candidate.request?.id === id) ?? null
-    }, autoRecord.id)
-    if (!call) throw new Error(`Automatic native notification call not observed for ${autoRecord.id}`)
-    return call
+  // Read the native receipt without registering this ID through a manual send.
+  const automaticDelivery = await until(async () => {
+    const accepted = await invokeNative(page, 'native_notification_delivery_status', { id: autoRecord.id })
+    if (accepted !== true) throw new Error(`Automatic native notification is not acknowledged for ${autoRecord.id}`)
+    return { id: autoRecord.id, accepted, observedAt: new Date().toISOString() }
   }, 10_000)
   await writeFile(
     'artifacts/app-ui-migration-audit/native-notification-auto-attempt.json',
-    JSON.stringify({ record: autoRecord, windowState, automaticCall, observedAt: new Date().toISOString() }, null, 2),
+    JSON.stringify(
+      { record: autoRecord, windowState, automaticDelivery, observedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
   )
   const autoReplay = await invokeNative(page, 'send_native_notification', {
     request: { id: autoRecord.id, title: autoRecord.title, body: autoRecord.detail },
   })
-  if (automaticCall.result !== true || autoReplay !== false)
-    throw new Error(`Automatic native delivery did not complete fresh-first semantics: ${JSON.stringify({ automaticCall, autoReplay, windowState, recordId: autoRecord.id })}`)
+  if (automaticDelivery.accepted !== true || autoReplay !== false)
+    throw new Error(
+      `Automatic native delivery did not complete fresh-first semantics: ${JSON.stringify({ automaticDelivery, autoReplay, windowState, recordId: autoRecord.id })}`,
+    )
   await writeFile(
     'artifacts/app-ui-migration-audit/native-notification-auto-qa.json',
-    JSON.stringify({ record: autoRecord, windowState, automaticCall, replayAccepted: autoReplay, observedAt: new Date().toISOString() }, null, 2),
+    JSON.stringify(
+      {
+        record: autoRecord,
+        windowState,
+        automaticDelivery,
+        replayAccepted: autoReplay,
+        observedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
   )
   const titleOnlyId = `hbar-os-qa-title-only-${new Date().toISOString().replace(/[-:.TZ]/g, '')}`
   const titleOnly = { id: titleOnlyId, title: titleOnlyId, body: '' }
@@ -1059,10 +1098,24 @@ try {
   const titleOnlyDuplicate = await invokeNative(page, 'send_native_notification', { request: titleOnly })
   await writeFile(
     'artifacts/app-ui-migration-audit/native-title-only-notification-qa.json',
-    JSON.stringify({ ...titleOnly, permission: titleOnlyPermission, requestedPermission: titleOnlyRequestedPermission, firstAcceptance: titleOnlyFirst, duplicateAcceptance: titleOnlyDuplicate, createdAt: new Date().toISOString(), binary: resolve(process.env.HBAR_DESKTOP_EXE ?? '') }, null, 2),
+    JSON.stringify(
+      {
+        ...titleOnly,
+        permission: titleOnlyPermission,
+        requestedPermission: titleOnlyRequestedPermission,
+        firstAcceptance: titleOnlyFirst,
+        duplicateAcceptance: titleOnlyDuplicate,
+        createdAt: new Date().toISOString(),
+        binary: resolve(process.env.HBAR_DESKTOP_EXE ?? ''),
+      },
+      null,
+      2,
+    ),
   )
   if (titleOnlyFirst !== true || titleOnlyDuplicate !== false)
-    throw new Error(`Title-only notification acceptance mismatch: ${JSON.stringify({ titleOnlyFirst, titleOnlyDuplicate })}`)
+    throw new Error(
+      `Title-only notification acceptance mismatch: ${JSON.stringify({ titleOnlyFirst, titleOnlyDuplicate })}`,
+    )
   await invokeNative(page, 'plugin:window|show', { label: 'main' })
   const visibleAfterProbe = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
   if (visibleAfterProbe !== true) throw new Error('Desktop window did not return after native notification probe')
@@ -1074,7 +1127,9 @@ try {
     (item) => item.id === autoRecord.id,
   )
   if (!persistedAfterExit || persistedAfterExit.readAt !== null)
-    throw new Error(`Automatic notification was unexpectedly marked read after desktop exit: ${JSON.stringify(persistedAfterExit)}`)
+    throw new Error(
+      `Automatic notification was unexpectedly marked read after desktop exit: ${JSON.stringify(persistedAfterExit)}`,
+    )
   const cancellationSession = await api.call('session.create', { workspaceId: workspace.id })
   const cancellationRun = await api.call('run.start', {
     sessionId: cancellationSession.id,
@@ -1167,4 +1222,3 @@ try {
   await rm(nativeSmokeFixtureRoot(root), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   await rm(nativeSmokeFixtureRoot(projectFixtureRoot), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }
-
