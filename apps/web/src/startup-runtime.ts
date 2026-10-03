@@ -71,7 +71,11 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
     if (!options.draftPersistence) return
     const serialized = serializeSessionDrafts(drafts)
     if (serialized === null) return
-    options.draftPersistence.write(hostId, restoreSessionDrafts(JSON.parse(serialized)) ?? {})
+    try {
+      options.draftPersistence.write(hostId, restoreSessionDrafts(JSON.parse(serialized)) ?? {})
+    } catch {
+      // Draft editing remains available when device storage is unavailable.
+    }
   }
   const watch = (state: WebStartupRuntimeState) => {
     const sync = () => state.appearanceEditor.sync(state.runtime.view.state.preferences.getSnapshot(), state.binding)
@@ -114,6 +118,10 @@ export function createWebStartupRuntime(options: WebStartupRuntimeOptions) {
       const firstIdentity = current.binding.hostId === null
       if (!firstIdentity && current.binding.hostId)
         draftsByHost.set(current.binding.hostId, current.runtime.view.state.drafts.getSnapshot())
+      while (draftsByHost.size > 8) {
+        const oldest = draftsByHost.keys().next().value
+        if (oldest !== undefined) draftsByHost.delete(oldest)
+      }
       const runtime = options.createRuntime(
         hostId,
         firstIdentity ? captureSettings(current.runtime, options.isKnownSettingsGroup) : undefined,

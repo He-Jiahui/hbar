@@ -24,7 +24,13 @@ test('session draft persistence restores bounded unknown receipt ownership', () 
 })
 
 test('session draft persistence rejects malformed and oversized records', () => {
-  expect(restoreSessionDrafts({ 'session-a': { ...draft, revision: -1 } })).toEqual({})
-  expect(restoreSessionDrafts({ 'session-a': { ...draft, text: 'x'.repeat(200_001) } })).toEqual({})
+  expect(restoreSessionDrafts({ version: 1, drafts: { 'session-a': { ...draft, revision: -1 } } })).toEqual({})
+  expect(
+    restoreSessionDrafts({ version: 1, drafts: { 'session-a': { ...draft, text: 'x'.repeat(200_001) } } }),
+  ).toEqual({})
+  expect(restoreSessionDrafts({ version: 2, drafts: {} })).toBeUndefined()
+  expect(
+    restoreSessionDrafts({ version: 1, drafts: { 'session-a': { ...draft, mentions: [{ start: 0, end: 999 }] } } }),
+  ).toEqual({})
   expect(serializeSessionDrafts({ 'session-a': { ...draft, text: 'x'.repeat(1_000_001) } })).toBeNull()
 })

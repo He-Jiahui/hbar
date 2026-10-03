@@ -1408,6 +1408,7 @@ export default function App({
           read(hostId) {
             try {
               const raw = window.localStorage.getItem(`hbar:web:drafts:${hostId}`)
+              if (raw !== null && new TextEncoder().encode(raw).byteLength > 1_000_000) return undefined
               return raw === null ? undefined : restoreSessionDrafts(JSON.parse(raw))
             } catch {
               return undefined
