@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
+  ShieldHalf,
   ShieldX,
   X,
 } from 'lucide-react'
@@ -106,10 +107,10 @@ export interface HbarComposerPermissionPickerProps {
 // Plan occupies the reference's execution-mode position, but remains a separate
 // durable Host mode. The other four entries are per-send approval choices.
 // This bounded list grows with its content; only the viewport-limited overlay scrolls.
-const choiceOrder = ['ask', 'deny', 'allow', 'plan', 'inherit'] as const satisfies readonly (
+const choiceOrder = ['ask', 'deny', 'sandbox', 'allow', 'plan', 'inherit'] as const satisfies readonly (
   ComposerPermissionChoice | 'plan'
 )[]
-const icons = { ask: ShieldCheck, deny: ShieldX, allow: ShieldAlert, inherit: RotateCcw }
+const icons = { ask: ShieldCheck, deny: ShieldX, sandbox: ShieldHalf, allow: ShieldAlert, inherit: RotateCcw }
 
 /** The reference is a trigger-anchored overlay; coordinates apply to this container only. */
 function placePopover(popover: HTMLElement, anchor: HTMLElement) {

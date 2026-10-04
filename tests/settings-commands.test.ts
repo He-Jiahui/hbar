@@ -158,6 +158,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     encodePath(field('provider.thinkingLevel')),
     encodePath(field('session.defaultBudget')),
     encodePath(field('session.approval')),
+    encodePath(field('session.sandboxProfile')),
   ])
 
   const graph = compileContentGraph(

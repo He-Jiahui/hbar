@@ -1,14 +1,25 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, Check, ChevronDown, Lightbulb, RotateCcw, ShieldAlert, ShieldCheck, ShieldX, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Lightbulb,
+  RotateCcw,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldHalf,
+  ShieldX,
+  X,
+} from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerPermissionChoice, ComposerPermissionMode, ComposerPlanMode } from '@hbar/app-runtime'
 import type { HbarComposerPermissionLabels } from './composer-permission-picker'
 import './composer-permission-picker.css'
 
-const order = ['ask', 'deny', 'allow', 'plan', 'inherit'] as const satisfies readonly (
+const order = ['ask', 'deny', 'sandbox', 'allow', 'plan', 'inherit'] as const satisfies readonly (
   ComposerPermissionChoice | 'plan'
 )[]
-const icons = { ask: ShieldCheck, deny: ShieldX, allow: ShieldAlert, inherit: RotateCcw }
+const icons = { ask: ShieldCheck, deny: ShieldX, sandbox: ShieldHalf, allow: ShieldAlert, inherit: RotateCcw }
 
 export interface HbarPreSessionApprovalPickerProps {
   readonly choice: ComposerPermissionChoice

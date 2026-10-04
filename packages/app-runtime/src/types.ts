@@ -270,7 +270,7 @@ export interface AgentWorkspaceDraftState {
   readonly title: string
   readonly tokenBudget: string
   readonly thinkingLevel: string
-  readonly approval: 'deny' | 'ask' | 'allow'
+  readonly approval: import('@hbar/contracts').ApprovalMode
   readonly revision: number
   readonly issues: Readonly<Record<string, string>>
 }

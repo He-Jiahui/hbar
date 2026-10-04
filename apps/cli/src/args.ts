@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import type { ApprovalMode, ThinkingLevel } from '@hbar/contracts'
+import { approvalModeSchema, type ApprovalMode, type ThinkingLevel } from '@hbar/contracts'
 
 export interface CliArgs {
   command?: string | undefined
@@ -126,7 +126,7 @@ Headless options:
   --message <text>                 Message (or read one message from stdin)
   --model <provider/model|id|name> Model selection
   --thinking <level>               off|minimal|low|medium|high|xhigh|max
-  --approval <mode>                deny|allow|ask (default: deny)
+  --approval <mode>                deny|allow|ask|sandbox (default: deny)
   --project <path|name>             Project (default: current directory)
   --workspace <id|name>             Workspace for an application command
   --session <id|name>               Session to resume
@@ -249,8 +249,10 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
   const thinking = (values.thinking ?? 'off') as ThinkingLevel
   if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(thinking))
     throw new Error(`Invalid --thinking: ${thinking}`)
-  const approval = (values.approval ?? (values.headless || command === 'exec' ? 'deny' : 'ask')) as ApprovalMode
-  if (!['deny', 'allow', 'ask'].includes(approval)) throw new Error(`Invalid --approval: ${approval}`)
+  const requestedApproval = values.approval ?? (values.headless || command === 'exec' ? 'deny' : 'ask')
+  const parsedApproval = approvalModeSchema.safeParse(requestedApproval)
+  if (!parsedApproval.success) throw new Error(`Invalid --approval: ${requestedApproval}`)
+  const approval: ApprovalMode = parsedApproval.data
   const outputFormat = (values['output-format'] ?? 'text') as 'text' | 'jsonl'
   if (!['text', 'jsonl'].includes(outputFormat)) throw new Error(`Invalid --output-format: ${outputFormat}`)
   return {

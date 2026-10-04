@@ -45,6 +45,7 @@ const labels: HbarComposerPermissionLabels = {
     },
     ask: { label: '按需询问', description: '对策略要求审批的工具询问；其他允许或拒绝规则继续生效。' },
     deny: { label: '拒绝需审批工具', description: '拒绝需要审批的工具，不影响策略直接允许的工具。' },
+    sandbox: { label: '沙盒配置', description: '按选定的沙盒配置放行、询问或拒绝。' },
     allow: { label: '自动批准需审批工具', description: '无需逐次确认；服务端拒绝规则仍生效。' },
   },
   confirmTitle: '确认本会话自动批准',
@@ -69,10 +70,12 @@ function props(): HbarComposerPermissionPickerProps {
   }
 }
 
-test('permission picker shows four real options with localized names and session scope', () => {
+test('permission picker shows five real options with localized names and session scope', () => {
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...props()} />)
   expect(html).toContain('aria-label="工具审批：继承服务端默认"')
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
+  expect(html).toContain(labels.options.sandbox.label)
+  expect(html).toContain(labels.options.sandbox.description)
   expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
   expect(html).toContain(labels.scopeHint)
   expect(html).toContain('尚未读取')
@@ -91,7 +94,7 @@ test('an active Run locks and labels the execution entry without hiding its conf
   )
   expect(html).toContain(`title="${labels.runActiveHint}"`)
   expect(html).toContain('data-choice="ask"')
-  expect(html.match(/<button[^>]*disabled=""/g)).toHaveLength(5)
+  expect(html.match(/<button[^>]*disabled=""/g)).toHaveLength(6)
 })
 
 test('an inherited trigger names the confirmed effective default, but never guesses through read failure', () => {
@@ -139,7 +142,7 @@ test('session Plan is distinct from approval and appears before Host default in 
   expect(html).toContain(labels.plan.scope)
   expect(html).not.toContain(labels.scopeHint)
   expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(6)
   const menu = html.slice(html.indexOf('role="menu"'))
   expect(menu.indexOf('data-choice="allow"')).toBeLessThan(menu.indexOf('data-choice="plan"'))
   expect(menu.indexOf('data-choice="plan"')).toBeLessThan(menu.indexOf('data-choice="inherit"'))
@@ -157,7 +160,7 @@ test('session Plan is distinct from approval and appears before Host default in 
   expect(uncertain).not.toContain('aria-label="工具审批：计划模式"')
   expect(uncertain).toContain(`aria-label="工具审批：${labels.execution.unknown}"`)
   expect(uncertain).not.toContain('aria-checked="true"')
-  expect(uncertain.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
+  expect(uncertain.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
   const uncertainMenu = uncertain.slice(uncertain.indexOf('role="menu"'))
   expect(uncertainMenu.indexOf('data-choice="plan"')).toBeLessThan(uncertainMenu.indexOf('data-choice="inherit"'))
 })
@@ -175,7 +178,7 @@ test('long host-supplied names and exact default labels remain semantic text wit
   )
   expect(html).toContain(`aria-label="工具审批：${longLabel}"`)
   expect(html).toContain(`最近读取：${longLabel}`)
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(4)
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
   expect(html).toContain('data-choice="allow"')
 })
 
@@ -200,7 +203,7 @@ test('prepared Goal explains its Plan conflict with a separate localized cancell
   expect(html).not.toContain(labels.plan.cancellingGoalPreparation)
   const busy = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} plan={plan} disabled />)
   expect(busy).toContain(labels.plan.goalPrepared)
-  expect(busy.match(/<button[^>]*disabled=""/g)).toHaveLength(7)
+  expect(busy.match(/<button[^>]*disabled=""/g)).toHaveLength(8)
   const unprepared = renderToStaticMarkup(
     <HbarComposerPermissionPicker
       {...input}
@@ -239,7 +242,7 @@ test('unknown freezes the trigger and every new choice with nearby original-poli
   )
   expect(html).toContain('aria-label="工具审批：自动批准需审批工具"')
   expect(html).toContain(labels.unknown)
-  expect(html.match(/<button[^>]*disabled=""/g)).toHaveLength(5)
+  expect(html.match(/<button[^>]*disabled=""/g)).toHaveLength(6)
   expect(html).not.toContain(labels.retry)
 })
 
@@ -261,7 +264,7 @@ test('unconfirmed session setting exposes original-receipt recovery without re-e
   )
   expect(html).toContain(labels.unknown)
   expect(html).toContain(labels.recheck)
-  expect(html.match(/role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(4)
+  expect(html.match(/role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
 })
 
 test('failed inherited read exposes local retry while retaining inherit; explicit choice does not claim failed default', () => {

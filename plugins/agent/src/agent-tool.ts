@@ -65,6 +65,7 @@ async function assertCurrentParent(sessions: SessionService, context: ToolContex
     run.requestId !== context.run.requestId ||
     run.modelId !== context.run.modelId ||
     run.input.approval !== context.run.input.approval ||
+    run.input.sandbox?.digest !== context.run.input.sandbox?.digest ||
     run.input.thinking !== context.run.input.thinking
   )
     throw new HbarError('STALE_TARGET', 'The Agent tool Run target changed')
@@ -91,6 +92,7 @@ export function createAgentTool(agents: AgentService, sessions: SessionService):
           modelId: target.run.modelId,
           ...(target.run.input.thinking ? { thinkingLevel: target.run.input.thinking } : {}),
           approval: target.run.input.approval ?? 'deny',
+          ...(target.run.input.sandbox ? { sandbox: target.run.input.sandbox } : {}),
         },
         {
           actorId: modelActorId(target.session.id),

@@ -519,6 +519,7 @@ export default definePlugin({
       inputSchema: z.object({ command: z.string().min(1).max(16000) }),
       effect: 'process',
       workspaceAccess: { kind: 'workspace' },
+      commandArgument: 'command',
       execute: (args, c) => execution.exec(c.workspace.path, args.command as string, c.signal),
     })
   },

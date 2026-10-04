@@ -90,10 +90,10 @@ hbar --headless \
   --project <路径|项目名> \
   --session <Session ID|名称> \
   --output-format <text|jsonl> \
-  --approval <deny|allow|ask>
+  --approval <deny|allow|ask|sandbox>
 ```
 
-`--message` 省略时从 stdin 读取一条消息。默认审批为 `deny`，默认输出为 `text`。`ask` 只能在 stdin/stdout 都是 TTY 时使用；管道模式返回结构化错误。`allow` 必须显式传入，仍经过执行服务、资源限制、调用意图和用量审计。
+`--message` 省略时从 stdin 读取一条消息。默认审批为 `deny`，默认输出为 `text`。`ask` 只能在 stdin/stdout 都是 TTY 时使用；管道模式返回结构化错误。`allow` 必须显式传入，仍经过执行服务、资源限制、调用意图和用量审计。`sandbox` 按会话设置选中的沙盒配置（默认 `:workspace-write`）自动放行、询问或拒绝，见[沙盒审批](sandbox.md)；配置判定为需要询问的调用在管道模式下同样返回结构化错误。
 
 `jsonl` stdout 每行都是一个 JSON 对象，包含 `run.started`、有独立偏移的 `message.delta`、工具与审批事件、`message.committed` 和 `run.completed`。错误也以 `{ "type": "error", "code": ... }` 输出，不混入 ANSI 或 Host 日志。退出码为 `0` 成功、`2` 参数错误、`3` 审批失败、`4` 模型/供应商错误、`5` 插件错误、`6` Session/存储恢复错误、`7` 其他内部错误；命令执行的未知结果为 `8`，版本或幂等冲突为 `9`。
 

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import {
   BUILTIN_SANDBOX_PROFILE_IDS,
@@ -8,6 +9,7 @@ import {
   type SandboxProfileDeleteInput,
   type SandboxProfileId,
   type SandboxProfileSaveInput,
+  type SandboxSnapshotRef,
 } from '@hbar/contracts/sandbox'
 import type { SandboxProfileDetail, SandboxProfileSummary } from '@hbar/contracts/commands/sandbox'
 import { BUILTIN_SANDBOX_PROFILES, isBuiltinSandboxProfileId, resolveSandboxProfile } from './sandbox-policy'
@@ -30,6 +32,22 @@ export interface SandboxProfileStoragePort {
     input: SandboxProfileSaveInput | SandboxProfileDeleteInput,
     identity: SandboxWriteIdentity,
   ): Promise<unknown>
+  putSnapshot(record: { digest: string; profileId: string; data: string }): Promise<void>
+  snapshot(digest: string): Promise<ResolvedSandboxProfile | null>
+}
+
+const SNAPSHOT_CACHE_LIMIT = 64
+
+/** Key-sorted JSON; array order is preserved. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+  if (value !== null && typeof value === 'object')
+    return `{${Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
+      .join(',')}}`
+  return JSON.stringify(value) ?? 'null'
 }
 
 function summary(profile: SandboxProfile): SandboxProfileSummary {
@@ -52,6 +70,36 @@ export class SandboxProfileService {
   ) {}
 
   private readonly lookup = (id: SandboxProfileId) => this.port.get(id)
+  private readonly snapshots = new Map<string, ResolvedSandboxProfile>()
+
+  private remember(digest: string, profile: ResolvedSandboxProfile) {
+    this.snapshots.delete(digest)
+    this.snapshots.set(digest, profile)
+    for (const oldest of this.snapshots.keys()) {
+      if (this.snapshots.size <= SNAPSHOT_CACHE_LIMIT) break
+      this.snapshots.delete(oldest)
+    }
+  }
+
+  /** Resolve the profile now and persist the merged rules under their content digest. */
+  async createSnapshot(id: SandboxProfileId): Promise<SandboxSnapshotRef> {
+    const resolved = await this.resolve(id)
+    const data = canonical(resolved)
+    const digest = createHash('sha256').update(data).digest('hex')
+    await this.port.putSnapshot({ digest, profileId: id, data })
+    this.remember(digest, resolved)
+    return { profileId: id, digest }
+  }
+
+  /** Load the exact rules a Run was admitted with. Missing or mismatched snapshots fail closed. */
+  async loadSnapshot(ref: SandboxSnapshotRef): Promise<ResolvedSandboxProfile> {
+    const profile = this.snapshots.get(ref.digest) ?? (await this.port.snapshot(ref.digest))
+    if (!profile) throw new HbarError('SANDBOX_SNAPSHOT_NOT_FOUND', 'The Run sandbox snapshot is unavailable')
+    if (profile.profileId !== ref.profileId)
+      throw new HbarError('SANDBOX_SNAPSHOT_MISMATCH', 'The Run sandbox snapshot belongs to another profile')
+    this.remember(ref.digest, profile)
+    return profile
+  }
 
   async list(): Promise<SandboxProfileSummary[]> {
     const stored = await this.port.list()

@@ -50,7 +50,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
       expect(html).toContain(`aria-label="${input.labels.trigger(input.labels.execution[state.label])}"`)
       expect(html).not.toContain('aria-checked="true"')
-      expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
+      expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
       expect(html).toContain(input.labels.execution.approvalFrozen)
       const trigger = html.match(/<button[^>]*class="[^"]*hbar-composer-permission-trigger[^>]*>/)?.[0]
       expect(trigger).toBeDefined()
@@ -131,7 +131,7 @@ test('a mismatched Plan target is loading, never an inherited approval or anothe
 test('an archived or submission-locked unresolved mode is inspectable but cannot create a mode or approval write', () => {
   const input = props('en-US', mode('unknown'))
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} disabled canPrepare={false} />)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
   expect(html.match(/<button[^>]*data-execution-recovery[^>]*disabled=""/g)).toBeNull()
   expect(html).toContain(input.labels.plan.recheck)
 })
@@ -151,6 +151,6 @@ test('a long translated uncertain trigger preserves its full accessible name wit
   const labels = { ...input.labels, execution: { ...input.labels.execution, unknown: long } }
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} labels={labels} />)
   expect(html).toContain(`aria-label="${labels.trigger(long)}"`)
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(6)
   expect(html).not.toContain('aria-checked="true"')
 })

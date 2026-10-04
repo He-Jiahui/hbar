@@ -83,7 +83,7 @@ export const composerPermissionCommands = {
     metadata('composerPermission.setChoice'),
     z.strictObject({
       sessionId: idSchema,
-      choice: z.enum(['inherit', 'ask', 'deny', 'allow']),
+      choice: z.enum(['inherit', ...approvalModeSchema.options]),
       expectedRevision: z.number().int().nonnegative(),
       confirmAllow: z.literal(true).optional(),
     }),

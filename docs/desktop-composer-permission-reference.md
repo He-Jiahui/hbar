@@ -2,7 +2,7 @@
 
 参考依据：cc-haha 的 `desktop/src/components/chat/controls/PermissionModeSelector.tsx`、`docs/images/app/zh-CN/permission-modes.webp`，以及直接渲染原组件的 `artifacts/reference-ux-v2/07-permission-open.png`。它把权限放在输入区左侧、每项解释实际含义，高风险选项另确认；窄屏使用底部 sheet。
 
-hbar 只有 `ask / deny / allow` 真实审批策略，不能伪造参考的五种模式。新入口包含这三项以及继承默认：仅影响下一次 composer 发送，绝不调用全局 `permission.set`。继承会在提交时读取默认并固定到该 Run，失败不静默退到 ask。deny 只拒绝需要审批的工具，不冒充“全部只读”；allow 不绕过 Host 明确拒绝规则，也不叫“全部权限”。Plan 仍是独立运行意图。
+hbar 的真实审批策略为 `ask / deny / sandbox / allow`（`sandbox` 见[沙盒审批](sandbox.md)），不能伪造参考的五种模式。新入口包含这些策略以及继承默认：仅影响下一次 composer 发送，绝不调用全局 `permission.set`。继承会在提交时读取默认并固定到该 Run，失败不静默退到 ask。deny 只拒绝需要审批的工具，不冒充“全部只读”；allow 不绕过 Host 明确拒绝规则，也不叫“全部权限”。Plan 仍是独立运行意图。
 
 ## 所有权与恢复
 

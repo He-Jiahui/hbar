@@ -57,7 +57,7 @@ export interface HbarAgentWorkspaceLabels {
   readonly thinkingOption: (level: string) => string
   readonly thinkingUnavailable: (level: string) => string
   readonly approval: string
-  readonly approvalOptions: Readonly<Record<'deny' | 'ask' | 'allow', string>>
+  readonly approvalOptions: Readonly<Record<'deny' | 'ask' | 'sandbox' | 'allow', string>>
   readonly create: string
   readonly creating: string
   readonly retryCreate: string
@@ -320,7 +320,7 @@ export function HbarAgentWorkspace({
                   value={entry.draft.approval}
                   onChange={(event) => setField('approval', event.currentTarget.value)}
                 >
-                  {(['deny', 'ask', 'allow'] as const).map((option) => (
+                  {(['deny', 'ask', 'sandbox', 'allow'] as const).map((option) => (
                     <LumenOption key={option} value={option}>
                       {labels.approvalOptions[option]}
                     </LumenOption>

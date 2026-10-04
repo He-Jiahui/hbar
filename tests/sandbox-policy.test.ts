@@ -265,6 +265,65 @@ describe('sandbox path grants', () => {
     expect(evaluateSandbox(tie, write('src/a.ts'), windows).decision).toBe('ask')
   })
 
+  test('a subtree target is limited by every grant inside it', async () => {
+    const workspaceWrite = await resolveSandboxProfile(':workspace-write', async () => null)
+    const commit: SandboxToolCall = {
+      tool: 'git_commit',
+      effect: 'write',
+      paths: [{ field: '*', access: 'write', absolute: root, subtree: true }],
+      command: null,
+    }
+    expect(evaluateSandbox(workspaceWrite, commit, windows)).toMatchObject({
+      decision: 'ask',
+      escalated: true,
+      reason: { path: '.', granted: 'read', grant: '.git' },
+    })
+    const open = profile({ filesystem: { default: 'write', grants: [{ path: 'C:/Other', access: 'none' }] } })
+    expect(evaluateSandbox(open, commit, windows).decision).toBe('allow')
+    const globbed = profile({
+      filesystem: {
+        default: 'read',
+        grants: [
+          { path: '.', access: 'write' },
+          { path: '**/*.lock', access: 'read' },
+        ],
+      },
+    })
+    expect(evaluateSandbox(globbed, commit, windows)).toMatchObject({ decision: 'ask', reason: { grant: '**/*.lock' } })
+    const hidden = profile({
+      filesystem: {
+        default: 'read',
+        grants: [{ path: 'secrets', access: 'none' }],
+      },
+    })
+    const scan: SandboxToolCall = {
+      tool: 'index_workspace',
+      effect: 'read',
+      paths: [{ field: '*', access: 'read', absolute: root, subtree: true }],
+      command: null,
+    }
+    expect(evaluateSandbox(hidden, scan, windows)).toMatchObject({ decision: 'ask', escalated: true })
+    const nested: SandboxToolCall = {
+      ...scan,
+      paths: [{ field: 'path', access: 'read', absolute: `${root}/docs`, subtree: true }],
+    }
+    expect(evaluateSandbox(hidden, nested, windows).decision).toBe('allow')
+    const posixGlob = profile({
+      filesystem: {
+        default: 'write',
+        grants: [{ path: '/work/repo/vendor/**', access: 'read' }],
+      },
+    })
+    const posixCommit: SandboxToolCall = {
+      ...commit,
+      paths: [{ field: '*', access: 'write', absolute: '/work/repo', subtree: true }],
+    }
+    expect(evaluateSandbox(posixGlob, posixCommit, posix)).toMatchObject({
+      decision: 'ask',
+      reason: { grant: '/work/repo/vendor/**' },
+    })
+  })
+
   test('every path argument must be granted', () => {
     const move: SandboxToolCall = {
       tool: 'move_file',

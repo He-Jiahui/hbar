@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
+import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
 import {
   settingsDescriptionSchema,
   settingsReceiptSchema,
@@ -22,6 +23,8 @@ export const HBAR_SETTINGS_SCHEMA_VERSION = 1
 const path = (name: string): SchemaPath => [{ kind: 'field', name }]
 /** A missing local value inherits the legacy Host-wide permission.mode default. */
 export const SESSION_APPROVAL_SETTING_PATH: SchemaPath = path('session.approval')
+/** Profile resolved when a Run is admitted with `approval: 'sandbox'`. */
+export const SESSION_SANDBOX_PROFILE_SETTING_PATH: SchemaPath = path('session.sandboxProfile')
 function freeze<Value>(value: Value): Value {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
     for (const child of Object.values(value)) freeze(child)
@@ -118,7 +121,7 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         type: 'string',
         nullable: true,
         defaultValue: null,
-        choices: ['ask', 'deny', 'allow'],
+        choices: ['ask', 'deny', 'allow', 'sandbox'],
         allowedScopes: ['session'],
         applyMode: 'nextRun',
         labelKey: 'i18n:settings.session.approval.label',
@@ -127,6 +130,26 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         order: 20,
         component: 'ComboBox',
         multiple: false,
+      },
+      {
+        path: SESSION_SANDBOX_PROFILE_SETTING_PATH,
+        type: 'string',
+        nullable: false,
+        defaultValue: DEFAULT_SANDBOX_PROFILE_ID,
+        allowedScopes: ['global', 'workspace', 'session'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.session.sandboxProfile.label',
+        helpKey: 'i18n:settings.session.sandboxProfile.help',
+        group: 'session',
+        order: 30,
+        component: 'ComboBox',
+        multiple: false,
+        content: {
+          kind: 'options',
+          callbackId: 'settings.getSandboxProfiles',
+          callbackVersion: 1,
+          dependsOn: [],
+        },
       },
     ],
   }),

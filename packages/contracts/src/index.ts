@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { sandboxSnapshotRefSchema } from './sandbox'
 import { toolOutcomeSchema } from './tool-outcome'
 export { toolOutcomeSchema, type ToolOutcome } from './tool-outcome'
 import { toolCallPresentationSchema } from './tool-presentation'
@@ -76,7 +77,7 @@ export const DEFAULT_THINKING_LEVELS: readonly ThinkingLevel[] = [
   'xhigh',
   'max',
 ]
-export const approvalModeSchema = z.enum(['deny', 'allow', 'ask'])
+export const approvalModeSchema = z.enum(['deny', 'allow', 'ask', 'sandbox'])
 export type ApprovalMode = z.infer<typeof approvalModeSchema>
 export const permissionModeSchema = approvalModeSchema
 export type PermissionMode = ApprovalMode
@@ -425,6 +426,8 @@ export const inputSchema = z.object({
   files: z.array(artifactSchema).max(12).optional(),
   thinking: thinkingLevelSchema.optional(),
   approval: approvalModeSchema.optional(),
+  /** Host-created rules for `approval: 'sandbox'`; the Host strips it for other modes. */
+  sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),
   source: runSourceSchema.optional(),
   continuation: z.object({ goalId: idSchema, intentId: idSchema }).optional(),

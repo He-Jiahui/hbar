@@ -334,7 +334,7 @@ function fixture(
     files: ArtifactRef[]
     launchTargetRevision?: number
     thinkingLevel: ModelConfiguration['thinkingLevel']
-    approval: 'ask' | 'deny' | 'allow' | undefined
+    approval: 'ask' | 'deny' | 'allow' | 'sandbox' | undefined
     mode: 'default' | 'plan' | undefined
   }[] = []
   let createGate: ReturnType<typeof gate> | null = null

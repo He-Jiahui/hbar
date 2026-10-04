@@ -65,6 +65,15 @@ function thinkingLevelLabel(locale: ShellLocale, value: unknown): string {
   return labels[key] ?? key
 }
 
+/** Fixed settings choices: thinking levels and session approval modes, whose values do not overlap. */
+function settingsChoiceLabel(locale: ShellLocale, value: unknown): string {
+  const approval: Readonly<Record<string, string>> =
+    locale === 'zh-CN'
+      ? { ask: '逐次询问', deny: '拒绝需审批工具', sandbox: '沙盒配置', allow: '自动批准' }
+      : { ask: 'Ask', deny: 'Deny approval requests', sandbox: 'Sandbox profile', allow: 'Auto-approve' }
+  return approval[String(value)] ?? thinkingLevelLabel(locale, value)
+}
+
 interface ShellCopy {
   readonly sidebarLayout: SidebarLayoutLabels
   readonly toolLayout: ToolPaneLayoutLabels
@@ -543,6 +552,10 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.session.defaultBudget.help': '设置新会话运行采用的默认 Token 上限。',
         'i18n:settings.session.approval.label': '会话工具审批',
         'i18n:settings.session.approval.help': '仅作用于此会话的新运行；不设置时继承宿主默认值。',
+        'i18n:settings.session.sandboxProfile.label': '沙盒配置',
+        'i18n:settings.session.sandboxProfile.help': '审批为“沙盒配置”时，新运行按此配置放行、询问或拒绝工具调用。',
+        'i18n:settings.sandboxProfiles.read-only': '只读',
+        'i18n:settings.sandboxProfiles.workspace-write': '工作区可写',
       }
     : {
         'i18n:settings.groups.model': 'Model',
@@ -559,8 +572,13 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.session.defaultBudget.help': 'Set the default token limit for new session runs.',
         'i18n:settings.session.approval.label': 'Session tool approval',
         'i18n:settings.session.approval.help': 'Applies to new runs in this session; unset inherits the Host default.',
+        'i18n:settings.session.sandboxProfile.label': 'Sandbox profile',
+        'i18n:settings.session.sandboxProfile.help':
+          'When approval is Sandbox profile, new runs allow, ask, or deny tool calls by this profile.',
+        'i18n:settings.sandboxProfiles.read-only': 'Read only',
+        'i18n:settings.sandboxProfiles.workspace-write': 'Workspace write',
       }
-  const option = (value: unknown) => thinkingLevelLabel(locale, value)
+  const option = (value: unknown) => settingsChoiceLabel(locale, value)
   const source = (value: string) => {
     if (value.includes(':session:')) return choose('会话层', 'session scope')
     if (value.includes(':workspace:')) return choose('工作区层', 'workspace scope')
@@ -1245,6 +1263,13 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           description: choose(
             '拒绝需审批工具；已获策略允许的工具仍可执行。',
             'Deny tools needing approval; policy-allowed tools may still run.',
+          ),
+        },
+        sandbox: {
+          label: choose('沙盒配置', 'Sandbox profile'),
+          description: choose(
+            '按设置中选定的沙盒配置放行、询问或拒绝；已放行的命令不受文件规则约束。',
+            'The selected sandbox profile allows, asks, or denies; an allowed command is not confined by file rules.',
           ),
         },
         allow: {
@@ -2290,6 +2315,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     approvalOptions: {
       deny: choose('拒绝', 'Deny'),
       ask: choose('询问', 'Ask'),
+      sandbox: choose('沙盒配置', 'Sandbox'),
       allow: choose('允许', 'Allow'),
     },
     create: choose('创建并运行', 'Create and run'),

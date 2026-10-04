@@ -11,6 +11,7 @@ import {
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { approvalModeSchema } from '@hbar/contracts'
 import type { Message, PluginInfo, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
 import {
   createInteractionCommandClient,
@@ -466,9 +467,10 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     }
     if (command === 'settings') {
       const settings = createConfigurationCommandClient(runtime.client)
-      if (args[0] === 'approval' && ['deny', 'ask', 'allow'].includes(args[1] ?? '')) {
-        await settings.execute('permission.set', { mode: args[1] as 'deny' | 'ask' | 'allow' })
-        return render(`Default approval mode: \`${args[1]}\``)
+      const mode = args[0] === 'approval' ? approvalModeSchema.safeParse(args[1]) : null
+      if (mode?.success) {
+        await settings.execute('permission.set', { mode: mode.data })
+        return render(`Default approval mode: \`${mode.data}\``)
       }
       return render(`\`\`\`json\n${JSON.stringify(await settings.execute('permission.get', {}), null, 2)}\n\`\`\``)
     }

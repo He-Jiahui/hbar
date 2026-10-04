@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { CommandError, defineCommand, type CommandRegistry } from '@hbar/commands'
-import { idSchema } from '@hbar/contracts'
+import { approvalModeSchema, idSchema } from '@hbar/contracts'
 import type { StateReader } from './state'
 import type { NavigationState } from './types'
 import type { ComposerPermissionState } from './composer-permission'
@@ -8,7 +8,7 @@ import type { ComposerPlanModeState } from './composer-plan-mode'
 
 const input = z.strictObject({
   sessionId: idSchema,
-  choice: z.enum(['inherit', 'ask', 'deny', 'allow']),
+  choice: z.enum(['inherit', ...approvalModeSchema.options]),
   expectedPermissionRevision: z.number().int().nonnegative(),
   expectedModeRevision: z.number().int().nonnegative(),
   confirmAllow: z.literal(true).optional(),

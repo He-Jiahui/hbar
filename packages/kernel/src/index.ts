@@ -14,6 +14,7 @@ import {
   userInputResponseSchema,
 } from '@hbar/contracts'
 import type {
+  ApprovalMode,
   Approval,
   ArtifactRef,
   Bootstrap,
@@ -44,6 +45,7 @@ import type {
   ModeService,
   PolicyProvider,
   ToolContext,
+  ToolDefinition,
   ToolResult,
   UserInputService,
 } from '@hbar/plugin-sdk'
@@ -100,6 +102,7 @@ export { SessionLaunchTargetPreparationService } from './session-launch-target-p
 import { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 export { createSettingsCommands } from './settings-commands'
 export { createSandboxCommands } from './sandbox-commands'
+export { createSandboxSettingsValidator } from './sandbox-settings'
 export { SandboxProfileService } from './sandbox-service'
 export type { SandboxProfileStoragePort, SandboxWriteIdentity } from './sandbox-service'
 export { createUsageCommands } from './usage-commands'
@@ -152,8 +155,15 @@ import { captureToolPresentations, enrichToolCallPresentations } from './tool-pr
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
 import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
-import { SettingsService, SESSION_APPROVAL_SETTING_PATH } from './settings-service'
+import {
+  SettingsService,
+  SESSION_APPROVAL_SETTING_PATH,
+  SESSION_SANDBOX_PROFILE_SETTING_PATH,
+} from './settings-service'
 import { SandboxProfileService } from './sandbox-service'
+import { describeSandboxReason, evaluateSandboxCall } from './sandbox-gate'
+import { isBuiltinSandboxProfileId } from './sandbox-policy'
+import { sandboxProfileIdSchema } from '@hbar/contracts/sandbox'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -328,7 +338,7 @@ export class Kernel {
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private maintenance = false
-  private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
+  private permissionModeValue: ApprovalMode = 'ask'
   private readonly permissionSettings: SettingsService
   private admissions = 0
   private readonly sessionLaunchTargetLocks = new Map<string, Promise<void>>()
@@ -371,6 +381,8 @@ export class Kernel {
         save: (input, identity) => this.storage.call('saveSandboxProfile', input, identity),
         delete: (input, identity) => this.storage.call('deleteSandboxProfile', input, identity),
         receipt: (commandId, input, identity) => this.storage.call('sandboxProfileReceipt', commandId, input, identity),
+        putSnapshot: (record) => this.storage.call('putSandboxSnapshot', record),
+        snapshot: (digest) => this.storage.call('sandboxSnapshot', digest),
       },
       () => this.changed('sandbox-profiles'),
     )
@@ -485,6 +497,30 @@ export class Kernel {
           })),
           dependencyFingerprint: request.dependencyFingerprint,
           capabilityRevision: revision({ id: model.id, levels: model.thinkingLevels }),
+        }
+      },
+    })
+    this.schemaCallbacks.registerQuery('settings.getSandboxProfiles', {
+      version: 1,
+      valueType: 'string',
+      execute: async (request) => {
+        const profiles = await this.sandboxProfiles.list()
+        return {
+          kind: 'options',
+          status: 'ready',
+          options: profiles.map((profile) => ({
+            value: profile.id,
+            // Clients localize built-ins; stored profiles show their own name.
+            label: isBuiltinSandboxProfileId(profile.id)
+              ? { kind: 'i18n' as const, key: `i18n:settings.sandboxProfiles.${profile.id.slice(1)}` }
+              : { kind: 'literal' as const, text: profile.name },
+            disabled: false,
+          })),
+          dependencyFingerprint: request.dependencyFingerprint,
+          capabilityRevision: `sandbox:${createHash('sha256')
+            .update(JSON.stringify(profiles.map(({ id, revision: profileRevision }) => [id, profileRevision])))
+            .digest('hex')
+            .slice(0, 16)}`,
         }
       },
     })
@@ -791,7 +827,7 @@ export class Kernel {
     return this.permissionModeValue
   }
   /** The session setting is an override; its absence retains the existing Host-wide default. */
-  async sessionPermissionMode(sessionId: string): Promise<'deny' | 'allow' | 'ask'> {
+  async sessionPermissionMode(sessionId: string): Promise<ApprovalMode> {
     const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
     const report = snapshot.resolution.reports[encodePath(SESSION_APPROVAL_SETTING_PATH)]
     if (!report) throw new HbarError('SETTING_NOT_FOUND', 'Session approval setting is unavailable')
@@ -799,7 +835,26 @@ export class Kernel {
     if (!override.success) throw new HbarError('INVALID_SETTING', 'Session approval setting is invalid')
     return override.data ?? this.permissionModeValue
   }
-  async setPermissionMode(mode: 'deny' | 'allow' | 'ask') {
+  async sessionSandboxProfileId(sessionId: string) {
+    const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
+    const report = snapshot.resolution.reports[encodePath(SESSION_SANDBOX_PROFILE_SETTING_PATH)]
+    if (!report) throw new HbarError('SETTING_NOT_FOUND', 'Session sandbox profile setting is unavailable')
+    const id = sandboxProfileIdSchema.safeParse(report.effectiveValue)
+    if (!id.success) throw new HbarError('INVALID_SETTING', 'Session sandbox profile setting is invalid')
+    return id.data
+  }
+  /** Pin the sandbox rules a Run is admitted with; other approval modes never carry them. */
+  private async admitSandbox(sessionId: string, input: UserInput): Promise<UserInput> {
+    const { sandbox, ...rest } = input
+    if (input.approval !== 'sandbox') return rest
+    // A caller may pin an existing Host snapshot, e.g. a child Agent inheriting its parent Run.
+    if (sandbox) {
+      await this.sandboxProfiles.loadSnapshot(sandbox)
+      return input
+    }
+    return { ...rest, sandbox: await this.sandboxProfiles.createSnapshot(await this.sessionSandboxProfileId(sessionId)) }
+  }
+  async setPermissionMode(mode: ApprovalMode) {
     const next = approvalModeSchema.parse(mode)
     await this.storage.call('setSetting', 'permission.mode', next)
     this.permissionModeValue = next
@@ -1005,6 +1060,7 @@ export class Kernel {
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
       input = { ...input, approval: input.approval ?? (await this.sessionPermissionMode(sessionId)) }
+      input = await this.admitSandbox(sessionId, input)
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
       const imageArtifacts = await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id)))
@@ -1502,13 +1558,22 @@ export class Kernel {
       })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
       executedArgs = args
-      const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       const mode = context.run.input.approval ?? this.permissionModeValue
-      if (decision === 'deny' || (decision === 'ask' && mode === 'deny' && tool.humanApproval !== 'required')) {
-        outcome = { kind: 'denied', executionStarted: false }
-        throw new HbarError('DENIED', 'Tool denied by policy')
+      let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
+      let denial = 'Tool denied by policy'
+      // A policy plugin may still forbid a call; otherwise the Run's sandbox profile decides.
+      if (mode === 'sandbox' && decision !== 'deny') {
+        const sandbox = await this.sandboxDecision(tool, args, context)
+        decision = sandbox.decision
+        denial = sandbox.denial
       }
-      if (tool.humanApproval === 'required' || (decision === 'ask' && mode === 'ask')) {
+      // The sandbox has already decided which calls need the user, so they are asked like `ask` mode.
+      const gate = mode === 'sandbox' ? 'ask' : mode
+      if (decision === 'deny' || (decision === 'ask' && gate === 'deny' && tool.humanApproval !== 'required')) {
+        outcome = { kind: 'denied', executionStarted: false }
+        throw new HbarError('DENIED', denial)
+      }
+      if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
         const resolution = await this.requestApproval(name, args, context, hostSignal)
         if (resolution.source === 'abort') {
           outcome = hostAbortToolOutcome(resolution.reason, false)
@@ -1581,6 +1646,26 @@ export class Kernel {
         .dispatch('tool.settled', { name, args: executedArgs, result, context, tool })
         .catch((error) => console.error('Tool settlement observer failed:', error))
     return result
+  }
+  private async sandboxDecision(
+    tool: ToolDefinition,
+    args: Record<string, unknown>,
+    context: ToolContext,
+  ): Promise<{ decision: 'allow' | 'ask' | 'deny'; denial: string }> {
+    const ref = context.run.input.sandbox
+    let profile: Awaited<ReturnType<SandboxProfileService['loadSnapshot']>>
+    try {
+      if (!ref) throw new HbarError('SANDBOX_SNAPSHOT_NOT_FOUND', 'The Run has no sandbox snapshot')
+      profile = await this.sandboxProfiles.loadSnapshot(ref)
+    } catch (error) {
+      if (!(error instanceof HbarError)) throw error
+      return { decision: 'deny', denial: `Denied: ${error.message}` }
+    }
+    const verdict = await evaluateSandboxCall(profile, { tool, args, workspace: context.workspace.path })
+    return {
+      decision: verdict.decision,
+      denial: `Denied by sandbox profile ${profile.profileId}: ${describeSandboxReason(verdict.reason)}`,
+    }
   }
   private async requestApproval(
     tool: string,

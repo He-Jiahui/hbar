@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
-import { idSchema, thinkingLevelSchema, type ThinkingLevel } from '../index'
+import { approvalModeSchema, idSchema, thinkingLevelSchema, type ThinkingLevel } from '../index'
 import {
   sessionLaunchSelectionSchema,
   sessionLaunchTargetPreparationSnapshotSchema,
@@ -35,7 +35,7 @@ const revision = z.number().int().nonnegative()
 const workspaceId = idSchema.nullable()
 const attachmentDraftResultSchema = z.strictObject({ draftId, revision })
 const attachmentTarget = z.strictObject({ draftId }).merge(attachmentReservationTargetSchema)
-export const preSessionApprovalChoiceSchema = z.enum(['inherit', 'ask', 'deny', 'allow'])
+export const preSessionApprovalChoiceSchema = z.enum(['inherit', ...approvalModeSchema.options])
 export const preSessionPlanModeSchema = z.enum(['default', 'plan'])
 export const preSessionIntentSchema = z.enum(['default', 'goal'])
 const result = z.strictObject({ draftId, revision })

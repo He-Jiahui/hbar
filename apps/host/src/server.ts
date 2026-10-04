@@ -30,6 +30,7 @@ import {
   createScheduleCommands,
   createPromptTemplateCommands,
   createSandboxCommands,
+  createSandboxSettingsValidator,
   createNotificationCommands,
   createRunBoardCommands,
   createScheduleDueReader,
@@ -229,8 +230,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     kernel.storage,
   )
   const interactionCommands = createInteractionCommands(kernel)
-  const settingsService = new SettingsService(kernel.storage, createModelSettingsValidator(kernel), () =>
-    kernel.changed('settings'),
+  const validateModelSettings = createModelSettingsValidator(kernel)
+  const validateSandboxSettings = createSandboxSettingsValidator(kernel.sandboxProfiles)
+  const settingsService = new SettingsService(
+    kernel.storage,
+    async (candidate) => {
+      await validateModelSettings(candidate)
+      await validateSandboxSettings(candidate)
+    },
+    () => kernel.changed('settings'),
   )
   const modelCommands = createModelCommands(kernel, settingsService)
   const runCommands = createRunCommands(kernel)

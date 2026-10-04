@@ -376,6 +376,7 @@ export class AgentRuntime implements AgentService {
           files: [],
           source: 'system',
           approval: input.approval,
+          ...(input.sandbox ? { sandbox: input.sandbox } : {}),
           ...(input.thinkingLevel ? { thinking: input.thinkingLevel } : {}),
         },
         seed.modelId,

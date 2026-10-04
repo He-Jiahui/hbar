@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { approvalModeSchema, idSchema, thinkingLevelSchema } from '../index'
+import { sandboxSnapshotRefSchema } from '../sandbox'
 import { agentPatchSchema, workflowAcceptanceDefinitionSchema, workflowScopeSchema } from '../workflow'
 
 export const agentStatusSchema = z.enum([
@@ -71,6 +72,8 @@ export const agentCreateInputSchema = z
     tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
     thinkingLevel: thinkingLevelSchema.optional(),
     approval: approvalModeSchema.default('deny'),
+    /** Pin the parent Run's sandbox rules instead of resolving the child session's settings. */
+    sandbox: sandboxSnapshotRefSchema.optional(),
     patchTask: agentPatchTaskSchema.optional(),
     reviewTask: agentReviewTaskSchema.optional(),
   })

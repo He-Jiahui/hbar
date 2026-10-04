@@ -9,6 +9,7 @@ import {
 } from '@hbar/contracts/commands/agents'
 import { modelCommands } from '@hbar/contracts/commands/models'
 import { z } from 'zod'
+import { approvalModeSchema } from '@hbar/contracts'
 import { createState, type StateReader } from './state'
 import type {
   AgentWorkspaceDraftState,
@@ -423,7 +424,7 @@ export function createAgentWorkspace(
       field === 'modelId' ? state.reader.getSnapshot().catalog.models.find((model) => model.id === value) : undefined
     const draft = {
       ...entry.draft,
-      [field]: field === 'approval' && !['deny', 'ask', 'allow'].includes(value) ? entry.draft.approval : value,
+      [field]: field === 'approval' && !approvalModeSchema.safeParse(value).success ? entry.draft.approval : value,
       ...(field === 'modelId' &&
       (!selectedModel || !selectedModel.thinkingLevels.some((level) => level === entry.draft.thinkingLevel))
         ? { thinkingLevel: '' }

@@ -118,6 +118,11 @@ export interface ToolDefinition {
   humanApproval?: 'required'
   /** Explicit workspace access used by Workflow. Omission means no workspace path access. */
   workspaceAccess?: ToolWorkspaceAccess
+  /**
+   * Argument holding the command line a process tool runs. Sandbox command rules apply to it;
+   * a process tool without one is always outside a sandbox profile.
+   */
+  commandArgument?: string
   execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>
 }
 export interface ToolRegistry {

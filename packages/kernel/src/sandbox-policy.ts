@@ -175,6 +175,14 @@ interface CompiledGrant {
   readonly scope: 'relative' | 'absolute'
   readonly specificity: number
   readonly test: (path: string) => boolean
+  /** Whether the grant can apply to some path strictly below `path`. */
+  readonly below: (path: string) => boolean
+}
+
+function descendantOf(parent: string): (path: string) => boolean {
+  if (parent === '') return () => true
+  const prefix = parent.endsWith('/') ? parent : `${parent}/`
+  return (path) => path.startsWith(prefix)
 }
 
 function compileGrant(grant: SandboxPathGrant, workspaceRoot: string, caseInsensitive: boolean): CompiledGrant {
@@ -192,21 +200,43 @@ function compileGrant(grant: SandboxPathGrant, workspaceRoot: string, caseInsens
   const literal = segments.findIndex((segment) => GLOB.test(segment))
   const literalSegments = literal < 0 ? segments.length : literal
   const specificity = literalSegments * 2 + (literal < 0 ? 1 : 0)
+  const fold = (path: string) => (caseInsensitive ? path.toLowerCase() : path)
+  // Literal part before the first glob segment, keeping absolute roots such as `/` and `C:/`.
+  const parts = key.split('/')
+  const firstGlob = parts.findIndex((part) => GLOB.test(part))
+  const head = firstGlob < 0 ? key : parts.slice(0, firstGlob).join('/')
+  const literalPrefix = fold(/^[A-Za-z]:$/.test(head) ? `${head}/` : head === '' && key.startsWith('/') ? '/' : head)
   if (literal < 0) {
-    const base = caseInsensitive ? key.toLowerCase() : key
+    const base = fold(key)
     const prefix = base === '' || base.endsWith('/') ? base : `${base}/`
     return {
       grant,
       scope,
       specificity,
       test: (path) => {
-        const candidate = caseInsensitive ? path.toLowerCase() : path
+        const candidate = fold(path)
         return base === '' || candidate === base || candidate.startsWith(prefix)
       },
+      below: (path) => base !== '' && descendantOf(fold(path))(base),
     }
   }
   const pattern = new RegExp(`^${globSource(key)}(?:/.*)?$`, caseInsensitive ? 'i' : '')
-  return { grant, scope, specificity, test: (path) => pattern.test(path) }
+  return {
+    grant,
+    scope,
+    specificity,
+    test: (path) => pattern.test(path),
+    // A glob may match below the path when its literal prefix is above, at or below it.
+    below: (path) => {
+      const candidate = fold(path)
+      return (
+        literalPrefix === '' ||
+        candidate === literalPrefix ||
+        descendantOf(candidate)(literalPrefix) ||
+        descendantOf(literalPrefix)(candidate)
+      )
+    },
+  }
 }
 
 const accessRank: Readonly<Record<SandboxPathAccess, number>> = { none: 0, read: 1, write: 2 }
@@ -364,6 +394,8 @@ export interface SandboxPathTarget {
   readonly access: 'read' | 'write'
   /** Canonical absolute path; see `normalizeSandboxAbsolutePath`. */
   readonly absolute: string
+  /** The tool may touch anything below the path, so every grant inside it limits the access. */
+  readonly subtree?: boolean | undefined
 }
 
 export interface SandboxToolCall {
@@ -438,14 +470,23 @@ export function evaluateSandbox(
         )
           best = grant
       }
-      const granted = best?.grant.access ?? profile.filesystem.default
+      let granted = best?.grant.access ?? profile.filesystem.default
+      let limiting = best
+      if (target.subtree)
+        for (const grant of grants) {
+          const candidate = grant.scope === 'relative' ? relative : absolute
+          if (candidate === null || !grant.below(candidate) || accessRank[grant.grant.access] >= accessRank[granted])
+            continue
+          granted = grant.grant.access
+          limiting = grant
+        }
       const reason: SandboxReason = {
         kind: 'path',
         field: target.field,
         path: relative === null ? absolute : relative || '.',
         required: target.access,
         granted,
-        grant: best?.grant.path ?? null,
+        grant: limiting?.grant.path ?? null,
       }
       votes.push({
         decision:
