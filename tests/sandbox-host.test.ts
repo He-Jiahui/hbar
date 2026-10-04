@@ -190,6 +190,30 @@ test('a strict profile denies outside its grants without asking and admits allow
   expect(blocks[3]?.text).toContain('matches no command rule')
 })
 
+test('sandboxed commands receive the profile environment; other modes do not', async () => {
+  const f = await fixture()
+  await f.kernel.sandboxProfiles.save(strict({ environment: { set: { HBAR_SANDBOX_PROBE: 'sandbox-env' } } }), {
+    actorId: 'device-a',
+    idempotencyKey: 'strict-env',
+  })
+  await select(f.kernel, f.session.id, 'strict')
+  const probe =
+    process.platform === 'win32' ? 'echo "probe=$env:HBAR_SANDBOX_PROBE"' : 'echo "probe=$HBAR_SANDBOX_PROBE"'
+  await f.kernel.submit(
+    f.session.id,
+    'sandboxed',
+    { text: shell(probe), images: [], approval: 'sandbox' },
+    'local-fixture',
+  )
+  await f.kernel.submit(f.session.id, 'allowed', { text: shell(probe), images: [], approval: 'allow' }, 'local-fixture')
+  await f.kernel.waitForIdle()
+  const [sandboxed, allowed] = await results(f.kernel, f.session.id)
+  expect(sandboxed?.outcome?.kind).toBe('succeeded')
+  expect(sandboxed?.text).toContain('probe=sandbox-env')
+  expect(allowed?.outcome?.kind).toBe('succeeded')
+  expect(allowed?.text).not.toContain('sandbox-env')
+})
+
 test('a Run keeps the rules it was admitted with across profile edits and restarts', async () => {
   const f = await fixture()
   const saved = await f.kernel.sandboxProfiles.save(strict(), { actorId: 'device-a', idempotencyKey: 'strict-1' })

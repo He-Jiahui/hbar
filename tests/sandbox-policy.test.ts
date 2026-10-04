@@ -139,6 +139,49 @@ describe('sandbox profile resolution', () => {
     await resolveSandboxProfile('p1', async (id) => deep.get(id) ?? null)
   })
 
+  test('environment overrides merge through extends and protect program lookup', async () => {
+    const profiles = new Map([
+      ['base', stored('base', { environment: { set: { TEMP: 'D:/scratch', CARGO_HOME: 'D:/cargo' } } })],
+      ['child', stored('child', { extends: 'base', environment: { set: { Temp: 'E:/scratch' } } })],
+    ])
+    const resolved = await resolveSandboxProfile('child', async (id) => profiles.get(id) ?? null)
+    expect(resolved.environment.set).toEqual({ Temp: 'E:/scratch', CARGO_HOME: 'D:/cargo' })
+    const legacy = resolvedSandboxProfileSchema.parse({
+      version: 1,
+      profileId: ':read-only',
+      chain: [{ id: ':read-only', revision: 0 }],
+      escalation: 'ask',
+      filesystem: { default: 'read', grants: [] },
+      commands: { rules: [] },
+      network: { enabled: false },
+      tools: { rules: [] },
+    })
+    expect(legacy.environment).toEqual({ set: {} })
+    const base = {
+      name: 'env',
+      description: '',
+      extends: null,
+      escalation: null,
+      filesystem: { default: null, grants: [] },
+      commands: { rules: [] },
+      network: { enabled: null },
+      tools: { rules: [] },
+    }
+    expect(sandboxProfileBodySchema.safeParse({ ...base, environment: { set: { TMP: 'x' } } }).success).toBe(true)
+    expect(sandboxProfileBodySchema.safeParse(base).success).toBe(true)
+    for (const set of [
+      { PATH: 'x' },
+      { Path: 'x' },
+      { pathext: 'x' },
+      { TEMP: 'a', Temp: 'b' },
+      { '1BAD': 'x' },
+      { OK: 'a\u0007b' },
+    ])
+      expect(sandboxProfileBodySchema.safeParse({ ...base, environment: { set } }).success).toBe(false)
+    const many = Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`V${index}`, 'x']))
+    expect(sandboxProfileBodySchema.safeParse({ ...base, environment: { set: many } }).success).toBe(false)
+  })
+
   test('a lookup returning a different id is not accepted', async () => {
     expect(await rejected(resolveSandboxProfile('a', async () => stored('b', {})))).toBe('SANDBOX_PROFILE_NOT_FOUND')
   })

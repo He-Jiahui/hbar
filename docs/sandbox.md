@@ -29,15 +29,16 @@
 
 用户配置最多 64 个，`id` 为小写字母、数字、`-`、`_`，通过 `sandbox.list/get/save/delete/receipt` 管理；写入需要幂等键并按 `expectedRevision` 做版本检查。被其他配置继承的配置不能删除。
 
-| 字段                 | 含义                                                                                            |
-| -------------------- | ----------------------------------------------------------------------------------------------- |
-| `extends`            | 父配置；最多再继承 4 层，不能成环。子配置覆盖同一路径、同一命令模式或同一工具的父规则。         |
-| `escalation`         | 超出配置时的处理：`ask` 询问（类似 Codex `on-request`），`deny` 直接拒绝（类似 `never`）。      |
-| `filesystem.default` | 无授权覆盖的路径的访问级别：`none`、`read`、`write`。                                           |
-| `filesystem.grants`  | `{ path, access }`。相对路径以工作区为根，也可写绝对路径；目录覆盖其子树，支持 `*`、`?`、`**`。 |
-| `commands.rules`     | `{ pattern, decision }`。按空白分词匹配，末尾单独的 `*` 匹配剩余参数，词内 `*` 为通配。         |
-| `network.enabled`    | 是否放行声明为网络效果的工具。                                                                  |
-| `tools.rules`        | 按工具名指定 `allow`、`ask`、`deny`。                                                           |
+| 字段                 | 含义                                                                                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extends`            | 父配置；最多再继承 4 层，不能成环。子配置覆盖同一路径、同一命令模式或同一工具的父规则。                                                                                                            |
+| `escalation`         | 超出配置时的处理：`ask` 询问（类似 Codex `on-request`），`deny` 直接拒绝（类似 `never`）。                                                                                                         |
+| `filesystem.default` | 无授权覆盖的路径的访问级别：`none`、`read`、`write`。                                                                                                                                              |
+| `filesystem.grants`  | `{ path, access }`。相对路径以工作区为根，也可写绝对路径；目录覆盖其子树，支持 `*`、`?`、`**`。                                                                                                    |
+| `commands.rules`     | `{ pattern, decision }`。按空白分词匹配，末尾单独的 `*` 匹配剩余参数，词内 `*` 为通配。                                                                                                            |
+| `network.enabled`    | 是否放行声明为网络效果的工具。                                                                                                                                                                     |
+| `tools.rules`        | 按工具名指定 `allow`、`ask`、`deny`。                                                                                                                                                              |
+| `environment.set`    | 沙盒 Run 启动的命令额外设置的环境变量，最多 64 个，类似 Codex `shell_environment_policy.set`；子配置覆盖父配置同名变量（大小写不敏感）。`PATH`、`PATHEXT` 不可覆盖，以免改变命令规则所匹配的程序。 |
 
 `null` 表示继承；根默认为 `escalation: ask`、`filesystem.default: read`、网络关闭。
 
@@ -80,7 +81,8 @@
     ]
   },
   "network": { "enabled": null },
-  "tools": { "rules": [] }
+  "tools": { "rules": [] },
+  "environment": { "set": { "CARGO_TARGET_DIR": "D:/cargo-targets/engine", "TEMP": "D:/cargo-targets/engine/tmp" } }
 }
 ```
 
@@ -88,5 +90,5 @@
 
 - **命令不受文件规则约束。** hbar 目前没有操作系统级进程沙盒（Codex 在 Windows 使用受限令牌与 ACL，在 macOS/Linux 使用 seatbelt、landlock）。命令规则只决定命令是否执行；被放行的 `cargo build` 仍可写入任何当前用户可写的位置，`deny` 规则也可能被别名或脚本绕过。文件工具由 Host 执行，路径授权对它们真实生效。
 - 文件工具本身只能访问工作区；工作区外的绝对路径授权目前只影响判定，不扩大文件工具的访问范围。
-- 尚不支持 Codex `shell_environment_policy` 式的环境变量覆盖，也尚不支持从项目目录（如 `.hbar/settings`）读取配置文件。
+- 环境变量只作用于 `sandbox` 模式下的命令；`ask`、`allow` 等模式不会注入。尚不支持从项目目录（如 `.hbar/settings`）读取配置文件。
 - 判定在调用前进行。判定后、写入前替换符号链接的竞态不在沙盒判定范围内；文件工具写入前仍会重新检查工作区边界与 Host 数据目录保护，但不会重新检查沙盒授权。

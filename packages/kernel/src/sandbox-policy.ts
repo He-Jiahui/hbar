@@ -104,6 +104,8 @@ export async function resolveSandboxProfile(
   const grants = new Map<string, SandboxPathGrant>()
   const commands = new Map<string, SandboxCommandRule>()
   const tools = new Map<string, SandboxToolRule>()
+  // Keyed case-insensitively: Windows treats TEMP and Temp as the same variable.
+  const environment = new Map<string, readonly [name: string, value: string]>()
   const override = <Item>(map: Map<string, Item>, key: string, item: Item) => {
     map.delete(key)
     map.set(key, item)
@@ -115,6 +117,8 @@ export async function resolveSandboxProfile(
     for (const grant of profile.filesystem.grants) override(grants, sandboxPathKey(grant.path), grant)
     for (const rule of profile.commands.rules) override(commands, sandboxCommandKey(rule.pattern), rule)
     for (const rule of profile.tools.rules) override(tools, rule.tool, rule)
+    for (const [name, value] of Object.entries(profile.environment?.set ?? {}))
+      override(environment, name.toUpperCase(), [name, value] as const)
   }
   return resolvedSandboxProfileSchema.parse({
     version: SANDBOX_PROFILE_SCHEMA_VERSION,
@@ -125,6 +129,7 @@ export async function resolveSandboxProfile(
     commands: { rules: [...commands.values()] },
     network: { enabled: network },
     tools: { rules: [...tools.values()] },
+    environment: { set: Object.fromEntries(environment.values()) },
   })
 }
 

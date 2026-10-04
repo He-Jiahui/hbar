@@ -85,6 +85,8 @@ export interface ToolContext {
   parentCallId?: string
   /** One bounded, sequential batch through this Run's selected tools and normal execution gates. No recursion. */
   executeSequence?: (calls: readonly ToolSequenceCall[]) => Promise<readonly ToolSequenceResult[]>
+  /** Host-owned variables for processes this call starts, from the Run's sandbox profile. */
+  environment?: Readonly<Record<string, string>>
 }
 export interface ToolSequenceCall {
   name: string
@@ -135,12 +137,16 @@ export interface ModelRegistry {
   get(id: string): Promise<ProviderConfig>
   secret(id: string): Promise<string | null>
 }
+export interface ExecOptions {
+  /** Applied over the inherited environment; the Host never passes PATH or PATHEXT. */
+  readonly environment?: Readonly<Record<string, string>> | undefined
+}
 export interface ExecutionProvider {
   list(workspace: string, path: string): Promise<FileEntry[]>
   read(workspace: string, path: string): Promise<string>
   readBytes(workspace: string, path: string): Promise<Uint8Array>
   write(workspace: string, path: string, text: string): Promise<{ before: string; after: string; path: string }>
-  exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult>
+  exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult>
   workspaceQuery?: WorkspaceQueryProvider
   dispose?(): void | Promise<void>
 }

@@ -2,7 +2,7 @@ import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'nod
 import { resolve, relative, dirname, isAbsolute, join, basename } from 'node:path'
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { ExecutionProvider, ToolResult } from '@hbar/plugin-sdk'
+import type { ExecOptions, ExecutionProvider, ToolResult } from '@hbar/plugin-sdk'
 import { HbarError } from '@hbar/contracts'
 import {
   workspaceFindInputSchema,
@@ -236,7 +236,7 @@ export class LocalExecution implements ExecutionProvider {
     }
     return { before, after: text, path: requested }
   }
-  async exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult> {
+  async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
     signal.throwIfAborted()
     const workingDirectory = await this.workspacePath(workspace, '.')
     const env: Record<string, string> = {}
@@ -258,6 +258,16 @@ export class LocalExecution implements ExecutionProvider {
     ])
     for (const [key, value] of Object.entries(process.env))
       if (value !== undefined && allowed.has(key.toLowerCase())) env[key] = value
+    const sameName =
+      process.platform === 'win32'
+        ? (left: string, right: string) => left.toLowerCase() === right.toLowerCase()
+        : (left: string, right: string) => left === right
+    for (const [key, value] of Object.entries(options?.environment ?? {})) {
+      // Program lookup stays inherited so command rules keep matching the programs they name.
+      if (['path', 'pathext'].includes(key.toLowerCase())) continue
+      for (const existing of Object.keys(env)) if (sameName(existing, key)) delete env[existing]
+      env[key] = value
+    }
     const argv =
       process.platform === 'win32'
         ? ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]
@@ -520,7 +530,8 @@ export default definePlugin({
       effect: 'process',
       workspaceAccess: { kind: 'workspace' },
       commandArgument: 'command',
-      execute: (args, c) => execution.exec(c.workspace.path, args.command as string, c.signal),
+      execute: (args, c) =>
+        execution.exec(c.workspace.path, args.command as string, c.signal, { environment: c.environment }),
     })
   },
 })

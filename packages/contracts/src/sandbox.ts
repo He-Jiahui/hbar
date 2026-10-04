@@ -10,6 +10,7 @@ export const SANDBOX_MAX_PROFILES = 64
 export const SANDBOX_MAX_PATH_GRANTS = 256
 export const SANDBOX_MAX_COMMAND_RULES = 128
 export const SANDBOX_MAX_TOOL_RULES = 64
+export const SANDBOX_MAX_ENVIRONMENT = 64
 /** Number of `extends` hops below the selected profile. */
 export const SANDBOX_MAX_EXTENDS_DEPTH = 4
 const MAX_CHAIN = SANDBOX_MAX_EXTENDS_DEPTH + 1
@@ -51,6 +52,26 @@ export const sandboxCommandPatternSchema = z
 
 export const sandboxToolNameSchema = z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/)
 
+/** Variables that decide which program a command name runs; overriding them would bypass command rules. */
+export const SANDBOX_PROTECTED_ENVIRONMENT = ['PATH', 'PATHEXT'] as const
+export const sandboxEnvironmentNameSchema = z
+  .string()
+  .regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/)
+  .refine((name) => !(SANDBOX_PROTECTED_ENVIRONMENT as readonly string[]).includes(name.toUpperCase()), {
+    message: 'PATH and PATHEXT cannot be overridden',
+  })
+export const sandboxEnvironmentValueSchema = z
+  .string()
+  .max(4_096)
+  .refine((value) => !hasControlCharacter(value), { message: 'Value contains control characters' })
+function environmentSchema(limit: number) {
+  return z.strictObject({
+    set: z
+      .record(sandboxEnvironmentNameSchema, sandboxEnvironmentValueSchema)
+      .refine((set) => Object.keys(set).length <= limit, { message: `At most ${limit} variables` }),
+  })
+}
+
 export const sandboxPathGrantSchema = z.strictObject({
   path: sandboxPathPatternSchema,
   access: sandboxPathAccessSchema,
@@ -91,6 +112,11 @@ const profileFields = {
   /** Network-effect tools. `null` inherits; the root default is disabled. */
   network: z.strictObject({ enabled: z.boolean().nullable() }),
   tools: z.strictObject({ rules: z.array(sandboxToolRuleSchema).max(SANDBOX_MAX_TOOL_RULES) }),
+  /**
+   * Variables set for commands a sandboxed Run starts, like Codex `shell_environment_policy.set`.
+   * Optional so profiles stored before this field still load.
+   */
+  environment: environmentSchema(SANDBOX_MAX_ENVIRONMENT).optional(),
 }
 
 function uniqueRules(
@@ -98,6 +124,7 @@ function uniqueRules(
     readonly filesystem: { readonly grants: readonly { readonly path: string }[] }
     readonly commands: { readonly rules: readonly { readonly pattern: string }[] }
     readonly tools: { readonly rules: readonly { readonly tool: string }[] }
+    readonly environment?: { readonly set: Readonly<Record<string, string>> } | undefined
   },
   context: z.RefinementCtx,
 ) {
@@ -122,6 +149,12 @@ function uniqueRules(
     value.tools.rules.map((rule) => rule.tool),
     ['tools', 'rules'],
     'Tool rules must be unique',
+  )
+  // Windows treats variable names case-insensitively.
+  check(
+    Object.keys(value.environment?.set ?? {}).map((name) => name.toUpperCase()),
+    ['environment', 'set'],
+    'Variable names must be unique regardless of case',
   )
 }
 
@@ -172,6 +205,8 @@ export const resolvedSandboxProfileSchema = z.strictObject({
   commands: z.strictObject({ rules: z.array(sandboxCommandRuleSchema).max(SANDBOX_MAX_COMMAND_RULES * MAX_CHAIN) }),
   network: z.strictObject({ enabled: z.boolean() }),
   tools: z.strictObject({ rules: z.array(sandboxToolRuleSchema).max(SANDBOX_MAX_TOOL_RULES * MAX_CHAIN) }),
+  /** Defaults for snapshots created before environment overrides existed. */
+  environment: environmentSchema(SANDBOX_MAX_ENVIRONMENT * MAX_CHAIN).default({ set: {} }),
 })
 
 /** Host-created reference carried by a Run; the digest names an immutable resolved profile. */

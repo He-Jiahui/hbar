@@ -1561,11 +1561,13 @@ export class Kernel {
       const mode = context.run.input.approval ?? this.permissionModeValue
       let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       let denial = 'Tool denied by policy'
+      let environment: Readonly<Record<string, string>> | undefined
       // A policy plugin may still forbid a call; otherwise the Run's sandbox profile decides.
       if (mode === 'sandbox' && decision !== 'deny') {
         const sandbox = await this.sandboxDecision(tool, args, context)
         decision = sandbox.decision
         denial = sandbox.denial
+        environment = sandbox.environment
       }
       // The sandbox has already decided which calls need the user, so they are asked like `ask` mode.
       const gate = mode === 'sandbox' ? 'ask' : mode
@@ -1601,7 +1603,10 @@ export class Kernel {
       started = true
       await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
       assertNotAborted()
-      result = await tool.execute(args, context)
+      // The environment is Host-owned: drop any value a hook placed on the mutable context and
+      // give only the executing tool the sandbox profile's variables.
+      const { environment: _hookEnvironment, ...plain } = context
+      result = await tool.execute(args, environment ? { ...plain, environment } : plain)
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
@@ -1651,7 +1656,11 @@ export class Kernel {
     tool: ToolDefinition,
     args: Record<string, unknown>,
     context: ToolContext,
-  ): Promise<{ decision: 'allow' | 'ask' | 'deny'; denial: string }> {
+  ): Promise<{
+    decision: 'allow' | 'ask' | 'deny'
+    denial: string
+    environment?: Readonly<Record<string, string>> | undefined
+  }> {
     const ref = context.run.input.sandbox
     let profile: Awaited<ReturnType<SandboxProfileService['loadSnapshot']>>
     try {
@@ -1665,6 +1674,7 @@ export class Kernel {
     return {
       decision: verdict.decision,
       denial: `Denied by sandbox profile ${profile.profileId}: ${describeSandboxReason(verdict.reason)}`,
+      ...(Object.keys(profile.environment.set).length ? { environment: profile.environment.set } : {}),
     }
   }
   private async requestApproval(
