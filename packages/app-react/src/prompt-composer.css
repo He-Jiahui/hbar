@@ -36,9 +36,12 @@
 }
 
 .hbar-prompt-composer .lumen-composer-queue-action {
+  /* A block text line keeps the action prefix visible when ellipsis clips a direct label. */
+  display: block;
   inline-size: 8em;
   flex: 0 1 8em;
   max-inline-size: min(8em, 100%);
+  text-align: start;
 }
 
 .hbar-prompt-composer > textarea {
