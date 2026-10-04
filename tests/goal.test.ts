@@ -176,20 +176,30 @@ test('goal accounting uses input minus cache plus output and plan-mode runs are 
   expect((await kernel.storage.call('run', planRun.id)).status).toBe('completed')
 })
 
-test('goal keeps retrying after one failed run and blocks after three repeated execution failures', async () => {
+test('repeated denied tools do not manufacture a genuine Goal blocker or bypass permission checks', async () => {
   const { kernel, session } = await fixture()
   await kernel.setPermissionMode('deny')
   const goals = kernel.plugins.get<GoalService>('goal')
   await goals.create(session.id, 'retry the denied execution')
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await kernel.submit(session.id, `denied-${attempt}`, {
-      text: '/tool shell {"command":"echo nope"}',
-      images: [],
-    }, 'local-fixture')
+    await kernel.submit(
+      session.id,
+      `denied-${attempt}`,
+      {
+        text: '/tool shell {"command":"echo nope"}',
+        images: [],
+      },
+      'local-fixture',
+    )
     await kernel.waitForIdle()
     const current = await goals.get(session.id)
-    expect(current.goal?.status).toBe(attempt === 2 ? 'blocked' : 'active')
+    expect(current.goal?.status).toBe('active')
+    expect(current.goal?.blockerAudit).toBeUndefined()
   }
+  const results = (await kernel.snapshot(session.id)).messages.flatMap((message) => message.content)
+  expect(
+    results.filter((block) => block.type === 'tool_result' && block.name === 'shell' && block.isError),
+  ).toHaveLength(3)
 })
 
 test('goal completion accounts the current run and stopped goals ignore later runs', async () => {

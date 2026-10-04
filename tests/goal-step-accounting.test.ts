@@ -169,14 +169,13 @@ test('unknown Goal settlement acknowledgement fails closed and recovers its atom
   }
   await kernel.append(session.id, 'usage.recorded', { ...emptyUsage(), input: 60 }, run.id)
   expect(await rejection(goals.accountStep(step))).toBeInstanceOf(Error)
-  const accepted = await kernel.submit(
-    session.id,
-    'unknown-goal',
-    { text: 'must not run', images: [] },
-    'local-fixture',
-  )
+  // The merged Host queries authoritative Goal state before accepting a Run;
+  // unknown state must fail at admission, not create a Run that later fails.
+  expect(
+    await rejection(kernel.submit(session.id, 'unknown-goal', { text: 'must not run', images: [] }, 'local-fixture')),
+  ).toMatchObject({ code: 'RESULT_UNKNOWN', message: 'Goal state requires Host recovery' })
   await kernel.waitForIdle()
-  expect((await kernel.storage.call('run', accepted.id)).error).toBe('Goal state requires Host recovery')
+  expect(await kernel.storage.call('runByRequest', session.id, 'unknown-goal')).toBeNull()
   expect(
     (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'request.started'),
   ).toHaveLength(0)

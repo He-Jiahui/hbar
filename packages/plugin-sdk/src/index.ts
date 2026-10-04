@@ -291,7 +291,13 @@ export interface GoalToolResponse {
 export interface GoalService {
   snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
   get(sessionId: string): Promise<GoalToolResponse>
-  create(sessionId: string, objective: string, tokenBudget?: number | null, runId?: string, startedAt?: number): Promise<GoalToolResponse>
+  create(
+    sessionId: string,
+    objective: string,
+    tokenBudget?: number | null,
+    runId?: string,
+    startedAt?: number,
+  ): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
   update(sessionId: string, status: 'complete' | 'blocked', runId?: string, reason?: string): Promise<GoalToolResponse>
   clear(sessionId: string, expectedGoalId?: string): Promise<{ cleared: boolean }>
@@ -506,7 +512,11 @@ export interface GitService {
     signal?: AbortSignal,
   ): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
   launchBranchSnapshot(cwd?: string, signal?: AbortSignal): Promise<GitLaunchBranchSnapshot>
-  diffToRemote(cwd?: string, signal?: AbortSignal, paths?: string[]): Promise<{ sha: string; diff: string; truncated: boolean } | null>
+  diffToRemote(
+    cwd?: string,
+    signal?: AbortSignal,
+    paths?: string[],
+  ): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {
   status(
@@ -623,6 +633,10 @@ export interface HookEvents {
   'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
   /** Published after the session budget fact has been committed. */
   'budget.committed': { sessionId: string; budget: SessionBudget | null }
+  /** Goal or other lifecycle owners may veto budget-only continuation without a reverse service dependency. */
+  'budget.beforeContinue': { sessionId: string; runId: string; allowed: boolean }
+  /** A completed Plan with explicit automation enabled delegates Goal execution to its lifecycle owner. */
+  'plan.implementationRequested': { sessionId: string; run: Run; objective: string; unattended: boolean }
   'goal.beforeComplete': {
     sessionId: string
     runId?: string | undefined
@@ -666,9 +680,19 @@ export interface HbarAPI {
   sessions: SessionService
   userInput: UserInputService
   notify(event: import('@hbar/contracts').WireNotification): void
-  taskNotification?(kind: TaskNotificationKind, sessionId: string, runId: string | null, title: string, message: string): Promise<void>
+  taskNotification?(
+    kind: TaskNotificationKind,
+    sessionId: string,
+    runId: string | null,
+    title: string,
+    message: string,
+  ): Promise<void>
   changed(kind: string): void
-  automationSet?(sessionId: string, unattended?: boolean, goalEnabled?: boolean): Promise<import('@hbar/contracts').AutomationState>
+  automationSet?(
+    sessionId: string,
+    unattended?: boolean,
+    goalEnabled?: boolean,
+  ): Promise<import('@hbar/contracts').AutomationState>
   panels: { register(panel: Omit<ToolWindowContribution, 'owner'>): Disposer }
   service<T>(name: string): T
 }
@@ -731,17 +755,19 @@ export interface PluginManifest {
         panels: ToolWindowContribution[]
         renderers: Record<string, unknown>[]
         settings?: SettingsContributionInput | undefined
-        theme?: {
-          id: string
-          title: string
-          description?: string | undefined
-          preview?: string | undefined
-          priority?: number | undefined
-          tokenOverrides: Record<string, unknown>
-          surfaceEffects?: Record<string, unknown> | undefined
-          motion?: Record<string, unknown> | undefined
-          backgroundAssets?: string[] | undefined
-        } | undefined
+        theme?:
+          | {
+              id: string
+              title: string
+              description?: string | undefined
+              preview?: string | undefined
+              priority?: number | undefined
+              tokenOverrides: Record<string, unknown>
+              surfaceEffects?: Record<string, unknown> | undefined
+              motion?: Record<string, unknown> | undefined
+              backgroundAssets?: string[] | undefined
+            }
+          | undefined
       }
     | undefined
   permissions: string[]

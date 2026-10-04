@@ -12,7 +12,7 @@ import {
 } from '@hbar/contracts'
 import type { PlanState, PlanStep, Run, RunMode, SessionEvent, UserInputQuestion } from '@hbar/contracts'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { GoalService, HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
+import type { HbarAPI, ModelRequest, ModeService, PlanService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 import { PLAN_MODE_INSTRUCTIONS } from './instructions.ts'
 
 const MAX_RESTORE_EVENTS = 100_000
@@ -368,7 +368,10 @@ class PlanRuntime implements PlanService {
     if (mode !== 'plan') return
     const stateMutation = ['create_goal', 'update_goal', 'set_budget', 'update_plan'].includes(name)
     if (stateMutation || (name !== 'save_plan' && tool.effect !== 'read'))
-      throw new HbarError('PLAN_READ_ONLY', `Plan mode cannot execute ${name}; switch back to default mode to make changes`)
+      throw new HbarError(
+        'PLAN_READ_ONLY',
+        `Plan mode cannot execute ${name}; switch back to default mode to make changes`,
+      )
   }
 }
 
@@ -410,7 +413,8 @@ function planTools(runtime: PlanRuntime): ToolDefinition[] {
     },
     {
       name: 'save_plan',
-      description: 'Save a structured implementation plan while in Plan mode. This only persists the plan and never changes workspace files.',
+      description:
+        'Save a structured implementation plan while in Plan mode. This only persists the plan and never changes workspace files.',
       inputSchema: savePlanSchema,
       effect: 'read',
       execute: async (args, context) => {
@@ -459,7 +463,7 @@ export const planPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { plan: '1.0.0', mode: '1.0.0' },
-    requires: { storage: '^1.0.0', goal: '^1.0.0' },
+    requires: { storage: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: planConfigSchema,
@@ -483,20 +487,20 @@ export const planPlugin = definePlugin({
       const automation = events
         .filter((event) => event.type === 'automation.changed')
         .map((event) => automationStateSchema.safeParse(event.data))
-        .filter((result): result is { success: true; data: import('@hbar/contracts').AutomationState } => result.success)
+        .filter(
+          (result): result is { success: true; data: import('@hbar/contracts').AutomationState } => result.success,
+        )
         .at(-1)?.data
       if (!automation?.goalEnabled) return
-      const objective = [
-        current.explanation,
-        ...current.plan.map((step, index) => `${index + 1}. ${step.step}`),
-      ].filter(Boolean).join('\n')
-      const goals = ctx.hbar.api.service<GoalService>('goal')
-      const existing = (await goals.get(sessionId)).goal
-      if (existing) await goals.set(sessionId, { objective, expectedGoalId: existing.goalId })
-      else await goals.create(sessionId, objective)
-      await ctx.hbar.api.automationSet?.(sessionId, automation.unattended, false)
-      await runtime.setMode(sessionId, 'default')
-      await ctx.hbar.api.sessions.submit(sessionId, `goal-${crypto.randomUUID()}`, { text: '', images: [], source: 'goal' }, run.modelId)
+      const objective = [current.explanation, ...current.plan.map((step, index) => `${index + 1}. ${step.step}`)]
+        .filter(Boolean)
+        .join('\n')
+      await ctx.hbar.api.hooks.dispatch('plan.implementationRequested', {
+        sessionId,
+        run,
+        objective,
+        unattended: automation.unattended,
+      })
     })
     ctx.hbar.api.hooks.on('goal.replaced', async ({ sessionId }) => {
       await runtime.clear(sessionId)

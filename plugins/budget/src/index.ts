@@ -5,7 +5,7 @@ import type { RunSource, SessionEvent, Usage } from '@hbar/contracts'
 import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import { appendModelContext, definePlugin, provide } from '@hbar/plugin-sdk'
-import type { GoalService, HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
+import type { HbarAPI, HookEvents, ModelRequest, ToolDefinition } from '@hbar/plugin-sdk'
 
 const MAX_RESTORE_EVENTS = 100_000
 const MAX_ACCOUNTED_RUNS = 512
@@ -87,9 +87,8 @@ export class BudgetRuntime {
   constructor(
     private api: HbarAPI,
     private maxLimit: number,
-    private autoContinue: boolean,
-    private maxContinuations: number,
-    private goals?: GoalService,
+    private autoContinue = true,
+    private maxContinuations = 16,
   ) {}
 
   async restore() {
@@ -305,14 +304,14 @@ export class BudgetRuntime {
   }
 
   async accountRun(event: HookEvents['run.end']) {
-    return this.accountUsage(event.sessionId, event.runId, true)
+    return this.accountUsage(event.sessionId, event.runId, event)
   }
 
   async accountStep(event: HookEvents['step.end']) {
-    return this.accountUsage(event.sessionId, event.runId, false)
+    return this.accountUsage(event.sessionId, event.runId)
   }
 
-  private async accountUsage(sessionId: string, runId: string, final: boolean) {
+  private async accountUsage(sessionId: string, runId: string, finalRun?: HookEvents['run.end']) {
     return this.serial(sessionId, async () => {
       const prior = this.budgets.get(sessionId)
       if (!prior || prior.accountedRuns.includes(runId)) return
@@ -320,7 +319,7 @@ export class BudgetRuntime {
       if (events.length > MAX_RESTORE_EVENTS)
         throw new HbarError('BUDGET_ACCOUNTING_LIMIT', 'Unsettled budget usage exceeded the bounded replay window')
       const delta = tokenDelta(events, prior.usageThroughSeq)
-      if (delta === 0 && !final) return
+      if (delta === 0 && !finalRun) return
       const next = withPhase({
         ...prior,
         usedTokens: prior.usedTokens + delta,
@@ -328,46 +327,46 @@ export class BudgetRuntime {
         revision: prior.revision + 1,
         updatedAt: Date.now(),
         usageThroughSeq: events.at(-1)?.seq ?? prior.usageThroughSeq,
-        accountedRuns: final ? [...prior.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS) : prior.accountedRuns,
+        accountedRuns: finalRun ? [...prior.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS) : prior.accountedRuns,
       })
-      await this.persist(event.sessionId, next, 'budget.accounted', event.runId)
-      if (next.phase === 'exhausted' && this.goals) {
-        try {
-          const currentGoal = await this.goals.get(event.sessionId)
-          if (currentGoal.goal?.status === 'active') {
-            await this.goals.set(event.sessionId, {
-              status: 'budget_limited',
-              expectedGoalId: currentGoal.goal.goalId,
-            })
-          }
-        } catch (error) {
-          await this.api.sessions.append(event.sessionId, 'budget.goal_limit_failed', {
-            error: error instanceof Error ? error.message : String(error),
-          }, event.runId)
-        }
-      }
+      // budget.committed projects exhaustion through the Goal owner. Budget
+      // never mutates Goal state or requests its service during composition.
+      await this.persist(sessionId, next, 'budget.accounted', runId)
       if (
         this.autoContinue &&
-        event.status === 'completed' &&
-        event.run.input.mode !== 'plan' &&
-        event.run.input.source !== 'goal' &&
+        finalRun?.status === 'completed' &&
+        finalRun.run.input.mode !== 'plan' &&
+        finalRun.run.input.source !== 'goal' &&
         next.phase === 'active' &&
-        (this.continuations.get(event.sessionId) ?? 0) < this.maxContinuations
+        (this.continuations.get(sessionId) ?? 0) < this.maxContinuations
       ) {
-        const count = (this.continuations.get(event.sessionId) ?? 0) + 1
-        this.continuations.set(event.sessionId, count)
+        const admission = await this.api.hooks.dispatch('budget.beforeContinue', { sessionId, runId, allowed: true })
+        if (!admission.allowed) return
+        const count = (this.continuations.get(sessionId) ?? 0) + 1
+        this.continuations.set(sessionId, count)
         try {
           await this.api.sessions.submit(
-            event.sessionId,
+            sessionId,
             `budget-${crypto.randomUUID()}`,
             { text: '', images: [], source: 'system' },
-            event.run.modelId,
+            finalRun.run.modelId,
           )
         } catch (error) {
-          await this.api.sessions.append(event.sessionId, 'budget.continuation_failed', {
-            error: error instanceof Error ? error.message : String(error),
-          }, event.runId)
-          await this.api.taskNotification?.('retry_failed', event.sessionId, event.runId, '任务失败', '预算任务继续执行失败，请检查错误后重试。')
+          await this.api.sessions.append(
+            sessionId,
+            'budget.continuation_failed',
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+            runId,
+          )
+          await this.api.taskNotification?.(
+            'retry_failed',
+            sessionId,
+            runId,
+            '任务失败',
+            '预算任务继续执行失败，请检查错误后重试。',
+          )
         }
       }
     })
@@ -488,13 +487,13 @@ export const budgetPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { budget: '1.0.0' },
-    requires: { storage: '^1.0.0', goal: '^1.0.0' },
+    requires: { storage: '^1.0.0' },
     permissions: ['storage'],
   },
   configSchema: budgetConfigSchema,
   async apply(ctx, rawConfig) {
     const config = budgetConfigSchema.parse(rawConfig)
-    const runtime = new BudgetRuntime(ctx.hbar.api, config.maxLimit, config.autoContinue, config.maxContinuations, ctx.hbar.api.service<GoalService>('goal'))
+    const runtime = new BudgetRuntime(ctx.hbar.api, config.maxLimit, config.autoContinue, config.maxContinuations)
     await runtime.restore()
     provide<BudgetRuntime>(ctx, 'budget', runtime)
     ctx.hbar.api.hooks.on('context.build', (request) => runtime.decorate(request))

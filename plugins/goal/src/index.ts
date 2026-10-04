@@ -579,6 +579,20 @@ class GoalRuntime implements GoalService {
     })
   }
 
+  async implementPlan(event: HookEvents['plan.implementationRequested']) {
+    const existing = (await this.get(event.sessionId)).goal
+    if (existing) await this.set(event.sessionId, { objective: event.objective, expectedGoalId: existing.goalId })
+    else await this.create(event.sessionId, event.objective)
+    await this.api.automationSet?.(event.sessionId, event.unattended, false)
+    await this.api.service<ModeService>('mode').set(event.sessionId, 'default')
+    await this.api.sessions.submit(
+      event.sessionId,
+      `goal-${crypto.randomUUID()}`,
+      { text: '', images: [], source: 'goal' },
+      event.run.modelId,
+    )
+  }
+
   private result(sessionId: string, completionBudgetReport?: string) {
     return response(this.goals.get(sessionId) ?? null, completionBudgetReport)
   }
@@ -1096,9 +1110,7 @@ class GoalRuntime implements GoalService {
           ? 'paused'
           : usageLimited
             ? 'usage_limited'
-            : autoBlocked
-              ? 'blocked'
-              : existing.status
+            : existing.status
       const progress = auditProgress(events, event.runId, existing.progressKeys)
       const noProgressStreak = progress.progress ? 0 : existing.noProgressStreak + 1
       let goal = await this.persist(
@@ -1297,6 +1309,13 @@ export const goalPlugin = definePlugin({
     api.hooks.on('run.modeChanged', (event) => runtime.modeChanged(event))
     api.hooks.on('step.end', (event) => runtime.accountStep(event))
     api.hooks.on('budget.committed', (event) => runtime.refreshBudget(event.sessionId))
+    api.hooks.on('plan.implementationRequested', (event) => runtime.implementPlan(event))
+    // Any existing Goal owns its lifecycle, including explicit stops. A
+    // budget-only system Run must not duplicate or bypass that scheduler.
+    api.hooks.on('budget.beforeContinue', async (event) => ({
+      ...event,
+      allowed: event.allowed && (await runtime.get(event.sessionId)).goal === null,
+    }))
     api.hooks.on('run.end', (event) => runtime.accountRun(event))
     api.hooks.on('run.cancelRequested', (event) => runtime.cancelRun(event))
     api.hooks.on('session.idle', (event) => runtime.idle(event))
