@@ -80,11 +80,22 @@
   flex: 1 1 auto;
   min-inline-size: 0;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hbar-session-disclosure-label {
   flex: 0 1 auto;
   min-inline-size: 0;
   overflow-wrap: anywhere;
+  white-space: nowrap;
+}
+.hbar-session-disclosure-label-text {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hbar-session-disclosure-identity {
   display: flex;
@@ -109,9 +120,44 @@
   margin-inline-start: auto;
   font-size: 0.6875rem;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-session-message-blocks [data-lumen-component='tool-calls'][data-hbar-app-ui-surface='inline'] {
+  block-size: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.hbar-session-message-blocks .hbar-session-tool-inline {
+  flex: 0 1 auto;
+  inline-size: 100%;
+  block-size: auto;
+  overflow: visible;
+  gap: 0;
+  padding: 0;
+}
+.hbar-session-tool .hbar-session-disclosure-trigger {
+  padding: 4px 6px;
+}
+.hbar-session-tool .hbar-session-disclosure-identity {
+  align-items: center;
 }
 .hbar-session-tool .hbar-session-disclosure-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   max-inline-size: 50%;
+  padding: 2px 6px;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+  color: var(--lumen-muted);
+  white-space: nowrap;
 }
 .hbar-session-tool .hbar-session-disclosure-label:only-child {
   max-inline-size: 100%;
@@ -254,16 +300,5 @@
   }
   .hbar-session-disclosure-content {
     margin-inline-start: 12px;
-  }
-  .hbar-session-tool .hbar-session-disclosure-identity {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 2px;
-  }
-  .hbar-session-tool .hbar-session-disclosure-label {
-    max-inline-size: 100%;
-  }
-  .hbar-session-tool .hbar-session-disclosure-preview {
-    flex: 0 1 auto;
   }
 }

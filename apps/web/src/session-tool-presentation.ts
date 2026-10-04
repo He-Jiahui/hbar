@@ -19,6 +19,7 @@ interface Copy {
   readonly labels: Readonly<Record<ToolCallPresentation['kind'], string>>
   readonly requested: string
   readonly tool: string
+  readonly toolCall: string
   readonly path: string
   readonly command: string
   readonly description: string
@@ -42,6 +43,7 @@ function copyFor(locale: ShellLocale): Copy {
         },
         requested: '请求输入',
         tool: '工具',
+        toolCall: '工具调用',
         path: '路径',
         command: '命令',
         description: '说明',
@@ -62,6 +64,7 @@ function copyFor(locale: ShellLocale): Copy {
         },
         requested: 'Requested input',
         tool: 'Tool',
+        toolCall: 'Tool call',
         path: 'Path',
         command: 'Command',
         description: 'Description',
@@ -188,9 +191,15 @@ function includes(value: unknown): DisplayText {
 
 function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
   const captured = declaration(ownData(call, 'presentation'))
-  if (!captured) return { icon: 'tool' }
-  const args = ownData(call, 'args')
   const name = display(ownString(call, 'name'))
+  if (!captured)
+    return {
+      icon: 'tool',
+      label: copy.toolCall,
+      ...(name.text ? { summary: limit(name.text, TOOL_SUMMARY_CODE_POINTS, '…', name.truncated) } : {}),
+      title: limit(name.text, TOOL_TITLE_CODE_POINTS, copy.truncated, name.truncated),
+    }
+  const args = ownData(call, 'args')
   const fields: string[] = []
   let truncated = name.truncated
   let summary: DisplayText = display(undefined)

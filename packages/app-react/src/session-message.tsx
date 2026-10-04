@@ -16,7 +16,7 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenToolCalls01, LumenToolCalls06 } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenToolCalls } from '@lumen/app-ui'
 import { MessageMarkdown } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import { MessageLiteralText } from './message-literal-text'
@@ -202,10 +202,13 @@ function Disclosure({
       title={title}
       onClick={() => setOpen(!open)}
     >
-      <LumenIcon icon={icon} tier="sm" />
+      {!tool ? <LumenIcon icon={icon} tier="sm" /> : null}
       <LumenText as="span" className="hbar-session-disclosure-identity">
         <LumenText as="span" className="hbar-session-disclosure-label">
-          {label}
+          {tool ? <LumenIcon icon={icon} tier="sm" /> : null}
+          <LumenText as="span" className="hbar-session-disclosure-label-text" title={label}>
+            {label}
+          </LumenText>
         </LumenText>
         {preview ? (
           <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
@@ -302,10 +305,14 @@ function ToolRow({
       />
     </Disclosure>
   )
-  return outcome === 'pending' ? (
-    <LumenToolCalls06 controlled={{ body: disclosure }} />
-  ) : (
-    <LumenToolCalls01 controlled={{ body: disclosure }} />
+  return (
+    <LumenToolCalls
+      variant={outcome === 'pending' ? 6 : 1}
+      variantId={outcome === 'pending' ? 'hbar-app-ui-tool-calls-6' : 'hbar-app-ui-tool-calls-1'}
+      className="hbar-session-tool-inline"
+      surface="inline"
+      controlled={{ body: disclosure }}
+    />
   )
 }
 
@@ -386,6 +393,7 @@ function Activity({
         indicator="none"
         size="s"
         className="hbar-session-activity-summary"
+        title={summary}
         aria-expanded={open}
         aria-controls={contentId}
         onClick={() => setPinnedOpen(!open)}

@@ -36,6 +36,8 @@ const find = {
 const en = createSessionToolPresenter('en-US')
 const zh = createSessionToolPresenter('zh-CN')
 const points = (value: string | undefined) => Array.from(value ?? '').length
+const generic = (name = 'custom_tool') =>
+  ({ icon: 'tool', label: 'Tool call', summary: name, title: name }) satisfies ReturnType<typeof en>
 
 test('localizes all seven captured families without relying on the raw tool name', () => {
   const cases = [
@@ -77,9 +79,19 @@ test('unknown, legacy, unsupported versions and non-strict metadata remain exact
     { version: 1, kind: 'file-search' },
     { ...read, a: 1, b: 2, c: 3, d: 4 },
   ]) {
-    expect(en(call(metadata, { path: 'real/path', command: 'echo forged' }, 'read_file'))).toEqual({ icon: 'tool' })
+    expect(en(call(metadata, { path: 'real/path', command: 'echo forged' }, 'read_file'))).toEqual(generic('read_file'))
   }
-  expect(en(call(undefined, { presentation: read, target: 'spoof.ts' }, 'read_file'))).toEqual({ icon: 'tool' })
+  expect(en(call(undefined, { presentation: read, target: 'spoof.ts' }, 'read_file'))).toEqual(generic('read_file'))
+})
+
+test('generic tool tags are localized and describe only the original bounded tool name', () => {
+  const original = call(undefined, { path: 'not-declared.txt', description: 'untrusted description' }, 'git_log')
+  expect(en(original)).toEqual(generic('git_log'))
+  expect(zh(original)).toEqual({ ...generic('git_log'), label: '工具调用' })
+  const long = call(undefined, {}, 'tool_'.repeat(1000))
+  expect(points(en(long).summary)).toBe(TOOL_SUMMARY_CODE_POINTS)
+  expect(points(en(long).title)).toBeLessThanOrEqual(TOOL_TITLE_CODE_POINTS)
+  expect(long.name.length).toBe(5000)
 })
 
 test('reads declared custom fields only and preserves full original inputs and object identities', () => {
@@ -285,16 +297,16 @@ test('call, descriptor, args and inherited properties never invoke getters or co
   expect(en(call(read, inheritedArgs)).summary).toBeUndefined()
   const accessorDeclaration = { version: 1, kind: 'file-read' }
   Object.defineProperty(accessorDeclaration, 'pathField', { get: getter, enumerable: true })
-  expect(en(call(accessorDeclaration, {}))).toEqual({ icon: 'tool' })
+  expect(en(call(accessorDeclaration, {}))).toEqual(generic())
   const inheritedDeclaration: unknown = Object.create(read)
-  expect(en(call(inheritedDeclaration))).toEqual({ icon: 'tool' })
+  expect(en(call(inheritedDeclaration))).toEqual(generic())
   const getterCall = call(undefined)
   Object.defineProperty(getterCall, 'presentation', { get: getter, enumerable: true })
-  expect(en(getterCall)).toEqual({ icon: 'tool' })
+  expect(en(getterCall)).toEqual(generic())
   const inheritedCall = call(undefined)
   Reflect.deleteProperty(inheritedCall, 'presentation')
   Object.setPrototypeOf(inheritedCall, { presentation: read })
-  expect(en(inheritedCall)).toEqual({ icon: 'tool' })
+  expect(en(inheritedCall)).toEqual(generic())
   expect(invoked).toBe(0)
 })
 

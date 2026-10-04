@@ -16,6 +16,7 @@ export interface ToolPresentationFixtureInput {
   readonly locale: ShellLocale
   readonly streaming?: boolean
   readonly longLabels?: boolean
+  readonly theme?: 'light' | 'dark'
 }
 
 declare global {
@@ -28,12 +29,12 @@ declare global {
 }
 
 const writes: string[] = []
-const appearance = createWebLumenAppearance('light', DEFAULT_WEB_APPEARANCE_DIMENSIONS, false)
 const container = document.getElementById('root')
 if (!container) throw new Error('Tool presentation fixture root is missing')
 const root = createRoot(container)
 
 function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
+  const appearance = createWebLumenAppearance(input.theme ?? 'light', DEFAULT_WEB_APPEARANCE_DIMENSIONS, false)
   const copy = getShellCopy(input.locale)
   const fixtureCopy = {
     title: input.locale === 'zh-CN' ? '工具身份：受控 React 验收' : 'Tool identity: controlled React verification',

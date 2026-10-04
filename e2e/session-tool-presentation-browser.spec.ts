@@ -241,6 +241,158 @@ async function readableSummary(tool: Locator) {
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
+    test(`compact action tags retain descriptions and disclosure ${locale} ${width}`, async ({ browser }, info) => {
+      const f = await open(browser, locale, width)
+      const { page } = f
+      const read = call(
+        'compact-read',
+        { version: 1, kind: 'file-read', pathField: 'path' },
+        { path: 'composer-permission.ts' },
+      )
+      const write = call(
+        'compact-write',
+        { version: 1, kind: 'file-write', pathField: 'path' },
+        { path: 'settings.ts', text: 'original write' },
+      )
+      const search = call(
+        'compact-search',
+        { version: 1, kind: 'text-search', patternField: 'pattern' },
+        { pattern: 'hostDefault' },
+      )
+      const generic = call('compact-generic', undefined, { ref: 'HEAD' }, 'git_log')
+      const failed = call(
+        'compact-failed',
+        { version: 1, kind: 'text-search', patternField: 'pattern' },
+        { pattern: 'approval' },
+      )
+      const pending = call(
+        'compact-pending',
+        { version: 1, kind: 'file-read', pathField: 'path' },
+        { path: 'next-step.ts' },
+      )
+      const content = [
+        read,
+        result(read),
+        write,
+        result(write),
+        search,
+        result(search),
+        generic,
+        result(generic),
+        failed,
+        result(failed, true, 'Workspace query exceeded 30 seconds'),
+        pending,
+      ]
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          await render(page, { locale, theme, streaming: true, messages: [message(content)] })
+          const tools = page.locator('.hbar-session-tool')
+          await expect(tools).toHaveCount(6)
+          await noOverflow(page)
+          const geometry = await tools.evaluateAll((elements) =>
+            elements.map((element) => {
+              const box = element.getBoundingClientRect()
+              const button = element.querySelector('.hbar-session-disclosure-trigger')
+              const label = element.querySelector('.hbar-session-disclosure-label')
+              const summary = element.querySelector('.hbar-session-disclosure-preview')
+              const card = element.closest('[data-lumen-component="tool-calls"]')
+              if (!button || !label || !summary || !card) throw new Error('Compact tool row lacks its content contract')
+              const tag = label.getBoundingClientRect()
+              const behavior = summary.getBoundingClientRect()
+              return {
+                height: box.height,
+                cardHeight: card.getBoundingClientRect().height,
+                buttonHeight: button.getBoundingClientRect().height,
+                tagRight: tag.right,
+                behaviorLeft: behavior.left,
+                tagTop: tag.top,
+                behaviorTop: behavior.top,
+                border: getComputedStyle(card).borderTopWidth,
+                padding: getComputedStyle(card.firstElementChild ?? card).padding,
+                tagTextWhiteSpace: getComputedStyle(label.querySelector('.hbar-session-disclosure-label-text') ?? label)
+                  .whiteSpace,
+              }
+            }),
+          )
+          await info.attach(`compact-geometry-${theme}`, {
+            contentType: 'application/json',
+            body: Buffer.from(JSON.stringify(geometry)),
+          })
+          await writeFile(
+            `artifacts/compact-tool-actions/geometry-${locale}-${theme}-${width}.json`,
+            JSON.stringify(geometry, null, 2),
+          )
+          await page.screenshot({ path: `artifacts/compact-tool-actions/rows-${locale}-${theme}-${width}.png` })
+          await page
+            .locator('.hbar-session-message-blocks')
+            .first()
+            .screenshot({
+              path: `artifacts/compact-tool-actions/actions-${locale}-${theme}-${width}.png`,
+            })
+          for (const item of geometry) {
+            expect(item.cardHeight).toBeLessThanOrEqual(40)
+            expect(item.buttonHeight).toBeGreaterThanOrEqual(30)
+            expect(item.tagRight).toBeLessThanOrEqual(item.behaviorLeft)
+            expect(Math.abs(item.tagTop - item.behaviorTop)).toBeLessThanOrEqual(5)
+            expect(item.border).toBe('0px')
+            expect(item.padding).toBe('0px')
+            expect(item.tagTextWhiteSpace).toBe('nowrap')
+          }
+          await expect(row(page, generic.callId).locator('.hbar-session-disclosure-label')).toHaveText(
+            locale === 'zh-CN' ? '工具调用' : 'Tool call',
+          )
+          await expect(row(page, generic.callId).locator('.hbar-session-disclosure-preview')).toHaveText('git_log')
+          await expect(row(page, pending.callId)).toHaveAttribute('data-outcome', 'pending')
+          await expect(row(page, failed.callId)).toHaveAttribute('data-outcome', 'failed')
+          const readRow = row(page, read.callId)
+          await trigger(readRow).focus()
+          await page.keyboard.press('Enter')
+          await expect(trigger(readRow)).toHaveAttribute('aria-expanded', 'true')
+          await expect(readRow.locator('pre').first()).toHaveText(JSON.stringify(read.args, null, 2))
+          await page.keyboard.press('Space')
+          await expect(trigger(readRow)).toHaveAttribute('aria-expanded', 'false')
+          await expect(trigger(readRow)).toBeFocused()
+          await render(page, {
+            locale,
+            theme,
+            streaming: true,
+            longLabels: true,
+            messages: [
+              message([
+                { type: 'thinking', text: 'Inspect the exact requested tool input without changing the conversation.' },
+                ...content,
+              ]),
+            ],
+          })
+          await expect(tools).toHaveCount(6)
+          const singleLine = await page.locator('.hbar-session-disclosure-label-text').evaluateAll((elements) =>
+            elements.map((element) => ({
+              whiteSpace: getComputedStyle(element).whiteSpace,
+              height: element.getBoundingClientRect().height,
+              text: element.textContent,
+            })),
+          )
+          expect(singleLine).toHaveLength(7)
+          expect(
+            singleLine.every((item) => item.whiteSpace === 'nowrap' && item.height <= 20 && Boolean(item.text)),
+          ).toBe(true)
+          expect(
+            await tools.evaluateAll((elements) =>
+              elements.every((element) => element.getBoundingClientRect().height <= 40),
+            ),
+          ).toBe(true)
+          await noOverflow(page)
+        }
+        expect(f.errors).toEqual([])
+        expect(f.requests).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })
+  }
+
+for (const locale of ['en-US', 'zh-CN'] as const)
+  for (const width of [1440, 320]) {
     test(`canonical identity, exact input and full output ${locale} ${width}`, async ({ browser }, info) => {
       const f = await open(browser, locale, width)
       const { page } = f
@@ -415,8 +567,10 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         })
         for (const id of ['legacy', 'unknown', 'orphan']) {
           await expect(row(page, id)).toHaveAttribute('data-presentation-icon', 'tool')
-          await expect(row(page, id).locator('.hbar-session-disclosure-preview')).toHaveCount(0)
         }
+        await expect(row(page, 'legacy').locator('.hbar-session-disclosure-preview')).toHaveText(legacy.name)
+        await expect(row(page, 'unknown').locator('.hbar-session-disclosure-preview')).toHaveText(/^Unknown_.*…$/)
+        await expect(row(page, 'orphan').locator('.hbar-session-disclosure-preview')).toHaveCount(0)
         await trigger(row(page, 'bad')).click()
         expect(await row(page, 'bad').locator('.hbar-session-tool-section').first().locator('pre').textContent()).toBe(
           JSON.stringify(malformed.args, null, 2),

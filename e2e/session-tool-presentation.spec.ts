@@ -282,13 +282,10 @@ async function start(browser: Browser, locale: ShellLocale, width: number, name:
     }
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await project.getByRole('button', { name: copy.shell.openSession(ready.session.title), exact: true }).click()
-    const hide = page.getByRole('button', { name: copy.shell.hideSidebar, exact: true })
-    if (await hide.isVisible()) {
-      try {
-        await hide.click({ timeout: 1500 })
-      } catch (error) {
-        if (await hide.isVisible()) throw error
-      }
+    // Opening a session already closes the overlay sidebar at narrow widths.
+    // Its translated-out button can still satisfy isVisible during that transition.
+    if (!(await page.evaluate(() => matchMedia('(max-width: 63.9375rem)').matches))) {
+      await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).click()
     }
     await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
     return { root, directory, child, context, page, observer, ready, copy, commands, errors, asset, sha256 }

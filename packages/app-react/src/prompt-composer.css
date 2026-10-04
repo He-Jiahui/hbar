@@ -16,6 +16,31 @@
   margin: 0;
 }
 
+/* Closed composer controls stay single-line as labels and run state update.
+   Popover/dialog content retains its own readable text flow. */
+.hbar-prompt-composer .lumen-composer-toolbar button:not([popover] button, dialog button) {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-prompt-composer .hbar-session-composer-options,
+.hbar-prompt-composer .hbar-session-composer-controls {
+  flex-wrap: nowrap;
+}
+
+.hbar-prompt-composer .lumen-composer-toolbar > .lumen-composer-running-actions {
+  flex-wrap: nowrap;
+}
+
+.hbar-prompt-composer .lumen-composer-queue-action {
+  inline-size: 8em;
+  flex: 0 1 8em;
+  max-inline-size: min(8em, 100%);
+}
+
 .hbar-prompt-composer > textarea {
   min-block-size: 4.5rem;
   resize: vertical;
@@ -49,7 +74,7 @@
 
 .hbar-prompt-queue-action {
   min-inline-size: 0;
-  white-space: normal;
+  white-space: nowrap;
   overflow-wrap: anywhere;
 }
 
