@@ -290,7 +290,16 @@ test('stored sandbox session approval can be loaded and then changed', async () 
     expect(changed).toMatchObject({ choice: 'ask', status: 'idle', locked: false })
     expect(await kernel.sessionPermissionMode(session.id)).toBe('ask')
     await permission.refreshSession(session.id)
-    expect((await ready()).choice).toBe('ask')
+    const asked = await ready()
+    expect(asked.choice).toBe('ask')
+    await commands.execute('composerPermission.setChoice', {
+      sessionId: session.id,
+      choice: 'sandbox',
+      expectedRevision: asked.revision,
+    })
+    expect((await ready()).choice).toBe('sandbox')
+    await permission.refreshSession(session.id)
+    expect((await ready()).choice).toBe('sandbox')
   } finally {
     permission.dispose()
     navigation.dispose()
