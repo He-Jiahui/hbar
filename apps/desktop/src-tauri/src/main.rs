@@ -314,6 +314,8 @@ fn exit_service(app: &tauri::AppHandle) {
         .and_then(|connection| connection.pid);
     stop_host(pid);
     app.exit(0);
+}
+
 struct UiZoomPath(PathBuf);
 
 #[derive(Default)]
@@ -717,7 +719,7 @@ fn list_fonts() -> Vec<String> {
     normalize_font_list(curated_fonts().into_iter().chain(system_font_names()))
 }
 
-fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
+#[tauri::command]
 fn read_ui_zoom(
     window: tauri::WebviewWindow,
     connection: tauri::State<'_, Connection>,
@@ -815,6 +817,7 @@ fn native_notification_delivery_status(
     Ok(delivered.contains(&id))
 }
 
+fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
     let connection: Connection =
         serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
             .ok()?;
