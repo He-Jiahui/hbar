@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { useRef, useState, type MouseEvent } from 'react'
 import { useStore } from 'zustand'
+import { ToggleButton, ToggleButtonGroup } from '@mui/material'
 import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
 import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
@@ -170,15 +171,7 @@ function WebGeneralSendBehavior({
   readonly connected: boolean
 }) {
   const state = useStore(controller.store)
-  const choices = useRef<HTMLDivElement>(null)
-  const restoreFocus = useRef(false)
-  useLayoutEffect(() => {
-    if (!restoreFocus.current || (state.status !== 'ready' && state.status !== 'saved')) return
-    restoreFocus.current = false
-    choices.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus()
-  }, [state.status])
   const recover = (event: MouseEvent<HTMLButtonElement>, action: () => Promise<void>) => {
-    restoreFocus.current = document.activeElement === event.currentTarget
     void action()
   }
   const choiceDisabled =
@@ -200,22 +193,22 @@ function WebGeneralSendBehavior({
       <LumenText as="p" tone="subtle" variant="supporting">
         {labels.hostScope}
       </LumenText>
-      <LumenFrame
-        ref={choices}
-        role="group"
+      <ToggleButtonGroup
+        exclusive
+        value={state.behavior ?? null}
+        onChange={(_e, val: WebSendBehavior | null) => { if (val !== null) controller.select(val) }}
         aria-labelledby="hbar-general-sending-label"
         aria-describedby="hbar-general-sending-help"
         className="hbar-web-general-send-choices"
+        disabled={choiceDisabled}
+        sx={{ flexWrap: 'wrap', gap: 1 }}
       >
         {WEB_SEND_BEHAVIORS.map((behavior) => (
-          <LumenButton
+          <ToggleButton
             key={behavior}
-            variant="outlined"
-            indicator="none"
+            value={behavior}
             className="hbar-web-general-send-choice"
-            aria-pressed={state.behavior === behavior}
-            disabled={choiceDisabled}
-            onClick={() => controller.select(behavior)}
+            sx={{ flexDirection: 'column', alignItems: 'flex-start', textAlign: 'start', flex: '1 1 10rem' }}
           >
             <LumenText as="span" className="hbar-web-general-send-title">
               {labels.options[behavior].label}
@@ -223,9 +216,9 @@ function WebGeneralSendBehavior({
             <LumenText as="span" tone="muted" variant="supporting">
               {labels.options[behavior].description}
             </LumenText>
-          </LumenButton>
+          </ToggleButton>
         ))}
-      </LumenFrame>
+      </ToggleButtonGroup>
       {state.status === 'loading' && <LumenText role="status">{labels.loading}</LumenText>}
       {state.status === 'saved' && <LumenText role="status">{labels.saved}</LumenText>}
       {state.status === 'unsupported' && <LumenText role="alert">{labels.unsupported}</LumenText>}
@@ -276,36 +269,8 @@ export function WebGeneralSettings({
   readonly connected?: boolean | undefined
 }) {
   const state = useStore(language.store)
-  const choices = useRef<HTMLDivElement>(null)
-  const restoreRecoveryFocus = useRef(false)
   const retry = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
-    restoreRecoveryFocus.current = document.activeElement === event.currentTarget
     action()
-    const next = language.store.getState().status
-    if (next === 'read-error' || next === 'save-error') restoreRecoveryFocus.current = false
-  }
-  useLayoutEffect(() => {
-    if (!restoreRecoveryFocus.current) return
-    restoreRecoveryFocus.current = false
-    choices.current?.querySelector<HTMLButtonElement>('[role="radio"][aria-checked="true"]')?.focus()
-  }, [state.status])
-  const chooseWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: number) => {
-    const next =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? WEB_LANGUAGE_CHOICES.length - 1
-          : event.key === 'ArrowRight' || event.key === 'ArrowDown'
-            ? (current + 1) % WEB_LANGUAGE_CHOICES.length
-            : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-              ? (current + WEB_LANGUAGE_CHOICES.length - 1) % WEB_LANGUAGE_CHOICES.length
-              : null
-    if (next === null) return
-    event.preventDefault()
-    const choice = WEB_LANGUAGE_CHOICES[next]
-    if (!choice) return
-    language.select(choice)
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
   }
   return (
     <LumenFrame as="section" className="hbar-web-general-settings">
@@ -327,28 +292,21 @@ export function WebGeneralSettings({
         <LumenText as="p" id="hbar-general-language-help" tone="muted" variant="supporting">
           {labels.languageDescription}
         </LumenText>
-        <LumenFrame
-          role="radiogroup"
+        <ToggleButtonGroup
+          exclusive
+          value={state.preference}
+          onChange={(_e, val: WebLanguagePreference | null) => { if (val !== null) language.select(val) }}
           aria-labelledby="hbar-general-language-label"
           aria-describedby="hbar-general-language-help"
           className="hbar-web-general-choices"
-          ref={choices}
+          sx={{ flexWrap: 'wrap', gap: 0.5 }}
         >
-          {WEB_LANGUAGE_CHOICES.map((choice, index) => (
-            <LumenButton
-              key={choice}
-              variant="outlined"
-              indicator="none"
-              role="radio"
-              aria-checked={state.preference === choice}
-              tabIndex={state.preference === choice ? 0 : -1}
-              onClick={() => language.select(choice)}
-              onKeyDown={(event) => chooseWithKeyboard(event, index)}
-            >
+          {WEB_LANGUAGE_CHOICES.map((choice) => (
+            <ToggleButton key={choice} value={choice}>
               {labels.options[choice]}
-            </LumenButton>
+            </ToggleButton>
           ))}
-        </LumenFrame>
+        </ToggleButtonGroup>
         <LumenText as="p" tone="muted" variant="supporting">
           {labels.currentLanguage(state.locale)}
         </LumenText>
