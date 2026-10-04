@@ -142,7 +142,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
             aria-labelledby="hbar-appearance-theme-label"
             aria-describedby="hbar-appearance-theme-description"
           >
-            {THEME_CHOICES.map((theme, index) => (
+            {THEME_CHOICES.map((theme) => (
               <LumenButton
                 key={theme}
                 className="hbar-web-appearance-theme-choice"

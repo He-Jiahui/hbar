@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { useStore } from 'zustand'
 import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
@@ -170,7 +170,7 @@ function WebGeneralSendBehavior({
   readonly connected: boolean
 }) {
   const state = useStore(controller.store)
-  const recover = (event: MouseEvent<HTMLButtonElement>, action: () => Promise<void>) => {
+  const recover = (_event: MouseEvent<HTMLButtonElement>, action: () => Promise<void>) => {
     void action()
   }
   const choiceDisabled =
@@ -267,7 +267,7 @@ export function WebGeneralSettings({
   readonly connected?: boolean | undefined
 }) {
   const state = useStore(language.store)
-  const retry = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
+  const retry = (_event: MouseEvent<HTMLButtonElement>, action: () => void) => {
     action()
   }
   return (
@@ -296,7 +296,7 @@ export function WebGeneralSettings({
           aria-describedby="hbar-general-language-help"
           className="hbar-web-general-choices"
         >
-          {WEB_LANGUAGE_CHOICES.map((choice, index) => (
+          {WEB_LANGUAGE_CHOICES.map((choice) => (
             <LumenButton
               key={choice}
               variant="outlined"

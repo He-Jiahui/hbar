@@ -13,7 +13,6 @@ import {
 import {
   sandboxDecisionSchema,
   sandboxEscalationSchema,
-  sandboxOsConfinementModeSchema,
   sandboxOsConfinementSchema,
   sandboxPathAccessSchema,
   sandboxProfileIdSchema,

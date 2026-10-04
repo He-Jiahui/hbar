@@ -40,6 +40,7 @@ function editor(overrides: Partial<SandboxProfileEditorState> = {}): SandboxProf
     commands: [{ rowId: 'c1', pattern: 'cargo test *', decision: 'allow' as const }],
     tools: [],
     environment: [{ rowId: 'e1', name: 'CARGO_TARGET_DIR', value: 'bad\u0007value' }],
+    osConfinement: null,
   }
   return {
     editorId: '00000000-0000-4000-8000-000000000001',

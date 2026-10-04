@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
+import { useCallback, useEffect, type ReactNode } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import {
   LumenCollection,
@@ -485,15 +485,6 @@ export function HbarStatusWorkspace({
     )
     if (sources.length > 0) setGitQuery({ sources })
   }
-  const selectGitBucket = (id: string) => {
-    const bucketStart = Number(id)
-    if (!Number.isSafeInteger(bucketStart) || bucketStart < 0) return
-    invoke('statusWorkspace.selectGitBucket', {
-      instanceId,
-      bucketStart: entry?.gitBucketStart === bucketStart ? null : bucketStart,
-    })
-  }
-
   return (
     <LumenFrame as="section" className="hbar-app-react-status-workspace">
       <LumenPageHeader

@@ -16,7 +16,6 @@ import {
   type SandboxDecision,
   type SandboxEscalation,
   type SandboxOsConfinement,
-  type SandboxOsConfinementMode,
   type SandboxPathAccess,
   type SandboxProfile,
   type SandboxProfileId,
