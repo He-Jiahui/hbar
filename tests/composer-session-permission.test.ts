@@ -300,6 +300,7 @@ test('stored sandbox session approval can be loaded and then changed', async () 
     expect((await ready()).choice).toBe('sandbox')
     await permission.refreshSession(session.id)
     expect((await ready()).choice).toBe('sandbox')
+    expect(await kernel.sessionPermissionMode(session.id)).toBe('sandbox')
   } finally {
     permission.dispose()
     navigation.dispose()
