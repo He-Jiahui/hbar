@@ -83,9 +83,22 @@
   overflow-wrap: anywhere;
 }
 
-/* Theme choices: MUI ToggleButtonGroup handles selection state and focus ring. */
+/* Theme choices: LumenButton handles selection via aria-checked/variant. */
 .hbar-web-appearance-theme-choices {
+  display: flex;
   min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-web-appearance-theme-choice {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.hbar-web-appearance-theme-choices .hbar-web-appearance-theme-choice:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
 }
 
 .hbar-web-appearance-settings .hbar-web-appearance-control {

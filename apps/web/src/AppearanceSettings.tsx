@@ -1,7 +1,6 @@
 import { type FormEvent } from 'react'
 import { Palette } from 'lucide-react'
 import { useStore } from 'zustand'
-import { ToggleButton, ToggleButtonGroup } from '@mui/material'
 import {
   LumenButton,
   LumenFrame,
@@ -137,23 +136,28 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           <LumenText as="p" id="hbar-appearance-theme-description" tone="muted" variant="supporting">
             {labels.theme.description}
           </LumenText>
-          <ToggleButtonGroup
-            exclusive
-            value={state.draft.theme}
-            onChange={(_e, val: (typeof THEME_CHOICES)[number] | null) => { if (val !== null) editor.change('theme', val) }}
+          <LumenFrame
+            className="hbar-web-appearance-theme-choices"
             role="radiogroup"
             aria-labelledby="hbar-appearance-theme-label"
             aria-describedby="hbar-appearance-theme-description"
-            className="hbar-web-appearance-theme-choices"
-            disabled={!state.editable || locked}
-            sx={{ flexWrap: 'wrap', gap: 1 }}
           >
-            {THEME_CHOICES.map((theme) => (
-              <ToggleButton key={theme} value={theme} role="radio" aria-checked={state.draft.theme === theme}>
+            {THEME_CHOICES.map((theme, index) => (
+              <LumenButton
+                key={theme}
+                className="hbar-web-appearance-theme-choice"
+                variant={state.draft.theme === theme ? 'contained' : 'outlined'}
+                indicator="none"
+                role="radio"
+                aria-checked={state.draft.theme === theme}
+                tabIndex={state.draft.theme === theme ? 0 : -1}
+                disabled={!state.editable || locked}
+                onClick={() => editor.change('theme', theme)}
+              >
                 {themeOptionLabel(labels, theme)}
-              </ToggleButton>
+              </LumenButton>
             ))}
-          </ToggleButtonGroup>
+          </LumenFrame>
         </LumenFrame>
         {sizeField('controlSize', labels.controlSize)}
         {sizeField('textSize', labels.textSize)}

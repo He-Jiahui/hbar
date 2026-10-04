@@ -1,6 +1,5 @@
 import { useRef, useState, type MouseEvent } from 'react'
 import { useStore } from 'zustand'
-import { ToggleButton, ToggleButtonGroup } from '@mui/material'
 import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
 import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
@@ -193,22 +192,21 @@ function WebGeneralSendBehavior({
       <LumenText as="p" tone="subtle" variant="supporting">
         {labels.hostScope}
       </LumenText>
-      <ToggleButtonGroup
-        exclusive
-        value={state.behavior ?? null}
-        onChange={(_e, val: WebSendBehavior | null) => { if (val !== null) controller.select(val) }}
+      <LumenFrame
+        role="group"
         aria-labelledby="hbar-general-sending-label"
         aria-describedby="hbar-general-sending-help"
         className="hbar-web-general-send-choices"
-        disabled={choiceDisabled}
-        sx={{ flexWrap: 'wrap', gap: 1 }}
       >
         {WEB_SEND_BEHAVIORS.map((behavior) => (
-          <ToggleButton
+          <LumenButton
             key={behavior}
-            value={behavior}
+            variant="outlined"
+            indicator="none"
             className="hbar-web-general-send-choice"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start', textAlign: 'start', flex: '1 1 10rem' }}
+            aria-pressed={state.behavior === behavior}
+            disabled={choiceDisabled}
+            onClick={() => controller.select(behavior)}
           >
             <LumenText as="span" className="hbar-web-general-send-title">
               {labels.options[behavior].label}
@@ -216,9 +214,9 @@ function WebGeneralSendBehavior({
             <LumenText as="span" tone="muted" variant="supporting">
               {labels.options[behavior].description}
             </LumenText>
-          </ToggleButton>
+          </LumenButton>
         ))}
-      </ToggleButtonGroup>
+      </LumenFrame>
       {state.status === 'loading' && <LumenText role="status">{labels.loading}</LumenText>}
       {state.status === 'saved' && <LumenText role="status">{labels.saved}</LumenText>}
       {state.status === 'unsupported' && <LumenText role="alert">{labels.unsupported}</LumenText>}
@@ -292,21 +290,26 @@ export function WebGeneralSettings({
         <LumenText as="p" id="hbar-general-language-help" tone="muted" variant="supporting">
           {labels.languageDescription}
         </LumenText>
-        <ToggleButtonGroup
-          exclusive
-          value={state.preference}
-          onChange={(_e, val: WebLanguagePreference | null) => { if (val !== null) language.select(val) }}
+        <LumenFrame
+          role="radiogroup"
           aria-labelledby="hbar-general-language-label"
           aria-describedby="hbar-general-language-help"
           className="hbar-web-general-choices"
-          sx={{ flexWrap: 'wrap', gap: 0.5 }}
         >
-          {WEB_LANGUAGE_CHOICES.map((choice) => (
-            <ToggleButton key={choice} value={choice}>
+          {WEB_LANGUAGE_CHOICES.map((choice, index) => (
+            <LumenButton
+              key={choice}
+              variant="outlined"
+              indicator="none"
+              role="radio"
+              aria-checked={state.preference === choice}
+              tabIndex={state.preference === choice ? 0 : -1}
+              onClick={() => language.select(choice)}
+            >
               {labels.options[choice]}
-            </ToggleButton>
+            </LumenButton>
           ))}
-        </ToggleButtonGroup>
+        </LumenFrame>
         <LumenText as="p" tone="muted" variant="supporting">
           {labels.currentLanguage(state.locale)}
         </LumenText>
