@@ -230,6 +230,14 @@ struct Connection {
     instance_id: String,
     #[serde(default)]
     pid: Option<u32>,
+    #[serde(default)]
+    supervisor_pid: Option<u32>,
+}
+
+fn launched_by(connection: &Connection, expected_pid: u32) -> bool {
+    expected_pid > 0
+        && connection.pid.is_some_and(|pid| pid > 0)
+        && connection.supervisor_pid.or(connection.pid) == Some(expected_pid)
 }
 
 #[derive(Deserialize)]
@@ -822,7 +830,7 @@ fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
         serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
             .ok()?;
     let url = tauri::Url::parse(&connection.url).ok()?;
-    if expected_pid.is_some() && connection.pid != expected_pid {
+    if expected_pid.is_some_and(|pid| !launched_by(&connection, pid)) {
         return None;
     }
     if url.scheme() != "http" || url.host_str() != Some("127.0.0.1") {
@@ -1132,6 +1140,24 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn launcher_identity_distinguishes_supervisor_from_live_host_and_preserves_legacy_direct_hosts() {
+        let mut connection: Connection = serde_json::from_str(
+            r#"{"url":"http://127.0.0.1:4321","token":"fixture","instanceId":"instance","pid":42,"supervisorPid":7}"#,
+        ).unwrap();
+        assert!(launched_by(&connection, 7));
+        assert!(!launched_by(&connection, 42));
+        assert!(!launched_by(&connection, 99));
+        assert!(!launched_by(&connection, 0));
+        connection.pid = None;
+        assert!(!launched_by(&connection, 7));
+        let legacy: Connection = serde_json::from_str(
+            r#"{"url":"http://127.0.0.1:4321","token":"fixture","instanceId":"instance","pid":42}"#,
+        ).unwrap();
+        assert!(launched_by(&legacy, 42));
+        assert!(!launched_by(&legacy, 7));
+    }
 
     #[test]
     fn native_notification_accepts_title_only_host_records_and_bounds_utf8_body_bytes() {

@@ -7,6 +7,7 @@ import { Kernel } from '@hbar/kernel'
 import { resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
+import { desktopConnection } from './desktop-connection.ts'
 
 export async function runHost(
   args: string[] = Bun.argv.slice(2),
@@ -101,12 +102,14 @@ export async function runHost(
       const device = await host.auth.createDevice('hbar desktop')
       await writeFile(
         layout.connectionFile,
-        JSON.stringify({
-          url: `${values.cert ? 'https' : 'http'}://127.0.0.1:${host.server.port}`,
-          token: device.token,
-          pid: process.pid,
-          instanceId: kernel.instanceId,
-        }),
+        JSON.stringify(
+          desktopConnection(
+            `${values.cert ? 'https' : 'http'}://127.0.0.1:${host.server.port}`,
+            device.token,
+            kernel.instanceId,
+            values.supervised ?? false,
+          ),
+        ),
         { mode: 0o600 },
       )
     }
