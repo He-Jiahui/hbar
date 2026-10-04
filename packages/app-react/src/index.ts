@@ -178,6 +178,14 @@ export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './ext
 export { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
+export {
+  HbarSandboxProfileSettings,
+  HbarSandboxProfilesView,
+  type HbarSandboxConfirmation,
+  type HbarSandboxOpenTarget,
+  type HbarSandboxProfileSettingsLabels,
+  type HbarSandboxProfilesViewProps,
+} from './sandbox-profile-settings'
 export { HbarSettingsUsage, SETTINGS_USAGE_MODELS_PER_PAGE, type HbarSettingsUsageLabels } from './settings-usage'
 export { HbarUsageFeatures, type HbarUsageFeaturesLabels, type HbarUsageFeaturesProps } from './usage-features'
 export { HbarUsageRequests, type HbarUsageRequestsLabels, type HbarUsageRequestsProps } from './usage-requests'

@@ -168,6 +168,13 @@ export interface RuntimeOptions {
     readonly saveLastGlobalGroup?: (groupId: string) => void
   }
   readonly configuration?: CommandExecutor
+  /** Host sandbox profile commands (`sandbox.*`). */
+  readonly sandbox?: CommandExecutor
+  /** Sandbox profile change hints; they refresh the list and never acknowledge a write. */
+  readonly sandboxEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   /** Durable Host mode.get/set for this session, separate from per-send approval choices. */
   readonly planMode?: CommandExecutor
   /** Exact Host mode.changed notifications invalidate the active session's confirmed mode projection. */

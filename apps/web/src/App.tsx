@@ -78,6 +78,7 @@ import {
   createWorkspaceSessionCommandClient,
   createNotificationCommandClient,
   createPromptTemplateCommandClient,
+  createSandboxCommandClient,
   createScheduleCommandClient,
 } from '@hbar/client'
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
@@ -159,6 +160,9 @@ const GoalPlanWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-re
 )
 const SettingsWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/settings').HbarSettingsWorkspace>>(
   () => import('@hbar/app-react/settings').then((m) => ({ default: m.HbarSettingsWorkspace })),
+)
+const SandboxProfileSettings = lazySurface<ComponentProps<typeof import('@hbar/app-react').HbarSandboxProfileSettings>>(
+  () => import('@hbar/app-react').then((m) => ({ default: m.HbarSandboxProfileSettings })),
 )
 const ProviderSettings = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderSettings>>(
   () => import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderSettings })),
@@ -377,6 +381,13 @@ function createRuntime(
       },
     },
     settingsLanding,
+    sandbox: createSandboxCommandClient(client),
+    sandboxEvents: {
+      subscribe: (listener) =>
+        client.onEvent((event) => {
+          if (event.method === 'host.changed' && ['sandbox-profiles', 'resync'].includes(event.params.kind)) listener()
+        }),
+    },
     configuration: createConfigurationCommandClient(client),
     planMode: createConfigurationCommandClient(client),
     planModeEvents: {
@@ -700,6 +711,7 @@ function WorkspaceBodyContent({
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
         pendingGroups={[
           { id: 'providers', label: copy.settings.resolve('i18n:settings.groups.providers'), order: 0 },
+          { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'model', label: copy.settings.resolve('i18n:settings.groups.model'), order: 20 },
           { id: 'session', label: copy.settings.resolve('i18n:settings.groups.session'), order: 30 },
           { id: 'extensions', label: copy.settings.resolve('i18n:settings.groups.extensions'), order: 40 },
@@ -732,6 +744,7 @@ function WorkspaceBodyContent({
               />
             )
           if (groupId === 'providers') return <ProviderSettings labels={copy.providers.list} connected={connected} />
+          if (groupId === 'sandbox') return <SandboxProfileSettings labels={copy.sandbox} connected={connected} />
           if ((groupId === 'extensions' || groupId === 'skills') && presentation.page.kind === 'settings')
             return (
               <ExtensionWorkspace

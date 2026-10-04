@@ -8,6 +8,7 @@ import {
   Puzzle,
   Server,
   Settings,
+  ShieldHalf,
   Sparkles,
   Stethoscope,
   type LucideIcon,
@@ -102,7 +103,16 @@ export interface HbarSettingsAdditionalGroup {
 }
 
 export type HbarSettingsGroupIcon =
-  'appearance' | 'model' | 'session' | 'providers' | 'extensions' | 'skills' | 'diagnostics' | 'usage' | 'settings'
+  | 'appearance'
+  | 'model'
+  | 'session'
+  | 'providers'
+  | 'sandbox'
+  | 'extensions'
+  | 'skills'
+  | 'diagnostics'
+  | 'usage'
+  | 'settings'
 
 export interface HbarSettingsGroupPresentation {
   readonly id: string
@@ -121,6 +131,7 @@ const groupIcons = {
   skills: Sparkles,
   diagnostics: Stethoscope,
   usage: ChartNoAxesCombined,
+  sandbox: ShieldHalf,
   settings: Settings,
 } satisfies Readonly<Record<HbarSettingsGroupIcon, LucideIcon>>
 

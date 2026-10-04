@@ -19,6 +19,7 @@ import type {
   HbarSettingsWorkspaceLabels,
   HbarSettingsUsageLabels,
   HbarStatusWorkspaceLabels,
+  HbarSandboxProfileSettingsLabels,
   HbarSystemDiagnosticsLabels,
   HbarWorkspaceShellLabels,
   SessionArchiveBatchLabels,
@@ -104,6 +105,7 @@ interface ShellCopy {
   readonly status: HbarStatusWorkspaceLabels
   readonly diagnostics: HbarSystemDiagnosticsLabels
   readonly settingsUsage: HbarSettingsUsageLabels
+  readonly sandbox: HbarSandboxProfileSettingsLabels
 }
 
 function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabels {
@@ -543,6 +545,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.session': '会话默认值',
         'i18n:settings.groups.providers': '供应商',
         'i18n:settings.groups.extensions': '插件',
+        'i18n:settings.groups.sandbox': '沙盒配置',
         'i18n:settings.groups.skills': '技能',
         'i18n:settings.provider.model.label': '模型',
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
@@ -563,6 +566,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.session': 'Session defaults',
         'i18n:settings.groups.providers': 'Providers',
         'i18n:settings.groups.extensions': 'Plugins',
+        'i18n:settings.groups.sandbox': 'Sandbox profiles',
         'i18n:settings.groups.skills': 'Skills',
         'i18n:settings.provider.model.label': 'Model',
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
@@ -2706,6 +2710,228 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
   }
 }
 
+function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLabels {
+  const zh = locale === 'zh-CN'
+  const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  type Issue = Parameters<HbarSandboxProfileSettingsLabels['issue']>[0]
+  const builtinNames: Readonly<Record<':read-only' | ':workspace-write', string>> = {
+    ':read-only': choose('只读', 'Read only'),
+    ':workspace-write': choose('工作区可写', 'Workspace write'),
+  }
+  const fieldNames: Readonly<Record<Issue['field'], string>> = {
+    id: choose('配置 ID', 'Profile ID'),
+    name: choose('名称', 'Name'),
+    description: choose('说明', 'Description'),
+    extends: choose('继承', 'Extends'),
+    grants: choose('路径', 'Path'),
+    commands: choose('命令模式', 'Command pattern'),
+    tools: choose('工具名', 'Tool name'),
+    environment: choose('变量名', 'Variable name'),
+  }
+  const columnNames: Readonly<Record<NonNullable<Issue['column']>, string>> = {
+    path: choose('路径', 'Path'),
+    pattern: choose('命令模式', 'Command pattern'),
+    tool: choose('工具名', 'Tool name'),
+    name: choose('变量名', 'Variable name'),
+    value: choose('变量值', 'Variable value'),
+  }
+  const errors: Readonly<Partial<Record<string, string>>> = {
+    COMMAND_CONFLICT: choose('配置已在别处修改。', 'The profile was changed elsewhere.'),
+    SANDBOX_PROFILE_IN_USE: choose(
+      '其他配置继承了它，先修改或删除那些配置。',
+      'Another profile extends it; change or delete that profile first.',
+    ),
+    SANDBOX_PROFILE_NOT_FOUND: choose('继承的配置不存在。', 'The parent profile does not exist.'),
+    SANDBOX_PROFILE_CYCLE: choose('继承关系形成了循环。', 'The extends chain forms a cycle.'),
+    SANDBOX_PROFILE_TOO_DEEP: choose(
+      '继承层级过深（最多 4 层）。',
+      'The extends chain is too deep (at most 4 levels).',
+    ),
+    LIMIT_EXCEEDED: choose('最多保存 64 个配置。', 'At most 64 profiles can be stored.'),
+    NOT_COMMITTED: choose(
+      '上次保存未生效，可修改后重新保存。',
+      'The last save did not take effect; edit and save again.',
+    ),
+    DRAFT_DIRTY: choose('有未保存的修改。', 'There are unsaved changes.'),
+    SUBMISSION_PENDING: choose('请先处理未完成的保存或删除。', 'Resolve the pending save or delete first.'),
+    INVALID_INPUT: choose('请先修正标出的字段。', 'Fix the highlighted fields first.'),
+    CAPABILITY_UNAVAILABLE: choose('当前连接不提供沙盒配置。', 'This connection does not provide sandbox profiles.'),
+    NOT_FOUND: choose('该配置已不存在。', 'This profile no longer exists.'),
+  }
+  const error = (code: string) => errors[code] ?? choose(`操作失败：${code}`, `The action failed: ${code}`)
+  return {
+    title: choose('沙盒配置', 'Sandbox profiles'),
+    description: choose(
+      '审批为“沙盒配置”时，按这些规则放行、询问或拒绝工具调用。文件工具受路径规则约束；放行的命令不受文件规则约束。',
+      'With Sandbox profile approval, tool calls are allowed, asked, or denied by these rules. File tools follow path rules; an allowed command is not confined by them.',
+    ),
+    refresh: choose('刷新', 'Refresh'),
+    loading: choose('正在读取配置…', 'Loading profiles…'),
+    unavailable: choose('当前连接不提供沙盒配置。', 'This connection does not provide sandbox profiles.'),
+    disconnected: choose('未连接 Host，暂时无法修改。', 'Not connected to the Host; changes are unavailable.'),
+    profiles: choose('配置列表', 'Profiles'),
+    create: choose('新建配置', 'New profile'),
+    createFrom: choose('基于此新建', 'New profile from this'),
+    builtin: choose('内置', 'Built-in'),
+    profileName: (profile) =>
+      profile.builtin && (profile.id === ':read-only' || profile.id === ':workspace-write')
+        ? builtinNames[profile.id]
+        : profile.name || profile.id,
+    revision: (revision) => choose(`版本 ${revision}`, `Revision ${revision}`),
+    listError: (code) => choose(`配置列表读取失败：${error(code)}`, `Could not load profiles: ${error(code)}`),
+    noSelection: choose('选择一个配置查看规则，或新建配置。', 'Select a profile to view its rules, or create one.'),
+    editorLoading: choose('正在读取配置…', 'Loading profile…'),
+    missing: choose('该配置已不存在。', 'This profile no longer exists.'),
+    readonlyHint: choose(
+      '内置配置不可修改，可基于它新建配置。',
+      'Built-in profiles are read-only; create a profile that extends one.',
+    ),
+    newTitle: choose('新建配置', 'New profile'),
+    fields: {
+      id: choose('配置 ID', 'Profile ID'),
+      idHint: choose(
+        '小写字母、数字、- 或 _，保存后不可修改。',
+        'Lowercase letters, digits, - or _. Fixed after saving.',
+      ),
+      name: choose('名称', 'Name'),
+      description: choose('说明', 'Description'),
+      extends: choose('继承', 'Extends'),
+      noParent: choose('不继承', 'None'),
+      unknownParent: (id) => choose(`${id}（不存在）`, `${id} (missing)`),
+      escalation: choose('超出配置时', 'Outside the profile'),
+      escalationHint: choose(
+        '询问：等待你的决定；拒绝：不询问直接拒绝。',
+        'Ask waits for your decision; Deny refuses without asking.',
+      ),
+      fileDefault: choose('未授权路径', 'Unlisted paths'),
+      network: choose('网络工具', 'Network tools'),
+    },
+    inherit: choose('继承', 'Inherit'),
+    escalationOptions: { ask: choose('询问', 'Ask'), deny: choose('拒绝', 'Deny') },
+    accessOptions: {
+      none: choose('禁止', 'No access'),
+      read: choose('只读', 'Read'),
+      write: choose('读写', 'Read and write'),
+    },
+    decisionOptions: { allow: choose('放行', 'Allow'), ask: choose('询问', 'Ask'), deny: choose('拒绝', 'Deny') },
+    networkOptions: { enabled: choose('允许', 'Allowed'), disabled: choose('超出配置', 'Outside the profile') },
+    grants: {
+      title: choose('路径授权', 'Path grants'),
+      hint: choose(
+        '相对路径以工作区为根；目录包含其子路径，支持 *、? 和 **。最具体的规则生效。',
+        'Relative paths start at the workspace root; a directory covers its subtree; *, ? and ** are globs. The most specific rule wins.',
+      ),
+      empty: choose('没有路径授权。', 'No path grants.'),
+      add: choose('添加路径', 'Add path'),
+      remove: (value) => choose(`移除路径 ${value || '（空）'}`, `Remove path ${value || '(empty)'}`),
+      path: choose('路径', 'Path'),
+      pathPlaceholder: choose('例如 src 或 docs/**/*.md', 'For example src or docs/**/*.md'),
+      access: choose('访问级别', 'Access'),
+    },
+    commands: {
+      title: choose('命令规则', 'Command rules'),
+      hint: choose(
+        '按词匹配，末尾单独的 * 匹配其余参数。复合命令每段都需放行；拒绝优先。',
+        'Matched word by word; a final * matches the remaining arguments. Every part of a compound command must be allowed; Deny wins.',
+      ),
+      empty: choose('没有命令规则，所有命令都超出配置。', 'No command rules; every command is outside the profile.'),
+      add: choose('添加命令', 'Add command'),
+      remove: (value) => choose(`移除命令 ${value || '（空）'}`, `Remove command ${value || '(empty)'}`),
+      pattern: choose('命令模式', 'Command pattern'),
+      patternPlaceholder: choose('例如 git *', 'For example git *'),
+      decision: choose('处理方式', 'Decision'),
+      warning: choose(
+        'hbar 没有系统级进程沙盒：放行的命令可写入当前用户可写的任何位置。',
+        'hbar has no OS-level process sandbox: an allowed command can write anywhere the user can.',
+      ),
+    },
+    tools: {
+      title: choose('工具规则', 'Tool rules'),
+      hint: choose(
+        '按工具名指定处理方式；放行不会绕过路径和命令规则。',
+        'Set a decision per tool name; Allow does not bypass path or command rules.',
+      ),
+      empty: choose('没有工具规则。', 'No tool rules.'),
+      add: choose('添加工具', 'Add tool'),
+      remove: (value) => choose(`移除工具 ${value || '（空）'}`, `Remove tool ${value || '(empty)'}`),
+      tool: choose('工具名', 'Tool name'),
+      toolPlaceholder: choose('例如 web_fetch', 'For example web_fetch'),
+      decision: choose('处理方式', 'Decision'),
+    },
+    environment: {
+      title: choose('环境变量', 'Environment variables'),
+      hint: choose(
+        '仅在沙盒审批下设置给命令；PATH、PATHEXT 不可覆盖。',
+        'Set for commands only under Sandbox profile approval; PATH and PATHEXT cannot be overridden.',
+      ),
+      empty: choose('没有环境变量。', 'No environment variables.'),
+      add: choose('添加变量', 'Add variable'),
+      remove: (value) => choose(`移除变量 ${value || '（空）'}`, `Remove variable ${value || '(empty)'}`),
+      name: choose('变量名', 'Variable name'),
+      namePlaceholder: choose('例如 CARGO_TARGET_DIR', 'For example CARGO_TARGET_DIR'),
+      value: choose('变量值', 'Variable value'),
+    },
+    issue: (issue) => {
+      const label = issue.column ? columnNames[issue.column] : fieldNames[issue.field]
+      if (issue.code === 'required') return choose(`请填写${label}。`, `${label} is required.`)
+      if (issue.code === 'duplicate') return choose(`${label}重复。`, `${label} is already listed.`)
+      if (issue.code === 'protected')
+        return choose('PATH 和 PATHEXT 不可覆盖。', 'PATH and PATHEXT cannot be overridden.')
+      if (issue.code === 'self') return choose('配置不能继承自己。', 'A profile cannot extend itself.')
+      if (issue.code === 'limit') return choose('该分组的条目超出上限。', 'This section has too many entries.')
+      return choose(`${label}格式不正确。`, `${label} is not valid.`)
+    },
+    effective: {
+      title: choose('生效规则', 'Effective rules'),
+      chain: (names) => choose(`继承链：${names.join(' → ')}`, `Chain: ${names.join(' → ')}`),
+      unresolved: (message) => choose(`无法解析该配置：${message}`, `This profile cannot be resolved: ${message}`),
+      summary: ({ escalation, fileDefault, network }) =>
+        choose(
+          `超出配置时：${escalation}；未授权路径：${fileDefault}；网络工具：${network}`,
+          `Outside the profile: ${escalation}; unlisted paths: ${fileDefault}; network tools: ${network}`,
+        ),
+      rules: ({ grants, commands, tools, environment }) =>
+        choose(
+          `${grants} 条路径、${commands} 条命令、${tools} 条工具规则、${environment} 个变量`,
+          `${grants} paths, ${commands} commands, ${tools} tool rules, ${environment} variables`,
+        ),
+    },
+    save: choose('保存', 'Save'),
+    saving: choose('正在保存…', 'Saving…'),
+    saved: choose('已保存。', 'Saved.'),
+    discard: choose('放弃修改', 'Discard changes'),
+    delete: choose('删除', 'Delete'),
+    deleting: choose('正在删除…', 'Deleting…'),
+    deleteConfirm: (name) =>
+      choose(
+        `删除配置“${name}”？仍选中它的新运行将无法受理。`,
+        `Delete profile “${name}”? New runs that still select it will be refused.`,
+      ),
+    confirmDelete: choose('确认删除', 'Delete profile'),
+    discardConfirm: choose(
+      '当前配置有未保存的修改，放弃并打开另一个？',
+      'This profile has unsaved changes. Discard them and open another?',
+    ),
+    confirmDiscard: choose('放弃并打开', 'Discard and open'),
+    cancel: choose('取消', 'Cancel'),
+    unknown: (action) =>
+      action === 'save'
+        ? choose('保存结果未确认，Host 可能已经保存。', 'The save result is unconfirmed; the Host may have saved it.')
+        : choose(
+            '删除结果未确认，Host 可能已经删除。',
+            'The delete result is unconfirmed; the Host may have deleted it.',
+          ),
+    reconcile: choose('核对结果', 'Check result'),
+    retry: choose('按原请求重试', 'Retry same request'),
+    conflict: choose(
+      '配置已在别处修改。重新读取会放弃当前修改。',
+      'The profile changed elsewhere. Reloading discards your changes.',
+    ),
+    reload: choose('重新读取', 'Reload'),
+    error,
+  }
+}
+
 function createSystemDiagnosticsLabels(locale: ShellLocale): HbarSystemDiagnosticsLabels {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
@@ -3284,6 +3510,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     extensions: createExtensionWorkspaceLabels('zh-CN'),
     status: createStatusWorkspaceLabels('zh-CN'),
     diagnostics: createSystemDiagnosticsLabels('zh-CN'),
+    sandbox: createSandboxLabels('zh-CN'),
     settingsUsage: settingsUsageCopy('zh-CN'),
   },
   'en-US': {
@@ -3430,6 +3657,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
     extensions: createExtensionWorkspaceLabels('en-US'),
     status: createStatusWorkspaceLabels('en-US'),
     diagnostics: createSystemDiagnosticsLabels('en-US'),
+    sandbox: createSandboxLabels('en-US'),
     settingsUsage: settingsUsageCopy('en-US'),
   },
 }
