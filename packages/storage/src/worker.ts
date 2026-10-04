@@ -2796,3 +2796,5 @@ parentPort!.on('message', ({ id, method, args }: StorageCall) => {
   }
   parentPort!.postMessage(reply)
 })
+
+}

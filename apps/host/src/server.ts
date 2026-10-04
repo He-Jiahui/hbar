@@ -2,7 +2,6 @@ import { networkInterfaces } from 'node:os'
 import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
@@ -1144,7 +1143,6 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'plugin.disable': {
         const p = rpcSchemas[method].parse(raw)
         return extensionCommands.execute('plugin.disable', p, { actorId: socket.data.deviceId! })
-      }
       }
       case 'plugin.resolve': {
         const p = rpcSchemas[method].parse(raw)

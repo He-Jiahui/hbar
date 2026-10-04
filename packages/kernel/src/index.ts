@@ -824,7 +824,6 @@ export class Kernel {
   async sessionSummaries(ids: string[]): Promise<SessionSummary[]> {
     return this.storage.call('sessionSummaries', ids)
   }
-  async models(): Promise<ModelInfo[]> {
   async models(options: { includeHidden?: boolean } = {}): Promise<ModelInfo[]> {
     const providers = (await this.storage.call('providers')).filter(
       (provider) => (provider.protocol !== 'mock' || this.options.demo) && (options.includeHidden || provider.visible),
@@ -2224,7 +2223,6 @@ export class Kernel {
     for (const event of events) this.publishEvent(event)
     if (events.length) this.changed('sessions')
   }
-  async compact(sessionId: string, modelId: string) {
   async removeQueuedRun(request: QueuedRunRemoveInput, actorId: string, idempotencyKey: string) {
     const { receipt, event } = await this.storage.call('removeQueuedRun', { request, actorId, idempotencyKey })
     // Replaying the same committed event is safe: session subscribers deduplicate by seq/eventId.
