@@ -448,6 +448,8 @@ function writeSettings(scope: import('@hbar/contracts').SettingScope, targetId: 
     if (existsSync(temporary)) rmSync(temporary, { force: true })
   }
   return next
+}
+
 function entityPayloadHash(commandId: string, input: unknown): string {
   return createHash('sha256')
     .update(stableJson({ commandId, version: 1, input }))
@@ -2796,5 +2798,3 @@ parentPort!.on('message', ({ id, method, args }: StorageCall) => {
   }
   parentPort!.postMessage(reply)
 })
-
-}
