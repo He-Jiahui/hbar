@@ -85,6 +85,17 @@ export const sandboxToolRuleSchema = z.strictObject({
   decision: sandboxDecisionSchema,
 })
 
+export const sandboxOsConfinementModeSchema = z.enum(['unelevated', 'elevated'])
+/**
+ * OS-level process confinement settings carried by a profile.
+ * `unelevated` uses a restricted token (no UAC); `elevated` uses dedicated sandbox
+ * user accounts and Windows Firewall rules for real network isolation.
+ */
+export const sandboxOsConfinementSchema = z.strictObject({
+  enabled: z.boolean(),
+  mode: sandboxOsConfinementModeSchema,
+})
+
 /** Stable identity for duplicate detection and `extends` overrides; matching itself is done by the Host. */
 export function sandboxPathKey(path: string): string {
   const slashes = path.replaceAll('\\', '/').replace(/\/{2,}/g, '/')
@@ -117,6 +128,12 @@ const profileFields = {
    * Optional so profiles stored before this field still load.
    */
   environment: environmentSchema(SANDBOX_MAX_ENVIRONMENT).optional(),
+  /**
+   * OS-level process confinement. When set, commands admitted by this profile are launched inside a
+   * restricted Windows token (`unelevated`) or a dedicated sandbox user account (`elevated`).
+   * Optional so profiles stored before this field still load.
+   */
+  osConfinement: sandboxOsConfinementSchema.optional(),
 }
 
 function uniqueRules(
@@ -207,6 +224,8 @@ export const resolvedSandboxProfileSchema = z.strictObject({
   tools: z.strictObject({ rules: z.array(sandboxToolRuleSchema).max(SANDBOX_MAX_TOOL_RULES * MAX_CHAIN) }),
   /** Defaults for snapshots created before environment overrides existed. */
   environment: environmentSchema(SANDBOX_MAX_ENVIRONMENT * MAX_CHAIN).default({ set: {} }),
+  /** OS-level process confinement from the most-specific profile in the chain that sets it. */
+  osConfinement: sandboxOsConfinementSchema.optional(),
 })
 
 /** Host-created reference carried by a Run; the digest names an immutable resolved profile. */
@@ -223,6 +242,8 @@ export type SandboxPathAccess = z.infer<typeof sandboxPathAccessSchema>
 export type SandboxPathGrant = z.infer<typeof sandboxPathGrantSchema>
 export type SandboxCommandRule = z.infer<typeof sandboxCommandRuleSchema>
 export type SandboxToolRule = z.infer<typeof sandboxToolRuleSchema>
+export type SandboxOsConfinementMode = z.infer<typeof sandboxOsConfinementModeSchema>
+export type SandboxOsConfinement = z.infer<typeof sandboxOsConfinementSchema>
 export type SandboxProfileBody = z.infer<typeof sandboxProfileBodySchema>
 export type SandboxProfile = z.infer<typeof sandboxProfileSchema>
 export type ResolvedSandboxProfile = z.infer<typeof resolvedSandboxProfileSchema>

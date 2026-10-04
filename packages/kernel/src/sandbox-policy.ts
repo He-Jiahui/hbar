@@ -11,6 +11,7 @@ import {
   type SandboxCommandRule,
   type SandboxDecision,
   type SandboxEscalation,
+  type SandboxOsConfinement,
   type SandboxPathAccess,
   type SandboxPathGrant,
   type SandboxProfile,
@@ -101,6 +102,7 @@ export async function resolveSandboxProfile(
   let escalation: SandboxEscalation = 'ask'
   let fileDefault: SandboxPathAccess = 'read'
   let network = false
+  let osConfinement: SandboxOsConfinement | undefined
   const grants = new Map<string, SandboxPathGrant>()
   const commands = new Map<string, SandboxCommandRule>()
   const tools = new Map<string, SandboxToolRule>()
@@ -114,6 +116,8 @@ export async function resolveSandboxProfile(
     escalation = profile.escalation ?? escalation
     fileDefault = profile.filesystem.default ?? fileDefault
     network = profile.network.enabled ?? network
+    // Most-specific profile with osConfinement set wins; iterating least→most-specific means last write wins.
+    if (profile.osConfinement !== undefined) osConfinement = profile.osConfinement
     for (const grant of profile.filesystem.grants) override(grants, sandboxPathKey(grant.path), grant)
     for (const rule of profile.commands.rules) override(commands, sandboxCommandKey(rule.pattern), rule)
     for (const rule of profile.tools.rules) override(tools, rule.tool, rule)
@@ -130,6 +134,7 @@ export async function resolveSandboxProfile(
     network: { enabled: network },
     tools: { rules: [...tools.values()] },
     environment: { set: Object.fromEntries(environment.values()) },
+    ...(osConfinement !== undefined ? { osConfinement } : {}),
   })
 }
 
