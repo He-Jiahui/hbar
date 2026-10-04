@@ -27,7 +27,7 @@ import {
   sessionListInputSchema,
   sessionGetInputSchema,
 } from './state/directory'
-import type { Workspace, Session, WorkspacePage, SessionPage } from './state/directory'
+import type { Workspace, WorkspacePage, SessionPage } from './state/directory'
 import { MAX_PLAN_STEPS, planStepSchema } from './plan'
 import type { PlanState } from './plan'
 export * from './state/directory'
