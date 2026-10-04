@@ -719,6 +719,7 @@ function WorkspaceBodyContent({
         additionalGroups={[
           ...(language ? [{ id: 'general', label: copy.general.group, order: 5 }] : []),
           { id: 'appearance', label: copy.appearance.group, order: 0 },
+          { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
