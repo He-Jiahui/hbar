@@ -93,15 +93,6 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     if (!state.writable || locked || !dirty) return
     void editor.save()
   }
-  const chooseThemeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: number) => {
-    const next = themeChoiceFromKey(event.key, current)
-    if (next === null) return
-    event.preventDefault()
-    const theme = THEME_CHOICES[next]
-    if (!theme) return
-    editor.change('theme', theme)
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
-  }
   const sizeField = (
     dimension: AppearanceDimension,
     field: { readonly label: string; readonly description: string },
