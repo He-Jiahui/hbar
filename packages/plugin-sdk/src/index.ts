@@ -137,9 +137,26 @@ export interface ModelRegistry {
   get(id: string): Promise<ProviderConfig>
   secret(id: string): Promise<string | null>
 }
+export interface OsConfinementOptions {
+  readonly level: 'unelevated' | 'elevated'
+  /** Absolute paths the sandboxed process may write to. */
+  readonly writableRoots: readonly string[]
+  /** Absolute paths the sandboxed process may read from (elevated only). */
+  readonly readableRoots: readonly string[]
+  /** Whether network-blocking env vars should NOT be applied (true = allow network). */
+  readonly networkEnabled: boolean
+  /** Additional env vars to set inside the sandbox. */
+  readonly envOverrides: Readonly<Record<string, string>>
+}
+
 export interface ExecOptions {
   /** Applied over the inherited environment; the Host never passes PATH or PATHEXT. */
   readonly environment?: Readonly<Record<string, string>> | undefined
+  /**
+   * When present, the command is launched inside an OS-level sandbox instead of the
+   * current user's process context. Windows only; ignored on other platforms.
+   */
+  readonly osConfinement?: OsConfinementOptions | undefined
 }
 export interface ExecutionProvider {
   list(workspace: string, path: string): Promise<FileEntry[]>
