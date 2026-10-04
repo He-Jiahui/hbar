@@ -1,0 +1,25 @@
+This product includes code adapted from codex-rs/windows-sandbox-rs
+(https://github.com/openai/codex, commit e01f38c3, September 2026).
+
+Original license: Apache License, Version 2.0
+Original copyright: OpenAI
+
+The vendored files are located in:
+  plugins/local-tools/sandbox/src/vendor/
+
+The adapted code provides OS-level process sandboxing for Windows:
+- Restricted token creation (token.rs, adapted from codex-rs token.rs)
+- Filesystem ACL management (acl.rs, adapted from codex-rs acl.rs)
+- Capability SID creation and storage (cap.rs, adapted from codex-rs cap.rs)
+- Process spawning under restricted identity (process.rs, spawn_prep.rs)
+- Network-blocking environment variables (env.rs)
+- Elevated sandbox user accounts and WFP network filters (identity.rs, wfp.rs)
+
+Type replacements relative to the original:
+- codex_protocol::models::PermissionProfile → HbarPermissionProfile (this crate)
+- codex_utils_absolute_path::AbsolutePathBuf → std::path::PathBuf
+- codex_utils_pty::JobObject → crate::vendor::job_object::JobObject
+- codex_utils_pty::SpawnedProcess → crate::SandboxedProcess
+- codex_otel::* → removed (no telemetry in hbar)
+
+hbar itself is distributed under the MIT License.
