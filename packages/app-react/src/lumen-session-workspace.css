@@ -234,6 +234,7 @@
   gap: 0.25rem;
   margin-inline: auto;
   padding: 0.5rem var(--hbar-session-reading-column-inline-gutter) 1rem;
+  overflow: hidden;
   container-name: session-project-context;
   container-type: inline-size;
 }
