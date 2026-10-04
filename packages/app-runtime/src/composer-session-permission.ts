@@ -1,4 +1,5 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
+import { approvalModeSchema } from '@hbar/contracts'
 import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import { settingsCommands, type SettingsReceipt, type SettingsSnapshot } from '@hbar/contracts/commands/settings'
 import { encodePath } from '@hbar/schema-core'
@@ -99,8 +100,9 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
     if (!report) throw new CommandError('INVALID_OUTPUT', 'Session approval report is missing')
     const raw = report.localPresence ? report.localValue : null
     if (raw === null || raw === undefined) return 'inherit'
-    if (raw === 'ask' || raw === 'deny' || raw === 'allow') return raw
-    throw new CommandError('INVALID_OUTPUT', 'Session approval is not a known mode')
+    const parsed = approvalModeSchema.safeParse(raw)
+    if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Session approval is not a known mode')
+    return parsed.data
   }
   const readSetting = async (sessionId: string) => {
     selected(sessionId)
