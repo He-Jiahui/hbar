@@ -1562,12 +1562,14 @@ export class Kernel {
       let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       let denial = 'Tool denied by policy'
       let environment: Readonly<Record<string, string>> | undefined
+      let osConfinement: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
       // A policy plugin may still forbid a call; otherwise the Run's sandbox profile decides.
       if (mode === 'sandbox' && decision !== 'deny') {
         const sandbox = await this.sandboxDecision(tool, args, context)
         decision = sandbox.decision
         denial = sandbox.denial
         environment = sandbox.environment
+        osConfinement = sandbox.osConfinement
       }
       // The sandbox has already decided which calls need the user, so they are asked like `ask` mode.
       const gate = mode === 'sandbox' ? 'ask' : mode
@@ -1606,7 +1608,11 @@ export class Kernel {
       // The environment is Host-owned: drop any value a hook placed on the mutable context and
       // give only the executing tool the sandbox profile's variables.
       const { environment: _hookEnvironment, ...plain } = context
-      result = await tool.execute(args, environment ? { ...plain, environment } : plain)
+      const execOverrides = {
+        ...(environment ? { environment } : {}),
+        ...(osConfinement ? { osConfinement } : {}),
+      }
+      result = await tool.execute(args, Object.keys(execOverrides).length ? { ...plain, ...execOverrides } : plain)
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
@@ -1660,6 +1666,7 @@ export class Kernel {
     decision: 'allow' | 'ask' | 'deny'
     denial: string
     environment?: Readonly<Record<string, string>> | undefined
+    osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
   }> {
     const ref = context.run.input.sandbox
     let profile: Awaited<ReturnType<SandboxProfileService['loadSnapshot']>>
@@ -1671,11 +1678,40 @@ export class Kernel {
       return { decision: 'deny', denial: `Denied: ${error.message}` }
     }
     const verdict = await evaluateSandboxCall(profile, { tool, args, workspace: context.workspace.path })
-    return {
+    const result: {
+      decision: 'allow' | 'ask' | 'deny'
+      denial: string
+      environment?: Readonly<Record<string, string>>
+      osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions
+    } = {
       decision: verdict.decision,
       denial: `Denied by sandbox profile ${profile.profileId}: ${describeSandboxReason(verdict.reason)}`,
-      ...(Object.keys(profile.environment.set).length ? { environment: profile.environment.set } : {}),
     }
+    if (Object.keys(profile.environment.set).length) result.environment = profile.environment.set
+    if (profile.osConfinement?.enabled) {
+      const writableRoots = profile.filesystem.grants
+        .filter((g) => g.access === 'write')
+        .map((g) =>
+          g.path.startsWith('/') || /^[A-Za-z]:/.test(g.path)
+            ? g.path
+            : `${context.workspace.path}/${g.path}`,
+        )
+      const readableRoots = profile.filesystem.grants
+        .filter((g) => g.access === 'read')
+        .map((g) =>
+          g.path.startsWith('/') || /^[A-Za-z]:/.test(g.path)
+            ? g.path
+            : `${context.workspace.path}/${g.path}`,
+        )
+      result.osConfinement = {
+        level: profile.osConfinement.mode,
+        writableRoots,
+        readableRoots,
+        networkEnabled: profile.network.enabled,
+        envOverrides: profile.environment.set,
+      }
+    }
+    return result
   }
   private async requestApproval(
     tool: string,
