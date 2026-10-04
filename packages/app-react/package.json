@@ -36,6 +36,7 @@
     "@hbar/schema-react": "workspace:*",
     "@lumen/app-ui": "workspace:*",
     "dompurify": "3.4.15",
+    "echarts": "6.1.0",
     "lucide-react": "1.43.0",
     "mermaid": "11.17.2",
     "react-markdown": "10.1.0",

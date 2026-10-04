@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import {
   LumenCollection,
@@ -6,7 +6,6 @@ import {
   LumenFrame,
   LumenOption,
   LumenText,
-  LumenBarSeries,
   LumenButton,
   LumenActionMenu,
   LumenCheckBox,
@@ -27,6 +26,7 @@ import {
 import { workspaceDisplayName, type StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
+import { EchartsChart, type EChartsOption } from './echarts-chart'
 import './lumen-status-workspace.css'
 
 type PerformanceReport = NonNullable<StatusWorkspaceEntryState['performance']>
@@ -280,25 +280,26 @@ export function HbarStatusWorkspace({
         }
       return { id: key, label: labels.readings[key], value: formatMetric(metric, labels) }
     })
-  const chart = (key: 'systemCpuPercent' | 'hostCpuPercent') => (
-    <LumenBarSeries
-      label={labels.readings[key]}
-      maximum={100}
-      points={(report?.points ?? []).map((point) => {
-        const metric = point.readings[key]
-        return {
-          id: String(point.start),
-          value: metric.availability === 'available' && metric.value !== null ? metric.value : 0,
-          label: `${labels.observedAt(point.start)} · ${formatMetric(metric, labels)}`,
-        }
-      })}
-      empty={
-        <LumenText as="p" className="hbar-app-react-status-empty-chart">
-          {labels.unavailable(null)}
-        </LumenText>
-      }
-    />
-  )
+  const chart = (key: 'systemCpuPercent' | 'hostCpuPercent') => {
+    const points = (report?.points ?? []).map((point) => {
+      const metric = point.readings[key]
+      return metric.availability === 'available' && metric.value !== null ? metric.value : 0
+    })
+    const option: EChartsOption = {
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: (report?.points ?? []).map((p) => String(p.start)), axisLabel: { show: false } },
+      yAxis: { type: 'value', min: 0, max: 100, minInterval: 10 },
+      series: [{ type: 'line', data: points, smooth: true, areaStyle: { opacity: 0.15 } }],
+    }
+    return (
+      <EchartsChart
+        height="8rem"
+        label={labels.readings[key]}
+        className="hbar-app-react-status-echarts"
+        option={option}
+      />
+    )
+  }
   const usageItem = (id: string, label: string, metric: UsageMetric, format: (value: number) => string) =>
     metric.availability === 'available' && metric.value !== null
       ? {
@@ -955,19 +956,23 @@ export function HbarStatusWorkspace({
           </LumenFrame>
           <LumenFrame as="section">
             <LumenText as="h2">{labels.usage.timeline}</LumenText>
-            <LumenBarSeries
-              label={labels.usage.timeline}
-              points={usageReport.series.map((point) => ({
-                id: String(point.start),
-                value: point.billableTokens,
-                label: `${labels.observedAt(point.start)} · ${labels.tokenCount(point.billableTokens)}`,
-              }))}
-              empty={
-                <LumenText as="p" className="hbar-app-react-status-empty-chart">
-                  {labels.unavailable(null)}
-                </LumenText>
-              }
-            />
+            {usageReport.series.length > 0 ? (
+              <EchartsChart
+                height="8rem"
+                label={labels.usage.timeline}
+                className="hbar-app-react-status-echarts"
+                option={{
+                  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                  xAxis: { type: 'category', data: usageReport.series.map((p) => String(p.start)), axisLabel: { show: false } },
+                  yAxis: { type: 'value', minInterval: 1 },
+                  series: [{ type: 'bar', data: usageReport.series.map((p) => p.billableTokens) }],
+                }}
+              />
+            ) : (
+              <LumenText as="p" className="hbar-app-react-status-empty-chart">
+                {labels.unavailable(null)}
+              </LumenText>
+            )}
           </LumenFrame>
           <LumenFrame as="section">
             <LumenText as="h2">{labels.usage.models}</LumenText>
@@ -1105,47 +1110,44 @@ export function HbarStatusWorkspace({
                   <LumenFrame className="hbar-app-react-git-charts">
                     <LumenFrame as="article" className="is-commits">
                       <LumenText as="h3">{labels.git.commits}</LumenText>
-                      <LumenBarSeries
+                      <EchartsChart
+                        height="7rem"
                         label={labels.git.commits}
-                        points={gitReport.points.map((point) => ({
-                          id: String(point.start),
-                          value: point.commits,
-                          label: `${labels.git.formatCommitDate(new Date(point.start).toISOString())} · ${labels.number(point.commits)} ${labels.git.commits} · ${labels.number(point.autoCommits)} ${labels.git.automatic} · ${labels.number(point.manualCommits)} ${labels.git.manual} · ${labels.number(point.externalCommits)} ${labels.git.external}`,
-                        }))}
-                        selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
-                        selectLabel={(point) => labels.git.selectBucket(point.label)}
-                        onSelect={selectGitBucket}
-                        empty={<LumenText as="p">{labels.git.noCommits}</LumenText>}
+                        className="hbar-app-react-status-echarts"
+                        option={{
+                          tooltip: { trigger: 'axis' },
+                          xAxis: { type: 'category', data: gitReport.points.map((p) => String(p.start)), axisLabel: { show: false } },
+                          yAxis: { type: 'value', minInterval: 1 },
+                          series: [{ type: 'bar', data: gitReport.points.map((p) => p.commits) }],
+                        }}
                       />
                     </LumenFrame>
                     <LumenFrame as="article" className="is-files">
                       <LumenText as="h3">{labels.git.files}</LumenText>
-                      <LumenBarSeries
+                      <EchartsChart
+                        height="7rem"
                         label={labels.git.files}
-                        points={gitReport.points.map((point) => ({
-                          id: String(point.start),
-                          value: point.filesChanged,
-                          label: `${labels.git.formatCommitDate(new Date(point.start).toISOString())} · ${labels.number(point.filesChanged)} ${labels.git.filesChanged}`,
-                        }))}
-                        selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
-                        selectLabel={(point) => labels.git.selectBucket(point.label)}
-                        onSelect={selectGitBucket}
-                        empty={<LumenText as="p">{labels.git.noCommits}</LumenText>}
+                        className="hbar-app-react-status-echarts"
+                        option={{
+                          tooltip: { trigger: 'axis' },
+                          xAxis: { type: 'category', data: gitReport.points.map((p) => String(p.start)), axisLabel: { show: false } },
+                          yAxis: { type: 'value', minInterval: 1 },
+                          series: [{ type: 'bar', data: gitReport.points.map((p) => p.filesChanged) }],
+                        }}
                       />
                     </LumenFrame>
                     <LumenFrame as="article" className="is-changes">
                       <LumenText as="h3">{labels.git.changes}</LumenText>
-                      <LumenBarSeries
+                      <EchartsChart
+                        height="7rem"
                         label={labels.git.changes}
-                        points={gitReport.points.map((point) => ({
-                          id: String(point.start),
-                          value: point.additions + point.deletions,
-                          label: `${labels.git.formatCommitDate(new Date(point.start).toISOString())} · +${labels.number(point.additions)} / -${labels.number(point.deletions)}`,
-                        }))}
-                        selectedId={entry.gitBucketStart === null ? null : String(entry.gitBucketStart)}
-                        selectLabel={(point) => labels.git.selectBucket(point.label)}
-                        onSelect={selectGitBucket}
-                        empty={<LumenText as="p">{labels.git.noCommits}</LumenText>}
+                        className="hbar-app-react-status-echarts"
+                        option={{
+                          tooltip: { trigger: 'axis' },
+                          xAxis: { type: 'category', data: gitReport.points.map((p) => String(p.start)), axisLabel: { show: false } },
+                          yAxis: { type: 'value', minInterval: 1 },
+                          series: [{ type: 'bar', data: gitReport.points.map((p) => p.additions + p.deletions) }],
+                        }}
                       />
                     </LumenFrame>
                   </LumenFrame>

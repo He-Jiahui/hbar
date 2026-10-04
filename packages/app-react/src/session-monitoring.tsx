@@ -1,16 +1,17 @@
+import { useMemo } from 'react'
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
 import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
   LumenText,
-  LumenBarSeries,
   LumenCompactMetrics,
   LumenMonitoring01,
   LumenToolPane,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
+import { EchartsChart, type EChartsOption } from './echarts-chart'
 import './session-monitoring.css'
 
 export interface HbarSessionMonitoringLabels {
@@ -97,6 +98,13 @@ export function HbarSessionMonitoring({
         },
       }
     : undefined
+  const seriesOption = useMemo<EChartsOption>(() => ({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    xAxis: { type: 'category', data: report?.series.map((p) => String(p.start)) ?? [], axisLabel: { show: false } },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [{ type: 'bar', data: report?.series.map((p) => p.billableTokens) ?? [] }],
+  }), [report?.series])
+
   return (
     <LumenToolPane
       title={labels.title}
@@ -130,15 +138,16 @@ export function HbarSessionMonitoring({
           />
           <LumenFrame as="section">
             <LumenText as="h2">{labels.series}</LumenText>
-            <LumenBarSeries
-              label={labels.series}
-              points={report.series.map((point) => ({
-                id: String(point.start),
-                value: point.billableTokens,
-                label: labels.tokens(point.billableTokens),
-              }))}
-              empty={<LumenText as="p">{labels.unavailable}</LumenText>}
-            />
+            {report.series.length > 0 ? (
+              <EchartsChart
+                height="8rem"
+                label={labels.series}
+                className="hbar-app-react-monitoring-echarts"
+                option={seriesOption}
+              />
+            ) : (
+              <LumenText as="p">{labels.unavailable}</LumenText>
+            )}
           </LumenFrame>
           <HbarLumenDisclosure label={labels.latency.title}>
             <LumenCompactMetrics
