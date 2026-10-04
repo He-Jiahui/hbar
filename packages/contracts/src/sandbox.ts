@@ -138,6 +138,23 @@ export const sandboxProfileSchema = z
   })
   .superRefine(uniqueRules)
 
+/** `expectedRevision: null` creates the profile; a number updates that exact revision. */
+export const sandboxProfileSaveInputSchema = z
+  .strictObject({
+    id: userSandboxProfileIdSchema,
+    expectedRevision: z.number().int().nonnegative().nullable(),
+    ...profileFields,
+  })
+  .superRefine((value, context) => {
+    uniqueRules(value, context)
+    if (value.extends === value.id)
+      context.addIssue({ code: 'custom', path: ['extends'], message: 'A profile cannot extend itself' })
+  })
+export const sandboxProfileDeleteInputSchema = z.strictObject({
+  id: userSandboxProfileIdSchema,
+  expectedRevision: z.number().int().nonnegative(),
+})
+
 /** Fully merged rules a Run was admitted with. Immutable and content addressed. */
 export const resolvedSandboxProfileSchema = z.strictObject({
   version: z.literal(SANDBOX_PROFILE_SCHEMA_VERSION),
@@ -174,4 +191,6 @@ export type SandboxToolRule = z.infer<typeof sandboxToolRuleSchema>
 export type SandboxProfileBody = z.infer<typeof sandboxProfileBodySchema>
 export type SandboxProfile = z.infer<typeof sandboxProfileSchema>
 export type ResolvedSandboxProfile = z.infer<typeof resolvedSandboxProfileSchema>
+export type SandboxProfileSaveInput = z.infer<typeof sandboxProfileSaveInputSchema>
+export type SandboxProfileDeleteInput = z.infer<typeof sandboxProfileDeleteInputSchema>
 export type SandboxSnapshotRef = z.infer<typeof sandboxSnapshotRefSchema>

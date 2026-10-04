@@ -74,6 +74,7 @@ import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notificati
 import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
 import { createPromptTemplateStorage, PROMPT_TEMPLATES_SQL } from './prompt-templates'
 import { createScheduleStorage, SCHEDULES_SQL } from './schedules'
+import { createSandboxProfileStorage, SANDBOX_PROFILES_SQL } from './sandbox-profiles'
 import { readRunBoard } from './run-board'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
@@ -130,7 +131,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 18
+const LATEST_SCHEMA_VERSION = 19
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -325,6 +326,7 @@ for (const [version, sql] of [
   [16, NOTIFICATION_SCHEMA_SQL],
   [17, PROMPT_TEMPLATES_SQL],
   [18, SCHEDULES_SQL],
+  [19, SANDBOX_PROFILES_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -342,6 +344,7 @@ for (const [version, sql] of [
 const notifications = createNotificationStorage(db)
 const promptTemplates = createPromptTemplateStorage(db)
 const schedules = createScheduleStorage(db)
+const sandboxProfiles = createSandboxProfileStorage(db)
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
 const sidebarDirectory = createSidebarDirectoryStorage(db, {
@@ -881,6 +884,13 @@ const methods: StorageMethods = {
   savePromptTemplate: (input, identity) => promptTemplates.save(input, identity),
   deletePromptTemplate: (input, identity) => promptTemplates.delete(input, identity),
   promptTemplateReceipt: (commandId, input, identity) => promptTemplates.receipt(commandId, input, identity),
+  sandboxProfiles: () => sandboxProfiles.list(),
+  sandboxProfile: (id) => sandboxProfiles.get(id),
+  saveSandboxProfile: (input, identity) => sandboxProfiles.save(input, identity),
+  deleteSandboxProfile: (input, identity) => sandboxProfiles.delete(input, identity),
+  sandboxProfileReceipt: (commandId, input, identity) => sandboxProfiles.receipt(commandId, input, identity),
+  putSandboxSnapshot: (record) => sandboxProfiles.putSnapshot(record),
+  sandboxSnapshot: (digest) => sandboxProfiles.snapshot(digest),
   schedulePage: (workspaceId, after, limit) => schedules.list(workspaceId, after, limit),
   schedule: (id) => schedules.get(id),
   createSchedule: (input, identity) => schedules.create(input, identity),

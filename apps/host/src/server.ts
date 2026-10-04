@@ -29,6 +29,7 @@ import {
   createWorkflowCommands,
   createScheduleCommands,
   createPromptTemplateCommands,
+  createSandboxCommands,
   createNotificationCommands,
   createRunBoardCommands,
   createScheduleDueReader,
@@ -87,6 +88,7 @@ import { createSessionSearchCommands } from '@hbar/kernel/session-search-command
 import { sessionSearchCommands as sessionSearchDefinitions } from '@hbar/contracts/commands/session-search'
 import { scheduleCommands as scheduleDefinitions } from '@hbar/contracts/commands/schedules'
 import { promptTemplateCommands as promptTemplateDefinitions } from '@hbar/contracts/commands/prompt-templates'
+import { sandboxCommands as sandboxDefinitions } from '@hbar/contracts/commands/sandbox'
 import { notificationCommands as notificationDefinitions } from '@hbar/contracts/commands/notifications'
 import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/commands/run-board'
 import { submitRunInputSchema } from '@hbar/contracts/commands/run'
@@ -253,6 +255,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const scheduleCommands = createScheduleCommands(scheduleService, {
     lookup: (commandId, input, identity) => kernel.storage.call('scheduleReceipt', commandId, input, identity),
   })
+  const sandboxCommandService = createSandboxCommands(kernel.sandboxProfiles)
   const promptTemplateCommands = createPromptTemplateCommands({
     list: (input) => kernel.storage.call('promptTemplatePage', input),
     get: (id) => kernel.storage.call('promptTemplate', id),
@@ -343,6 +346,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: workflowDefinitions, service: workflowCommands },
     { definitions: scheduleDefinitions, service: scheduleCommands },
     { definitions: promptTemplateDefinitions, service: promptTemplateCommands },
+    { definitions: sandboxDefinitions, service: sandboxCommandService },
     { definitions: notificationDefinitions, service: notificationCommands },
     { definitions: runBoardDefinitions, service: runBoardCommands },
   ]
@@ -1378,6 +1382,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
       scheduleCommands.dispose()
       promptTemplateCommands.dispose()
+      sandboxCommandService.dispose()
       notificationCommands.dispose()
       runBoardCommands.dispose()
       systemCommands.dispose()

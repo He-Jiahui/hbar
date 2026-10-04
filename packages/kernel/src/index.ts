@@ -99,6 +99,9 @@ import { SessionLaunchTargetService } from './session-launch-target-service'
 export { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 import { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 export { createSettingsCommands } from './settings-commands'
+export { createSandboxCommands } from './sandbox-commands'
+export { SandboxProfileService } from './sandbox-service'
+export type { SandboxProfileStoragePort, SandboxWriteIdentity } from './sandbox-service'
 export { createUsageCommands } from './usage-commands'
 export { createWorkflowCommands } from './workflow-commands'
 export {
@@ -150,6 +153,7 @@ import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
 import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
 import { SettingsService, SESSION_APPROVAL_SETTING_PATH } from './settings-service'
+import { SandboxProfileService } from './sandbox-service'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
@@ -302,6 +306,7 @@ export class Kernel {
   readonly storage: StoragePort
   readonly sessionLaunchTargets: SessionLaunchTargetService
   readonly sessionLaunchPreparations: SessionLaunchTargetPreparationService
+  readonly sandboxProfiles: SandboxProfileService
   readonly tools = new Tools()
   readonly hooks = new Hooks()
   readonly schemaCallbacks = createSchemaCallbackRegistry()
@@ -359,6 +364,16 @@ export class Kernel {
       () => this.changed('session-launch-target'),
     )
     this.permissionSettings = new SettingsService(this.storage)
+    this.sandboxProfiles = new SandboxProfileService(
+      {
+        list: () => this.storage.call('sandboxProfiles'),
+        get: (id) => this.storage.call('sandboxProfile', id),
+        save: (input, identity) => this.storage.call('saveSandboxProfile', input, identity),
+        delete: (input, identity) => this.storage.call('deleteSandboxProfile', input, identity),
+        receipt: (commandId, input, identity) => this.storage.call('sandboxProfileReceipt', commandId, input, identity),
+      },
+      () => this.changed('sandbox-profiles'),
+    )
     this.directoryQueries = createDirectoryQueries({
       workspacePage: (input) => this.storage.call('workspacePage', input),
       workspaceSidebarPage: (input) => this.storage.call('workspaceSidebarPage', input),

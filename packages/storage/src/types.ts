@@ -43,6 +43,7 @@ import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands
 import type { NotificationStorage } from './notifications'
 import type { createPromptTemplateStorage } from './prompt-templates'
 import type { createScheduleStorage } from './schedules'
+import type { createSandboxProfileStorage } from './sandbox-profiles'
 import type { RunBoardInput, RunBoardPage } from '@hbar/contracts/commands/run-board'
 import type {
   SessionRecentInput,
@@ -261,6 +262,13 @@ export interface StorageMethods {
   savePromptTemplate: ReturnType<typeof createPromptTemplateStorage>['save']
   deletePromptTemplate: ReturnType<typeof createPromptTemplateStorage>['delete']
   promptTemplateReceipt: ReturnType<typeof createPromptTemplateStorage>['receipt']
+  sandboxProfiles: ReturnType<typeof createSandboxProfileStorage>['list']
+  sandboxProfile: ReturnType<typeof createSandboxProfileStorage>['get']
+  saveSandboxProfile: ReturnType<typeof createSandboxProfileStorage>['save']
+  deleteSandboxProfile: ReturnType<typeof createSandboxProfileStorage>['delete']
+  sandboxProfileReceipt: ReturnType<typeof createSandboxProfileStorage>['receipt']
+  putSandboxSnapshot: ReturnType<typeof createSandboxProfileStorage>['putSnapshot']
+  sandboxSnapshot: ReturnType<typeof createSandboxProfileStorage>['snapshot']
   schedulePage: ReturnType<typeof createScheduleStorage>['list']
   schedule: ReturnType<typeof createScheduleStorage>['get']
   createSchedule: ReturnType<typeof createScheduleStorage>['create']
